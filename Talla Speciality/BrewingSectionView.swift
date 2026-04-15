@@ -131,9 +131,21 @@ struct BrewingSectionView: View {
 
     private func methodCard(_ method: ContentView.BrewingMethod) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Image(systemName: method.symbol)
-                .font(.system(size: 28))
-                .foregroundColor(accentColor)
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(accentColor.opacity(0.12))
+                        .frame(width: 56, height: 56)
+
+                    Image(systemName: method.symbol)
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(accentColor)
+                }
+
+                Spacer()
+
+                methodTag(method.articleURL == nil ? "In-App Guide" : "Coffee Journal")
+            }
 
             Text(method.name)
                 .font(.system(size: 22, weight: .bold, design: .serif))
@@ -145,31 +157,82 @@ struct BrewingSectionView: View {
                 .foregroundColor(secondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 10) {
-                brewingDetail(title: "Source", value: method.detail)
-                brewingDetail(title: "Read", value: method.articleURL == nil ? "In-app guide" : "Shopify article")
+            if !method.categories.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        methodTag(method.brewTime)
+                        methodTag(method.difficulty)
+
+                        ForEach(method.categories, id: \.self) { category in
+                            methodTag(category)
+                        }
+                    }
+                }
             }
 
-            if let articleURL = method.articleURL {
-                Button {
-                    openArticleAction(articleURL)
-                } label: {
-                    Text("Read Article")
+            VStack(alignment: .leading, spacing: 10) {
+                brewingDetail(title: "Source", value: method.detail)
+                brewingDetail(
+                    title: "Guide",
+                    value: method.articleURL == nil ? "In-app guide" : "Coffee journal article"
+                )
+            }
+
+            HStack {
+                Text(method.articleURL == nil ? "Use the built-in guide below." : "Open the full brew guide.")
+                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                    .foregroundColor(secondaryTextColor)
+
+                Spacer()
+
+                if let articleURL = method.articleURL {
+                    Button {
+                        openArticleAction(articleURL)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("Open Guide")
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(2)
+                        .tracking(1.6)
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text("In App")
+                        .font(Font.custom("AvenirNext-Bold", size: 10))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(accentColor.opacity(0.12))
+                        .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFillColor)
         .overlay(
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(accentColor.opacity(0.18), lineWidth: 1)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func methodTag(_ title: String) -> some View {
+        Text(title)
+            .font(Font.custom("AvenirNext-Bold", size: 10))
+            .tracking(1.4)
+            .textCase(.uppercase)
+            .foregroundColor(accentColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(accentColor.opacity(0.1))
+            .clipShape(Capsule())
     }
 
     private var ratioCalculatorCard: some View {

@@ -1,6 +1,14 @@
-# Talla Loyalty Backend
+# Talla Backend
 
-Minimal loyalty backend for the iOS app.
+Backend API for the Talla Speciality iOS app. This service currently backs:
+
+- customer accounts
+- loyalty balances and transactions
+- sample orders
+- stock alerts and alert inbox
+- saved addresses
+- vouchers
+- Wallet pass download
 
 ## Run
 
@@ -9,7 +17,34 @@ cd backend
 npm start
 ```
 
-The service starts on `http://127.0.0.1:8787`.
+By default the service listens on `0.0.0.0:8787`.
+
+For local development on your Mac:
+
+```bash
+cd backend
+cp .env.example .env
+HOST=0.0.0.0 PORT=8787 npm start
+```
+
+For production, set environment variables in your host platform and expose the API over HTTPS behind a real domain such as `https://api.tallaspeciality.com`.
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for the public-host deployment path.
+
+## Configuration
+
+The server reads configuration from environment variables:
+
+- `HOST`: bind address, defaults to `0.0.0.0`
+- `PORT`: listener port, defaults to `8787`
+- `APP_URL`: public URL used in logs and health output
+- `CORS_ALLOWED_ORIGIN`: CORS origin, defaults to `*`
+- `DATA_DIRECTORY`: JSON data storage directory
+- `DATABASE_URL`: optional Postgres connection string for accounts, loyalty, wallet pass metadata, addresses, and vouchers
+- `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
+- `WALLET_P12_PATH`: signing certificate path for Wallet passes
+- `WALLET_P12_PASSWORD`: signing certificate password
+- `WALLET_WWDR_PATH`: Apple WWDR certificate path
 
 ## Seed Account
 
@@ -25,6 +60,17 @@ guest@talla.example
 
 ```http
 GET /health
+```
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "appURL": "https://api.tallaspeciality.com",
+  "host": "0.0.0.0",
+  "port": 8787
+}
 ```
 
 ### Lookup loyalty account
@@ -87,5 +133,7 @@ Content-Type: application/json
 ## Notes
 
 - Data is stored in `backend/data/loyalty.json`.
-- This is a local starter backend, not a production deployment.
-- For a production setup, move storage to a database and secure the API with authentication.
+- If `DATABASE_URL` is set, accounts, loyalty records, wallet pass metadata, addresses, and vouchers move to Postgres while the remaining features still use JSON files.
+- This is still a transitional backend, not a final production architecture.
+- Before going live, move persistence to a database, add authentication and admin authorization, and put the service behind HTTPS.
+- The iOS app should point `BackendBaseURL` at this API's public HTTPS URL in production.

@@ -1,0 +1,28 @@
+{
+  "vouchers": {
+    "FREEDR-CA21AB": {
+      "code": "FREEDR-CA21AB",
+      "email": "ahmad.alweswasi@gmail.com",
+      "reward": "Free drink",
+      "points": 100,
+      "detail": "Complimentary brewed drink",
+      "singleUse": true,
+      "status": "used",
+      "createdAt": "2026-04-14T10:33:44.612Z",
+      "expiresAt": "2026-05-14T10:33:44.612Z",
+      "usedAt": "2026-04-14T11:15:15.956Z"
+    },
+    "FREEDR-FA2F80": {
+      "code": "FREEDR-FA2F80",
+      "email": "ahmad.alweswasi@gmail.com",
+      "reward": "Free drink",
+      "points": 100,
+      "detail": "Complimentary brewed drink",
+      "singleUse": true,
+      "status": "used",
+      "createdAt": "2026-04-14T11:00:11.779Z",
+      "expiresAt": "2026-05-14T11:00:11.779Z",
+      "usedAt": "2026-04-14T11:14:15.724Z"
+    }
+  }
+}

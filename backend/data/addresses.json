@@ -1,0 +1,16 @@
+{
+  "addresses": {
+    "ahmad.alweswasi@gmail.com": [
+      {
+        "id": "addr_1776200170962",
+        "label": "Home",
+        "fullName": "Ahmed",
+        "phone": "39392414",
+        "line1": "Villa 336 Road1307 Block 913",
+        "city": "Riffa",
+        "notes": null,
+        "isPreferred": true
+      }
+    ]
+  }
+}

@@ -1,3 +1,12 @@
 {
-  "accounts": {}
+  "accounts": {
+    "ahmad.alweswasi@gmail.com": {
+      "id": "acct_1776083746450",
+      "firstName": "Ahmad",
+      "lastName": "AlBuainain",
+      "email": "ahmad.alweswasi@gmail.com",
+      "passwordHash": "48b85ca647d56f38eeca00086c1406646dcb5f42237e02fb1d6b5b4e8488cb0e",
+      "createdAt": "2026-04-13T12:35:46.451Z"
+    }
+  }
 }

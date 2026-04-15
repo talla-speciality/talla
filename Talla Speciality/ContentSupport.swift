@@ -11,6 +11,51 @@ import SafariServices
 import UIKit
 #endif
 
+enum BackendConfiguration {
+    private static let infoPlistKey = "BackendBaseURL"
+    private static let simulatorDefaultURL = URL(string: "http://127.0.0.1:8787")
+
+    static var serviceBaseURL: URL? {
+        if let configuredURL {
+            return configuredURL
+        }
+
+        #if targetEnvironment(simulator)
+        return simulatorDefaultURL
+        #else
+        return nil
+        #endif
+    }
+
+    static func unavailableMessage(for serviceName: String) -> String {
+        "\(serviceName) is unavailable. Set `BackendBaseURL` in Info.plist to your Mac's local network address, for example `http://192.168.1.23:8787`, or use a real HTTPS backend."
+    }
+
+    static func connectionMessage(for serviceName: String) -> String {
+        "Could not reach the \(serviceName.lowercased()). On iPhone, `127.0.0.1` and `localhost` point to the phone itself. Set `BackendBaseURL` in Info.plist to your Mac's local network address, then make sure the backend server is running and reachable on the same Wi-Fi network."
+    }
+
+    private static var configuredURL: URL? {
+        guard let rawValue = Bundle.main.object(forInfoDictionaryKey: infoPlistKey) as? String else {
+            return nil
+        }
+
+        let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty, let url = URL(string: trimmedValue) else {
+            return nil
+        }
+
+        #if targetEnvironment(simulator)
+        return url
+        #else
+        guard let host = url.host?.lowercased(), host != "127.0.0.1", host != "localhost" else {
+            return nil
+        }
+        return url
+        #endif
+    }
+}
+
 #if canImport(UserNotifications)
 private enum ProductAlertNotificationService {
     private static let center = UNUserNotificationCenter.current()
@@ -61,11 +106,11 @@ private enum ProductAlertNotificationService {
 #endif
 
 private enum AccountService {
-    private static let baseURL = URL(string: "http://127.0.0.1:8787")
+    private static let baseURL = BackendConfiguration.serviceBaseURL
 
     static func register(firstName: String, lastName: String, email: String, password: String) async throws -> ContentView.ShopifyCustomerProfile {
         guard let baseURL else {
-            throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Account service"))
         }
 
         var request = URLRequest(url: baseURL.appending(path: "/accounts/register"))
@@ -619,11 +664,11 @@ private enum AccountService {
 }
 
 private enum LoyaltyService {
-    private static let baseURL = URL(string: "http://127.0.0.1:8787")
+    private static let baseURL = BackendConfiguration.serviceBaseURL
 
     static func fetchAccount(email: String) async throws -> ContentView.LoyaltyAccount {
         guard let baseURL else {
-            throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service is unavailable.")
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Loyalty service"))
         }
 
         var components = URLComponents(url: baseURL.appending(path: "/loyalty/account"), resolvingAgainstBaseURL: false)
@@ -1496,7 +1541,9 @@ private extension ContentView.BrewingMethod {
             detail: article.blog.title,
             symbol: Self.symbol(title: article.title, tags: article.tags),
             articleURL: article.onlineStoreUrl ?? Self.articleURL(blogHandle: article.blog.handle, articleHandle: article.handle),
-            categories: Self.categories(title: article.title, tags: article.tags)
+            categories: Self.categories(title: article.title, tags: article.tags),
+            difficulty: Self.difficulty(title: article.title, tags: article.tags),
+            brewTime: Self.brewTime(title: article.title, tags: article.tags)
         )
     }
 
@@ -1551,6 +1598,50 @@ private extension ContentView.BrewingMethod {
         }
 
         return ["Guide"]
+    }
+
+    private static func difficulty(title: String, tags: [String]) -> String {
+        let source = ([title] + tags)
+            .joined(separator: " ")
+            .lowercased()
+
+        if source.contains("espresso") || source.contains("v60") {
+            return "Advanced"
+        }
+
+        if source.contains("chemex") || source.contains("pour") || source.contains("aeropress") {
+            return "Intermediate"
+        }
+
+        return "Easy"
+    }
+
+    private static func brewTime(title: String, tags: [String]) -> String {
+        let source = ([title] + tags)
+            .joined(separator: " ")
+            .lowercased()
+
+        if source.contains("cold") {
+            return "8-12 hr"
+        }
+
+        if source.contains("espresso") {
+            return "30 sec"
+        }
+
+        if source.contains("press") {
+            return "4 min"
+        }
+
+        if source.contains("chemex") {
+            return "4-5 min"
+        }
+
+        if source.contains("pour") || source.contains("v60") || source.contains("filter") {
+            return "3-4 min"
+        }
+
+        return "3-5 min"
     }
 
     private static func articleURL(blogHandle: String, articleHandle: String) -> URL? {

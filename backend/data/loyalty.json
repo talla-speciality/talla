@@ -25,6 +25,365 @@
           "createdAt": "2026-04-10T14:15:00Z"
         }
       ]
+    },
+    "ahmad.alweswasi@gmail.com": {
+      "memberID": "TALLA-AHMADALW",
+      "pointsBalance": 820,
+      "tier": "Roastery Gold",
+      "nextReward": "80 points to your next reward",
+      "perks": [
+        "Collect points across coffees, beans, and accessories",
+        "Unlock seasonal offers and member-only extras"
+      ],
+      "transactions": [
+        {
+          "id": "txn_1776199669783",
+          "type": "earn",
+          "points": 85,
+          "note": "Completed order • BHD 8.500",
+          "createdAt": "2026-04-14T20:47:49.783Z"
+        },
+        {
+          "id": "txn_1776164411789",
+          "type": "redeem",
+          "points": 100,
+          "note": "Free drink",
+          "voucherCode": "FREEDR-FA2F80",
+          "voucherDetail": "Complimentary brewed drink",
+          "voucherExpiresAt": "2026-05-14T11:00:11.779Z",
+          "voucherSingleUse": true,
+          "voucherStatus": "active",
+          "createdAt": "2026-04-14T11:00:11.789Z"
+        },
+        {
+          "id": "txn_1776162824615",
+          "type": "redeem",
+          "points": 100,
+          "note": "Free drink",
+          "voucherCode": "FREEDR-CA21AB",
+          "voucherDetail": "Complimentary brewed drink",
+          "voucherExpiresAt": "2026-05-14T10:33:44.612Z",
+          "voucherSingleUse": true,
+          "voucherStatus": "active",
+          "createdAt": "2026-04-14T10:33:44.615Z"
+        },
+        {
+          "id": "txn_1776161066754",
+          "type": "redeem",
+          "points": 100,
+          "note": "Free drink",
+          "voucherCode": "FREEDR-58B3EE",
+          "createdAt": "2026-04-14T10:04:26.754Z"
+        },
+        {
+          "id": "txn_1776160427570",
+          "type": "redeem",
+          "points": 100,
+          "note": "Free drink",
+          "createdAt": "2026-04-14T09:53:47.570Z"
+        },
+        {
+          "id": "txn_1776160406725",
+          "type": "earn",
+          "points": 85,
+          "note": "Completed order • BHD 8.500",
+          "createdAt": "2026-04-14T09:53:26.725Z"
+        },
+        {
+          "id": "txn_1776086140206",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:40.206Z"
+        },
+        {
+          "id": "txn_1776086140057",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:40.057Z"
+        },
+        {
+          "id": "txn_1776086139888",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:39.888Z"
+        },
+        {
+          "id": "txn_1776086139706",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:39.706Z"
+        },
+        {
+          "id": "txn_1776086139537",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:39.537Z"
+        },
+        {
+          "id": "txn_1776086139106",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:39.106Z"
+        },
+        {
+          "id": "txn_1776086138756",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:38.756Z"
+        },
+        {
+          "id": "txn_1776086138504",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:38.504Z"
+        },
+        {
+          "id": "txn_1776086138372",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:38.372Z"
+        },
+        {
+          "id": "txn_1776086138221",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:38.221Z"
+        },
+        {
+          "id": "txn_1776086138071",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:38.071Z"
+        },
+        {
+          "id": "txn_1776086137955",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:37.955Z"
+        },
+        {
+          "id": "txn_1776086137822",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:37.822Z"
+        },
+        {
+          "id": "txn_1776086137672",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:37.672Z"
+        },
+        {
+          "id": "txn_1776086137538",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:37.538Z"
+        },
+        {
+          "id": "txn_1776086137406",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:37.406Z"
+        },
+        {
+          "id": "txn_1776086137271",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:37.271Z"
+        },
+        {
+          "id": "txn_1776086137123",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:37.123Z"
+        },
+        {
+          "id": "txn_1776086136855",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:36.855Z"
+        },
+        {
+          "id": "txn_1776086136722",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:36.722Z"
+        },
+        {
+          "id": "txn_1776086136590",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:36.590Z"
+        },
+        {
+          "id": "txn_1776086136454",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:36.454Z"
+        },
+        {
+          "id": "txn_1776086136324",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:36.324Z"
+        },
+        {
+          "id": "txn_1776086136172",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:36.172Z"
+        },
+        {
+          "id": "txn_1776086136005",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:36.005Z"
+        },
+        {
+          "id": "txn_1776086135872",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:35.872Z"
+        },
+        {
+          "id": "txn_1776086135722",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:35.722Z"
+        },
+        {
+          "id": "txn_1776086135589",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:35.589Z"
+        },
+        {
+          "id": "txn_1776086135439",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:35.439Z"
+        },
+        {
+          "id": "txn_1776086135272",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:35.272Z"
+        },
+        {
+          "id": "txn_1776086135106",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:35.106Z"
+        },
+        {
+          "id": "txn_1776086134940",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:34.940Z"
+        },
+        {
+          "id": "txn_1776086134773",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:34.773Z"
+        },
+        {
+          "id": "txn_1776086134588",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:34.588Z"
+        },
+        {
+          "id": "txn_1776086134388",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:34.388Z"
+        },
+        {
+          "id": "txn_1776086134190",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:34.190Z"
+        },
+        {
+          "id": "txn_1776086133807",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:33.807Z"
+        },
+        {
+          "id": "txn_1776086133327",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T13:15:33.327Z"
+        },
+        {
+          "id": "txn_1776083769347",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T12:36:09.347Z"
+        },
+        {
+          "id": "txn_1776083768914",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T12:36:08.914Z"
+        },
+        {
+          "id": "txn_1776083768395",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T12:36:08.395Z"
+        },
+        {
+          "id": "txn_1776083767614",
+          "type": "earn",
+          "points": 25,
+          "note": "Cafe visit",
+          "createdAt": "2026-04-13T12:36:07.614Z"
+        }
+      ]
     }
   }
 }

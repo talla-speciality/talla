@@ -11,6 +11,8 @@ struct AccountSectionView: View {
     let introFont: Font
     let bodyFont: Font
     let labelFont: Font
+    let sectionTitleFont: Font
+    let sectionBodyFont: Font
     let quickActionTitleFont: Font
     let quickActionBodyFont: Font
     let addressesCount: Int
@@ -163,8 +165,8 @@ struct AccountSectionView: View {
             title: title,
             subtitle: subtitle,
             isExpanded: isExpanded,
-            titleFont: Font.custom("CormorantGaramond-SemiBold", size: 22),
-            subtitleFont: Font.custom("AvenirNext-Regular", size: 14),
+            titleFont: sectionTitleFont,
+            subtitleFont: sectionBodyFont,
             titleColor: primaryTextColor,
             subtitleColor: secondaryTextColor,
             accentColor: accentColor,

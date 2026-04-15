@@ -1,0 +1,59 @@
+{
+  "formatVersion": 1,
+  "passTypeIdentifier": "pass.talla.me.talla-speciality",
+  "serialNumber": "TALLA-LOYALTY-001",
+  "teamIdentifier": "TAG9WXY85M",
+  "organizationName": "Talla Speciality",
+  "description": "Talla Speciality Loyalty",
+  "logoText": "Talla Speciality",
+  "foregroundColor": "rgb(32, 21, 13)",
+  "backgroundColor": "rgb(244, 231, 211)",
+  "labelColor": "rgb(120, 83, 45)",
+  "sharingProhibited": false,
+  "barcode": {
+    "format": "PKBarcodeFormatQR",
+    "message": "TALLA-LOYALTY-001",
+    "messageEncoding": "iso-8859-1",
+    "altText": "TALLA-LOYALTY-001"
+  },
+  "storeCard": {
+    "primaryFields": [
+      {
+        "key": "points",
+        "label": "POINTS",
+        "value": 0
+      }
+    ],
+    "secondaryFields": [
+      {
+        "key": "member",
+        "label": "MEMBER",
+        "value": "Talla Guest"
+      },
+      {
+        "key": "tier",
+        "label": "TIER",
+        "value": "Roastery Member"
+      }
+    ],
+    "auxiliaryFields": [
+      {
+        "key": "reward",
+        "label": "NEXT REWARD",
+        "value": "Collect points in store and online"
+      }
+    ],
+    "backFields": [
+      {
+        "key": "support",
+        "label": "WHATSAPP",
+        "value": "+973 3939 2414"
+      },
+      {
+        "key": "site",
+        "label": "SITE",
+        "value": "https://talla.me"
+      }
+    ]
+  }
+}

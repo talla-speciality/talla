@@ -1,0 +1,14 @@
+{
+  "alerts": {
+    "ahmad.alweswasi@gmail.com": [
+      {
+        "productID": "gid://shopify/Product/8970293280986",
+        "productName": "Brazil",
+        "tag": null,
+        "isAvailableForSale": true,
+        "status": "Roast watch",
+        "updatedAt": "2026-04-14T21:15:29.738Z"
+      }
+    ]
+  }
+}
