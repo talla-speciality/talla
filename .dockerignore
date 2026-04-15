@@ -1,0 +1,7 @@
+.DS_Store
+.git
+Products
+node_modules
+backend/node_modules
+backend/.env
+backend/npm-debug.log*

@@ -1,0 +1,9 @@
+{
+  "name": "talla-loyalty-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal loyalty backend for Talla Speciality",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

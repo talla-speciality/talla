@@ -1,0 +1,30 @@
+{
+  "accounts": {
+    "guest@talla.example": {
+      "memberID": "TALLA-1001",
+      "pointsBalance": 245,
+      "tier": "Gold",
+      "nextReward": "55 points to your next reward",
+      "perks": [
+        "Collect points across coffees, beans, and accessories",
+        "Unlock seasonal offers and complimentary extras"
+      ],
+      "transactions": [
+        {
+          "id": "txn_001",
+          "type": "earn",
+          "points": 120,
+          "note": "Coffee order",
+          "createdAt": "2026-04-01T09:30:00Z"
+        },
+        {
+          "id": "txn_002",
+          "type": "earn",
+          "points": 125,
+          "note": "Roastery purchase",
+          "createdAt": "2026-04-10T14:15:00Z"
+        }
+      ]
+    }
+  }
+}
