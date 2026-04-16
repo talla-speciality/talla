@@ -591,8 +591,8 @@ async function generateWalletPass(email) {
     }
 
     exportWWDRCertificate(wwdrSourcePath, wwdrPEMPath);
-    execFileSync("/usr/bin/openssl", ["pkcs12", "-in", certificatePath, "-clcerts", "-nokeys", "-out", signerCertPEMPath, "-passin", passwordArgument]);
-    execFileSync("/usr/bin/openssl", ["pkcs12", "-in", certificatePath, "-nocerts", "-nodes", "-out", signerKeyPEMPath, "-passin", passwordArgument]);
+    execFileSync("/usr/bin/openssl", ["pkcs12", "-legacy", "-in", certificatePath, "-clcerts", "-nokeys", "-out", signerCertPEMPath, "-passin", passwordArgument]);
+    execFileSync("/usr/bin/openssl", ["pkcs12", "-legacy", "-in", certificatePath, "-nocerts", "-nodes", "-out", signerKeyPEMPath, "-passin", passwordArgument]);
     execFileSync("/usr/bin/openssl", [
         "smime",
         "-binary",
