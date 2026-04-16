@@ -135,8 +135,8 @@ Content-Type: application/json
 ## Notes
 
 - Data is stored in `backend/data/loyalty.json`.
-- If `DATABASE_URL` is set, accounts, loyalty records, wallet pass metadata, addresses, and vouchers move to Postgres while the remaining features still use JSON files.
-- For Wallet pass signing on hosted platforms like Render, prefer `WALLET_P12_BASE64` and `WALLET_WWDR_BASE64` over filesystem paths.
+- If `DATABASE_URL` is set, the backend uses Postgres for accounts, loyalty records, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox records.
+- For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
 - This is still a transitional backend, not a final production architecture.
 - Before going live, move persistence to a database, add authentication and admin authorization, and put the service behind HTTPS.
 - The iOS app should point `BackendBaseURL` at this API's public HTTPS URL in production.

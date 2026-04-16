@@ -18,7 +18,6 @@ const port = toNumber(process.env.PORT, 8787);
 const dataDirectory = toAbsolutePath(process.env.DATA_DIRECTORY) || path.join(__dirname, "data");
 const walletPassTemplateDirectory = toAbsolutePath(process.env.WALLET_PASS_TEMPLATE_DIRECTORY)
     || path.join(__dirname, "..", "WalletPass", "TallaLoyalty.pass");
-
 module.exports = {
     host,
     port,

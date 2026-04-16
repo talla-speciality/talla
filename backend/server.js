@@ -446,7 +446,29 @@ async function ensureWalletPassRecord(email, memberID, passTypeIdentifier) {
     return serialNumber;
 }
 
-function ordersPayload(email) {
+function orderRowToRecord(row) {
+    return {
+        id: row.id,
+        title: row.title,
+        total: row.total,
+        status: row.status,
+        items: Array.isArray(row.items) ? row.items : [],
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+    };
+}
+
+async function ordersPayload(email) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, title, total, status, items, created_at
+             FROM orders
+             WHERE email = $1
+             ORDER BY created_at DESC`,
+            [email]
+        );
+        return result.rows.map(orderRowToRecord);
+    }
+
     const store = readJSON(ordersStorePath);
     return store.orders[email] || [];
 }
@@ -896,12 +918,68 @@ function stockAlertStatusFor(record, previousRecord) {
     return "Roast watch";
 }
 
-function stockAlertsFor(email) {
+function stockAlertRowToRecord(row) {
+    return {
+        productID: row.product_id,
+        productName: row.product_name,
+        tag: row.tag,
+        isAvailableForSale: row.is_available_for_sale,
+        status: row.status,
+        updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
+    };
+}
+
+async function stockAlertsFor(email) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT product_id, product_name, tag, is_available_for_sale, status, updated_at
+             FROM stock_alerts
+             WHERE email = $1
+             ORDER BY updated_at DESC`,
+            [email]
+        );
+        return result.rows.map(stockAlertRowToRecord);
+    }
+
     const store = readJSON(alertsStorePath);
     return store.alerts[email] || [];
 }
 
-function upsertStockAlert(email, payload) {
+async function upsertStockAlert(email, payload) {
+    if (database.isEnabled()) {
+        const existingResult = await database.query(
+            `SELECT product_id, product_name, tag, is_available_for_sale, status, updated_at
+             FROM stock_alerts
+             WHERE email = $1 AND product_id = $2`,
+            [email, payload.productID]
+        );
+        const previousRecord = existingResult.rowCount > 0 ? stockAlertRowToRecord(existingResult.rows[0]) : null;
+        const record = {
+            productID: payload.productID,
+            productName: payload.productName,
+            tag: payload.tag || null,
+            isAvailableForSale: Boolean(payload.isAvailableForSale),
+            status: stockAlertStatusFor(payload, previousRecord),
+            updatedAt: new Date().toISOString()
+        };
+
+        await database.query(
+            `INSERT INTO stock_alerts
+             (email, product_id, product_name, tag, is_available_for_sale, status, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (email, product_id)
+             DO UPDATE SET
+                 product_name = EXCLUDED.product_name,
+                 tag = EXCLUDED.tag,
+                 is_available_for_sale = EXCLUDED.is_available_for_sale,
+                 status = EXCLUDED.status,
+                 updated_at = EXCLUDED.updated_at`,
+            [email, record.productID, record.productName, record.tag, record.isAvailableForSale, record.status, record.updatedAt]
+        );
+
+        return record;
+    }
+
     const store = readJSON(alertsStorePath);
     const alerts = store.alerts[email] || [];
     const existingIndex = alerts.findIndex((alert) => alert.productID === payload.productID);
@@ -926,14 +1004,106 @@ function upsertStockAlert(email, payload) {
     return record;
 }
 
-function removeStockAlert(email, productID) {
+async function removeStockAlert(email, productID) {
+    if (database.isEnabled()) {
+        await database.query(
+            `DELETE FROM stock_alerts
+             WHERE email = $1 AND product_id = $2`,
+            [email, productID]
+        );
+        return;
+    }
+
     const store = readJSON(alertsStorePath);
     const alerts = store.alerts[email] || [];
     store.alerts[email] = alerts.filter((alert) => alert.productID !== productID);
     writeJSON(alertsStorePath, store);
 }
 
-function syncStockAlerts(email, alertPayloads) {
+function alertInboxRowToRecord(row) {
+    return {
+        id: row.id,
+        title: row.title,
+        detail: row.detail,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        productID: row.product_id
+    };
+}
+
+async function trimAlertInbox(email, maxRecords = 20) {
+    if (!database.isEnabled()) {
+        return;
+    }
+
+    await database.query(
+        `DELETE FROM alert_inbox
+         WHERE email = $1
+           AND id NOT IN (
+             SELECT id FROM alert_inbox
+             WHERE email = $1
+             ORDER BY created_at DESC
+             LIMIT $2
+           )`,
+        [email, maxRecords]
+    );
+}
+
+async function syncStockAlerts(email, alertPayloads) {
+    if (database.isEnabled()) {
+        const existingAlerts = await stockAlertsFor(email);
+        const payloadByID = new Map(alertPayloads.map((alert) => [alert.productID, alert]));
+        const synced = [];
+
+        for (const existing of existingAlerts) {
+            const payload = payloadByID.get(existing.productID);
+            if (!payload) {
+                synced.push(existing);
+                continue;
+            }
+
+            const nextRecord = {
+                productID: existing.productID,
+                productName: payload.productName || existing.productName,
+                tag: payload.tag || existing.tag || null,
+                isAvailableForSale: Boolean(payload.isAvailableForSale),
+                status: stockAlertStatusFor(payload, existing),
+                updatedAt: new Date().toISOString()
+            };
+
+            await database.query(
+                `UPDATE stock_alerts
+                 SET product_name = $3,
+                     tag = $4,
+                     is_available_for_sale = $5,
+                     status = $6,
+                     updated_at = $7
+                 WHERE email = $1 AND product_id = $2`,
+                [email, nextRecord.productID, nextRecord.productName, nextRecord.tag, nextRecord.isAvailableForSale, nextRecord.status, nextRecord.updatedAt]
+            );
+
+            if (existing.isAvailableForSale === false && nextRecord.isAvailableForSale === true) {
+                await database.query(
+                    `INSERT INTO alert_inbox
+                     (id, email, title, detail, created_at, product_id)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [
+                        `alert_${Date.now()}_${existing.productID}`,
+                        email,
+                        `${nextRecord.productName} is back`,
+                        `${nextRecord.productName} is available again in the Talla app.`,
+                        new Date().toISOString(),
+                        existing.productID
+                    ]
+                );
+            }
+
+            synced.push(nextRecord);
+        }
+
+        await trimAlertInbox(email);
+        return synced.sort((lhs, rhs) => new Date(rhs.updatedAt).getTime() - new Date(lhs.updatedAt).getTime());
+    }
+
     const store = readJSON(alertsStorePath);
     const existingAlerts = store.alerts[email] || [];
     const inboxStore = readJSON(alertInboxStorePath);
@@ -1089,7 +1259,19 @@ async function deleteAddress(email, addressID) {
     return updated;
 }
 
-function alertInboxFor(email) {
+async function alertInboxFor(email) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, title, detail, created_at, product_id
+             FROM alert_inbox
+             WHERE email = $1
+             ORDER BY created_at DESC
+             LIMIT 20`,
+            [email]
+        );
+        return result.rows.map(alertInboxRowToRecord);
+    }
+
     const store = readJSON(alertInboxStorePath);
     return store.alerts[email] || [];
 }
@@ -1290,7 +1472,7 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
-            sendJSON(response, 200, ordersPayload(email));
+        sendJSON(response, 200, await ordersPayload(email));
         return;
     }
 
@@ -1308,7 +1490,7 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
-        sendJSON(response, 200, stockAlertsFor(email));
+        sendJSON(response, 200, await stockAlertsFor(email));
         return;
     }
 
@@ -1326,7 +1508,7 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
-        sendJSON(response, 200, alertInboxFor(email));
+        sendJSON(response, 200, await alertInboxFor(email));
         return;
     }
 
@@ -1348,7 +1530,7 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
-            const record = upsertStockAlert(email, {
+            const record = await upsertStockAlert(email, {
                 productID,
                 productName,
                 tag: body.tag ? String(body.tag).trim() : null,
@@ -1379,7 +1561,7 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
-            removeStockAlert(email, productID);
+            await removeStockAlert(email, productID);
             sendJSON(response, 200, { status: "ok" });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
@@ -1404,7 +1586,7 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
-            const synced = syncStockAlerts(
+            const synced = await syncStockAlerts(
                 email,
                 alerts
                     .map((alert) => ({
@@ -1439,18 +1621,31 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
-            const store = readJSON(ordersStorePath);
-            const orders = store.orders[email] || [];
-            orders.unshift({
+            const newOrder = {
                 id: `ord_${Date.now()}`,
                 title: "Roastery Order",
                 total: `BHD ${sampleOrderTotal.toFixed(3)}`,
                 status: "Completed",
                 items: sampleOrderItems,
                 createdAt: new Date().toISOString()
-            });
-            store.orders[email] = orders;
-            writeJSON(ordersStorePath, store);
+            };
+
+            let orders;
+            if (database.isEnabled()) {
+                await database.query(
+                    `INSERT INTO orders
+                     (id, email, title, total, status, items, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
+                    [newOrder.id, email, newOrder.title, newOrder.total, newOrder.status, JSON.stringify(newOrder.items), newOrder.createdAt]
+                );
+                orders = await ordersPayload(email);
+            } else {
+                const store = readJSON(ordersStorePath);
+                orders = store.orders[email] || [];
+                orders.unshift(newOrder);
+                store.orders[email] = orders;
+                writeJSON(ordersStorePath, store);
+            }
 
             const awardedPoints = Math.round(sampleOrderTotal * loyaltyPointsPerBHD);
             await updateLoyaltyAccount(email, (account) => {

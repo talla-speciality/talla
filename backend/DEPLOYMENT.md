@@ -38,8 +38,7 @@ Notes:
 - `APP_URL` should be your real public URL
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
 - `DATABASE_URL` should point to your managed Postgres instance once you move beyond JSON storage
-- Wallet pass signing files should be mounted as secrets, not committed into the repo
-- On Render, using `WALLET_P12_BASE64` and `WALLET_WWDR_BASE64` is usually easier than mounting certificate files
+- Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, base64 env vars are usually easier than mounting files
 
 ## Build and run locally with Docker
 
@@ -82,7 +81,7 @@ Do not use `127.0.0.1`, `localhost`, or a private LAN IP for production users.
 
 This backend is deployable, but not yet production-hardened. Before public launch, you should add:
 
-- finish moving the remaining JSON-backed features such as orders and alerts to Postgres
+- add authentication/session tokens and admin authorization on top of the now database-backed backend
 - customer authentication tokens instead of email-only access patterns
 - admin authentication and authorization
 - request logging and monitoring

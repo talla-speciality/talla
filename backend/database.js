@@ -98,6 +98,42 @@ async function initializeDatabase() {
         );
     `);
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS orders (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            total TEXT NOT NULL,
+            status TEXT NOT NULL,
+            items JSONB NOT NULL DEFAULT '[]'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL
+        );
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS stock_alerts (
+            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
+            product_id TEXT NOT NULL,
+            product_name TEXT NOT NULL,
+            tag TEXT,
+            is_available_for_sale BOOLEAN NOT NULL,
+            status TEXT NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            PRIMARY KEY (email, product_id)
+        );
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS alert_inbox (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            detail TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
+            product_id TEXT
+        );
+    `);
+
     return true;
 }
 
