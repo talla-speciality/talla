@@ -46,8 +46,8 @@ The server reads configuration from environment variables:
 - `ADMIN_PASSWORD`: admin password for `/admin`
 - `ADMIN_SESSION_SECRET`: secret used to sign admin session cookies
 - `ADMIN_SESSION_HOURS`: admin session lifetime in hours, defaults to `12`
-- `CUSTOMER_TOKEN_SECRET`: secret used to sign customer bearer tokens
-- `CUSTOMER_TOKEN_HOURS`: customer token lifetime in hours, defaults to `168`
+- `CUSTOMER_TOKEN_SECRET`: secret required to enable customer session issuance
+- `CUSTOMER_TOKEN_HOURS`: customer session lifetime in hours, defaults to `168`
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
 - `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
@@ -191,7 +191,7 @@ Content-Type: application/json
 
 - Data is stored in `backend/data/loyalty.json`.
 - If `DATABASE_URL` is set, the backend uses Postgres for accounts, loyalty records, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox records.
-- Customer-facing protected routes use bearer tokens rather than trusting raw email alone.
+- Customer-facing protected routes use revocable bearer-backed sessions rather than trusting raw email alone.
 - For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
 - This is still a transitional backend, not a final production architecture.
 - Before going live, replace the single shared admin credential with a proper multi-user admin model and put the service behind HTTPS.

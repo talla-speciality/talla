@@ -123,6 +123,13 @@ function signCustomerTokenPayload(value) {
         .digest("hex");
 }
 
+function hashCustomerToken(token) {
+    return crypto
+        .createHash("sha256")
+        .update(String(token))
+        .digest("hex");
+}
+
 function parseCookies(headerValue) {
     if (!headerValue) {
         return {};
@@ -236,16 +243,13 @@ function parseAdminLogin(body) {
 }
 
 function createCustomerAccessToken(email) {
-    const expiresAt = Date.now() + customerTokenHours * 60 * 60 * 1000;
-    const payload = encodeBase64URL(JSON.stringify({
-        email,
-        exp: expiresAt
-    }));
-    const signature = signCustomerTokenPayload(payload);
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + customerTokenHours * 60 * 60 * 1000).toISOString();
 
     return {
-        accessToken: `${payload}.${signature}`,
-        expiresAt: new Date(expiresAt).toISOString()
+        accessToken: rawToken,
+        tokenHash: hashCustomerToken(rawToken),
+        expiresAt
     };
 }
 
@@ -271,44 +275,108 @@ function authenticateCustomer(request, response, explicitEmail = null) {
         return false;
     }
 
-    const separatorIndex = token.lastIndexOf(".");
-    if (separatorIndex < 0) {
+    if (!database.isEnabled()) {
+        sendJSON(response, 503, { error: "Customer sessions require database storage." });
+        return false;
+    }
+
+    return {
+        token,
+        explicitEmail: explicitEmail ? normalizeEmail(explicitEmail) : null
+    };
+}
+
+async function resolveCustomerSession(authenticatedRequest, response) {
+    const result = await database.query(
+        `SELECT email, expires_at, revoked_at
+         FROM customer_sessions
+         WHERE token_hash = $1`,
+        [hashCustomerToken(authenticatedRequest.token)]
+    );
+
+    if (result.rowCount === 0) {
         sendJSON(response, 401, { error: "Invalid customer token." });
         return false;
     }
 
-    const payload = token.slice(0, separatorIndex);
-    const signature = token.slice(separatorIndex + 1);
-    const expectedSignature = signCustomerTokenPayload(payload);
-    const providedBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-    if (providedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
+    const row = result.rows[0];
+    if (row.revoked_at) {
+        sendJSON(response, 401, { error: "Customer session revoked." });
+        return false;
+    }
+
+    const expiresAt = row.expires_at instanceof Date ? row.expires_at.getTime() : new Date(row.expires_at).getTime();
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        sendJSON(response, 401, { error: "Customer token expired." });
+        return false;
+    }
+
+    const email = normalizeEmail(row.email);
+    if (authenticatedRequest.explicitEmail && authenticatedRequest.explicitEmail != email) {
+        sendJSON(response, 403, { error: "Token does not match this customer account." });
+        return false;
+    }
+
+    return {
+        email,
+        expiresAt: new Date(expiresAt).toISOString()
+    };
+}
+
+async function createCustomerSession(email) {
+    if (!database.isEnabled()) {
+        throw new Error("CUSTOMER_SESSIONS_REQUIRE_DATABASE");
+    }
+
+    const session = createCustomerAccessToken(email);
+    const id = `custsess_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
+    await database.query(
+        `INSERT INTO customer_sessions
+         (id, email, token_hash, created_at, expires_at, revoked_at)
+         VALUES ($1, $2, $3, $4, $5, NULL)`,
+        [id, email, session.tokenHash, new Date().toISOString(), session.expiresAt]
+    );
+
+    return {
+        accessToken: session.accessToken,
+        expiresAt: session.expiresAt
+    };
+}
+
+async function revokeCustomerSession(token) {
+    if (!database.isEnabled()) {
+        return;
+    }
+
+    await database.query(
+        `UPDATE customer_sessions
+         SET revoked_at = NOW()
+         WHERE token_hash = $1 AND revoked_at IS NULL`,
+        [hashCustomerToken(token)]
+    );
+}
+
+async function revokeCustomerSessionsForEmail(email) {
+    if (!database.isEnabled()) {
+        return;
+    }
+
+    await database.query(
+        `UPDATE customer_sessions
+         SET revoked_at = NOW()
+         WHERE email = $1 AND revoked_at IS NULL`,
+        [email]
+    );
+}
+
+function parseAuthenticatedCustomer(request, response, explicitEmail = null) {
+    const authenticated = authenticateCustomer(request, response, explicitEmail);
+    if (!authenticated) {
         sendJSON(response, 401, { error: "Invalid customer token." });
         return false;
     }
 
-    try {
-        const decoded = JSON.parse(decodeBase64URL(payload));
-        const email = normalizeEmail(decoded.email);
-        const expiresAt = Number(decoded.exp);
-        if (!email || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-            sendJSON(response, 401, { error: "Customer token expired." });
-            return false;
-        }
-
-        if (explicitEmail && normalizeEmail(explicitEmail) !== email) {
-            sendJSON(response, 403, { error: "Token does not match this customer account." });
-            return false;
-        }
-
-        return {
-            email,
-            expiresAt: new Date(expiresAt).toISOString()
-        };
-    } catch {
-        sendJSON(response, 401, { error: "Invalid customer token." });
-        return false;
-    }
+    return authenticated;
 }
 
 function ensureAdminAccess(request, response) {
@@ -1823,7 +1891,7 @@ const server = http.createServer(async (request, response) => {
 
             await createAccountRecord(account);
             await ensureLoyaltyAccount(email);
-            const session = createCustomerAccessToken(email);
+            const session = await createCustomerSession(email);
             sendJSON(response, 201, {
                 profile: profilePayload(account),
                 accessToken: session.accessToken,
@@ -1854,7 +1922,7 @@ const server = http.createServer(async (request, response) => {
             }
 
             await ensureLoyaltyAccount(email);
-            const session = createCustomerAccessToken(email);
+            const session = await createCustomerSession(email);
             sendJSON(response, 200, {
                 profile: profilePayload(account),
                 accessToken: session.accessToken,
@@ -1867,7 +1935,12 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/accounts/session") {
-        const customer = authenticateCustomer(request, response);
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -1883,18 +1956,29 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/accounts/logout") {
-        const customer = authenticateCustomer(request, response);
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
 
+        await revokeCustomerSession(authenticated.token);
         sendJSON(response, 200, { status: "ok" });
         return;
     }
 
     if (request.method === "GET" && url.pathname === "/accounts/profile") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -1916,7 +2000,12 @@ const server = http.createServer(async (request, response) => {
             const firstName = String(body.firstName || "").trim();
             const lastName = String(body.lastName || "").trim();
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -1945,7 +2034,12 @@ const server = http.createServer(async (request, response) => {
             const currentPassword = String(body.currentPassword || "");
             const newPassword = String(body.newPassword || "");
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -1968,6 +2062,7 @@ const server = http.createServer(async (request, response) => {
             }
 
             await updateAccountPasswordRecord(customer.email, hashPassword(newPassword));
+            await revokeCustomerSessionsForEmail(customer.email);
             sendJSON(response, 200, { status: "ok" });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
@@ -1977,7 +2072,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/loyalty/account") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -1995,7 +2095,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/orders") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -2012,7 +2117,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/alerts") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -2029,7 +2139,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/alerts/inbox") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -2050,7 +2165,12 @@ const server = http.createServer(async (request, response) => {
             const productID = String(body.productID || "").trim();
             const productName = String(body.productName || "").trim();
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2085,7 +2205,12 @@ const server = http.createServer(async (request, response) => {
             const body = await readBody(request);
             const productID = String(body.productID || "").trim();
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2114,7 +2239,12 @@ const server = http.createServer(async (request, response) => {
             const body = await readBody(request);
             const alerts = Array.isArray(body.alerts) ? body.alerts : [];
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2148,7 +2278,12 @@ const server = http.createServer(async (request, response) => {
         try {
             const body = await readBody(request);
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2207,7 +2342,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/addresses") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -2231,7 +2371,12 @@ const server = http.createServer(async (request, response) => {
             const line1 = String(body.line1 || "").trim();
             const city = String(body.city || "").trim();
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2266,7 +2411,12 @@ const server = http.createServer(async (request, response) => {
             const body = await readBody(request);
             const addressID = String(body.addressID || "").trim();
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2291,7 +2441,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/wallet/pass") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
@@ -2327,7 +2482,12 @@ const server = http.createServer(async (request, response) => {
             const points = Number(body.points);
             const note = String(body.note || "Points adjustment");
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2367,7 +2527,12 @@ const server = http.createServer(async (request, response) => {
             const points = Number(body.points);
             const reward = String(body.reward || "Reward redemption");
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2422,7 +2587,12 @@ const server = http.createServer(async (request, response) => {
             const body = await readBody(request);
             const code = String(body.code || "").trim().toUpperCase();
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2463,7 +2633,12 @@ const server = http.createServer(async (request, response) => {
             const body = await readBody(request);
             const code = String(body.code || "").trim().toUpperCase();
             const requestedEmail = normalizeEmail(body.email);
-            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
                 return;
             }
@@ -2501,7 +2676,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/vouchers") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }

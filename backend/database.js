@@ -146,6 +146,17 @@ async function initializeDatabase() {
         );
     `);
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS customer_sessions (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
+            token_hash TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            revoked_at TIMESTAMPTZ
+        );
+    `);
+
     return true;
 }
 
