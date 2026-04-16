@@ -26,8 +26,10 @@ DATA_DIRECTORY=/data
 DATABASE_URL=postgres://...
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
+WALLET_P12_BASE64=
 WALLET_P12_PASSWORD=your-password
 WALLET_WWDR_PATH=/run/secrets/AppleWWDRCAG4.cer
+WALLET_WWDR_BASE64=
 ```
 
 Notes:
@@ -37,6 +39,7 @@ Notes:
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
 - `DATABASE_URL` should point to your managed Postgres instance once you move beyond JSON storage
 - Wallet pass signing files should be mounted as secrets, not committed into the repo
+- On Render, using `WALLET_P12_BASE64` and `WALLET_WWDR_BASE64` is usually easier than mounting certificate files
 
 ## Build and run locally with Docker
 

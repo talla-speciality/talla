@@ -26,8 +26,10 @@ const sampleOrderItems = [
 ];
 const walletPassTemplateDirectory = config.walletPassTemplateDirectory;
 const walletPassCertificatePath = config.walletPassCertificatePath;
+const walletPassCertificateBase64 = config.walletPassCertificateBase64;
 const walletPassCertificatePassword = config.walletPassCertificatePassword;
 const walletPassWWDRPath = config.walletPassWWDRPath;
+const walletPassWWDRBase64 = config.walletPassWWDRBase64;
 
 ensureStoreFile(loyaltyStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
@@ -467,12 +469,16 @@ function escapeShellArgument(value) {
     return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+function writeDecodedSecret(targetPath, base64Value) {
+    fs.writeFileSync(targetPath, Buffer.from(base64Value, "base64"));
+}
+
 function ensurePassSigningFiles() {
     if (!fs.existsSync(walletPassTemplateDirectory)) {
         throw new Error("Wallet pass template is missing");
     }
 
-    if (!walletPassCertificatePath || !fs.existsSync(walletPassCertificatePath)) {
+    if ((!walletPassCertificatePath || !fs.existsSync(walletPassCertificatePath)) && !walletPassCertificateBase64) {
         throw new Error("Wallet pass certificate is missing");
     }
 
@@ -480,7 +486,7 @@ function ensurePassSigningFiles() {
         throw new Error("Wallet pass certificate password is missing");
     }
 
-    if (!walletPassWWDRPath || !fs.existsSync(walletPassWWDRPath)) {
+    if ((!walletPassWWDRPath || !fs.existsSync(walletPassWWDRPath)) && !walletPassWWDRBase64) {
         throw new Error("Wallet WWDR certificate is missing");
     }
 }
@@ -560,10 +566,24 @@ async function generateWalletPass(email) {
     const signerCertPEMPath = path.join(signingDirectory, "signerCert.pem");
     const signerKeyPEMPath = path.join(signingDirectory, "signerKey.pem");
     const passwordArgument = `pass:${walletPassCertificatePassword}`;
+    const certificatePath = walletPassCertificateBase64
+        ? path.join(signingDirectory, "signerCert.p12")
+        : walletPassCertificatePath;
+    const wwdrSourcePath = walletPassWWDRBase64
+        ? path.join(signingDirectory, "AppleWWDR.cer")
+        : walletPassWWDRPath;
 
-    execFileSync("/usr/bin/openssl", ["x509", "-inform", "DER", "-in", walletPassWWDRPath, "-out", wwdrPEMPath]);
-    execFileSync("/usr/bin/openssl", ["pkcs12", "-in", walletPassCertificatePath, "-clcerts", "-nokeys", "-out", signerCertPEMPath, "-passin", passwordArgument]);
-    execFileSync("/usr/bin/openssl", ["pkcs12", "-in", walletPassCertificatePath, "-nocerts", "-nodes", "-out", signerKeyPEMPath, "-passin", passwordArgument]);
+    if (walletPassCertificateBase64) {
+        writeDecodedSecret(certificatePath, walletPassCertificateBase64);
+    }
+
+    if (walletPassWWDRBase64) {
+        writeDecodedSecret(wwdrSourcePath, walletPassWWDRBase64);
+    }
+
+    execFileSync("/usr/bin/openssl", ["x509", "-inform", "DER", "-in", wwdrSourcePath, "-out", wwdrPEMPath]);
+    execFileSync("/usr/bin/openssl", ["pkcs12", "-in", certificatePath, "-clcerts", "-nokeys", "-out", signerCertPEMPath, "-passin", passwordArgument]);
+    execFileSync("/usr/bin/openssl", ["pkcs12", "-in", certificatePath, "-nocerts", "-nodes", "-out", signerKeyPEMPath, "-passin", passwordArgument]);
     execFileSync("/usr/bin/openssl", [
         "smime",
         "-binary",

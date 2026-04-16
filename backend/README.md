@@ -43,8 +43,10 @@ The server reads configuration from environment variables:
 - `DATABASE_URL`: optional Postgres connection string for accounts, loyalty, wallet pass metadata, addresses, and vouchers
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
+- `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
 - `WALLET_P12_PASSWORD`: signing certificate password
 - `WALLET_WWDR_PATH`: Apple WWDR certificate path
+- `WALLET_WWDR_BASE64`: base64-encoded WWDR certificate content for hosted environments
 
 ## Seed Account
 
@@ -134,6 +136,7 @@ Content-Type: application/json
 
 - Data is stored in `backend/data/loyalty.json`.
 - If `DATABASE_URL` is set, accounts, loyalty records, wallet pass metadata, addresses, and vouchers move to Postgres while the remaining features still use JSON files.
+- For Wallet pass signing on hosted platforms like Render, prefer `WALLET_P12_BASE64` and `WALLET_WWDR_BASE64` over filesystem paths.
 - This is still a transitional backend, not a final production architecture.
 - Before going live, move persistence to a database, add authentication and admin authorization, and put the service behind HTTPS.
 - The iOS app should point `BackendBaseURL` at this API's public HTTPS URL in production.

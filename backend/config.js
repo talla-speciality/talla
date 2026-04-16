@@ -36,6 +36,8 @@ module.exports = {
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,
     walletPassCertificatePath: toAbsolutePath(process.env.WALLET_P12_PATH),
+    walletPassCertificateBase64: process.env.WALLET_P12_BASE64 || "",
     walletPassCertificatePassword: process.env.WALLET_P12_PASSWORD || "",
-    walletPassWWDRPath: toAbsolutePath(process.env.WALLET_WWDR_PATH)
+    walletPassWWDRPath: toAbsolutePath(process.env.WALLET_WWDR_PATH),
+    walletPassWWDRBase64: process.env.WALLET_WWDR_BASE64 || ""
 };
