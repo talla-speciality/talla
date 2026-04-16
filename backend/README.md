@@ -9,6 +9,7 @@ Backend API for the Talla Speciality iOS app. This service currently backs:
 - saved addresses
 - vouchers
 - Wallet pass download
+- admin customer lookup and loyalty adjustments
 
 ## Run
 
@@ -40,13 +41,32 @@ The server reads configuration from environment variables:
 - `APP_URL`: public URL used in logs and health output
 - `CORS_ALLOWED_ORIGIN`: CORS origin, defaults to `*`
 - `DATA_DIRECTORY`: JSON data storage directory
-- `DATABASE_URL`: optional Postgres connection string for accounts, loyalty, wallet pass metadata, addresses, and vouchers
+- `DATABASE_URL`: optional Postgres connection string for accounts, loyalty, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox
+- `ADMIN_USERNAME`: HTTP Basic Auth username for `/admin`
+- `ADMIN_PASSWORD`: HTTP Basic Auth password for `/admin`
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
 - `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
 - `WALLET_P12_PASSWORD`: signing certificate password
 - `WALLET_WWDR_PATH`: Apple WWDR certificate path
 - `WALLET_WWDR_BASE64`: base64-encoded WWDR certificate content for hosted environments
+
+## Admin
+
+The backend serves a lightweight admin console at:
+
+```text
+/admin
+```
+
+It is protected with HTTP Basic Auth using `ADMIN_USERNAME` and `ADMIN_PASSWORD`.
+
+Current admin capabilities:
+
+- customer lookup by email
+- loyalty balance inspection
+- manual loyalty point adjustments
+- visibility into orders, addresses, vouchers, stock alerts, and inbox records
 
 ## Seed Account
 
@@ -138,5 +158,5 @@ Content-Type: application/json
 - If `DATABASE_URL` is set, the backend uses Postgres for accounts, loyalty records, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox records.
 - For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
 - This is still a transitional backend, not a final production architecture.
-- Before going live, move persistence to a database, add authentication and admin authorization, and put the service behind HTTPS.
+- Before going live, replace HTTP Basic Auth with stronger admin authentication and put the service behind HTTPS.
 - The iOS app should point `BackendBaseURL` at this API's public HTTPS URL in production.

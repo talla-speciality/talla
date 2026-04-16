@@ -24,6 +24,8 @@ APP_URL=https://api.tallaspeciality.com
 CORS_ALLOWED_ORIGIN=*
 DATA_DIRECTORY=/data
 DATABASE_URL=postgres://...
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change-me
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
 WALLET_P12_BASE64=
@@ -37,8 +39,9 @@ Notes:
 - `HOST` should stay `0.0.0.0` in containers
 - `APP_URL` should be your real public URL
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
-- `DATABASE_URL` should point to your managed Postgres instance once you move beyond JSON storage
-- Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, base64 env vars are usually easier than mounting files
+- `DATABASE_URL` should point to your managed Postgres instance
+- `ADMIN_USERNAME` and `ADMIN_PASSWORD` protect `/admin` with HTTP Basic Auth
+- Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 
 ## Build and run locally with Docker
 
@@ -81,9 +84,9 @@ Do not use `127.0.0.1`, `localhost`, or a private LAN IP for production users.
 
 This backend is deployable, but not yet production-hardened. Before public launch, you should add:
 
-- add authentication/session tokens and admin authorization on top of the now database-backed backend
+- customer authentication/session tokens on top of the now database-backed backend
 - customer authentication tokens instead of email-only access patterns
-- admin authentication and authorization
+- stronger admin authentication and authorization than HTTP Basic Auth
 - request logging and monitoring
 - rate limiting
 - secret management for Wallet signing assets

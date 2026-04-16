@@ -18,11 +18,15 @@ const port = toNumber(process.env.PORT, 8787);
 const dataDirectory = toAbsolutePath(process.env.DATA_DIRECTORY) || path.join(__dirname, "data");
 const walletPassTemplateDirectory = toAbsolutePath(process.env.WALLET_PASS_TEMPLATE_DIRECTORY)
     || path.join(__dirname, "..", "WalletPass", "TallaLoyalty.pass");
+const adminDirectory = path.join(__dirname, "admin");
 module.exports = {
     host,
     port,
     appURL: process.env.APP_URL || `http://localhost:${port}`,
     dataDirectory,
+    adminDirectory,
+    adminUsername: process.env.ADMIN_USERNAME || "",
+    adminPassword: process.env.ADMIN_PASSWORD || "",
     stores: {
         loyalty: path.join(dataDirectory, "loyalty.json"),
         accounts: path.join(dataDirectory, "accounts.json"),

@@ -18,6 +18,9 @@ const vouchersStorePath = config.stores.vouchers;
 const alertsStorePath = config.stores.alerts;
 const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
+const adminDirectory = config.adminDirectory;
+const adminUsername = config.adminUsername;
+const adminPassword = config.adminPassword;
 const loyaltyPointsPerBHD = 10;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
@@ -65,6 +68,57 @@ function sendJSON(response, statusCode, payload) {
         "Access-Control-Allow-Headers": "Content-Type"
     });
     response.end(JSON.stringify(payload));
+}
+
+function sendHTML(response, statusCode, payload) {
+    response.writeHead(statusCode, {
+        "Content-Type": "text/html; charset=utf-8"
+    });
+    response.end(payload);
+}
+
+function adminCredentialsConfigured() {
+    return Boolean(adminUsername && adminPassword);
+}
+
+function parseBasicAuth(headerValue) {
+    if (!headerValue || !headerValue.startsWith("Basic ")) {
+        return null;
+    }
+
+    try {
+        const decoded = Buffer.from(headerValue.slice(6), "base64").toString("utf8");
+        const separatorIndex = decoded.indexOf(":");
+        if (separatorIndex < 0) {
+            return null;
+        }
+
+        return {
+            username: decoded.slice(0, separatorIndex),
+            password: decoded.slice(separatorIndex + 1)
+        };
+    } catch {
+        return null;
+    }
+}
+
+function ensureAdminAccess(request, response) {
+    if (!adminCredentialsConfigured()) {
+        sendJSON(response, 503, { error: "Admin credentials are not configured." });
+        return false;
+    }
+
+    const credentials = parseBasicAuth(request.headers.authorization);
+    if (!credentials || credentials.username !== adminUsername || credentials.password !== adminPassword) {
+        response.writeHead(401, {
+            "WWW-Authenticate": 'Basic realm="Talla Admin"',
+            "Content-Type": "application/json; charset=utf-8"
+        });
+        response.end(JSON.stringify({ error: "Admin authorization required." }));
+        return false;
+    }
+
+    return true;
 }
 
 function normalizeEmail(email) {
@@ -1276,6 +1330,32 @@ async function alertInboxFor(email) {
     return store.alerts[email] || [];
 }
 
+async function adminCustomerSummary(email) {
+    const account = await getAccountByEmail(email);
+    if (!account) {
+        return null;
+    }
+
+    const [loyalty, orders, alerts, inbox, addresses, vouchers] = await Promise.all([
+        ensureLoyaltyAccount(email),
+        ordersPayload(email),
+        stockAlertsFor(email),
+        alertInboxFor(email),
+        addressesFor(email),
+        activeVouchersFor(email)
+    ]);
+
+    return {
+        profile: profilePayload(account),
+        loyalty: loyaltyPayload(loyalty),
+        orders,
+        alerts,
+        inbox,
+        addresses,
+        vouchers
+    };
+}
+
 const server = http.createServer(async (request, response) => {
     if (!request.url) {
         sendJSON(response, 400, { error: "Missing URL" });
@@ -1296,6 +1376,99 @@ const server = http.createServer(async (request, response) => {
             host,
             port
         });
+        return;
+    }
+
+    if (request.method === "GET" && (url.pathname === "/admin" || url.pathname === "/admin/")) {
+        if (!ensureAdminAccess(request, response)) {
+            return;
+        }
+
+        const adminPagePath = path.join(adminDirectory, "index.html");
+        if (!fs.existsSync(adminPagePath)) {
+            sendJSON(response, 404, { error: "Admin dashboard not found." });
+            return;
+        }
+
+        sendHTML(response, 200, fs.readFileSync(adminPagePath, "utf8"));
+        return;
+    }
+
+    if (url.pathname.startsWith("/admin/api/")) {
+        if (!ensureAdminAccess(request, response)) {
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/customer") {
+            const email = normalizeEmail(url.searchParams.get("email"));
+
+            if (!email) {
+                sendJSON(response, 400, { error: "Missing email." });
+                return;
+            }
+
+            const summary = await adminCustomerSummary(email);
+            if (!summary) {
+                sendJSON(response, 404, { error: "Customer not found." });
+                return;
+            }
+
+            sendJSON(response, 200, summary);
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/loyalty/adjust") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const points = Number(body.points);
+                const note = String(body.note || "Admin adjustment").trim() || "Admin adjustment";
+
+                if (!email || !Number.isFinite(points) || points === 0) {
+                    sendJSON(response, 400, { error: "Invalid loyalty adjustment payload." });
+                    return;
+                }
+
+                const account = await getAccountByEmail(email);
+                if (!account) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                await ensureLoyaltyAccount(email);
+                const updated = await updateLoyaltyAccount(email, (loyaltyAccount) => {
+                    const nextBalance = loyaltyAccount.pointsBalance + points;
+                    if (nextBalance < 0) {
+                        throw new Error("INSUFFICIENT_POINTS");
+                    }
+
+                    loyaltyAccount.pointsBalance = nextBalance;
+                    loyaltyAccount.transactions = loyaltyAccount.transactions || [];
+                    loyaltyAccount.transactions.unshift({
+                        id: `txn_${Date.now()}`,
+                        type: points > 0 ? "earn" : "redeem",
+                        points: Math.abs(points),
+                        note,
+                        createdAt: new Date().toISOString()
+                    });
+                });
+
+                sendJSON(response, 200, {
+                    profile: profilePayload(account),
+                    loyalty: loyaltyPayload(updated)
+                });
+            } catch (error) {
+                if (error.message === "INSUFFICIENT_POINTS") {
+                    sendJSON(response, 409, { error: "Adjustment would result in negative points." });
+                    return;
+                }
+
+                sendJSON(response, 400, { error: "Invalid JSON body." });
+            }
+            return;
+        }
+
+        sendJSON(response, 404, { error: "Admin route not found." });
         return;
     }
 
