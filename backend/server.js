@@ -473,6 +473,15 @@ function writeDecodedSecret(targetPath, base64Value) {
     fs.writeFileSync(targetPath, Buffer.from(base64Value, "base64"));
 }
 
+function exportWWDRCertificate(sourcePath, outputPath) {
+    try {
+        execFileSync("/usr/bin/openssl", ["x509", "-inform", "DER", "-in", sourcePath, "-out", outputPath]);
+        return;
+    } catch (derError) {
+        execFileSync("/usr/bin/openssl", ["x509", "-inform", "PEM", "-in", sourcePath, "-out", outputPath]);
+    }
+}
+
 function ensurePassSigningFiles() {
     if (!fs.existsSync(walletPassTemplateDirectory)) {
         throw new Error("Wallet pass template is missing");
@@ -581,7 +590,7 @@ async function generateWalletPass(email) {
         writeDecodedSecret(wwdrSourcePath, walletPassWWDRBase64);
     }
 
-    execFileSync("/usr/bin/openssl", ["x509", "-inform", "DER", "-in", wwdrSourcePath, "-out", wwdrPEMPath]);
+    exportWWDRCertificate(wwdrSourcePath, wwdrPEMPath);
     execFileSync("/usr/bin/openssl", ["pkcs12", "-in", certificatePath, "-clcerts", "-nokeys", "-out", signerCertPEMPath, "-passin", passwordArgument]);
     execFileSync("/usr/bin/openssl", ["pkcs12", "-in", certificatePath, "-nocerts", "-nodes", "-out", signerKeyPEMPath, "-passin", passwordArgument]);
     execFileSync("/usr/bin/openssl", [
