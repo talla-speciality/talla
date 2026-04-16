@@ -30,6 +30,9 @@ ADMIN_SESSION_SECRET=replace-with-a-random-secret
 ADMIN_SESSION_HOURS=12
 CUSTOMER_TOKEN_SECRET=replace-with-a-different-random-secret
 CUSTOMER_TOKEN_HOURS=168
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=240
+REQUEST_LOGGING_ENABLED=true
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
 WALLET_P12_BASE64=
@@ -46,6 +49,8 @@ Notes:
 - `DATABASE_URL` should point to your managed Postgres instance
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` power the admin login and signed session cookie
 - `CUSTOMER_TOKEN_SECRET` enables customer session issuance; set it explicitly in production
+- `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS` control per-IP request throttling
+- `REQUEST_LOGGING_ENABLED=true` records request logs in Postgres for audit and debugging
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 
 ## Build and run locally with Docker
@@ -92,7 +97,7 @@ This backend is deployable, but not yet production-hardened. Before public launc
 - refresh token flow instead of a single long-lived customer session token
 - stronger admin authentication and authorization than HTTP Basic Auth
 - immutable audit review workflow for sensitive admin actions
-- request logging and monitoring
+- operational monitoring on top of the request logs
 - rate limiting
 - secret management for Wallet signing assets
 - backups for data storage

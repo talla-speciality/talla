@@ -25,6 +25,9 @@ const adminSessionSecret = config.adminSessionSecret;
 const adminSessionHours = config.adminSessionHours;
 const customerTokenSecret = config.customerTokenSecret;
 const customerTokenHours = config.customerTokenHours;
+const rateLimitWindowMs = config.rateLimitWindowMs;
+const rateLimitMaxRequests = config.rateLimitMaxRequests;
+const requestLoggingEnabled = config.requestLoggingEnabled;
 const loyaltyPointsPerBHD = 10;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
@@ -39,6 +42,7 @@ const walletPassWWDRPath = config.walletPassWWDRPath;
 const walletPassWWDRBase64 = config.walletPassWWDRBase64;
 const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
+const rateLimitBuckets = new Map();
 
 ensureStoreFile(loyaltyStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
@@ -83,6 +87,89 @@ function sendHTML(response, statusCode, payload, extraHeaders = {}) {
         ...extraHeaders
     });
     response.end(payload);
+}
+
+function clientIPAddress(request) {
+    const forwarded = request.headers["x-forwarded-for"];
+    if (typeof forwarded === "string" && forwarded.trim()) {
+        return forwarded.split(",")[0].trim();
+    }
+
+    return request.socket?.remoteAddress || "unknown";
+}
+
+function pruneRateLimitBuckets(now = Date.now()) {
+    for (const [key, bucket] of rateLimitBuckets.entries()) {
+        if (now - bucket.windowStart >= rateLimitWindowMs) {
+            rateLimitBuckets.delete(key);
+        }
+    }
+}
+
+function applyRateLimit(request, response) {
+    if (rateLimitWindowMs <= 0 || rateLimitMaxRequests <= 0) {
+        return true;
+    }
+
+    if (request.method === "OPTIONS") {
+        return true;
+    }
+
+    const pathName = request.url ? new URL(request.url, `http://${host}:${port}`).pathname : "";
+    if (pathName === "/health") {
+        return true;
+    }
+
+    const now = Date.now();
+    pruneRateLimitBuckets(now);
+    const key = `${clientIPAddress(request)}:${pathName}`;
+    const current = rateLimitBuckets.get(key);
+
+    if (!current || now - current.windowStart >= rateLimitWindowMs) {
+        rateLimitBuckets.set(key, { count: 1, windowStart: now });
+        return true;
+    }
+
+    current.count += 1;
+    if (current.count > rateLimitMaxRequests) {
+        sendJSON(response, 429, {
+            error: "Rate limit exceeded. Try again shortly."
+        }, {
+            "Retry-After": String(Math.ceil(rateLimitWindowMs / 1000))
+        });
+        return false;
+    }
+
+    return true;
+}
+
+async function logRequest({ request, statusCode, startedAt, accountEmail = null }) {
+    if (!requestLoggingEnabled || !database.isEnabled()) {
+        return;
+    }
+
+    const durationMs = Math.max(0, Date.now() - startedAt);
+    const pathName = request.url ? new URL(request.url, `http://${host}:${port}`).pathname : "";
+    try {
+        await database.query(
+            `INSERT INTO request_logs
+             (id, method, path, status_code, ip_address, duration_ms, user_agent, account_email, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+                `req_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
+                request.method || "GET",
+                pathName,
+                statusCode,
+                clientIPAddress(request),
+                durationMs,
+                request.headers["user-agent"] || null,
+                accountEmail,
+                new Date(startedAt).toISOString()
+            ]
+        );
+    } catch (error) {
+        console.error("Failed to write request log.", error);
+    }
 }
 
 function encodeBase64URL(value) {
@@ -317,6 +404,10 @@ async function resolveCustomerSession(authenticatedRequest, response) {
         return false;
     }
 
+    if (authenticatedRequest.request) {
+        authenticatedRequest.request.authenticatedCustomerEmail = email;
+    }
+
     return {
         email,
         expiresAt: new Date(expiresAt).toISOString()
@@ -376,7 +467,10 @@ function parseAuthenticatedCustomer(request, response, explicitEmail = null) {
         return false;
     }
 
-    return authenticated;
+    return {
+        ...authenticated,
+        request
+    };
 }
 
 function ensureAdminAccess(request, response) {
@@ -1677,8 +1771,22 @@ async function adminCustomerSummary(email) {
 }
 
 const server = http.createServer(async (request, response) => {
+    const startedAt = Date.now();
+    response.on("finish", () => {
+        void logRequest({
+            request,
+            statusCode: response.statusCode,
+            startedAt,
+            accountEmail: request.authenticatedCustomerEmail || null
+        });
+    });
+
     if (!request.url) {
         sendJSON(response, 400, { error: "Missing URL" });
+        return;
+    }
+
+    if (!applyRateLimit(request, response)) {
         return;
     }
 

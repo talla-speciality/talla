@@ -48,6 +48,9 @@ The server reads configuration from environment variables:
 - `ADMIN_SESSION_HOURS`: admin session lifetime in hours, defaults to `12`
 - `CUSTOMER_TOKEN_SECRET`: secret required to enable customer session issuance
 - `CUSTOMER_TOKEN_HOURS`: customer session lifetime in hours, defaults to `168`
+- `RATE_LIMIT_WINDOW_MS`: rate limit window in milliseconds, defaults to `60000`
+- `RATE_LIMIT_MAX_REQUESTS`: max requests per IP and path within the window, defaults to `240`
+- `REQUEST_LOGGING_ENABLED`: writes request logs to Postgres when `true`
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
 - `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
@@ -73,6 +76,7 @@ Current admin capabilities:
 - visibility into orders, addresses, vouchers, stock alerts, and inbox records
 - audit trail for admin loyalty adjustments
 - logout support and cookie-based admin sessions
+- rate limiting and request logging on the shared backend
 
 ## Seed Account
 
@@ -191,6 +195,7 @@ Content-Type: application/json
 
 - Data is stored in `backend/data/loyalty.json`.
 - If `DATABASE_URL` is set, the backend uses Postgres for accounts, loyalty records, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox records.
+- If `DATABASE_URL` is set, the backend also records request logs and revocable customer sessions in Postgres.
 - Customer-facing protected routes use revocable bearer-backed sessions rather than trusting raw email alone.
 - For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
 - This is still a transitional backend, not a final production architecture.

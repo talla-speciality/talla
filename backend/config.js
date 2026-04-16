@@ -31,6 +31,9 @@ module.exports = {
     adminSessionHours: toNumber(process.env.ADMIN_SESSION_HOURS, 12),
     customerTokenSecret: process.env.CUSTOMER_TOKEN_SECRET || process.env.ADMIN_SESSION_SECRET || "",
     customerTokenHours: toNumber(process.env.CUSTOMER_TOKEN_HOURS, 168),
+    rateLimitWindowMs: toNumber(process.env.RATE_LIMIT_WINDOW_MS, 60_000),
+    rateLimitMaxRequests: toNumber(process.env.RATE_LIMIT_MAX_REQUESTS, 240),
+    requestLoggingEnabled: process.env.REQUEST_LOGGING_ENABLED !== "false",
     stores: {
         loyalty: path.join(dataDirectory, "loyalty.json"),
         accounts: path.join(dataDirectory, "accounts.json"),

@@ -157,6 +157,20 @@ async function initializeDatabase() {
         );
     `);
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS request_logs (
+            id TEXT PRIMARY KEY,
+            method TEXT NOT NULL,
+            path TEXT NOT NULL,
+            status_code INTEGER NOT NULL,
+            ip_address TEXT NOT NULL,
+            duration_ms INTEGER NOT NULL,
+            user_agent TEXT,
+            account_email TEXT,
+            created_at TIMESTAMPTZ NOT NULL
+        );
+    `);
+
     return true;
 }
 
