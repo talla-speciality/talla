@@ -23,6 +23,8 @@ const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
 const adminSessionSecret = config.adminSessionSecret;
 const adminSessionHours = config.adminSessionHours;
+const customerTokenSecret = config.customerTokenSecret;
+const customerTokenHours = config.customerTokenHours;
 const loyaltyPointsPerBHD = 10;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
@@ -83,13 +85,40 @@ function sendHTML(response, statusCode, payload, extraHeaders = {}) {
     response.end(payload);
 }
 
+function encodeBase64URL(value) {
+    return Buffer.from(String(value))
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+}
+
+function decodeBase64URL(value) {
+    const normalized = String(value)
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+    return Buffer.from(padded, "base64").toString("utf8");
+}
+
 function adminCredentialsConfigured() {
     return Boolean(adminUsername && adminPassword && adminSessionSecret);
+}
+
+function customerTokensConfigured() {
+    return Boolean(customerTokenSecret);
 }
 
 function signSessionValue(value) {
     return crypto
         .createHmac("sha256", adminSessionSecret)
+        .update(String(value))
+        .digest("hex");
+}
+
+function signCustomerTokenPayload(value) {
+    return crypto
+        .createHmac("sha256", customerTokenSecret)
         .update(String(value))
         .digest("hex");
 }
@@ -204,6 +233,82 @@ function parseAdminLogin(body) {
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
     return { username, password };
+}
+
+function createCustomerAccessToken(email) {
+    const expiresAt = Date.now() + customerTokenHours * 60 * 60 * 1000;
+    const payload = encodeBase64URL(JSON.stringify({
+        email,
+        exp: expiresAt
+    }));
+    const signature = signCustomerTokenPayload(payload);
+
+    return {
+        accessToken: `${payload}.${signature}`,
+        expiresAt: new Date(expiresAt).toISOString()
+    };
+}
+
+function getBearerToken(request) {
+    const authorization = request.headers.authorization;
+    if (!authorization || !authorization.startsWith("Bearer ")) {
+        return null;
+    }
+
+    const token = authorization.slice(7).trim();
+    return token || null;
+}
+
+function authenticateCustomer(request, response, explicitEmail = null) {
+    if (!customerTokensConfigured()) {
+        sendJSON(response, 503, { error: "Customer tokens are not configured." });
+        return false;
+    }
+
+    const token = getBearerToken(request);
+    if (!token) {
+        sendJSON(response, 401, { error: "Customer authorization required." });
+        return false;
+    }
+
+    const separatorIndex = token.lastIndexOf(".");
+    if (separatorIndex < 0) {
+        sendJSON(response, 401, { error: "Invalid customer token." });
+        return false;
+    }
+
+    const payload = token.slice(0, separatorIndex);
+    const signature = token.slice(separatorIndex + 1);
+    const expectedSignature = signCustomerTokenPayload(payload);
+    const providedBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    if (providedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
+        sendJSON(response, 401, { error: "Invalid customer token." });
+        return false;
+    }
+
+    try {
+        const decoded = JSON.parse(decodeBase64URL(payload));
+        const email = normalizeEmail(decoded.email);
+        const expiresAt = Number(decoded.exp);
+        if (!email || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+            sendJSON(response, 401, { error: "Customer token expired." });
+            return false;
+        }
+
+        if (explicitEmail && normalizeEmail(explicitEmail) !== email) {
+            sendJSON(response, 403, { error: "Token does not match this customer account." });
+            return false;
+        }
+
+        return {
+            email,
+            expiresAt: new Date(expiresAt).toISOString()
+        };
+    } catch {
+        sendJSON(response, 401, { error: "Invalid customer token." });
+        return false;
+    }
 }
 
 function ensureAdminAccess(request, response) {
@@ -1718,8 +1823,12 @@ const server = http.createServer(async (request, response) => {
 
             await createAccountRecord(account);
             await ensureLoyaltyAccount(email);
-
-            sendJSON(response, 201, profilePayload(account));
+            const session = createCustomerAccessToken(email);
+            sendJSON(response, 201, {
+                profile: profilePayload(account),
+                accessToken: session.accessToken,
+                expiresAt: session.expiresAt
+            });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
         }
@@ -1745,22 +1854,52 @@ const server = http.createServer(async (request, response) => {
             }
 
             await ensureLoyaltyAccount(email);
-            sendJSON(response, 200, profilePayload(account));
+            const session = createCustomerAccessToken(email);
+            sendJSON(response, 200, {
+                profile: profilePayload(account),
+                accessToken: session.accessToken,
+                expiresAt: session.expiresAt
+            });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
         }
         return;
     }
 
-    if (request.method === "GET" && url.pathname === "/accounts/profile") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+    if (request.method === "GET" && url.pathname === "/accounts/session") {
+        const customer = authenticateCustomer(request, response);
+        if (!customer) {
             return;
         }
 
-        const account = await getAccountByEmail(email);
+        const account = await getAccountByEmail(customer.email);
+        if (!account) {
+            sendJSON(response, 404, { error: "Account not found" });
+            return;
+        }
+
+        sendJSON(response, 200, profilePayload(account));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/accounts/logout") {
+        const customer = authenticateCustomer(request, response);
+        if (!customer) {
+            return;
+        }
+
+        sendJSON(response, 200, { status: "ok" });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/accounts/profile") {
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
+            return;
+        }
+
+        const account = await getAccountByEmail(customer.email);
 
         if (!account) {
             sendJSON(response, 404, { error: "Account not found" });
@@ -1774,16 +1913,20 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/accounts/profile/update") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const firstName = String(body.firstName || "").trim();
             const lastName = String(body.lastName || "").trim();
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !firstName || !lastName) {
+            if (!firstName || !lastName) {
                 sendJSON(response, 400, { error: "Invalid profile payload" });
                 return;
             }
 
-            const account = await updateAccountProfileRecord(email, firstName, lastName);
+            const account = await updateAccountProfileRecord(customer.email, firstName, lastName);
 
             if (!account) {
                 sendJSON(response, 404, { error: "Account not found" });
@@ -1799,16 +1942,20 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/accounts/password/reset") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const currentPassword = String(body.currentPassword || "");
             const newPassword = String(body.newPassword || "");
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !currentPassword || newPassword.length < 5) {
+            if (!currentPassword || newPassword.length < 5) {
                 sendJSON(response, 400, { error: "Invalid password payload" });
                 return;
             }
 
-            const account = await getAccountByEmail(email);
+            const account = await getAccountByEmail(customer.email);
 
             if (!account) {
                 sendJSON(response, 404, { error: "Account not found" });
@@ -1820,7 +1967,7 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
-            await updateAccountPasswordRecord(email, hashPassword(newPassword));
+            await updateAccountPasswordRecord(customer.email, hashPassword(newPassword));
             sendJSON(response, 200, { status: "ok" });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
@@ -1829,97 +1976,97 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/loyalty/account") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
             return;
         }
 
-        const customerAccount = await getAccountByEmail(email);
+        const customerAccount = await getAccountByEmail(customer.email);
         if (!customerAccount) {
             sendJSON(response, 404, { error: "Account not found" });
             return;
         }
 
-        const account = await ensureLoyaltyAccount(email);
+        const account = await ensureLoyaltyAccount(customer.email);
         sendJSON(response, 200, loyaltyPayload(account));
         return;
     }
 
     if (request.method === "GET" && url.pathname === "/orders") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
             return;
         }
 
-        const customerAccount = await getAccountByEmail(email);
+        const customerAccount = await getAccountByEmail(customer.email);
         if (!customerAccount) {
             sendJSON(response, 404, { error: "Account not found" });
             return;
         }
 
-        sendJSON(response, 200, await ordersPayload(email));
+        sendJSON(response, 200, await ordersPayload(customer.email));
         return;
     }
 
     if (request.method === "GET" && url.pathname === "/alerts") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
             return;
         }
 
-        const customerAccount = await getAccountByEmail(email);
+        const customerAccount = await getAccountByEmail(customer.email);
         if (!customerAccount) {
             sendJSON(response, 404, { error: "Account not found" });
             return;
         }
 
-        sendJSON(response, 200, await stockAlertsFor(email));
+        sendJSON(response, 200, await stockAlertsFor(customer.email));
         return;
     }
 
     if (request.method === "GET" && url.pathname === "/alerts/inbox") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
             return;
         }
 
-        const customerAccount = await getAccountByEmail(email);
+        const customerAccount = await getAccountByEmail(customer.email);
         if (!customerAccount) {
             sendJSON(response, 404, { error: "Account not found" });
             return;
         }
 
-        sendJSON(response, 200, await alertInboxFor(email));
+        sendJSON(response, 200, await alertInboxFor(customer.email));
         return;
     }
 
     if (request.method === "POST" && url.pathname === "/alerts/watch") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const productID = String(body.productID || "").trim();
             const productName = String(body.productName || "").trim();
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !productID || !productName) {
+            if (!productID || !productName) {
                 sendJSON(response, 400, { error: "Invalid alert payload" });
                 return;
             }
 
-            const customerAccount = await getAccountByEmail(email);
+            const customerAccount = await getAccountByEmail(customer.email);
             if (!customerAccount) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
             }
 
-            const record = await upsertStockAlert(email, {
+            const record = await upsertStockAlert(customer.email, {
                 productID,
                 productName,
                 tag: body.tag ? String(body.tag).trim() : null,
@@ -1936,21 +2083,25 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/alerts/unwatch") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const productID = String(body.productID || "").trim();
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !productID) {
+            if (!productID) {
                 sendJSON(response, 400, { error: "Invalid alert payload" });
                 return;
             }
 
-            const customerAccount = await getAccountByEmail(email);
+            const customerAccount = await getAccountByEmail(customer.email);
             if (!customerAccount) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
             }
 
-            await removeStockAlert(email, productID);
+            await removeStockAlert(customer.email, productID);
             sendJSON(response, 200, { status: "ok" });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
@@ -1961,22 +2112,21 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/alerts/sync") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const alerts = Array.isArray(body.alerts) ? body.alerts : [];
-
-            if (!email) {
-                sendJSON(response, 400, { error: "Missing email" });
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
                 return;
             }
 
-            const customerAccount = await getAccountByEmail(email);
+            const customerAccount = await getAccountByEmail(customer.email);
             if (!customerAccount) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
             }
 
             const synced = await syncStockAlerts(
-                email,
+                customer.email,
                 alerts
                     .map((alert) => ({
                         productID: String(alert.productID || "").trim(),
@@ -1997,14 +2147,13 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/orders/sample") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
-
-            if (!email) {
-                sendJSON(response, 400, { error: "Missing email" });
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
                 return;
             }
 
-            const customerAccount = await getAccountByEmail(email);
+            const customerAccount = await getAccountByEmail(customer.email);
             if (!customerAccount) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
@@ -2025,19 +2174,19 @@ const server = http.createServer(async (request, response) => {
                     `INSERT INTO orders
                      (id, email, title, total, status, items, created_at)
                      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
-                    [newOrder.id, email, newOrder.title, newOrder.total, newOrder.status, JSON.stringify(newOrder.items), newOrder.createdAt]
+                    [newOrder.id, customer.email, newOrder.title, newOrder.total, newOrder.status, JSON.stringify(newOrder.items), newOrder.createdAt]
                 );
-                orders = await ordersPayload(email);
+                orders = await ordersPayload(customer.email);
             } else {
                 const store = readJSON(ordersStorePath);
-                orders = store.orders[email] || [];
+                orders = store.orders[customer.email] || [];
                 orders.unshift(newOrder);
-                store.orders[email] = orders;
+                store.orders[customer.email] = orders;
                 writeJSON(ordersStorePath, store);
             }
 
             const awardedPoints = Math.round(sampleOrderTotal * loyaltyPointsPerBHD);
-            await updateLoyaltyAccount(email, (account) => {
+            await updateLoyaltyAccount(customer.email, (account) => {
                 account.pointsBalance += awardedPoints;
                 account.transactions = account.transactions || [];
                 account.transactions.unshift({
@@ -2057,45 +2206,48 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/addresses") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
             return;
         }
 
-        const customerAccount = await getAccountByEmail(email);
+        const customerAccount = await getAccountByEmail(customer.email);
         if (!customerAccount) {
             sendJSON(response, 404, { error: "Account not found" });
             return;
         }
 
-            sendJSON(response, 200, await addressesFor(email));
+        sendJSON(response, 200, await addressesFor(customer.email));
         return;
     }
 
     if (request.method === "POST" && url.pathname === "/addresses/save") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const label = String(body.label || "").trim();
             const fullName = String(body.fullName || "").trim();
             const phone = String(body.phone || "").trim();
             const line1 = String(body.line1 || "").trim();
             const city = String(body.city || "").trim();
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !label || !fullName || !phone || !line1 || !city) {
+            if (!label || !fullName || !phone || !line1 || !city) {
                 sendJSON(response, 400, { error: "Invalid address payload" });
                 return;
             }
 
-            const customerAccount = await getAccountByEmail(email);
+            const customerAccount = await getAccountByEmail(customer.email);
             if (!customerAccount) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
             }
 
-            sendJSON(response, 200, await saveAddress(email, {
+            sendJSON(response, 200, await saveAddress(customer.email, {
                 label,
                 fullName,
                 phone,
@@ -2112,21 +2264,25 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/addresses/delete") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const addressID = String(body.addressID || "").trim();
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !addressID) {
+            if (!addressID) {
                 sendJSON(response, 400, { error: "Invalid address payload" });
                 return;
             }
 
-            const customerAccount = await getAccountByEmail(email);
+            const customerAccount = await getAccountByEmail(customer.email);
             if (!customerAccount) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
             }
 
-            sendJSON(response, 200, await deleteAddress(email, addressID));
+            sendJSON(response, 200, await deleteAddress(customer.email, addressID));
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
         }
@@ -2134,21 +2290,20 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/wallet/pass") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
             return;
         }
 
-        const customerAccount = await getAccountByEmail(email);
+        const customerAccount = await getAccountByEmail(customer.email);
         if (!customerAccount) {
             sendJSON(response, 404, { error: "Account not found" });
             return;
         }
 
         try {
-            const generatedPass = await generateWalletPass(email);
+            const generatedPass = await generateWalletPass(customer.email);
 
             response.writeHead(200, {
                 "Content-Type": "application/vnd.apple.pkpass",
@@ -2169,16 +2324,20 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/loyalty/transactions/earn") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const points = Number(body.points);
             const note = String(body.note || "Points adjustment");
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !Number.isFinite(points) || points <= 0) {
+            if (!Number.isFinite(points) || points <= 0) {
                 sendJSON(response, 400, { error: "Invalid earn payload" });
                 return;
             }
 
-            const updated = await updateLoyaltyAccount(email, (account) => {
+            const updated = await updateLoyaltyAccount(customer.email, (account) => {
                 account.pointsBalance += points;
                 account.transactions = account.transactions || [];
                 account.transactions.unshift({
@@ -2205,23 +2364,27 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/loyalty/transactions/redeem") {
         try {
             const body = await readBody(request);
-            const email = normalizeEmail(body.email);
             const points = Number(body.points);
             const reward = String(body.reward || "Reward redemption");
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
-            if (!email || !Number.isFinite(points) || points <= 0) {
+            if (!Number.isFinite(points) || points <= 0) {
                 sendJSON(response, 400, { error: "Invalid redemption payload" });
                 return;
             }
 
-            const updated = await updateLoyaltyAccount(email, (account) => {
+            const updated = await updateLoyaltyAccount(customer.email, (account) => {
                 if (account.pointsBalance < points) {
                     throw new Error("INSUFFICIENT_POINTS");
                 }
 
                 account.pointsBalance -= points;
                 account.transactions = account.transactions || [];
-                const voucher = buildVoucherRecord(email, reward, points);
+                const voucher = buildVoucherRecord(customer.email, reward, points);
                 void storeVoucherRecord(voucher);
                 account.transactions.unshift({
                     id: `txn_${Date.now()}`,
@@ -2258,14 +2421,18 @@ const server = http.createServer(async (request, response) => {
         try {
             const body = await readBody(request);
             const code = String(body.code || "").trim().toUpperCase();
-            const email = normalizeEmail(body.email);
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
             if (!code) {
                 sendJSON(response, 400, { error: "Missing voucher code" });
                 return;
             }
 
-            const voucher = await consumeVoucher(code, email || undefined);
+            const voucher = await consumeVoucher(code, customer.email);
             sendJSON(response, 200, voucher);
         } catch (error) {
             const message = error.message || "Voucher could not be consumed";
@@ -2295,14 +2462,18 @@ const server = http.createServer(async (request, response) => {
         try {
             const body = await readBody(request);
             const code = String(body.code || "").trim().toUpperCase();
-            const email = normalizeEmail(body.email);
+            const requestedEmail = normalizeEmail(body.email);
+            const customer = authenticateCustomer(request, response, requestedEmail || null);
+            if (!customer) {
+                return;
+            }
 
             if (!code) {
                 sendJSON(response, 400, { error: "Missing voucher code" });
                 return;
             }
 
-            const voucher = await previewVoucher(code, email || undefined);
+            const voucher = await previewVoucher(code, customer.email);
             sendJSON(response, 200, voucher);
         } catch (error) {
             const message = error.message || "Voucher could not be previewed";
@@ -2329,14 +2500,13 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/vouchers") {
-        const email = normalizeEmail(url.searchParams.get("email"));
-
-        if (!email) {
-            sendJSON(response, 400, { error: "Missing email" });
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const customer = authenticateCustomer(request, response, requestedEmail || null);
+        if (!customer) {
             return;
         }
 
-        sendJSON(response, 200, await activeVouchersFor(email));
+        sendJSON(response, 200, await activeVouchersFor(customer.email));
         return;
     }
 

@@ -293,6 +293,7 @@ struct ContentView: View {
     @State private var isLoadingAvailableVouchers = false
     @AppStorage("app.appearanceMode") private var savedAppearanceMode = AppearanceMode.system.rawValue
     @AppStorage("local.customerEmail") private var savedCustomerEmail = ""
+    @AppStorage("local.customerAccessToken") private var savedCustomerAccessToken = ""
     @AppStorage("loyalty.email") private var savedLoyaltyEmail = ""
     @AppStorage("favorites.productIDs") private var savedFavoriteProductIDs = ""
     @AppStorage("recentlyViewed.productIDs") private var savedRecentlyViewedProductIDs = ""
@@ -3776,8 +3777,8 @@ struct ContentView: View {
         customerAuthError = nil
 
         do {
-            let profile = try await AccountService.signIn(email: trimmedEmail, password: accountPassword)
-            applySignedInProfile(profile)
+            let session = try await AccountService.signIn(email: trimmedEmail, password: accountPassword)
+            applySignedInSession(session)
             accountPassword = ""
             showToast(message: "Signed in")
         } catch {
@@ -3824,14 +3825,14 @@ struct ContentView: View {
         customerAuthError = nil
 
         do {
-            let profile = try await AccountService.register(
+            let session = try await AccountService.register(
                 firstName: trimmedFirstName,
                 lastName: trimmedLastName,
                 email: trimmedEmail,
                 password: accountPassword
             )
 
-            applySignedInProfile(profile)
+            applySignedInSession(session)
             accountPassword = ""
             accountConfirmPassword = ""
             accountAuthMode = .signIn
@@ -3846,13 +3847,13 @@ struct ContentView: View {
 
     @MainActor
     private func loadCustomerProfile() async {
-        guard !savedCustomerEmail.isEmpty, !isLoadingCustomer else { return }
+        guard !savedCustomerAccessToken.isEmpty, !isLoadingCustomer else { return }
 
         isLoadingCustomer = true
         customerAuthError = nil
 
         do {
-            let profile = try await AccountService.fetchProfile(email: savedCustomerEmail)
+            let profile = try await AccountService.fetchProfile()
             applySignedInProfile(profile, loadLoyalty: loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } catch {
             signOutCustomer(clearError: false)
@@ -3864,6 +3865,7 @@ struct ContentView: View {
 
     private func signOutCustomer(clearError: Bool = true) {
         savedCustomerEmail = ""
+        savedCustomerAccessToken = ""
         customerProfile = nil
         accountAuthMode = .signIn
         accountFirstName = ""
@@ -3910,6 +3912,12 @@ struct ContentView: View {
             await loadAddresses()
             await loadAlertInbox()
         }
+    }
+
+    @MainActor
+    private func applySignedInSession(_ session: AccountService.CustomerSession, loadLoyalty: Bool = true) {
+        savedCustomerAccessToken = session.accessToken
+        applySignedInProfile(session.profile, loadLoyalty: loadLoyalty)
     }
 
     @MainActor
@@ -5014,8 +5022,28 @@ private enum ProductAlertNotificationService {
 
 private enum AccountService {
     private static let baseURL = BackendConfiguration.serviceBaseURL
+    private static let sessionTokenKey = "local.customerAccessToken"
 
-    static func register(firstName: String, lastName: String, email: String, password: String) async throws -> ContentView.ShopifyCustomerProfile {
+    struct CustomerSession {
+        let profile: ContentView.ShopifyCustomerProfile
+        let accessToken: String
+        let expiresAt: String
+    }
+
+    private static var accessToken: String {
+        UserDefaults.standard.string(forKey: sessionTokenKey) ?? ""
+    }
+
+    fileprivate static func authorize(_ request: inout URLRequest) throws {
+        let token = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else {
+            throw ContentView.LoyaltyServiceError.operationFailed("Sign in again to continue.")
+        }
+
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+
+    static func register(firstName: String, lastName: String, email: String, password: String) async throws -> CustomerSession {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Account service"))
         }
@@ -5031,10 +5059,10 @@ private enum AccountService {
             "password": password
         ])
 
-        return try await performProfileRequest(request)
+        return try await performCustomerSessionRequest(request)
     }
 
-    static func signIn(email: String, password: String) async throws -> ContentView.ShopifyCustomerProfile {
+    static func signIn(email: String, password: String) async throws -> CustomerSession {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
         }
@@ -5048,24 +5076,18 @@ private enum AccountService {
             "password": password
         ])
 
-        return try await performProfileRequest(request)
+        return try await performCustomerSessionRequest(request)
     }
 
-    static func fetchProfile(email: String) async throws -> ContentView.ShopifyCustomerProfile {
+    static func fetchProfile() async throws -> ContentView.ShopifyCustomerProfile {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
         }
 
-        var components = URLComponents(url: baseURL.appending(path: "/accounts/profile"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [URLQueryItem(name: "email", value: email)]
-
-        guard let url = components?.url else {
-            throw ContentView.LoyaltyServiceError.operationFailed("The account service URL is invalid.")
-        }
-
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/session"))
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
 
         return try await performProfileRequest(request)
     }
@@ -5079,6 +5101,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "firstName": firstName,
@@ -5097,6 +5120,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "currentPassword": currentPassword,
@@ -5121,6 +5145,7 @@ private enum AccountService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
 
         return try await performOrdersRequest(request)
     }
@@ -5134,6 +5159,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email
         ])
@@ -5156,6 +5182,7 @@ private enum AccountService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
 
         return try await performStockAlertsRequest(request)
     }
@@ -5175,6 +5202,7 @@ private enum AccountService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
 
         return try await performAlertInboxRequest(request)
     }
@@ -5198,6 +5226,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         return try await performStockAlertRequest(request)
@@ -5212,6 +5241,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "productID": productID
@@ -5241,6 +5271,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "alerts": payloadAlerts
@@ -5264,6 +5295,7 @@ private enum AccountService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
 
         return try await performAddressesRequest(request)
     }
@@ -5289,6 +5321,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         return try await performAddressesRequest(request)
@@ -5303,6 +5336,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "addressID": addressID
@@ -5326,6 +5360,7 @@ private enum AccountService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
 
         return try await performVouchersRequest(request)
     }
@@ -5339,6 +5374,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "code": code,
             "email": email
@@ -5356,6 +5392,7 @@ private enum AccountService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "code": code,
             "email": email
@@ -5379,6 +5416,7 @@ private enum AccountService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        try authorize(&request)
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -5400,6 +5438,34 @@ private enum AccountService {
         throw ContentView.LoyaltyServiceError.operationFailed("The wallet service could not complete your request.")
     }
 #endif
+
+    private static func performCustomerSessionRequest(_ request: URLRequest) async throws -> CustomerSession {
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The account service returned an invalid response.")
+        }
+
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            let decoded = try JSONDecoder().decode(AccountSessionResponse.self, from: data)
+            return CustomerSession(
+                profile: ContentView.ShopifyCustomerProfile(
+                    id: decoded.profile.id,
+                    firstName: decoded.profile.firstName,
+                    lastName: decoded.profile.lastName,
+                    email: decoded.profile.email
+                ),
+                accessToken: decoded.accessToken,
+                expiresAt: decoded.expiresAt
+            )
+        }
+
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+
+        throw ContentView.LoyaltyServiceError.operationFailed("The account service could not complete your request.")
+    }
 
     private static func performProfileRequest(_ request: URLRequest) async throws -> ContentView.ShopifyCustomerProfile {
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -5588,6 +5654,7 @@ private enum LoyaltyService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try AccountService.authorize(&request)
 
         return try await performLoyaltyRequest(request)
     }
@@ -5601,6 +5668,7 @@ private enum LoyaltyService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try AccountService.authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "points": points,
@@ -5619,6 +5687,7 @@ private enum LoyaltyService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try AccountService.authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "points": points,
@@ -6298,6 +6367,12 @@ private struct AccountProfileResponse: Decodable {
     let firstName: String?
     let lastName: String?
     let email: String
+}
+
+private struct AccountSessionResponse: Decodable {
+    let profile: AccountProfileResponse
+    let accessToken: String
+    let expiresAt: String
 }
 
 private struct ServiceErrorResponse: Decodable {

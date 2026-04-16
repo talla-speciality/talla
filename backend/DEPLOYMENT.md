@@ -28,6 +28,8 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me
 ADMIN_SESSION_SECRET=replace-with-a-random-secret
 ADMIN_SESSION_HOURS=12
+CUSTOMER_TOKEN_SECRET=replace-with-a-different-random-secret
+CUSTOMER_TOKEN_HOURS=168
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
 WALLET_P12_BASE64=
@@ -43,6 +45,7 @@ Notes:
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
 - `DATABASE_URL` should point to your managed Postgres instance
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` power the admin login and signed session cookie
+- `CUSTOMER_TOKEN_SECRET` signs customer bearer tokens; set it explicitly in production even though the backend can fall back to `ADMIN_SESSION_SECRET`
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 
 ## Build and run locally with Docker
@@ -86,8 +89,7 @@ Do not use `127.0.0.1`, `localhost`, or a private LAN IP for production users.
 
 This backend is deployable, but not yet production-hardened. Before public launch, you should add:
 
-- customer authentication/session tokens on top of the now database-backed backend
-- customer authentication tokens instead of email-only access patterns
+- refresh token flow or revocable customer sessions instead of a single long-lived signed bearer token
 - stronger admin authentication and authorization than HTTP Basic Auth
 - immutable audit review workflow for sensitive admin actions
 - request logging and monitoring

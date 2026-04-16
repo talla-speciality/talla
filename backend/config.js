@@ -29,6 +29,8 @@ module.exports = {
     adminPassword: process.env.ADMIN_PASSWORD || "",
     adminSessionSecret: process.env.ADMIN_SESSION_SECRET || "",
     adminSessionHours: toNumber(process.env.ADMIN_SESSION_HOURS, 12),
+    customerTokenSecret: process.env.CUSTOMER_TOKEN_SECRET || process.env.ADMIN_SESSION_SECRET || "",
+    customerTokenHours: toNumber(process.env.CUSTOMER_TOKEN_HOURS, 168),
     stores: {
         loyalty: path.join(dataDirectory, "loyalty.json"),
         accounts: path.join(dataDirectory, "accounts.json"),
