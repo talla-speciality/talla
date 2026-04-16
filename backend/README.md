@@ -43,7 +43,9 @@ The server reads configuration from environment variables:
 - `DATA_DIRECTORY`: JSON data storage directory
 - `DATABASE_URL`: optional Postgres connection string for accounts, loyalty, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox
 - `ADMIN_USERNAME`: HTTP Basic Auth username for `/admin`
-- `ADMIN_PASSWORD`: HTTP Basic Auth password for `/admin`
+- `ADMIN_PASSWORD`: admin password for `/admin`
+- `ADMIN_SESSION_SECRET`: secret used to sign admin session cookies
+- `ADMIN_SESSION_HOURS`: admin session lifetime in hours, defaults to `12`
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
 - `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
@@ -59,7 +61,7 @@ The backend serves a lightweight admin console at:
 /admin
 ```
 
-It is protected with HTTP Basic Auth using `ADMIN_USERNAME` and `ADMIN_PASSWORD`.
+It uses a login form backed by a signed admin session cookie. Configure it with `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET`.
 
 Current admin capabilities:
 
@@ -68,6 +70,7 @@ Current admin capabilities:
 - manual loyalty point adjustments
 - visibility into orders, addresses, vouchers, stock alerts, and inbox records
 - audit trail for admin loyalty adjustments
+- logout support and cookie-based admin sessions
 
 ## Seed Account
 
@@ -159,5 +162,5 @@ Content-Type: application/json
 - If `DATABASE_URL` is set, the backend uses Postgres for accounts, loyalty records, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox records.
 - For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
 - This is still a transitional backend, not a final production architecture.
-- Before going live, replace HTTP Basic Auth with stronger admin authentication and put the service behind HTTPS.
+- Before going live, replace the single shared admin credential with a proper multi-user admin model and put the service behind HTTPS.
 - The iOS app should point `BackendBaseURL` at this API's public HTTPS URL in production.

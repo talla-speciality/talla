@@ -26,6 +26,8 @@ DATA_DIRECTORY=/data
 DATABASE_URL=postgres://...
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me
+ADMIN_SESSION_SECRET=replace-with-a-random-secret
+ADMIN_SESSION_HOURS=12
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
 WALLET_P12_BASE64=
@@ -40,7 +42,7 @@ Notes:
 - `APP_URL` should be your real public URL
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
 - `DATABASE_URL` should point to your managed Postgres instance
-- `ADMIN_USERNAME` and `ADMIN_PASSWORD` protect `/admin` with HTTP Basic Auth
+- `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` power the admin login and signed session cookie
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 
 ## Build and run locally with Docker

@@ -28,6 +28,31 @@
             margin: 0 auto;
             padding: 32px 20px 56px;
         }
+        .shell.hidden,
+        .login-shell.hidden {
+            display: none;
+        }
+        .login-shell {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+        .login-card {
+            width: min(460px, 100%);
+            padding: 28px;
+            background: color-mix(in srgb, var(--panel) 88%, white 12%);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            box-shadow: 0 18px 40px rgba(39, 23, 13, 0.08);
+            display: grid;
+            gap: 14px;
+        }
+        .login-card h2 {
+            margin: 0;
+            font-family: Georgia, serif;
+            font-size: 32px;
+        }
         .hero {
             display: grid;
             gap: 12px;
@@ -69,6 +94,17 @@
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
+        }
+        .toolbar-row.space-between {
+            justify-content: space-between;
+            align-items: center;
+        }
+        .admin-session {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: var(--muted);
+            font-size: 14px;
         }
         input, button {
             font: inherit;
@@ -189,7 +225,19 @@
     </style>
 </head>
 <body>
-    <div class="shell">
+    <section id="login-shell" class="login-shell">
+        <div class="login-card">
+            <div class="eyebrow">Talla Speciality Admin</div>
+            <h2>Admin Sign In</h2>
+            <div class="subcopy">Use your admin credentials to open the customer and loyalty console.</div>
+            <input id="login-username" type="text" placeholder="Admin username" autocomplete="username">
+            <input id="login-password" type="password" placeholder="Admin password" autocomplete="current-password">
+            <button id="login-button">Sign In</button>
+            <div id="login-status" class="status"></div>
+        </div>
+    </section>
+
+    <div id="app-shell" class="shell hidden">
         <section class="hero">
             <div class="eyebrow">Talla Speciality Admin</div>
             <h1>Customer and Loyalty Console</h1>
@@ -197,12 +245,16 @@
         </section>
 
         <section class="toolbar">
+            <div class="toolbar-row space-between">
+                <div id="session-summary" class="admin-session"></div>
+                <button id="logout" class="secondary">Log Out</button>
+            </div>
             <div class="toolbar-row">
                 <input id="email" class="email-input" type="email" placeholder="customer@email.com" autocomplete="off">
                 <button id="lookup">Lookup Customer</button>
                 <button id="refresh" class="secondary">Refresh</button>
             </div>
-            <div id="status" class="status">Admin access is protected by HTTP Basic Auth.</div>
+            <div id="status" class="status">Signed in. Search for a customer to begin.</div>
         </section>
 
         <section class="layout">
@@ -226,7 +278,15 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null };
+        const state = { currentEmail: "", customer: null, session: null };
+        const loginShell = document.getElementById("login-shell");
+        const appShell = document.getElementById("app-shell");
+        const loginUsernameInput = document.getElementById("login-username");
+        const loginPasswordInput = document.getElementById("login-password");
+        const loginButton = document.getElementById("login-button");
+        const logoutButton = document.getElementById("logout");
+        const loginStatusEl = document.getElementById("login-status");
+        const sessionSummaryEl = document.getElementById("session-summary");
         const emailInput = document.getElementById("email");
         const lookupButton = document.getElementById("lookup");
         const refreshButton = document.getElementById("refresh");
@@ -239,6 +299,30 @@
         function setStatus(message, isError = false) {
             statusEl.textContent = message;
             statusEl.style.color = isError ? "#9b1c1c" : "var(--muted)";
+        }
+
+        function setLoginStatus(message, isError = false) {
+            loginStatusEl.textContent = message;
+            loginStatusEl.style.color = isError ? "#9b1c1c" : "var(--muted)";
+        }
+
+        function showLogin() {
+            loginShell.classList.remove("hidden");
+            appShell.classList.add("hidden");
+        }
+
+        function showApp() {
+            loginShell.classList.add("hidden");
+            appShell.classList.remove("hidden");
+        }
+
+        function renderSession() {
+            if (!state.session) {
+                sessionSummaryEl.textContent = "";
+                return;
+            }
+
+            sessionSummaryEl.textContent = `Signed in as ${state.session.username}`;
         }
 
         function renderList(items, renderItem, emptyMessage) {
@@ -302,6 +386,71 @@
             return payload;
         }
 
+        async function fetchSession() {
+            const response = await fetch("/admin/api/session");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load admin session.");
+            return payload;
+        }
+
+        async function login() {
+            const username = loginUsernameInput.value.trim();
+            const password = loginPasswordInput.value;
+            if (!username || !password) {
+                setLoginStatus("Enter both username and password.", true);
+                return;
+            }
+
+            setLoginStatus("Signing in...");
+            try {
+                const response = await fetch("/admin/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Sign-in failed.");
+                state.session = payload;
+                loginPasswordInput.value = "";
+                renderSession();
+                showApp();
+                setStatus("Signed in. Search for a customer to begin.");
+            } catch (error) {
+                setLoginStatus(error.message, true);
+            }
+        }
+
+        async function logout() {
+            await fetch("/admin/api/logout", { method: "POST" });
+            state.session = null;
+            state.currentEmail = "";
+            state.customer = null;
+            emailInput.value = "";
+            pointsInput.value = "";
+            noteInput.value = "";
+            renderCustomer(null);
+            renderSession();
+            setLoginStatus("Signed out.");
+            showLogin();
+        }
+
+        async function bootstrap() {
+            try {
+                const session = await fetchSession();
+                if (!session.authenticated) {
+                    showLogin();
+                    return;
+                }
+
+                state.session = session;
+                renderSession();
+                showApp();
+            } catch (error) {
+                showLogin();
+                setLoginStatus(error.message, true);
+            }
+        }
+
         async function lookupCustomer() {
             const email = emailInput.value.trim().toLowerCase();
             if (!email) {
@@ -317,6 +466,10 @@
                 renderCustomer(customer);
                 setStatus(`Loaded ${customer.profile.email}`);
             } catch (error) {
+                if (error.message === "Admin authorization required.") {
+                    await logout();
+                    return;
+                }
                 state.customer = null;
                 renderCustomer(null);
                 setStatus(error.message, true);
@@ -350,16 +503,29 @@
                 await lookupCustomer();
                 setStatus(`Updated loyalty balance for ${payload.profile.email}`);
             } catch (error) {
+                if (error.message === "Admin authorization required.") {
+                    await logout();
+                    return;
+                }
                 setStatus(error.message, true);
             }
         }
 
+        loginButton.addEventListener("click", login);
+        logoutButton.addEventListener("click", logout);
         lookupButton.addEventListener("click", lookupCustomer);
         refreshButton.addEventListener("click", () => state.currentEmail ? lookupCustomer() : setStatus("No customer loaded yet."));
         adjustButton.addEventListener("click", adjustLoyalty);
+        loginUsernameInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") login();
+        });
+        loginPasswordInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") login();
+        });
         emailInput.addEventListener("keydown", (event) => {
             if (event.key === "Enter") lookupCustomer();
         });
+        bootstrap();
     </script>
 </body>
 </html>

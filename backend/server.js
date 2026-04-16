@@ -21,6 +21,8 @@ const alertInboxStorePath = config.stores.alertInbox;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
+const adminSessionSecret = config.adminSessionSecret;
+const adminSessionHours = config.adminSessionHours;
 const loyaltyPointsPerBHD = 10;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
@@ -33,6 +35,8 @@ const walletPassCertificateBase64 = config.walletPassCertificateBase64;
 const walletPassCertificatePassword = config.walletPassCertificatePassword;
 const walletPassWWDRPath = config.walletPassWWDRPath;
 const walletPassWWDRBase64 = config.walletPassWWDRBase64;
+const adminSessionCookieName = "talla_admin_session";
+const adminSessions = new Map();
 
 ensureStoreFile(loyaltyStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
@@ -60,46 +64,146 @@ function writeJSON(filePath, payload) {
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
 }
 
-function sendJSON(response, statusCode, payload) {
+function sendJSON(response, statusCode, payload, extraHeaders = {}) {
     response.writeHead(statusCode, {
         "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": config.corsAllowedOrigin,
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type",
+        ...extraHeaders
     });
     response.end(JSON.stringify(payload));
 }
 
-function sendHTML(response, statusCode, payload) {
+function sendHTML(response, statusCode, payload, extraHeaders = {}) {
     response.writeHead(statusCode, {
-        "Content-Type": "text/html; charset=utf-8"
+        "Content-Type": "text/html; charset=utf-8",
+        ...extraHeaders
     });
     response.end(payload);
 }
 
 function adminCredentialsConfigured() {
-    return Boolean(adminUsername && adminPassword);
+    return Boolean(adminUsername && adminPassword && adminSessionSecret);
 }
 
-function parseBasicAuth(headerValue) {
-    if (!headerValue || !headerValue.startsWith("Basic ")) {
-        return null;
+function signSessionValue(value) {
+    return crypto
+        .createHmac("sha256", adminSessionSecret)
+        .update(String(value))
+        .digest("hex");
+}
+
+function parseCookies(headerValue) {
+    if (!headerValue) {
+        return {};
     }
 
-    try {
-        const decoded = Buffer.from(headerValue.slice(6), "base64").toString("utf8");
-        const separatorIndex = decoded.indexOf(":");
+    return headerValue.split(";").reduce((cookies, segment) => {
+        const separatorIndex = segment.indexOf("=");
         if (separatorIndex < 0) {
-            return null;
+            return cookies;
         }
 
-        return {
-            username: decoded.slice(0, separatorIndex),
-            password: decoded.slice(separatorIndex + 1)
-        };
-    } catch {
+        const key = segment.slice(0, separatorIndex).trim();
+        const value = segment.slice(separatorIndex + 1).trim();
+        cookies[key] = decodeURIComponent(value);
+        return cookies;
+    }, {});
+}
+
+function pruneAdminSessions() {
+    const now = Date.now();
+    for (const [sessionID, session] of adminSessions.entries()) {
+        if (session.expiresAt <= now) {
+            adminSessions.delete(sessionID);
+        }
+    }
+}
+
+function adminSessionCookieAttributes(expiresAt) {
+    const attributes = [
+        `${adminSessionCookieName}=`,
+        "Path=/admin",
+        "HttpOnly",
+        "SameSite=Lax"
+    ];
+
+    if (config.appURL.startsWith("https://")) {
+        attributes.push("Secure");
+    }
+
+    if (expiresAt) {
+        attributes[0] = `${adminSessionCookieName}=`;
+        attributes.push(`Expires=${new Date(expiresAt).toUTCString()}`);
+    } else {
+        attributes.push("Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    }
+
+    return attributes;
+}
+
+function createAdminSession(username) {
+    pruneAdminSessions();
+    const sessionID = crypto.randomBytes(24).toString("hex");
+    const expiresAt = Date.now() + adminSessionHours * 60 * 60 * 1000;
+    adminSessions.set(sessionID, { username, expiresAt });
+    const signedValue = `${sessionID}.${signSessionValue(sessionID)}`;
+
+    return {
+        username,
+        expiresAt,
+        cookie: adminSessionCookieAttributes(expiresAt).map((part, index) => (
+            index === 0 ? `${adminSessionCookieName}=${encodeURIComponent(signedValue)}` : part
+        )).join("; ")
+    };
+}
+
+function clearAdminSessionCookie() {
+    return adminSessionCookieAttributes(null).join("; ");
+}
+
+function getAdminSession(request) {
+    pruneAdminSessions();
+    const cookies = parseCookies(request.headers.cookie);
+    const rawValue = cookies[adminSessionCookieName];
+
+    if (!rawValue) {
         return null;
     }
+
+    const separatorIndex = rawValue.indexOf(".");
+    if (separatorIndex < 0) {
+        return null;
+    }
+
+    const sessionID = rawValue.slice(0, separatorIndex);
+    const providedSignature = rawValue.slice(separatorIndex + 1);
+    const expectedSignature = signSessionValue(sessionID);
+    const providedBuffer = Buffer.from(providedSignature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (providedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
+        return null;
+    }
+
+    const session = adminSessions.get(sessionID);
+    if (!session || session.expiresAt <= Date.now()) {
+        adminSessions.delete(sessionID);
+        return null;
+    }
+
+    return {
+        id: sessionID,
+        username: session.username,
+        expiresAt: session.expiresAt
+    };
+}
+
+function parseAdminLogin(body) {
+    const username = String(body.username || "").trim();
+    const password = String(body.password || "");
+    return { username, password };
 }
 
 function ensureAdminAccess(request, response) {
@@ -108,17 +212,13 @@ function ensureAdminAccess(request, response) {
         return false;
     }
 
-    const credentials = parseBasicAuth(request.headers.authorization);
-    if (!credentials || credentials.username !== adminUsername || credentials.password !== adminPassword) {
-        response.writeHead(401, {
-            "WWW-Authenticate": 'Basic realm="Talla Admin"',
-            "Content-Type": "application/json; charset=utf-8"
-        });
-        response.end(JSON.stringify({ error: "Admin authorization required." }));
+    const session = getAdminSession(request);
+    if (!session) {
+        sendJSON(response, 401, { error: "Admin authorization required." });
         return false;
     }
 
-    return credentials;
+    return session;
 }
 
 function normalizeEmail(email) {
@@ -1427,8 +1527,8 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && (url.pathname === "/admin" || url.pathname === "/admin/")) {
-        const admin = ensureAdminAccess(request, response);
-        if (!admin) {
+        if (!adminCredentialsConfigured()) {
+            sendJSON(response, 503, { error: "Admin credentials are not configured." });
             return;
         }
 
@@ -1443,6 +1543,61 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (url.pathname.startsWith("/admin/api/")) {
+        if (request.method === "GET" && url.pathname === "/admin/api/session") {
+            if (!adminCredentialsConfigured()) {
+                sendJSON(response, 503, { error: "Admin credentials are not configured." });
+                return;
+            }
+
+            const session = getAdminSession(request);
+            if (!session) {
+                sendJSON(response, 200, { authenticated: false });
+                return;
+            }
+
+            sendJSON(response, 200, {
+                authenticated: true,
+                username: session.username,
+                expiresAt: new Date(session.expiresAt).toISOString()
+            });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/login") {
+            try {
+                const body = await readBody(request);
+                const credentials = parseAdminLogin(body);
+                if (credentials.username !== adminUsername || credentials.password !== adminPassword) {
+                    sendJSON(response, 401, { error: "Invalid admin credentials." });
+                    return;
+                }
+
+                const session = createAdminSession(credentials.username);
+                sendJSON(response, 200, {
+                    authenticated: true,
+                    username: session.username,
+                    expiresAt: new Date(session.expiresAt).toISOString()
+                }, {
+                    "Set-Cookie": session.cookie
+                });
+            } catch {
+                sendJSON(response, 400, { error: "Invalid JSON body." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/logout") {
+            const session = getAdminSession(request);
+            if (session) {
+                adminSessions.delete(session.id);
+            }
+
+            sendJSON(response, 200, { success: true }, {
+                "Set-Cookie": clearAdminSessionCookie()
+            });
+            return;
+        }
+
         const admin = ensureAdminAccess(request, response);
         if (!admin) {
             return;

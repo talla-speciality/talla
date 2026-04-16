@@ -27,6 +27,8 @@ module.exports = {
     adminDirectory,
     adminUsername: process.env.ADMIN_USERNAME || "",
     adminPassword: process.env.ADMIN_PASSWORD || "",
+    adminSessionSecret: process.env.ADMIN_SESSION_SECRET || "",
+    adminSessionHours: toNumber(process.env.ADMIN_SESSION_HOURS, 12),
     stores: {
         loyalty: path.join(dataDirectory, "loyalty.json"),
         accounts: path.join(dataDirectory, "accounts.json"),
