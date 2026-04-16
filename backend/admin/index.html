@@ -255,7 +255,7 @@
                 return;
             }
 
-            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders } = customer;
+            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs } = customer;
             snapshotEl.className = "";
             snapshotEl.innerHTML = `
                 <div class="grid">
@@ -289,6 +289,8 @@
                     <div class="list">${renderList(alerts, alert => `<div class="list-item"><strong>${alert.productName}</strong><div class="muted">${alert.status}</div></div>`, "No stock alerts.")}</div>
                     <h2 style="margin-top:22px;">Alert Inbox</h2>
                     <div class="list">${renderList(inbox, item => `<div class="list-item"><strong>${item.title}</strong><div class="muted">${item.detail}</div></div>`, "No inbox items.")}</div>
+                    <h2 style="margin-top:22px;">Admin Audit Trail</h2>
+                    <div class="list">${renderList(auditLogs, entry => `<div class="list-item"><strong>${entry.detail}</strong><div class="muted">${entry.adminUsername} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No admin actions recorded.")}</div>
                 </div>
             `;
         }

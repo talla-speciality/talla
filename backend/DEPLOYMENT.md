@@ -87,6 +87,7 @@ This backend is deployable, but not yet production-hardened. Before public launc
 - customer authentication/session tokens on top of the now database-backed backend
 - customer authentication tokens instead of email-only access patterns
 - stronger admin authentication and authorization than HTTP Basic Auth
+- immutable audit review workflow for sensitive admin actions
 - request logging and monitoring
 - rate limiting
 - secret management for Wallet signing assets

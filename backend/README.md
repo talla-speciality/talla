@@ -67,6 +67,7 @@ Current admin capabilities:
 - loyalty balance inspection
 - manual loyalty point adjustments
 - visibility into orders, addresses, vouchers, stock alerts, and inbox records
+- audit trail for admin loyalty adjustments
 
 ## Seed Account
 

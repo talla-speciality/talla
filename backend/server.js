@@ -118,7 +118,7 @@ function ensureAdminAccess(request, response) {
         return false;
     }
 
-    return true;
+    return credentials;
 }
 
 function normalizeEmail(email) {
@@ -171,6 +171,18 @@ function loyaltyPayload(account) {
         nextReward: account.nextReward,
         perks: account.perks,
         transactions: account.transactions || []
+    };
+}
+
+function adminAuditRowToRecord(row) {
+    return {
+        id: row.id,
+        adminUsername: row.admin_username,
+        action: row.action,
+        targetEmail: row.target_email,
+        detail: row.detail,
+        metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
     };
 }
 
@@ -1330,19 +1342,53 @@ async function alertInboxFor(email) {
     return store.alerts[email] || [];
 }
 
+async function adminAuditLogsFor(email, limit = 20) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, admin_username, action, target_email, detail, metadata, created_at
+             FROM admin_audit_logs
+             WHERE target_email = $1
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [email, limit]
+        );
+        return result.rows.map(adminAuditRowToRecord);
+    }
+
+    return [];
+}
+
+async function createAdminAuditLog({ adminUser, action, targetEmail, detail, metadata = {} }) {
+    if (!database.isEnabled()) {
+        return null;
+    }
+
+    const createdAt = new Date().toISOString();
+    const id = `audit_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
+    await database.query(
+        `INSERT INTO admin_audit_logs
+         (id, admin_username, action, target_email, detail, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
+        [id, adminUser, action, targetEmail, detail, JSON.stringify(metadata), createdAt]
+    );
+
+    return { id, adminUser, action, targetEmail, detail, metadata, createdAt };
+}
+
 async function adminCustomerSummary(email) {
     const account = await getAccountByEmail(email);
     if (!account) {
         return null;
     }
 
-    const [loyalty, orders, alerts, inbox, addresses, vouchers] = await Promise.all([
+    const [loyalty, orders, alerts, inbox, addresses, vouchers, auditLogs] = await Promise.all([
         ensureLoyaltyAccount(email),
         ordersPayload(email),
         stockAlertsFor(email),
         alertInboxFor(email),
         addressesFor(email),
-        activeVouchersFor(email)
+        activeVouchersFor(email),
+        adminAuditLogsFor(email)
     ]);
 
     return {
@@ -1352,7 +1398,8 @@ async function adminCustomerSummary(email) {
         alerts,
         inbox,
         addresses,
-        vouchers
+        vouchers,
+        auditLogs
     };
 }
 
@@ -1380,7 +1427,8 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && (url.pathname === "/admin" || url.pathname === "/admin/")) {
-        if (!ensureAdminAccess(request, response)) {
+        const admin = ensureAdminAccess(request, response);
+        if (!admin) {
             return;
         }
 
@@ -1395,7 +1443,8 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (url.pathname.startsWith("/admin/api/")) {
-        if (!ensureAdminAccess(request, response)) {
+        const admin = ensureAdminAccess(request, response);
+        if (!admin) {
             return;
         }
 
@@ -1451,6 +1500,18 @@ const server = http.createServer(async (request, response) => {
                         note,
                         createdAt: new Date().toISOString()
                     });
+                });
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "loyalty_adjustment",
+                    targetEmail: email,
+                    detail: `${points > 0 ? "Added" : "Removed"} ${Math.abs(points)} points`,
+                    metadata: {
+                        points,
+                        note,
+                        resultingBalance: updated.pointsBalance
+                    }
                 });
 
                 sendJSON(response, 200, {

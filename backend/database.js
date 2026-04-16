@@ -134,6 +134,18 @@ async function initializeDatabase() {
         );
     `);
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS admin_audit_logs (
+            id TEXT PRIMARY KEY,
+            admin_username TEXT NOT NULL,
+            action TEXT NOT NULL,
+            target_email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
+            detail TEXT NOT NULL,
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL
+        );
+    `);
+
     return true;
 }
 
