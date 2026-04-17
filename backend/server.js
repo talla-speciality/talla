@@ -28,6 +28,10 @@ const customerTokenHours = config.customerTokenHours;
 const rateLimitWindowMs = config.rateLimitWindowMs;
 const rateLimitMaxRequests = config.rateLimitMaxRequests;
 const requestLoggingEnabled = config.requestLoggingEnabled;
+const shopifyAdminShopDomain = config.shopifyAdminShopDomain;
+const shopifyAdminAccessToken = config.shopifyAdminAccessToken;
+const shopifyAdminAPIVersion = config.shopifyAdminAPIVersion;
+const shopifyAdminPublicationID = config.shopifyAdminPublicationID;
 const loyaltyPointsPerBHD = 10;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
@@ -87,6 +91,241 @@ function sendHTML(response, statusCode, payload, extraHeaders = {}) {
         ...extraHeaders
     });
     response.end(payload);
+}
+
+function shopifyAdminConfigured() {
+    return Boolean(shopifyAdminShopDomain && shopifyAdminAccessToken);
+}
+
+async function shopifyAdminGraphQLRequest(query, variables = {}) {
+    if (!shopifyAdminConfigured()) {
+        throw new Error("SHOPIFY_ADMIN_NOT_CONFIGURED");
+    }
+
+    const response = await fetch(`https://${shopifyAdminShopDomain}/admin/api/${shopifyAdminAPIVersion}/graphql.json`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-Shopify-Access-Token": shopifyAdminAccessToken
+        },
+        body: JSON.stringify({ query, variables })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload.errors?.[0]?.message || payload.error || `Shopify request failed with ${response.status}.`);
+    }
+
+    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+        throw new Error(payload.errors.map((entry) => entry.message).filter(Boolean).join(" "));
+    }
+
+    return payload.data || {};
+}
+
+function assertShopifyUserErrors(errors) {
+    if (!Array.isArray(errors) || errors.length === 0) {
+        return;
+    }
+
+    const message = errors
+        .map((entry) => entry.message)
+        .filter(Boolean)
+        .join(" ");
+
+    throw new Error(message || "Shopify product update failed.");
+}
+
+function shopifyAdminProductPayload(node) {
+    const firstVariant = node?.variants?.edges?.[0]?.node || null;
+    return {
+        id: node.id,
+        title: node.title,
+        status: node.status,
+        productType: node.productType || "",
+        onlineStoreURL: node.onlineStoreUrl || null,
+        defaultVariantID: firstVariant?.id || null,
+        price: firstVariant?.price || ""
+    };
+}
+
+async function listShopifyAdminProducts() {
+    const data = await shopifyAdminGraphQLRequest(
+        `query AdminProducts($first: Int!) {
+            products(first: $first, sortKey: UPDATED_AT, reverse: true) {
+                edges {
+                    node {
+                        id
+                        title
+                        status
+                        productType
+                        onlineStoreUrl
+                        variants(first: 1) {
+                            edges {
+                                node {
+                                    id
+                                    price
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }`,
+        { first: 40 }
+    );
+
+    return (data.products?.edges || []).map(({ node }) => shopifyAdminProductPayload(node));
+}
+
+async function publishShopifyProduct(productID) {
+    if (!shopifyAdminPublicationID) {
+        return false;
+    }
+
+    const data = await shopifyAdminGraphQLRequest(
+        `mutation PublishProduct($id: ID!, $input: [PublicationInput!]!) {
+            publishablePublish(id: $id, input: $input) {
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }`,
+        {
+            id: productID,
+            input: [{ publicationId: shopifyAdminPublicationID }]
+        }
+    );
+
+    assertShopifyUserErrors(data.publishablePublish?.userErrors);
+    return true;
+}
+
+async function createShopifyAdminProduct({ title, price, productType }) {
+    const data = await shopifyAdminGraphQLRequest(
+        `mutation CreateProduct($product: ProductCreateInput!) {
+            productCreate(product: $product) {
+                product {
+                    id
+                    title
+                    status
+                    productType
+                    onlineStoreUrl
+                    variants(first: 1) {
+                        edges {
+                            node {
+                                id
+                                price
+                            }
+                        }
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }`,
+        {
+            product: {
+                title,
+                productType: productType || undefined,
+                status: "ACTIVE"
+            }
+        }
+    );
+
+    assertShopifyUserErrors(data.productCreate?.userErrors);
+    const product = shopifyAdminProductPayload(data.productCreate.product);
+
+    if (product.defaultVariantID && typeof price === "number") {
+        await updateShopifyAdminProduct({
+            productID: product.id,
+            defaultVariantID: product.defaultVariantID,
+            price
+        });
+    }
+
+    const published = await publishShopifyProduct(product.id);
+    const refreshedProducts = await listShopifyAdminProducts();
+    const refreshed = refreshedProducts.find((entry) => entry.id === product.id) || product;
+    return {
+        product: refreshed,
+        published
+    };
+}
+
+async function updateShopifyAdminProduct({ productID, title, defaultVariantID, price }) {
+    if (title) {
+        const productUpdateData = await shopifyAdminGraphQLRequest(
+            `mutation UpdateProduct($product: ProductUpdateInput!) {
+                productUpdate(product: $product) {
+                    product {
+                        id
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }`,
+            {
+                product: {
+                    id: productID,
+                    title
+                }
+            }
+        );
+
+        assertShopifyUserErrors(productUpdateData.productUpdate?.userErrors);
+    }
+
+    if (defaultVariantID && typeof price === "number") {
+        const variantUpdateData = await shopifyAdminGraphQLRequest(
+            `mutation UpdateVariantPrice($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+                productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }`,
+            {
+                productId: productID,
+                variants: [{
+                    id: defaultVariantID,
+                    price: price.toFixed(2)
+                }]
+            }
+        );
+
+        assertShopifyUserErrors(variantUpdateData.productVariantsBulkUpdate?.userErrors);
+    }
+
+    const products = await listShopifyAdminProducts();
+    return products.find((entry) => entry.id === productID) || null;
+}
+
+async function deleteShopifyAdminProduct(productID) {
+    const data = await shopifyAdminGraphQLRequest(
+        `mutation DeleteProduct($input: ProductDeleteInput!, $synchronous: Boolean) {
+            productDelete(input: $input, synchronous: $synchronous) {
+                deletedProductId
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }`,
+        {
+            input: { id: productID },
+            synchronous: true
+        }
+    );
+
+    assertShopifyUserErrors(data.productDelete?.userErrors);
+    return data.productDelete?.deletedProductId || productID;
 }
 
 function clientIPAddress(request) {
@@ -1973,6 +2212,118 @@ const server = http.createServer(async (request, response) => {
 
         if (request.method === "GET" && url.pathname === "/admin/api/ops/summary") {
             sendJSON(response, 200, await adminOperationsSummary());
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/products") {
+            if (!shopifyAdminConfigured()) {
+                sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
+                return;
+            }
+
+            sendJSON(response, 200, {
+                products: await listShopifyAdminProducts(),
+                publicationConfigured: Boolean(shopifyAdminPublicationID)
+            });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/products") {
+            if (!shopifyAdminConfigured()) {
+                sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
+                return;
+            }
+
+            try {
+                const body = await readBody(request);
+                const title = String(body.title || "").trim();
+                const productType = String(body.productType || "").trim();
+                const price = Number(body.price);
+
+                if (!title || !Number.isFinite(price) || price < 0) {
+                    sendJSON(response, 400, { error: "Provide a title and a valid non-negative price." });
+                    return;
+                }
+
+                const result = await createShopifyAdminProduct({ title, productType, price });
+                sendJSON(response, 200, {
+                    product: result.product,
+                    publicationConfigured: Boolean(shopifyAdminPublicationID),
+                    published: result.published
+                });
+            } catch (error) {
+                if (error.message === "SHOPIFY_ADMIN_NOT_CONFIGURED") {
+                    sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
+                    return;
+                }
+
+                sendJSON(response, 400, { error: error.message || "Could not create product." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/products/update") {
+            if (!shopifyAdminConfigured()) {
+                sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
+                return;
+            }
+
+            try {
+                const body = await readBody(request);
+                const productID = String(body.id || "").trim();
+                const title = String(body.title || "").trim();
+                const defaultVariantID = String(body.defaultVariantID || "").trim() || null;
+                const hasPrice = body.price !== undefined && body.price !== null && String(body.price).trim() !== "";
+                const price = hasPrice ? Number(body.price) : undefined;
+
+                if (!productID || (!title && !hasPrice)) {
+                    sendJSON(response, 400, { error: "Provide a product plus a title or price to update." });
+                    return;
+                }
+
+                if (hasPrice && (!Number.isFinite(price) || price < 0)) {
+                    sendJSON(response, 400, { error: "Price must be a valid non-negative number." });
+                    return;
+                }
+
+                if (hasPrice && !defaultVariantID) {
+                    sendJSON(response, 400, { error: "This product has no default variant available for pricing." });
+                    return;
+                }
+
+                const product = await updateShopifyAdminProduct({
+                    productID,
+                    title: title || undefined,
+                    defaultVariantID,
+                    price
+                });
+
+                sendJSON(response, 200, { product });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not update product." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/products/delete") {
+            if (!shopifyAdminConfigured()) {
+                sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
+                return;
+            }
+
+            try {
+                const body = await readBody(request);
+                const productID = String(body.id || "").trim();
+                if (!productID) {
+                    sendJSON(response, 400, { error: "Missing product id." });
+                    return;
+                }
+
+                await deleteShopifyAdminProduct(productID);
+                sendJSON(response, 200, { success: true, id: productID });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not delete product." });
+            }
             return;
         }
 

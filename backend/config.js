@@ -34,6 +34,10 @@ module.exports = {
     rateLimitWindowMs: toNumber(process.env.RATE_LIMIT_WINDOW_MS, 60_000),
     rateLimitMaxRequests: toNumber(process.env.RATE_LIMIT_MAX_REQUESTS, 240),
     requestLoggingEnabled: process.env.REQUEST_LOGGING_ENABLED !== "false",
+    shopifyAdminShopDomain: process.env.SHOPIFY_ADMIN_SHOP_DOMAIN || "",
+    shopifyAdminAccessToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || "",
+    shopifyAdminAPIVersion: process.env.SHOPIFY_ADMIN_API_VERSION || "2025-10",
+    shopifyAdminPublicationID: process.env.SHOPIFY_ADMIN_PUBLICATION_ID || "",
     stores: {
         loyalty: path.join(dataDirectory, "loyalty.json"),
         accounts: path.join(dataDirectory, "accounts.json"),

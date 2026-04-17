@@ -33,6 +33,10 @@ CUSTOMER_TOKEN_HOURS=168
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX_REQUESTS=240
 REQUEST_LOGGING_ENABLED=true
+SHOPIFY_ADMIN_SHOP_DOMAIN=your-store.myshopify.com
+SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_...
+SHOPIFY_ADMIN_API_VERSION=2025-10
+SHOPIFY_ADMIN_PUBLICATION_ID=gid://shopify/Publication/...
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
 WALLET_P12_BASE64=
@@ -51,6 +55,8 @@ Notes:
 - `CUSTOMER_TOKEN_SECRET` enables customer session issuance; set it explicitly in production
 - `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS` control per-IP request throttling
 - `REQUEST_LOGGING_ENABLED=true` records request logs in Postgres for audit and debugging
+- `SHOPIFY_ADMIN_SHOP_DOMAIN` and `SHOPIFY_ADMIN_ACCESS_TOKEN` enable live product control from `/admin`
+- `SHOPIFY_ADMIN_PUBLICATION_ID` is optional, but without it newly created products may not appear in the storefront-backed iOS app
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 - `/admin` now includes an operations snapshot powered by `request_logs`
 

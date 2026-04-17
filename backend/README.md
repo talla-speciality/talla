@@ -10,6 +10,7 @@ Backend API for the Talla Speciality iOS app. This service currently backs:
 - vouchers
 - Wallet pass download
 - admin customer lookup and loyalty adjustments
+- Shopify product management from the admin console
 
 ## Run
 
@@ -51,6 +52,10 @@ The server reads configuration from environment variables:
 - `RATE_LIMIT_WINDOW_MS`: rate limit window in milliseconds, defaults to `60000`
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per IP and path within the window, defaults to `240`
 - `REQUEST_LOGGING_ENABLED`: writes request logs to Postgres when `true`
+- `SHOPIFY_ADMIN_SHOP_DOMAIN`: shop domain for Shopify Admin GraphQL, such as `your-store.myshopify.com`
+- `SHOPIFY_ADMIN_ACCESS_TOKEN`: custom app Admin API access token with product scopes
+- `SHOPIFY_ADMIN_API_VERSION`: Shopify Admin GraphQL version, defaults to `2025-10`
+- `SHOPIFY_ADMIN_PUBLICATION_ID`: optional publication ID used to publish newly created products to the storefront
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
 - `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
@@ -78,6 +83,7 @@ Current admin capabilities:
 - logout support and cookie-based admin sessions
 - rate limiting and request logging on the shared backend
 - operations snapshot for recent traffic, 5xx responses, and rate-limit activity
+- Shopify product add, update, and delete controls
 
 ## Seed Account
 
@@ -199,6 +205,8 @@ Content-Type: application/json
 - If `DATABASE_URL` is set, the backend also records request logs and revocable customer sessions in Postgres.
 - Customer-facing protected routes use revocable bearer-backed sessions rather than trusting raw email alone.
 - For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
+- Shopify-backed product control requires a custom app token with `read_products` and `write_products`.
+- Newly created products stay out of the storefront until they are published. Set `SHOPIFY_ADMIN_PUBLICATION_ID` if you want products created from `/admin` to appear in the iOS app automatically.
 - This is still a transitional backend, not a final production architecture.
 - Before going live, replace the single shared admin credential with a proper multi-user admin model and put the service behind HTTPS.
 - The iOS app should point `BackendBaseURL` at this API's public HTTPS URL in production.
