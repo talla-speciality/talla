@@ -1725,6 +1725,75 @@ async function adminAuditLogsFor(email, limit = 20) {
     return [];
 }
 
+function requestLogRowToRecord(row) {
+    return {
+        id: row.id,
+        method: row.method,
+        path: row.path,
+        statusCode: row.status_code,
+        ipAddress: row.ip_address,
+        durationMs: row.duration_ms,
+        userAgent: row.user_agent,
+        accountEmail: row.account_email,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+    };
+}
+
+async function adminOperationsSummary() {
+    if (!database.isEnabled()) {
+        return {
+            enabled: false,
+            totals: {
+                requestsLastHour: 0,
+                errorsLastHour: 0,
+                rateLimitedLastHour: 0,
+                avgDurationMs: 0
+            },
+            recentErrors: [],
+            recentRateLimits: []
+        };
+    }
+
+    const totalsResult = await database.query(
+        `SELECT
+            COUNT(*)::int AS requests_last_hour,
+            COUNT(*) FILTER (WHERE status_code >= 500)::int AS errors_last_hour,
+            COUNT(*) FILTER (WHERE status_code = 429)::int AS rate_limited_last_hour,
+            COALESCE(ROUND(AVG(duration_ms))::int, 0) AS avg_duration_ms
+         FROM request_logs
+         WHERE created_at >= NOW() - INTERVAL '1 hour'`
+    );
+
+    const errorsResult = await database.query(
+        `SELECT id, method, path, status_code, ip_address, duration_ms, user_agent, account_email, created_at
+         FROM request_logs
+         WHERE status_code >= 500
+         ORDER BY created_at DESC
+         LIMIT 10`
+    );
+
+    const rateLimitedResult = await database.query(
+        `SELECT id, method, path, status_code, ip_address, duration_ms, user_agent, account_email, created_at
+         FROM request_logs
+         WHERE status_code = 429
+         ORDER BY created_at DESC
+         LIMIT 10`
+    );
+
+    const totals = totalsResult.rows[0] || {};
+    return {
+        enabled: true,
+        totals: {
+            requestsLastHour: totals.requests_last_hour || 0,
+            errorsLastHour: totals.errors_last_hour || 0,
+            rateLimitedLastHour: totals.rate_limited_last_hour || 0,
+            avgDurationMs: totals.avg_duration_ms || 0
+        },
+        recentErrors: errorsResult.rows.map(requestLogRowToRecord),
+        recentRateLimits: rateLimitedResult.rows.map(requestLogRowToRecord)
+    };
+}
+
 async function createAdminAuditLog({ adminUser, action, targetEmail, detail, metadata = {} }) {
     if (!database.isEnabled()) {
         return null;
@@ -1899,6 +1968,11 @@ const server = http.createServer(async (request, response) => {
             }
 
             sendJSON(response, 200, summary);
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/ops/summary") {
+            sendJSON(response, 200, await adminOperationsSummary());
             return;
         }
 

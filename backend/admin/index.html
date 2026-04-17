@@ -144,6 +144,12 @@
             grid-template-columns: 1.15fr 0.85fr;
             gap: 20px;
         }
+        .ops-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
         .panel {
             padding: 22px;
         }
@@ -216,9 +222,12 @@
             .layout {
                 grid-template-columns: 1fr;
             }
+            .ops-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
         @media (max-width: 640px) {
-            .grid, .adjust-row {
+            .grid, .adjust-row, .ops-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -257,6 +266,11 @@
             <div id="status" class="status">Signed in. Search for a customer to begin.</div>
         </section>
 
+        <section class="panel" style="margin-bottom: 20px;">
+            <h2>Operations Snapshot</h2>
+            <div id="ops-summary" class="empty">Loading operations summary...</div>
+        </section>
+
         <section class="layout">
             <div class="panel">
                 <h2>Customer Snapshot</h2>
@@ -287,6 +301,7 @@
         const logoutButton = document.getElementById("logout");
         const loginStatusEl = document.getElementById("login-status");
         const sessionSummaryEl = document.getElementById("session-summary");
+        const opsSummaryEl = document.getElementById("ops-summary");
         const emailInput = document.getElementById("email");
         const lookupButton = document.getElementById("lookup");
         const refreshButton = document.getElementById("refresh");
@@ -323,6 +338,43 @@
             }
 
             sessionSummaryEl.textContent = `Signed in as ${state.session.username}`;
+        }
+
+        function renderOpsSummary(summary) {
+            if (!summary || !summary.enabled) {
+                opsSummaryEl.className = "empty";
+                opsSummaryEl.innerHTML = "Operations summary is available when Postgres-backed request logging is enabled.";
+                return;
+            }
+
+            const { totals, recentErrors, recentRateLimits } = summary;
+            opsSummaryEl.className = "";
+            opsSummaryEl.innerHTML = `
+                <div class="ops-grid">
+                    <div class="grid-card">
+                        <span class="label">Requests / Hour</span>
+                        <div class="value serif">${totals.requestsLastHour}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">5xx / Hour</span>
+                        <div class="value">${totals.errorsLastHour}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">429 / Hour</span>
+                        <div class="value">${totals.rateLimitedLastHour}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Avg Duration</span>
+                        <div class="value">${totals.avgDurationMs} ms</div>
+                    </div>
+                </div>
+                <div class="panel" style="padding:0; border:none; box-shadow:none; background:transparent;">
+                    <h2 style="margin-top:0;">Recent Server Errors</h2>
+                    <div class="list">${renderList(recentErrors, entry => `<div class="list-item"><strong>${entry.method} ${entry.path}</strong><div class="muted">${entry.statusCode} • ${entry.durationMs} ms • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No recent 5xx responses.")}</div>
+                    <h2 style="margin-top:22px;">Recent Rate Limits</h2>
+                    <div class="list">${renderList(recentRateLimits, entry => `<div class="list-item"><strong>${entry.method} ${entry.path}</strong><div class="muted">${entry.ipAddress} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No recent 429 responses.")}</div>
+                </div>
+            `;
         }
 
         function renderList(items, renderItem, emptyMessage) {
@@ -393,6 +445,13 @@
             return payload;
         }
 
+        async function fetchOpsSummary() {
+            const response = await fetch("/admin/api/ops/summary");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load operations summary.");
+            return payload;
+        }
+
         async function login() {
             const username = loginUsernameInput.value.trim();
             const password = loginPasswordInput.value;
@@ -413,6 +472,7 @@
                 state.session = payload;
                 loginPasswordInput.value = "";
                 renderSession();
+                renderOpsSummary(await fetchOpsSummary());
                 showApp();
                 setStatus("Signed in. Search for a customer to begin.");
             } catch (error) {
@@ -444,6 +504,7 @@
 
                 state.session = session;
                 renderSession();
+                renderOpsSummary(await fetchOpsSummary());
                 showApp();
             } catch (error) {
                 showLogin();

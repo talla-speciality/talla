@@ -52,6 +52,7 @@ Notes:
 - `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS` control per-IP request throttling
 - `REQUEST_LOGGING_ENABLED=true` records request logs in Postgres for audit and debugging
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
+- `/admin` now includes an operations snapshot powered by `request_logs`
 
 ## Build and run locally with Docker
 

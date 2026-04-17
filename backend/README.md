@@ -77,6 +77,7 @@ Current admin capabilities:
 - audit trail for admin loyalty adjustments
 - logout support and cookie-based admin sessions
 - rate limiting and request logging on the shared backend
+- operations snapshot for recent traffic, 5xx responses, and rate-limit activity
 
 ## Seed Account
 
