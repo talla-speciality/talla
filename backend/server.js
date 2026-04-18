@@ -145,7 +145,10 @@ function shopifyAdminProductPayload(node) {
         productType: node.productType || "",
         onlineStoreURL: node.onlineStoreUrl || null,
         defaultVariantID: firstVariant?.id || null,
-        price: firstVariant?.price || ""
+        price: firstVariant?.price || "",
+        availableForSale: firstVariant?.availableForSale ?? false,
+        inventoryPolicy: firstVariant?.inventoryPolicy || "",
+        inventoryTracked: Boolean(firstVariant?.inventoryItem?.tracked)
     };
 }
 
@@ -165,6 +168,11 @@ async function listShopifyAdminProducts() {
                                 node {
                                     id
                                     price
+                                    availableForSale
+                                    inventoryPolicy
+                                    inventoryItem {
+                                        tracked
+                                    }
                                 }
                             }
                         }
@@ -217,6 +225,11 @@ async function createShopifyAdminProduct({ title, price, productType }) {
                             node {
                                 id
                                 price
+                                availableForSale
+                                inventoryPolicy
+                                inventoryItem {
+                                    tracked
+                                }
                             }
                         }
                     }
