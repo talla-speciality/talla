@@ -14,6 +14,7 @@ import UIKit
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
 
     private enum Tab: String, CaseIterable {
         case home
@@ -888,6 +889,18 @@ struct ContentView: View {
         .task {
             await loadProductsIfNeeded()
             await refreshNotificationStatus()
+        }
+        .onChange(of: activeTab) { _, newTab in
+            guard newTab == .shop, hasLoadedProducts else { return }
+            Task {
+                await loadProducts(force: true)
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active, hasLoadedProducts else { return }
+            Task {
+                await loadProducts(force: true)
+            }
         }
         .sheet(item: $checkoutSession) { session in
             CheckoutWebView(url: session.url)
@@ -6451,14 +6464,6 @@ private extension ContentView.Product {
 
         if source.contains("dessert") || source.contains("bread") || source.contains("jam") || source.contains("spread") || source.contains("butter") || source.contains("cookie") || source.contains("cake") {
             return "crmb-tallas-speciality-bakery"
-        }
-
-        if source.contains("gift") || source.contains("bundle") {
-            return "gifts"
-        }
-
-        if source.contains("turkish") {
-            return "arabic-coffee-beans"
         }
 
         return "arabic-coffee-beans"
