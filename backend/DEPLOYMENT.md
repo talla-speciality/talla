@@ -97,6 +97,47 @@ https://api.tallaspeciality.com
 
 Do not use `127.0.0.1`, `localhost`, or a private LAN IP for production users.
 
+## Backups and restore
+
+Your current durable data lives in Postgres, so backups should target the database directly.
+
+### Backup
+
+From your Mac, use the Render external database URL:
+
+```bash
+pg_dump "YOUR_RENDER_EXTERNAL_DATABASE_URL" --format=custom --file=talla-backup.dump
+```
+
+Optional plain SQL export:
+
+```bash
+pg_dump "YOUR_RENDER_EXTERNAL_DATABASE_URL" --file=talla-backup.sql
+```
+
+### Restore
+
+Restore a custom dump:
+
+```bash
+pg_restore --clean --if-exists --no-owner --no-privileges \
+  --dbname="YOUR_RENDER_EXTERNAL_DATABASE_URL" \
+  talla-backup.dump
+```
+
+Restore a plain SQL dump:
+
+```bash
+psql "YOUR_RENDER_EXTERNAL_DATABASE_URL" < talla-backup.sql
+```
+
+### Practical policy
+
+1. Take a backup before backend auth, wallet, or schema changes.
+2. Keep one recent local backup and one off-machine backup.
+3. Test restore into a separate Postgres database, not production.
+4. Only run `pg_restore --clean` against production if you explicitly want to replace live data.
+
 ## Important production gaps
 
 This backend is deployable, but not yet production-hardened. Before public launch, you should add:
@@ -107,4 +148,4 @@ This backend is deployable, but not yet production-hardened. Before public launc
 - operational monitoring on top of the request logs
 - rate limiting
 - secret management for Wallet signing assets
-- backups for data storage
+- automated backups for Postgres

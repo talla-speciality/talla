@@ -210,3 +210,44 @@ Content-Type: application/json
 - This is still a transitional backend, not a final production architecture.
 - Before going live, replace the single shared admin credential with a proper multi-user admin model and put the service behind HTTPS.
 - The iOS app should point `BackendBaseURL` at this API's public HTTPS URL in production.
+
+## Backup and Restore
+
+For the current Render + Postgres setup, use `pg_dump` for backups and `psql` for restore.
+
+### Create a backup
+
+Use the Render external database URL:
+
+```bash
+pg_dump "YOUR_RENDER_EXTERNAL_DATABASE_URL" --format=custom --file=talla-backup.dump
+```
+
+If you want a plain SQL export instead:
+
+```bash
+pg_dump "YOUR_RENDER_EXTERNAL_DATABASE_URL" --file=talla-backup.sql
+```
+
+### Restore a backup
+
+For a custom dump:
+
+```bash
+pg_restore --clean --if-exists --no-owner --no-privileges \
+  --dbname="YOUR_RENDER_EXTERNAL_DATABASE_URL" \
+  talla-backup.dump
+```
+
+For a plain SQL backup:
+
+```bash
+psql "YOUR_RENDER_EXTERNAL_DATABASE_URL" < talla-backup.sql
+```
+
+### Minimum operating procedure
+
+- take a fresh backup before schema or auth changes
+- keep at least one dated local copy and one off-machine copy
+- test restore into a non-production Postgres database before relying on the backup
+- do not run destructive restore commands against production unless you intend to overwrite it
