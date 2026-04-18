@@ -251,3 +251,20 @@ psql "YOUR_RENDER_EXTERNAL_DATABASE_URL" < talla-backup.sql
 - keep at least one dated local copy and one off-machine copy
 - test restore into a non-production Postgres database before relying on the backup
 - do not run destructive restore commands against production unless you intend to overwrite it
+
+## Database migrations
+
+Schema changes now live in versioned SQL files under:
+
+```text
+backend/migrations
+```
+
+Run migrations manually with:
+
+```bash
+cd backend
+npm run migrate
+```
+
+The backend also applies pending migrations automatically on startup when `DATABASE_URL` is set.

@@ -1,6 +1,9 @@
+const fs = require("fs");
+const path = require("path");
 const { Pool } = require("pg");
 
 let pool = null;
+const migrationsDirectory = path.join(__dirname, "migrations");
 
 function isEnabled() {
     return Boolean(process.env.DATABASE_URL);
@@ -21,155 +24,46 @@ async function initializeDatabase() {
     }
 
     await pool.query(`
-        CREATE TABLE IF NOT EXISTS accounts (
-            id TEXT PRIMARY KEY,
-            email TEXT UNIQUE NOT NULL,
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TIMESTAMPTZ NOT NULL
         );
     `);
 
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS loyalty_accounts (
-            email TEXT PRIMARY KEY REFERENCES accounts(email) ON DELETE CASCADE,
-            member_id TEXT UNIQUE NOT NULL,
-            points_balance INTEGER NOT NULL,
-            tier TEXT NOT NULL,
-            next_reward TEXT NOT NULL,
-            perks JSONB NOT NULL DEFAULT '[]'::jsonb
-        );
-    `);
+    const migrationFiles = fs.existsSync(migrationsDirectory)
+        ? fs.readdirSync(migrationsDirectory)
+            .filter((fileName) => fileName.endsWith(".sql"))
+            .sort()
+        : [];
 
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS loyalty_transactions (
-            id TEXT PRIMARY KEY,
-            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            type TEXT NOT NULL,
-            points INTEGER NOT NULL,
-            note TEXT NOT NULL,
-            voucher_code TEXT,
-            voucher_detail TEXT,
-            voucher_expires_at TIMESTAMPTZ,
-            voucher_single_use BOOLEAN,
-            voucher_status TEXT,
-            created_at TIMESTAMPTZ NOT NULL
+    for (const fileName of migrationFiles) {
+        const version = fileName.replace(/\.sql$/, "");
+        const alreadyApplied = await pool.query(
+            `SELECT 1
+             FROM schema_migrations
+             WHERE version = $1`,
+            [version]
         );
-    `);
 
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS wallet_passes (
-            email TEXT PRIMARY KEY REFERENCES accounts(email) ON DELETE CASCADE,
-            serial_number TEXT UNIQUE NOT NULL,
-            pass_type_identifier TEXT,
-            last_generated_at TIMESTAMPTZ NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL
-        );
-    `);
+        if (alreadyApplied.rowCount > 0) {
+            continue;
+        }
 
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS addresses (
-            id TEXT PRIMARY KEY,
-            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            label TEXT NOT NULL,
-            full_name TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            line1 TEXT NOT NULL,
-            city TEXT NOT NULL,
-            notes TEXT,
-            is_preferred BOOLEAN NOT NULL DEFAULT FALSE,
-            created_at TIMESTAMPTZ NOT NULL
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS vouchers (
-            code TEXT PRIMARY KEY,
-            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            reward TEXT NOT NULL,
-            points INTEGER NOT NULL,
-            detail TEXT NOT NULL,
-            single_use BOOLEAN NOT NULL DEFAULT TRUE,
-            status TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL,
-            expires_at TIMESTAMPTZ NOT NULL,
-            used_at TIMESTAMPTZ
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS orders (
-            id TEXT PRIMARY KEY,
-            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            title TEXT NOT NULL,
-            total TEXT NOT NULL,
-            status TEXT NOT NULL,
-            items JSONB NOT NULL DEFAULT '[]'::jsonb,
-            created_at TIMESTAMPTZ NOT NULL
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS stock_alerts (
-            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            product_id TEXT NOT NULL,
-            product_name TEXT NOT NULL,
-            tag TEXT,
-            is_available_for_sale BOOLEAN NOT NULL,
-            status TEXT NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL,
-            PRIMARY KEY (email, product_id)
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS alert_inbox (
-            id TEXT PRIMARY KEY,
-            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            title TEXT NOT NULL,
-            detail TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL,
-            product_id TEXT
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS admin_audit_logs (
-            id TEXT PRIMARY KEY,
-            admin_username TEXT NOT NULL,
-            action TEXT NOT NULL,
-            target_email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            detail TEXT NOT NULL,
-            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_at TIMESTAMPTZ NOT NULL
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS customer_sessions (
-            id TEXT PRIMARY KEY,
-            email TEXT NOT NULL REFERENCES accounts(email) ON DELETE CASCADE,
-            token_hash TEXT UNIQUE NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL,
-            expires_at TIMESTAMPTZ NOT NULL,
-            revoked_at TIMESTAMPTZ
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS request_logs (
-            id TEXT PRIMARY KEY,
-            method TEXT NOT NULL,
-            path TEXT NOT NULL,
-            status_code INTEGER NOT NULL,
-            ip_address TEXT NOT NULL,
-            duration_ms INTEGER NOT NULL,
-            user_agent TEXT,
-            account_email TEXT,
-            created_at TIMESTAMPTZ NOT NULL
-        );
-    `);
+        const sql = fs.readFileSync(path.join(migrationsDirectory, fileName), "utf8");
+        await pool.query("BEGIN");
+        try {
+            await pool.query(sql);
+            await pool.query(
+                `INSERT INTO schema_migrations (version, applied_at)
+                 VALUES ($1, NOW())`,
+                [version]
+            );
+            await pool.query("COMMIT");
+        } catch (error) {
+            await pool.query("ROLLBACK");
+            throw error;
+        }
+    }
 
     return true;
 }

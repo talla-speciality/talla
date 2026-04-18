@@ -138,6 +138,23 @@ psql "YOUR_RENDER_EXTERNAL_DATABASE_URL" < talla-backup.sql
 3. Test restore into a separate Postgres database, not production.
 4. Only run `pg_restore --clean` against production if you explicitly want to replace live data.
 
+## Database migrations
+
+The backend now uses versioned SQL migrations in `backend/migrations`.
+
+Manual migration command:
+
+```bash
+cd backend
+npm run migrate
+```
+
+Current behavior:
+
+- pending migrations are applied automatically on backend startup
+- `schema_migrations` tracks which SQL files have already run
+- future schema changes should go into a new numbered `.sql` file, not inline startup SQL
+
 ## Important production gaps
 
 This backend is deployable, but not yet production-hardened. Before public launch, you should add:
