@@ -139,24 +139,6 @@ struct CustomerAccountSectionView: View {
 
             HStack(spacing: 16) {
                 if accountAuthMode == .signIn {
-                    Button("Create Account") {
-                        toggleModeAction(.createAccount)
-                    }
-                    .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.8)
-                    .textCase(.uppercase)
-                    .foregroundColor(accentColor)
-                    .buttonStyle(.plain)
-
-                    Button("Change Password") {
-                        toggleModeAction(.changePassword)
-                    }
-                    .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.8)
-                    .textCase(.uppercase)
-                    .foregroundColor(accentColor)
-                    .buttonStyle(.plain)
-
                     Text("Fast access for checkout and rewards")
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(1.8)
