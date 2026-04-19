@@ -90,6 +90,46 @@
             border-radius: 24px;
             box-shadow: 0 18px 40px rgba(39, 23, 13, 0.08);
         }
+        details.panel {
+            padding: 0;
+            overflow: hidden;
+        }
+        details.panel[open] > .panel-body {
+            display: block;
+        }
+        .panel-summary {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 20px 22px;
+            cursor: pointer;
+        }
+        .panel-summary::-webkit-details-marker {
+            display: none;
+        }
+        .panel-summary h2 {
+            margin: 0;
+        }
+        .panel-summary::after {
+            content: "+";
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-items: center;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-weight: 800;
+            font-size: 18px;
+        }
+        details[open] > .panel-summary::after {
+            content: "−";
+        }
+        .panel-body {
+            padding: 0 22px 22px;
+        }
         .toolbar {
             display: grid;
             gap: 14px;
@@ -364,6 +404,36 @@
             color: var(--muted);
             background: rgba(255, 255, 255, 0.55);
         }
+        .directory-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .directory-list {
+            display: grid;
+            gap: 10px;
+            max-height: 420px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+        .directory-item {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: white;
+            padding: 14px 16px;
+            text-align: left;
+            color: var(--ink);
+            display: grid;
+            gap: 4px;
+        }
+        .directory-item strong {
+            font-size: 16px;
+        }
+        .directory-item .muted {
+            font-size: 13px;
+        }
         .mini-section {
             display: grid;
             gap: 12px;
@@ -387,6 +457,9 @@
         @media (max-width: 640px) {
             .grid, .adjust-row, .ops-grid, .product-create-grid, .product-item-grid, .product-image-grid, .customer-profile-grid, .order-admin-row, .voucher-create-grid {
                 grid-template-columns: 1fr;
+            }
+            .directory-controls {
+                flex-direction: column;
             }
             .toolbar {
                 position: static;
@@ -427,51 +500,81 @@
             <div id="status" class="status info">Signed in. Search for a customer to begin.</div>
         </section>
 
-        <section class="panel" style="margin-bottom: 20px;">
-            <h2>Operations Snapshot</h2>
-            <div id="ops-summary" class="empty">Loading operations summary...</div>
-        </section>
-
-        <section class="panel" style="margin-bottom: 20px;">
-            <h2>Product Console</h2>
-            <div class="subcopy" style="margin-bottom: 14px;">Manage Shopify products here. New products will only appear in the app storefront if the backend is configured with a Shopify publication ID.</div>
-            <div class="product-controls">
-                <div class="product-create-grid">
-                    <input id="new-product-title" type="text" placeholder="New product title">
-                    <input id="new-product-price" type="number" min="0" step="0.01" placeholder="Price">
-                    <input id="new-product-type" type="text" placeholder="Type e.g. Beans">
-                    <button id="create-product">Add Product</button>
-                </div>
-                <div class="toolbar-row" style="padding: 0;">
-                    <button id="refresh-products" class="secondary">Refresh Products</button>
-                    <div id="products-note" class="muted"></div>
-                </div>
-                <div id="products" class="empty">Loading Shopify products...</div>
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
+                <h2>Operations Snapshot</h2>
+            </summary>
+            <div class="panel-body">
+                <div id="ops-summary" class="empty">Loading operations summary...</div>
             </div>
-        </section>
+        </details>
+
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
+                <h2>Product Console</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Manage Shopify products here. New products will only appear in the app storefront if the backend is configured with a Shopify publication ID.</div>
+                <div class="product-controls">
+                    <div class="product-create-grid">
+                        <input id="new-product-title" type="text" placeholder="New product title">
+                        <input id="new-product-price" type="number" min="0" step="0.01" placeholder="Price">
+                        <input id="new-product-type" type="text" placeholder="Type e.g. Beans">
+                        <button id="create-product">Add Product</button>
+                    </div>
+                    <div class="toolbar-row" style="padding: 0;">
+                        <button id="refresh-products" class="secondary">Refresh Products</button>
+                        <div id="products-note" class="muted"></div>
+                    </div>
+                    <div id="products" class="empty">Loading Shopify products...</div>
+                </div>
+            </div>
+        </details>
+
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
+                <h2>Customer Directory</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Browse every customer account and load one directly into the admin workspace.</div>
+                <div class="directory-controls">
+                    <input id="customer-directory-filter" class="email-input" type="text" placeholder="Filter by name or email">
+                    <button id="refresh-customers" class="secondary">Refresh Customers</button>
+                </div>
+                <div id="customer-directory" class="empty">Loading customers...</div>
+            </div>
+        </details>
 
         <section class="layout">
-            <div class="panel">
-                <h2>Customer Snapshot</h2>
-                <div id="snapshot" class="empty">Search for a customer to load account, loyalty, vouchers, addresses, alerts, inbox, and orders.</div>
-            </div>
-
-            <div class="panel">
-                <h2>Loyalty Adjustment</h2>
-                <div class="adjust-grid">
-                    <div class="adjust-row">
-                        <input id="points" type="number" placeholder="Points e.g. 25 or -25">
-                        <input id="note" type="text" placeholder="Reason for adjustment">
-                    </div>
-                    <button id="adjust">Apply Adjustment</button>
-                    <div class="muted">Positive numbers add points. Negative numbers remove points.</div>
+            <details class="panel" open>
+                <summary class="panel-summary">
+                    <h2>Customer Snapshot</h2>
+                </summary>
+                <div class="panel-body">
+                    <div id="snapshot" class="empty">Search for a customer to load account, loyalty, vouchers, addresses, alerts, inbox, and orders.</div>
                 </div>
-            </div>
+            </details>
+
+            <details class="panel" open>
+                <summary class="panel-summary">
+                    <h2>Loyalty Adjustment</h2>
+                </summary>
+                <div class="panel-body">
+                    <div class="adjust-grid">
+                        <div class="adjust-row">
+                            <input id="points" type="number" placeholder="Points e.g. 25 or -25">
+                            <input id="note" type="text" placeholder="Reason for adjustment">
+                        </div>
+                        <button id="adjust">Apply Adjustment</button>
+                        <div class="muted">Positive numbers add points. Negative numbers remove points.</div>
+                    </div>
+                </div>
+            </details>
         </section>
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [] };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [] };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -496,6 +599,9 @@
         const noteInput = document.getElementById("note");
         const statusEl = document.getElementById("status");
         const snapshotEl = document.getElementById("snapshot");
+        const customerDirectoryEl = document.getElementById("customer-directory");
+        const customerDirectoryFilterInput = document.getElementById("customer-directory-filter");
+        const refreshCustomersButton = document.getElementById("refresh-customers");
 
         function applyStatus(el, message, tone = "info") {
             const resolvedTone = typeof tone === "boolean"
@@ -545,6 +651,35 @@
             }
 
             sessionSummaryEl.textContent = `Signed in as ${state.session.username}`;
+        }
+
+        function renderCustomerDirectory() {
+            const filter = customerDirectoryFilterInput.value.trim().toLowerCase();
+            const items = state.customers.filter((customer) => {
+                if (!filter) {
+                    return true;
+                }
+
+                const haystack = `${customer.firstName || ""} ${customer.lastName || ""} ${customer.email}`.toLowerCase();
+                return haystack.includes(filter);
+            });
+
+            if (items.length === 0) {
+                customerDirectoryEl.className = "empty";
+                customerDirectoryEl.innerHTML = filter
+                    ? "No customers match that filter."
+                    : "No customer accounts found yet.";
+                return;
+            }
+
+            customerDirectoryEl.className = "directory-list";
+            customerDirectoryEl.innerHTML = items.map((customer) => `
+                <button class="directory-item" data-customer-email="${escapeHTML(customer.email)}">
+                    <strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong>
+                    <div class="muted">${escapeHTML(customer.email)}</div>
+                    <div class="muted">Created ${new Date(customer.createdAt).toLocaleString()}</div>
+                </button>
+            `).join("");
         }
 
         function renderOpsSummary(summary) {
@@ -659,64 +794,99 @@
             const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs } = customer;
             snapshotEl.className = "";
             snapshotEl.innerHTML = `
-                <div class="panel" style="padding:16px; margin-bottom:16px; background:white;">
-                    <h2 style="margin-top:0;">Customer Profile</h2>
-                    <div class="customer-profile-grid">
-                        <input id="customer-first-name" type="text" value="${escapeHTML(profile.firstName || "")}" placeholder="First name">
-                        <input id="customer-last-name" type="text" value="${escapeHTML(profile.lastName || "")}" placeholder="Last name">
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Customer Profile</h2>
+                    </summary>
+                    <div>
+                        <div class="customer-profile-grid">
+                            <input id="customer-first-name" type="text" value="${escapeHTML(profile.firstName || "")}" placeholder="First name">
+                            <input id="customer-last-name" type="text" value="${escapeHTML(profile.lastName || "")}" placeholder="Last name">
+                        </div>
+                        <div class="toolbar-row" style="padding: 12px 0 0;">
+                            <div class="muted">${profile.email}</div>
+                            <button id="save-customer-profile" class="secondary">Save Profile</button>
+                        </div>
                     </div>
-                    <div class="toolbar-row" style="padding: 12px 0 0;">
-                        <div class="muted">${profile.email}</div>
-                        <button id="save-customer-profile" class="secondary">Save Profile</button>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Voucher Composer</h2>
+                    </summary>
+                    <div>
+                        <div class="voucher-create-grid">
+                            <input id="voucher-reward" type="text" placeholder="Reward title">
+                            <input id="voucher-points" type="number" min="1" step="1" placeholder="Points value">
+                            <input id="voucher-detail" type="text" placeholder="Voucher detail">
+                            <input id="voucher-expires-days" type="number" min="1" step="1" value="30" placeholder="Expires in days">
+                        </div>
+                        <div class="toolbar-row" style="padding: 12px 0 0;">
+                            <div class="muted">Create a manual voucher for ${profile.email}</div>
+                            <button id="create-voucher" class="secondary">Create Voucher</button>
+                        </div>
                     </div>
-                </div>
-                <div class="panel" style="padding:16px; margin-bottom:16px; background:white;">
-                    <h2 style="margin-top:0;">Voucher Composer</h2>
-                    <div class="voucher-create-grid">
-                        <input id="voucher-reward" type="text" placeholder="Reward title">
-                        <input id="voucher-points" type="number" min="1" step="1" placeholder="Points value">
-                        <input id="voucher-detail" type="text" placeholder="Voucher detail">
-                        <input id="voucher-expires-days" type="number" min="1" step="1" value="30" placeholder="Expires in days">
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Overview</h2>
+                    </summary>
+                    <div class="grid">
+                        <div class="grid-card">
+                            <span class="label">Customer</span>
+                            <div class="value serif">${profile.firstName || ""} ${profile.lastName || ""}</div>
+                            <div class="muted">${profile.email}</div>
+                        </div>
+                        <div class="grid-card">
+                            <span class="label">Loyalty Tier</span>
+                            <div class="value">${loyalty.tier}</div>
+                            <div class="muted">${loyalty.nextReward}</div>
+                        </div>
+                        <div class="grid-card">
+                            <span class="label">Points</span>
+                            <div class="value serif">${loyalty.pointsBalance}</div>
+                        </div>
+                        <div class="grid-card">
+                            <span class="label">Member ID</span>
+                            <div class="value">${loyalty.memberID}</div>
+                        </div>
                     </div>
-                    <div class="toolbar-row" style="padding: 12px 0 0;">
-                        <div class="muted">Create a manual voucher for ${profile.email}</div>
-                        <button id="create-voucher" class="secondary">Create Voucher</button>
-                    </div>
-                </div>
-                <div class="grid">
-                    <div class="grid-card">
-                        <span class="label">Customer</span>
-                        <div class="value serif">${profile.firstName || ""} ${profile.lastName || ""}</div>
-                        <div class="muted">${profile.email}</div>
-                    </div>
-                    <div class="grid-card">
-                        <span class="label">Loyalty Tier</span>
-                        <div class="value">${loyalty.tier}</div>
-                        <div class="muted">${loyalty.nextReward}</div>
-                    </div>
-                    <div class="grid-card">
-                        <span class="label">Points</span>
-                        <div class="value serif">${loyalty.pointsBalance}</div>
-                    </div>
-                    <div class="grid-card">
-                        <span class="label">Member ID</span>
-                        <div class="value">${loyalty.memberID}</div>
-                    </div>
-                </div>
-                <div class="panel" style="margin-top:16px; padding:0; border:none; box-shadow:none; background:transparent;">
-                    <h2 style="margin-top:22px;">Vouchers</h2>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Vouchers</h2>
+                    </summary>
                     <div class="list">${renderList(vouchers, voucher => `<div class="list-item"><strong>${voucher.reward}</strong><div class="muted">${voucher.code} • ${voucher.detail}</div><div class="order-admin-row" style="margin-top:10px;"><div class="muted">${voucher.status} • Expires ${new Date(voucher.expiresAt).toLocaleDateString()}${voucher.usedAt ? ` • Used ${new Date(voucher.usedAt).toLocaleDateString()}` : ""}</div>${voucher.status === "active" ? `<button class="revoke-voucher secondary" data-voucher-code="${escapeHTML(voucher.code)}">Revoke</button>` : `<span class="muted">No action</span>`}</div></div>`, "No vouchers yet.")}</div>
-                    <h2 style="margin-top:22px;">Saved Addresses</h2>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Saved Addresses</h2>
+                    </summary>
                     <div class="list">${renderList(addresses, address => `<div class="list-item"><strong>${address.label}${address.isPreferred ? " • Preferred" : ""}</strong><div class="muted">${address.fullName} • ${address.line1}, ${address.city}</div></div>`, "No saved addresses.")}</div>
-                    <h2 style="margin-top:22px;">Orders</h2>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Orders</h2>
+                    </summary>
                     <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${new Date(order.createdAt).toLocaleString()}</div><div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${["Pending", "Confirmed", "Preparing", "Fulfilled", "Cancelled"].map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button></div></div>`, "No orders yet.")}</div>
-                    <h2 style="margin-top:22px;">Stock Alerts</h2>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Stock Alerts</h2>
+                    </summary>
                     <div class="list">${renderList(alerts, alert => `<div class="list-item"><strong>${alert.productName}</strong><div class="muted">${alert.status}</div></div>`, "No stock alerts.")}</div>
-                    <h2 style="margin-top:22px;">Alert Inbox</h2>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Alert Inbox</h2>
+                    </summary>
                     <div class="list">${renderList(inbox, item => `<div class="list-item"><strong>${item.title}</strong><div class="muted">${item.detail}</div></div>`, "No inbox items.")}</div>
-                    <h2 style="margin-top:22px;">Admin Audit Trail</h2>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Admin Audit Trail</h2>
+                    </summary>
                     <div class="list">${renderList(auditLogs, entry => `<div class="list-item"><strong>${entry.detail}</strong><div class="muted">${entry.adminUsername} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No admin actions recorded.")}</div>
-                </div>
+                </details>
             `;
         }
 
@@ -748,6 +918,32 @@
             return payload;
         }
 
+        async function fetchCustomers() {
+            const response = await fetch("/admin/api/customers");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load customers.");
+            return payload;
+        }
+
+        async function refreshCustomers() {
+            try {
+                setButtonBusy(refreshCustomersButton, true, "Refresh Customers", "Refreshing...");
+                const payload = await fetchCustomers();
+                state.customers = payload.customers || [];
+                renderCustomerDirectory();
+            } catch (error) {
+                if (error.message === "Admin authorization required.") {
+                    await logout();
+                    return;
+                }
+                state.customers = [];
+                customerDirectoryEl.className = "empty";
+                customerDirectoryEl.innerHTML = escapeHTML(error.message);
+            } finally {
+                setButtonBusy(refreshCustomersButton, false, "Refresh Customers");
+            }
+        }
+
         async function login() {
             const username = loginUsernameInput.value.trim();
             const password = loginPasswordInput.value;
@@ -771,6 +967,7 @@
                 renderSession();
                 renderOpsSummary(await fetchOpsSummary());
                 showApp();
+                await refreshCustomers();
                 await refreshProducts();
                 setStatus("Signed in. Search for a customer to begin.", "success");
             } catch (error) {
@@ -786,6 +983,7 @@
             state.currentEmail = "";
             state.customer = null;
             state.products = [];
+            state.customers = [];
             emailInput.value = "";
             pointsInput.value = "";
             noteInput.value = "";
@@ -794,6 +992,9 @@
             productsEl.className = "empty";
             productsEl.innerHTML = "Sign in to manage Shopify products.";
             productsNoteEl.textContent = "";
+            customerDirectoryFilterInput.value = "";
+            customerDirectoryEl.className = "empty";
+            customerDirectoryEl.innerHTML = "Sign in to browse customers.";
             setLoginStatus("Signed out.", "success");
             showLogin();
         }
@@ -810,6 +1011,7 @@
                 renderSession();
                 renderOpsSummary(await fetchOpsSummary());
                 showApp();
+                await refreshCustomers();
                 await refreshProducts();
             } catch (error) {
                 showLogin();
@@ -1167,8 +1369,19 @@
         lookupButton.addEventListener("click", lookupCustomer);
         refreshButton.addEventListener("click", () => state.currentEmail ? lookupCustomer() : setStatus("No customer loaded yet."));
         adjustButton.addEventListener("click", adjustLoyalty);
+        refreshCustomersButton.addEventListener("click", refreshCustomers);
         refreshProductsButton.addEventListener("click", refreshProducts);
         createProductButton.addEventListener("click", createProduct);
+        customerDirectoryEl.addEventListener("click", (event) => {
+            const item = event.target.closest(".directory-item");
+            if (!item) {
+                return;
+            }
+
+            emailInput.value = item.dataset.customerEmail || "";
+            void lookupCustomer();
+        });
+        customerDirectoryFilterInput.addEventListener("input", renderCustomerDirectory);
         productsEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-product");
             if (saveButton) {
