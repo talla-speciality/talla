@@ -76,7 +76,16 @@ async function query(text, params = []) {
     return pool.query(text, params);
 }
 
+async function connect() {
+    if (!pool) {
+        throw new Error("DATABASE_NOT_INITIALIZED");
+    }
+
+    return pool.connect();
+}
+
 module.exports = {
+    connect,
     initializeDatabase,
     isEnabled,
     query

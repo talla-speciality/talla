@@ -30,6 +30,9 @@ ADMIN_SESSION_SECRET=replace-with-a-random-secret
 ADMIN_SESSION_HOURS=12
 CUSTOMER_TOKEN_SECRET=replace-with-a-different-random-secret
 CUSTOMER_TOKEN_HOURS=168
+RESEND_API_KEY=re_xxx
+EMAIL_FROM_ADDRESS=Talla Speciality <no-reply@your-domain.com>
+PASSWORD_RESET_TOKEN_HOURS=1
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX_REQUESTS=240
 REQUEST_LOGGING_ENABLED=true
@@ -59,6 +62,8 @@ Notes:
 - `DATABASE_URL` should point to your managed Postgres instance
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` power the admin login and signed session cookie
 - `CUSTOMER_TOKEN_SECRET` enables customer session issuance; set it explicitly in production
+- `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` enable customer password reset emails
+- `PASSWORD_RESET_TOKEN_HOURS` controls how long each emailed reset link stays valid
 - `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS` control per-IP request throttling
 - `REQUEST_LOGGING_ENABLED=true` records request logs in Postgres for audit and debugging
 - `OPS_ALERT_WEBHOOK_URL` enables automated webhook alerts from `request_logs`

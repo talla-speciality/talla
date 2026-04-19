@@ -316,6 +316,7 @@ struct ContentView: View {
     @State private var newPasswordInput = ""
     @State private var confirmNewPasswordInput = ""
     @State private var isResettingPassword = false
+    @State private var isRequestingPasswordResetLink = false
     @State private var customerProfile: ShopifyCustomerProfile?
     @State private var customerAuthError: String?
     @State private var isSigningIn = false
@@ -1499,6 +1500,7 @@ struct ContentView: View {
             isSigningIn: isSigningIn,
             isCreatingAccount: isCreatingAccount,
             isResettingPassword: isResettingPassword,
+            isRequestingPasswordResetLink: isRequestingPasswordResetLink,
             isLoadingCustomer: isLoadingCustomer,
             customerAuthError: customerAuthError,
             customerProfile: customerProfile,
@@ -1515,6 +1517,11 @@ struct ContentView: View {
                     } else {
                         await signInCustomer()
                     }
+                }
+            },
+            requestPasswordResetLinkAction: {
+                Task {
+                    await requestPasswordResetLink()
                 }
             },
             signedInContent: AnyView(
@@ -3870,6 +3877,31 @@ struct ContentView: View {
     }
 
     @MainActor
+    private func requestPasswordResetLink() async {
+        let trimmedEmail = normalizedAccountEmail
+        guard !trimmedEmail.isEmpty else {
+            customerAuthError = "Enter your email address first."
+            return
+        }
+
+        isRequestingPasswordResetLink = true
+        customerAuthError = nil
+
+        do {
+            try await AccountService.requestPasswordResetLink(email: trimmedEmail)
+            accountPassword = ""
+            showToast(message: "If an account exists for that email, a reset link has been sent.")
+        } catch {
+            customerAuthError = friendlyCustomerAuthMessage(
+                for: error,
+                fallback: "Password reset email is unavailable right now."
+            )
+        }
+
+        isRequestingPasswordResetLink = false
+    }
+
+    @MainActor
     private func loadCustomerProfile() async {
         guard !savedCustomerAccessToken.isEmpty, !isLoadingCustomer else { return }
 
@@ -4225,6 +4257,10 @@ struct ContentView: View {
 
         if normalized.contains("account not found") {
             return fallback ?? "No account was found for that email."
+        }
+
+        if normalized.contains("password reset email is not configured") || normalized.contains("password reset email could not be sent") {
+            return fallback ?? "Password reset email is unavailable right now."
         }
 
         if normalized.contains("unidentified customer") {
@@ -5227,6 +5263,22 @@ private enum AccountService {
             "email": email,
             "currentPassword": currentPassword,
             "newPassword": newPassword
+        ])
+
+        _ = try await performEmptyRequest(request)
+    }
+
+    static func requestPasswordResetLink(email: String) async throws {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/password/request-reset"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": email
         ])
 
         _ = try await performEmptyRequest(request)

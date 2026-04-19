@@ -31,6 +31,9 @@ module.exports = {
     adminSessionHours: toNumber(process.env.ADMIN_SESSION_HOURS, 12),
     customerTokenSecret: process.env.CUSTOMER_TOKEN_SECRET || process.env.ADMIN_SESSION_SECRET || "",
     customerTokenHours: toNumber(process.env.CUSTOMER_TOKEN_HOURS, 168),
+    resendAPIKey: process.env.RESEND_API_KEY || "",
+    emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "",
+    passwordResetTokenHours: toNumber(process.env.PASSWORD_RESET_TOKEN_HOURS, 1),
     rateLimitWindowMs: toNumber(process.env.RATE_LIMIT_WINDOW_MS, 60_000),
     rateLimitMaxRequests: toNumber(process.env.RATE_LIMIT_MAX_REQUESTS, 240),
     requestLoggingEnabled: process.env.REQUEST_LOGGING_ENABLED !== "false",
@@ -51,7 +54,8 @@ module.exports = {
         vouchers: path.join(dataDirectory, "vouchers.json"),
         alerts: path.join(dataDirectory, "alerts.json"),
         addresses: path.join(dataDirectory, "addresses.json"),
-        alertInbox: path.join(dataDirectory, "alertInbox.json")
+        alertInbox: path.join(dataDirectory, "alertInbox.json"),
+        passwordResetTokens: path.join(dataDirectory, "passwordResetTokens.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,

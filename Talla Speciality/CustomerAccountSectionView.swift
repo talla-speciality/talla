@@ -21,12 +21,14 @@ struct CustomerAccountSectionView: View {
     let isSigningIn: Bool
     let isCreatingAccount: Bool
     let isResettingPassword: Bool
+    let isRequestingPasswordResetLink: Bool
     let isLoadingCustomer: Bool
     let customerAuthError: String?
     let customerProfile: ContentView.ShopifyCustomerProfile?
     let primaryActionTitle: String
     let toggleModeAction: (ContentView.AccountAuthMode) -> Void
     let submitAction: () -> Void
+    let requestPasswordResetLinkAction: () -> Void
     let signedInContent: AnyView
 
     var body: some View {
@@ -143,6 +145,18 @@ struct CustomerAccountSectionView: View {
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(1.8)
                         .foregroundColor(secondaryTextColor)
+
+                    Spacer(minLength: 0)
+
+                    Button(isRequestingPasswordResetLink ? "Sending Link..." : "Email Reset Link") {
+                        requestPasswordResetLinkAction()
+                    }
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(1.8)
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
+                    .buttonStyle(.plain)
+                    .disabled(isResetLinkDisabled)
                 } else {
                     Button(accountAuthMode == .createAccount ? "Already Have an Account?" : "Back to Sign In") {
                         toggleModeAction(.signIn)
@@ -160,6 +174,7 @@ struct CustomerAccountSectionView: View {
     private var isSubmitDisabled: Bool {
         isSigningIn ||
         isResettingPassword ||
+        isRequestingPasswordResetLink ||
         isCreatingAccount ||
         isLoadingCustomer ||
         accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
@@ -169,6 +184,15 @@ struct CustomerAccountSectionView: View {
             accountFirstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             accountLastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         ))
+    }
+
+    private var isResetLinkDisabled: Bool {
+        isSigningIn ||
+        isCreatingAccount ||
+        isResettingPassword ||
+        isRequestingPasswordResetLink ||
+        isLoadingCustomer ||
+        accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func accountModeButton(title: String, mode: ContentView.AccountAuthMode) -> some View {

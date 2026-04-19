@@ -18,6 +18,7 @@ const vouchersStorePath = config.stores.vouchers;
 const alertsStorePath = config.stores.alerts;
 const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
+const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -25,6 +26,9 @@ const adminSessionSecret = config.adminSessionSecret;
 const adminSessionHours = config.adminSessionHours;
 const customerTokenSecret = config.customerTokenSecret;
 const customerTokenHours = config.customerTokenHours;
+const resendAPIKey = config.resendAPIKey;
+const emailFromAddress = config.emailFromAddress;
+const passwordResetTokenHours = config.passwordResetTokenHours;
 const rateLimitWindowMs = config.rateLimitWindowMs;
 const rateLimitMaxRequests = config.rateLimitMaxRequests;
 const requestLoggingEnabled = config.requestLoggingEnabled;
@@ -62,6 +66,7 @@ ensureStoreFile(vouchersStorePath, { vouchers: {} });
 ensureStoreFile(alertsStorePath, { alerts: {} });
 ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
+ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 
 function ensureStoreFile(filePath, fallback) {
     if (!fs.existsSync(dataDirectory)) {
@@ -98,6 +103,228 @@ function sendHTML(response, statusCode, payload, extraHeaders = {}) {
         ...extraHeaders
     });
     response.end(payload);
+}
+
+function escapeHTML(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function passwordResetEmailConfigured() {
+    return Boolean(resendAPIKey && emailFromAddress && config.appURL);
+}
+
+function buildPasswordResetLink(token) {
+    const resetURL = new URL("/password-reset", config.appURL);
+    resetURL.searchParams.set("token", token);
+    return resetURL.toString();
+}
+
+function renderPasswordResetPage(token) {
+    const escapedToken = escapeHTML(token);
+    const tokenJSON = JSON.stringify(String(token || ""));
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reset Password | Talla Speciality</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4ede4;
+            --panel: rgba(255, 250, 244, 0.92);
+            --text: #24160c;
+            --muted: #735641;
+            --accent: #c8965a;
+            --accent-dark: #8f6030;
+            --border: rgba(143, 96, 48, 0.16);
+            --error: #a13f35;
+            --success: #2f6f47;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(200, 150, 90, 0.18), transparent 30%),
+                linear-gradient(180deg, #f8f1e7 0%, var(--bg) 100%);
+            color: var(--text);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+        .panel {
+            width: min(100%, 420px);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 28px;
+            box-shadow: 0 24px 60px rgba(36, 22, 12, 0.08);
+            backdrop-filter: blur(20px);
+        }
+        h1 {
+            margin: 0 0 10px;
+            font-size: 28px;
+            line-height: 1.1;
+        }
+        p {
+            margin: 0 0 18px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        label {
+            display: block;
+            margin: 14px 0 8px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 14px 16px;
+            font-size: 16px;
+            background: white;
+            color: var(--text);
+        }
+        button {
+            width: 100%;
+            margin-top: 18px;
+            border: 0;
+            border-radius: 999px;
+            padding: 14px 18px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            background: var(--accent);
+            color: #0a0804;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+        .message {
+            min-height: 20px;
+            margin-top: 14px;
+            font-size: 14px;
+        }
+        .message.error { color: var(--error); }
+        .message.success { color: var(--success); }
+        .status {
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <main class="panel">
+        <h1>Reset your password</h1>
+        <p>Choose a new password for your Talla Speciality account. Then return to the app and sign in normally.</p>
+        <div id="status" class="status">Checking your reset link…</div>
+        <form id="reset-form" class="hidden">
+            <input type="hidden" name="token" value="${escapedToken}">
+            <label for="password">New password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" required minlength="5">
+            <label for="confirm-password">Confirm password</label>
+            <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" required minlength="5">
+            <button id="submit-button" type="submit">Reset Password</button>
+        </form>
+        <div id="message" class="message"></div>
+    </main>
+    <script>
+        const token = ${tokenJSON};
+        const status = document.getElementById("status");
+        const form = document.getElementById("reset-form");
+        const message = document.getElementById("message");
+        const submitButton = document.getElementById("submit-button");
+
+        function setMessage(text, type) {
+            message.textContent = text;
+            message.className = "message" + (type ? " " + type : "");
+        }
+
+        async function validateToken() {
+            if (!token) {
+                status.textContent = "This reset link is missing its token.";
+                setMessage("Request a new password reset link from the app.", "error");
+                return;
+            }
+
+            try {
+                const response = await fetch("/accounts/password/reset-token/validate?token=" + encodeURIComponent(token));
+                if (!response.ok) {
+                    throw new Error("invalid");
+                }
+                status.textContent = "Reset link confirmed.";
+                form.classList.remove("hidden");
+            } catch (error) {
+                status.textContent = "This reset link is invalid or expired.";
+                setMessage("Request a new password reset link from the app and try again.", "error");
+            }
+        }
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const password = document.getElementById("password").value;
+            const confirmPassword = document.getElementById("confirm-password").value;
+
+            if (password.length < 5) {
+                setMessage("Use a password with at least 5 characters.", "error");
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                setMessage("The password confirmation does not match.", "error");
+                return;
+            }
+
+            submitButton.disabled = true;
+            setMessage("", "");
+
+            try {
+                const response = await fetch("/accounts/password/complete-reset", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({ token, newPassword: password })
+                });
+
+                const payload = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    throw new Error(payload.error || "Password reset failed");
+                }
+
+                status.textContent = "Password updated.";
+                form.classList.add("hidden");
+                setMessage("Your password has been updated. Return to the app and sign in with the new password.", "success");
+            } catch (error) {
+                setMessage(error.message || "Password reset failed.", "error");
+                submitButton.disabled = false;
+            }
+        });
+
+        validateToken();
+    </script>
+</body>
+</html>`;
 }
 
 function shopifyAdminConfigured() {
@@ -780,6 +1007,10 @@ function hashPassword(password) {
     return crypto.createHash("sha256").update(String(password)).digest("hex");
 }
 
+function createPasswordResetToken() {
+    return crypto.randomBytes(32).toString("hex");
+}
+
 function profilePayload(account) {
     return {
         id: account.id,
@@ -925,6 +1156,136 @@ async function updateAccountPasswordRecord(email, passwordHash) {
     );
 
     return result.rowCount === 0 ? null : { id: result.rows[0].id };
+}
+
+async function createPasswordResetTokenRecord({ email, tokenHash, createdAt, expiresAt }) {
+    if (!database.isEnabled()) {
+        const store = readJSON(passwordResetTokensStorePath);
+        store.tokens = (store.tokens || []).map((record) => (
+            record.email === email && !record.usedAt
+                ? { ...record, usedAt: createdAt }
+                : record
+        ));
+        store.tokens.push({
+            email,
+            tokenHash,
+            createdAt,
+            expiresAt,
+            usedAt: null
+        });
+        writeJSON(passwordResetTokensStorePath, store);
+        return;
+    }
+
+    await database.query(
+        `UPDATE password_reset_tokens
+         SET used_at = $2
+         WHERE email = $1
+           AND used_at IS NULL`,
+        [email, createdAt]
+    );
+
+    await database.query(
+        `INSERT INTO password_reset_tokens (token_hash, email, created_at, expires_at, used_at)
+         VALUES ($1, $2, $3, $4, NULL)`,
+        [tokenHash, email, createdAt, expiresAt]
+    );
+}
+
+async function passwordResetTokenIsValid(tokenHash) {
+    if (!database.isEnabled()) {
+        const store = readJSON(passwordResetTokensStorePath);
+        const now = Date.now();
+
+        return (store.tokens || []).some((record) => (
+            record.tokenHash === tokenHash
+            && !record.usedAt
+            && Date.parse(record.expiresAt) > now
+        ));
+    }
+
+    const result = await database.query(
+        `SELECT 1
+         FROM password_reset_tokens
+         WHERE token_hash = $1
+           AND used_at IS NULL
+           AND expires_at > NOW()`,
+        [tokenHash]
+    );
+
+    return result.rowCount > 0;
+}
+
+async function consumePasswordResetTokenRecord(tokenHash) {
+    if (!database.isEnabled()) {
+        const store = readJSON(passwordResetTokensStorePath);
+        const index = (store.tokens || []).findIndex((record) => (
+            record.tokenHash === tokenHash
+            && !record.usedAt
+            && Date.parse(record.expiresAt) > Date.now()
+        ));
+
+        if (index === -1) {
+            return null;
+        }
+
+        const record = store.tokens[index];
+        store.tokens[index] = {
+            ...record,
+            usedAt: new Date().toISOString()
+        };
+        writeJSON(passwordResetTokensStorePath, store);
+        return { email: record.email };
+    }
+
+    const client = await database.connect();
+    try {
+        await client.query("BEGIN");
+        const result = await client.query(
+            `UPDATE password_reset_tokens
+             SET used_at = NOW()
+             WHERE token_hash = $1
+               AND used_at IS NULL
+               AND expires_at > NOW()
+             RETURNING email`,
+            [tokenHash]
+        );
+
+        await client.query("COMMIT");
+        if (result.rowCount === 0) {
+            return null;
+        }
+
+        return { email: result.rows[0].email };
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function sendPasswordResetEmail(email, token) {
+    const resetLink = buildPasswordResetLink(token);
+    const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${resendAPIKey}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            from: emailFromAddress,
+            to: [email],
+            subject: "Reset your Talla Speciality password",
+            text: `Reset your Talla Speciality password by opening this link: ${resetLink}`,
+            html: `<p>Reset your Talla Speciality password by opening the link below:</p><p><a href="${escapeHTML(resetLink)}">${escapeHTML(resetLink)}</a></p><p>If you did not request this, you can ignore this email.</p>`
+        })
+    });
+
+    if (!response.ok) {
+        const payload = await response.text();
+        throw new Error(`Password reset email failed: ${payload || response.statusText}`);
+    }
 }
 
 async function getLoyaltyTransactions(email) {
@@ -2277,6 +2638,11 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/password-reset") {
+        sendHTML(response, 200, renderPasswordResetPage(url.searchParams.get("token") || ""));
+        return;
+    }
+
     if (request.method === "GET" && (url.pathname === "/admin" || url.pathname === "/admin/")) {
         if (!adminCredentialsConfigured()) {
             sendJSON(response, 503, { error: "Admin credentials are not configured." });
@@ -2717,6 +3083,92 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
             sendJSON(response, 200, profilePayload(account));
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/accounts/password/request-reset") {
+        try {
+            const body = await readBody(request);
+            const email = normalizeEmail(body.email);
+
+            if (!email) {
+                sendJSON(response, 400, { error: "Invalid password reset payload" });
+                return;
+            }
+
+            if (!passwordResetEmailConfigured()) {
+                sendJSON(response, 503, { error: "Password reset email is not configured" });
+                return;
+            }
+
+            const account = await getAccountByEmail(email);
+            if (account) {
+                const token = createPasswordResetToken();
+                const tokenHash = hashPassword(token);
+                const createdAt = new Date().toISOString();
+                const expiresAt = new Date(Date.now() + (passwordResetTokenHours * 60 * 60 * 1000)).toISOString();
+
+                await createPasswordResetTokenRecord({
+                    email,
+                    tokenHash,
+                    createdAt,
+                    expiresAt
+                });
+                await sendPasswordResetEmail(email, token);
+            }
+
+            sendJSON(response, 200, { status: "ok" });
+        } catch (error) {
+            console.error("Password reset email request failed.", error);
+            sendJSON(response, 500, { error: "Password reset email could not be sent" });
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/accounts/password/reset-token/validate") {
+        const token = String(url.searchParams.get("token") || "");
+        if (!token) {
+            sendJSON(response, 400, { error: "Missing reset token" });
+            return;
+        }
+
+        if (await passwordResetTokenIsValid(hashPassword(token))) {
+            sendJSON(response, 200, { status: "ok" });
+            return;
+        }
+
+        sendJSON(response, 410, { error: "This password reset link is invalid or expired" });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/accounts/password/complete-reset") {
+        try {
+            const body = await readBody(request);
+            const token = String(body.token || "");
+            const newPassword = String(body.newPassword || "");
+
+            if (!token || newPassword.length < 5) {
+                sendJSON(response, 400, { error: "Invalid password payload" });
+                return;
+            }
+
+            const resetRecord = await consumePasswordResetTokenRecord(hashPassword(token));
+            if (!resetRecord) {
+                sendJSON(response, 410, { error: "This password reset link is invalid or expired" });
+                return;
+            }
+
+            const account = await updateAccountPasswordRecord(resetRecord.email, hashPassword(newPassword));
+            if (!account) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
+
+            await revokeCustomerSessionsForEmail(resetRecord.email);
+            sendJSON(response, 200, { status: "ok" });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
         }

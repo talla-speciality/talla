@@ -49,6 +49,9 @@ The server reads configuration from environment variables:
 - `ADMIN_SESSION_HOURS`: admin session lifetime in hours, defaults to `12`
 - `CUSTOMER_TOKEN_SECRET`: secret required to enable customer session issuance
 - `CUSTOMER_TOKEN_HOURS`: customer session lifetime in hours, defaults to `168`
+- `RESEND_API_KEY`: Resend API key used for customer password reset emails
+- `EMAIL_FROM_ADDRESS`: verified sender for password reset emails, such as `Talla Speciality <no-reply@your-domain.com>`
+- `PASSWORD_RESET_TOKEN_HOURS`: password reset link lifetime in hours, defaults to `1`
 - `RATE_LIMIT_WINDOW_MS`: rate limit window in milliseconds, defaults to `60000`
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per IP and path within the window, defaults to `240`
 - `REQUEST_LOGGING_ENABLED`: writes request logs to Postgres when `true`
@@ -148,6 +151,21 @@ Response shape:
 }
 ```
 
+### Request password reset email
+
+```http
+POST /accounts/password/request-reset
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "guest@talla.example"
+}
+```
+
+This sends a hosted reset link by email when `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` are configured.
+
 ### Lookup loyalty account
 
 ```http
@@ -211,6 +229,7 @@ Content-Type: application/json
 - If `DATABASE_URL` is set, the backend uses Postgres for accounts, loyalty records, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox records.
 - If `DATABASE_URL` is set, the backend also records request logs and revocable customer sessions in Postgres.
 - Customer-facing protected routes use revocable bearer-backed sessions rather than trusting raw email alone.
+- Customer password reset links are hosted at `/password-reset` and require Resend plus a verified sender address.
 - For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
 - Shopify-backed product control requires a custom app token with `read_products` and `write_products`.
 - Newly created products stay out of the storefront until they are published. Set `SHOPIFY_ADMIN_PUBLICATION_ID` if you want products created from `/admin` to appear in the iOS app automatically.
