@@ -24,11 +24,34 @@ final class Talla_SpecialityUITests: XCTestCase {
 
     @MainActor
     func testExample() throws {
-        // UI tests must launch the application that they test.
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Shop"].exists)
+        XCTAssertTrue(app.buttons["Brewing"].exists)
+        XCTAssertTrue(app.buttons["Account"].exists)
+        XCTAssertTrue(app.buttons["Open cart"].exists)
+    }
+
+    @MainActor
+    func testTabNavigationSmoke() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        let homeButton = app.buttons["Home"]
+        let shopButton = app.buttons["Shop"]
+        let brewingButton = app.buttons["Brewing"]
+        let accountButton = app.buttons["Account"]
+
+        XCTAssertTrue(homeButton.waitForExistence(timeout: 5))
+        shopButton.tap()
+        XCTAssertTrue(app.buttons["Shop"].exists)
+        brewingButton.tap()
+        XCTAssertTrue(app.buttons["Brewing"].exists)
+        accountButton.tap()
+        XCTAssertTrue(app.buttons["Account"].exists)
+        homeButton.tap()
+        XCTAssertTrue(app.buttons["Home"].exists)
     }
 
     @MainActor
