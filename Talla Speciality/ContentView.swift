@@ -6392,42 +6392,16 @@ private struct ServiceErrorResponse: Decodable {
     let error: String
 }
 
-private extension ContentView.Product {
-    static func shouldInclude(shopifyNode: ShopifyProductNode) -> Bool {
-        let source = ([shopifyNode.title, shopifyNode.productType] + shopifyNode.tags)
+enum ProductCatalogRules {
+    static func shouldInclude(title: String, productType: String, tags: [String]) -> Bool {
+        let source = ([title, productType] + tags)
             .joined(separator: " ")
             .lowercased()
 
-        if source.contains("gift card") || source.contains("giftcard") {
-            return false
-        }
-
-        return true
+        return !source.contains("gift card") && !source.contains("giftcard")
     }
 
-    init(shopifyNode: ShopifyProductNode) {
-        let categoryKey = Self.categoryKey(
-            productType: shopifyNode.productType,
-            tags: shopifyNode.tags,
-            title: shopifyNode.title
-        )
-        let firstVariant = shopifyNode.variants.edges.first?.node
-
-        self.init(
-            id: shopifyNode.id,
-            variantID: firstVariant?.id,
-            name: shopifyNode.title,
-            price: Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
-            categoryKey: categoryKey,
-            categoryLabel: Self.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
-            imageURL: shopifyNode.featuredImage?.url,
-            desc: shopifyNode.description.isEmpty ? "Freshly synced from Shopify." : shopifyNode.description,
-            tag: Self.productTag(from: shopifyNode.tags),
-            isAvailableForSale: firstVariant?.availableForSale ?? false
-        )
-    }
-
-    private static func categoryKey(productType: String, tags: [String], title: String) -> String {
+    static func categoryKey(productType: String, tags: [String], title: String) -> String {
         let source = ([title, productType] + tags)
             .joined(separator: " ")
             .lowercased()
@@ -6462,14 +6436,20 @@ private extension ContentView.Product {
             return "ready-made-drinks"
         }
 
-        if source.contains("dessert") || source.contains("bread") || source.contains("jam") || source.contains("spread") || source.contains("butter") || source.contains("cookie") || source.contains("cake") {
+        if source.contains("dessert")
+            || source.contains("bread")
+            || source.contains("jam")
+            || source.contains("spread")
+            || source.contains("butter")
+            || source.contains("cookie")
+            || source.contains("cake") {
             return "crmb-tallas-speciality-bakery"
         }
 
         return "arabic-coffee-beans"
     }
 
-    private static func categoryLabel(productType: String, fallbackKey: String) -> String {
+    static func categoryLabel(productType: String, fallbackKey: String) -> String {
         let trimmedType = productType.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedType.isEmpty, slug(from: trimmedType) != "tea", fallbackKey != "gifts" {
             return trimmedType
@@ -6497,6 +6477,12 @@ private extension ContentView.Product {
             .joined(separator: " ")
     }
 
+    static func productTag(from tags: [String]) -> String? {
+        let preferred = ["BESTSELLER", "NEW", "LOCAL", "PREMIUM", "GIFT"]
+        let uppercased = tags.map { $0.uppercased() }
+        return preferred.first(where: uppercased.contains)
+    }
+
     private static func slug(from value: String) -> String {
         value
             .lowercased()
@@ -6505,11 +6491,37 @@ private extension ContentView.Product {
             .filter { !$0.isEmpty }
             .joined(separator: "-")
     }
+}
 
-    private static func productTag(from tags: [String]) -> String? {
-        let preferred = ["BESTSELLER", "NEW", "LOCAL", "PREMIUM", "GIFT"]
-        let uppercased = tags.map { $0.uppercased() }
-        return preferred.first(where: uppercased.contains)
+private extension ContentView.Product {
+    static func shouldInclude(shopifyNode: ShopifyProductNode) -> Bool {
+        ProductCatalogRules.shouldInclude(
+            title: shopifyNode.title,
+            productType: shopifyNode.productType,
+            tags: shopifyNode.tags
+        )
+    }
+
+    init(shopifyNode: ShopifyProductNode) {
+        let categoryKey = ProductCatalogRules.categoryKey(
+            productType: shopifyNode.productType,
+            tags: shopifyNode.tags,
+            title: shopifyNode.title
+        )
+        let firstVariant = shopifyNode.variants.edges.first?.node
+
+        self.init(
+            id: shopifyNode.id,
+            variantID: firstVariant?.id,
+            name: shopifyNode.title,
+            price: Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
+            categoryKey: categoryKey,
+            categoryLabel: ProductCatalogRules.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
+            imageURL: shopifyNode.featuredImage?.url,
+            desc: shopifyNode.description.isEmpty ? "Freshly synced from Shopify." : shopifyNode.description,
+            tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
+            isAvailableForSale: firstVariant?.availableForSale ?? false
+        )
     }
 
     private static func formattedPrice(from money: ShopifyProductNode.Money) -> String {
