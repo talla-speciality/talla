@@ -1896,8 +1896,14 @@ async function generateWalletPass(email) {
 
 function memberIDFor(email) {
     const localPart = email.split("@")[0] || "member";
-    const normalized = localPart.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
-    return `TALLA-${normalized || "MEMBER"}`;
+    const normalized = localPart.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "MEMBER";
+    const hashSuffix = crypto
+        .createHash("sha256")
+        .update(email.trim().toLowerCase())
+        .digest("hex")
+        .slice(0, 4)
+        .toUpperCase();
+    return `TALLA-${normalized}${hashSuffix}`;
 }
 
 function tierFor(pointsBalance) {
