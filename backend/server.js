@@ -1199,6 +1199,38 @@ async function getAccountByEmail(email) {
     };
 }
 
+async function allAccounts() {
+    if (!database.isEnabled()) {
+        const store = readJSON(accountsStorePath);
+        return Object.values(store.accounts || {})
+            .map((account) => ({
+                id: account.id,
+                email: account.email,
+                firstName: account.firstName,
+                lastName: account.lastName,
+                passwordHash: account.passwordHash,
+                createdAt: account.createdAt
+            }))
+            .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
+    }
+
+    const result = await database.query(
+        `SELECT id, email, first_name, last_name, password_hash, created_at
+         FROM accounts
+         ORDER BY created_at DESC
+         LIMIT 500`
+    );
+
+    return result.rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        passwordHash: row.password_hash,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+    }));
+}
+
 async function createAccountRecord({ id, email, firstName, lastName, passwordHash, createdAt }) {
     const account = { id, email, firstName, lastName, passwordHash, createdAt };
 
@@ -2824,6 +2856,17 @@ async function adminCustomerSummary(email) {
     };
 }
 
+async function adminCustomerDirectory() {
+    const accounts = await allAccounts();
+    return accounts.map((account) => ({
+        id: account.id,
+        email: account.email,
+        firstName: account.firstName,
+        lastName: account.lastName,
+        createdAt: account.createdAt
+    }));
+}
+
 const server = http.createServer(async (request, response) => {
     const startedAt = Date.now();
     response.on("finish", () => {
@@ -2958,6 +3001,13 @@ const server = http.createServer(async (request, response) => {
             }
 
             sendJSON(response, 200, summary);
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/customers") {
+            sendJSON(response, 200, {
+                customers: await adminCustomerDirectory()
+            });
             return;
         }
 
