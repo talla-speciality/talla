@@ -247,6 +247,28 @@
             color: var(--text);
             background: white;
         }
+        .product-image-grid,
+        .customer-profile-grid,
+        .order-admin-row {
+            display: grid;
+            gap: 10px;
+        }
+        .product-image-grid,
+        .customer-profile-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .order-admin-row {
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+        }
+        .product-thumb {
+            width: 84px;
+            height: 84px;
+            object-fit: cover;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.8);
+        }
         .product-meta {
             color: var(--muted);
             font-size: 13px;
@@ -299,7 +321,7 @@
             }
         }
         @media (max-width: 640px) {
-            .grid, .adjust-row, .ops-grid, .product-create-grid, .product-item-grid {
+            .grid, .adjust-row, .ops-grid, .product-create-grid, .product-item-grid, .product-image-grid, .customer-profile-grid, .order-admin-row {
                 grid-template-columns: 1fr;
             }
         }
@@ -518,9 +540,19 @@
                         <input class="product-type-input" type="text" value="${escapeHTML(product.productType || "")}" placeholder="Type" disabled>
                     </div>
                     <textarea class="product-description-input" placeholder="Description (HTML or plain text)">${escapeHTML(product.descriptionHTML || "")}</textarea>
+                    <div class="product-image-grid">
+                        <input class="product-image-url-input" type="url" value="" placeholder="Add image URL">
+                        <input class="product-image-alt-input" type="text" value="${escapeHTML(product.imageAlt || "")}" placeholder="Image alt text">
+                    </div>
                     <div class="product-item-actions">
-                        <div class="product-meta">Price updates apply to the default Shopify variant. ${product.inventoryTracked ? "Inventory tracking is enabled." : "Inventory tracking is disabled."}${product.inventoryPolicy ? ` Policy: ${escapeHTML(product.inventoryPolicy)}.` : ""}</div>
                         <div class="toolbar-row" style="padding: 0;">
+                            ${product.imageURL ? `<img class="product-thumb" src="${escapeHTML(product.imageURL)}" alt="${escapeHTML(product.imageAlt || product.title)}">` : `<div class="product-thumb" style="display:grid;place-items:center;color:var(--muted);font-size:12px;">No image</div>`}
+                            <div class="product-meta">Price updates apply to the default Shopify variant. ${product.inventoryTracked ? "Inventory tracking is enabled." : "Inventory tracking is disabled."}${product.inventoryPolicy ? ` Policy: ${escapeHTML(product.inventoryPolicy)}.` : ""}${product.inventoryLocationName ? ` Location: ${escapeHTML(product.inventoryLocationName)}.` : ""}${product.availableQuantity !== null ? ` Available: ${escapeHTML(product.availableQuantity)}.` : ""}</div>
+                        </div>
+                        <div class="toolbar-row" style="padding: 0;">
+                            <input class="product-inventory-input" type="number" min="0" step="1" value="${product.availableQuantity ?? ""}" placeholder="Qty">
+                            <button class="save-inventory secondary">Set Inventory</button>
+                            <button class="save-image secondary">Add Image</button>
                             <button class="save-product secondary">Save</button>
                             <button class="delete-product">Delete</button>
                         </div>
@@ -539,6 +571,17 @@
             const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs } = customer;
             snapshotEl.className = "";
             snapshotEl.innerHTML = `
+                <div class="panel" style="padding:16px; margin-bottom:16px; background:white;">
+                    <h2 style="margin-top:0;">Customer Profile</h2>
+                    <div class="customer-profile-grid">
+                        <input id="customer-first-name" type="text" value="${escapeHTML(profile.firstName || "")}" placeholder="First name">
+                        <input id="customer-last-name" type="text" value="${escapeHTML(profile.lastName || "")}" placeholder="Last name">
+                    </div>
+                    <div class="toolbar-row" style="padding: 12px 0 0;">
+                        <div class="muted">${profile.email}</div>
+                        <button id="save-customer-profile" class="secondary">Save Profile</button>
+                    </div>
+                </div>
                 <div class="grid">
                     <div class="grid-card">
                         <span class="label">Customer</span>
@@ -565,7 +608,7 @@
                     <h2 style="margin-top:22px;">Saved Addresses</h2>
                     <div class="list">${renderList(addresses, address => `<div class="list-item"><strong>${address.label}${address.isPreferred ? " • Preferred" : ""}</strong><div class="muted">${address.fullName} • ${address.line1}, ${address.city}</div></div>`, "No saved addresses.")}</div>
                     <h2 style="margin-top:22px;">Orders</h2>
-                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${order.status}</div></div>`, "No orders yet.")}</div>
+                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${new Date(order.createdAt).toLocaleString()}</div><div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${["Pending", "Confirmed", "Preparing", "Fulfilled", "Cancelled"].map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button></div></div>`, "No orders yet.")}</div>
                     <h2 style="margin-top:22px;">Stock Alerts</h2>
                     <div class="list">${renderList(alerts, alert => `<div class="list-item"><strong>${alert.productName}</strong><div class="muted">${alert.status}</div></div>`, "No stock alerts.")}</div>
                     <h2 style="margin-top:22px;">Alert Inbox</h2>
@@ -808,6 +851,127 @@
             }
         }
 
+        async function saveProductImage(productID) {
+            const productEl = productsEl.querySelector(`[data-product-id="${CSS.escape(productID)}"]`);
+            if (!productEl) return;
+
+            const imageURL = productEl.querySelector(".product-image-url-input").value.trim();
+            const altText = productEl.querySelector(".product-image-alt-input").value.trim();
+            if (!imageURL) {
+                setStatus("Enter an image URL before adding it.", true);
+                return;
+            }
+
+            setStatus("Adding product image...");
+            try {
+                const response = await fetch("/admin/api/products/image", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: productID, imageURL, altText })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Product image update failed.");
+                await refreshProducts();
+                setStatus(`Updated image for ${payload.product?.title || "product"}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function saveProductInventory(productID) {
+            const productEl = productsEl.querySelector(`[data-product-id="${CSS.escape(productID)}"]`);
+            if (!productEl) return;
+
+            const quantityRaw = productEl.querySelector(".product-inventory-input").value.trim();
+            const quantity = Number(quantityRaw);
+            const inventoryItemID = state.products.find((entry) => entry.id === productID)?.inventoryItemID;
+            const locationID = state.products.find((entry) => entry.id === productID)?.inventoryLocationID;
+            const compareQuantity = state.products.find((entry) => entry.id === productID)?.availableQuantity;
+
+            if (!Number.isFinite(quantity) || quantity < 0) {
+                setStatus("Enter a valid non-negative inventory quantity.", true);
+                return;
+            }
+
+            if (!inventoryItemID || !locationID) {
+                setStatus("This product does not expose an editable inventory location yet.", true);
+                return;
+            }
+
+            setStatus("Updating inventory...");
+            try {
+                const response = await fetch("/admin/api/products/inventory", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: productID, inventoryItemID, locationID, quantity, compareQuantity })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Inventory update failed.");
+                await refreshProducts();
+                setStatus(`Updated inventory for ${payload.product?.title || "product"}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function saveCustomerProfile() {
+            if (!state.currentEmail || !state.customer) {
+                setStatus("Load a customer before editing the profile.", true);
+                return;
+            }
+
+            const firstName = document.getElementById("customer-first-name")?.value.trim();
+            const lastName = document.getElementById("customer-last-name")?.value.trim();
+            if (!firstName || !lastName) {
+                setStatus("Enter both first and last name.", true);
+                return;
+            }
+
+            setStatus("Saving customer profile...");
+            try {
+                const response = await fetch("/admin/api/customer/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, firstName, lastName })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Customer profile update failed.");
+                await lookupCustomer();
+                setStatus(`Updated ${payload.profile.email}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function saveOrderStatus(orderID) {
+            if (!state.currentEmail) {
+                setStatus("Load a customer before updating orders.", true);
+                return;
+            }
+
+            const selectEl = snapshotEl.querySelector(`.order-status-input[data-order-id="${CSS.escape(orderID)}"]`);
+            const status = selectEl?.value;
+            if (!status) {
+                setStatus("Select an order status first.", true);
+                return;
+            }
+
+            setStatus("Updating order...");
+            try {
+                const response = await fetch("/admin/api/orders/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, id: orderID, status })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Order update failed.");
+                await lookupCustomer();
+                setStatus(`Updated ${payload.order.title}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
         async function deleteProduct(productID) {
             if (!window.confirm("Delete this product from Shopify? This cannot be undone.")) {
                 return;
@@ -844,10 +1008,35 @@
                 return;
             }
 
+            const imageButton = event.target.closest(".save-image");
+            if (imageButton) {
+                const productEl = imageButton.closest("[data-product-id]");
+                if (productEl) void saveProductImage(productEl.dataset.productId);
+                return;
+            }
+
+            const inventoryButton = event.target.closest(".save-inventory");
+            if (inventoryButton) {
+                const productEl = inventoryButton.closest("[data-product-id]");
+                if (productEl) void saveProductInventory(productEl.dataset.productId);
+                return;
+            }
+
             const deleteButton = event.target.closest(".delete-product");
             if (deleteButton) {
                 const productEl = deleteButton.closest("[data-product-id]");
                 if (productEl) void deleteProduct(productEl.dataset.productId);
+            }
+        });
+        snapshotEl.addEventListener("click", (event) => {
+            if (event.target.closest("#save-customer-profile")) {
+                void saveCustomerProfile();
+                return;
+            }
+
+            const orderButton = event.target.closest(".save-order-status");
+            if (orderButton) {
+                void saveOrderStatus(orderButton.dataset.orderId);
             }
         });
         loginUsernameInput.addEventListener("keydown", (event) => {

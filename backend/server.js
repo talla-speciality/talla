@@ -372,6 +372,11 @@ function assertShopifyUserErrors(errors) {
 
 function shopifyAdminProductPayload(node) {
     const firstVariant = node?.variants?.edges?.[0]?.node || null;
+    const firstInventoryLevel = firstVariant?.inventoryItem?.inventoryLevels?.edges?.[0]?.node || null;
+    const availableQuantity = Array.isArray(firstInventoryLevel?.quantities)
+        ? (firstInventoryLevel.quantities.find((entry) => entry.name === "available")?.quantity ?? null)
+        : null;
+    const firstImage = node?.media?.nodes?.find((entry) => entry?.image?.url) || null;
     return {
         id: node.id,
         title: node.title,
@@ -379,7 +384,14 @@ function shopifyAdminProductPayload(node) {
         status: node.status,
         productType: node.productType || "",
         onlineStoreURL: node.onlineStoreUrl || null,
+        imageID: firstImage?.id || null,
+        imageURL: firstImage?.image?.url || "",
+        imageAlt: firstImage?.alt || "",
         defaultVariantID: firstVariant?.id || null,
+        inventoryItemID: firstVariant?.inventoryItem?.id || null,
+        inventoryLocationID: firstInventoryLevel?.location?.id || null,
+        inventoryLocationName: firstInventoryLevel?.location?.name || "",
+        availableQuantity,
         price: firstVariant?.price || "",
         availableForSale: firstVariant?.availableForSale ?? false,
         inventoryPolicy: firstVariant?.inventoryPolicy || "",
@@ -399,6 +411,17 @@ async function listShopifyAdminProducts() {
                         status
                         productType
                         onlineStoreUrl
+                        media(first: 6) {
+                            nodes {
+                                ... on MediaImage {
+                                    id
+                                    alt
+                                    image {
+                                        url
+                                    }
+                                }
+                            }
+                        }
                         variants(first: 1) {
                             edges {
                                 node {
@@ -407,7 +430,22 @@ async function listShopifyAdminProducts() {
                                     availableForSale
                                     inventoryPolicy
                                     inventoryItem {
+                                        id
                                         tracked
+                                        inventoryLevels(first: 1) {
+                                            edges {
+                                                node {
+                                                    location {
+                                                        id
+                                                        name
+                                                    }
+                                                    quantities(names: ["available"]) {
+                                                        name
+                                                        quantity
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -453,9 +491,21 @@ async function createShopifyAdminProduct({ title, price, productType }) {
                 product {
                     id
                     title
+                    descriptionHtml
                     status
                     productType
                     onlineStoreUrl
+                    media(first: 6) {
+                        nodes {
+                            ... on MediaImage {
+                                id
+                                alt
+                                image {
+                                    url
+                                }
+                            }
+                        }
+                    }
                     variants(first: 1) {
                         edges {
                             node {
@@ -464,7 +514,22 @@ async function createShopifyAdminProduct({ title, price, productType }) {
                                 availableForSale
                                 inventoryPolicy
                                 inventoryItem {
+                                    id
                                     tracked
+                                    inventoryLevels(first: 1) {
+                                        edges {
+                                            node {
+                                                location {
+                                                    id
+                                                    name
+                                                }
+                                                quantities(names: ["available"]) {
+                                                    name
+                                                    quantity
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -555,6 +620,59 @@ async function updateShopifyAdminProduct({ productID, title, descriptionHTML, de
 
     const products = await listShopifyAdminProducts();
     return products.find((entry) => entry.id === productID) || null;
+}
+
+async function addShopifyProductImage({ productID, imageURL, altText }) {
+    const data = await shopifyAdminGraphQLRequest(
+        `mutation AddProductImage($productId: ID!, $media: [CreateMediaInput!]!) {
+            productCreateMedia(productId: $productId, media: $media) {
+                mediaUserErrors {
+                    field
+                    message
+                }
+            }
+        }`,
+        {
+            productId: productID,
+            media: [{
+                mediaContentType: "IMAGE",
+                originalSource: imageURL,
+                alt: altText || undefined
+            }]
+        }
+    );
+
+    assertShopifyUserErrors(data.productCreateMedia?.mediaUserErrors);
+    const products = await listShopifyAdminProducts();
+    return products.find((entry) => entry.id === productID) || null;
+}
+
+async function updateShopifyProductInventory({ inventoryItemID, locationID, quantity, compareQuantity }) {
+    const data = await shopifyAdminGraphQLRequest(
+        `mutation SetInventoryQuantity($input: InventorySetQuantitiesInput!) {
+            inventorySetQuantities(input: $input) {
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }`,
+        {
+            input: {
+                name: "available",
+                reason: "correction",
+                referenceDocumentUri: `talla-admin://inventory/${inventoryItemID}`,
+                quantities: [{
+                    inventoryItemId: inventoryItemID,
+                    locationId: locationID,
+                    quantity,
+                    compareQuantity
+                }]
+            }
+        }
+    );
+
+    assertShopifyUserErrors(data.inventorySetQuantities?.userErrors);
 }
 
 async function deleteShopifyAdminProduct(productID) {
@@ -1527,6 +1645,39 @@ async function ordersPayload(email) {
 
     const store = readJSON(ordersStorePath);
     return store.orders[email] || [];
+}
+
+async function updateOrderStatusRecord(email, orderID, status) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `UPDATE orders
+             SET status = $3
+             WHERE email = $1 AND id = $2
+             RETURNING id, title, total, status, items, created_at`,
+            [email, orderID, status]
+        );
+
+        if (result.rowCount === 0) {
+            return null;
+        }
+
+        return orderRowToRecord(result.rows[0]);
+    }
+
+    const store = readJSON(ordersStorePath);
+    const orders = store.orders[email] || [];
+    const index = orders.findIndex((entry) => entry.id === orderID);
+    if (index === -1) {
+        return null;
+    }
+
+    orders[index] = {
+        ...orders[index],
+        status
+    };
+    store.orders[email] = orders;
+    writeJSON(ordersStorePath, store);
+    return orders[index];
 }
 
 function rewardDetailsFor(reward) {
@@ -2840,6 +2991,65 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
+        if (request.method === "POST" && url.pathname === "/admin/api/products/image") {
+            if (!shopifyAdminConfigured()) {
+                sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
+                return;
+            }
+
+            try {
+                const body = await readBody(request);
+                const productID = String(body.id || "").trim();
+                const imageURL = String(body.imageURL || "").trim();
+                const altText = String(body.altText || "").trim();
+
+                if (!productID || !imageURL) {
+                    sendJSON(response, 400, { error: "Provide a product and image URL." });
+                    return;
+                }
+
+                const product = await addShopifyProductImage({ productID, imageURL, altText });
+                sendJSON(response, 200, { product });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not add product image." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/products/inventory") {
+            if (!shopifyAdminConfigured()) {
+                sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
+                return;
+            }
+
+            try {
+                const body = await readBody(request);
+                const productID = String(body.id || "").trim();
+                const inventoryItemID = String(body.inventoryItemID || "").trim();
+                const locationID = String(body.locationID || "").trim();
+                const compareQuantity = Number(body.compareQuantity);
+                const quantity = Number(body.quantity);
+
+                if (!productID || !inventoryItemID || !locationID || !Number.isFinite(quantity) || quantity < 0) {
+                    sendJSON(response, 400, { error: "Provide a product and a valid inventory quantity." });
+                    return;
+                }
+
+                await updateShopifyProductInventory({
+                    inventoryItemID,
+                    locationID,
+                    quantity,
+                    compareQuantity: Number.isFinite(compareQuantity) ? compareQuantity : 0
+                });
+
+                const product = (await listShopifyAdminProducts()).find((entry) => entry.id === productID) || null;
+                sendJSON(response, 200, { product });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not update inventory." });
+            }
+            return;
+        }
+
         if (request.method === "POST" && url.pathname === "/admin/api/products/delete") {
             if (!shopifyAdminConfigured()) {
                 sendJSON(response, 503, { error: "Shopify Admin API is not configured for product control." });
@@ -2858,6 +3068,56 @@ const server = http.createServer(async (request, response) => {
                 sendJSON(response, 200, { success: true, id: productID });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not delete product." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customer/update") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const firstName = String(body.firstName || "").trim();
+                const lastName = String(body.lastName || "").trim();
+
+                if (!email || !firstName || !lastName) {
+                    sendJSON(response, 400, { error: "Provide an email, first name, and last name." });
+                    return;
+                }
+
+                const account = await updateAccountProfileRecord(email, firstName, lastName);
+                if (!account) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                sendJSON(response, 200, { profile: profilePayload(account) });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid customer profile payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/orders/update") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const orderID = String(body.id || "").trim();
+                const status = String(body.status || "").trim();
+
+                if (!email || !orderID || !status) {
+                    sendJSON(response, 400, { error: "Provide an email, order, and status." });
+                    return;
+                }
+
+                const order = await updateOrderStatusRecord(email, orderID, status);
+                if (!order) {
+                    sendJSON(response, 404, { error: "Order not found." });
+                    return;
+                }
+
+                sendJSON(response, 200, { order });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid order update payload." });
             }
             return;
         }
