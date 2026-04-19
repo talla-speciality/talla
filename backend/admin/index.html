@@ -674,11 +674,11 @@
 
             customerDirectoryEl.className = "directory-list";
             customerDirectoryEl.innerHTML = items.map((customer) => `
-                <button class="directory-item" data-customer-email="${escapeHTML(customer.email)}">
+                <div class="directory-item" role="button" tabindex="0" data-customer-email="${escapeHTML(customer.email)}">
                     <strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong>
                     <div class="muted">${escapeHTML(customer.email)}</div>
                     <div class="muted">Created ${new Date(customer.createdAt).toLocaleString()}</div>
-                </button>
+                </div>
             `).join("");
         }
 
@@ -1038,8 +1038,7 @@
             }
         }
 
-        async function lookupCustomer() {
-            const email = emailInput.value.trim().toLowerCase();
+        async function loadCustomer(email) {
             if (!email) {
                 setStatus("Enter a customer email first.", "error");
                 return;
@@ -1064,6 +1063,10 @@
             } finally {
                 setButtonBusy(lookupButton, false, "Lookup Customer");
             }
+        }
+
+        async function lookupCustomer() {
+            await loadCustomer(emailInput.value.trim().toLowerCase());
         }
 
         async function adjustLoyalty() {
@@ -1378,8 +1381,24 @@
                 return;
             }
 
-            emailInput.value = item.dataset.customerEmail || "";
-            void lookupCustomer();
+            const email = (item.dataset.customerEmail || "").trim().toLowerCase();
+            emailInput.value = email;
+            void loadCustomer(email);
+        });
+        customerDirectoryEl.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+
+            const item = event.target.closest(".directory-item");
+            if (!item) {
+                return;
+            }
+
+            event.preventDefault();
+            const email = (item.dataset.customerEmail || "").trim().toLowerCase();
+            emailInput.value = email;
+            void loadCustomer(email);
         });
         customerDirectoryFilterInput.addEventListener("input", renderCustomerDirectory);
         productsEl.addEventListener("click", (event) => {
