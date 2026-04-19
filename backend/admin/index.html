@@ -249,12 +249,14 @@
         }
         .product-image-grid,
         .customer-profile-grid,
-        .order-admin-row {
+        .order-admin-row,
+        .voucher-create-grid {
             display: grid;
             gap: 10px;
         }
         .product-image-grid,
-        .customer-profile-grid {
+        .customer-profile-grid,
+        .voucher-create-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .order-admin-row {
@@ -582,6 +584,19 @@
                         <button id="save-customer-profile" class="secondary">Save Profile</button>
                     </div>
                 </div>
+                <div class="panel" style="padding:16px; margin-bottom:16px; background:white;">
+                    <h2 style="margin-top:0;">Voucher Composer</h2>
+                    <div class="voucher-create-grid">
+                        <input id="voucher-reward" type="text" placeholder="Reward title">
+                        <input id="voucher-points" type="number" min="1" step="1" placeholder="Points value">
+                        <input id="voucher-detail" type="text" placeholder="Voucher detail">
+                        <input id="voucher-expires-days" type="number" min="1" step="1" value="30" placeholder="Expires in days">
+                    </div>
+                    <div class="toolbar-row" style="padding: 12px 0 0;">
+                        <div class="muted">Create a manual voucher for ${profile.email}</div>
+                        <button id="create-voucher" class="secondary">Create Voucher</button>
+                    </div>
+                </div>
                 <div class="grid">
                     <div class="grid-card">
                         <span class="label">Customer</span>
@@ -603,8 +618,8 @@
                     </div>
                 </div>
                 <div class="panel" style="margin-top:16px; padding:0; border:none; box-shadow:none; background:transparent;">
-                    <h2 style="margin-top:22px;">Active Vouchers</h2>
-                    <div class="list">${renderList(vouchers, voucher => `<div class="list-item"><strong>${voucher.reward}</strong><div class="muted">${voucher.code} • ${voucher.detail}</div></div>`, "No active vouchers.")}</div>
+                    <h2 style="margin-top:22px;">Vouchers</h2>
+                    <div class="list">${renderList(vouchers, voucher => `<div class="list-item"><strong>${voucher.reward}</strong><div class="muted">${voucher.code} • ${voucher.detail}</div><div class="order-admin-row" style="margin-top:10px;"><div class="muted">${voucher.status} • Expires ${new Date(voucher.expiresAt).toLocaleDateString()}${voucher.usedAt ? ` • Used ${new Date(voucher.usedAt).toLocaleDateString()}` : ""}</div>${voucher.status === "active" ? `<button class="revoke-voucher secondary" data-voucher-code="${escapeHTML(voucher.code)}">Revoke</button>` : `<span class="muted">No action</span>`}</div></div>`, "No vouchers yet.")}</div>
                     <h2 style="margin-top:22px;">Saved Addresses</h2>
                     <div class="list">${renderList(addresses, address => `<div class="list-item"><strong>${address.label}${address.isPreferred ? " • Preferred" : ""}</strong><div class="muted">${address.fullName} • ${address.line1}, ${address.city}</div></div>`, "No saved addresses.")}</div>
                     <h2 style="margin-top:22px;">Orders</h2>
@@ -972,6 +987,59 @@
             }
         }
 
+        async function createVoucher() {
+            if (!state.currentEmail) {
+                setStatus("Load a customer before creating a voucher.", true);
+                return;
+            }
+
+            const reward = document.getElementById("voucher-reward")?.value.trim();
+            const points = Number(document.getElementById("voucher-points")?.value);
+            const detail = document.getElementById("voucher-detail")?.value.trim();
+            const expiresInDays = Number(document.getElementById("voucher-expires-days")?.value);
+
+            if (!reward || !Number.isFinite(points) || points <= 0 || !Number.isFinite(expiresInDays) || expiresInDays <= 0) {
+                setStatus("Enter a reward, positive points value, and expiry days.", true);
+                return;
+            }
+
+            setStatus("Creating voucher...");
+            try {
+                const response = await fetch("/admin/api/vouchers/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, reward, points, detail, expiresInDays })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Voucher creation failed.");
+                await lookupCustomer();
+                setStatus(`Created voucher ${payload.voucher.code}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function revokeVoucher(code) {
+            if (!code) {
+                return;
+            }
+
+            setStatus("Revoking voucher...");
+            try {
+                const response = await fetch("/admin/api/vouchers/revoke", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Voucher revoke failed.");
+                await lookupCustomer();
+                setStatus(`Revoked voucher ${payload.voucher.code}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
         async function deleteProduct(productID) {
             if (!window.confirm("Delete this product from Shopify? This cannot be undone.")) {
                 return;
@@ -1034,9 +1102,20 @@
                 return;
             }
 
+            if (event.target.closest("#create-voucher")) {
+                void createVoucher();
+                return;
+            }
+
             const orderButton = event.target.closest(".save-order-status");
             if (orderButton) {
                 void saveOrderStatus(orderButton.dataset.orderId);
+                return;
+            }
+
+            const revokeButton = event.target.closest(".revoke-voucher");
+            if (revokeButton) {
+                void revokeVoucher(revokeButton.dataset.voucherCode);
             }
         });
         loginUsernameInput.addEventListener("keydown", (event) => {

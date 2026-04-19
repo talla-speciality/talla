@@ -2109,6 +2109,75 @@ async function activeVouchersFor(email) {
         .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
 }
 
+async function allVouchersFor(email) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (database.isEnabled()) {
+        await database.query(
+            `UPDATE vouchers
+             SET status = 'expired'
+             WHERE email = $1 AND status = 'active' AND expires_at < NOW()`,
+            [normalizedEmail]
+        );
+
+        const result = await database.query(
+            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at
+             FROM vouchers
+             WHERE email = $1
+             ORDER BY created_at DESC`,
+            [normalizedEmail]
+        );
+
+        return result.rows.map(voucherRowToRecord);
+    }
+
+    const store = readJSON(vouchersStorePath);
+    const now = Date.now();
+
+    return Object.values(store.vouchers)
+        .filter((voucher) => voucher.email === normalizedEmail)
+        .map((voucher) => {
+            if (voucher.status === "active" && new Date(voucher.expiresAt).getTime() < now) {
+                voucher.status = "expired";
+            }
+            return voucher;
+        })
+        .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
+}
+
+async function createAdminVoucherRecord({ email, reward, points, detail, expiresInDays }) {
+    const voucher = buildVoucherRecord(email, reward, points);
+    voucher.detail = detail || voucher.detail;
+    voucher.expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
+    await storeVoucherRecord(voucher);
+    return voucher;
+}
+
+async function revokeVoucherRecord(code) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `UPDATE vouchers
+             SET status = 'revoked'
+             WHERE code = $1
+               AND status = 'active'
+             RETURNING code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at`,
+            [code]
+        );
+
+        return result.rowCount === 0 ? null : voucherRowToRecord(result.rows[0]);
+    }
+
+    const store = readJSON(vouchersStorePath);
+    const voucher = store.vouchers[code];
+    if (!voucher || voucher.status !== "active") {
+        return null;
+    }
+
+    voucher.status = "revoked";
+    writeJSON(vouchersStorePath, store);
+    return voucher;
+}
+
 function stockAlertStatusFor(record, previousRecord) {
     if (!record.isAvailableForSale) {
         return "Waiting for restock";
@@ -2739,7 +2808,7 @@ async function adminCustomerSummary(email) {
         stockAlertsFor(email),
         alertInboxFor(email),
         addressesFor(email),
-        activeVouchersFor(email),
+        allVouchersFor(email),
         adminAuditLogsFor(email)
     ]);
 
@@ -3118,6 +3187,56 @@ const server = http.createServer(async (request, response) => {
                 sendJSON(response, 200, { order });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid order update payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/vouchers/create") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const reward = String(body.reward || "").trim();
+                const detail = String(body.detail || "").trim();
+                const points = Number(body.points);
+                const expiresInDays = Number(body.expiresInDays);
+
+                if (!email || !reward || !Number.isFinite(points) || points <= 0 || !Number.isFinite(expiresInDays) || expiresInDays <= 0) {
+                    sendJSON(response, 400, { error: "Provide email, reward, positive points, and expiry days." });
+                    return;
+                }
+
+                const account = await getAccountByEmail(email);
+                if (!account) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                const voucher = await createAdminVoucherRecord({ email, reward, points, detail, expiresInDays });
+                sendJSON(response, 200, { voucher });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Voucher creation failed." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/vouchers/revoke") {
+            try {
+                const body = await readBody(request);
+                const code = String(body.code || "").trim();
+                if (!code) {
+                    sendJSON(response, 400, { error: "Provide a voucher code." });
+                    return;
+                }
+
+                const voucher = await revokeVoucherRecord(code);
+                if (!voucher) {
+                    sendJSON(response, 404, { error: "Active voucher not found." });
+                    return;
+                }
+
+                sendJSON(response, 200, { voucher });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Voucher revoke failed." });
             }
             return;
         }
