@@ -791,7 +791,7 @@
                 return;
             }
 
-            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs, sessions } = customer;
+            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs, sessions, timeline } = customer;
             snapshotEl.className = "";
             snapshotEl.innerHTML = `
                 <details class="mini-section" open>
@@ -900,6 +900,12 @@
                         <h2 style="margin-top:0;">Orders</h2>
                     </summary>
                     <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${new Date(order.createdAt).toLocaleString()}</div><div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${["Pending", "Confirmed", "Preparing", "Fulfilled", "Cancelled"].map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button></div></div>`, "No orders yet.")}</div>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Customer Timeline</h2>
+                    </summary>
+                    <div class="list">${renderList(timeline, entry => `<div class="list-item"><strong>${escapeHTML(entry.title)}</strong><div class="muted">${escapeHTML(entry.kind.replaceAll("_", " "))} • ${new Date(entry.createdAt).toLocaleString()}</div><div class="muted">${escapeHTML(entry.detail || "")}</div></div>`, "No customer activity yet.")}</div>
                 </details>
                 <details class="mini-section" open>
                     <summary class="panel-summary" style="padding:0;">

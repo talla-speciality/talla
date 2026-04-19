@@ -2831,6 +2831,65 @@ async function adminAuditLogsFor(email, limit = 20) {
     return [];
 }
 
+function buildCustomerTimeline({ account, loyalty, orders, vouchers, inbox, auditLogs, sessions }) {
+    const timeline = [
+        {
+            id: `account_${account.id}`,
+            kind: "account_created",
+            title: "Account created",
+            detail: `${account.firstName} ${account.lastName}`.trim() || account.email,
+            createdAt: account.createdAt
+        },
+        ...((loyalty.transactions || []).map((transaction) => ({
+            id: `loyalty_${transaction.id}`,
+            kind: "loyalty_transaction",
+            title: transaction.type === "redeem" ? "Loyalty redemption" : "Loyalty earn",
+            detail: `${transaction.type === "redeem" ? "Removed" : "Added"} ${transaction.points} points${transaction.note ? ` • ${transaction.note}` : ""}`,
+            createdAt: transaction.createdAt
+        }))),
+        ...orders.map((order) => ({
+            id: `order_${order.id}`,
+            kind: "order",
+            title: order.title,
+            detail: `${order.status} • ${order.total}`,
+            createdAt: order.createdAt
+        })),
+        ...vouchers.map((voucher) => ({
+            id: `voucher_${voucher.code}_${voucher.status}`,
+            kind: "voucher",
+            title: `Voucher ${voucher.reward}`,
+            detail: `${voucher.status} • ${voucher.code}${voucher.detail ? ` • ${voucher.detail}` : ""}`,
+            createdAt: voucher.usedAt || voucher.createdAt
+        })),
+        ...inbox.map((item) => ({
+            id: `inbox_${item.id}`,
+            kind: "inbox",
+            title: item.title,
+            detail: item.detail,
+            createdAt: item.createdAt
+        })),
+        ...auditLogs.map((entry) => ({
+            id: `audit_${entry.id}`,
+            kind: "admin_action",
+            title: entry.detail,
+            detail: `By ${entry.adminUsername}`,
+            createdAt: entry.createdAt
+        })),
+        ...sessions.map((session) => ({
+            id: `session_${session.id}`,
+            kind: "session",
+            title: "Customer session active",
+            detail: `Started ${session.createdAt}`,
+            createdAt: session.createdAt
+        }))
+    ];
+
+    return timeline
+        .filter((entry) => entry.createdAt)
+        .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime())
+        .slice(0, 80);
+}
+
 function requestLogRowToRecord(row) {
     return {
         id: row.id,
@@ -3085,7 +3144,16 @@ async function adminCustomerSummary(email) {
         addresses,
         vouchers,
         auditLogs,
-        sessions
+        sessions,
+        timeline: buildCustomerTimeline({
+            account,
+            loyalty,
+            orders,
+            vouchers,
+            inbox,
+            auditLogs,
+            sessions
+        })
     };
 }
 
