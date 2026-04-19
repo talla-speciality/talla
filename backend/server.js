@@ -28,6 +28,12 @@ const customerTokenHours = config.customerTokenHours;
 const rateLimitWindowMs = config.rateLimitWindowMs;
 const rateLimitMaxRequests = config.rateLimitMaxRequests;
 const requestLoggingEnabled = config.requestLoggingEnabled;
+const opsAlertWebhookURL = config.opsAlertWebhookURL;
+const opsAlertCheckIntervalMs = config.opsAlertCheckIntervalMs;
+const opsAlertWindowMinutes = config.opsAlertWindowMinutes;
+const opsAlert5xxThreshold = config.opsAlert5xxThreshold;
+const opsAlert429Threshold = config.opsAlert429Threshold;
+const opsAlertCooldownMinutes = config.opsAlertCooldownMinutes;
 const shopifyAdminShopDomain = config.shopifyAdminShopDomain;
 const shopifyAdminAccessToken = config.shopifyAdminAccessToken;
 const shopifyAdminAPIVersion = config.shopifyAdminAPIVersion;
@@ -47,6 +53,7 @@ const walletPassWWDRBase64 = config.walletPassWWDRBase64;
 const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
 const rateLimitBuckets = new Map();
+let opsAlertTimer = null;
 
 ensureStoreFile(loyaltyStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
@@ -1991,6 +1998,148 @@ function requestLogRowToRecord(row) {
     };
 }
 
+function opsAlertsConfigured() {
+    return Boolean(database.isEnabled() && requestLoggingEnabled && opsAlertWebhookURL);
+}
+
+async function opsAlertStateFor(alertKey) {
+    const result = await database.query(
+        `SELECT alert_key, last_sent_at, last_payload
+         FROM ops_alert_state
+         WHERE alert_key = $1`,
+        [alertKey]
+    );
+
+    return result.rows[0] || null;
+}
+
+async function updateOpsAlertState(alertKey, payload) {
+    await database.query(
+        `INSERT INTO ops_alert_state (alert_key, last_sent_at, last_payload)
+         VALUES ($1, NOW(), $2::jsonb)
+         ON CONFLICT (alert_key)
+         DO UPDATE SET
+            last_sent_at = EXCLUDED.last_sent_at,
+            last_payload = EXCLUDED.last_payload`,
+        [alertKey, JSON.stringify(payload)]
+    );
+}
+
+async function sendOpsAlert(title, lines, payload) {
+    const message = [title, ...lines].join("\n");
+    const response = await fetch(opsAlertWebhookURL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            text: message,
+            content: message,
+            ...payload
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Ops alert webhook failed with ${response.status}.`);
+    }
+}
+
+async function maybeSendOpsAlert({ alertKey, title, threshold, whereClause, metricLabel }) {
+    if (threshold <= 0) {
+        return;
+    }
+
+    const summaryResult = await database.query(
+        `SELECT COUNT(*)::int AS count
+         FROM request_logs
+         WHERE created_at >= NOW() - ($1::text || ' minutes')::interval
+           AND ${whereClause}`,
+        [opsAlertWindowMinutes]
+    );
+
+    const count = summaryResult.rows[0]?.count || 0;
+    if (count < threshold) {
+        return;
+    }
+
+    const state = await opsAlertStateFor(alertKey);
+    const lastSentAt = state?.last_sent_at ? new Date(state.last_sent_at) : null;
+    if (lastSentAt && (Date.now() - lastSentAt.getTime()) < (opsAlertCooldownMinutes * 60_000)) {
+        return;
+    }
+
+    const recentResult = await database.query(
+        `SELECT method, path, status_code, created_at
+         FROM request_logs
+         WHERE created_at >= NOW() - ($1::text || ' minutes')::interval
+           AND ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT 5`,
+        [opsAlertWindowMinutes]
+    );
+
+    const lines = [
+        `${metricLabel}: ${count} in the last ${opsAlertWindowMinutes} minutes`,
+        `App: ${config.appURL}`,
+        ...recentResult.rows.map((row) =>
+            `- ${row.method} ${row.path} -> ${row.status_code} at ${row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at}`
+        )
+    ];
+
+    await sendOpsAlert(title, lines, {
+        kind: alertKey,
+        count,
+        threshold,
+        windowMinutes: opsAlertWindowMinutes,
+        appURL: config.appURL
+    });
+
+    await updateOpsAlertState(alertKey, {
+        count,
+        threshold,
+        windowMinutes: opsAlertWindowMinutes
+    });
+}
+
+async function runOpsAlertChecks() {
+    if (!opsAlertsConfigured()) {
+        return;
+    }
+
+    try {
+        await maybeSendOpsAlert({
+            alertKey: "ops_5xx_threshold",
+            title: "Talla backend alert: elevated 5xx responses",
+            threshold: opsAlert5xxThreshold,
+            whereClause: "status_code >= 500",
+            metricLabel: "5xx responses"
+        });
+
+        await maybeSendOpsAlert({
+            alertKey: "ops_429_threshold",
+            title: "Talla backend alert: elevated rate limiting",
+            threshold: opsAlert429Threshold,
+            whereClause: "status_code = 429",
+            metricLabel: "429 responses"
+        });
+    } catch (error) {
+        console.error("Failed to run ops alert checks.", error);
+    }
+}
+
+function startOpsAlertMonitor() {
+    if (!opsAlertsConfigured() || opsAlertTimer) {
+        return;
+    }
+
+    const interval = Math.max(60_000, opsAlertCheckIntervalMs);
+    opsAlertTimer = setInterval(() => {
+        void runOpsAlertChecks();
+    }, interval);
+
+    void runOpsAlertChecks();
+}
+
 async function adminOperationsSummary() {
     if (!database.isEnabled()) {
         return {
@@ -3250,6 +3399,7 @@ const server = http.createServer(async (request, response) => {
     try {
         await database.initializeDatabase();
         console.log("Postgres storage enabled for accounts and loyalty.");
+        startOpsAlertMonitor();
         server.listen(port, host, () => {
             console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
         });

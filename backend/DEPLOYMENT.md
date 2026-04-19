@@ -33,6 +33,12 @@ CUSTOMER_TOKEN_HOURS=168
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX_REQUESTS=240
 REQUEST_LOGGING_ENABLED=true
+OPS_ALERT_WEBHOOK_URL=
+OPS_ALERT_CHECK_INTERVAL_MS=300000
+OPS_ALERT_WINDOW_MINUTES=15
+OPS_ALERT_5XX_THRESHOLD=5
+OPS_ALERT_429_THRESHOLD=20
+OPS_ALERT_COOLDOWN_MINUTES=30
 SHOPIFY_ADMIN_SHOP_DOMAIN=your-store.myshopify.com
 SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_...
 SHOPIFY_ADMIN_API_VERSION=2025-10
@@ -55,6 +61,9 @@ Notes:
 - `CUSTOMER_TOKEN_SECRET` enables customer session issuance; set it explicitly in production
 - `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS` control per-IP request throttling
 - `REQUEST_LOGGING_ENABLED=true` records request logs in Postgres for audit and debugging
+- `OPS_ALERT_WEBHOOK_URL` enables automated webhook alerts from `request_logs`
+- `OPS_ALERT_5XX_THRESHOLD` and `OPS_ALERT_429_THRESHOLD` control when alerts fire
+- `OPS_ALERT_COOLDOWN_MINUTES` limits duplicate alerts for the same issue type
 - `SHOPIFY_ADMIN_SHOP_DOMAIN` and `SHOPIFY_ADMIN_ACCESS_TOKEN` enable live product control from `/admin`
 - `SHOPIFY_ADMIN_PUBLICATION_ID` is optional, but without it newly created products may not appear in the storefront-backed iOS app
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
@@ -154,6 +163,21 @@ Current behavior:
 - pending migrations are applied automatically on backend startup
 - `schema_migrations` tracks which SQL files have already run
 - future schema changes should go into a new numbered `.sql` file, not inline startup SQL
+
+## Automated ops alerts
+
+If you want the backend to push alerts automatically, set:
+
+```text
+OPS_ALERT_WEBHOOK_URL=https://your-webhook-endpoint
+OPS_ALERT_CHECK_INTERVAL_MS=300000
+OPS_ALERT_WINDOW_MINUTES=15
+OPS_ALERT_5XX_THRESHOLD=5
+OPS_ALERT_429_THRESHOLD=20
+OPS_ALERT_COOLDOWN_MINUTES=30
+```
+
+This monitor runs inside the backend process and uses `request_logs` to detect elevated 5xx or 429 activity.
 
 ## Important production gaps
 

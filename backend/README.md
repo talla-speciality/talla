@@ -52,6 +52,12 @@ The server reads configuration from environment variables:
 - `RATE_LIMIT_WINDOW_MS`: rate limit window in milliseconds, defaults to `60000`
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per IP and path within the window, defaults to `240`
 - `REQUEST_LOGGING_ENABLED`: writes request logs to Postgres when `true`
+- `OPS_ALERT_WEBHOOK_URL`: optional webhook target for automated operational alerts
+- `OPS_ALERT_CHECK_INTERVAL_MS`: how often the backend checks alert thresholds, defaults to `300000`
+- `OPS_ALERT_WINDOW_MINUTES`: rolling request-log window size for alert checks, defaults to `15`
+- `OPS_ALERT_5XX_THRESHOLD`: send an alert when 5xx responses in the window reach this count, defaults to `5`
+- `OPS_ALERT_429_THRESHOLD`: send an alert when 429 responses in the window reach this count, defaults to `20`
+- `OPS_ALERT_COOLDOWN_MINUTES`: minimum delay before the same alert type can fire again, defaults to `30`
 - `SHOPIFY_ADMIN_SHOP_DOMAIN`: shop domain for Shopify Admin GraphQL, such as `your-store.myshopify.com`
 - `SHOPIFY_ADMIN_ACCESS_TOKEN`: custom app Admin API access token with product scopes
 - `SHOPIFY_ADMIN_API_VERSION`: Shopify Admin GraphQL version, defaults to `2025-10`
@@ -84,6 +90,7 @@ Current admin capabilities:
 - rate limiting and request logging on the shared backend
 - operations snapshot for recent traffic, 5xx responses, and rate-limit activity
 - Shopify product add, update, and delete controls
+- automated webhook alerts for elevated 5xx or 429 volume
 
 ## Seed Account
 
@@ -268,3 +275,22 @@ npm run migrate
 ```
 
 The backend also applies pending migrations automatically on startup when `DATABASE_URL` is set.
+
+## Operational alerts
+
+The backend can send automated webhook alerts when production traffic crosses error thresholds.
+
+Required env var:
+
+```text
+OPS_ALERT_WEBHOOK_URL=https://your-webhook-endpoint
+```
+
+Supported behavior:
+
+- checks `request_logs` on a timer
+- sends alerts for elevated 5xx volume
+- sends alerts for elevated 429 volume
+- respects a cooldown window so the same alert type does not spam repeatedly
+
+This is designed for generic JSON webhooks. It works well with Slack-compatible relays, Discord bridges, or your own small alert receiver.
