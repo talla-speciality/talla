@@ -238,29 +238,34 @@ struct LoyaltyTransactionsSectionView: View {
 
 struct LoyaltyWalletCallToActionView: View {
     let isLoadingWalletPass: Bool
+    let isWalletPassAdded: Bool
     let tertiaryTextColor: Color
     let action: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if isWalletPassAdded {
+                EmptyView()
+            } else {
 #if canImport(PassKit)
-            AddPassToWalletButton(action: action)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .addPassToWalletButtonStyle(.black)
-#else
-            Button(action: action) {
-                Text(isLoadingWalletPass ? "LOADING WALLET PASS..." : "ADD TO APPLE WALLET")
-                    .font(Font.custom("AvenirNext-Bold", size: 12))
-                    .tracking(2.5)
-                    .foregroundColor(.white)
+                AddPassToWalletButton(action: action)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
-            .buttonStyle(.plain)
+                    .frame(height: 50)
+                    .addPassToWalletButtonStyle(.black)
+#else
+                Button(action: action) {
+                    Text(isLoadingWalletPass ? "LOADING WALLET PASS..." : "ADD TO APPLE WALLET")
+                        .font(Font.custom("AvenirNext-Bold", size: 12))
+                        .tracking(2.5)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
 #endif
+            }
 
             Text("")
                 .font(Font.custom("AvenirNext-Regular", size: 12))

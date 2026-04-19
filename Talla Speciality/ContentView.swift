@@ -343,6 +343,7 @@ struct ContentView: View {
     @State private var isRedeemingReward = false
     @State private var isEarningPoints = false
     @State private var isLoadingWalletPass = false
+    @State private var isLoyaltyPassInWallet = false
 #if canImport(PassKit)
     @State private var loyaltyWalletPass: WalletPassItem?
 #endif
@@ -901,6 +902,7 @@ struct ContentView: View {
             guard newPhase == .active, hasLoadedProducts else { return }
             Task {
                 await loadProducts(force: true)
+                await refreshWalletPassPresence()
             }
         }
         .sheet(item: $checkoutSession) { session in
@@ -913,7 +915,11 @@ struct ContentView: View {
             productDetailSheet(product: product)
         }
 #if canImport(PassKit)
-        .sheet(item: $loyaltyWalletPass) { item in
+        .sheet(item: $loyaltyWalletPass, onDismiss: {
+            Task {
+                await refreshWalletPassPresence()
+            }
+        }) { item in
             WalletPassView(pass: item.pass)
         }
 #endif
@@ -3656,6 +3662,7 @@ struct ContentView: View {
     private var walletCallToAction: some View {
         LoyaltyWalletCallToActionView(
             isLoadingWalletPass: isLoadingWalletPass,
+            isWalletPassAdded: isLoyaltyPassInWallet,
             tertiaryTextColor: tertiaryTextColor,
             action: {
                 Task {
@@ -3920,6 +3927,7 @@ struct ContentView: View {
         }
 
         Task {
+            await refreshWalletPassPresence()
             if loadLoyalty && loyaltyEmail == profile.email {
                 await loadLoyaltyAccount()
             }
@@ -3996,6 +4004,30 @@ struct ContentView: View {
         }
 
         isResettingPassword = false
+    }
+
+    @MainActor
+    private func refreshWalletPassPresence() async {
+#if canImport(PassKit)
+        guard PKPassLibrary.isPassLibraryAvailable() else {
+            isLoyaltyPassInWallet = false
+            return
+        }
+
+        guard let email = customerProfile?.email ?? (!savedLoyaltyEmail.isEmpty ? savedLoyaltyEmail : nil) else {
+            isLoyaltyPassInWallet = false
+            return
+        }
+
+        do {
+            let pass = try await AccountService.fetchWalletPass(email: email)
+            isLoyaltyPassInWallet = PKPassLibrary().containsPass(pass)
+        } catch {
+            isLoyaltyPassInWallet = false
+        }
+#else
+        isLoyaltyPassInWallet = false
+#endif
     }
 
     @MainActor
@@ -4776,6 +4808,7 @@ struct ContentView: View {
             let pass = try await AccountService.fetchWalletPass(email: email)
             let library = PKPassLibrary()
             if library.containsPass(pass) {
+                isLoyaltyPassInWallet = true
                 showToast(message: "Loyalty card is already in Apple Wallet")
             } else {
                 loyaltyWalletPass = WalletPassItem(pass: pass)
