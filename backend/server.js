@@ -375,6 +375,7 @@ function shopifyAdminProductPayload(node) {
     return {
         id: node.id,
         title: node.title,
+        descriptionHTML: node.descriptionHtml || "",
         status: node.status,
         productType: node.productType || "",
         onlineStoreURL: node.onlineStoreUrl || null,
@@ -394,6 +395,7 @@ async function listShopifyAdminProducts() {
                     node {
                         id
                         title
+                        descriptionHtml
                         status
                         productType
                         onlineStoreUrl
@@ -503,8 +505,8 @@ async function createShopifyAdminProduct({ title, price, productType }) {
     };
 }
 
-async function updateShopifyAdminProduct({ productID, title, defaultVariantID, price }) {
-    if (title) {
+async function updateShopifyAdminProduct({ productID, title, descriptionHTML, defaultVariantID, price }) {
+    if (title || descriptionHTML !== undefined) {
         const productUpdateData = await shopifyAdminGraphQLRequest(
             `mutation UpdateProduct($product: ProductUpdateInput!) {
                 productUpdate(product: $product) {
@@ -520,7 +522,8 @@ async function updateShopifyAdminProduct({ productID, title, defaultVariantID, p
             {
                 product: {
                     id: productID,
-                    title
+                    title: title || undefined,
+                    descriptionHtml: descriptionHTML
                 }
             }
         );
@@ -2800,12 +2803,15 @@ const server = http.createServer(async (request, response) => {
                 const body = await readBody(request);
                 const productID = String(body.id || "").trim();
                 const title = String(body.title || "").trim();
+                const descriptionHTML = body.descriptionHTML === undefined
+                    ? undefined
+                    : String(body.descriptionHTML);
                 const defaultVariantID = String(body.defaultVariantID || "").trim() || null;
                 const hasPrice = body.price !== undefined && body.price !== null && String(body.price).trim() !== "";
                 const price = hasPrice ? Number(body.price) : undefined;
 
-                if (!productID || (!title && !hasPrice)) {
-                    sendJSON(response, 400, { error: "Provide a product plus a title or price to update." });
+                if (!productID || (!title && !hasPrice && descriptionHTML === undefined)) {
+                    sendJSON(response, 400, { error: "Provide a product plus a title, description, or price to update." });
                     return;
                 }
 
@@ -2822,6 +2828,7 @@ const server = http.createServer(async (request, response) => {
                 const product = await updateShopifyAdminProduct({
                     productID,
                     title: title || undefined,
+                    descriptionHTML,
                     defaultVariantID,
                     price
                 });

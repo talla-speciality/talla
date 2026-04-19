@@ -236,6 +236,17 @@
             grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 0.8fr));
             gap: 10px;
         }
+        .product-description-input {
+            width: 100%;
+            min-height: 112px;
+            resize: vertical;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 14px 16px;
+            font: inherit;
+            color: var(--text);
+            background: white;
+        }
         .product-meta {
             color: var(--muted);
             font-size: 13px;
@@ -506,6 +517,7 @@
                         <input class="product-price-input" type="number" min="0" step="0.01" value="${escapeHTML(product.price)}" placeholder="Price">
                         <input class="product-type-input" type="text" value="${escapeHTML(product.productType || "")}" placeholder="Type" disabled>
                     </div>
+                    <textarea class="product-description-input" placeholder="Description (HTML or plain text)">${escapeHTML(product.descriptionHTML || "")}</textarea>
                     <div class="product-item-actions">
                         <div class="product-meta">Price updates apply to the default Shopify variant. ${product.inventoryTracked ? "Inventory tracking is enabled." : "Inventory tracking is disabled."}${product.inventoryPolicy ? ` Policy: ${escapeHTML(product.inventoryPolicy)}.` : ""}</div>
                         <div class="toolbar-row" style="padding: 0;">
@@ -771,6 +783,7 @@
 
             const title = productEl.querySelector(".product-title-input").value.trim();
             const price = productEl.querySelector(".product-price-input").value.trim();
+            const descriptionHTML = productEl.querySelector(".product-description-input").value;
             const defaultVariantID = productEl.dataset.variantId;
 
             setStatus("Saving product...");
@@ -781,6 +794,7 @@
                     body: JSON.stringify({
                         id: productID,
                         title,
+                        descriptionHTML,
                         price,
                         defaultVariantID
                     })
