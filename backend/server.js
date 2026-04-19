@@ -1287,6 +1287,144 @@ async function updateAccountProfileRecord(email, firstName, lastName) {
     };
 }
 
+async function updateAccountRecord(currentEmail, { nextEmail, firstName, lastName }) {
+    const normalizedCurrentEmail = normalizeEmail(currentEmail);
+    const normalizedNextEmail = normalizeEmail(nextEmail) || normalizedCurrentEmail;
+
+    if (!normalizedCurrentEmail || !normalizedNextEmail || !firstName || !lastName) {
+        return null;
+    }
+
+    if (!database.isEnabled()) {
+        const accountsStore = readJSON(accountsStorePath);
+        const account = accountsStore.accounts[normalizedCurrentEmail];
+        if (!account) {
+            return null;
+        }
+
+        if (normalizedCurrentEmail !== normalizedNextEmail && accountsStore.accounts[normalizedNextEmail]) {
+            throw new Error("ACCOUNT_EMAIL_EXISTS");
+        }
+
+        delete accountsStore.accounts[normalizedCurrentEmail];
+        account.email = normalizedNextEmail;
+        account.firstName = firstName;
+        account.lastName = lastName;
+        accountsStore.accounts[normalizedNextEmail] = account;
+        writeJSON(accountsStorePath, accountsStore);
+
+        const loyaltyStore = readJSON(loyaltyStorePath);
+        if (loyaltyStore.accounts[normalizedCurrentEmail]) {
+            loyaltyStore.accounts[normalizedNextEmail] = loyaltyStore.accounts[normalizedCurrentEmail];
+            delete loyaltyStore.accounts[normalizedCurrentEmail];
+            writeJSON(loyaltyStorePath, loyaltyStore);
+        }
+
+        const ordersStore = readJSON(ordersStorePath);
+        if (ordersStore.orders[normalizedCurrentEmail]) {
+            ordersStore.orders[normalizedNextEmail] = ordersStore.orders[normalizedCurrentEmail];
+            delete ordersStore.orders[normalizedCurrentEmail];
+            writeJSON(ordersStorePath, ordersStore);
+        }
+
+        const addressesStore = readJSON(addressesStorePath);
+        if (addressesStore.addresses[normalizedCurrentEmail]) {
+            addressesStore.addresses[normalizedNextEmail] = addressesStore.addresses[normalizedCurrentEmail];
+            delete addressesStore.addresses[normalizedCurrentEmail];
+            writeJSON(addressesStorePath, addressesStore);
+        }
+
+        const alertsStore = readJSON(alertsStorePath);
+        if (alertsStore.alerts[normalizedCurrentEmail]) {
+            alertsStore.alerts[normalizedNextEmail] = alertsStore.alerts[normalizedCurrentEmail];
+            delete alertsStore.alerts[normalizedCurrentEmail];
+            writeJSON(alertsStorePath, alertsStore);
+        }
+
+        const inboxStore = readJSON(alertInboxStorePath);
+        if (inboxStore.alerts[normalizedCurrentEmail]) {
+            inboxStore.alerts[normalizedNextEmail] = inboxStore.alerts[normalizedCurrentEmail];
+            delete inboxStore.alerts[normalizedCurrentEmail];
+            writeJSON(alertInboxStorePath, inboxStore);
+        }
+
+        const vouchersStore = readJSON(vouchersStorePath);
+        Object.values(vouchersStore.vouchers || {}).forEach((voucher) => {
+            if (voucher.email === normalizedCurrentEmail) {
+                voucher.email = normalizedNextEmail;
+            }
+        });
+        writeJSON(vouchersStorePath, vouchersStore);
+
+        const passwordResetStore = readJSON(passwordResetTokensStorePath);
+        passwordResetStore.tokens = (passwordResetStore.tokens || []).map((entry) => (
+            entry.email === normalizedCurrentEmail ? { ...entry, email: normalizedNextEmail } : entry
+        ));
+        writeJSON(passwordResetTokensStorePath, passwordResetStore);
+
+        return account;
+    }
+
+    try {
+        await database.query("BEGIN");
+
+        const existing = await database.query(
+            `SELECT id, email, first_name, last_name, password_hash, created_at
+             FROM accounts
+             WHERE email = $1`,
+            [normalizedCurrentEmail]
+        );
+
+        if (existing.rowCount === 0) {
+            await database.query("ROLLBACK");
+            return null;
+        }
+
+        if (normalizedCurrentEmail !== normalizedNextEmail) {
+            const conflict = await database.query(
+                `SELECT 1
+                 FROM accounts
+                 WHERE email = $1`,
+                [normalizedNextEmail]
+            );
+            if (conflict.rowCount > 0) {
+                await database.query("ROLLBACK");
+                throw new Error("ACCOUNT_EMAIL_EXISTS");
+            }
+        }
+
+        const result = await database.query(
+            `UPDATE accounts
+             SET email = $2, first_name = $3, last_name = $4
+             WHERE email = $1
+             RETURNING id, email, first_name, last_name, password_hash, created_at`,
+            [normalizedCurrentEmail, normalizedNextEmail, firstName, lastName]
+        );
+
+        await database.query(
+            `UPDATE request_logs
+             SET account_email = $2
+             WHERE account_email = $1`,
+            [normalizedCurrentEmail, normalizedNextEmail]
+        );
+
+        await database.query("COMMIT");
+
+        const row = result.rows[0];
+        return {
+            id: row.id,
+            email: row.email,
+            firstName: row.first_name,
+            lastName: row.last_name,
+            passwordHash: row.password_hash,
+            createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+        };
+    } catch (error) {
+        await database.query("ROLLBACK");
+        throw error;
+    }
+}
+
 async function updateAccountPasswordRecord(email, passwordHash) {
     if (!database.isEnabled()) {
         const store = readJSON(accountsStorePath);
@@ -1309,6 +1447,42 @@ async function updateAccountPasswordRecord(email, passwordHash) {
     );
 
     return result.rowCount === 0 ? null : { id: result.rows[0].id };
+}
+
+async function activeCustomerSessionsForEmail(email) {
+    if (!database.isEnabled()) {
+        return [];
+    }
+
+    const result = await database.query(
+        `SELECT id, created_at, expires_at
+         FROM customer_sessions
+         WHERE email = $1 AND revoked_at IS NULL AND expires_at > NOW()
+         ORDER BY created_at DESC`,
+        [email]
+    );
+
+    return result.rows.map((row) => ({
+        id: row.id,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        expiresAt: row.expires_at instanceof Date ? row.expires_at.toISOString() : row.expires_at
+    }));
+}
+
+async function revokeCustomerSessionByID(email, sessionID) {
+    if (!database.isEnabled()) {
+        return null;
+    }
+
+    const result = await database.query(
+        `UPDATE customer_sessions
+         SET revoked_at = NOW()
+         WHERE email = $1 AND id = $2 AND revoked_at IS NULL
+         RETURNING id`,
+        [email, sessionID]
+    );
+
+    return result.rowCount > 0 ? { id: result.rows[0].id } : null;
 }
 
 async function createPasswordResetTokenRecord({ email, tokenHash, createdAt, expiresAt }) {
@@ -2491,15 +2665,15 @@ async function addressesFor(email) {
 
 async function saveAddress(email, payload) {
     if (database.isEnabled()) {
+        const requestedPreferred = Boolean(payload.isPreferred);
         const result = await database.query(
             `SELECT COUNT(*)::int AS count
              FROM addresses
              WHERE email = $1`,
             [email]
         );
-        const isPreferred = result.rows[0].count === 0;
-        const id = `addr_${Date.now()}`;
-        const createdAt = new Date().toISOString();
+        const hasExistingAddresses = result.rows[0].count > 0;
+        const isPreferred = requestedPreferred || !hasExistingAddresses;
 
         if (isPreferred) {
             await database.query(
@@ -2510,6 +2684,24 @@ async function saveAddress(email, payload) {
             );
         }
 
+        if (payload.id) {
+            await database.query(
+                `UPDATE addresses
+                 SET label = $3,
+                     full_name = $4,
+                     phone = $5,
+                     line1 = $6,
+                     city = $7,
+                     notes = $8,
+                     is_preferred = $9
+                 WHERE email = $1 AND id = $2`,
+                [email, payload.id, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.notes || null, isPreferred]
+            );
+            return addressesFor(email);
+        }
+
+        const id = `addr_${Date.now()}`;
+        const createdAt = new Date().toISOString();
         await database.query(
             `INSERT INTO addresses
              (id, email, label, full_name, phone, line1, city, notes, is_preferred, created_at)
@@ -2522,6 +2714,33 @@ async function saveAddress(email, payload) {
 
     const store = readJSON(addressesStorePath);
     const addresses = store.addresses[email] || [];
+    const requestedPreferred = Boolean(payload.isPreferred);
+
+    if (payload.id) {
+        const updated = addresses.map((address) => {
+            if (address.id !== payload.id) {
+                return requestedPreferred ? { ...address, isPreferred: false } : address;
+            }
+
+            return {
+                ...address,
+                label: payload.label,
+                fullName: payload.fullName,
+                phone: payload.phone,
+                line1: payload.line1,
+                city: payload.city,
+                notes: payload.notes || null,
+                isPreferred: requestedPreferred || (addresses.length === 1 ? true : address.isPreferred)
+            };
+        });
+
+        store.addresses[email] = updated.some((address) => address.isPreferred)
+            ? updated
+            : updated.map((address, index) => ({ ...address, isPreferred: index === 0 }));
+        writeJSON(addressesStorePath, store);
+        return store.addresses[email];
+    }
+
     const nextAddress = {
         id: `addr_${Date.now()}`,
         label: payload.label,
@@ -2530,10 +2749,16 @@ async function saveAddress(email, payload) {
         line1: payload.line1,
         city: payload.city,
         notes: payload.notes || null,
-        isPreferred: addresses.length === 0
+        isPreferred: requestedPreferred || addresses.length === 0
     };
 
-    store.addresses[email] = [nextAddress, ...addresses.map((address) => ({ ...address, isPreferred: false }))];
+    store.addresses[email] = [
+        nextAddress,
+        ...addresses.map((address) => ({
+            ...address,
+            isPreferred: nextAddress.isPreferred ? false : address.isPreferred
+        }))
+    ];
     writeJSON(addressesStorePath, store);
     return store.addresses[email];
 }
@@ -2840,14 +3065,15 @@ async function adminCustomerSummary(email) {
         return null;
     }
 
-    const [loyalty, orders, alerts, inbox, addresses, vouchers, auditLogs] = await Promise.all([
+    const [loyalty, orders, alerts, inbox, addresses, vouchers, auditLogs, sessions] = await Promise.all([
         ensureLoyaltyAccount(email),
         ordersPayload(email),
         stockAlertsFor(email),
         alertInboxFor(email),
         addressesFor(email),
         allVouchersFor(email),
-        adminAuditLogsFor(email)
+        adminAuditLogsFor(email),
+        activeCustomerSessionsForEmail(email)
     ]);
 
     return {
@@ -2858,7 +3084,8 @@ async function adminCustomerSummary(email) {
         inbox,
         addresses,
         vouchers,
-        auditLogs
+        auditLogs,
+        sessions
     };
 }
 
@@ -3200,16 +3427,17 @@ const server = http.createServer(async (request, response) => {
         if (request.method === "POST" && url.pathname === "/admin/api/customer/update") {
             try {
                 const body = await readBody(request);
-                const email = normalizeEmail(body.email);
+                const email = normalizeEmail(body.currentEmail || body.email);
+                const nextEmail = normalizeEmail(body.nextEmail || body.email);
                 const firstName = String(body.firstName || "").trim();
                 const lastName = String(body.lastName || "").trim();
 
-                if (!email || !firstName || !lastName) {
+                if (!email || !nextEmail || !firstName || !lastName) {
                     sendJSON(response, 400, { error: "Provide an email, first name, and last name." });
                     return;
                 }
 
-                const account = await updateAccountProfileRecord(email, firstName, lastName);
+                const account = await updateAccountRecord(email, { nextEmail, firstName, lastName });
                 if (!account) {
                     sendJSON(response, 404, { error: "Customer not found." });
                     return;
@@ -3217,7 +3445,160 @@ const server = http.createServer(async (request, response) => {
 
                 sendJSON(response, 200, { profile: profilePayload(account) });
             } catch (error) {
+                if (error.message === "ACCOUNT_EMAIL_EXISTS") {
+                    sendJSON(response, 409, { error: "That email is already in use." });
+                    return;
+                }
                 sendJSON(response, 400, { error: "Invalid customer profile payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customer/send-reset") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+
+                if (!email) {
+                    sendJSON(response, 400, { error: "Provide a customer email." });
+                    return;
+                }
+
+                if (!passwordResetEmailConfigured()) {
+                    sendJSON(response, 503, { error: "Password reset email is not configured." });
+                    return;
+                }
+
+                const account = await getAccountByEmail(email);
+                if (!account) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                const token = createPasswordResetToken();
+                const tokenHash = hashPassword(token);
+                const createdAt = new Date().toISOString();
+                const expiresAt = new Date(Date.now() + (passwordResetTokenHours * 60 * 60 * 1000)).toISOString();
+
+                await createPasswordResetTokenRecord({
+                    email,
+                    tokenHash,
+                    createdAt,
+                    expiresAt
+                });
+                await sendPasswordResetEmail(email, token);
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "password_reset_requested",
+                    targetEmail: email,
+                    detail: "Sent password reset email from admin",
+                    metadata: { expiresAt }
+                });
+
+                sendJSON(response, 200, { status: "ok" });
+            } catch (error) {
+                console.error("Admin password reset request failed.", error);
+                sendJSON(response, 500, { error: "Password reset email could not be sent." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customer/session/revoke") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const sessionID = String(body.sessionID || "").trim();
+
+                if (!email || !sessionID) {
+                    sendJSON(response, 400, { error: "Provide a customer email and session id." });
+                    return;
+                }
+
+                const revoked = await revokeCustomerSessionByID(email, sessionID);
+                if (!revoked) {
+                    sendJSON(response, 404, { error: "Active session not found." });
+                    return;
+                }
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "customer_session_revoked",
+                    targetEmail: email,
+                    detail: "Revoked customer session",
+                    metadata: { sessionID }
+                });
+
+                sendJSON(response, 200, { session: revoked });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid session revoke payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customer/address/save") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const label = String(body.label || "").trim();
+                const fullName = String(body.fullName || "").trim();
+                const phone = String(body.phone || "").trim();
+                const line1 = String(body.line1 || "").trim();
+                const city = String(body.city || "").trim();
+                const notes = body.notes ? String(body.notes).trim() : null;
+                const addressID = body.addressID ? String(body.addressID).trim() : null;
+                const isPreferred = Boolean(body.isPreferred);
+
+                if (!email || !label || !fullName || !phone || !line1 || !city) {
+                    sendJSON(response, 400, { error: "Provide a complete address payload." });
+                    return;
+                }
+
+                const account = await getAccountByEmail(email);
+                if (!account) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                const addresses = await saveAddress(email, {
+                    id: addressID,
+                    label,
+                    fullName,
+                    phone,
+                    line1,
+                    city,
+                    notes,
+                    isPreferred
+                });
+
+                sendJSON(response, 200, { addresses });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid address payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customer/address/delete") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const addressID = String(body.addressID || "").trim();
+
+                if (!email || !addressID) {
+                    sendJSON(response, 400, { error: "Provide a customer email and address id." });
+                    return;
+                }
+
+                const account = await getAccountByEmail(email);
+                if (!account) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                const addresses = await deleteAddress(email, addressID);
+                sendJSON(response, 200, { addresses });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid address delete payload." });
             }
             return;
         }

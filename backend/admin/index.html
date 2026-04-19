@@ -791,7 +791,7 @@
                 return;
             }
 
-            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs } = customer;
+            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs, sessions } = customer;
             snapshotEl.className = "";
             snapshotEl.innerHTML = `
                 <details class="mini-section" open>
@@ -800,13 +800,26 @@
                     </summary>
                     <div>
                         <div class="customer-profile-grid">
+                            <input id="customer-email" type="email" value="${escapeHTML(profile.email || "")}" placeholder="Email">
                             <input id="customer-first-name" type="text" value="${escapeHTML(profile.firstName || "")}" placeholder="First name">
                             <input id="customer-last-name" type="text" value="${escapeHTML(profile.lastName || "")}" placeholder="Last name">
                         </div>
                         <div class="toolbar-row" style="padding: 12px 0 0;">
-                            <div class="muted">${profile.email}</div>
+                            <div class="muted">Edit identity details for this account.</div>
                             <button id="save-customer-profile" class="secondary">Save Profile</button>
                         </div>
+                    </div>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Security</h2>
+                    </summary>
+                    <div>
+                        <div class="toolbar-row" style="padding: 0 0 12px;">
+                            <div class="muted">Send a password reset email or revoke active sessions.</div>
+                            <button id="send-password-reset" class="secondary">Send Reset Email</button>
+                        </div>
+                        <div class="list">${renderList(sessions, session => `<div class="list-item"><strong>Session ${escapeHTML(session.id)}</strong><div class="muted">Created ${new Date(session.createdAt).toLocaleString()} • Expires ${new Date(session.expiresAt).toLocaleString()}</div><div class="toolbar-row" style="padding: 10px 0 0;"><button class="revoke-session secondary" data-session-id="${escapeHTML(session.id)}">Revoke Session</button></div></div>`, "No active customer sessions.")}</div>
                     </div>
                 </details>
                 <details class="mini-section" open>
@@ -861,7 +874,26 @@
                     <summary class="panel-summary" style="padding:0;">
                         <h2 style="margin-top:0;">Saved Addresses</h2>
                     </summary>
-                    <div class="list">${renderList(addresses, address => `<div class="list-item"><strong>${address.label}${address.isPreferred ? " • Preferred" : ""}</strong><div class="muted">${address.fullName} • ${address.line1}, ${address.city}</div></div>`, "No saved addresses.")}</div>
+                    <div>
+                        <div class="list">${renderList(addresses, address => `<div class="list-item" data-address-id="${escapeHTML(address.id)}"><strong>${address.label}${address.isPreferred ? " • Preferred" : ""}</strong><div class="customer-profile-grid" style="margin-top:12px;"><input class="address-label-input" type="text" value="${escapeHTML(address.label)}" placeholder="Label"><input class="address-full-name-input" type="text" value="${escapeHTML(address.fullName)}" placeholder="Full name"><input class="address-phone-input" type="text" value="${escapeHTML(address.phone)}" placeholder="Phone"><input class="address-line1-input" type="text" value="${escapeHTML(address.line1)}" placeholder="Line 1"><input class="address-city-input" type="text" value="${escapeHTML(address.city)}" placeholder="City"><input class="address-notes-input" type="text" value="${escapeHTML(address.notes || "")}" placeholder="Notes"></div><label class="muted" style="display:flex;align-items:center;gap:8px;margin-top:12px;"><input class="address-preferred-input" type="checkbox" ${address.isPreferred ? "checked" : ""}> Preferred address</label><div class="toolbar-row" style="padding: 12px 0 0;"><button class="save-address secondary" data-address-id="${escapeHTML(address.id)}">Save Address</button><button class="delete-address" data-address-id="${escapeHTML(address.id)}">Delete Address</button></div></div>`, "No saved addresses.")}</div>
+                        <div class="list-item" style="margin-top:14px;" data-address-id="">
+                            <strong>Add Address</strong>
+                            <div class="customer-profile-grid" style="margin-top:12px;">
+                                <input id="new-address-label" type="text" placeholder="Label">
+                                <input id="new-address-full-name" type="text" placeholder="Full name">
+                                <input id="new-address-phone" type="text" placeholder="Phone">
+                                <input id="new-address-line1" type="text" placeholder="Line 1">
+                                <input id="new-address-city" type="text" placeholder="City">
+                                <input id="new-address-notes" type="text" placeholder="Notes">
+                            </div>
+                            <label class="muted" style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+                                <input id="new-address-preferred" type="checkbox"> Preferred address
+                            </label>
+                            <div class="toolbar-row" style="padding: 12px 0 0;">
+                                <button id="create-address" class="secondary">Add Address</button>
+                            </div>
+                        </div>
+                    </div>
                 </details>
                 <details class="mini-section" open>
                     <summary class="panel-summary" style="padding:0;">
@@ -1241,10 +1273,11 @@
                 return;
             }
 
+            const nextEmail = document.getElementById("customer-email")?.value.trim().toLowerCase();
             const firstName = document.getElementById("customer-first-name")?.value.trim();
             const lastName = document.getElementById("customer-last-name")?.value.trim();
-            if (!firstName || !lastName) {
-                setStatus("Enter both first and last name.", true);
+            if (!nextEmail || !firstName || !lastName) {
+                setStatus("Enter email, first name, and last name.", true);
                 return;
             }
 
@@ -1253,12 +1286,134 @@
                 const response = await fetch("/admin/api/customer/update", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: state.currentEmail, firstName, lastName })
+                    body: JSON.stringify({ currentEmail: state.currentEmail, nextEmail, firstName, lastName })
                 });
                 const payload = await response.json();
                 if (!response.ok) throw new Error(payload.error || "Customer profile update failed.");
-                await lookupCustomer();
+                state.currentEmail = payload.profile.email;
+                emailInput.value = payload.profile.email;
+                await refreshCustomers();
+                await loadCustomer(payload.profile.email);
                 setStatus(`Updated ${payload.profile.email}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function sendCustomerPasswordReset() {
+            if (!state.currentEmail) {
+                setStatus("Load a customer before sending a reset email.", true);
+                return;
+            }
+
+            setStatus("Sending password reset email...");
+            try {
+                const response = await fetch("/admin/api/customer/send-reset", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Password reset email failed.");
+                setStatus(`Password reset email sent to ${state.currentEmail}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function revokeSession(sessionID) {
+            if (!state.currentEmail || !sessionID) {
+                setStatus("Load a customer before revoking sessions.", true);
+                return;
+            }
+
+            setStatus("Revoking session...");
+            try {
+                const response = await fetch("/admin/api/customer/session/revoke", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, sessionID })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Session revoke failed.");
+                await loadCustomer(state.currentEmail);
+                setStatus(`Revoked session ${payload.session.id}`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function saveAddressFromElement(addressEl, addressID = null) {
+            if (!state.currentEmail || (addressID && !addressEl)) {
+                setStatus("Load a customer before editing addresses.", true);
+                return;
+            }
+
+            const label = addressID ? addressEl.querySelector(".address-label-input")?.value.trim() : document.getElementById("new-address-label")?.value.trim();
+            const fullName = addressID ? addressEl.querySelector(".address-full-name-input")?.value.trim() : document.getElementById("new-address-full-name")?.value.trim();
+            const phone = addressID ? addressEl.querySelector(".address-phone-input")?.value.trim() : document.getElementById("new-address-phone")?.value.trim();
+            const line1 = addressID ? addressEl.querySelector(".address-line1-input")?.value.trim() : document.getElementById("new-address-line1")?.value.trim();
+            const city = addressID ? addressEl.querySelector(".address-city-input")?.value.trim() : document.getElementById("new-address-city")?.value.trim();
+            const notes = addressID ? addressEl.querySelector(".address-notes-input")?.value.trim() : document.getElementById("new-address-notes")?.value.trim();
+            const isPreferred = addressID ? Boolean(addressEl.querySelector(".address-preferred-input")?.checked) : Boolean(document.getElementById("new-address-preferred")?.checked);
+
+            if (!label || !fullName || !phone || !line1 || !city) {
+                setStatus("Enter label, full name, phone, line 1, and city.", true);
+                return;
+            }
+
+            setStatus(addressID ? "Saving address..." : "Creating address...");
+            try {
+                const response = await fetch("/admin/api/customer/address/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: state.currentEmail,
+                        addressID,
+                        label,
+                        fullName,
+                        phone,
+                        line1,
+                        city,
+                        notes,
+                        isPreferred
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Address save failed.");
+                await loadCustomer(state.currentEmail);
+                if (!addressID) {
+                    document.getElementById("new-address-label").value = "";
+                    document.getElementById("new-address-full-name").value = "";
+                    document.getElementById("new-address-phone").value = "";
+                    document.getElementById("new-address-line1").value = "";
+                    document.getElementById("new-address-city").value = "";
+                    document.getElementById("new-address-notes").value = "";
+                    document.getElementById("new-address-preferred").checked = false;
+                }
+                setStatus(addressID ? "Address updated." : "Address created.");
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function deleteCustomerAddress(addressID) {
+            if (!state.currentEmail || !addressID) {
+                setStatus("Load a customer before deleting addresses.", true);
+                return;
+            }
+
+            setStatus("Deleting address...");
+            try {
+                const response = await fetch("/admin/api/customer/address/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, addressID })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Address delete failed.");
+                await loadCustomer(state.currentEmail);
+                setStatus(payload.addresses.length === 0 ? "Address removed." : "Address updated.");
             } catch (error) {
                 setStatus(error.message, true);
             }
@@ -1435,6 +1590,16 @@
                 return;
             }
 
+            if (event.target.closest("#send-password-reset")) {
+                void sendCustomerPasswordReset();
+                return;
+            }
+
+            if (event.target.closest("#create-address")) {
+                void saveAddressFromElement(null, null);
+                return;
+            }
+
             if (event.target.closest("#create-voucher")) {
                 void createVoucher();
                 return;
@@ -1449,6 +1614,25 @@
             const revokeButton = event.target.closest(".revoke-voucher");
             if (revokeButton) {
                 void revokeVoucher(revokeButton.dataset.voucherCode);
+                return;
+            }
+
+            const revokeSessionButton = event.target.closest(".revoke-session");
+            if (revokeSessionButton) {
+                void revokeSession(revokeSessionButton.dataset.sessionId);
+                return;
+            }
+
+            const saveAddressButton = event.target.closest(".save-address");
+            if (saveAddressButton) {
+                const addressEl = saveAddressButton.closest("[data-address-id]");
+                void saveAddressFromElement(addressEl, saveAddressButton.dataset.addressId);
+                return;
+            }
+
+            const deleteAddressButton = event.target.closest(".delete-address");
+            if (deleteAddressButton) {
+                void deleteCustomerAddress(deleteAddressButton.dataset.addressId);
             }
         });
         loginUsernameInput.addEventListener("keydown", (event) => {
