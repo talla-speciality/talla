@@ -20,6 +20,7 @@ struct CustomerAccountSectionView: View {
     @Binding var accountConfirmPassword: String
     let isSigningIn: Bool
     let isCreatingAccount: Bool
+    let isResettingPassword: Bool
     let isLoadingCustomer: Bool
     let customerAuthError: String?
     let customerProfile: ContentView.ShopifyCustomerProfile?
@@ -43,7 +44,9 @@ struct CustomerAccountSectionView: View {
 
                 Text(accountAuthMode == .createAccount
                     ? "Create one account for checkout, rewards, and saved details."
-                    : "Sign in once to access rewards, saved addresses, and order history.")
+                    : accountAuthMode == .changePassword
+                        ? "Change your password without restoring a signed-in session first."
+                        : "Sign in once to access rewards, saved addresses, and order history.")
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -80,6 +83,7 @@ struct CustomerAccountSectionView: View {
             HStack(spacing: 10) {
                 accountModeButton(title: "Sign In", mode: .signIn)
                 accountModeButton(title: "Create Account", mode: .createAccount)
+                accountModeButton(title: "Change Password", mode: .changePassword)
             }
 
             if accountAuthMode == .createAccount {
@@ -91,7 +95,7 @@ struct CustomerAccountSectionView: View {
 
             styledTextField("Email address", text: $accountEmail, capitalization: .never, keyboardType: .emailAddress)
 
-            SecureField("Password", text: $accountPassword)
+            SecureField(accountAuthMode == .changePassword ? "Current password" : "Password", text: $accountPassword)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(Font.custom("AvenirNext-Regular", size: 15))
@@ -105,8 +109,8 @@ struct CustomerAccountSectionView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-            if accountAuthMode == .createAccount {
-                SecureField("Confirm password", text: $accountConfirmPassword)
+            if accountAuthMode != .signIn {
+                SecureField(accountAuthMode == .changePassword ? "New password" : "Confirm password", text: $accountConfirmPassword)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(Font.custom("AvenirNext-Regular", size: 15))
@@ -134,20 +138,38 @@ struct CustomerAccountSectionView: View {
             .disabled(isSubmitDisabled)
 
             HStack(spacing: 16) {
-                Button(accountAuthMode == .createAccount ? "Already Have an Account?" : "Create Account") {
-                    toggleModeAction(accountAuthMode == .createAccount ? .signIn : .createAccount)
-                }
-                .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(1.8)
-                .textCase(.uppercase)
-                .foregroundColor(accentColor)
-                .buttonStyle(.plain)
-
                 if accountAuthMode == .signIn {
+                    Button("Create Account") {
+                        toggleModeAction(.createAccount)
+                    }
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(1.8)
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
+                    .buttonStyle(.plain)
+
+                    Button("Change Password") {
+                        toggleModeAction(.changePassword)
+                    }
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(1.8)
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
+                    .buttonStyle(.plain)
+
                     Text("Fast access for checkout and rewards")
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(1.8)
                         .foregroundColor(secondaryTextColor)
+                } else {
+                    Button(accountAuthMode == .createAccount ? "Already Have an Account?" : "Back to Sign In") {
+                        toggleModeAction(.signIn)
+                    }
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(1.8)
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -155,14 +177,15 @@ struct CustomerAccountSectionView: View {
 
     private var isSubmitDisabled: Bool {
         isSigningIn ||
+        isResettingPassword ||
         isCreatingAccount ||
         isLoadingCustomer ||
         accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
         accountPassword.isEmpty ||
+        (accountAuthMode != .signIn && accountConfirmPassword.isEmpty) ||
         (accountAuthMode == .createAccount && (
             accountFirstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-            accountLastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-            accountConfirmPassword.isEmpty
+            accountLastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         ))
     }
 

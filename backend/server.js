@@ -2765,6 +2765,39 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/accounts/password/change") {
+        try {
+            const body = await readBody(request);
+            const email = normalizeEmail(body.email);
+            const currentPassword = String(body.currentPassword || "");
+            const newPassword = String(body.newPassword || "");
+
+            if (!email || !currentPassword || newPassword.length < 5) {
+                sendJSON(response, 400, { error: "Invalid password payload" });
+                return;
+            }
+
+            const account = await getAccountByEmail(email);
+
+            if (!account) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
+
+            if (account.passwordHash !== hashPassword(currentPassword)) {
+                sendJSON(response, 401, { error: "Current password is incorrect" });
+                return;
+            }
+
+            await updateAccountPasswordRecord(email, hashPassword(newPassword));
+            await revokeCustomerSessionsForEmail(email);
+            sendJSON(response, 200, { status: "ok" });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/loyalty/account") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
         const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);

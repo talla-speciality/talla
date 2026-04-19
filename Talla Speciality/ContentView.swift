@@ -237,6 +237,7 @@ struct ContentView: View {
     enum AccountAuthMode: String {
         case signIn
         case createAccount
+        case changePassword
     }
 
     enum LoyaltyServiceError: LocalizedError {
@@ -1491,6 +1492,7 @@ struct ContentView: View {
             accountConfirmPassword: $accountConfirmPassword,
             isSigningIn: isSigningIn,
             isCreatingAccount: isCreatingAccount,
+            isResettingPassword: isResettingPassword,
             isLoadingCustomer: isLoadingCustomer,
             customerAuthError: customerAuthError,
             customerProfile: customerProfile,
@@ -1502,6 +1504,8 @@ struct ContentView: View {
                 Task {
                     if accountAuthMode == .createAccount {
                         await createCustomerAccount()
+                    } else if accountAuthMode == .changePassword {
+                        await changePasswordWithoutSignIn()
                     } else {
                         await signInCustomer()
                     }
@@ -1522,6 +1526,10 @@ struct ContentView: View {
     private var primaryAccountActionTitle: String {
         if accountAuthMode == .createAccount {
             return isCreatingAccount ? "CREATING ACCOUNT..." : "CREATE ACCOUNT"
+        }
+
+        if accountAuthMode == .changePassword {
+            return isResettingPassword ? "UPDATING PASSWORD..." : "CHANGE PASSWORD"
         }
 
         return isSigningIn || isLoadingCustomer ? "SIGNING IN..." : "SIGN IN"
@@ -3805,12 +3813,8 @@ struct ContentView: View {
     private func switchAccountAuthMode(_ mode: AccountAuthMode) {
         accountAuthMode = mode
         customerAuthError = nil
-
-        if mode == .signIn {
-            accountConfirmPassword = ""
-        } else {
-            accountPassword = ""
-        }
+        accountPassword = ""
+        accountConfirmPassword = ""
     }
 
     @MainActor
@@ -3986,6 +3990,40 @@ struct ContentView: View {
             currentPasswordInput = ""
             newPasswordInput = ""
             confirmNewPasswordInput = ""
+            showToast(message: "Password updated")
+        } catch {
+            customerAuthError = friendlyCustomerAuthMessage(for: error)
+        }
+
+        isResettingPassword = false
+    }
+
+    @MainActor
+    private func changePasswordWithoutSignIn() async {
+        let trimmedEmail = normalizedAccountEmail
+
+        guard !trimmedEmail.isEmpty, !accountPassword.isEmpty, !accountConfirmPassword.isEmpty else {
+            customerAuthError = "Enter your email, current password, and new password."
+            return
+        }
+
+        guard accountConfirmPassword.count >= 5 else {
+            customerAuthError = "Use a password with at least 5 characters."
+            return
+        }
+
+        isResettingPassword = true
+        customerAuthError = nil
+
+        do {
+            try await AccountService.changePasswordWithoutSignIn(
+                email: trimmedEmail,
+                currentPassword: accountPassword,
+                newPassword: accountConfirmPassword
+            )
+            accountAuthMode = .signIn
+            accountPassword = ""
+            accountConfirmPassword = ""
             showToast(message: "Password updated")
         } catch {
             customerAuthError = friendlyCustomerAuthMessage(for: error)
@@ -5134,6 +5172,24 @@ private enum AccountService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "currentPassword": currentPassword,
+            "newPassword": newPassword
+        ])
+
+        _ = try await performEmptyRequest(request)
+    }
+
+    static func changePasswordWithoutSignIn(email: String, currentPassword: String, newPassword: String) async throws {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/password/change"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
             "currentPassword": currentPassword,
