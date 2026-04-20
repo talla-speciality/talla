@@ -1174,12 +1174,12 @@ async function verifyAppleIdentityToken(identityToken, nonce) {
     const header = JSON.parse(base64URLDecode(encodedHeader).toString("utf8"));
     const payload = JSON.parse(base64URLDecode(encodedPayload).toString("utf8"));
 
-    if (header.alg !== "ES256" || !header.kid) {
+    if (header.alg !== "RS256" || !header.kid) {
         throw new Error("APPLE_TOKEN_INVALID");
     }
 
     const signingKeys = await appleSigningKeys();
-    const jwk = signingKeys.find((key) => key.kid === header.kid && key.kty === "EC");
+    const jwk = signingKeys.find((key) => key.kid === header.kid && key.kty === "RSA");
     if (!jwk) {
         throw new Error("APPLE_SIGNING_KEY_NOT_FOUND");
     }
@@ -1187,12 +1187,7 @@ async function verifyAppleIdentityToken(identityToken, nonce) {
     const verificationData = Buffer.from(`${encodedHeader}.${encodedPayload}`);
     const signature = base64URLDecode(encodedSignature);
     const publicKey = crypto.createPublicKey({ key: jwk, format: "jwk" });
-    const signatureIsValid = crypto.verify(
-        "sha256",
-        verificationData,
-        { key: publicKey, dsaEncoding: "ieee-p1363" },
-        signature
-    );
+    const signatureIsValid = crypto.verify("RSA-SHA256", verificationData, publicKey, signature);
 
     if (!signatureIsValid) {
         throw new Error("APPLE_TOKEN_SIGNATURE_INVALID");
