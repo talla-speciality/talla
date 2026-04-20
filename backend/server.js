@@ -4244,11 +4244,24 @@ const server = http.createServer(async (request, response) => {
                 }
             }
 
+            const hasProvidedName = Boolean(firstName || lastName);
+            const accountUsesApplePlaceholder = account
+                && account.firstName === "Apple"
+                && account.lastName === "Customer";
+
+            if (account && hasProvidedName && accountUsesApplePlaceholder) {
+                account = await updateAccountProfileRecord(
+                    account.email,
+                    firstName || "",
+                    lastName || ""
+                );
+            }
+
             if (!account) {
                 account = {
                     id: `acct_${Date.now()}`,
-                    firstName: firstName || "Apple",
-                    lastName: lastName || "Customer",
+                    firstName: firstName || "",
+                    lastName: lastName || "",
                     email,
                     passwordHash: hashPassword(`apple:${userIdentifier}:${Date.now()}:${crypto.randomBytes(12).toString("hex")}`),
                     appleUserID: userIdentifier,
