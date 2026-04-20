@@ -3830,6 +3830,58 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
+        if (request.method === "POST" && url.pathname === "/admin/api/customers/bulk-voucher") {
+            try {
+                const body = await readBody(request);
+                const emails = Array.isArray(body.emails)
+                    ? body.emails.map((entry) => normalizeEmail(entry)).filter(Boolean)
+                    : [];
+                const reward = String(body.reward || "").trim();
+                const detail = String(body.detail || "").trim();
+                const points = Number(body.points);
+                const expiresInDays = Number(body.expiresInDays);
+
+                if (emails.length === 0 || !reward || !Number.isFinite(points) || points <= 0 || !Number.isFinite(expiresInDays) || expiresInDays <= 0) {
+                    sendJSON(response, 400, { error: "Provide customer emails, reward, positive points, and expiry days." });
+                    return;
+                }
+
+                const uniqueEmails = [...new Set(emails)];
+                const created = [];
+
+                for (const email of uniqueEmails) {
+                    const account = await getAccountByEmail(email);
+                    if (!account) {
+                        continue;
+                    }
+
+                    const voucher = await createAdminVoucherRecord({ email, reward, points, detail, expiresInDays });
+                    created.push({ email, code: voucher.code });
+
+                    await createAdminAuditLog({
+                        adminUser: admin.username,
+                        action: "bulk_voucher_created",
+                        targetEmail: email,
+                        detail: `Granted bulk voucher ${voucher.code}`,
+                        metadata: {
+                            reward,
+                            points,
+                            expiresInDays
+                        }
+                    });
+                }
+
+                sendJSON(response, 200, {
+                    created,
+                    requestedCount: uniqueEmails.length,
+                    createdCount: created.length
+                });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Bulk voucher creation failed." });
+            }
+            return;
+        }
+
         if (request.method === "POST" && url.pathname === "/admin/api/vouchers/revoke") {
             try {
                 const body = await readBody(request);

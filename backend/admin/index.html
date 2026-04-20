@@ -597,6 +597,19 @@
                     </select>
                     <button id="refresh-customers" class="secondary">Refresh Customers</button>
                 </div>
+                <div class="list-item" style="margin-bottom:14px;">
+                    <strong>Bulk Voucher</strong>
+                    <div class="muted" style="margin-top:6px;">Applies to the customers currently visible in this filtered directory.</div>
+                    <div class="voucher-create-grid" style="margin-top:12px;">
+                        <input id="bulk-voucher-reward" type="text" placeholder="Reward title">
+                        <input id="bulk-voucher-points" type="number" min="1" step="1" placeholder="Points value">
+                        <input id="bulk-voucher-detail" type="text" placeholder="Voucher detail">
+                        <input id="bulk-voucher-expires-days" type="number" min="1" step="1" value="30" placeholder="Expires in days">
+                    </div>
+                    <div class="toolbar-row" style="padding: 12px 0 0;">
+                        <button id="bulk-create-voucher" class="secondary">Grant To Filtered Customers</button>
+                    </div>
+                </div>
                 <div id="customer-directory" class="empty">Loading customers...</div>
             </div>
         </details>
@@ -665,6 +678,11 @@
         const customerAlertFilterInput = document.getElementById("customer-alert-filter");
         const customerSortInput = document.getElementById("customer-sort");
         const refreshCustomersButton = document.getElementById("refresh-customers");
+        const bulkCreateVoucherButton = document.getElementById("bulk-create-voucher");
+        const bulkVoucherRewardInput = document.getElementById("bulk-voucher-reward");
+        const bulkVoucherPointsInput = document.getElementById("bulk-voucher-points");
+        const bulkVoucherDetailInput = document.getElementById("bulk-voucher-detail");
+        const bulkVoucherExpiresDaysInput = document.getElementById("bulk-voucher-expires-days");
 
         function applyStatus(el, message, tone = "info") {
             const resolvedTone = typeof tone === "boolean"
@@ -716,7 +734,7 @@
             sessionSummaryEl.textContent = `Signed in as ${state.session.username}`;
         }
 
-        function renderCustomerDirectory() {
+        function filteredCustomers() {
             const filter = customerDirectoryFilterInput.value.trim().toLowerCase();
             const tierFilter = customerTierFilterInput.value;
             const pointsMin = Number(customerPointsMinInput.value);
@@ -724,7 +742,7 @@
             const orderFilter = customerOrderFilterInput.value;
             const alertFilter = customerAlertFilterInput.value;
             const sortMode = customerSortInput.value || "newest";
-            const items = state.customers.filter((customer) => {
+            return state.customers.filter((customer) => {
                 if (filter) {
                     const haystack = `${customer.firstName || ""} ${customer.lastName || ""} ${customer.email}`.toLowerCase();
                     if (!haystack.includes(filter)) {
@@ -774,10 +792,14 @@
                 }
                 return new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime();
             });
+        }
+
+        function renderCustomerDirectory() {
+            const items = filteredCustomers();
 
             if (items.length === 0) {
                 customerDirectoryEl.className = "empty";
-                customerDirectoryEl.innerHTML = (filter || tierFilter || customerPointsMinInput.value || voucherFilter || orderFilter || alertFilter)
+                customerDirectoryEl.innerHTML = (customerDirectoryFilterInput.value.trim() || customerTierFilterInput.value || customerPointsMinInput.value || customerVoucherFilterInput.value || customerOrderFilterInput.value || customerAlertFilterInput.value)
                     ? "No customers match that filter."
                     : "No customer accounts found yet.";
                 return;
@@ -798,6 +820,53 @@
                     </div>
                 </div>
             `).join("");
+        }
+
+        async function createBulkVouchers() {
+            const customers = filteredCustomers();
+            const reward = bulkVoucherRewardInput.value.trim();
+            const points = Number(bulkVoucherPointsInput.value);
+            const detail = bulkVoucherDetailInput.value.trim();
+            const expiresInDays = Number(bulkVoucherExpiresDaysInput.value);
+
+            if (customers.length === 0) {
+                setStatus("No filtered customers to target.", "error");
+                return;
+            }
+
+            if (!reward || !Number.isFinite(points) || points <= 0 || !Number.isFinite(expiresInDays) || expiresInDays <= 0) {
+                setStatus("Enter a reward, positive points value, and expiry days.", "error");
+                return;
+            }
+
+            setStatus(`Creating vouchers for ${customers.length} customers...`, "info");
+            setButtonBusy(bulkCreateVoucherButton, true, "Grant To Filtered Customers", "Granting...");
+            try {
+                const response = await fetch("/admin/api/customers/bulk-voucher", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        emails: customers.map((customer) => customer.email),
+                        reward,
+                        points,
+                        detail,
+                        expiresInDays
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Bulk voucher creation failed.");
+
+                bulkVoucherRewardInput.value = "";
+                bulkVoucherPointsInput.value = "";
+                bulkVoucherDetailInput.value = "";
+                bulkVoucherExpiresDaysInput.value = "30";
+                await refreshCustomers();
+                setStatus(`Created ${payload.createdCount} vouchers for ${payload.requestedCount} filtered customers.`, "success");
+            } catch (error) {
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(bulkCreateVoucherButton, false, "Grant To Filtered Customers");
+            }
         }
 
         function renderOpsSummary(summary) {
@@ -1755,6 +1824,7 @@
         customerOrderFilterInput.addEventListener("change", renderCustomerDirectory);
         customerAlertFilterInput.addEventListener("change", renderCustomerDirectory);
         customerSortInput.addEventListener("change", renderCustomerDirectory);
+        bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
         productsEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-product");
             if (saveButton) {
