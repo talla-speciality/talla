@@ -3101,6 +3101,91 @@ async function adminOperationsSummary() {
     };
 }
 
+async function adminAnalyticsSummary() {
+    const accounts = await allAccounts();
+    const customers = await Promise.all(accounts.map(async (account) => {
+        const [loyalty, orders, vouchers, alerts] = await Promise.all([
+            ensureLoyaltyAccount(account.email),
+            ordersPayload(account.email),
+            allVouchersFor(account.email),
+            stockAlertsFor(account.email)
+        ]);
+
+        return {
+            id: account.id,
+            email: account.email,
+            firstName: account.firstName,
+            lastName: account.lastName,
+            createdAt: account.createdAt,
+            loyaltyTier: loyalty.tier,
+            pointsBalance: loyalty.pointsBalance,
+            orders,
+            vouchers,
+            alerts
+        };
+    }));
+
+    const totalOrders = customers.reduce((sum, customer) => sum + customer.orders.length, 0);
+    const pendingOrders = customers.reduce((sum, customer) => (
+        sum + customer.orders.filter((order) => ["Pending", "Confirmed", "Preparing"].includes(order.status)).length
+    ), 0);
+    const activeVouchers = customers.reduce((sum, customer) => (
+        sum + customer.vouchers.filter((voucher) => voucher.status === "active").length
+    ), 0);
+    const usedVouchers = customers.reduce((sum, customer) => (
+        sum + customer.vouchers.filter((voucher) => voucher.status === "used").length
+    ), 0);
+    const customersWithOrders = customers.filter((customer) => customer.orders.length > 0).length;
+    const customersWithAlerts = customers.filter((customer) => customer.alerts.length > 0).length;
+    const averagePoints = customers.length > 0
+        ? Math.round(customers.reduce((sum, customer) => sum + customer.pointsBalance, 0) / customers.length)
+        : 0;
+
+    const tierCounts = customers.reduce((accumulator, customer) => {
+        accumulator[customer.loyaltyTier] = (accumulator[customer.loyaltyTier] || 0) + 1;
+        return accumulator;
+    }, {});
+
+    const topCustomers = customers
+        .slice()
+        .sort((lhs, rhs) => rhs.pointsBalance - lhs.pointsBalance)
+        .slice(0, 10)
+        .map((customer) => ({
+            email: customer.email,
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            loyaltyTier: customer.loyaltyTier,
+            pointsBalance: customer.pointsBalance
+        }));
+
+    const newestCustomers = customers
+        .slice()
+        .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime())
+        .slice(0, 10)
+        .map((customer) => ({
+            email: customer.email,
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            createdAt: customer.createdAt
+        }));
+
+    return {
+        totals: {
+            customers: customers.length,
+            customersWithOrders,
+            customersWithAlerts,
+            totalOrders,
+            pendingOrders,
+            activeVouchers,
+            usedVouchers,
+            averagePoints
+        },
+        tierCounts,
+        topCustomers,
+        newestCustomers
+    };
+}
+
 async function createAdminAuditLog({ adminUser, action, targetEmail, detail, metadata = {} }) {
     if (!database.isEnabled()) {
         return null;
@@ -3330,6 +3415,11 @@ const server = http.createServer(async (request, response) => {
 
         if (request.method === "GET" && url.pathname === "/admin/api/ops/summary") {
             sendJSON(response, 200, await adminOperationsSummary());
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/analytics/summary") {
+            sendJSON(response, 200, await adminAnalyticsSummary());
             return;
         }
 

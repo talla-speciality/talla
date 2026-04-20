@@ -528,6 +528,15 @@
 
         <details class="panel" open style="margin-bottom: 20px;">
             <summary class="panel-summary">
+                <h2>Analytics Snapshot</h2>
+            </summary>
+            <div class="panel-body">
+                <div id="analytics-summary" class="empty">Loading analytics summary...</div>
+            </div>
+        </details>
+
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
                 <h2>Product Console</h2>
             </summary>
             <div class="panel-body">
@@ -631,6 +640,7 @@
         const loginStatusEl = document.getElementById("login-status");
         const sessionSummaryEl = document.getElementById("session-summary");
         const opsSummaryEl = document.getElementById("ops-summary");
+        const analyticsSummaryEl = document.getElementById("analytics-summary");
         const productsEl = document.getElementById("products");
         const productsNoteEl = document.getElementById("products-note");
         const refreshProductsButton = document.getElementById("refresh-products");
@@ -823,6 +833,64 @@
                     <div class="list">${renderList(recentErrors, entry => `<div class="list-item"><strong>${entry.method} ${entry.path}</strong><div class="muted">${entry.statusCode} • ${entry.durationMs} ms • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No recent 5xx responses.")}</div>
                     <h2 style="margin-top:22px;">Recent Rate Limits</h2>
                     <div class="list">${renderList(recentRateLimits, entry => `<div class="list-item"><strong>${entry.method} ${entry.path}</strong><div class="muted">${entry.ipAddress} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No recent 429 responses.")}</div>
+                </div>
+            `;
+        }
+
+        function renderAnalyticsSummary(summary) {
+            if (!summary) {
+                analyticsSummaryEl.className = "empty";
+                analyticsSummaryEl.innerHTML = "Analytics summary is unavailable right now.";
+                return;
+            }
+
+            const totals = summary.totals || {};
+            const tierCounts = summary.tierCounts || {};
+            analyticsSummaryEl.className = "";
+            analyticsSummaryEl.innerHTML = `
+                <div class="ops-grid">
+                    <div class="grid-card">
+                        <span class="label">Customers</span>
+                        <div class="value serif">${totals.customers || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Orders</span>
+                        <div class="value">${totals.totalOrders || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Active Vouchers</span>
+                        <div class="value">${totals.activeVouchers || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Avg Points</span>
+                        <div class="value">${totals.averagePoints || 0}</div>
+                    </div>
+                </div>
+                <div class="grid" style="margin-bottom:18px;">
+                    <div class="grid-card">
+                        <span class="label">Customers With Orders</span>
+                        <div class="value">${totals.customersWithOrders || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Pending Orders</span>
+                        <div class="value">${totals.pendingOrders || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Customers With Alerts</span>
+                        <div class="value">${totals.customersWithAlerts || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Used Vouchers</span>
+                        <div class="value">${totals.usedVouchers || 0}</div>
+                    </div>
+                </div>
+                <div class="panel" style="padding:0; border:none; box-shadow:none; background:transparent;">
+                    <h2 style="margin-top:0;">Loyalty Tier Mix</h2>
+                    <div class="list">${renderList(Object.entries(tierCounts), ([tier, count]) => `<div class="list-item"><strong>${escapeHTML(tier)}</strong><div class="muted">${count} customers</div></div>`, "No loyalty data yet.")}</div>
+                    <h2 style="margin-top:22px;">Top Customers By Points</h2>
+                    <div class="list">${renderList(summary.topCustomers, customer => `<div class="list-item"><strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong><div class="muted">${escapeHTML(customer.email)} • ${customer.pointsBalance} pts • ${escapeHTML(customer.loyaltyTier)}</div></div>`, "No customer points yet.")}</div>
+                    <h2 style="margin-top:22px;">Newest Accounts</h2>
+                    <div class="list">${renderList(summary.newestCustomers, customer => `<div class="list-item"><strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong><div class="muted">${escapeHTML(customer.email)} • Created ${new Date(customer.createdAt).toLocaleString()}</div></div>`, "No customer accounts yet.")}</div>
                 </div>
             `;
         }
@@ -1057,6 +1125,13 @@
             return payload;
         }
 
+        async function fetchAnalyticsSummary() {
+            const response = await fetch("/admin/api/analytics/summary");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load analytics summary.");
+            return payload;
+        }
+
         async function fetchProducts() {
             const response = await fetch("/admin/api/products");
             const payload = await response.json();
@@ -1112,6 +1187,7 @@
                 loginPasswordInput.value = "";
                 renderSession();
                 renderOpsSummary(await fetchOpsSummary());
+                renderAnalyticsSummary(await fetchAnalyticsSummary());
                 showApp();
                 await refreshCustomers();
                 await refreshProducts();
@@ -1138,6 +1214,8 @@
             productsEl.className = "empty";
             productsEl.innerHTML = "Sign in to manage Shopify products.";
             productsNoteEl.textContent = "";
+            analyticsSummaryEl.className = "empty";
+            analyticsSummaryEl.innerHTML = "Sign in to view analytics summary.";
             customerDirectoryFilterInput.value = "";
             customerDirectoryEl.className = "empty";
             customerDirectoryEl.innerHTML = "Sign in to browse customers.";
@@ -1156,6 +1234,7 @@
                 state.session = session;
                 renderSession();
                 renderOpsSummary(await fetchOpsSummary());
+                renderAnalyticsSummary(await fetchAnalyticsSummary());
                 showApp();
                 await refreshCustomers();
                 await refreshProducts();
