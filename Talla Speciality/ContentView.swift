@@ -1,5 +1,11 @@
 import Foundation
 import SwiftUI
+#if canImport(AuthenticationServices)
+import AuthenticationServices
+#endif
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
 #if canImport(UserNotifications)
 import UserNotifications
 #endif
@@ -318,6 +324,8 @@ struct ContentView: View {
     @State private var confirmNewPasswordInput = ""
     @State private var isResettingPassword = false
     @State private var isRequestingPasswordResetLink = false
+    @State private var isSigningInWithApple = false
+    @State private var appleSignInNonce = ""
     @State private var customerProfile: ShopifyCustomerProfile?
     @State private var customerAuthError: String?
     @State private var isSigningIn = false
@@ -1485,6 +1493,7 @@ struct ContentView: View {
             isCreatingAccount: isCreatingAccount,
             isResettingPassword: isResettingPassword,
             isRequestingPasswordResetLink: isRequestingPasswordResetLink,
+            isSigningInWithApple: isSigningInWithApple,
             isLoadingCustomer: isLoadingCustomer,
             customerAuthError: customerAuthError,
             customerProfile: customerProfile,
@@ -1508,6 +1517,8 @@ struct ContentView: View {
                     await requestPasswordResetLink()
                 }
             },
+            configureAppleSignInRequest: configureAppleSignInRequest(_:),
+            handleAppleSignInResult: handleAppleSignInResult(_:),
             signedInContent: AnyView(
                 Group {
                     if let customerProfile {
@@ -1529,7 +1540,7 @@ struct ContentView: View {
             return isResettingPassword ? "UPDATING PASSWORD..." : "CHANGE PASSWORD"
         }
 
-        return isSigningIn || isLoadingCustomer ? "SIGNING IN..." : "SIGN IN"
+        return isSigningIn || isSigningInWithApple || isLoadingCustomer ? "SIGNING IN..." : "SIGN IN"
     }
 
     private func signedInCustomerCard(_ profile: ShopifyCustomerProfile) -> some View {
@@ -3802,11 +3813,96 @@ struct ContentView: View {
         isSigningIn = false
     }
 
+#if canImport(AuthenticationServices)
+    private func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let nonce = Self.randomAppleNonce()
+        appleSignInNonce = nonce
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = Self.sha256(nonce)
+    }
+
+    private func handleAppleSignInResult(_ result: Result<ASAuthorization, Error>) {
+        Task {
+            await handleAppleSignInResultAsync(result)
+        }
+    }
+
+    @MainActor
+    private func handleAppleSignInResultAsync(_ result: Result<ASAuthorization, Error>) async {
+        switch result {
+        case .failure(let error):
+            appleSignInNonce = ""
+
+            if let authorizationError = error as? ASAuthorizationError,
+               authorizationError.code == .canceled {
+                customerAuthError = nil
+                isSigningInWithApple = false
+                return
+            }
+
+            customerAuthError = friendlyCustomerAuthMessage(
+                for: error,
+                fallback: "Sign in with Apple is unavailable right now."
+            )
+            isSigningInWithApple = false
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                customerAuthError = "Apple sign-in did not return a valid account credential."
+                isSigningInWithApple = false
+                return
+            }
+
+            guard let tokenData = credential.identityToken,
+                  let identityToken = String(data: tokenData, encoding: .utf8),
+                  !identityToken.isEmpty else {
+                customerAuthError = "Apple sign-in did not return an identity token."
+                isSigningInWithApple = false
+                return
+            }
+
+            let nonce = appleSignInNonce
+            guard !nonce.isEmpty else {
+                customerAuthError = "Apple sign-in could not be verified."
+                isSigningInWithApple = false
+                return
+            }
+
+            isSigningInWithApple = true
+            customerAuthError = nil
+
+            do {
+                let session = try await AccountService.signInWithApple(
+                    identityToken: identityToken,
+                    userIdentifier: credential.user,
+                    email: credential.email,
+                    firstName: credential.fullName?.givenName,
+                    lastName: credential.fullName?.familyName,
+                    nonce: nonce
+                )
+                applySignedInSession(session)
+                accountPassword = ""
+                accountConfirmPassword = ""
+                showToast(message: "Signed in with Apple")
+            } catch {
+                customerProfile = nil
+                customerAuthError = friendlyCustomerAuthMessage(
+                    for: error,
+                    fallback: "Sign in with Apple is unavailable right now."
+                )
+            }
+
+            appleSignInNonce = ""
+            isSigningInWithApple = false
+        }
+    }
+#endif
+
     private func switchAccountAuthMode(_ mode: AccountAuthMode) {
         accountAuthMode = mode
         customerAuthError = nil
         accountPassword = ""
         accountConfirmPassword = ""
+        appleSignInNonce = ""
     }
 
     @MainActor
@@ -3906,6 +4002,7 @@ struct ContentView: View {
         accountLastName = ""
         accountPassword = ""
         accountConfirmPassword = ""
+        appleSignInNonce = ""
         profileFirstName = ""
         profileLastName = ""
         currentPasswordInput = ""
@@ -5165,6 +5262,45 @@ private enum AccountService {
             "email": email,
             "password": password
         ])
+
+        return try await performCustomerSessionRequest(request)
+    }
+
+    static func signInWithApple(
+        identityToken: String,
+        userIdentifier: String,
+        email: String?,
+        firstName: String?,
+        lastName: String?,
+        nonce: String
+    ) async throws -> CustomerSession {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
+        }
+
+        var payload: [String: Any] = [
+            "identityToken": identityToken,
+            "userIdentifier": userIdentifier,
+            "nonce": nonce
+        ]
+
+        if let email, !email.isEmpty {
+            payload["email"] = email
+        }
+
+        if let firstName, !firstName.isEmpty {
+            payload["firstName"] = firstName
+        }
+
+        if let lastName, !lastName.isEmpty {
+            payload["lastName"] = lastName
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/apple"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         return try await performCustomerSessionRequest(request)
     }
@@ -6768,6 +6904,30 @@ private extension ContentView.BrewingMethod {
 
     private static func articleURL(blogHandle: String, articleHandle: String) -> URL? {
         URL(string: "https://\(ShopifyConfiguration.shopDomain)/blogs/\(blogHandle)/\(articleHandle)")
+    }
+}
+
+private extension ContentView {
+    static func randomAppleNonce(length: Int = 32) -> String {
+        let characters = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var nonce = ""
+        nonce.reserveCapacity(length)
+
+        while nonce.count < length {
+            let randomValue = Int.random(in: 0 ..< characters.count)
+            nonce.append(characters[randomValue])
+        }
+
+        return nonce
+    }
+
+    static func sha256(_ input: String) -> String {
+#if canImport(CryptoKit)
+        let digest = SHA256.hash(data: Data(input.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+#else
+        return input
+#endif
     }
 }
 

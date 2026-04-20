@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(AuthenticationServices)
+import AuthenticationServices
+#endif
 
 struct CustomerAccountSectionView: View {
     let isCompact: Bool
@@ -22,6 +25,7 @@ struct CustomerAccountSectionView: View {
     let isCreatingAccount: Bool
     let isResettingPassword: Bool
     let isRequestingPasswordResetLink: Bool
+    let isSigningInWithApple: Bool
     let isLoadingCustomer: Bool
     let customerAuthError: String?
     let customerProfile: ContentView.ShopifyCustomerProfile?
@@ -29,6 +33,10 @@ struct CustomerAccountSectionView: View {
     let toggleModeAction: (ContentView.AccountAuthMode) -> Void
     let submitAction: () -> Void
     let requestPasswordResetLinkAction: () -> Void
+#if canImport(AuthenticationServices)
+    let configureAppleSignInRequest: (ASAuthorizationAppleIDRequest) -> Void
+    let handleAppleSignInResult: (Result<ASAuthorization, Error>) -> Void
+#endif
     let signedInContent: AnyView
 
     var body: some View {
@@ -139,6 +147,42 @@ struct CustomerAccountSectionView: View {
             .buttonStyle(.plain)
             .disabled(isSubmitDisabled)
 
+#if canImport(AuthenticationServices)
+            if accountAuthMode != .changePassword {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        Rectangle()
+                            .fill(accentColor.opacity(0.16))
+                            .frame(height: 1)
+
+                        Text("or continue with")
+                            .font(Font.custom("AvenirNext-Regular", size: 11))
+                            .foregroundColor(secondaryTextColor)
+
+                        Rectangle()
+                            .fill(accentColor.opacity(0.16))
+                            .frame(height: 1)
+                    }
+
+                    SignInWithAppleButton(accountAuthMode == .createAccount ? .signUp : .signIn) { request in
+                        configureAppleSignInRequest(request)
+                    } onCompletion: { result in
+                        handleAppleSignInResult(result)
+                    }
+                    .signInWithAppleButtonStyle(isLightAppearance ? .black : .white)
+                    .frame(height: 50)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .disabled(isAppleSignInDisabled)
+
+                    if isSigningInWithApple {
+                        Text("Signing in with Apple...")
+                            .font(Font.custom("AvenirNext-Regular", size: 11))
+                            .foregroundColor(secondaryTextColor)
+                    }
+                }
+            }
+#endif
+
             HStack(spacing: 16) {
                 if accountAuthMode == .signIn {
                     Text("Fast access for checkout and rewards")
@@ -173,6 +217,7 @@ struct CustomerAccountSectionView: View {
 
     private var isSubmitDisabled: Bool {
         isSigningIn ||
+        isSigningInWithApple ||
         isResettingPassword ||
         isRequestingPasswordResetLink ||
         isCreatingAccount ||
@@ -188,6 +233,7 @@ struct CustomerAccountSectionView: View {
 
     private var isResetLinkDisabled: Bool {
         isSigningIn ||
+        isSigningInWithApple ||
         isCreatingAccount ||
         isResettingPassword ||
         isRequestingPasswordResetLink ||
@@ -241,4 +287,15 @@ struct CustomerAccountSectionView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
+
+#if canImport(AuthenticationServices)
+    private var isAppleSignInDisabled: Bool {
+        isSigningIn ||
+        isSigningInWithApple ||
+        isCreatingAccount ||
+        isResettingPassword ||
+        isRequestingPasswordResetLink ||
+        isLoadingCustomer
+    }
+#endif
 }

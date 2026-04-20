@@ -28,6 +28,7 @@ const customerTokenSecret = config.customerTokenSecret;
 const customerTokenHours = config.customerTokenHours;
 const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
+const appleSignInClientID = config.appleSignInClientID;
 const passwordResetTokenHours = config.passwordResetTokenHours;
 const rateLimitWindowMs = config.rateLimitWindowMs;
 const rateLimitMaxRequests = config.rateLimitMaxRequests;
@@ -58,6 +59,8 @@ const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
 const rateLimitBuckets = new Map();
 let opsAlertTimer = null;
+let appleSigningKeysCache = null;
+let appleSigningKeysFetchedAt = 0;
 
 ensureStoreFile(loyaltyStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
@@ -1128,8 +1131,96 @@ function hashPassword(password) {
     return crypto.createHash("sha256").update(String(password)).digest("hex");
 }
 
+function sha256Hex(value) {
+    return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
 function createPasswordResetToken() {
     return crypto.randomBytes(32).toString("hex");
+}
+
+function base64URLDecode(input) {
+    const normalized = String(input || "")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+    const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+    return Buffer.from(normalized + padding, "base64");
+}
+
+async function appleSigningKeys() {
+    const oneHour = 60 * 60 * 1000;
+    if (appleSigningKeysCache && (Date.now() - appleSigningKeysFetchedAt) < oneHour) {
+        return appleSigningKeysCache;
+    }
+
+    const response = await fetch("https://appleid.apple.com/auth/keys");
+    if (!response.ok) {
+        throw new Error("APPLE_KEYS_UNAVAILABLE");
+    }
+
+    const payload = await response.json();
+    appleSigningKeysCache = Array.isArray(payload.keys) ? payload.keys : [];
+    appleSigningKeysFetchedAt = Date.now();
+    return appleSigningKeysCache;
+}
+
+async function verifyAppleIdentityToken(identityToken, nonce) {
+    const parts = String(identityToken || "").split(".");
+    if (parts.length !== 3) {
+        throw new Error("APPLE_TOKEN_INVALID");
+    }
+
+    const [encodedHeader, encodedPayload, encodedSignature] = parts;
+    const header = JSON.parse(base64URLDecode(encodedHeader).toString("utf8"));
+    const payload = JSON.parse(base64URLDecode(encodedPayload).toString("utf8"));
+
+    if (header.alg !== "ES256" || !header.kid) {
+        throw new Error("APPLE_TOKEN_INVALID");
+    }
+
+    const signingKeys = await appleSigningKeys();
+    const jwk = signingKeys.find((key) => key.kid === header.kid && key.kty === "EC");
+    if (!jwk) {
+        throw new Error("APPLE_SIGNING_KEY_NOT_FOUND");
+    }
+
+    const verificationData = Buffer.from(`${encodedHeader}.${encodedPayload}`);
+    const signature = base64URLDecode(encodedSignature);
+    const publicKey = crypto.createPublicKey({ key: jwk, format: "jwk" });
+    const signatureIsValid = crypto.verify(
+        "sha256",
+        verificationData,
+        { key: publicKey, dsaEncoding: "ieee-p1363" },
+        signature
+    );
+
+    if (!signatureIsValid) {
+        throw new Error("APPLE_TOKEN_SIGNATURE_INVALID");
+    }
+
+    const audience = payload.aud;
+    const audienceMatches = Array.isArray(audience)
+        ? audience.includes(appleSignInClientID)
+        : audience === appleSignInClientID;
+
+    if (!audienceMatches || payload.iss !== "https://appleid.apple.com") {
+        throw new Error("APPLE_TOKEN_CLAIMS_INVALID");
+    }
+
+    const expiration = Number(payload.exp);
+    if (!Number.isFinite(expiration) || (expiration * 1000) <= Date.now()) {
+        throw new Error("APPLE_TOKEN_EXPIRED");
+    }
+
+    if (!payload.sub) {
+        throw new Error("APPLE_TOKEN_SUB_MISSING");
+    }
+
+    if (nonce && payload.nonce !== sha256Hex(nonce)) {
+        throw new Error("APPLE_TOKEN_NONCE_INVALID");
+    }
+
+    return payload;
 }
 
 function profilePayload(account) {
@@ -1178,7 +1269,7 @@ async function getAccountByEmail(email) {
     }
 
     const result = await database.query(
-        `SELECT id, email, first_name, last_name, password_hash, created_at
+        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at
          FROM accounts
          WHERE email = $1`,
         [email]
@@ -1195,6 +1286,40 @@ async function getAccountByEmail(email) {
         firstName: row.first_name,
         lastName: row.last_name,
         passwordHash: row.password_hash,
+        appleUserID: row.apple_user_id,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+    };
+}
+
+async function getAccountByAppleUserID(appleUserID) {
+    if (!appleUserID) {
+        return null;
+    }
+
+    if (!database.isEnabled()) {
+        const store = readJSON(accountsStorePath);
+        return Object.values(store.accounts || {}).find((account) => account.appleUserID === appleUserID) || null;
+    }
+
+    const result = await database.query(
+        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at
+         FROM accounts
+         WHERE apple_user_id = $1`,
+        [appleUserID]
+    );
+
+    if (result.rowCount === 0) {
+        return null;
+    }
+
+    const row = result.rows[0];
+    return {
+        id: row.id,
+        email: row.email,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        passwordHash: row.password_hash,
+        appleUserID: row.apple_user_id,
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
     };
 }
@@ -1209,13 +1334,14 @@ async function allAccounts() {
                 firstName: account.firstName,
                 lastName: account.lastName,
                 passwordHash: account.passwordHash,
+                appleUserID: account.appleUserID || null,
                 createdAt: account.createdAt
             }))
             .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
     }
 
     const result = await database.query(
-        `SELECT id, email, first_name, last_name, password_hash, created_at
+        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at
          FROM accounts
          ORDER BY created_at DESC
          LIMIT 500`
@@ -1227,12 +1353,13 @@ async function allAccounts() {
         firstName: row.first_name,
         lastName: row.last_name,
         passwordHash: row.password_hash,
+        appleUserID: row.apple_user_id,
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
     }));
 }
 
-async function createAccountRecord({ id, email, firstName, lastName, passwordHash, createdAt }) {
-    const account = { id, email, firstName, lastName, passwordHash, createdAt };
+async function createAccountRecord({ id, email, firstName, lastName, passwordHash, appleUserID = null, createdAt }) {
+    const account = { id, email, firstName, lastName, passwordHash, appleUserID, createdAt };
 
     if (!database.isEnabled()) {
         const store = readJSON(accountsStorePath);
@@ -1242,9 +1369,9 @@ async function createAccountRecord({ id, email, firstName, lastName, passwordHas
     }
 
     await database.query(
-        `INSERT INTO accounts (id, email, first_name, last_name, password_hash, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, email, firstName, lastName, passwordHash, createdAt]
+        `INSERT INTO accounts (id, email, first_name, last_name, password_hash, apple_user_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, email, firstName, lastName, passwordHash, appleUserID, createdAt]
     );
 
     return account;
@@ -1268,7 +1395,7 @@ async function updateAccountProfileRecord(email, firstName, lastName) {
         `UPDATE accounts
          SET first_name = $2, last_name = $3
          WHERE email = $1
-         RETURNING id, email, first_name, last_name, password_hash, created_at`,
+         RETURNING id, email, first_name, last_name, password_hash, apple_user_id, created_at`,
         [email, firstName, lastName]
     );
 
@@ -1283,6 +1410,48 @@ async function updateAccountProfileRecord(email, firstName, lastName) {
         firstName: row.first_name,
         lastName: row.last_name,
         passwordHash: row.password_hash,
+        appleUserID: row.apple_user_id,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+    };
+}
+
+async function linkAppleUserIDToAccount(email, appleUserID) {
+    if (!email || !appleUserID) {
+        return null;
+    }
+
+    if (!database.isEnabled()) {
+        const store = readJSON(accountsStorePath);
+        const account = store.accounts[email];
+        if (!account) {
+            return null;
+        }
+
+        account.appleUserID = appleUserID;
+        writeJSON(accountsStorePath, store);
+        return account;
+    }
+
+    const result = await database.query(
+        `UPDATE accounts
+         SET apple_user_id = $2
+         WHERE email = $1
+         RETURNING id, email, first_name, last_name, password_hash, apple_user_id, created_at`,
+        [email, appleUserID]
+    );
+
+    if (result.rowCount === 0) {
+        return null;
+    }
+
+    const row = result.rows[0];
+    return {
+        id: row.id,
+        email: row.email,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        passwordHash: row.password_hash,
+        appleUserID: row.apple_user_id,
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
     };
 }
@@ -4040,6 +4209,70 @@ const server = http.createServer(async (request, response) => {
             });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/accounts/apple") {
+        try {
+            const body = await readBody(request);
+            const identityToken = String(body.identityToken || "");
+            const userIdentifier = String(body.userIdentifier || "").trim();
+            const nonce = String(body.nonce || "");
+            const fallbackEmail = normalizeEmail(body.email);
+            const firstName = String(body.firstName || "").trim();
+            const lastName = String(body.lastName || "").trim();
+
+            if (!identityToken || !userIdentifier || !nonce) {
+                sendJSON(response, 400, { error: "Invalid Apple sign-in payload" });
+                return;
+            }
+
+            const claims = await verifyAppleIdentityToken(identityToken, nonce);
+            if (claims.sub !== userIdentifier) {
+                sendJSON(response, 401, { error: "Apple identity mismatch" });
+                return;
+            }
+
+            const claimedEmail = normalizeEmail(claims.email);
+            const email = claimedEmail || fallbackEmail;
+            if (!email) {
+                sendJSON(response, 400, { error: "Apple sign-in did not return an email address" });
+                return;
+            }
+
+            let account = await getAccountByAppleUserID(userIdentifier);
+            if (!account) {
+                account = await getAccountByEmail(email);
+                if (account) {
+                    account = await linkAppleUserIDToAccount(account.email, userIdentifier);
+                }
+            }
+
+            if (!account) {
+                account = {
+                    id: `acct_${Date.now()}`,
+                    firstName: firstName || "Apple",
+                    lastName: lastName || "Customer",
+                    email,
+                    passwordHash: hashPassword(`apple:${userIdentifier}:${Date.now()}:${crypto.randomBytes(12).toString("hex")}`),
+                    appleUserID: userIdentifier,
+                    createdAt: new Date().toISOString()
+                };
+
+                await createAccountRecord(account);
+            }
+
+            await ensureLoyaltyAccount(account.email);
+            const session = await createCustomerSession(account.email);
+            sendJSON(response, 200, {
+                profile: profilePayload(account),
+                accessToken: session.accessToken,
+                expiresAt: session.expiresAt
+            });
+        } catch (error) {
+            console.error("Apple sign-in failed.", error);
+            sendJSON(response, 401, { error: "Apple sign-in could not be verified" });
         }
         return;
     }
