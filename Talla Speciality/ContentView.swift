@@ -25,13 +25,13 @@ struct ContentView: View {
         var systemImage: String {
             switch self {
             case .home:
-                return "house.fill"
+                return "house"
             case .shop:
-                return "square.grid.2x2.fill"
+                return "square.grid.2x2"
             case .brewing:
-                return "drop.fill"
+                return "drop"
             case .account:
-                return "person.fill"
+                return "person"
             }
         }
     }
@@ -272,6 +272,7 @@ struct ContentView: View {
     @State private var toastMessage: String?
     @State private var isLoadingProducts = false
     @State private var hasLoadedProducts = false
+    @State private var lastProductsRefreshAt: Date?
     @State private var loadingError: String?
     @State private var brewingMethods: [BrewingMethod] = []
     @State private var isLoadingBrewingMethods = false
@@ -851,27 +852,7 @@ struct ContentView: View {
                 .frame(width: 300, height: 300)
                 .offset(x: -120, y: 420)
 
-            VStack(spacing: 0) {
-                header
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        switch activeTab {
-                        case .home:
-                            homeView
-                        case .shop:
-                            shopView
-                        case .brewing:
-                            brewingView
-                        case .account:
-                            accountView
-                        }
-
-                        footer
-                    }
-                }
-            }
-            .frame(maxWidth: 400)
+            appTabView
 
             if cartOpen {
                 cartDrawer
@@ -896,13 +877,15 @@ struct ContentView: View {
         .onChange(of: activeTab) { _, newTab in
             guard newTab == .shop, hasLoadedProducts else { return }
             Task {
-                await loadProducts(force: true)
+                await refreshProductsIfNeeded()
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active, hasLoadedProducts else { return }
             Task {
-                await loadProducts(force: true)
+                if activeTab == .shop {
+                    await refreshProductsIfNeeded()
+                }
                 await refreshWalletPassPresence()
             }
         }
@@ -924,11 +907,66 @@ struct ContentView: View {
             WalletPassView(pass: item.pass)
         }
 #endif
-        .safeAreaInset(edge: .bottom) {
-            bottomTabBar
+        .overlay(alignment: .bottomTrailing) {
+            floatingCartButton
+                .padding(.trailing, 22)
+                .padding(.bottom, 84)
                 .zIndex(20)
         }
         .preferredColorScheme(appearanceMode.colorScheme)
+    }
+
+    @ViewBuilder
+    private var appTabView: some View {
+        if #available(iOS 18.0, *) {
+            baseTabView
+                .tabViewStyle(.sidebarAdaptable)
+        } else {
+            baseTabView
+        }
+    }
+
+    private var baseTabView: some View {
+        TabView(selection: $activeTab) {
+            tabScreen(homeView)
+                .tag(Tab.home)
+                .tabItem {
+                    Label("Home", systemImage: Tab.home.systemImage)
+                }
+
+            tabScreen(shopView)
+                .tag(Tab.shop)
+                .tabItem {
+                    Label("Shop", systemImage: Tab.shop.systemImage)
+                }
+
+            tabScreen(brewingView)
+                .tag(Tab.brewing)
+                .tabItem {
+                    Label("Brewing", systemImage: Tab.brewing.systemImage)
+                }
+
+            tabScreen(accountView)
+                .tag(Tab.account)
+                .tabItem {
+                    Label("Account", systemImage: Tab.account.systemImage)
+                }
+        }
+    }
+
+    private func tabScreen<Content: View>(_ content: Content) -> some View {
+        VStack(spacing: 0) {
+            header
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    content
+                    footer
+                }
+            }
+        }
+        .frame(maxWidth: 400)
+        .frame(maxWidth: .infinity)
     }
 
     private var header: some View {
@@ -994,57 +1032,7 @@ struct ContentView: View {
         )
     }
 
-    private var bottomTabBar: some View {
-        GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 10) {
-                navigationTabButton(.home)
-                navigationTabButton(.shop)
-                cartTabButton
-                navigationTabButton(.brewing)
-                navigationTabButton(.account)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(Color.clear)
-                    .glassEffect(
-                        .regular
-                            .tint(Color(hex: isLightAppearance ? 0xFFF6EC : 0x20150D).opacity(isLightAppearance ? 0.52 : 0.34)),
-                        in: .capsule
-                    )
-                    .allowsHitTesting(false)
-            )
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .padding(.horizontal, 10)
-    }
-
-    private func navigationTabButton(_ tab: Tab) -> some View {
-        Button {
-            activeTab = tab
-        } label: {
-            Image(systemName: tab.systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(activeTab == tab ? Color(hex: 0xC8965A) : secondaryTextColor)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .padding(.vertical, 12)
-                .glassEffect(
-                    activeTab == tab
-                        ? .regular.tint(Color(hex: 0xC8965A).opacity(0.8)).interactive()
-                        : .regular.tint(Color.white.opacity(isLightAppearance ? 0.16 : 0.08)).interactive(),
-                    in: .circle
-                )
-        }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .accessibilityLabel(tab.rawValue.capitalized)
-    }
-
-    private var cartTabButton: some View {
+    private var floatingCartButton: some View {
         Button {
             cartOpen = true
         } label: {
@@ -1052,14 +1040,12 @@ struct ContentView: View {
                 Image(systemName: "bag.fill")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(primaryTextColor.opacity(isLightAppearance ? 0.88 : 0.9))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .padding(.vertical, 12)
+                    .frame(width: 56, height: 56)
                     .glassEffect(
                         .regular
                             .tint((cartCount > 0 ? Color(hex: 0xC8965A) : Color.white).opacity(cartCount > 0 ? 0.8 : (isLightAppearance ? 0.16 : 0.08)))
                             .interactive(),
-                        in: .circle
+                        in: .capsule
                     )
 
                 if cartCount > 0 {
@@ -1078,7 +1064,6 @@ struct ContentView: View {
             }
         }
         .buttonStyle(.plain)
-        .contentShape(Rectangle())
         .accessibilityLabel("Open cart")
     }
 
@@ -4286,6 +4271,7 @@ struct ContentView: View {
             let fetchedProducts = try await ShopifyStorefrontClient.fetchAllProducts()
             products = fetchedProducts
             hasLoadedProducts = true
+            lastProductsRefreshAt = Date()
 
             if !availableCategories.contains(where: { $0.key == activeCategory }) {
                 activeCategory = "all"
@@ -4300,6 +4286,17 @@ struct ContentView: View {
         }
 
         isLoadingProducts = false
+    }
+
+    @MainActor
+    private func refreshProductsIfNeeded() async {
+        let now = Date()
+        if let lastProductsRefreshAt,
+           now.timeIntervalSince(lastProductsRefreshAt) < 45 {
+            return
+        }
+
+        await loadProducts(force: true)
     }
 
     @MainActor
