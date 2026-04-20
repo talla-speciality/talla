@@ -410,6 +410,23 @@
             flex-wrap: wrap;
             margin-bottom: 14px;
         }
+        .directory-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .directory-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 5px 10px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
         .directory-list {
             display: grid;
             gap: 10px;
@@ -539,6 +556,36 @@
                 <div class="subcopy" style="margin-bottom: 14px;">Browse every customer account and load one directly into the admin workspace.</div>
                 <div class="directory-controls">
                     <input id="customer-directory-filter" class="email-input" type="text" placeholder="Filter by name or email">
+                    <select id="customer-tier-filter">
+                        <option value="">All loyalty tiers</option>
+                        <option value="Roastery Member">Roastery Member</option>
+                        <option value="Roastery Silver">Roastery Silver</option>
+                        <option value="Roastery Gold">Roastery Gold</option>
+                    </select>
+                    <input id="customer-points-min" type="number" min="0" step="1" placeholder="Min points">
+                </div>
+                <div class="directory-controls">
+                    <select id="customer-voucher-filter">
+                        <option value="">Voucher: any</option>
+                        <option value="yes">Has active voucher</option>
+                        <option value="no">No active voucher</option>
+                    </select>
+                    <select id="customer-order-filter">
+                        <option value="">Orders: any</option>
+                        <option value="yes">Has orders</option>
+                        <option value="no">No orders</option>
+                    </select>
+                    <select id="customer-alert-filter">
+                        <option value="">Alerts: any</option>
+                        <option value="yes">Has stock alerts</option>
+                        <option value="no">No stock alerts</option>
+                    </select>
+                    <select id="customer-sort">
+                        <option value="newest">Newest accounts</option>
+                        <option value="points_desc">Highest points</option>
+                        <option value="points_asc">Lowest points</option>
+                        <option value="name_asc">Name A-Z</option>
+                    </select>
                     <button id="refresh-customers" class="secondary">Refresh Customers</button>
                 </div>
                 <div id="customer-directory" class="empty">Loading customers...</div>
@@ -601,6 +648,12 @@
         const snapshotEl = document.getElementById("snapshot");
         const customerDirectoryEl = document.getElementById("customer-directory");
         const customerDirectoryFilterInput = document.getElementById("customer-directory-filter");
+        const customerTierFilterInput = document.getElementById("customer-tier-filter");
+        const customerPointsMinInput = document.getElementById("customer-points-min");
+        const customerVoucherFilterInput = document.getElementById("customer-voucher-filter");
+        const customerOrderFilterInput = document.getElementById("customer-order-filter");
+        const customerAlertFilterInput = document.getElementById("customer-alert-filter");
+        const customerSortInput = document.getElementById("customer-sort");
         const refreshCustomersButton = document.getElementById("refresh-customers");
 
         function applyStatus(el, message, tone = "info") {
@@ -655,18 +708,66 @@
 
         function renderCustomerDirectory() {
             const filter = customerDirectoryFilterInput.value.trim().toLowerCase();
+            const tierFilter = customerTierFilterInput.value;
+            const pointsMin = Number(customerPointsMinInput.value);
+            const voucherFilter = customerVoucherFilterInput.value;
+            const orderFilter = customerOrderFilterInput.value;
+            const alertFilter = customerAlertFilterInput.value;
+            const sortMode = customerSortInput.value || "newest";
             const items = state.customers.filter((customer) => {
-                if (!filter) {
-                    return true;
+                if (filter) {
+                    const haystack = `${customer.firstName || ""} ${customer.lastName || ""} ${customer.email}`.toLowerCase();
+                    if (!haystack.includes(filter)) {
+                        return false;
+                    }
                 }
 
-                const haystack = `${customer.firstName || ""} ${customer.lastName || ""} ${customer.email}`.toLowerCase();
-                return haystack.includes(filter);
+                if (tierFilter && customer.loyaltyTier !== tierFilter) {
+                    return false;
+                }
+
+                if (customerPointsMinInput.value.trim() !== "" && (!Number.isFinite(pointsMin) || customer.pointsBalance < pointsMin)) {
+                    return false;
+                }
+
+                if (voucherFilter === "yes" && !customer.hasActiveVoucher) {
+                    return false;
+                }
+                if (voucherFilter === "no" && customer.hasActiveVoucher) {
+                    return false;
+                }
+
+                if (orderFilter === "yes" && !customer.hasOrders) {
+                    return false;
+                }
+                if (orderFilter === "no" && customer.hasOrders) {
+                    return false;
+                }
+
+                if (alertFilter === "yes" && !customer.hasStockAlerts) {
+                    return false;
+                }
+                if (alertFilter === "no" && customer.hasStockAlerts) {
+                    return false;
+                }
+
+                return true;
+            }).sort((lhs, rhs) => {
+                if (sortMode === "points_desc") {
+                    return rhs.pointsBalance - lhs.pointsBalance;
+                }
+                if (sortMode === "points_asc") {
+                    return lhs.pointsBalance - rhs.pointsBalance;
+                }
+                if (sortMode === "name_asc") {
+                    return `${lhs.firstName || ""} ${lhs.lastName || ""}`.localeCompare(`${rhs.firstName || ""} ${rhs.lastName || ""}`);
+                }
+                return new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime();
             });
 
             if (items.length === 0) {
                 customerDirectoryEl.className = "empty";
-                customerDirectoryEl.innerHTML = filter
+                customerDirectoryEl.innerHTML = (filter || tierFilter || customerPointsMinInput.value || voucherFilter || orderFilter || alertFilter)
                     ? "No customers match that filter."
                     : "No customer accounts found yet.";
                 return;
@@ -678,6 +779,13 @@
                     <strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong>
                     <div class="muted">${escapeHTML(customer.email)}</div>
                     <div class="muted">Created ${new Date(customer.createdAt).toLocaleString()}</div>
+                    <div class="directory-badges">
+                        <span class="directory-badge">${escapeHTML(customer.loyaltyTier || "Unknown tier")}</span>
+                        <span class="directory-badge">${escapeHTML(String(customer.pointsBalance || 0))} pts</span>
+                        ${customer.hasActiveVoucher ? `<span class="directory-badge">Active voucher</span>` : ""}
+                        ${customer.hasOrders ? `<span class="directory-badge">Has orders</span>` : ""}
+                        ${customer.hasStockAlerts ? `<span class="directory-badge">Stock alerts</span>` : ""}
+                    </div>
                 </div>
             `).join("");
         }
@@ -1562,6 +1670,12 @@
             void loadCustomer(email);
         });
         customerDirectoryFilterInput.addEventListener("input", renderCustomerDirectory);
+        customerTierFilterInput.addEventListener("change", renderCustomerDirectory);
+        customerPointsMinInput.addEventListener("input", renderCustomerDirectory);
+        customerVoucherFilterInput.addEventListener("change", renderCustomerDirectory);
+        customerOrderFilterInput.addEventListener("change", renderCustomerDirectory);
+        customerAlertFilterInput.addEventListener("change", renderCustomerDirectory);
+        customerSortInput.addEventListener("change", renderCustomerDirectory);
         productsEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-product");
             if (saveButton) {

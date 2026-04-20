@@ -3159,13 +3159,29 @@ async function adminCustomerSummary(email) {
 
 async function adminCustomerDirectory() {
     const accounts = await allAccounts();
-    return accounts.map((account) => ({
-        id: account.id,
-        email: account.email,
-        firstName: account.firstName,
-        lastName: account.lastName,
-        createdAt: account.createdAt
+    const customers = await Promise.all(accounts.map(async (account) => {
+        const [loyalty, orders, vouchers, alerts] = await Promise.all([
+            ensureLoyaltyAccount(account.email),
+            ordersPayload(account.email),
+            allVouchersFor(account.email),
+            stockAlertsFor(account.email)
+        ]);
+
+        return {
+            id: account.id,
+            email: account.email,
+            firstName: account.firstName,
+            lastName: account.lastName,
+            createdAt: account.createdAt,
+            loyaltyTier: loyalty.tier,
+            pointsBalance: loyalty.pointsBalance,
+            hasActiveVoucher: vouchers.some((voucher) => voucher.status === "active"),
+            hasOrders: orders.length > 0,
+            hasStockAlerts: alerts.length > 0
+        };
     }));
+
+    return customers.sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
 }
 
 const server = http.createServer(async (request, response) => {
