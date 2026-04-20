@@ -326,7 +326,6 @@ struct ContentView: View {
     @State private var orderHistory: [AccountOrder] = []
     @State private var isLoadingOrders = false
     @State private var ordersError: String?
-    @State private var isRecordingSampleOrder = false
     @State private var backendStockAlerts: [StockAlertRecord] = []
     @State private var isLoadingBackendAlerts = false
     @State private var alertInbox: [AlertInboxRecord] = []
@@ -1595,7 +1594,6 @@ struct ContentView: View {
         OrderHistorySectionView(
             orders: orderHistory,
             isLoadingOrders: isLoadingOrders,
-            isRecordingSampleOrder: isRecordingSampleOrder,
             ordersError: ordersError,
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
@@ -1603,11 +1601,6 @@ struct ContentView: View {
             accentColor: Color(hex: 0xC8965A),
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
-            addSampleAction: {
-                Task {
-                    await recordSampleOrder()
-                }
-            },
             buyAgainAction: { order in
                 buyAgain(order: order)
             }
@@ -4197,26 +4190,6 @@ struct ContentView: View {
         } catch {
             showToast(message: error.localizedDescription)
         }
-    }
-
-    @MainActor
-    private func recordSampleOrder() async {
-        guard let profile = customerProfile else { return }
-
-        isRecordingSampleOrder = true
-        ordersError = nil
-
-        do {
-            orderHistory = try await AccountService.createSampleOrder(email: profile.email)
-            loyaltyEmail = profile.email
-            loyaltyAccount = try await LoyaltyService.fetchAccount(email: profile.email)
-            savedLoyaltyEmail = profile.email
-            showToast(message: "Sample order added • 85 points earned")
-        } catch {
-            ordersError = error.localizedDescription
-        }
-
-        isRecordingSampleOrder = false
     }
 
     private func friendlyCustomerAuthMessage(for error: Error, fallback: String? = nil) -> String {

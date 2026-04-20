@@ -120,7 +120,6 @@ struct PasswordResetSectionView: View {
 struct OrderHistorySectionView: View {
     let orders: [ContentView.AccountOrder]
     let isLoadingOrders: Bool
-    let isRecordingSampleOrder: Bool
     let ordersError: String?
     let primaryTextColor: Color
     let secondaryTextColor: Color
@@ -128,29 +127,15 @@ struct OrderHistorySectionView: View {
     let accentColor: Color
     let cardFillColor: Color
     let isLightAppearance: Bool
-    let addSampleAction: () -> Void
     let buyAgainAction: (ContentView.AccountOrder) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Order History")
-                    .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(2)
-                    .textCase(.uppercase)
-                    .foregroundColor(accentColor)
-
-                Spacer()
-
-                Button(action: addSampleAction) {
-                    Text(isRecordingSampleOrder ? "ADDING..." : "Add Sample (+85 pts)")
-                        .font(Font.custom("AvenirNext-Bold", size: 10))
-                        .tracking(1.4)
-                        .foregroundColor(accentColor)
-                }
-                .buttonStyle(.plain)
-                .disabled(isRecordingSampleOrder)
-            }
+            Text("Order History")
+                .font(Font.custom("AvenirNext-Bold", size: 11))
+                .tracking(2)
+                .textCase(.uppercase)
+                .foregroundColor(accentColor)
 
             if isLoadingOrders {
                 Text("Loading orders...")

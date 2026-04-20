@@ -28,7 +28,7 @@ struct LoyaltyRewardsActionsView: View {
                     .tracking(1.3)
                     .foregroundColor(primaryTextColor)
 
-                Text("Use the sample order action in Order History to test the same completed-order rewards flow.")
+                Text("Completed purchases update your rewards balance automatically once they are recorded.")
                     .font(Font.custom("AvenirNext-Regular", size: 13))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
