@@ -1041,37 +1041,44 @@ struct ContentView: View {
 
     private var floatingCartButton: some View {
         Button {
-            cartOpen = true
+            withAnimation(.easeInOut(duration: 0.18)) {
+                cartOpen = true
+            }
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bag.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(primaryTextColor.opacity(isLightAppearance ? 0.88 : 0.9))
-                    .frame(width: 56, height: 56)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundColor(primaryTextColor.opacity(isLightAppearance ? 0.88 : 0.94))
+                    .frame(width: 60, height: 60)
                     .glassEffect(
                         .regular
-                            .tint((cartCount > 0 ? Color(hex: 0xC8965A) : Color.white).opacity(cartCount > 0 ? 0.8 : (isLightAppearance ? 0.16 : 0.08)))
+                            .tint((cartCount > 0 ? Color(hex: 0xC8965A) : Color.white).opacity(cartCount > 0 ? 0.78 : (isLightAppearance ? 0.16 : 0.08)))
                             .interactive(),
-                        in: .capsule
+                        in: .circle
                     )
 
                 if cartCount > 0 {
-                    Text("\(cartCount)")
-                        .font(labelFont(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .frame(minWidth: 22, minHeight: 22)
-                        .background(primaryTextColor)
-                        .clipShape(Circle())
+                    Text(cartCount > 99 ? "99+" : "\(cartCount)")
+                        .font(.system(size: cartCount > 99 ? 10 : 12, weight: .black))
+                        .foregroundColor(Color(hex: 0x1A1208))
+                        .padding(.horizontal, cartCount > 99 ? 8 : 0)
+                        .frame(minWidth: 26, minHeight: 26)
+                        .background(Color(hex: 0xF7E1B7))
+                        .clipShape(Capsule())
                         .overlay(
-                            Circle()
-                                .stroke(Color(hex: 0x8A5E30).opacity(0.18), lineWidth: 1)
+                            Capsule()
+                                .stroke(Color(hex: 0x8A5E30).opacity(0.35), lineWidth: 1.2)
                         )
-                        .offset(x: 8, y: 2)
+                        .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.22), radius: 6, y: 2)
+                        .offset(x: 9, y: -3)
                 }
             }
+            .frame(width: 70, height: 70, alignment: .center)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Open cart")
+        .accessibilityValue(cartCount > 0 ? "\(cartCount) items" : "Empty")
     }
 
     private var homeView: some View {
