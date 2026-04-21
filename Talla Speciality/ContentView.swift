@@ -290,6 +290,7 @@ struct ContentView: View {
     @State private var brewRecipeName = ""
     @State private var cartSaveName = ""
     @State private var isCheckingOut = false
+    @State private var isNativeCheckoutPresented = false
     @State private var checkoutError: String?
     @State private var checkoutSession: CheckoutSession?
     @State private var articleSession: CheckoutSession?
@@ -641,6 +642,17 @@ struct ContentView: View {
             }
     }
 
+    private var checkoutReviewLines: [NativeCheckoutView.CheckoutLine] {
+        cartItems.map { item in
+            NativeCheckoutView.CheckoutLine(
+                id: item.id,
+                title: item.product.name,
+                detail: "\(item.product.price) x \(item.quantity)",
+                total: formattedBHD(priceValue(from: item.product.price) * Double(item.quantity))
+            )
+        }
+    }
+
     private func rewardProgress(for points: Int) -> (current: Int, target: Int, remaining: Int, fraction: Double) {
         let threshold = 100
         let progress = points % threshold
@@ -895,6 +907,9 @@ struct ContentView: View {
                 }
                 await refreshWalletPassPresence()
             }
+        }
+        .sheet(isPresented: $isNativeCheckoutPresented) {
+            nativeCheckoutSheet
         }
         .sheet(item: $checkoutSession) { session in
             CheckoutWebView(url: session.url)
@@ -2556,6 +2571,46 @@ struct ContentView: View {
         )
     }
 
+    private var nativeCheckoutSheet: some View {
+        NativeCheckoutView(
+            primaryTextColor: primaryTextColor,
+            secondaryTextColor: secondaryTextColor,
+            accentColor: Color(hex: 0xC8965A),
+            cardFillColor: cardFillColor,
+            elevatedSurfaceColor: elevatedSurfaceColor,
+            titleFont: displayFont(size: 24),
+            bodyFont: bodyFont(size: 14),
+            labelFont: labelFont(size: 10, weight: .bold),
+            lines: checkoutReviewLines,
+            subtotal: formattedBHD(cartSubtotal),
+            discount: appliedVoucher == nil ? nil : formattedBHD(cartDiscount),
+            total: formattedBHD(cartTotal),
+            voucherCode: appliedVoucher?.code,
+            customerName: customerProfile?.displayName ?? "Guest Checkout",
+            customerEmail: customerProfile?.email ?? "Sign in to sync this order to your account",
+            preferredAddress: preferredAddress,
+            isSubmitting: isCheckingOut,
+            errorMessage: checkoutError,
+            dismissAction: {
+                isNativeCheckoutPresented = false
+            },
+            editAddressAction: {
+                isNativeCheckoutPresented = false
+                cartOpen = false
+                isLibrarySectionExpanded = true
+                isDeliveryDetailsExpanded = true
+                activeTab = .account
+            },
+            confirmAction: { fulfillmentOption in
+                Task {
+                    await beginCheckout(useDeliveryAddress: fulfillmentOption == .delivery)
+                }
+            }
+        )
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+
     private var cartEmptyState: some View {
         Text("Your bag is empty.")
             .font(.system(size: 12, weight: .light))
@@ -2661,23 +2716,17 @@ struct ContentView: View {
             }
 
             Button {
-                Task {
-                    await beginCheckout()
-                }
+                checkoutError = nil
+                isNativeCheckoutPresented = true
             } label: {
                 VStack(spacing: 6) {
                     HStack(spacing: 8) {
-                        if isCheckingOut {
-                            ProgressView()
-                                .tint(Color(hex: 0x0A0804))
-                        }
-
-                        Text(isCheckingOut ? "OPENING..." : "CONTINUE TO CHECKOUT")
+                        Text("REVIEW CHECKOUT")
                     }
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .tracking(2)
 
-                    Text("You’ll review and pay securely in the checkout page.")
+                    Text("Confirm delivery or pickup details before the secure payment handoff.")
                         .font(bodyFont(size: 11))
                         .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
                 }
@@ -2689,7 +2738,7 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
-            .disabled(isCheckingOut)
+            .disabled(cartItems.isEmpty)
         }
     }
 
@@ -4844,7 +4893,7 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func beginCheckout() async {
+    private func beginCheckout(useDeliveryAddress: Bool) async {
         guard !isCheckingOut else { return }
 
         let lines = cartItems.compactMap { item -> ShopifyCheckoutLine? in
@@ -4857,7 +4906,7 @@ struct ContentView: View {
             return
         }
 
-        let checkoutAddress = preferredAddress.flatMap { address -> ShopifyCheckoutAddress? in
+        let checkoutAddress = useDeliveryAddress ? preferredAddress.flatMap { address -> ShopifyCheckoutAddress? in
             guard let profile = customerProfile else { return nil }
             return ShopifyCheckoutAddress(
                 email: profile.email,
@@ -4866,7 +4915,7 @@ struct ContentView: View {
                 address1: address.line1,
                 city: address.city
             )
-        }
+        } : nil
 
         isCheckingOut = true
         checkoutError = nil
@@ -4880,6 +4929,8 @@ struct ContentView: View {
                 lines: lines,
                 checkoutAddress: checkoutAddress
             )
+            isNativeCheckoutPresented = false
+            cartOpen = false
             checkoutSession = CheckoutSession(url: checkoutURL)
             appliedVoucher = nil
             voucherCodeInput = ""
