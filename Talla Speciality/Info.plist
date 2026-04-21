@@ -27,7 +27,7 @@
 	<key>BackendBaseURL</key>
 	<string>https://talla-backend.onrender.com</string>
 	<key>ApplePayMerchantID</key>
-	<string></string>
+	<string>$(APPLE_PAY_MERCHANT_ID)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

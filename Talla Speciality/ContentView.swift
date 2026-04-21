@@ -653,6 +653,11 @@ struct ContentView: View {
         }
     }
 
+    private var applePayMerchantIdentifier: String {
+        (Bundle.main.object(forInfoDictionaryKey: "ApplePayMerchantID") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
     private func rewardProgress(for points: Int) -> (current: Int, target: Int, remaining: Int, fraction: Double) {
         let threshold = 100
         let progress = points % threshold
@@ -2590,7 +2595,8 @@ struct ContentView: View {
             customerEmail: customerProfile?.email ?? "Sign in to sync this order to your account",
             preferredAddress: preferredAddress,
             isSubmitting: isCheckingOut,
-            errorMessage: checkoutError,  applePayContent: <#AnyView#>,
+            errorMessage: checkoutError,
+            applePayContent: AnyView(applePayContent),
             dismissAction: {
                 isNativeCheckoutPresented = false
             },
@@ -2609,6 +2615,89 @@ struct ContentView: View {
         )
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private var applePayContent: some View {
+#if canImport(PassKit)
+        if applePayMerchantIdentifier.isEmpty {
+            checkoutStatusCard(
+                title: "Merchant ID Needed",
+                detail: "Add your Apple Pay merchant identifier in the target build settings before in-app payment can be enabled."
+            )
+        } else if !PKPaymentAuthorizationController.canMakePayments() {
+            checkoutStatusCard(
+                title: "Apple Pay Unavailable",
+                detail: "This device cannot make Apple Pay payments right now."
+            )
+        } else if PKPaymentAuthorizationController.canMakePayments(usingNetworks: supportedApplePayNetworks) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let request = applePayRequest {
+                    PayWithApplePayButton(.plain, request: request, onPaymentAuthorizationChange: handleApplePayAuthorizationPhase(_:)) {
+                        checkoutStatusCard(
+                            title: "Apple Pay Unavailable",
+                            detail: "Apple Pay could not be presented on this device."
+                        )
+                    }
+                    .frame(height: 50)
+                    .payWithApplePayButtonStyle(.black)
+                }
+
+                Text("The Apple Pay sheet is wired into the native checkout. Merchant-side payment settlement is still the remaining backend step.")
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                checkoutStatusCard(
+                    title: "Apple Pay Needs a Card",
+                    detail: "Apple Pay is supported here, but this device does not have an eligible card configured yet."
+                )
+
+                Button {
+                    openApplePaySetup()
+                } label: {
+                    Text("Set Up Apple Pay")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+#else
+        checkoutStatusCard(
+            title: "Apple Pay Unavailable",
+            detail: "This build does not include PassKit support."
+        )
+#endif
+    }
+
+    private func checkoutStatusCard(title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(primaryTextColor)
+
+            Text(detail)
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var cartEmptyState: some View {
@@ -5084,6 +5173,53 @@ struct ContentView: View {
         }
 
         return pass
+    }
+
+    private var supportedApplePayNetworks: [PKPaymentNetwork] {
+        [.visa, .masterCard, .amex]
+    }
+
+    private var applePayRequest: PKPaymentRequest? {
+        guard !applePayMerchantIdentifier.isEmpty else { return nil }
+
+        let request = PKPaymentRequest()
+        request.merchantIdentifier = applePayMerchantIdentifier
+        request.supportedNetworks = supportedApplePayNetworks
+        request.merchantCapabilities = .threeDSecure
+        request.countryCode = "BH"
+        request.currencyCode = "BHD"
+
+        var summaryItems = [PKPaymentSummaryItem(label: "Talla Subtotal", amount: NSDecimalNumber(value: cartSubtotal))]
+        if appliedVoucher != nil {
+            summaryItems.append(PKPaymentSummaryItem(label: "Voucher", amount: NSDecimalNumber(value: -cartDiscount)))
+        }
+        summaryItems.append(PKPaymentSummaryItem(label: "Talla Speciality", amount: NSDecimalNumber(value: cartTotal)))
+        request.paymentSummaryItems = summaryItems
+
+        return request
+    }
+
+    private func handleApplePayAuthorizationPhase(_ phase: PayWithApplePayButtonPaymentAuthorizationPhase) {
+        switch phase {
+        case .willAuthorize:
+            checkoutError = nil
+        case .didAuthorize(_, let resultHandler):
+            let error = NSError(
+                domain: "TallaApplePay",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Apple Pay settlement is not connected yet."]
+            )
+            resultHandler(PKPaymentAuthorizationResult(status: .failure, errors: [error]))
+            showToast(message: "Apple Pay sheet is ready, but payment settlement is not connected yet.")
+        case .didFinish:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func openApplePaySetup() {
+        PKPassLibrary().openPaymentSetup()
     }
 #endif
 
