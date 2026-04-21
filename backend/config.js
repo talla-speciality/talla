@@ -34,6 +34,7 @@ module.exports = {
     resendAPIKey: process.env.RESEND_API_KEY || "",
     emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "",
     appleSignInClientID: process.env.APPLE_SIGN_IN_CLIENT_ID || "Talla-Speciality.Talla-Speciality",
+    applePaySettlementProvider: process.env.APPLE_PAY_SETTLEMENT_PROVIDER || "",
     passwordResetTokenHours: toNumber(process.env.PASSWORD_RESET_TOKEN_HOURS, 1),
     rateLimitWindowMs: toNumber(process.env.RATE_LIMIT_WINDOW_MS, 60_000),
     rateLimitMaxRequests: toNumber(process.env.RATE_LIMIT_MAX_REQUESTS, 240),

@@ -29,6 +29,7 @@ const customerTokenHours = config.customerTokenHours;
 const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
 const appleSignInClientID = config.appleSignInClientID;
+const applePaySettlementProvider = config.applePaySettlementProvider;
 const passwordResetTokenHours = config.passwordResetTokenHours;
 const rateLimitWindowMs = config.rateLimitWindowMs;
 const rateLimitMaxRequests = config.rateLimitMaxRequests;
@@ -125,6 +126,10 @@ function buildPasswordResetLink(token) {
     const resetURL = new URL("/password-reset", config.appURL);
     resetURL.searchParams.set("token", token);
     return resetURL.toString();
+}
+
+function applePaySettlementConfigured() {
+    return Boolean(applePaySettlementProvider);
 }
 
 function renderPasswordResetPage(token) {
@@ -4560,6 +4565,69 @@ const server = http.createServer(async (request, response) => {
 
         const account = await ensureLoyaltyAccount(customer.email);
         sendJSON(response, 200, loyaltyPayload(account));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/payments/apple-pay/authorize") {
+        try {
+            const body = await readBody(request);
+            const requestedEmail = normalizeEmail(body.email);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) {
+                return;
+            }
+
+            const customerAccount = await getAccountByEmail(customer.email);
+            if (!customerAccount) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
+
+            const paymentTokenData = String(body.paymentTokenData || "").trim();
+            const transactionIdentifier = String(body.transactionIdentifier || "").trim();
+            const fulfillment = String(body.fulfillment || "").trim().toLowerCase();
+            const items = Array.isArray(body.items) ? body.items : [];
+            const subtotal = Number(body.subtotal);
+            const discount = Number(body.discount || 0);
+            const total = Number(body.total);
+
+            if (!paymentTokenData || !transactionIdentifier || !items.length || !Number.isFinite(subtotal) || !Number.isFinite(total)) {
+                sendJSON(response, 400, { error: "Invalid Apple Pay authorization payload." });
+                return;
+            }
+
+            if (!["pickup", "delivery"].includes(fulfillment)) {
+                sendJSON(response, 400, { error: "Invalid fulfillment option." });
+                return;
+            }
+
+            if (!applePaySettlementConfigured()) {
+                sendJSON(response, 503, {
+                    error: "Apple Pay settlement is not configured on the backend yet. Add a supported settlement provider before accepting in-app payments."
+                });
+                return;
+            }
+
+            sendJSON(response, 501, {
+                error: `Apple Pay settlement provider \"${applePaySettlementProvider}\" is not implemented yet.`,
+                authorization: {
+                    customerEmail: customer.email,
+                    transactionIdentifier,
+                    fulfillment,
+                    itemCount: items.length,
+                    subtotal,
+                    discount,
+                    total
+                }
+            });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
         return;
     }
 

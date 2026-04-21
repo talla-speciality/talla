@@ -5203,19 +5203,61 @@ struct ContentView: View {
         switch phase {
         case .willAuthorize:
             checkoutError = nil
-        case .didAuthorize(_, let resultHandler):
-            let error = NSError(
-                domain: "TallaApplePay",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Apple Pay settlement is not connected yet."]
-            )
-            resultHandler(PKPaymentAuthorizationResult(status: .failure, errors: [error]))
-            showToast(message: "Apple Pay sheet is ready, but payment settlement is not connected yet.")
+        case .didAuthorize(let payment, let resultHandler):
+            Task {
+                do {
+                    let settlement = try await submitApplePayAuthorization(payment)
+                    await MainActor.run {
+                        checkoutError = nil
+                        cartItems.removeAll()
+                        appliedVoucher = nil
+                        isNativeCheckoutPresented = false
+                        cartOpen = false
+                        resultHandler(PKPaymentAuthorizationResult(status: .success, errors: nil))
+                        showToast(message: settlement.message ?? "Apple Pay payment authorized.")
+                    }
+                } catch {
+                    let paymentError = NSError(
+                        domain: "TallaApplePay",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
+                    )
+                    await MainActor.run {
+                        checkoutError = error.localizedDescription
+                        resultHandler(PKPaymentAuthorizationResult(status: .failure, errors: [paymentError]))
+                        showToast(message: error.localizedDescription)
+                    }
+                }
+            }
         case .didFinish:
             break
         @unknown default:
             break
         }
+    }
+
+    private func submitApplePayAuthorization(_ payment: PKPayment) async throws -> AccountService.ApplePayAuthorization {
+        let fulfillment = preferredAddress == nil ? "pickup" : "delivery"
+        let items = cartItems.map { item in
+            AccountService.ApplePayLineItem(
+                productID: item.product.id,
+                title: item.product.name,
+                quantity: item.quantity,
+                total: priceValue(from: item.product.price) * Double(item.quantity)
+            )
+        }
+
+        return try await AccountService.authorizeApplePay(
+            paymentTokenData: payment.token.paymentData.base64EncodedString(),
+            transactionIdentifier: payment.token.transactionIdentifier,
+            merchantIdentifier: applePayMerchantIdentifier,
+            fulfillment: fulfillment,
+            subtotal: cartSubtotal,
+            discount: cartDiscount,
+            total: cartTotal,
+            voucherCode: appliedVoucher?.code,
+            items: items
+        )
     }
 
     private func openApplePaySetup() {
@@ -5404,6 +5446,19 @@ private enum AccountService {
         let expiresAt: String
     }
 
+    struct ApplePayLineItem {
+        let productID: String
+        let title: String
+        let quantity: Int
+        let total: Double
+    }
+
+    struct ApplePayAuthorization {
+        let status: String
+        let orderID: String?
+        let message: String?
+    }
+
     private static var accessToken: String {
         UserDefaults.standard.string(forKey: sessionTokenKey) ?? ""
     }
@@ -5490,6 +5545,53 @@ private enum AccountService {
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         return try await performCustomerSessionRequest(request)
+    }
+
+    static func authorizeApplePay(
+        paymentTokenData: String,
+        transactionIdentifier: String,
+        merchantIdentifier: String,
+        fulfillment: String,
+        subtotal: Double,
+        discount: Double,
+        total: Double,
+        voucherCode: String?,
+        items: [ApplePayLineItem]
+    ) async throws -> ApplePayAuthorization {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
+        }
+
+        var payload: [String: Any] = [
+            "paymentTokenData": paymentTokenData,
+            "transactionIdentifier": transactionIdentifier,
+            "merchantIdentifier": merchantIdentifier,
+            "fulfillment": fulfillment,
+            "subtotal": subtotal,
+            "discount": discount,
+            "total": total,
+            "items": items.map { item in
+                [
+                    "productID": item.productID,
+                    "title": item.title,
+                    "quantity": item.quantity,
+                    "total": item.total
+                ]
+            }
+        ]
+
+        if let voucherCode, !voucherCode.isEmpty {
+            payload["voucherCode"] = voucherCode
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/payments/apple-pay/authorize"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        return try await performApplePayAuthorizationRequest(request)
     }
 
     static func fetchProfile() async throws -> ContentView.ShopifyCustomerProfile {
@@ -5936,6 +6038,29 @@ private enum AccountService {
         }
 
         throw ContentView.LoyaltyServiceError.operationFailed("The account service could not complete your request.")
+    }
+
+    private static func performApplePayAuthorizationRequest(_ request: URLRequest) async throws -> ApplePayAuthorization {
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
+        }
+
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            let decoded = try JSONDecoder().decode(ApplePayAuthorizationResponse.self, from: data)
+            return ApplePayAuthorization(
+                status: decoded.status,
+                orderID: decoded.orderID,
+                message: decoded.message
+            )
+        }
+
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+
+        throw ContentView.LoyaltyServiceError.operationFailed("The payment service could not complete your request.")
     }
 
     private static func performOrdersRequest(_ request: URLRequest) async throws -> [ContentView.AccountOrder] {
@@ -6820,6 +6945,12 @@ private struct AccountSessionResponse: Decodable {
     let profile: AccountProfileResponse
     let accessToken: String
     let expiresAt: String
+}
+
+private struct ApplePayAuthorizationResponse: Decodable {
+    let status: String
+    let orderID: String?
+    let message: String?
 }
 
 private struct ServiceErrorResponse: Decodable {
