@@ -26,6 +26,8 @@
 	<string>Talla Speciality connects to your local development server so account, loyalty, and order features can be tested on this device.</string>
 	<key>BackendBaseURL</key>
 	<string>https://talla-backend.onrender.com</string>
+	<key>ApplePayMerchantID</key>
+	<string></string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

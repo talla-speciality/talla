@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(PassKit)
+import PassKit
+#endif
 
 struct NativeCheckoutView: View {
     enum FulfillmentOption: String, CaseIterable, Identifiable {
@@ -51,6 +54,7 @@ struct NativeCheckoutView: View {
     let preferredAddress: ContentView.DeliveryAddress?
     let isSubmitting: Bool
     let errorMessage: String?
+    let applePayContent: AnyView
     let dismissAction: () -> Void
     let editAddressAction: () -> Void
     let confirmAction: (FulfillmentOption) -> Void
@@ -65,6 +69,7 @@ struct NativeCheckoutView: View {
                     contactSection
                     fulfillmentSection
                     summarySection
+                    applePaySection
                     confirmSection
                 }
                 .padding(20)
@@ -334,6 +339,13 @@ struct NativeCheckoutView: View {
             }
             .buttonStyle(.plain)
             .disabled(isSubmitDisabled)
+        }
+    }
+
+    private var applePaySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("Apple Pay")
+            applePayContent
         }
     }
 

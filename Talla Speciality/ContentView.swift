@@ -2590,7 +2590,7 @@ struct ContentView: View {
             customerEmail: customerProfile?.email ?? "Sign in to sync this order to your account",
             preferredAddress: preferredAddress,
             isSubmitting: isCheckingOut,
-            errorMessage: checkoutError,
+            errorMessage: checkoutError,  applePayContent: <#AnyView#>,
             dismissAction: {
                 isNativeCheckoutPresented = false
             },
