@@ -290,7 +290,6 @@ struct ContentView: View {
     @State private var brewRecipeName = ""
     @State private var cartSaveName = ""
     @State private var isCheckingOut = false
-    @State private var isNativeCheckoutPresented = false
     @State private var checkoutError: String?
     @State private var checkoutSession: CheckoutSession?
     @State private var articleSession: CheckoutSession?
@@ -642,22 +641,6 @@ struct ContentView: View {
             }
     }
 
-    private var checkoutReviewLines: [NativeCheckoutView.CheckoutLine] {
-        cartItems.map { item in
-            NativeCheckoutView.CheckoutLine(
-                id: item.id,
-                title: item.product.name,
-                detail: "\(item.product.price) x \(item.quantity)",
-                total: formattedBHD(priceValue(from: item.product.price) * Double(item.quantity))
-            )
-        }
-    }
-
-    private var applePayMerchantIdentifier: String {
-        (Bundle.main.object(forInfoDictionaryKey: "ApplePayMerchantID") as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
-
     private func rewardProgress(for points: Int) -> (current: Int, target: Int, remaining: Int, fraction: Double) {
         let threshold = 100
         let progress = points % threshold
@@ -912,9 +895,6 @@ struct ContentView: View {
                 }
                 await refreshWalletPassPresence()
             }
-        }
-        .sheet(isPresented: $isNativeCheckoutPresented) {
-            nativeCheckoutSheet
         }
         .sheet(item: $checkoutSession) { session in
             CheckoutWebView(url: session.url)
@@ -2576,130 +2556,6 @@ struct ContentView: View {
         )
     }
 
-    private var nativeCheckoutSheet: some View {
-        NativeCheckoutView(
-            primaryTextColor: primaryTextColor,
-            secondaryTextColor: secondaryTextColor,
-            accentColor: Color(hex: 0xC8965A),
-            cardFillColor: cardFillColor,
-            elevatedSurfaceColor: elevatedSurfaceColor,
-            titleFont: displayFont(size: 24),
-            bodyFont: bodyFont(size: 14),
-            labelFont: labelFont(size: 10, weight: .bold),
-            lines: checkoutReviewLines,
-            subtotal: formattedBHD(cartSubtotal),
-            discount: appliedVoucher == nil ? nil : formattedBHD(cartDiscount),
-            total: formattedBHD(cartTotal),
-            voucherCode: appliedVoucher?.code,
-            customerName: customerProfile?.displayName ?? "Guest Checkout",
-            customerEmail: customerProfile?.email ?? "Sign in to sync this order to your account",
-            preferredAddress: preferredAddress,
-            isSubmitting: isCheckingOut,
-            errorMessage: checkoutError,
-            applePayContent: AnyView(applePayContent),
-            dismissAction: {
-                isNativeCheckoutPresented = false
-            },
-            editAddressAction: {
-                isNativeCheckoutPresented = false
-                cartOpen = false
-                isLibrarySectionExpanded = true
-                isDeliveryDetailsExpanded = true
-                activeTab = .account
-            },
-            confirmAction: { fulfillmentOption in
-                Task {
-                    await beginCheckout(useDeliveryAddress: fulfillmentOption == .delivery)
-                }
-            }
-        )
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-    }
-
-    @ViewBuilder
-    private var applePayContent: some View {
-#if canImport(PassKit)
-        if applePayMerchantIdentifier.isEmpty {
-            checkoutStatusCard(
-                title: "Merchant ID Needed",
-                detail: "Add your Apple Pay merchant identifier in the target build settings before in-app payment can be enabled."
-            )
-        } else if !PKPaymentAuthorizationController.canMakePayments() {
-            checkoutStatusCard(
-                title: "Apple Pay Unavailable",
-                detail: "This device cannot make Apple Pay payments right now."
-            )
-        } else if PKPaymentAuthorizationController.canMakePayments(usingNetworks: supportedApplePayNetworks) {
-            VStack(alignment: .leading, spacing: 10) {
-                if let request = applePayRequest {
-                    PayWithApplePayButton(.plain, request: request, onPaymentAuthorizationChange: handleApplePayAuthorizationPhase(_:)) {
-                        checkoutStatusCard(
-                            title: "Apple Pay Unavailable",
-                            detail: "Apple Pay could not be presented on this device."
-                        )
-                    }
-                    .frame(height: 50)
-                    .payWithApplePayButtonStyle(.black)
-                }
-
-                Text("The Apple Pay sheet is wired into the native checkout. Merchant-side payment settlement is still the remaining backend step.")
-                    .font(bodyFont(size: 12))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
-                checkoutStatusCard(
-                    title: "Apple Pay Needs a Card",
-                    detail: "Apple Pay is supported here, but this device does not have an eligible card configured yet."
-                )
-
-                Button {
-                    openApplePaySetup()
-                } label: {
-                    Text("Set Up Apple Pay")
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.8)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: 0xC8965A))
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-#else
-        checkoutStatusCard(
-            title: "Apple Pay Unavailable",
-            detail: "This build does not include PassKit support."
-        )
-#endif
-    }
-
-    private func checkoutStatusCard(title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(primaryTextColor)
-
-            Text(detail)
-                .font(bodyFont(size: 12))
-                .foregroundColor(secondaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.10), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
     private var cartEmptyState: some View {
         Text("Your bag is empty.")
             .font(.system(size: 12, weight: .light))
@@ -2806,16 +2662,18 @@ struct ContentView: View {
 
             Button {
                 checkoutError = nil
-                isNativeCheckoutPresented = true
+                Task {
+                    await beginCheckout(useDeliveryAddress: preferredAddress != nil)
+                }
             } label: {
                 VStack(spacing: 6) {
                     HStack(spacing: 8) {
-                        Text("REVIEW CHECKOUT")
+                        Text(isCheckingOut ? "OPENING CHECKOUT..." : "OPEN CHECKOUT")
                     }
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .tracking(2)
 
-                    Text("Confirm delivery or pickup details before the secure payment handoff.")
+                    Text("Continue to the secure checkout handoff.")
                         .font(bodyFont(size: 11))
                         .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
                 }
@@ -2827,7 +2685,7 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
-            .disabled(cartItems.isEmpty)
+            .disabled(cartItems.isEmpty || isCheckingOut)
         }
     }
 
@@ -5018,7 +4876,6 @@ struct ContentView: View {
                 lines: lines,
                 checkoutAddress: checkoutAddress
             )
-            isNativeCheckoutPresented = false
             cartOpen = false
             checkoutSession = CheckoutSession(url: checkoutURL)
             appliedVoucher = nil
@@ -5164,7 +5021,6 @@ struct ContentView: View {
         return "shippingbox.fill"
     }
 
-#if canImport(PassKit)
     private func bundledLoyaltyPass() -> PKPass? {
         guard let passURL = Bundle.main.url(forResource: "TallaLoyalty", withExtension: "pkpass"),
               let data = try? Data(contentsOf: passURL),
@@ -5174,96 +5030,6 @@ struct ContentView: View {
 
         return pass
     }
-
-    private var supportedApplePayNetworks: [PKPaymentNetwork] {
-        [.visa, .masterCard, .amex]
-    }
-
-    private var applePayRequest: PKPaymentRequest? {
-        guard !applePayMerchantIdentifier.isEmpty else { return nil }
-
-        let request = PKPaymentRequest()
-        request.merchantIdentifier = applePayMerchantIdentifier
-        request.supportedNetworks = supportedApplePayNetworks
-        request.merchantCapabilities = .threeDSecure
-        request.countryCode = "BH"
-        request.currencyCode = "BHD"
-
-        var summaryItems = [PKPaymentSummaryItem(label: "Talla Subtotal", amount: NSDecimalNumber(value: cartSubtotal))]
-        if appliedVoucher != nil {
-            summaryItems.append(PKPaymentSummaryItem(label: "Voucher", amount: NSDecimalNumber(value: -cartDiscount)))
-        }
-        summaryItems.append(PKPaymentSummaryItem(label: "Talla Speciality", amount: NSDecimalNumber(value: cartTotal)))
-        request.paymentSummaryItems = summaryItems
-
-        return request
-    }
-
-    private func handleApplePayAuthorizationPhase(_ phase: PayWithApplePayButtonPaymentAuthorizationPhase) {
-        switch phase {
-        case .willAuthorize:
-            checkoutError = nil
-        case .didAuthorize(let payment, let resultHandler):
-            Task {
-                do {
-                    let settlement = try await submitApplePayAuthorization(payment)
-                    await MainActor.run {
-                        checkoutError = nil
-                        cartItems.removeAll()
-                        appliedVoucher = nil
-                        isNativeCheckoutPresented = false
-                        cartOpen = false
-                        resultHandler(PKPaymentAuthorizationResult(status: .success, errors: nil))
-                        showToast(message: settlement.message ?? "Apple Pay payment authorized.")
-                    }
-                } catch {
-                    let paymentError = NSError(
-                        domain: "TallaApplePay",
-                        code: 1,
-                        userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
-                    )
-                    await MainActor.run {
-                        checkoutError = error.localizedDescription
-                        resultHandler(PKPaymentAuthorizationResult(status: .failure, errors: [paymentError]))
-                        showToast(message: error.localizedDescription)
-                    }
-                }
-            }
-        case .didFinish:
-            break
-        @unknown default:
-            break
-        }
-    }
-
-    private func submitApplePayAuthorization(_ payment: PKPayment) async throws -> AccountService.ApplePayAuthorization {
-        let fulfillment = preferredAddress == nil ? "pickup" : "delivery"
-        let items = cartItems.map { item in
-            AccountService.ApplePayLineItem(
-                productID: item.product.id,
-                title: item.product.name,
-                quantity: item.quantity,
-                total: priceValue(from: item.product.price) * Double(item.quantity)
-            )
-        }
-
-        return try await AccountService.authorizeApplePay(
-            paymentTokenData: payment.token.paymentData.base64EncodedString(),
-            transactionIdentifier: payment.token.transactionIdentifier,
-            merchantIdentifier: applePayMerchantIdentifier,
-            fulfillment: fulfillment,
-            subtotal: cartSubtotal,
-            discount: cartDiscount,
-            total: cartTotal,
-            voucherCode: appliedVoucher?.code,
-            items: items
-        )
-    }
-
-    private func openApplePaySetup() {
-        PKPassLibrary().openPaymentSetup()
-    }
-#endif
 
     private func priceValue(from price: String) -> Double {
         let sanitized = price
@@ -5446,19 +5212,6 @@ private enum AccountService {
         let expiresAt: String
     }
 
-    struct ApplePayLineItem {
-        let productID: String
-        let title: String
-        let quantity: Int
-        let total: Double
-    }
-
-    struct ApplePayAuthorization {
-        let status: String
-        let orderID: String?
-        let message: String?
-    }
-
     private static var accessToken: String {
         UserDefaults.standard.string(forKey: sessionTokenKey) ?? ""
     }
@@ -5545,53 +5298,6 @@ private enum AccountService {
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         return try await performCustomerSessionRequest(request)
-    }
-
-    static func authorizeApplePay(
-        paymentTokenData: String,
-        transactionIdentifier: String,
-        merchantIdentifier: String,
-        fulfillment: String,
-        subtotal: Double,
-        discount: Double,
-        total: Double,
-        voucherCode: String?,
-        items: [ApplePayLineItem]
-    ) async throws -> ApplePayAuthorization {
-        guard let baseURL else {
-            throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
-        }
-
-        var payload: [String: Any] = [
-            "paymentTokenData": paymentTokenData,
-            "transactionIdentifier": transactionIdentifier,
-            "merchantIdentifier": merchantIdentifier,
-            "fulfillment": fulfillment,
-            "subtotal": subtotal,
-            "discount": discount,
-            "total": total,
-            "items": items.map { item in
-                [
-                    "productID": item.productID,
-                    "title": item.title,
-                    "quantity": item.quantity,
-                    "total": item.total
-                ]
-            }
-        ]
-
-        if let voucherCode, !voucherCode.isEmpty {
-            payload["voucherCode"] = voucherCode
-        }
-
-        var request = URLRequest(url: baseURL.appending(path: "/payments/apple-pay/authorize"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        try authorize(&request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-
-        return try await performApplePayAuthorizationRequest(request)
     }
 
     static func fetchProfile() async throws -> ContentView.ShopifyCustomerProfile {
@@ -6038,29 +5744,6 @@ private enum AccountService {
         }
 
         throw ContentView.LoyaltyServiceError.operationFailed("The account service could not complete your request.")
-    }
-
-    private static func performApplePayAuthorizationRequest(_ request: URLRequest) async throws -> ApplePayAuthorization {
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
-        }
-
-        if 200 ..< 300 ~= httpResponse.statusCode {
-            let decoded = try JSONDecoder().decode(ApplePayAuthorizationResponse.self, from: data)
-            return ApplePayAuthorization(
-                status: decoded.status,
-                orderID: decoded.orderID,
-                message: decoded.message
-            )
-        }
-
-        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
-            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
-        }
-
-        throw ContentView.LoyaltyServiceError.operationFailed("The payment service could not complete your request.")
     }
 
     private static func performOrdersRequest(_ request: URLRequest) async throws -> [ContentView.AccountOrder] {
@@ -6945,12 +6628,6 @@ private struct AccountSessionResponse: Decodable {
     let profile: AccountProfileResponse
     let accessToken: String
     let expiresAt: String
-}
-
-private struct ApplePayAuthorizationResponse: Decodable {
-    let status: String
-    let orderID: String?
-    let message: String?
 }
 
 private struct ServiceErrorResponse: Decodable {
