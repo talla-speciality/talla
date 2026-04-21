@@ -4,12 +4,12 @@
   "serialNumber": "TALLA-LOYALTY-001",
   "teamIdentifier": "TAG9WXY85M",
   "organizationName": "Talla Speciality",
-  "description": "Talla Speciality Loyalty",
-  "logoText": "Talla Speciality",
-  "foregroundColor": "rgb(32, 21, 13)",
-  "backgroundColor": "rgb(244, 231, 211)",
-  "labelColor": "rgb(120, 83, 45)",
-  "sharingProhibited": false,
+  "description": "Talla Speciality Roastery Circle",
+  "logoText": "TALLA",
+  "foregroundColor": "rgb(247, 236, 218)",
+  "backgroundColor": "rgb(24, 17, 12)",
+  "labelColor": "rgb(201, 150, 90)",
+  "sharingProhibited": true,
   "barcode": {
     "format": "PKBarcodeFormatQR",
     "message": "TALLA-LOYALTY-001",
@@ -17,10 +17,17 @@
     "altText": "TALLA-LOYALTY-001"
   },
   "storeCard": {
+    "headerFields": [
+      {
+        "key": "membership",
+        "label": "MEMBERSHIP",
+        "value": "Roastery Circle"
+      }
+    ],
     "primaryFields": [
       {
         "key": "points",
-        "label": "POINTS",
+        "label": "ROASTERY POINTS",
         "value": 0
       }
     ],
@@ -32,14 +39,14 @@
       },
       {
         "key": "tier",
-        "label": "TIER",
+        "label": "STATUS",
         "value": "Roastery Member"
       }
     ],
     "auxiliaryFields": [
       {
         "key": "reward",
-        "label": "NEXT REWARD",
+        "label": "NEXT POUR",
         "value": "Collect points in store and online"
       }
     ],

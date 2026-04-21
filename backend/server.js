@@ -2137,22 +2137,22 @@ async function generateWalletPass(email) {
     passJSON.storeCard.backFields = [
         {
             key: "email",
-            label: "EMAIL",
+            label: "MEMBER EMAIL",
             value: account.email
         },
         {
             key: "member_id",
-            label: "MEMBER ID",
+            label: "ROASTERY ID",
             value: loyaltyAccount.memberID
         },
         {
             key: "support",
-            label: "WHATSAPP",
+            label: "WHATSAPP CONCIERGE",
             value: "+973 3939 2414"
         },
         {
             key: "site",
-            label: "SITE",
+            label: "VISIT TALLA",
             value: "https://talla.me"
         }
     ];
