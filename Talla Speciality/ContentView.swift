@@ -1462,7 +1462,6 @@ struct ContentView: View {
             expiringRewardsSection: AnyView(expiringRewardsSection),
             rewardsActionsSection: AnyView(Group {
                 if let loyaltyAccount {
-                    loyaltyBenefit(title: "Member ID", detail: loyaltyAccount.memberID)
                     loyaltyRewardsActions(account: loyaltyAccount)
                 }
             }),
@@ -4131,7 +4130,10 @@ struct ContentView: View {
 
         do {
             let pass = try await AccountService.fetchWalletPass(email: email)
-            isLoyaltyPassInWallet = PKPassLibrary().containsPass(pass)
+            let isPassInWallet = await Task.detached(priority: .userInitiated) {
+                PKPassLibrary().containsPass(pass)
+            }.value
+            isLoyaltyPassInWallet = isPassInWallet
         } catch {
             isLoyaltyPassInWallet = false
         }
@@ -5687,10 +5689,12 @@ private enum AccountService {
         }
 
         if 200 ..< 300 ~= httpResponse.statusCode {
-            guard let pass = try? PKPass(data: data) else {
-                throw ContentView.LoyaltyServiceError.operationFailed("The Wallet pass could not be loaded.")
-            }
-            return pass
+            return try await Task.detached(priority: .userInitiated) {
+                guard let pass = try? PKPass(data: data) else {
+                    throw ContentView.LoyaltyServiceError.operationFailed("The Wallet pass could not be loaded.")
+                }
+                return pass
+            }.value
         }
 
         if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
