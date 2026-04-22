@@ -655,8 +655,8 @@ struct ContentView: View {
     }
 
     private func tierProgress(for points: Int) -> (label: String, current: Int, target: Int, remaining: Int, fraction: Double) {
-        if points < 250 {
-            let target = 250
+        if points < 125 {
+            let target = 125
             return (
                 label: "Roastery Silver",
                 current: points,
@@ -666,14 +666,14 @@ struct ContentView: View {
             )
         }
 
-        if points < 500 {
-            let current = points - 250
-            let span = 250
+        if points < 250 {
+            let current = points - 125
+            let span = 125
             return (
                 label: "Roastery Gold",
                 current: current,
                 target: span,
-                remaining: 500 - points,
+                remaining: 250 - points,
                 fraction: min(max(Double(current) / Double(span), 0), 1)
             )
         }
