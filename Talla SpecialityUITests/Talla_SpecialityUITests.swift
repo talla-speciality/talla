@@ -22,7 +22,6 @@ final class Talla_SpecialityUITests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
-    @MainActor
     func testExample() throws {
         let app = XCUIApplication()
         app.launch()
@@ -33,7 +32,6 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Open cart"].exists)
     }
 
-    @MainActor
     func testTabNavigationSmoke() throws {
         let app = XCUIApplication()
         app.launch()
@@ -54,7 +52,6 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Home"].exists)
     }
 
-    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
