@@ -44,7 +44,7 @@ const shopifyAdminShopDomain = config.shopifyAdminShopDomain;
 const shopifyAdminAccessToken = config.shopifyAdminAccessToken;
 const shopifyAdminAPIVersion = config.shopifyAdminAPIVersion;
 const shopifyAdminPublicationID = config.shopifyAdminPublicationID;
-const loyaltyPointsPerBHD = 10;
+const loyaltyPointsPerBHD = 5;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
     { name: "Brazil", quantity: 1 },

@@ -118,7 +118,7 @@ struct LoyaltySectionView: View {
 
             walletCallToAction
 
-            Text("Completed orders now award 10 points per 1 BHD.")
+            Text("Completed orders now award 5 points per 1 BHD.")
                 .font(Font.custom("AvenirNext-Regular", size: 12))
                 .foregroundColor(tertiaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)

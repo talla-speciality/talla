@@ -23,7 +23,7 @@ struct LoyaltyRewardsActionsView: View {
                 .foregroundColor(accentColor)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Completed orders earn 10 points for every 1 BHD spent.")
+                Text("Completed orders earn 5 points for every 1 BHD spent.")
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(1.3)
                     .foregroundColor(primaryTextColor)
