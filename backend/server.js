@@ -1238,7 +1238,7 @@ function loyaltyPayload(account) {
         pointsBalance: account.pointsBalance,
         tier: account.tier,
         nextReward: account.nextReward,
-        perks: account.perks,
+        perks: loyaltyPerksFor(account.pointsBalance),
         transactions: account.transactions || []
     };
 }
@@ -1260,6 +1260,26 @@ function defaultLoyaltyPerks() {
         "Collect points across coffees, beans, and accessories",
         "Unlock seasonal offers and member-only extras"
     ];
+}
+
+function loyaltyPerksFor(pointsBalance) {
+    if (pointsBalance >= 500) {
+        return [
+            "Everything in Roastery Silver",
+            "Priority access to limited roast drops",
+            "Exclusive Gold-only reward unlocks and concierge WhatsApp support"
+        ];
+    }
+
+    if (pointsBalance >= 250) {
+        return [
+            "Collect points across coffees, beans, and accessories",
+            "Early access to seasonal offers and member-only extras",
+            "Silver status recognition across future loyalty promos"
+        ];
+    }
+
+    return defaultLoyaltyPerks();
 }
 
 async function getAccountByEmail(email) {
@@ -1836,7 +1856,7 @@ async function getLoyaltyAccount(email) {
         pointsBalance: row.points_balance,
         tier: row.tier,
         nextReward: row.next_reward,
-        perks: Array.isArray(row.perks) ? row.perks : []
+        perks: loyaltyPerksFor(row.points_balance)
     };
 }
 
@@ -1846,6 +1866,10 @@ async function ensureLoyaltyAccount(email) {
         const existing = store.accounts[email];
 
         if (existing) {
+            existing.tier = tierFor(existing.pointsBalance || 0);
+            existing.nextReward = nextRewardText(existing.pointsBalance || 0);
+            existing.perks = loyaltyPerksFor(existing.pointsBalance || 0);
+            writeJSON(loyaltyStorePath, store);
             return existing;
         }
 
@@ -1854,7 +1878,7 @@ async function ensureLoyaltyAccount(email) {
             pointsBalance: 0,
             tier: tierFor(0),
             nextReward: nextRewardText(0),
-            perks: defaultLoyaltyPerks(),
+            perks: loyaltyPerksFor(0),
             transactions: []
         };
 
@@ -1876,7 +1900,7 @@ async function ensureLoyaltyAccount(email) {
         pointsBalance: 0,
         tier: tierFor(0),
         nextReward: nextRewardText(0),
-        perks: defaultLoyaltyPerks()
+        perks: loyaltyPerksFor(0)
     };
 
     await database.query(
@@ -1903,6 +1927,7 @@ async function updateLoyaltyAccount(email, mutate) {
         mutate(account);
         account.tier = tierFor(account.pointsBalance);
         account.nextReward = nextRewardText(account.pointsBalance);
+        account.perks = loyaltyPerksFor(account.pointsBalance);
         writeJSON(loyaltyStorePath, store);
         return account;
     }
@@ -1921,6 +1946,7 @@ async function updateLoyaltyAccount(email, mutate) {
     mutate(working);
     working.tier = tierFor(working.pointsBalance);
     working.nextReward = nextRewardText(working.pointsBalance);
+    working.perks = loyaltyPerksFor(working.pointsBalance);
 
     await database.query(
         `UPDATE loyalty_accounts
