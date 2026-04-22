@@ -917,7 +917,7 @@ struct ContentView: View {
         .overlay(alignment: .bottomTrailing) {
             floatingCartButton
                 .padding(.trailing, 22)
-                .padding(.bottom, 84)
+                .padding(.bottom, 74)
                 .zIndex(20)
         }
         .preferredColorScheme(appearanceMode.colorScheme)
@@ -950,7 +950,7 @@ struct ContentView: View {
             tabScreen(brewingView)
                 .tag(Tab.brewing)
                 .tabItem {
-                    Label("Brewing", systemImage: Tab.brewing.systemImage)
+                    Label("Brew", systemImage: Tab.brewing.systemImage)
                 }
 
             tabScreen(accountView)
@@ -959,6 +959,9 @@ struct ContentView: View {
                     Label("Account", systemImage: Tab.account.systemImage)
                 }
         }
+        .toolbar(.visible, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(.regularMaterial, for: .tabBar)
     }
 
     private func tabScreen<Content: View>(_ content: Content) -> some View {
@@ -1049,7 +1052,7 @@ struct ContentView: View {
                 Image(systemName: "bag.fill")
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundColor(primaryTextColor.opacity(isLightAppearance ? 0.88 : 0.94))
-                    .frame(width: 60, height: 60)
+                    .frame(width: 54, height: 54)
                     .glassEffect(
                         .regular
                             .tint((cartCount > 0 ? Color(hex: 0xC8965A) : Color.white).opacity(cartCount > 0 ? 0.78 : (isLightAppearance ? 0.16 : 0.08)))
@@ -1059,10 +1062,10 @@ struct ContentView: View {
 
                 if cartCount > 0 {
                     Text(cartCount > 99 ? "99+" : "\(cartCount)")
-                        .font(.system(size: cartCount > 99 ? 10 : 12, weight: .black))
+                        .font(.system(size: cartCount > 99 ? 10 : 11, weight: .black))
                         .foregroundColor(Color(hex: 0x1A1208))
                         .padding(.horizontal, cartCount > 99 ? 8 : 0)
-                        .frame(minWidth: 26, minHeight: 26)
+                        .frame(minWidth: 24, minHeight: 24)
                         .background(Color(hex: 0xF7E1B7))
                         .clipShape(Capsule())
                         .overlay(
@@ -1070,10 +1073,10 @@ struct ContentView: View {
                                 .stroke(Color(hex: 0x8A5E30).opacity(0.35), lineWidth: 1.2)
                         )
                         .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.22), radius: 6, y: 2)
-                        .offset(x: 9, y: -3)
+                        .offset(x: 8, y: -2)
                 }
             }
-            .frame(width: 70, height: 70, alignment: .center)
+            .frame(width: 62, height: 62, alignment: .center)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
