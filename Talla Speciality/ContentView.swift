@@ -4026,6 +4026,7 @@ struct ContentView: View {
     @MainActor
     private func applySignedInProfile(_ profile: ShopifyCustomerProfile, loadLoyalty: Bool = true) {
         savedCustomerEmail = profile.email
+        savedLoyaltyEmail = profile.email
         customerProfile = profile
         accountEmail = profile.email
         profileFirstName = profile.firstName ?? ""
