@@ -49,12 +49,12 @@ struct LoyaltyRewardsActionsView: View {
                 .foregroundColor(accentColor)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                redeemButton(title: "Free Drink", points: 50, reward: "Free drink")
+                redeemButton(title: "Espresso Pour", points: 50, reward: "Espresso pour")
                 redeemButton(title: "Pastry Pairing", points: 75, reward: "Pastry pairing")
-                redeemButton(title: "Bag Discount", points: 100, reward: "Bag discount")
-                redeemButton(title: "Brew Credit", points: 150, reward: "Brew bar credit")
-                redeemButton(title: "Talla Box", points: 200, reward: "Talla box reward")
-                redeemButton(title: "Gold Reward", points: 250, reward: "Roastery gold reward")
+                redeemButton(title: "Signature Sip", points: 100, reward: "Signature sip")
+                redeemButton(title: "Bag Credit", points: 150, reward: "Coffee bag credit")
+                redeemButton(title: "Talla Box Treat", points: 200, reward: "Talla box treat")
+                redeemButton(title: "Gold Reserve Gift", points: 250, reward: "Gold reserve gift")
             }
 
             Text(account.pointsBalance >= 50 ? "Choose a reward to redeem with your available Beans." : "Reach 50 Beans to unlock your first reward.")

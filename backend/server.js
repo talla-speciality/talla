@@ -2084,12 +2084,12 @@ async function updateOrderStatusRecord(email, orderID, status) {
 function rewardDetailsFor(reward) {
     const normalized = String(reward || "").trim().toLowerCase();
     const catalog = {
-        "free drink": { detail: "Complimentary brewed drink", expiresInDays: 30 },
+        "espresso pour": { detail: "Complimentary espresso or batch brew", expiresInDays: 30 },
         "pastry pairing": { detail: "One pastry on the house", expiresInDays: 21 },
-        "bag discount": { detail: "10% off one coffee bag", expiresInDays: 30 },
-        "brew bar credit": { detail: "BHD 3.000 brew bar credit", expiresInDays: 30 },
-        "talla box reward": { detail: "Special discount on a Talla Box", expiresInDays: 45 },
-        "roastery gold reward": { detail: "Premium Gold reward voucher", expiresInDays: 60 }
+        "signature sip": { detail: "One signature drink on the house", expiresInDays: 30 },
+        "coffee bag credit": { detail: "BHD 4.000 off one coffee bag", expiresInDays: 30 },
+        "talla box treat": { detail: "Curated reward on a Talla Box", expiresInDays: 45 },
+        "gold reserve gift": { detail: "Premium Gold-tier gift reward", expiresInDays: 60 }
     };
 
     return catalog[normalized] || { detail: reward || "Reward voucher", expiresInDays: 30 };
