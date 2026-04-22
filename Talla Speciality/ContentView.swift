@@ -642,7 +642,7 @@ struct ContentView: View {
     }
 
     private func rewardProgress(for points: Int) -> (current: Int, target: Int, remaining: Int, fraction: Double) {
-        let threshold = 100
+        let threshold = 50
         let progress = points % threshold
         let current = progress == 0 && points > 0 ? threshold : progress
         let remaining = progress == 0 ? threshold : threshold - progress

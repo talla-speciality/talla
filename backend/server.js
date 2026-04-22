@@ -2282,7 +2282,7 @@ function tierFor(pointsBalance) {
 }
 
 function nextRewardText(pointsBalance) {
-    const threshold = 100;
+    const threshold = 50;
     const remainder = pointsBalance % threshold;
     const remaining = remainder === 0 ? threshold : threshold - remainder;
     return `${remaining} Beans to your next reward`;
