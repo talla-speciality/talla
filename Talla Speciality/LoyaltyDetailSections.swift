@@ -16,14 +16,14 @@ struct LoyaltyRewardsActionsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Earn Points")
+            Text("Earn Beans")
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Completed orders earn 5 points for every 1 BHD spent.")
+                Text("Completed orders earn 5 Beans for every 1 BHD spent.")
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(1.3)
                     .foregroundColor(primaryTextColor)
@@ -54,10 +54,10 @@ struct LoyaltyRewardsActionsView: View {
                 redeemButton(title: "Bag Discount", points: 200, reward: "Bag discount")
                 redeemButton(title: "Brew Credit", points: 300, reward: "Brew bar credit")
                 redeemButton(title: "Talla Box", points: 400, reward: "Talla box reward")
-                redeemButton(title: "Roastery Gold", points: 500, reward: "Roastery gold reward")
+                redeemButton(title: "Gold Reward", points: 500, reward: "Roastery gold reward")
             }
 
-            Text(account.pointsBalance >= 100 ? "Choose a reward to redeem from your available balance." : "Reach 100 points to unlock your first reward.")
+            Text(account.pointsBalance >= 100 ? "Choose a reward to redeem with your available Beans." : "Reach 100 Beans to unlock your first reward.")
                 .font(Font.custom("AvenirNext-Regular", size: 12))
                 .foregroundColor(tertiaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
@@ -74,7 +74,7 @@ struct LoyaltyRewardsActionsView: View {
                     .tracking(2)
                     .textCase(.uppercase)
 
-                Text("\(points) pts")
+                Text("\(points) Beans")
                     .font(Font.custom("AvenirNext-Regular", size: 13))
             }
             .foregroundColor(Color(hex: 0x0A0804))

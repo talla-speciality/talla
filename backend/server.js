@@ -1257,7 +1257,7 @@ function adminAuditRowToRecord(row) {
 
 function defaultLoyaltyPerks() {
     return [
-        "Collect points across coffees, beans, and accessories",
+        "Collect Beans across coffees, beans, and accessories",
         "Unlock seasonal offers and member-only extras"
     ];
 }
@@ -1265,7 +1265,7 @@ function defaultLoyaltyPerks() {
 function loyaltyPerksFor(pointsBalance) {
     if (pointsBalance >= 500) {
         return [
-            "Everything in Roastery Silver",
+            "Everything in Silver",
             "Priority access to limited roast drops",
             "Exclusive Gold-only reward unlocks and concierge WhatsApp support"
         ];
@@ -1273,7 +1273,7 @@ function loyaltyPerksFor(pointsBalance) {
 
     if (pointsBalance >= 250) {
         return [
-            "Collect points across coffees, beans, and accessories",
+            "Collect Beans across coffees, beans, and accessories",
             "Early access to seasonal offers and member-only extras",
             "Silver status recognition across future loyalty promos"
         ];
@@ -2089,7 +2089,7 @@ function rewardDetailsFor(reward) {
         "bag discount": { detail: "10% off one coffee bag", expiresInDays: 30 },
         "brew bar credit": { detail: "BHD 3.000 brew bar credit", expiresInDays: 30 },
         "talla box reward": { detail: "Special discount on a Talla Box", expiresInDays: 45 },
-        "roastery gold reward": { detail: "Premium member reward voucher", expiresInDays: 60 }
+        "roastery gold reward": { detail: "Premium Gold reward voucher", expiresInDays: 60 }
     };
 
     return catalog[normalized] || { detail: reward || "Reward voucher", expiresInDays: 30 };
@@ -2276,16 +2276,16 @@ function memberIDFor(email) {
 }
 
 function tierFor(pointsBalance) {
-    if (pointsBalance >= 250) return "Roastery Gold";
-    if (pointsBalance >= 125) return "Roastery Silver";
-    return "Roastery Bronze";
+    if (pointsBalance >= 250) return "Gold";
+    if (pointsBalance >= 125) return "Silver";
+    return "Bronze";
 }
 
 function nextRewardText(pointsBalance) {
     const threshold = 100;
     const remainder = pointsBalance % threshold;
     const remaining = remainder === 0 ? threshold : threshold - remainder;
-    return `${remaining} points to your next reward`;
+    return `${remaining} Beans to your next reward`;
 }
 
 function generateVoucherCode(reward) {
@@ -3039,7 +3039,7 @@ function buildCustomerTimeline({ account, loyalty, orders, vouchers, inbox, audi
             id: `loyalty_${transaction.id}`,
             kind: "loyalty_transaction",
             title: transaction.type === "redeem" ? "Loyalty redemption" : "Loyalty earn",
-            detail: `${transaction.type === "redeem" ? "Removed" : "Added"} ${transaction.points} points${transaction.note ? ` • ${transaction.note}` : ""}`,
+            detail: `${transaction.type === "redeem" ? "Removed" : "Added"} ${transaction.points} Beans${transaction.note ? ` • ${transaction.note}` : ""}`,
             createdAt: transaction.createdAt
         }))),
         ...orders.map((order) => ({
@@ -4139,7 +4139,7 @@ const server = http.createServer(async (request, response) => {
                     adminUser: admin.username,
                     action: "loyalty_adjustment",
                     targetEmail: email,
-                    detail: `${points > 0 ? "Added" : "Removed"} ${Math.abs(points)} points`,
+                    detail: `${points > 0 ? "Added" : "Removed"} ${Math.abs(points)} Beans`,
                     metadata: {
                         points,
                         note,
@@ -4153,7 +4153,7 @@ const server = http.createServer(async (request, response) => {
                 });
             } catch (error) {
                 if (error.message === "INSUFFICIENT_POINTS") {
-                    sendJSON(response, 409, { error: "Adjustment would result in negative points." });
+                    sendJSON(response, 409, { error: "Adjustment would result in negative Beans." });
                     return;
                 }
 
@@ -4892,7 +4892,7 @@ const server = http.createServer(async (request, response) => {
                     id: `txn_${Date.now()}`,
                     type: "earn",
                     points: awardedPoints,
-                    note: `Completed order • BHD ${sampleOrderTotal.toFixed(3)}`,
+                    note: `Completed order • ${awardedPoints} Beans • BHD ${sampleOrderTotal.toFixed(3)}`,
                     createdAt: new Date().toISOString()
                 });
             });
@@ -5044,7 +5044,7 @@ const server = http.createServer(async (request, response) => {
         try {
             const body = await readBody(request);
             const points = Number(body.points);
-            const note = String(body.note || "Points adjustment");
+            const note = String(body.note || "Beans adjustment");
             const requestedEmail = normalizeEmail(body.email);
             const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
             if (!authenticated) {
@@ -5137,7 +5137,7 @@ const server = http.createServer(async (request, response) => {
             sendJSON(response, 200, loyaltyPayload(updated));
         } catch (error) {
             if (error.message === "INSUFFICIENT_POINTS") {
-                sendJSON(response, 409, { error: "Insufficient points" });
+                sendJSON(response, 409, { error: "Insufficient Beans" });
                 return;
             }
 

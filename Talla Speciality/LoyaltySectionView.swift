@@ -41,7 +41,7 @@ struct LoyaltySectionView: View {
                     .font(titleFont)
                     .foregroundColor(primaryTextColor)
 
-                Text("Use your order email to unlock points, rewards, and member perks in one place.")
+                Text("Use your order email to unlock Beans, rewards, and Reserve perks in one place.")
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -60,7 +60,7 @@ struct LoyaltySectionView: View {
                             .font(Font.custom("CormorantGaramond-SemiBold", size: isCompact ? 38 : 44))
                             .foregroundColor(primaryTextColor)
 
-                        Text("Points available")
+                        Text("Beans available")
                             .font(Font.custom("AvenirNext-DemiBold", size: 11))
                             .tracking(2.5)
                             .textCase(.uppercase)
@@ -85,7 +85,7 @@ struct LoyaltySectionView: View {
                 if let rewardProgress {
                     loyaltyProgressCard(
                         title: "Next Reward",
-                        accent: "\(rewardProgress.remaining) points to go",
+                        accent: "\(rewardProgress.remaining) Beans to go",
                         current: rewardProgress.current,
                         target: rewardProgress.target,
                         fraction: rewardProgress.fraction
@@ -97,7 +97,7 @@ struct LoyaltySectionView: View {
                         title: "Tier Progress",
                         accent: tierProgress.remaining == 0
                             ? tierProgress.label
-                            : "\(tierProgress.remaining) points to \(tierProgress.label)",
+                            : "\(tierProgress.remaining) Beans to \(tierProgress.label)",
                         current: tierProgress.current,
                         target: tierProgress.target,
                         fraction: tierProgress.fraction
@@ -118,7 +118,7 @@ struct LoyaltySectionView: View {
 
             walletCallToAction
 
-            Text("Completed orders now award 5 points per 1 BHD.")
+            Text("Completed orders now award 5 Beans per 1 BHD.")
                 .font(Font.custom("AvenirNext-Regular", size: 12))
                 .foregroundColor(tertiaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)

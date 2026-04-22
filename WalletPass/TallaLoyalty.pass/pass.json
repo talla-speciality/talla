@@ -27,7 +27,7 @@
     "primaryFields": [
       {
         "key": "points",
-        "label": "ROASTERY POINTS",
+        "label": "BEANS",
         "value": 0
       }
     ],
@@ -40,14 +40,14 @@
       {
         "key": "tier",
         "label": "STATUS",
-        "value": "Roastery Bronze"
+        "value": "Bronze"
       }
     ],
     "auxiliaryFields": [
       {
         "key": "reward",
         "label": "NEXT POUR",
-        "value": "Collect points in store and online"
+        "value": "Collect Beans in store and online"
       }
     ],
     "backFields": [

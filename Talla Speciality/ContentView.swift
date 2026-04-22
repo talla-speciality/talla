@@ -256,7 +256,7 @@ struct ContentView: View {
             case .missingAccount:
                 return "We couldn't find a rewards account for that email."
             case .insufficientPoints:
-                return "You don't have enough points for that reward yet."
+                return "You don't have enough Beans for that reward yet."
             case .operationFailed(let message):
                 return message
             }
@@ -658,7 +658,7 @@ struct ContentView: View {
         if points < 125 {
             let target = 125
             return (
-                label: "Roastery Silver",
+                label: "Silver",
                 current: points,
                 target: target,
                 remaining: target - points,
@@ -670,7 +670,7 @@ struct ContentView: View {
             let current = points - 125
             let span = 125
             return (
-                label: "Roastery Gold",
+                label: "Gold",
                 current: current,
                 target: span,
                 remaining: 250 - points,
@@ -808,7 +808,7 @@ struct ContentView: View {
 
     private var loyaltyPerks: [String] {
         loyaltyAccount?.perks ?? [
-            "Collect points across coffees, beans, and accessories",
+            "Collect Beans across coffees, beans, and accessories",
             "Unlock seasonal offers and complimentary extras"
         ]
     }
@@ -1117,7 +1117,7 @@ struct ContentView: View {
 
                 ActionTileView(
                     title: "Check Rewards",
-                    detail: "See points, rewards, and your member status.",
+                    detail: "See Beans, rewards, and your member status.",
                     systemImage: "sparkles.rectangle.stack.fill",
                     titleFont: labelFont(size: 11, weight: .bold),
                     detailFont: bodyFont(size: 13),
@@ -1246,7 +1246,7 @@ struct ContentView: View {
                             .foregroundColor(voucherExpiresSoon(voucher) ? Color.red.opacity(0.85) : secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
-                        Text("\(rewardProgressState.remaining) points until your next reward unlock.")
+                        Text("\(rewardProgressState.remaining) Beans until your next reward unlock.")
                             .font(bodyFont(size: 13))
                             .foregroundColor(secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
@@ -4460,7 +4460,7 @@ struct ContentView: View {
 
         do {
             loyaltyAccount = try await LoyaltyService.earnPoints(email: trimmedEmail, points: points, note: note)
-            showToast(message: "\(points) points added")
+            showToast(message: "\(points) Beans added")
         } catch {
             loyaltyError = error.localizedDescription
         }
