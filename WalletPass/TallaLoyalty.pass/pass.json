@@ -4,7 +4,7 @@
   "serialNumber": "TALLA-LOYALTY-001",
   "teamIdentifier": "TAG9WXY85M",
   "organizationName": "Talla Speciality",
-  "description": "Talla Speciality Roastery Circle",
+  "description": "Talla Speciality Talla Reserve",
   "logoText": "TALLA",
   "foregroundColor": "rgb(46, 32, 18)",
   "backgroundColor": "rgb(241, 234, 223)",
@@ -21,7 +21,7 @@
       {
         "key": "membership",
         "label": "MEMBERSHIP",
-        "value": "Roastery Circle"
+        "value": "Talla Reserve"
       }
     ],
     "primaryFields": [
@@ -40,7 +40,7 @@
       {
         "key": "tier",
         "label": "STATUS",
-        "value": "Roastery Member"
+        "value": "Roastery Bronze"
       }
     ],
     "auxiliaryFields": [

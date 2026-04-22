@@ -2278,7 +2278,7 @@ function memberIDFor(email) {
 function tierFor(pointsBalance) {
     if (pointsBalance >= 250) return "Roastery Gold";
     if (pointsBalance >= 125) return "Roastery Silver";
-    return "Roastery Member";
+    return "Roastery Bronze";
 }
 
 function nextRewardText(pointsBalance) {

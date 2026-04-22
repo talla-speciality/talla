@@ -112,7 +112,7 @@ struct LoyaltySectionView: View {
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(loyaltyPerks, id: \.self) { perk in
-                    loyaltyBenefit(title: "Member benefit", detail: perk)
+                    loyaltyBenefit(title: "Reserve benefit", detail: perk)
                 }
             }
 
