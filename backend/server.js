@@ -1014,6 +1014,18 @@ async function resolveCustomerSession(authenticatedRequest, response) {
     }
 
     const email = normalizeEmail(row.email);
+    const account = await getAccountByEmail(email);
+    if (!account) {
+        sendJSON(response, 404, { error: "Account not found." });
+        return false;
+    }
+
+    if (account.isActive === false) {
+        await revokeCustomerSessionsForEmail(email);
+        sendJSON(response, 403, { error: "Customer account is deactivated." });
+        return false;
+    }
+
     if (authenticatedRequest.explicitEmail && authenticatedRequest.explicitEmail != email) {
         sendJSON(response, 403, { error: "Token does not match this customer account." });
         return false;
@@ -1228,7 +1240,23 @@ function profilePayload(account) {
         id: account.id,
         firstName: account.firstName,
         lastName: account.lastName,
-        email: account.email
+        email: account.email,
+        isActive: account.isActive !== false,
+        deactivatedAt: account.deactivatedAt || null
+    };
+}
+
+function accountRecordFromRow(row) {
+    return {
+        id: row.id,
+        email: row.email,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        passwordHash: row.password_hash,
+        appleUserID: row.apple_user_id || null,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        isActive: row.is_active !== false,
+        deactivatedAt: row.deactivated_at instanceof Date ? row.deactivated_at.toISOString() : (row.deactivated_at || null)
     };
 }
 
@@ -1289,7 +1317,7 @@ async function getAccountByEmail(email) {
     }
 
     const result = await database.query(
-        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at
+        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at, is_active, deactivated_at
          FROM accounts
          WHERE email = $1`,
         [email]
@@ -1299,16 +1327,7 @@ async function getAccountByEmail(email) {
         return null;
     }
 
-    const row = result.rows[0];
-    return {
-        id: row.id,
-        email: row.email,
-        firstName: row.first_name,
-        lastName: row.last_name,
-        passwordHash: row.password_hash,
-        appleUserID: row.apple_user_id,
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
-    };
+    return accountRecordFromRow(result.rows[0]);
 }
 
 async function getAccountByAppleUserID(appleUserID) {
@@ -1322,7 +1341,7 @@ async function getAccountByAppleUserID(appleUserID) {
     }
 
     const result = await database.query(
-        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at
+        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at, is_active, deactivated_at
          FROM accounts
          WHERE apple_user_id = $1`,
         [appleUserID]
@@ -1332,16 +1351,7 @@ async function getAccountByAppleUserID(appleUserID) {
         return null;
     }
 
-    const row = result.rows[0];
-    return {
-        id: row.id,
-        email: row.email,
-        firstName: row.first_name,
-        lastName: row.last_name,
-        passwordHash: row.password_hash,
-        appleUserID: row.apple_user_id,
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
-    };
+    return accountRecordFromRow(result.rows[0]);
 }
 
 async function allAccounts() {
@@ -1355,31 +1365,25 @@ async function allAccounts() {
                 lastName: account.lastName,
                 passwordHash: account.passwordHash,
                 appleUserID: account.appleUserID || null,
-                createdAt: account.createdAt
+                createdAt: account.createdAt,
+                isActive: account.isActive !== false,
+                deactivatedAt: account.deactivatedAt || null
             }))
             .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
     }
 
     const result = await database.query(
-        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at
+        `SELECT id, email, first_name, last_name, password_hash, apple_user_id, created_at, is_active, deactivated_at
          FROM accounts
          ORDER BY created_at DESC
          LIMIT 500`
     );
 
-    return result.rows.map((row) => ({
-        id: row.id,
-        email: row.email,
-        firstName: row.first_name,
-        lastName: row.last_name,
-        passwordHash: row.password_hash,
-        appleUserID: row.apple_user_id,
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
-    }));
+    return result.rows.map(accountRecordFromRow);
 }
 
-async function createAccountRecord({ id, email, firstName, lastName, passwordHash, appleUserID = null, createdAt }) {
-    const account = { id, email, firstName, lastName, passwordHash, appleUserID, createdAt };
+async function createAccountRecord({ id, email, firstName, lastName, passwordHash, appleUserID = null, createdAt, isActive = true, deactivatedAt = null }) {
+    const account = { id, email, firstName, lastName, passwordHash, appleUserID, createdAt, isActive, deactivatedAt };
 
     if (!database.isEnabled()) {
         const store = readJSON(accountsStorePath);
@@ -1389,9 +1393,9 @@ async function createAccountRecord({ id, email, firstName, lastName, passwordHas
     }
 
     await database.query(
-        `INSERT INTO accounts (id, email, first_name, last_name, password_hash, apple_user_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, email, firstName, lastName, passwordHash, appleUserID, createdAt]
+        `INSERT INTO accounts (id, email, first_name, last_name, password_hash, apple_user_id, created_at, is_active, deactivated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [id, email, firstName, lastName, passwordHash, appleUserID, createdAt, isActive, deactivatedAt]
     );
 
     return account;
@@ -1415,7 +1419,7 @@ async function updateAccountProfileRecord(email, firstName, lastName) {
         `UPDATE accounts
          SET first_name = $2, last_name = $3
          WHERE email = $1
-         RETURNING id, email, first_name, last_name, password_hash, apple_user_id, created_at`,
+         RETURNING id, email, first_name, last_name, password_hash, apple_user_id, created_at, is_active, deactivated_at`,
         [email, firstName, lastName]
     );
 
@@ -1423,16 +1427,7 @@ async function updateAccountProfileRecord(email, firstName, lastName) {
         return null;
     }
 
-    const row = result.rows[0];
-    return {
-        id: row.id,
-        email: row.email,
-        firstName: row.first_name,
-        lastName: row.last_name,
-        passwordHash: row.password_hash,
-        appleUserID: row.apple_user_id,
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
-    };
+    return accountRecordFromRow(result.rows[0]);
 }
 
 async function linkAppleUserIDToAccount(email, appleUserID) {
@@ -1456,7 +1451,7 @@ async function linkAppleUserIDToAccount(email, appleUserID) {
         `UPDATE accounts
          SET apple_user_id = $2
          WHERE email = $1
-         RETURNING id, email, first_name, last_name, password_hash, apple_user_id, created_at`,
+         RETURNING id, email, first_name, last_name, password_hash, apple_user_id, created_at, is_active, deactivated_at`,
         [email, appleUserID]
     );
 
@@ -1464,16 +1459,7 @@ async function linkAppleUserIDToAccount(email, appleUserID) {
         return null;
     }
 
-    const row = result.rows[0];
-    return {
-        id: row.id,
-        email: row.email,
-        firstName: row.first_name,
-        lastName: row.last_name,
-        passwordHash: row.password_hash,
-        appleUserID: row.apple_user_id,
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
-    };
+    return accountRecordFromRow(result.rows[0]);
 }
 
 async function updateAccountRecord(currentEmail, { nextEmail, firstName, lastName }) {
@@ -1558,7 +1544,7 @@ async function updateAccountRecord(currentEmail, { nextEmail, firstName, lastNam
         await database.query("BEGIN");
 
         const existing = await database.query(
-            `SELECT id, email, first_name, last_name, password_hash, created_at
+            `SELECT id, email, first_name, last_name, password_hash, created_at, apple_user_id, is_active, deactivated_at
              FROM accounts
              WHERE email = $1`,
             [normalizedCurrentEmail]
@@ -1586,7 +1572,7 @@ async function updateAccountRecord(currentEmail, { nextEmail, firstName, lastNam
             `UPDATE accounts
              SET email = $2, first_name = $3, last_name = $4
              WHERE email = $1
-             RETURNING id, email, first_name, last_name, password_hash, created_at`,
+             RETURNING id, email, first_name, last_name, password_hash, created_at, apple_user_id, is_active, deactivated_at`,
             [normalizedCurrentEmail, normalizedNextEmail, firstName, lastName]
         );
 
@@ -1599,15 +1585,7 @@ async function updateAccountRecord(currentEmail, { nextEmail, firstName, lastNam
 
         await database.query("COMMIT");
 
-        const row = result.rows[0];
-        return {
-            id: row.id,
-            email: row.email,
-            firstName: row.first_name,
-            lastName: row.last_name,
-            passwordHash: row.password_hash,
-            createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
-        };
+        return accountRecordFromRow(result.rows[0]);
     } catch (error) {
         await database.query("ROLLBACK");
         throw error;
@@ -1636,6 +1614,97 @@ async function updateAccountPasswordRecord(email, passwordHash) {
     );
 
     return result.rowCount === 0 ? null : { id: result.rows[0].id };
+}
+
+async function setAccountActiveState(email, isActive) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+        return null;
+    }
+
+    if (!database.isEnabled()) {
+        const store = readJSON(accountsStorePath);
+        const account = store.accounts[normalizedEmail];
+        if (!account) {
+            return null;
+        }
+
+        account.isActive = Boolean(isActive);
+        account.deactivatedAt = isActive ? null : new Date().toISOString();
+        writeJSON(accountsStorePath, store);
+        return account;
+    }
+
+    const result = await database.query(
+        `UPDATE accounts
+         SET is_active = $2,
+             deactivated_at = CASE WHEN $2 THEN NULL ELSE NOW() END
+         WHERE email = $1
+         RETURNING id, email, first_name, last_name, password_hash, apple_user_id, created_at, is_active, deactivated_at`,
+        [normalizedEmail, Boolean(isActive)]
+    );
+
+    return result.rowCount === 0 ? null : accountRecordFromRow(result.rows[0]);
+}
+
+async function deleteAccountRecord(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+        return false;
+    }
+
+    if (!database.isEnabled()) {
+        const accountsStore = readJSON(accountsStorePath);
+        if (!accountsStore.accounts[normalizedEmail]) {
+            return false;
+        }
+
+        delete accountsStore.accounts[normalizedEmail];
+        writeJSON(accountsStorePath, accountsStore);
+
+        const loyaltyStore = readJSON(loyaltyStorePath);
+        delete loyaltyStore.accounts[normalizedEmail];
+        writeJSON(loyaltyStorePath, loyaltyStore);
+
+        const ordersStore = readJSON(ordersStorePath);
+        delete ordersStore.orders[normalizedEmail];
+        writeJSON(ordersStorePath, ordersStore);
+
+        const addressesStore = readJSON(addressesStorePath);
+        delete addressesStore.addresses[normalizedEmail];
+        writeJSON(addressesStorePath, addressesStore);
+
+        const alertsStore = readJSON(alertsStorePath);
+        delete alertsStore.alerts[normalizedEmail];
+        writeJSON(alertsStorePath, alertsStore);
+
+        const inboxStore = readJSON(alertInboxStorePath);
+        delete inboxStore.alerts[normalizedEmail];
+        writeJSON(alertInboxStorePath, inboxStore);
+
+        const vouchersStore = readJSON(vouchersStorePath);
+        Object.keys(vouchersStore.vouchers || {}).forEach((code) => {
+            if (vouchersStore.vouchers[code]?.email === normalizedEmail) {
+                delete vouchersStore.vouchers[code];
+            }
+        });
+        writeJSON(vouchersStorePath, vouchersStore);
+
+        const passwordResetStore = readJSON(passwordResetTokensStorePath);
+        passwordResetStore.tokens = (passwordResetStore.tokens || []).filter((entry) => entry.email !== normalizedEmail);
+        writeJSON(passwordResetTokensStorePath, passwordResetStore);
+
+        return true;
+    }
+
+    const result = await database.query(
+        `DELETE FROM accounts
+         WHERE email = $1
+         RETURNING id`,
+        [normalizedEmail]
+    );
+
+    return result.rowCount > 0;
 }
 
 async function activeCustomerSessionsForEmail(email) {
@@ -3453,6 +3522,8 @@ async function adminCustomerDirectory() {
             firstName: account.firstName,
             lastName: account.lastName,
             createdAt: account.createdAt,
+            isActive: account.isActive !== false,
+            deactivatedAt: account.deactivatedAt || null,
             loyaltyTier: loyalty.tier,
             pointsBalance: loyalty.pointsBalance,
             hasActiveVoucher: vouchers.some((voucher) => voucher.status === "active"),
@@ -3462,6 +3533,43 @@ async function adminCustomerDirectory() {
     }));
 
     return customers.sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
+}
+
+function csvEscape(value) {
+    const stringValue = String(value ?? "");
+    return `"${stringValue.replace(/"/g, "\"\"")}"`;
+}
+
+function buildCustomerExportCSV(customers) {
+    const headers = [
+        "Email",
+        "First Name",
+        "Last Name",
+        "Status",
+        "Deactivated At",
+        "Tier",
+        "Beans",
+        "Has Active Voucher",
+        "Has Orders",
+        "Has Stock Alerts",
+        "Created At"
+    ];
+
+    const rows = customers.map((customer) => ([
+        customer.email,
+        customer.firstName || "",
+        customer.lastName || "",
+        customer.isActive === false ? "Deactivated" : "Active",
+        customer.deactivatedAt || "",
+        customer.loyaltyTier || "",
+        customer.pointsBalance || 0,
+        customer.hasActiveVoucher ? "Yes" : "No",
+        customer.hasOrders ? "Yes" : "No",
+        customer.hasStockAlerts ? "Yes" : "No",
+        customer.createdAt || ""
+    ].map(csvEscape).join(",")));
+
+    return [headers.map(csvEscape).join(","), ...rows].join("\n");
 }
 
 const server = http.createServer(async (request, response) => {
@@ -3605,6 +3713,32 @@ const server = http.createServer(async (request, response) => {
             sendJSON(response, 200, {
                 customers: await adminCustomerDirectory()
             });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customers/export") {
+            try {
+                const body = await readBody(request);
+                const emails = Array.isArray(body.emails)
+                    ? [...new Set(body.emails.map((entry) => normalizeEmail(entry)).filter(Boolean))]
+                    : [];
+
+                if (emails.length === 0) {
+                    sendJSON(response, 400, { error: "Provide one or more customer emails to export." });
+                    return;
+                }
+
+                const directory = await adminCustomerDirectory();
+                const customers = directory.filter((customer) => emails.includes(customer.email));
+                const csv = buildCustomerExportCSV(customers);
+                response.writeHead(200, {
+                    "Content-Type": "text/csv; charset=utf-8",
+                    "Content-Disposition": `attachment; filename="talla-customers-${new Date().toISOString().slice(0, 10)}.csv"`
+                });
+                response.end(csv);
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid export payload." });
+            }
             return;
         }
 
@@ -3869,6 +4003,66 @@ const server = http.createServer(async (request, response) => {
             } catch (error) {
                 console.error("Admin password reset request failed.", error);
                 sendJSON(response, 500, { error: "Password reset email could not be sent." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customer/deactivate") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const nextState = body.isActive === undefined ? false : Boolean(body.isActive);
+
+                if (!email) {
+                    sendJSON(response, 400, { error: "Provide a customer email." });
+                    return;
+                }
+
+                const account = await setAccountActiveState(email, nextState);
+                if (!account) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                if (!nextState) {
+                    await revokeCustomerSessionsForEmail(email);
+                }
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: nextState ? "customer_reactivated" : "customer_deactivated",
+                    targetEmail: email,
+                    detail: nextState ? "Reactivated customer account" : "Deactivated customer account",
+                    metadata: { isActive: nextState }
+                });
+
+                sendJSON(response, 200, { profile: profilePayload(account) });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid account state payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/customer/delete") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+
+                if (!email) {
+                    sendJSON(response, 400, { error: "Provide a customer email." });
+                    return;
+                }
+
+                await revokeCustomerSessionsForEmail(email);
+                const deleted = await deleteAccountRecord(email);
+                if (!deleted) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+
+                sendJSON(response, 200, { success: true, email });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid account delete payload." });
             }
             return;
         }
@@ -4226,6 +4420,11 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
+            if (account.isActive === false) {
+                sendJSON(response, 403, { error: "Account is deactivated" });
+                return;
+            }
+
             await ensureLoyaltyAccount(email);
             const session = await createCustomerSession(email);
             sendJSON(response, 200, {
@@ -4300,6 +4499,11 @@ const server = http.createServer(async (request, response) => {
                 };
 
                 await createAccountRecord(account);
+            }
+
+            if (account.isActive === false) {
+                sendJSON(response, 403, { error: "Account is deactivated" });
+                return;
             }
 
             await ensureLoyaltyAccount(account.email);

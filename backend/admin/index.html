@@ -608,6 +608,7 @@
                     </div>
                     <div class="toolbar-row" style="padding: 12px 0 0;">
                         <button id="bulk-create-voucher" class="secondary">Grant To Filtered Customers</button>
+                        <button id="export-customers" class="secondary">Export Filtered CSV</button>
                     </div>
                 </div>
                 <div id="customer-directory" class="empty">Loading customers...</div>
@@ -679,6 +680,7 @@
         const customerSortInput = document.getElementById("customer-sort");
         const refreshCustomersButton = document.getElementById("refresh-customers");
         const bulkCreateVoucherButton = document.getElementById("bulk-create-voucher");
+        const exportCustomersButton = document.getElementById("export-customers");
         const bulkVoucherRewardInput = document.getElementById("bulk-voucher-reward");
         const bulkVoucherPointsInput = document.getElementById("bulk-voucher-points");
         const bulkVoucherDetailInput = document.getElementById("bulk-voucher-detail");
@@ -814,6 +816,7 @@
                     <div class="directory-badges">
                         <span class="directory-badge">${escapeHTML(customer.loyaltyTier || "Unknown tier")}</span>
                         <span class="directory-badge">${escapeHTML(String(customer.pointsBalance || 0))} pts</span>
+                        <span class="directory-badge">${customer.isActive === false ? "Deactivated" : "Active"}</span>
                         ${customer.hasActiveVoucher ? `<span class="directory-badge">Active voucher</span>` : ""}
                         ${customer.hasOrders ? `<span class="directory-badge">Has orders</span>` : ""}
                         ${customer.hasStockAlerts ? `<span class="directory-badge">Stock alerts</span>` : ""}
@@ -866,6 +869,44 @@
                 setStatus(error.message, "error");
             } finally {
                 setButtonBusy(bulkCreateVoucherButton, false, "Grant To Filtered Customers");
+            }
+        }
+
+        async function exportCustomers() {
+            const customers = filteredCustomers();
+            if (customers.length === 0) {
+                setStatus("No filtered customers to export.", "error");
+                return;
+            }
+
+            setStatus(`Preparing export for ${customers.length} customers...`, "info");
+            setButtonBusy(exportCustomersButton, true, "Export Filtered CSV", "Exporting...");
+            try {
+                const response = await fetch("/admin/api/customers/export", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ emails: customers.map((customer) => customer.email) })
+                });
+
+                if (!response.ok) {
+                    const payload = await response.json();
+                    throw new Error(payload.error || "Customer export failed.");
+                }
+
+                const blob = await response.blob();
+                const downloadURL = URL.createObjectURL(blob);
+                const anchor = document.createElement("a");
+                anchor.href = downloadURL;
+                anchor.download = `talla-customers-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                URL.revokeObjectURL(downloadURL);
+                setStatus(`Exported ${customers.length} customers.`, "success");
+            } catch (error) {
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(exportCustomersButton, false, "Export Filtered CSV");
             }
         }
 
@@ -1065,6 +1106,25 @@
                             <button id="send-password-reset" class="secondary">Send Reset Email</button>
                         </div>
                         <div class="list">${renderList(sessions, session => `<div class="list-item"><strong>Session ${escapeHTML(session.id)}</strong><div class="muted">Created ${new Date(session.createdAt).toLocaleString()} • Expires ${new Date(session.expiresAt).toLocaleString()}</div><div class="toolbar-row" style="padding: 10px 0 0;"><button class="revoke-session secondary" data-session-id="${escapeHTML(session.id)}">Revoke Session</button></div></div>`, "No active customer sessions.")}</div>
+                    </div>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Account Controls</h2>
+                    </summary>
+                    <div>
+                        <div class="grid">
+                            <div class="grid-card">
+                                <span class="label">Status</span>
+                                <div class="value">${profile.isActive === false ? "Deactivated" : "Active"}</div>
+                                <div class="muted">${profile.deactivatedAt ? `Since ${new Date(profile.deactivatedAt).toLocaleString()}` : "Customer can sign in normally."}</div>
+                            </div>
+                        </div>
+                        <div class="toolbar-row" style="padding: 12px 0 0;">
+                            <div class="muted">Deactivate to block sign-in and revoke sessions, or permanently delete the account.</div>
+                            <button id="toggle-customer-state" class="secondary">${profile.isActive === false ? "Reactivate Account" : "Deactivate Account"}</button>
+                            <button id="delete-customer-account">Delete Account</button>
+                        </div>
                     </div>
                 </details>
                 <details class="mini-section" open>
@@ -1583,6 +1643,69 @@
             }
         }
 
+        async function toggleCustomerAccountState() {
+            if (!state.currentEmail || !state.customer?.profile) {
+                setStatus("Load a customer before updating account state.", true);
+                return;
+            }
+
+            const currentlyActive = state.customer.profile.isActive !== false;
+            const nextState = !currentlyActive;
+            const confirmed = window.confirm(nextState
+                ? "Reactivate this customer account?"
+                : "Deactivate this customer account and revoke any active sessions?");
+            if (!confirmed) {
+                return;
+            }
+
+            setStatus(nextState ? "Reactivating account..." : "Deactivating account...");
+            try {
+                const response = await fetch("/admin/api/customer/deactivate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, isActive: nextState })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Customer state update failed.");
+                await refreshCustomers();
+                await loadCustomer(payload.profile.email);
+                setStatus(nextState ? "Customer account reactivated." : "Customer account deactivated.");
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function deleteCustomerAccount() {
+            if (!state.currentEmail) {
+                setStatus("Load a customer before deleting the account.", true);
+                return;
+            }
+
+            const confirmed = window.confirm("Delete this customer account permanently? This removes the profile, loyalty history, vouchers, orders, addresses, alerts, inbox, and sessions.");
+            if (!confirmed) {
+                return;
+            }
+
+            setStatus("Deleting customer account...");
+            try {
+                const response = await fetch("/admin/api/customer/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Customer delete failed.");
+                state.currentEmail = "";
+                state.customer = null;
+                emailInput.value = "";
+                renderCustomer(null);
+                await refreshCustomers();
+                setStatus(`Deleted ${payload.email}.`);
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
         async function revokeSession(sessionID) {
             if (!state.currentEmail || !sessionID) {
                 setStatus("Load a customer before revoking sessions.", true);
@@ -1825,6 +1948,7 @@
         customerAlertFilterInput.addEventListener("change", renderCustomerDirectory);
         customerSortInput.addEventListener("change", renderCustomerDirectory);
         bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
+        exportCustomersButton.addEventListener("click", exportCustomers);
         productsEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-product");
             if (saveButton) {
@@ -1861,6 +1985,16 @@
 
             if (event.target.closest("#send-password-reset")) {
                 void sendCustomerPasswordReset();
+                return;
+            }
+
+            if (event.target.closest("#toggle-customer-state")) {
+                void toggleCustomerAccountState();
+                return;
+            }
+
+            if (event.target.closest("#delete-customer-account")) {
+                void deleteCustomerAccount();
                 return;
             }
 
