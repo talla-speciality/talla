@@ -1,5 +1,8 @@
 import Foundation
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 #if canImport(AuthenticationServices)
 import AuthenticationServices
 #endif
@@ -950,7 +953,7 @@ struct ContentView: View {
             tabScreen(brewingView)
                 .tag(Tab.brewing)
                 .tabItem {
-                    Label("Brew", systemImage: Tab.brewing.systemImage)
+                    Label("Brewing", systemImage: Tab.brewing.systemImage)
                 }
 
             tabScreen(accountView)
@@ -974,9 +977,21 @@ struct ContentView: View {
                     footer
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    dismissKeyboard()
+                }
+            )
         }
         .frame(maxWidth: 400)
         .frame(maxWidth: .infinity)
+    }
+
+    private func dismissKeyboard() {
+#if canImport(UIKit)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+#endif
     }
 
     private var header: some View {
