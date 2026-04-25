@@ -306,6 +306,9 @@ struct ContentView: View {
     @AppStorage("app.appearanceMode") private var savedAppearanceMode = AppearanceMode.system.rawValue
     @AppStorage("local.customerEmail") private var savedCustomerEmail = ""
     @AppStorage("local.customerAccessToken") private var savedCustomerAccessToken = ""
+    @AppStorage("local.pushDeviceToken") private var savedPushDeviceToken = ""
+    @AppStorage("local.pushDeviceToken.email") private var savedRegisteredPushDeviceEmail = ""
+    @AppStorage("local.pushDeviceToken.value") private var savedRegisteredPushDeviceToken = ""
     @AppStorage("loyalty.email") private var savedLoyaltyEmail = ""
     @AppStorage("favorites.productIDs") private var savedFavoriteProductIDs = ""
     @AppStorage("recentlyViewed.productIDs") private var savedRecentlyViewedProductIDs = ""
@@ -883,6 +886,7 @@ struct ContentView: View {
         .task {
             await loadProductsIfNeeded()
             await refreshNotificationStatus()
+            await syncRemotePushTokenIfPossible()
         }
         .onChange(of: activeTab) { _, newTab in
             guard newTab == .shop, hasLoadedProducts else { return }
@@ -897,6 +901,18 @@ struct ContentView: View {
                     await refreshProductsIfNeeded()
                 }
                 await refreshWalletPassPresence()
+                await refreshNotificationStatus()
+                await syncRemotePushTokenIfPossible()
+            }
+        }
+        .onChange(of: savedPushDeviceToken) { _, _ in
+            Task {
+                await syncRemotePushTokenIfPossible()
+            }
+        }
+        .onChange(of: savedCustomerAccessToken) { _, _ in
+            Task {
+                await syncRemotePushTokenIfPossible()
             }
         }
         .sheet(item: $checkoutSession) { session in
@@ -4014,6 +4030,12 @@ struct ContentView: View {
     }
 
     private func signOutCustomer(clearError: Bool = true) {
+        let emailToUnregister = customerProfile?.email ?? (!savedCustomerEmail.isEmpty ? savedCustomerEmail : nil)
+        let accessTokenToUnregister = savedCustomerAccessToken
+        unregisterRemotePushToken(email: emailToUnregister, accessToken: accessTokenToUnregister)
+        unregisterRemoteNotifications()
+        savedRegisteredPushDeviceEmail = ""
+        savedRegisteredPushDeviceToken = ""
         savedCustomerEmail = ""
         savedCustomerAccessToken = ""
         customerProfile = nil
@@ -4054,8 +4076,10 @@ struct ContentView: View {
             loyaltyEmail = profile.email
         }
 
+        registerForRemoteNotifications()
         Task {
             await refreshWalletPassPresence()
+            await syncRemotePushTokenIfPossible()
             if loadLoyalty && loyaltyEmail == profile.email {
                 await loadLoyaltyAccount()
             }
@@ -4732,6 +4756,9 @@ struct ContentView: View {
 #if canImport(UserNotifications)
         let status = await ProductAlertNotificationService.authorizationStatus()
         notificationAuthorizationStatus = status.rawValue
+        if status == .authorized || status == .provisional {
+            registerForRemoteNotifications()
+        }
 #endif
     }
 
@@ -4741,6 +4768,8 @@ struct ContentView: View {
         await refreshNotificationStatus()
 
         if granted {
+            registerForRemoteNotifications()
+            await syncRemotePushTokenIfPossible()
             showToast(message: "Notifications enabled")
         } else {
             showToast(message: "Notifications not enabled")
@@ -4755,10 +4784,16 @@ struct ContentView: View {
 
         switch status {
         case .authorized, .provisional:
+            registerForRemoteNotifications()
+            await syncRemotePushTokenIfPossible()
             return true
         case .notDetermined:
             let granted = await ProductAlertNotificationService.requestAuthorization()
             await refreshNotificationStatus()
+            if granted {
+                registerForRemoteNotifications()
+                await syncRemotePushTokenIfPossible()
+            }
             return granted
         default:
             return false
@@ -4766,6 +4801,63 @@ struct ContentView: View {
 #else
         return false
 #endif
+    }
+
+    @MainActor
+    private func registerForRemoteNotifications() {
+#if canImport(UIKit)
+        UIApplication.shared.registerForRemoteNotifications()
+#endif
+    }
+
+    @MainActor
+    private func unregisterRemoteNotifications() {
+#if canImport(UIKit)
+        UIApplication.shared.unregisterForRemoteNotifications()
+#endif
+    }
+
+    @MainActor
+    private func syncRemotePushTokenIfPossible() async {
+        guard let profile = customerProfile else { return }
+
+        let normalizedToken = savedPushDeviceToken
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !normalizedToken.isEmpty else { return }
+
+        let status = notificationAuthorizationStatus
+        let notificationsEnabled = status == UNAuthorizationStatus.authorized.rawValue
+            || status == UNAuthorizationStatus.provisional.rawValue
+        guard notificationsEnabled else { return }
+
+        if savedRegisteredPushDeviceEmail == profile.email && savedRegisteredPushDeviceToken == normalizedToken {
+            return
+        }
+
+        do {
+            try await AccountService.registerPushDeviceToken(email: profile.email, deviceToken: normalizedToken)
+            savedRegisteredPushDeviceEmail = profile.email
+            savedRegisteredPushDeviceToken = normalizedToken
+        } catch {
+            return
+        }
+    }
+
+    private func unregisterRemotePushToken(email: String?, accessToken: String) {
+        let normalizedToken = savedPushDeviceToken
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let normalizedEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        guard !normalizedToken.isEmpty, !normalizedEmail.isEmpty, !accessToken.isEmpty else { return }
+
+        Task {
+            try? await AccountService.unregisterPushDeviceToken(
+                email: normalizedEmail,
+                deviceToken: normalizedToken,
+                accessTokenOverride: accessToken
+            )
+        }
     }
 
     private func buyAgain(order: AccountOrder) {
@@ -5244,8 +5336,8 @@ private enum AccountService {
         UserDefaults.standard.string(forKey: sessionTokenKey) ?? ""
     }
 
-    fileprivate static func authorize(_ request: inout URLRequest) throws {
-        let token = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
+    fileprivate static func authorize(_ request: inout URLRequest, accessTokenOverride: String? = nil) throws {
+        let token = (accessTokenOverride ?? accessToken).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
             throw ContentView.LoyaltyServiceError.operationFailed("Sign in again to continue.")
         }
@@ -5561,6 +5653,47 @@ private enum AccountService {
         ])
 
         return try await performStockAlertsRequest(request)
+    }
+
+    static func registerPushDeviceToken(email: String, deviceToken: String) async throws {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The notifications service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/notifications/push/register"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "deviceToken": deviceToken,
+            "platform": "ios"
+        ])
+
+        _ = try await performEmptyRequest(request)
+    }
+
+    static func unregisterPushDeviceToken(
+        email: String,
+        deviceToken: String,
+        accessTokenOverride: String? = nil
+    ) async throws {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The notifications service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/notifications/push/unregister"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request, accessTokenOverride: accessTokenOverride)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "deviceToken": deviceToken
+        ])
+
+        _ = try await performEmptyRequest(request)
     }
 
     static func fetchAddresses(email: String) async throws -> [ContentView.DeliveryAddress] {

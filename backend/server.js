@@ -1,4 +1,5 @@
 const http = require("http");
+const http2 = require("http2");
 const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 const fs = require("fs");
@@ -16,6 +17,7 @@ const accountsStorePath = config.stores.accounts;
 const ordersStorePath = config.stores.orders;
 const vouchersStorePath = config.stores.vouchers;
 const alertsStorePath = config.stores.alerts;
+const pushDevicesStorePath = config.stores.pushDevices;
 const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
@@ -30,6 +32,12 @@ const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
 const appleSignInClientID = config.appleSignInClientID;
 const applePaySettlementProvider = config.applePaySettlementProvider;
+const apnsKeyID = config.apnsKeyID;
+const apnsTeamID = config.apnsTeamID;
+const apnsBundleID = config.apnsBundleID;
+const apnsUseSandbox = config.apnsUseSandbox;
+const apnsPrivateKeyPath = config.apnsPrivateKeyPath;
+const apnsPrivateKeyBase64 = config.apnsPrivateKeyBase64;
 const passwordResetTokenHours = config.passwordResetTokenHours;
 const rateLimitWindowMs = config.rateLimitWindowMs;
 const rateLimitMaxRequests = config.rateLimitMaxRequests;
@@ -62,12 +70,16 @@ const rateLimitBuckets = new Map();
 let opsAlertTimer = null;
 let appleSigningKeysCache = null;
 let appleSigningKeysFetchedAt = 0;
+let apnsBearerTokenCache = "";
+let apnsBearerTokenExpiresAt = 0;
+let apnsPrivateKeyCache = null;
 
 ensureStoreFile(loyaltyStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
 ensureStoreFile(ordersStorePath, { orders: {} });
 ensureStoreFile(vouchersStorePath, { vouchers: {} });
 ensureStoreFile(alertsStorePath, { alerts: {} });
+ensureStoreFile(pushDevicesStorePath, { devices: [] });
 ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
@@ -130,6 +142,65 @@ function buildPasswordResetLink(token) {
 
 function applePaySettlementConfigured() {
     return Boolean(applePaySettlementProvider);
+}
+
+function remotePushConfigured() {
+    return Boolean(apnsKeyID && apnsTeamID && apnsBundleID && (apnsPrivateKeyPath || apnsPrivateKeyBase64));
+}
+
+function base64URLEncode(buffer) {
+    return Buffer.from(buffer)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+}
+
+function readAPNSPrivateKey() {
+    if (apnsPrivateKeyCache) {
+        return apnsPrivateKeyCache;
+    }
+
+    if (apnsPrivateKeyPath && fs.existsSync(apnsPrivateKeyPath)) {
+        apnsPrivateKeyCache = fs.readFileSync(apnsPrivateKeyPath, "utf8");
+        return apnsPrivateKeyCache;
+    }
+
+    if (apnsPrivateKeyBase64) {
+        apnsPrivateKeyCache = Buffer.from(apnsPrivateKeyBase64, "base64").toString("utf8");
+        return apnsPrivateKeyCache;
+    }
+
+    return "";
+}
+
+function apnsBearerToken() {
+    if (!remotePushConfigured()) {
+        throw new Error("APNS_NOT_CONFIGURED");
+    }
+
+    if (apnsBearerTokenCache && Date.now() < apnsBearerTokenExpiresAt) {
+        return apnsBearerTokenCache;
+    }
+
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const header = base64URLEncode(JSON.stringify({ alg: "ES256", kid: apnsKeyID }));
+    const payload = base64URLEncode(JSON.stringify({ iss: apnsTeamID, iat: issuedAt }));
+    const signingInput = `${header}.${payload}`;
+    const privateKey = readAPNSPrivateKey();
+
+    if (!privateKey) {
+        throw new Error("APNS_PRIVATE_KEY_MISSING");
+    }
+
+    const signature = crypto.sign("sha256", Buffer.from(signingInput), {
+        key: privateKey,
+        dsaEncoding: "ieee-p1363"
+    });
+
+    apnsBearerTokenCache = `${signingInput}.${base64URLEncode(signature)}`;
+    apnsBearerTokenExpiresAt = Date.now() + (50 * 60 * 1000);
+    return apnsBearerTokenCache;
 }
 
 function renderPasswordResetPage(token) {
@@ -1516,6 +1587,14 @@ async function updateAccountRecord(currentEmail, { nextEmail, firstName, lastNam
             writeJSON(alertsStorePath, alertsStore);
         }
 
+        const pushDevicesStore = readJSON(pushDevicesStorePath);
+        pushDevicesStore.devices = (pushDevicesStore.devices || []).map((device) => (
+            normalizeEmail(device.email) === normalizedCurrentEmail
+                ? { ...device, email: normalizedNextEmail, updatedAt: new Date().toISOString() }
+                : device
+        ));
+        writeJSON(pushDevicesStorePath, pushDevicesStore);
+
         const inboxStore = readJSON(alertInboxStorePath);
         if (inboxStore.alerts[normalizedCurrentEmail]) {
             inboxStore.alerts[normalizedNextEmail] = inboxStore.alerts[normalizedCurrentEmail];
@@ -1677,6 +1756,10 @@ async function deleteAccountRecord(email) {
         const alertsStore = readJSON(alertsStorePath);
         delete alertsStore.alerts[normalizedEmail];
         writeJSON(alertsStorePath, alertsStore);
+
+        const pushDevicesStore = readJSON(pushDevicesStorePath);
+        pushDevicesStore.devices = (pushDevicesStore.devices || []).filter((device) => normalizeEmail(device.email) !== normalizedEmail);
+        writeJSON(pushDevicesStorePath, pushDevicesStore);
 
         const inboxStore = readJSON(alertInboxStorePath);
         delete inboxStore.alerts[normalizedEmail];
@@ -2800,6 +2883,301 @@ async function trimAlertInbox(email, maxRecords = 20) {
     );
 }
 
+function normalizeDeviceToken(deviceToken) {
+    const normalized = String(deviceToken || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-f0-9]/g, "");
+
+    if (!normalized || normalized.length < 32 || normalized.length % 2 !== 0) {
+        return "";
+    }
+
+    return normalized;
+}
+
+function pushDeviceRowToRecord(row) {
+    return {
+        id: row.id,
+        email: normalizeEmail(row.email),
+        deviceToken: normalizeDeviceToken(row.device_token),
+        platform: row.platform,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
+        lastSentAt: row.last_sent_at instanceof Date ? row.last_sent_at.toISOString() : (row.last_sent_at || null)
+    };
+}
+
+async function pushDevicesForEmail(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+        return [];
+    }
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, email, device_token, platform, created_at, updated_at, last_sent_at
+             FROM push_devices
+             WHERE email = $1
+             ORDER BY updated_at DESC`,
+            [normalizedEmail]
+        );
+        return result.rows.map(pushDeviceRowToRecord);
+    }
+
+    const store = readJSON(pushDevicesStorePath);
+    return (store.devices || [])
+        .filter((device) => normalizeEmail(device.email) === normalizedEmail)
+        .map((device) => ({
+            id: device.id,
+            email: normalizeEmail(device.email),
+            deviceToken: normalizeDeviceToken(device.deviceToken),
+            platform: device.platform || "ios",
+            createdAt: device.createdAt,
+            updatedAt: device.updatedAt,
+            lastSentAt: device.lastSentAt || null
+        }))
+        .filter((device) => device.deviceToken);
+}
+
+async function registerPushDevice(email, deviceToken, platform = "ios") {
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+    const normalizedPlatform = String(platform || "ios").trim().toLowerCase() || "ios";
+
+    if (!normalizedEmail || !normalizedToken) {
+        return null;
+    }
+
+    const timestamp = new Date().toISOString();
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `INSERT INTO push_devices
+             (id, email, device_token, platform, created_at, updated_at, last_sent_at)
+             VALUES ($1, $2, $3, $4, $5, $5, NULL)
+             ON CONFLICT (device_token)
+             DO UPDATE SET
+                 email = EXCLUDED.email,
+                 platform = EXCLUDED.platform,
+                 updated_at = EXCLUDED.updated_at
+             RETURNING id, email, device_token, platform, created_at, updated_at, last_sent_at`,
+            [`push_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`, normalizedEmail, normalizedToken, normalizedPlatform, timestamp]
+        );
+        return result.rowCount === 0 ? null : pushDeviceRowToRecord(result.rows[0]);
+    }
+
+    const store = readJSON(pushDevicesStorePath);
+    const devices = Array.isArray(store.devices) ? store.devices : [];
+    const existingIndex = devices.findIndex((device) => normalizeDeviceToken(device.deviceToken) === normalizedToken);
+    const existingRecord = existingIndex >= 0 ? devices[existingIndex] : null;
+    const nextRecord = {
+        id: existingRecord?.id || `push_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
+        email: normalizedEmail,
+        deviceToken: normalizedToken,
+        platform: normalizedPlatform,
+        createdAt: existingRecord?.createdAt || timestamp,
+        updatedAt: timestamp,
+        lastSentAt: existingRecord?.lastSentAt || null
+    };
+
+    if (existingIndex >= 0) {
+        devices[existingIndex] = nextRecord;
+    } else {
+        devices.unshift(nextRecord);
+    }
+
+    store.devices = devices;
+    writeJSON(pushDevicesStorePath, store);
+    return nextRecord;
+}
+
+async function unregisterPushDevice(email, deviceToken) {
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+
+    if (!normalizedEmail || !normalizedToken) {
+        return false;
+    }
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `DELETE FROM push_devices
+             WHERE email = $1 AND device_token = $2
+             RETURNING id`,
+            [normalizedEmail, normalizedToken]
+        );
+        return result.rowCount > 0;
+    }
+
+    const store = readJSON(pushDevicesStorePath);
+    const beforeCount = Array.isArray(store.devices) ? store.devices.length : 0;
+    store.devices = (store.devices || []).filter((device) => (
+        !(normalizeEmail(device.email) === normalizedEmail && normalizeDeviceToken(device.deviceToken) === normalizedToken)
+    ));
+    writeJSON(pushDevicesStorePath, store);
+    return store.devices.length < beforeCount;
+}
+
+async function markPushDeviceSent(deviceToken) {
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+    if (!normalizedToken) {
+        return;
+    }
+
+    if (database.isEnabled()) {
+        await database.query(
+            `UPDATE push_devices
+             SET last_sent_at = NOW(), updated_at = NOW()
+             WHERE device_token = $1`,
+            [normalizedToken]
+        );
+        return;
+    }
+
+    const store = readJSON(pushDevicesStorePath);
+    let didUpdate = false;
+    store.devices = (store.devices || []).map((device) => {
+        if (normalizeDeviceToken(device.deviceToken) !== normalizedToken) {
+            return device;
+        }
+
+        didUpdate = true;
+        return {
+            ...device,
+            lastSentAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+    });
+
+    if (didUpdate) {
+        writeJSON(pushDevicesStorePath, store);
+    }
+}
+
+async function prunePushDevice(deviceToken) {
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+    if (!normalizedToken) {
+        return;
+    }
+
+    if (database.isEnabled()) {
+        await database.query(
+            `DELETE FROM push_devices
+             WHERE device_token = $1`,
+            [normalizedToken]
+        );
+        return;
+    }
+
+    const store = readJSON(pushDevicesStorePath);
+    const nextDevices = (store.devices || []).filter((device) => normalizeDeviceToken(device.deviceToken) !== normalizedToken);
+    if (nextDevices.length !== (store.devices || []).length) {
+        store.devices = nextDevices;
+        writeJSON(pushDevicesStorePath, store);
+    }
+}
+
+async function sendRemotePushToDevice(deviceToken, notification) {
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+    if (!normalizedToken || !remotePushConfigured()) {
+        return false;
+    }
+
+    const authority = apnsUseSandbox
+        ? "https://api.sandbox.push.apple.com"
+        : "https://api.push.apple.com";
+    let authorizationToken = "";
+
+    try {
+        authorizationToken = apnsBearerToken();
+    } catch (error) {
+        return false;
+    }
+
+    return await new Promise((resolve) => {
+        const client = http2.connect(authority);
+        const payload = JSON.stringify({
+            aps: {
+                alert: {
+                    title: notification.title,
+                    body: notification.body
+                },
+                sound: "default"
+            },
+            type: notification.type || "stock_alert",
+            productID: notification.productID || null
+        });
+
+        client.on("error", () => {
+            client.close();
+            resolve(false);
+        });
+
+        const request = client.request({
+            ":method": "POST",
+            ":path": `/3/device/${normalizedToken}`,
+            authorization: `bearer ${authorizationToken}`,
+            "apns-topic": apnsBundleID,
+            "apns-push-type": "alert",
+            "apns-priority": "10"
+        });
+
+        let responseBody = "";
+        let statusCode = 0;
+
+        request.setEncoding("utf8");
+        request.on("response", (headers) => {
+            statusCode = Number(headers[http2.constants.HTTP2_HEADER_STATUS] || 0);
+        });
+        request.on("data", (chunk) => {
+            responseBody += chunk;
+        });
+        request.on("end", async () => {
+            client.close();
+
+            if (statusCode === 200) {
+                await markPushDeviceSent(normalizedToken);
+                resolve(true);
+                return;
+            }
+
+            try {
+                const parsed = responseBody ? JSON.parse(responseBody) : null;
+                const reason = parsed?.reason || "";
+                if (["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(reason)) {
+                    await prunePushDevice(normalizedToken);
+                }
+            } catch (error) {
+                // Ignore malformed APNs error bodies.
+            }
+
+            resolve(false);
+        });
+        request.on("error", () => {
+            client.close();
+            resolve(false);
+        });
+        request.end(payload);
+    });
+}
+
+async function sendStockAlertPush(email, { title, body, productID }) {
+    if (!remotePushConfigured()) {
+        return;
+    }
+
+    const devices = await pushDevicesForEmail(email);
+    for (const device of devices) {
+        await sendRemotePushToDevice(device.deviceToken, {
+            title,
+            body,
+            type: "stock_alert",
+            productID
+        });
+    }
+}
+
 async function syncStockAlerts(email, alertPayloads) {
     if (database.isEnabled()) {
         const existingAlerts = await stockAlertsFor(email);
@@ -2834,6 +3212,8 @@ async function syncStockAlerts(email, alertPayloads) {
             );
 
             if (existing.isAvailableForSale === false && nextRecord.isAvailableForSale === true) {
+                const inboxTitle = `${nextRecord.productName} is back`;
+                const inboxDetail = `${nextRecord.productName} is available again in the Talla app.`;
                 await database.query(
                     `INSERT INTO alert_inbox
                      (id, email, title, detail, created_at, product_id)
@@ -2841,12 +3221,17 @@ async function syncStockAlerts(email, alertPayloads) {
                     [
                         `alert_${Date.now()}_${existing.productID}`,
                         email,
-                        `${nextRecord.productName} is back`,
-                        `${nextRecord.productName} is available again in the Talla app.`,
+                        inboxTitle,
+                        inboxDetail,
                         new Date().toISOString(),
                         existing.productID
                     ]
                 );
+                await sendStockAlertPush(email, {
+                    title: inboxTitle,
+                    body: inboxDetail,
+                    productID: existing.productID
+                });
             }
 
             synced.push(nextRecord);
@@ -2878,11 +3263,18 @@ async function syncStockAlerts(email, alertPayloads) {
             };
 
             if (existing.isAvailableForSale === false && nextRecord.isAvailableForSale === true) {
+                const inboxTitle = `${nextRecord.productName} is back`;
+                const inboxDetail = `${nextRecord.productName} is available again in the Talla app.`;
                 inbox.unshift({
                     id: `alert_${Date.now()}_${existing.productID}`,
-                    title: `${nextRecord.productName} is back`,
-                    detail: `${nextRecord.productName} is available again in the Talla app.`,
+                    title: inboxTitle,
+                    detail: inboxDetail,
                     createdAt: new Date().toISOString(),
+                    productID: existing.productID
+                });
+                await sendStockAlertPush(email, {
+                    title: inboxTitle,
+                    body: inboxDetail,
                     productID: existing.productID
                 });
             }
@@ -4924,6 +5316,75 @@ const server = http.createServer(async (request, response) => {
         }
 
         sendJSON(response, 200, await alertInboxFor(customer.email));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/notifications/push/register") {
+        try {
+            const body = await readBody(request);
+            const requestedEmail = normalizeEmail(body.email);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) {
+                return;
+            }
+
+            const customerAccount = await getAccountByEmail(customer.email);
+            if (!customerAccount) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
+
+            const deviceToken = normalizeDeviceToken(body.deviceToken);
+            const platform = String(body.platform || "ios").trim().toLowerCase() || "ios";
+            if (!deviceToken) {
+                sendJSON(response, 400, { error: "Invalid push device token" });
+                return;
+            }
+
+            const device = await registerPushDevice(customer.email, deviceToken, platform);
+            sendJSON(response, 200, { status: "ok", device });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/notifications/push/unregister") {
+        try {
+            const body = await readBody(request);
+            const requestedEmail = normalizeEmail(body.email);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) {
+                return;
+            }
+
+            const customerAccount = await getAccountByEmail(customer.email);
+            if (!customerAccount) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
+
+            const deviceToken = normalizeDeviceToken(body.deviceToken);
+            if (!deviceToken) {
+                sendJSON(response, 400, { error: "Invalid push device token" });
+                return;
+            }
+
+            await unregisterPushDevice(customer.email, deviceToken);
+            sendJSON(response, 200, { status: "ok" });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
         return;
     }
 
