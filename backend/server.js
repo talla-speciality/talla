@@ -3246,42 +3246,44 @@ async function syncStockAlerts(email, alertPayloads) {
     const inboxStore = readJSON(alertInboxStorePath);
     const inbox = inboxStore.alerts[email] || [];
     const payloadByID = new Map(alertPayloads.map((alert) => [alert.productID, alert]));
-    const synced = existingAlerts
-        .map((existing) => {
-            const payload = payloadByID.get(existing.productID);
-            if (!payload) {
-                return existing;
-            }
+    const synced = [];
+    for (const existing of existingAlerts) {
+        const payload = payloadByID.get(existing.productID);
+        if (!payload) {
+            synced.push(existing);
+            continue;
+        }
 
-            const nextRecord = {
-                productID: existing.productID,
-                productName: payload.productName || existing.productName,
-                tag: payload.tag || existing.tag || null,
-                isAvailableForSale: Boolean(payload.isAvailableForSale),
-                status: stockAlertStatusFor(payload, existing),
-                updatedAt: new Date().toISOString()
-            };
+        const nextRecord = {
+            productID: existing.productID,
+            productName: payload.productName || existing.productName,
+            tag: payload.tag || existing.tag || null,
+            isAvailableForSale: Boolean(payload.isAvailableForSale),
+            status: stockAlertStatusFor(payload, existing),
+            updatedAt: new Date().toISOString()
+        };
 
-            if (existing.isAvailableForSale === false && nextRecord.isAvailableForSale === true) {
-                const inboxTitle = `${nextRecord.productName} is back`;
-                const inboxDetail = `${nextRecord.productName} is available again in the Talla app.`;
-                inbox.unshift({
-                    id: `alert_${Date.now()}_${existing.productID}`,
-                    title: inboxTitle,
-                    detail: inboxDetail,
-                    createdAt: new Date().toISOString(),
-                    productID: existing.productID
-                });
-                await sendStockAlertPush(email, {
-                    title: inboxTitle,
-                    body: inboxDetail,
-                    productID: existing.productID
-                });
-            }
+        if (existing.isAvailableForSale === false && nextRecord.isAvailableForSale === true) {
+            const inboxTitle = `${nextRecord.productName} is back`;
+            const inboxDetail = `${nextRecord.productName} is available again in the Talla app.`;
+            inbox.unshift({
+                id: `alert_${Date.now()}_${existing.productID}`,
+                title: inboxTitle,
+                detail: inboxDetail,
+                createdAt: new Date().toISOString(),
+                productID: existing.productID
+            });
+            await sendStockAlertPush(email, {
+                title: inboxTitle,
+                body: inboxDetail,
+                productID: existing.productID
+            });
+        }
 
-            return nextRecord;
-        })
-        .sort((lhs, rhs) => new Date(rhs.updatedAt).getTime() - new Date(lhs.updatedAt).getTime());
+        synced.push(nextRecord);
+    }
+
+    synced.sort((lhs, rhs) => new Date(rhs.updatedAt).getTime() - new Date(lhs.updatedAt).getTime());
 
     store.alerts[email] = synced;
     inboxStore.alerts[email] = inbox.slice(0, 20);
