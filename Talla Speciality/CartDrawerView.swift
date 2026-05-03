@@ -29,7 +29,7 @@ struct CartDrawerView: View {
                         .padding(.top, 6)
 
                     HStack {
-                        Text("YOUR CART")
+                        Text(AppLocalization.text("your_cart", fallback: "YOUR CART"))
                             .font(.system(size: 22, weight: .bold, design: .serif))
                             .tracking(2)
                             .foregroundColor(accentColor)

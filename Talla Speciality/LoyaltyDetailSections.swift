@@ -16,19 +16,19 @@ struct LoyaltyRewardsActionsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Earn Beans")
+            Text(AppLocalization.text("earn_beans", fallback: "Earn Beans"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Completed orders earn 5 Beans for every 1 BHD spent.")
+                Text(AppLocalization.text("earn_beans_rate", fallback: "Completed orders earn 5 Beans for every 1 BHD spent."))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(1.3)
                     .foregroundColor(primaryTextColor)
 
-                Text("Completed purchases update your rewards balance automatically once they are recorded.")
+                Text(AppLocalization.text("earn_beans_detail", fallback: "Completed purchases update your rewards balance automatically once they are recorded."))
                     .font(Font.custom("AvenirNext-Regular", size: 13))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -42,22 +42,24 @@ struct LoyaltyRewardsActionsView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-            Text("Redeem Rewards")
+            Text(AppLocalization.text("redeem_rewards", fallback: "Redeem Rewards"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                redeemButton(title: "Espresso Pour", points: 50, reward: "Espresso pour")
-                redeemButton(title: "Pastry Pairing", points: 75, reward: "Pastry pairing")
-                redeemButton(title: "Signature Sip", points: 100, reward: "Signature sip")
-                redeemButton(title: "Bag Credit", points: 150, reward: "Coffee bag credit")
-                redeemButton(title: "Talla Box Treat", points: 200, reward: "Talla box treat")
-                redeemButton(title: "Gold Reserve Gift", points: 250, reward: "Gold reserve gift")
+                redeemButton(title: AppLocalization.text("reward_espresso_pour", fallback: "Espresso Pour"), points: 50, reward: "Espresso pour")
+                redeemButton(title: AppLocalization.text("reward_pastry_pairing", fallback: "Pastry Pairing"), points: 75, reward: "Pastry pairing")
+                redeemButton(title: AppLocalization.text("reward_signature_sip", fallback: "Signature Sip"), points: 100, reward: "Signature sip")
+                redeemButton(title: AppLocalization.text("reward_bag_credit", fallback: "Bag Credit"), points: 150, reward: "Coffee bag credit")
+                redeemButton(title: AppLocalization.text("reward_talla_box_treat", fallback: "Talla Box Treat"), points: 200, reward: "Talla box treat")
+                redeemButton(title: AppLocalization.text("reward_gold_reserve_gift", fallback: "Gold Reserve Gift"), points: 250, reward: "Gold reserve gift")
             }
 
-            Text(account.pointsBalance >= 50 ? "Choose a reward to redeem with your available Beans." : "Reach 50 Beans to unlock your first reward.")
+            Text(account.pointsBalance >= 50
+                ? AppLocalization.text("choose_reward_redeem", fallback: "Choose a reward to redeem with your available Beans.")
+                : AppLocalization.text("reach_first_reward", fallback: "Reach 50 Beans to unlock your first reward."))
                 .font(Font.custom("AvenirNext-Regular", size: 12))
                 .foregroundColor(tertiaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
@@ -74,7 +76,7 @@ struct LoyaltyRewardsActionsView: View {
                     .tracking(2)
                     .textCase(.uppercase)
 
-                Text("\(points) Beans")
+                Text(String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), points))
                     .font(Font.custom("AvenirNext-Regular", size: 13))
             }
             .foregroundColor(Color(hex: 0x0A0804))
@@ -100,14 +102,14 @@ struct ExpiringRewardsSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Expiring Rewards")
+            Text(AppLocalization.text("expiring_rewards", fallback: "Expiring Rewards"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             if vouchers.isEmpty {
-                Text("Redeemed rewards will appear here with their expiry window.")
+                Text(AppLocalization.text("expiring_rewards_empty", fallback: "Redeemed rewards will appear here with their expiry window."))
                     .font(Font.custom("AvenirNext-Regular", size: 13))
                     .foregroundColor(secondaryTextColor)
             } else {
@@ -162,14 +164,14 @@ struct LoyaltyTransactionsSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Activity")
+            Text(AppLocalization.text("recent_activity", fallback: "Recent Activity"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             if account.transactions.isEmpty {
-                Text("No loyalty activity yet.")
+                Text(AppLocalization.text("no_loyalty_activity", fallback: "No loyalty activity yet."))
                     .font(Font.custom("AvenirNext-Regular", size: 13))
                     .foregroundColor(secondaryTextColor)
             } else {
@@ -187,7 +189,7 @@ struct LoyaltyTransactionsSectionView: View {
                                 .foregroundColor(primaryTextColor)
 
                             if let voucherCode = transaction.voucherCode, !voucherCode.isEmpty {
-                                Text("Voucher: \(voucherCode)")
+                                Text("\(AppLocalization.text("voucher", fallback: "Voucher")): \(voucherCode)")
                                     .font(Font.custom("AvenirNext-Bold", size: 10))
                                     .tracking(1.2)
                                     .foregroundColor(accentColor)
@@ -202,10 +204,12 @@ struct LoyaltyTransactionsSectionView: View {
 
                             if transaction.voucherCode != nil {
                                 let expiryText = transaction.voucherExpiresAt?.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: "") ?? "N/A"
-                                let usageText = transaction.voucherSingleUse == false ? "Multi-use" : "Single use"
-                                let statusText = transaction.voucherStatus?.capitalized ?? "Active"
+                                let usageText = transaction.voucherSingleUse == false
+                                    ? AppLocalization.text("multi_use", fallback: "Multi-use")
+                                    : AppLocalization.text("single_use", fallback: "Single use")
+                                let statusText = transaction.voucherStatus?.capitalized ?? AppLocalization.text("active", fallback: "Active")
 
-                                Text("\(usageText) • Expires \(expiryText) • \(statusText)")
+                                Text("\(usageText) • \(AppLocalization.text("expires", fallback: "Expires")) \(expiryText) • \(statusText)")
                                     .font(Font.custom("AvenirNext-Regular", size: 11))
                                     .foregroundColor(tertiaryTextColor)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -254,7 +258,9 @@ struct LoyaltyWalletCallToActionView: View {
                     .addPassToWalletButtonStyle(.black)
 #else
                 Button(action: action) {
-                    Text(isLoadingWalletPass ? "LOADING WALLET PASS..." : "ADD TO APPLE WALLET")
+                    Text(isLoadingWalletPass
+                        ? AppLocalization.text("loading_wallet_pass", fallback: "LOADING WALLET PASS...")
+                        : AppLocalization.text("add_to_apple_wallet", fallback: "ADD TO APPLE WALLET"))
                         .font(Font.custom("AvenirNext-Bold", size: 12))
                         .tracking(2.5)
                         .foregroundColor(.white)

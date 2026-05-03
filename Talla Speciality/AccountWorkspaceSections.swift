@@ -12,19 +12,21 @@ struct ProfileManagementSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Profile")
+            Text(AppLocalization.text("profile", fallback: "Profile"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             HStack(spacing: 10) {
-                styledTextField("First name", text: $firstName)
-                styledTextField("Last name", text: $lastName)
+                styledTextField(AppLocalization.text("first_name", fallback: "First name"), text: $firstName)
+                styledTextField(AppLocalization.text("last_name", fallback: "Last name"), text: $lastName)
             }
 
             Button(action: saveAction) {
-                Text(isSaving ? "SAVING..." : "SAVE PROFILE")
+                Text(isSaving
+                    ? AppLocalization.text("saving", fallback: "SAVING...")
+                    : AppLocalization.text("save_profile", fallback: "SAVE PROFILE"))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(2)
                     .textCase(.uppercase)
@@ -68,21 +70,23 @@ struct PasswordResetSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Password")
+            Text(AppLocalization.text("password", fallback: "Password"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
-            secureField("Current password", text: $currentPassword)
+            secureField(AppLocalization.text("current_password", fallback: "Current password"), text: $currentPassword)
 
             HStack(spacing: 10) {
-                secureField("New password", text: $newPassword)
-                secureField("Confirm new", text: $confirmPassword)
+                secureField(AppLocalization.text("new_password", fallback: "New password"), text: $newPassword)
+                secureField(AppLocalization.text("confirm_new", fallback: "Confirm new"), text: $confirmPassword)
             }
 
             Button(action: resetAction) {
-                Text(isResetting ? "UPDATING..." : "UPDATE PASSWORD")
+                Text(isResetting
+                    ? AppLocalization.text("updating", fallback: "UPDATING...")
+                    : AppLocalization.text("update_password", fallback: "UPDATE PASSWORD"))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(2)
                     .textCase(.uppercase)
@@ -131,14 +135,14 @@ struct OrderHistorySectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Order History")
+            Text(AppLocalization.text("order_history", fallback: "Order History"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             if isLoadingOrders {
-                Text("Loading orders...")
+                Text(AppLocalization.text("loading_orders", fallback: "Loading orders..."))
                     .font(Font.custom("AvenirNext-Regular", size: 13))
                     .foregroundColor(secondaryTextColor)
             } else if let ordersError {
@@ -147,7 +151,7 @@ struct OrderHistorySectionView: View {
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             } else if orders.isEmpty {
-                Text("No saved orders yet.")
+                Text(AppLocalization.text("no_saved_orders", fallback: "No saved orders yet."))
                     .font(Font.custom("AvenirNext-Regular", size: 13))
                     .foregroundColor(secondaryTextColor)
             } else {
@@ -188,7 +192,7 @@ struct OrderHistorySectionView: View {
                             Button {
                                 buyAgainAction(order)
                             } label: {
-                                Text("Buy Again")
+                                Text(AppLocalization.text("buy_again", fallback: "Buy Again"))
                                     .font(Font.custom("AvenirNext-Bold", size: 10))
                                     .tracking(1.5)
                                     .textCase(.uppercase)

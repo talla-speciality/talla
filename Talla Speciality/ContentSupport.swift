@@ -101,8 +101,17 @@ enum AppLocalization {
         "sending_link": ["ar": "جارٍ إرسال الرابط..."],
         "already_have_account": ["ar": "لديك حساب بالفعل؟"],
         "back_to_sign_in": ["ar": "العودة لتسجيل الدخول"],
+        "profile": ["ar": "الملف الشخصي"],
         "saved": ["ar": "محفوظ"],
         "save": ["ar": "حفظ"],
+        "saving": ["ar": "جارٍ الحفظ..."],
+        "save_profile": ["ar": "حفظ الملف الشخصي"],
+        "confirm_new": ["ar": "تأكيد الجديدة"],
+        "updating": ["ar": "جارٍ التحديث..."],
+        "update_password": ["ar": "تحديث كلمة المرور"],
+        "creating_account": ["ar": "جارٍ إنشاء الحساب..."],
+        "updating_password": ["ar": "جارٍ تحديث كلمة المرور..."],
+        "signing_in": ["ar": "جارٍ تسجيل الدخول..."],
         "watching": ["ar": "قيد المتابعة"],
         "watch": ["ar": "متابعة"],
         "view_details": ["ar": "عرض التفاصيل"],
@@ -151,6 +160,7 @@ enum AppLocalization {
         ,"beans_to_go": ["ar": "متبقي %d Beans"]
         ,"beans_to_tier": ["ar": "متبقي %d Beans للوصول إلى %@"]
         ,"beans_count": ["ar": "%d Beans"]
+        ,"beans_until_reward_unlock": ["ar": "متبقي %d Beans لفتح مكافأتك التالية."]
         ,"member_id": ["ar": "رقم العضوية"]
         ,"reserve_benefit": ["ar": "ميزة Reserve"]
         ,"lookup_rewards": ["ar": "عرض المكافآت"]
@@ -158,6 +168,27 @@ enum AppLocalization {
         ,"check_rewards": ["ar": "عرض المكافآت"]
         ,"sign_out": ["ar": "تسجيل الخروج"]
         ,"orders_award_beans": ["ar": "الطلبات المكتملة تمنح الآن 5 Beans لكل 1 دينار بحريني."]
+        ,"earn_beans": ["ar": "اكسب Beans"]
+        ,"earn_beans_rate": ["ar": "الطلبات المكتملة تمنح 5 Beans لكل 1 دينار بحريني يتم إنفاقه."]
+        ,"earn_beans_detail": ["ar": "تتحدّث مكافآتك تلقائياً بعد تسجيل المشتريات المكتملة."]
+        ,"redeem_rewards": ["ar": "استبدال المكافآت"]
+        ,"reward_espresso_pour": ["ar": "إسبريسو صغير"]
+        ,"reward_pastry_pairing": ["ar": "مرافقة معجنات"]
+        ,"reward_signature_sip": ["ar": "مشروب مميز"]
+        ,"reward_bag_credit": ["ar": "رصيد كيس قهوة"]
+        ,"reward_talla_box_treat": ["ar": "هدية صندوق Talla"]
+        ,"reward_gold_reserve_gift": ["ar": "هدية Gold Reserve"]
+        ,"choose_reward_redeem": ["ar": "اختر مكافأة لاستبدالها باستخدام Beans المتاحة."]
+        ,"reach_first_reward": ["ar": "اجمع 50 Beans لفتح أول مكافأة."]
+        ,"expiring_rewards": ["ar": "المكافآت القريبة من الانتهاء"]
+        ,"expiring_rewards_empty": ["ar": "ستظهر المكافآت المستبدلة هنا مع مدة صلاحيتها."]
+        ,"expires_soon": ["ar": "ينتهي قريباً"]
+        ,"recent_activity": ["ar": "النشاط الأخير"]
+        ,"no_loyalty_activity": ["ar": "لا يوجد نشاط مكافآت بعد."]
+        ,"voucher": ["ar": "القسيمة"]
+        ,"multi_use": ["ar": "متعدد الاستخدام"]
+        ,"single_use": ["ar": "استخدام واحد"]
+        ,"expires": ["ar": "ينتهي"]
         ,"the_craft": ["ar": "الحرفة"]
         ,"brewing_methods": ["ar": "طرق التحضير"]
         ,"brewing_intro": ["ar": "أدلة لتحضير قهوة أفضل في المنزل."]
@@ -196,6 +227,29 @@ enum AppLocalization {
         ,"recent_orders_plural": ["ar": "%d طلبات متاحة في سجلّك."]
         ,"profile_workspace": ["ar": "مساحة الملف الشخصي"]
         ,"profile_workspace_detail": ["ar": "عدّل بيانات الحساب، وحدّث كلمة المرور، وراجع أحدث الطلبات."]
+        ,"order_history": ["ar": "سجل الطلبات"]
+        ,"loading_orders": ["ar": "جارٍ تحميل الطلبات..."]
+        ,"no_saved_orders": ["ar": "لا توجد طلبات محفوظة بعد."]
+        ,"buy_again": ["ar": "اطلب مرة أخرى"]
+        ,"loading_wallet_pass": ["ar": "جارٍ تحميل بطاقة Wallet..."]
+        ,"add_to_apple_wallet": ["ar": "أضف إلى Apple Wallet"]
+        ,"your_cart": ["ar": "سلتك"]
+        ,"saved_carts": ["ar": "السلال المحفوظة"]
+        ,"saved_carts_empty": ["ar": "احفظ سلة ممتلئة من الحقيبة وارجع إليها عندما تصبح جاهزاً لإتمام الطلب."]
+        ,"load": ["ar": "تحميل"]
+        ,"checkout_ready": ["ar": "جاهز للطلب"]
+        ,"items": ["ar": "العناصر"]
+        ,"items_ready": ["ar": "%d في الحقيبة • %d جاهزة"]
+        ,"voucher_none": ["ar": "لا يوجد تطبيق بعد"]
+        ,"order_summary": ["ar": "ملخص الطلب"]
+        ,"subtotal": ["ar": "المجموع الفرعي"]
+        ,"total": ["ar": "الإجمالي"]
+        ,"opening_checkout": ["ar": "جارٍ فتح الدفع..."]
+        ,"open_checkout": ["ar": "فتح الدفع"]
+        ,"secure_checkout_handoff": ["ar": "تابع إلى صفحة الدفع الآمنة."]
+        ,"save_cart": ["ar": "حفظ السلة"]
+        ,"save_cart_placeholder": ["ar": "بن الأسبوع، طلب هدية، طلب المكتب..."]
+        ,"checkout_only_iphone": ["ar": "الدفع متاح على iPhone فقط."]
     ]
 
     static var currentLanguage: AppLanguage {

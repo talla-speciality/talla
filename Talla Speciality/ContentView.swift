@@ -332,6 +332,7 @@ struct ContentView: View {
     @AppStorage("alerts.productIDs") private var savedAlertProductIDs = ""
     @AppStorage("brewRecipes.saved") private var savedBrewRecipes = ""
     @AppStorage("carts.saved") private var savedCartsPayload = ""
+    @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
     @State private var notificationAuthorizationStatus: Int = 0
     @State private var accountAuthMode: AccountAuthMode = .signIn
     @State private var accountFirstName = ""
@@ -975,25 +976,25 @@ struct ContentView: View {
             tabScreen(homeView)
                 .tag(Tab.home)
                 .tabItem {
-                    Label("Home", systemImage: Tab.home.systemImage)
+                    Label(AppLocalization.text("home", fallback: "Home"), systemImage: Tab.home.systemImage)
                 }
 
             tabScreen(shopView)
                 .tag(Tab.shop)
                 .tabItem {
-                    Label("Shop", systemImage: Tab.shop.systemImage)
+                    Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
                 }
 
             tabScreen(brewingView)
                 .tag(Tab.brewing)
                 .tabItem {
-                    Label("Brewing", systemImage: Tab.brewing.systemImage)
+                    Label(AppLocalization.text("brewing", fallback: "Brewing"), systemImage: Tab.brewing.systemImage)
                 }
 
             tabScreen(accountView)
                 .tag(Tab.account)
                 .tabItem {
-                    Label("Account", systemImage: Tab.account.systemImage)
+                    Label(AppLocalization.text("account", fallback: "Account"), systemImage: Tab.account.systemImage)
                 }
         }
         .toolbar(.visible, for: .tabBar)
@@ -1048,7 +1049,7 @@ struct ContentView: View {
                 Spacer()
 
                 Menu {
-                    Section("Appearance") {
+                    Section(AppLocalization.text("appearance", fallback: "Appearance")) {
                         ForEach(AppearanceMode.allCases) { mode in
                             Button {
                                 savedAppearanceMode = mode.rawValue
@@ -1056,6 +1057,21 @@ struct ContentView: View {
                                 HStack {
                                     Text(mode.title)
                                     if appearanceMode == mode {
+                                        Spacer()
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Section(AppLocalization.text("language", fallback: "Language")) {
+                        ForEach(AppLanguage.allCases) { language in
+                            Button {
+                                savedAppLanguage = language.rawValue
+                            } label: {
+                                HStack {
+                                    Text(language.title)
+                                    if (AppLanguage(rawValue: savedAppLanguage) ?? .system) == language {
                                         Spacer()
                                         Image(systemName: "checkmark")
                                     }
@@ -1288,12 +1304,12 @@ struct ContentView: View {
                     }
 
                     if let voucher = expiringVouchers.first {
-                        Text("Expires soon: \(voucher.reward) • \(voucherExpiryLabel(for: voucher))")
+                        Text("\(AppLocalization.text("expires_soon", fallback: "Expires soon")): \(voucher.reward) • \(voucherExpiryLabel(for: voucher))")
                             .font(bodyFont(size: 13))
                             .foregroundColor(voucherExpiresSoon(voucher) ? Color.red.opacity(0.85) : secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
-                        Text("\(rewardProgressState.remaining) Beans until your next reward unlock.")
+                        Text(String(format: AppLocalization.text("beans_until_reward_unlock", fallback: "%d Beans until your next reward unlock."), rewardProgressState.remaining))
                             .font(bodyFont(size: 13))
                             .foregroundColor(secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1586,14 +1602,20 @@ struct ContentView: View {
 
     private var primaryAccountActionTitle: String {
         if accountAuthMode == .createAccount {
-            return isCreatingAccount ? "CREATING ACCOUNT..." : "CREATE ACCOUNT"
+            return isCreatingAccount
+                ? AppLocalization.text("creating_account", fallback: "CREATING ACCOUNT...")
+                : AppLocalization.text("create_account", fallback: "CREATE ACCOUNT")
         }
 
         if accountAuthMode == .changePassword {
-            return isResettingPassword ? "UPDATING PASSWORD..." : "CHANGE PASSWORD"
+            return isResettingPassword
+                ? AppLocalization.text("updating_password", fallback: "UPDATING PASSWORD...")
+                : AppLocalization.text("change_password", fallback: "CHANGE PASSWORD")
         }
 
-        return isSigningIn || isSigningInWithApple || isLoadingCustomer ? "SIGNING IN..." : "SIGN IN"
+        return isSigningIn || isSigningInWithApple || isLoadingCustomer
+            ? AppLocalization.text("signing_in", fallback: "SIGNING IN...")
+            : AppLocalization.text("sign_in", fallback: "SIGN IN")
     }
 
     private func signedInCustomerCard(_ profile: ShopifyCustomerProfile) -> some View {
@@ -2434,14 +2456,14 @@ struct ContentView: View {
 
     private var savedCartsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("SAVED CARTS")
+            Text(AppLocalization.text("saved_carts", fallback: "SAVED CARTS"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             if savedCarts.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Save a filled cart from the bag and come back to it whenever you are ready to check out.")
+                    Text(AppLocalization.text("saved_carts_empty", fallback: "Save a filled cart from the bag and come back to it whenever you are ready to check out."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2475,7 +2497,7 @@ struct ContentView: View {
                                 Button {
                                     applySavedCart(savedCart)
                                 } label: {
-                                    Text("Load")
+                                    Text(AppLocalization.text("load", fallback: "Load"))
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(1.8)
                                         .textCase(.uppercase)
@@ -2618,7 +2640,7 @@ struct ContentView: View {
     private var cartReviewContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Checkout Ready")
+                Text(AppLocalization.text("checkout_ready", fallback: "Checkout Ready"))
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(1.8)
                     .textCase(.uppercase)
@@ -2631,8 +2653,8 @@ struct ContentView: View {
 
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     DetailStatusCardView(
-                        title: "Items",
-                        detail: "\(cartCount) in bag • \(cartPurchasableItemsCount) ready",
+                        title: AppLocalization.text("items", fallback: "Items"),
+                        detail: String(format: AppLocalization.text("items_ready", fallback: "%d in bag • %d ready"), cartCount, cartPurchasableItemsCount),
                         titleFont: labelFont(size: 10, weight: .bold),
                         detailFont: bodyFont(size: 13),
                         accentColor: Color(hex: 0xC8965A),
@@ -2641,8 +2663,8 @@ struct ContentView: View {
                         strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
                     )
                     DetailStatusCardView(
-                        title: "Voucher",
-                        detail: appliedVoucher == nil ? "None applied yet" : appliedVoucher?.code ?? "Applied",
+                        title: AppLocalization.text("voucher", fallback: "Voucher"),
+                        detail: appliedVoucher == nil ? AppLocalization.text("voucher_none", fallback: "None applied yet") : appliedVoucher?.code ?? AppLocalization.text("saved", fallback: "Applied"),
                         titleFont: labelFont(size: 10, weight: .bold),
                         detailFont: bodyFont(size: 13),
                         accentColor: Color(hex: 0xC8965A),
@@ -2663,14 +2685,14 @@ struct ContentView: View {
     private var cartFooterContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Order Summary")
+                Text(AppLocalization.text("order_summary", fallback: "Order Summary"))
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(1.8)
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0xC8965A))
 
                 SummaryValueRow(
-                    title: "Subtotal",
+                    title: AppLocalization.text("subtotal", fallback: "Subtotal"),
                     value: formattedBHD(cartSubtotal),
                     emphasized: false,
                     regularFont: bodyFont(size: 13),
@@ -2682,7 +2704,7 @@ struct ContentView: View {
 
                 if appliedVoucher != nil {
                     SummaryValueRow(
-                        title: "Voucher",
+                        title: AppLocalization.text("voucher", fallback: "Voucher"),
                         value: "-\(formattedBHD(cartDiscount))",
                         emphasized: false,
                         regularFont: bodyFont(size: 13),
@@ -2694,7 +2716,7 @@ struct ContentView: View {
                 }
 
                 SummaryValueRow(
-                    title: "Total",
+                    title: AppLocalization.text("total", fallback: "Total"),
                     value: formattedBHD(cartTotal),
                     emphasized: true,
                     regularFont: bodyFont(size: 13),
@@ -2721,12 +2743,14 @@ struct ContentView: View {
             } label: {
                 VStack(spacing: 6) {
                     HStack(spacing: 8) {
-                        Text(isCheckingOut ? "OPENING CHECKOUT..." : "OPEN CHECKOUT")
+                        Text(isCheckingOut
+                            ? AppLocalization.text("opening_checkout", fallback: "OPENING CHECKOUT...")
+                            : AppLocalization.text("open_checkout", fallback: "OPEN CHECKOUT"))
                     }
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .tracking(2)
 
-                    Text("Continue to the secure checkout handoff.")
+                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Continue to the secure checkout handoff."))
                         .font(bodyFont(size: 11))
                         .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
                 }
@@ -3029,14 +3053,14 @@ struct ContentView: View {
 
     private var cartSaveSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Save Cart")
+            Text(AppLocalization.text("save_cart", fallback: "Save Cart"))
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(Color(hex: 0xC8965A))
 
             HStack(spacing: 10) {
-                TextField("Weekend beans, gifting run, office order...", text: $cartSaveName)
+                TextField(AppLocalization.text("save_cart_placeholder", fallback: "Weekend beans, gifting run, office order..."), text: $cartSaveName)
                     .font(bodyFont(size: 14))
                     .foregroundColor(primaryTextColor)
                     .padding(.horizontal, 14)
@@ -3051,7 +3075,7 @@ struct ContentView: View {
                 Button {
                     saveCurrentCart()
                 } label: {
-                    Text("Save")
+                    Text(AppLocalization.text("save", fallback: "Save"))
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(1.5)
                         .foregroundColor(Color(hex: 0x0A0804))
@@ -3070,7 +3094,7 @@ struct ContentView: View {
             ProgressView()
                 .tint(Color(hex: 0xC8965A))
 
-            Text("Loading the shop")
+            Text(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
                 .font(.system(size: 12, weight: .medium))
                 .tracking(2)
                 .textCase(.uppercase)
@@ -3211,7 +3235,7 @@ struct ContentView: View {
                 .foregroundColor(product.isAvailableForSale ? Color(hex: 0xC8965A) : tertiaryTextColor)
 
             if product.hasVariantChoices, let variant = selectedVariant(for: product) {
-                Text("Default: \(variant.title)")
+                Text("\(AppLocalization.text("default_variant", fallback: "Default:")) \(variant.title)")
                     .font(bodyFont(size: 12))
                     .foregroundColor(secondaryTextColor)
                     .lineLimit(1)
@@ -3221,7 +3245,7 @@ struct ContentView: View {
                 recordRecentlyViewed(product)
                 selectedProduct = product
             } label: {
-                Text("View Details")
+                Text(AppLocalization.text("view_details", fallback: "View Details"))
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(1.6)
                     .textCase(.uppercase)
@@ -3245,7 +3269,7 @@ struct ContentView: View {
                     addToCart(product: product)
                 }
             } label: {
-                Text(product.isAvailableForSale ? (product.hasVariantChoices ? "Choose Options" : "Add to Bag") : "Sold Out")
+                Text(product.isAvailableForSale ? (product.hasVariantChoices ? AppLocalization.text("choose_options", fallback: "Choose Options") : AppLocalization.text("add_to_bag", fallback: "Add to Bag")) : AppLocalization.text("sold_out", fallback: "Sold Out"))
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(2)
                     .textCase(.uppercase)
@@ -3328,7 +3352,7 @@ struct ContentView: View {
 
                 if product.hasVariantChoices {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("VARIANTS")
+                        Text(AppLocalization.text("variants", fallback: "VARIANTS"))
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(2)
                             .textCase(.uppercase)
@@ -3351,7 +3375,7 @@ struct ContentView: View {
 
                                     Spacer()
 
-                                    Text(variant.isAvailableForSale ? "Available" : "Sold Out")
+                                    Text(variant.isAvailableForSale ? AppLocalization.text("available", fallback: "Available") : AppLocalization.text("sold_out", fallback: "Sold Out"))
                                         .font(labelFont(size: 9, weight: .bold))
                                         .tracking(1.4)
                                         .textCase(.uppercase)
@@ -3378,8 +3402,8 @@ struct ContentView: View {
 
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     DetailStatusCardView(
-                        title: "Availability",
-                        detail: product.isAvailableForSale ? "Ready to order now" : "Currently sold out",
+                        title: AppLocalization.text("availability", fallback: "Availability"),
+                        detail: product.isAvailableForSale ? AppLocalization.text("ready_to_order", fallback: "Ready to order now") : AppLocalization.text("currently_sold_out", fallback: "Currently sold out"),
                         titleFont: labelFont(size: 10, weight: .bold),
                         detailFont: bodyFont(size: 13),
                         accentColor: Color(hex: 0xC8965A),
@@ -3388,7 +3412,7 @@ struct ContentView: View {
                         strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
                     )
                     DetailStatusCardView(
-                        title: "Category",
+                        title: AppLocalization.text("category", fallback: "Category"),
                         detail: product.categoryLabel,
                         titleFont: labelFont(size: 10, weight: .bold),
                         detailFont: bodyFont(size: 13),
@@ -3446,7 +3470,7 @@ struct ContentView: View {
                         addToCart(product: product)
                         selectedProduct = nil
                     } label: {
-                        Text((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? "Add to Bag" : "Sold Out")
+                        Text((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? AppLocalization.text("add_to_bag", fallback: "Add to Bag") : AppLocalization.text("sold_out", fallback: "Sold Out"))
                             .font(labelFont(size: 11, weight: .bold))
                             .tracking(2)
                             .textCase(.uppercase)
@@ -6287,7 +6311,7 @@ private struct CheckoutWebView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Checkout is only available on iPhone.")
+            Text(AppLocalization.text("checkout_only_iphone", fallback: "Checkout is only available on iPhone."))
                 .font(.headline)
             Text(url.absoluteString)
                 .font(.footnote)
