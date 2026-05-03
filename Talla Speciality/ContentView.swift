@@ -1155,7 +1155,7 @@ struct ContentView: View {
 
     private var homeQuickActions: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Start here")
+            Text(AppLocalization.text("start_here", fallback: "Start here"))
                 .font(labelFont(size: 10, weight: .bold))
                 .tracking(2.2)
                 .textCase(.uppercase)
@@ -1163,8 +1163,8 @@ struct ContentView: View {
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ActionTileView(
-                    title: "Shop Bestsellers",
-                    detail: "Go straight to coffees, tools, and gifts.",
+                    title: AppLocalization.text("shop_bestsellers", fallback: "Shop Bestsellers"),
+                    detail: AppLocalization.text("shop_bestsellers_detail", fallback: "Go straight to coffees, tools, and gifts."),
                     systemImage: "bag.fill",
                     titleFont: labelFont(size: 11, weight: .bold),
                     detailFont: bodyFont(size: 13),
@@ -1179,8 +1179,8 @@ struct ContentView: View {
                 }
 
                 ActionTileView(
-                    title: "Check Rewards",
-                    detail: "See Beans, rewards, and your member status.",
+                    title: AppLocalization.text("check_rewards_home", fallback: "Check Rewards"),
+                    detail: AppLocalization.text("check_rewards_home_detail", fallback: "See Beans, rewards, and your member status."),
                     systemImage: "sparkles.rectangle.stack.fill",
                     titleFont: labelFont(size: 11, weight: .bold),
                     detailFont: bodyFont(size: 13),
@@ -1195,8 +1195,8 @@ struct ContentView: View {
                 }
 
                 ActionTileView(
-                    title: "Reorder Faster",
-                    detail: "Open saved carts, addresses, and recent orders.",
+                    title: AppLocalization.text("reorder_faster", fallback: "Reorder Faster"),
+                    detail: AppLocalization.text("reorder_faster_detail", fallback: "Open saved carts, addresses, and recent orders."),
                     systemImage: "arrow.clockwise.circle.fill",
                     titleFont: labelFont(size: 11, weight: .bold),
                     detailFont: bodyFont(size: 13),
@@ -1213,8 +1213,8 @@ struct ContentView: View {
                 }
 
                 ActionTileView(
-                    title: "Brew Better",
-                    detail: "Use guides and saved recipes for your next cup.",
+                    title: AppLocalization.text("brew_better", fallback: "Brew Better"),
+                    detail: AppLocalization.text("brew_better_detail", fallback: "Use guides and saved recipes for your next cup."),
                     systemImage: "drop.fill",
                     titleFont: labelFont(size: 11, weight: .bold),
                     detailFont: bodyFont(size: 13),
@@ -1247,7 +1247,7 @@ struct ContentView: View {
                                 .textCase(.uppercase)
                                 .foregroundColor(Color(hex: 0xC8965A))
 
-                            Text(expiringVouchers.isEmpty ? loyaltyAccount.nextReward : "\(expiringVouchers.count) rewards active")
+                            Text(expiringVouchers.isEmpty ? loyaltyAccount.nextReward : String(format: AppLocalization.text("rewards_active_count", fallback: "%d rewards active"), expiringVouchers.count))
                                 .font(titleFont(size: 20))
                                 .foregroundColor(primaryTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1258,7 +1258,7 @@ struct ContentView: View {
                         Button {
                             activeTab = .account
                         } label: {
-                            Text("Rewards")
+                            Text(AppLocalization.text("rewards_button", fallback: "Rewards"))
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.8)
                                 .textCase(.uppercase)
@@ -1273,7 +1273,7 @@ struct ContentView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Reward Progress")
+                            Text(AppLocalization.text("reward_progress_home", fallback: "Reward Progress"))
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.8)
                                 .textCase(.uppercase)
@@ -1332,13 +1332,13 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Roastery")
+                    Text(AppLocalization.text("roastery", fallback: "Roastery"))
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(4)
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text("Coffee for daily rituals")
+                    Text(AppLocalization.text("coffee_daily_rituals", fallback: "Coffee for daily rituals"))
                         .font(bodyFont(size: 13))
                         .foregroundColor(secondaryTextColor)
                 }
@@ -1348,7 +1348,7 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 12, weight: .semibold))
-                    Text("Fresh Roast")
+                    Text(AppLocalization.text("fresh_roast", fallback: "Fresh Roast"))
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(1.8)
                         .textCase(.uppercase)
@@ -1367,12 +1367,12 @@ struct ContentView: View {
             }
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("Specialty coffee,\nroasted with intention")
+                Text(AppLocalization.text("hero_title", fallback: "Specialty coffee,\nroasted with intention"))
                     .font(displayFont(size: isCompact ? 34 : 46))
                     .lineSpacing(4)
                     .foregroundColor(primaryTextColor)
 
-                Text("Shop roasted coffee, brewing essentials, and rewards without digging through the app.")
+                Text(AppLocalization.text("hero_subtitle", fallback: "Shop roasted coffee, brewing essentials, and rewards without digging through the app."))
                     .font(bodyFont(size: 16))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1390,7 +1390,7 @@ struct ContentView: View {
                 Button {
                     activeTab = .shop
                 } label: {
-                    Text("EXPLORE COFFEES")
+                    Text(AppLocalization.text("explore_coffees", fallback: "EXPLORE COFFEES"))
                         .font(labelFont(size: 13, weight: .bold))
                         .tracking(3)
                         .foregroundColor(Color(hex: 0x0A0804))
@@ -1404,7 +1404,7 @@ struct ContentView: View {
                 Button {
                     activeTab = .brewing
                 } label: {
-                    Text("BREWING GUIDE")
+                    Text(AppLocalization.text("brewing_guide", fallback: "BREWING GUIDE"))
                         .font(labelFont(size: 12, weight: .bold))
                         .tracking(2.5)
                         .foregroundColor(primaryTextColor)
@@ -1696,19 +1696,19 @@ struct ContentView: View {
     private var featuredProducts: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Roastery Selection")
+                Text(AppLocalization.text("roastery_selection", fallback: "Roastery Selection"))
                     .font(labelFont(size: 10, weight: .semibold))
                     .tracking(4)
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0xC8965A))
-                Text("SIGNATURE ROASTS")
+                Text(AppLocalization.text("signature_roasts", fallback: "SIGNATURE ROASTS"))
                     .font(displayFont(size: 30))
                     .tracking(1)
                     .foregroundColor(primaryTextColor)
                 Button {
                     activeTab = .shop
                 } label: {
-                    Text("Browse Shop")
+                    Text(AppLocalization.text("browse_shop", fallback: "Browse Shop"))
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(2)
                         .textCase(.uppercase)
@@ -1742,12 +1742,12 @@ struct ContentView: View {
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0xC8965A))
 
-                Text("FROM THE ROASTERY")
+                Text(AppLocalization.text("from_the_roastery", fallback: "FROM THE ROASTERY"))
                     .font(displayFont(size: 28))
                     .tracking(1)
                     .foregroundColor(primaryTextColor)
 
-                Text("A tighter selection of coffees, tools, and gifts shaped around the daily ritual of the roastery.")
+                Text(AppLocalization.text("from_the_roastery_detail", fallback: "A tighter selection of coffees, tools, and gifts shaped around the daily ritual of the roastery."))
                     .font(bodyFont(size: 15))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1789,7 +1789,7 @@ struct ContentView: View {
 
     private var shopView: some View {
         ShopSectionView(
-            activeCategoryTitle: activeCategory == "all" ? "Full catalog" : categoryLabel(for: activeCategory),
+            activeCategoryTitle: activeCategory == "all" ? AppLocalization.text("full_catalog", fallback: "Full catalog") : categoryLabel(for: activeCategory),
             availableCategories: availableCategories,
             filteredProducts: filteredProducts,
             allProductsAreEmpty: products.isEmpty,
@@ -1914,24 +1914,24 @@ struct ContentView: View {
             brewingSection: AnyView(brewRecipesSection),
             supportSection: AnyView(
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("ACCOUNT TOOLS")
+                    Text(AppLocalization.text("account_tools", fallback: "ACCOUNT TOOLS"))
                         .font(displayFont(size: 22))
                         .tracking(2)
                         .foregroundColor(primaryTextColor)
 
                     LazyVGrid(columns: collectionGridColumns, spacing: 12) {
                         accountStatusTile(
-                            title: "Talla Account",
-                            detail: "Your Talla account connects checkout, rewards, and saved details in one place."
+                            title: AppLocalization.text("talla_account", fallback: "Talla Account"),
+                            detail: AppLocalization.text("talla_account_detail", fallback: "Your Talla account connects checkout, rewards, and saved details in one place.")
                         )
                         accountStatusTile(
-                            title: "Rewards Ready",
-                            detail: "Your account email is used to keep rewards and loyalty in sync across the app."
+                            title: AppLocalization.text("rewards_ready", fallback: "Rewards Ready"),
+                            detail: AppLocalization.text("rewards_ready_detail", fallback: "Your account email is used to keep rewards and loyalty in sync across the app.")
                         )
                         infoTile(
-                            title: "Support",
-                            detail: "Need help with orders or rewards? Reach the roastery team directly.",
-                            actionTitle: "WhatsApp Us",
+                            title: AppLocalization.text("support", fallback: "Support"),
+                            detail: AppLocalization.text("support_detail", fallback: "Need help with orders or rewards? Reach the roastery team directly."),
+                            actionTitle: AppLocalization.text("whatsapp_us", fallback: "WhatsApp Us"),
                             destination: URL(string: "https://wa.me/97339392414")!
                         )
                     }
@@ -1964,14 +1964,14 @@ struct ContentView: View {
 
     private var favoritesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("FAVORITES")
+            Text(AppLocalization.text("favorites", fallback: "FAVORITES"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             if favoriteProducts.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Save coffees, tools, and gifts you want to come back to.")
+                    Text(AppLocalization.text("favorites_empty", fallback: "Save coffees, tools, and gifts you want to come back to."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1979,7 +1979,7 @@ struct ContentView: View {
                     Button {
                         activeTab = .shop
                     } label: {
-                        Text("Browse Products")
+                        Text(AppLocalization.text("browse_products", fallback: "Browse Products"))
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(1.8)
                             .textCase(.uppercase)
@@ -2007,14 +2007,14 @@ struct ContentView: View {
 
     private var recommendedSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("RECOMMENDED FOR YOU")
+            Text(AppLocalization.text("recommended_for_you", fallback: "RECOMMENDED FOR YOU"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             if recommendedProducts.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Recommendations will appear here once products are loaded.")
+                    Text(AppLocalization.text("recommendations_empty", fallback: "Recommendations will appear here once products are loaded."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2029,7 +2029,7 @@ struct ContentView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Picked from the coffees, tools, and categories you keep coming back to.")
+                    Text(AppLocalization.text("recommendations_detail", fallback: "Picked from the coffees, tools, and categories you keep coming back to."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2046,14 +2046,14 @@ struct ContentView: View {
 
     private var alertsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("ALERTS")
+            Text(AppLocalization.text("alerts", fallback: "ALERTS"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             if alertProducts.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Tap the bell on a product to keep it on your back in stock or new roast watchlist.")
+                    Text(AppLocalization.text("alerts_empty", fallback: "Tap the bell on a product to keep it on your back in stock or new roast watchlist."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2068,14 +2068,14 @@ struct ContentView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Track upcoming drops and get back to the coffees you do not want to miss.")
+                    Text(AppLocalization.text("alerts_detail", fallback: "Track upcoming drops and get back to the coffees you do not want to miss."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if !alertInbox.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Recent Alert Updates")
+                            Text(AppLocalization.text("recent_alert_updates", fallback: "Recent Alert Updates"))
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.6)
                                 .textCase(.uppercase)
@@ -2202,12 +2202,16 @@ struct ContentView: View {
             } label: {
                 HStack(alignment: .center, spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("DELIVERY DETAILS")
+                        Text(AppLocalization.text("delivery_details", fallback: "DELIVERY DETAILS"))
                             .font(displayFont(size: 22))
                             .tracking(2)
                             .foregroundColor(primaryTextColor)
 
-                        Text(addresses.isEmpty ? "Add an address for faster checkout." : "\(addresses.count) saved address\(addresses.count == 1 ? "" : "es") ready.")
+                        Text(addresses.isEmpty
+                            ? AppLocalization.text("delivery_details_empty", fallback: "Add an address for faster checkout.")
+                            : (addresses.count == 1
+                                ? AppLocalization.text("delivery_details_ready_one", fallback: "1 saved address ready.")
+                                : String(format: AppLocalization.text("delivery_details_ready_many", fallback: "%d saved addresses ready."), addresses.count)))
                             .font(bodyFont(size: 14))
                             .foregroundColor(secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
@@ -2224,12 +2228,12 @@ struct ContentView: View {
 
             if isDeliveryDetailsExpanded {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Save your preferred address here so checkout feels faster, even when Shopify opens on the web.")
+                    Text(AppLocalization.text("delivery_details_hint", fallback: "Save your preferred address here so checkout feels faster, even when Shopify opens on the web."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    TextField("Label", text: $addressLabel)
+                    TextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel)
                         .textInputAutocapitalization(.words)
                         .font(bodyFont(size: 14))
                         .foregroundColor(primaryTextColor)
@@ -2238,7 +2242,7 @@ struct ContentView: View {
                         .background(cardFillColor)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                    TextField("Full name", text: $addressFullName)
+                    TextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName)
                         .textInputAutocapitalization(.words)
                         .font(bodyFont(size: 14))
                         .foregroundColor(primaryTextColor)
@@ -2247,7 +2251,7 @@ struct ContentView: View {
                         .background(cardFillColor)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                    TextField("Phone", text: $addressPhone)
+                    TextField(AppLocalization.text("phone", fallback: "Phone"), text: $addressPhone)
                         .keyboardType(.phonePad)
                         .font(bodyFont(size: 14))
                         .foregroundColor(primaryTextColor)
@@ -2256,7 +2260,7 @@ struct ContentView: View {
                         .background(cardFillColor)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                    TextField("Address line", text: $addressLine1)
+                    TextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1)
                         .textInputAutocapitalization(.words)
                         .font(bodyFont(size: 14))
                         .foregroundColor(primaryTextColor)
@@ -2266,7 +2270,7 @@ struct ContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     HStack(spacing: 10) {
-                        TextField("City", text: $addressCity)
+                        TextField(AppLocalization.text("city", fallback: "City"), text: $addressCity)
                             .textInputAutocapitalization(.words)
                             .font(bodyFont(size: 14))
                             .foregroundColor(primaryTextColor)
@@ -2275,7 +2279,7 @@ struct ContentView: View {
                             .background(cardFillColor)
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                        TextField("Notes", text: $addressNotes)
+                        TextField(AppLocalization.text("notes", fallback: "Notes"), text: $addressNotes)
                             .textInputAutocapitalization(.sentences)
                             .font(bodyFont(size: 14))
                             .foregroundColor(primaryTextColor)
@@ -2290,7 +2294,9 @@ struct ContentView: View {
                             await saveAddress()
                         }
                     } label: {
-                        Text(isSavingAddress ? "Saving..." : "Save Address")
+                        Text(isSavingAddress
+                            ? AppLocalization.text("saving", fallback: "Saving...")
+                            : AppLocalization.text("save_address", fallback: "Save Address"))
                             .font(labelFont(size: 11, weight: .bold))
                             .tracking(1.8)
                             .textCase(.uppercase)
@@ -2306,7 +2312,7 @@ struct ContentView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
 
                 if addresses.isEmpty {
-                    Text("No saved addresses yet.")
+                    Text(AppLocalization.text("no_saved_addresses", fallback: "No saved addresses yet."))
                         .font(bodyFont(size: 13))
                         .foregroundColor(secondaryTextColor)
                 } else {
@@ -2328,7 +2334,7 @@ struct ContentView: View {
                                         .foregroundColor(tertiaryTextColor)
                                 }
                                 if address.isPreferred {
-                                    Text("Preferred")
+                                    Text(AppLocalization.text("preferred", fallback: "Preferred"))
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(1.6)
                                         .textCase(.uppercase)
@@ -2368,14 +2374,14 @@ struct ContentView: View {
 
     private var brewRecipesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("SAVED BREW RECIPES")
+            Text(AppLocalization.text("saved_brew_recipes", fallback: "SAVED BREW RECIPES"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             if brewRecipes.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Save your favorite coffee-to-water ratios from the brew tab and they will appear here.")
+                    Text(AppLocalization.text("saved_brew_recipes_empty", fallback: "Save your favorite coffee-to-water ratios from the brew tab and they will appear here."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2415,7 +2421,7 @@ struct ContentView: View {
                                 Button {
                                     applyBrewRecipe(recipe)
                                 } label: {
-                                    Text("Apply")
+                                    Text(AppLocalization.text("apply", fallback: "Apply"))
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(1.8)
                                         .textCase(.uppercase)
@@ -2538,14 +2544,14 @@ struct ContentView: View {
 
     private var recentlyViewedSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("RECENTLY VIEWED")
+            Text(AppLocalization.text("recently_viewed", fallback: "RECENTLY VIEWED"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             if recentlyViewedProducts.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Products you open, save, or add to bag will appear here for quick return visits.")
+                    Text(AppLocalization.text("recently_viewed_empty", fallback: "Products you open, save, or add to bag will appear here for quick return visits."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2598,7 +2604,7 @@ struct ContentView: View {
                 .tracking(4)
                 .foregroundColor(Color(hex: 0xC8965A))
 
-            Text("By Chef Ahmad")
+            Text(AppLocalization.text("by_chef_ahmad", fallback: "By Chef Ahmad"))
                 .font(.system(size: 9, weight: .light))
                 .tracking(3)
                 .textCase(.uppercase)
@@ -2632,7 +2638,7 @@ struct ContentView: View {
     }
 
     private var cartEmptyState: some View {
-        Text("Your bag is empty.")
+        Text(AppLocalization.text("your_bag_is_empty", fallback: "Your bag is empty."))
             .font(.system(size: 12, weight: .light))
             .foregroundColor(tertiaryTextColor)
     }
@@ -2772,7 +2778,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Preferred Delivery")
+                            Text(AppLocalization.text("preferred_delivery", fallback: "Preferred Delivery"))
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.6)
                                 .textCase(.uppercase)
@@ -2793,7 +2799,7 @@ struct ContentView: View {
                             isDeliveryDetailsExpanded = true
                             activeTab = .account
                         } label: {
-                            Text("Edit")
+                            Text(AppLocalization.text("edit", fallback: "Edit"))
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.5)
                                 .textCase(.uppercase)
@@ -2819,12 +2825,12 @@ struct ContentView: View {
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Delivery Address Needed")
+                            Text(AppLocalization.text("delivery_address_needed", fallback: "Delivery Address Needed"))
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.6)
                                 .textCase(.uppercase)
                                 .foregroundColor(Color(hex: 0xC8965A))
-                            Text("Add your preferred address before checkout.")
+                            Text(AppLocalization.text("add_preferred_address_before_checkout", fallback: "Add your preferred address before checkout."))
                                 .font(bodyFont(size: 13))
                                 .foregroundColor(secondaryTextColor)
                         }
@@ -2892,19 +2898,19 @@ struct ContentView: View {
 
     private var cartRewardsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Rewards & Voucher")
+            Text(AppLocalization.text("rewards_voucher", fallback: "Rewards & Voucher"))
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(Color(hex: 0xC8965A))
 
-            Text("Apply a reward before opening checkout, or continue without one.")
+            Text(AppLocalization.text("rewards_voucher_detail", fallback: "Apply a reward before opening checkout, or continue without one."))
                 .font(bodyFont(size: 12))
                 .foregroundColor(secondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
-                TextField("Enter voucher code", text: $voucherCodeInput)
+                TextField(AppLocalization.text("enter_voucher_code", fallback: "Enter voucher code"), text: $voucherCodeInput)
                     .textInputAutocapitalization(.characters)
                     .disableAutocorrection(true)
                     .font(bodyFont(size: 14))
@@ -2923,7 +2929,7 @@ struct ContentView: View {
                         await applyVoucher()
                     }
                 } label: {
-                    Text(isApplyingVoucher ? "..." : "Apply")
+                    Text(isApplyingVoucher ? "..." : AppLocalization.text("apply", fallback: "Apply"))
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(1.5)
                         .foregroundColor(Color(hex: 0x0A0804))
@@ -2946,7 +2952,7 @@ struct ContentView: View {
 
                         Spacer()
 
-                        Button("Remove") {
+                        Button(AppLocalization.text("remove", fallback: "Remove")) {
                             removeAppliedVoucher()
                         }
                         .font(bodyFont(size: 12))
@@ -2959,7 +2965,7 @@ struct ContentView: View {
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Discount: \(formattedBHD(cartDiscount)) • Expires \(appliedVoucher.expiresAt.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: ""))")
+                    Text(String(format: AppLocalization.text("discount_expires", fallback: "Discount: %@ • Expires %@"), formattedBHD(cartDiscount), appliedVoucher.expiresAt.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: "")))
                         .font(bodyFont(size: 12))
                         .foregroundColor(tertiaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2983,7 +2989,7 @@ struct ContentView: View {
             if let profile = customerProfile {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Your Active Vouchers")
+                        Text(AppLocalization.text("your_active_vouchers", fallback: "Your Active Vouchers"))
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(1.6)
                             .textCase(.uppercase)
@@ -2999,7 +3005,7 @@ struct ContentView: View {
                     }
 
                     if availableVouchers.isEmpty {
-                        Text("Redeem a reward in Account to see your active vouchers here.")
+                        Text(AppLocalization.text("active_vouchers_empty", fallback: "Redeem a reward in Account to see your active vouchers here."))
                             .font(bodyFont(size: 12))
                             .foregroundColor(secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)

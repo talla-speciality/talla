@@ -27,18 +27,18 @@ struct ShopSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Explore")
+                Text(AppLocalization.text("explore", fallback: "Explore"))
                     .font(labelFont)
                     .tracking(4)
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
-                Text("ALL PRODUCTS")
+                Text(AppLocalization.text("all_products", fallback: "ALL PRODUCTS"))
                     .font(titleFont)
                     .tracking(1)
                     .foregroundColor(primaryTextColor)
 
-                Text("Browse by category, jump into customer favorites, and add to bag without hunting through the catalog.")
+                Text(AppLocalization.text("browse_catalog", fallback: "Browse by category, jump into customer favorites, and add to bag without hunting through the catalog."))
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -85,8 +85,8 @@ struct ShopSectionView: View {
                 categoryKey: "coffee-equipment"
             )
             shortcutCard(
-                title: "Show Everything",
-                detail: "Reset filters and browse the full catalog.",
+                title: AppLocalization.text("show_everything", fallback: "Show Everything"),
+                detail: AppLocalization.text("browse_catalog", fallback: "Reset filters and browse the full catalog."),
                 systemImage: "square.grid.2x2.fill",
                 categoryKey: "all"
             )
@@ -113,7 +113,7 @@ struct ShopSectionView: View {
                 Button {
                     activeCategory = "all"
                 } label: {
-                    Text("Clear")
+                    Text(AppLocalization.text("clear", fallback: "Clear"))
                         .font(categoryLabelFont)
                         .tracking(1.6)
                         .textCase(.uppercase)
@@ -142,7 +142,7 @@ struct ShopSectionView: View {
 
     private var shopCategoriesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("CATEGORIES")
+            Text(AppLocalization.text("categories", fallback: "CATEGORIES"))
                 .font(labelFont)
                 .tracking(4)
                 .textCase(.uppercase)
@@ -231,7 +231,7 @@ struct ShopSectionView: View {
             ProgressView()
                 .tint(accentColor)
 
-            Text("Loading the shop")
+                Text(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
                 .font(.system(size: 12, weight: .medium))
                 .tracking(2)
                 .textCase(.uppercase)
@@ -243,14 +243,14 @@ struct ShopSectionView: View {
 
     private var emptySection: some View {
         VStack(spacing: 12) {
-            Text("No products match this category right now.")
+            Text(AppLocalization.text("no_products", fallback: "No products match this category right now."))
                 .font(.system(size: 15, weight: .medium, design: .serif))
                 .foregroundColor(secondaryTextColor)
 
             Button {
                 activeCategory = "all"
             } label: {
-                Text("Show All Products")
+                Text(AppLocalization.text("show_all_products", fallback: "Show All Products"))
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(3)
                     .textCase(.uppercase)
@@ -268,7 +268,7 @@ struct ShopSectionView: View {
 
     private func errorSection(message: String) -> some View {
         VStack(spacing: 14) {
-            Text("We couldn’t load the shop.")
+            Text(AppLocalization.text("shop_load_failed", fallback: "We couldn’t load the shop."))
                 .font(.system(size: 16, weight: .semibold, design: .serif))
                 .foregroundColor(primaryTextColor)
 
@@ -278,7 +278,7 @@ struct ShopSectionView: View {
                 .foregroundColor(secondaryTextColor)
 
             Button(action: retryLoad) {
-                Text("Retry")
+                Text(AppLocalization.text("retry", fallback: "Retry"))
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(3)
                     .textCase(.uppercase)
