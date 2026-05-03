@@ -11,6 +11,204 @@ import SafariServices
 import UIKit
 #endif
 
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case system
+    case english
+    case arabic
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system:
+            return "System"
+        case .english:
+            return "English"
+        case .arabic:
+            return "العربية"
+        }
+    }
+
+    var localeIdentifier: String {
+        switch self {
+        case .system:
+            return Locale.current.identifier
+        case .english:
+            return "en"
+        case .arabic:
+            return "ar"
+        }
+    }
+
+    var layoutDirection: LayoutDirection {
+        switch effectiveLanguageCode {
+        case "ar":
+            return .rightToLeft
+        default:
+            return .leftToRight
+        }
+    }
+
+    var effectiveLanguageCode: String {
+        switch self {
+        case .system:
+            return Locale.current.language.languageCode?.identifier ?? "en"
+        case .english:
+            return "en"
+        case .arabic:
+            return "ar"
+        }
+    }
+}
+
+enum AppLocalization {
+    private static let translations: [String: [String: String]] = [
+        "language": ["ar": "اللغة"],
+        "home": ["ar": "الرئيسية"],
+        "shop": ["ar": "المتجر"],
+        "brewing": ["ar": "التحضير"],
+        "account": ["ar": "الحساب"],
+        "appearance": ["ar": "المظهر"],
+        "explore": ["ar": "استكشف"],
+        "all_products": ["ar": "كل المنتجات"],
+        "browse_catalog": ["ar": "تصفح حسب الفئة، واكتشف مفضلات العملاء، وأضف إلى السلة بسهولة."],
+        "categories": ["ar": "الفئات"],
+        "clear": ["ar": "مسح"],
+        "show_everything": ["ar": "عرض الكل"],
+        "loading_shop": ["ar": "جاري تحميل المتجر"],
+        "no_products": ["ar": "لا توجد منتجات مطابقة لهذه الفئة حالياً."],
+        "show_all_products": ["ar": "عرض كل المنتجات"],
+        "retry": ["ar": "إعادة المحاولة"],
+        "account_title": ["ar": "الحساب"],
+        "customer_sign_in": ["ar": "تسجيل دخول العملاء"],
+        "account_create_copy": ["ar": "أنشئ حساباً واحداً للطلب والمكافآت والبيانات المحفوظة."],
+        "account_change_password_copy": ["ar": "غيّر كلمة المرور بدون الحاجة إلى استعادة جلسة تسجيل الدخول أولاً."],
+        "account_sign_in_copy": ["ar": "سجّل الدخول مرة واحدة للوصول إلى المكافآت والعناوين المحفوظة وسجل الطلبات."],
+        "sign_in": ["ar": "تسجيل الدخول"],
+        "create_account": ["ar": "إنشاء حساب"],
+        "change_password": ["ar": "تغيير كلمة المرور"],
+        "first_name": ["ar": "الاسم الأول"],
+        "last_name": ["ar": "اسم العائلة"],
+        "email_address": ["ar": "البريد الإلكتروني"],
+        "password": ["ar": "كلمة المرور"],
+        "current_password": ["ar": "كلمة المرور الحالية"],
+        "new_password": ["ar": "كلمة المرور الجديدة"],
+        "confirm_password": ["ar": "تأكيد كلمة المرور"],
+        "or_continue_with": ["ar": "أو تابع عبر"],
+        "signing_in_with_apple": ["ar": "جارٍ تسجيل الدخول عبر Apple..."],
+        "fast_access_checkout": ["ar": "وصول سريع للطلب والمكافآت"],
+        "email_reset_link": ["ar": "إرسال رابط إعادة التعيين"],
+        "sending_link": ["ar": "جارٍ إرسال الرابط..."],
+        "already_have_account": ["ar": "لديك حساب بالفعل؟"],
+        "back_to_sign_in": ["ar": "العودة لتسجيل الدخول"],
+        "saved": ["ar": "محفوظ"],
+        "save": ["ar": "حفظ"],
+        "watching": ["ar": "قيد المتابعة"],
+        "watch": ["ar": "متابعة"],
+        "view_details": ["ar": "عرض التفاصيل"],
+        "choose_options": ["ar": "اختر الخيارات"],
+        "add_to_bag": ["ar": "أضف إلى السلة"],
+        "sold_out": ["ar": "نفد"],
+        "default_variant": ["ar": "الافتراضي:"],
+        "variants": ["ar": "الخيارات"],
+        "available": ["ar": "متوفر"],
+        "availability": ["ar": "التوفر"],
+        "ready_to_order": ["ar": "جاهز للطلب الآن"],
+        "currently_sold_out": ["ar": "غير متوفر حالياً"],
+        "category": ["ar": "الفئة"]
+        ,"customer": ["ar": "العميل"]
+        ,"account_heading": ["ar": "الحساب"]
+        ,"account_intro": ["ar": "أدر تسجيل دخولك، وراجع المكافآت، واحتفظ بعضويتك في مكان واحد."]
+        ,"account_sync_hint": ["ar": "استخدم نفس البريد في الطلب والمكافآت حتى يبقى كل شيء متزامناً."]
+        ,"library_delivery": ["ar": "المكتبة والتوصيل"]
+        ,"library_delivery_subtitle": ["ar": "العناوين والتنبيهات والسلال المحفوظة لإعادة الطلب بسرعة."]
+        ,"shopping_discovery": ["ar": "التسوق والاكتشاف"]
+        ,"shopping_discovery_subtitle": ["ar": "المفضلة والعناصر التي شاهدتها والتوصيات."]
+        ,"brewing_archive": ["ar": "أرشيف التحضير"]
+        ,"brewing_archive_subtitle": ["ar": "احتفظ بوصفاتك المحفوظة قريباً منك."]
+        ,"support_tools": ["ar": "الدعم وأدوات الحساب"]
+        ,"support_tools_subtitle": ["ar": "مراجع سريعة وروابط مساعدة عند الحاجة."]
+        ,"open_rewards": ["ar": "افتح المكافآت"]
+        ,"open_rewards_detail": ["ar": "راجع الرصيد واستبدل المكافآت المتاحة."]
+        ,"delivery_setup": ["ar": "إعداد التوصيل"]
+        ,"delivery_setup_empty": ["ar": "أضف عنوانك الأول."]
+        ,"address_saved_singular": ["ar": "تم حفظ عنوان واحد."]
+        ,"address_saved_plural": ["ar": "تم حفظ %d عناوين."]
+        ,"saved_picks": ["ar": "اختياراتك المحفوظة"]
+        ,"saved_picks_empty": ["ar": "ابدأ ببناء قائمتك المفضلة."]
+        ,"favorite_saved_singular": ["ar": "تم حفظ مفضل واحد."]
+        ,"favorite_saved_plural": ["ar": "تم حفظ %d مفضلات."]
+        ,"brew_archive": ["ar": "أرشيف التحضير"]
+        ,"brew_archive_empty": ["ar": "احتفظ بالوصفات لوقت لاحق."]
+        ,"recipe_saved_singular": ["ar": "تم حفظ وصفة واحدة."]
+        ,"recipe_saved_plural": ["ar": "تم حفظ %d وصفات."]
+        ,"loyalty": ["ar": "المكافآت"]
+        ,"reserve_copy": ["ar": "استخدم بريد طلبك لفتح Beans والمكافآت ومزايا Reserve في مكان واحد."]
+        ,"signed_in": ["ar": "تم تسجيل الدخول"]
+        ,"beans_available": ["ar": "Beans المتاحة"]
+        ,"next_reward": ["ar": "المكافأة التالية"]
+        ,"tier_progress": ["ar": "تقدم المستوى"]
+        ,"beans_to_go": ["ar": "متبقي %d Beans"]
+        ,"beans_to_tier": ["ar": "متبقي %d Beans للوصول إلى %@"]
+        ,"beans_count": ["ar": "%d Beans"]
+        ,"member_id": ["ar": "رقم العضوية"]
+        ,"reserve_benefit": ["ar": "ميزة Reserve"]
+        ,"lookup_rewards": ["ar": "عرض المكافآت"]
+        ,"checking": ["ar": "جارٍ التحقق..."]
+        ,"check_rewards": ["ar": "عرض المكافآت"]
+        ,"sign_out": ["ar": "تسجيل الخروج"]
+        ,"orders_award_beans": ["ar": "الطلبات المكتملة تمنح الآن 5 Beans لكل 1 دينار بحريني."]
+        ,"the_craft": ["ar": "الحرفة"]
+        ,"brewing_methods": ["ar": "طرق التحضير"]
+        ,"brewing_intro": ["ar": "أدلة لتحضير قهوة أفضل في المنزل."]
+        ,"golden_ratio": ["ar": "النسبة الذهبية"]
+        ,"strong_bold": ["ar": "قوي ومركز"]
+        ,"balanced": ["ar": "متوازن"]
+        ,"light_bright": ["ar": "خفيف ومشرق"]
+        ,"ratio_copy": ["ar": "نسبة القهوة إلى الماء. عدّلها حسب ذوقك بناءً على التحميص وطريقة التحضير."]
+        ,"coffee_journal": ["ar": "مجلة القهوة"]
+        ,"source": ["ar": "المصدر"]
+        ,"guide": ["ar": "الدليل"]
+        ,"in_app_guide": ["ar": "دليل داخل التطبيق"]
+        ,"coffee_journal_article": ["ar": "مقال من مجلة القهوة"]
+        ,"use_built_in_guide": ["ar": "استخدم الدليل المدمج أدناه."]
+        ,"open_full_guide": ["ar": "افتح دليل التحضير الكامل."]
+        ,"open_guide": ["ar": "افتح الدليل"]
+        ,"in_app": ["ar": "داخل التطبيق"]
+        ,"ratio_calculator": ["ar": "حاسبة النسبة"]
+        ,"coffee_grams": ["ar": "القهوة (غرام)"]
+        ,"ratio": ["ar": "النسبة"]
+        ,"water": ["ar": "ماء"]
+        ,"ratio_based_on": ["ar": "بناءً على %@ غرام من القهوة بنسبة 1:%@."]
+        ,"recipe_name": ["ar": "اسم الوصفة"]
+        ,"save_recipe": ["ar": "حفظ الوصفة"]
+        ,"active": ["ar": "نشط"]
+        ,"customer_email": ["ar": "بريد العميل"]
+        ,"rewards_sync": ["ar": "مزامنة المكافآت"]
+        ,"rewards_sync_detail": ["ar": "ربطنا عرض المكافآت بهذا الحساب الآن."]
+        ,"saved_addresses": ["ar": "العناوين المحفوظة"]
+        ,"saved_addresses_empty": ["ar": "أضف بيانات التوصيل لتسريع الطلب."]
+        ,"saved_addresses_singular": ["ar": "عنوان واحد جاهز للاستخدام."]
+        ,"saved_addresses_plural": ["ar": "%d عناوين جاهزة للاستخدام."]
+        ,"recent_orders": ["ar": "الطلبات الأخيرة"]
+        ,"recent_orders_empty": ["ar": "سيظهر طلبك القادم هنا."]
+        ,"recent_orders_singular": ["ar": "طلب واحد متاح في سجلّك."]
+        ,"recent_orders_plural": ["ar": "%d طلبات متاحة في سجلّك."]
+        ,"profile_workspace": ["ar": "مساحة الملف الشخصي"]
+        ,"profile_workspace_detail": ["ar": "عدّل بيانات الحساب، وحدّث كلمة المرور، وراجع أحدث الطلبات."]
+    ]
+
+    static var currentLanguage: AppLanguage {
+        let rawValue = UserDefaults.standard.string(forKey: "app.language") ?? AppLanguage.system.rawValue
+        return AppLanguage(rawValue: rawValue) ?? .system
+    }
+
+    static func text(_ key: String, fallback: String) -> String {
+        let languageCode = currentLanguage.effectiveLanguageCode
+        return translations[key]?[languageCode] ?? fallback
+    }
+}
+
 enum BackendConfiguration {
     private static let infoPlistKey = "BackendBaseURL"
     private static let simulatorDefaultURL = URL(string: "http://127.0.0.1:8787")

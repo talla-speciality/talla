@@ -36,25 +36,25 @@ struct AccountSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Customer")
+                Text(AppLocalization.text("customer", fallback: "Customer"))
                     .font(labelFont)
                     .tracking(4)
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
-                Text("ACCOUNT")
+                Text(AppLocalization.text("account_heading", fallback: "ACCOUNT"))
                     .font(titleFont)
                     .tracking(1)
                     .foregroundColor(primaryTextColor)
             }
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("Manage your customer sign-in, review rewards, and keep your coffee membership in one place.")
+                Text(AppLocalization.text("account_intro", fallback: "Manage your customer sign-in, review rewards, and keep your coffee membership in one place."))
                     .font(introFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Keep the same email across checkout and rewards so everything stays in sync.")
+                Text(AppLocalization.text("account_sync_hint", fallback: "Keep the same email across checkout and rewards so everything stays in sync."))
                     .font(bodyFont)
                     .foregroundColor(tertiaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -65,26 +65,26 @@ struct AccountSectionView: View {
             loyaltySection
 
             accountCollectionSection(
-                title: "Library & Delivery",
-                subtitle: "Addresses, alerts, and saved carts for faster reorders.",
+                title: AppLocalization.text("library_delivery", fallback: "Library & Delivery"),
+                subtitle: AppLocalization.text("library_delivery_subtitle", fallback: "Addresses, alerts, and saved carts for faster reorders."),
                 isExpanded: $isLibrarySectionExpanded,
                 content: librarySection
             )
             accountCollectionSection(
-                title: "Shopping & Discovery",
-                subtitle: "Favorites, recently viewed items, and recommendations.",
+                title: AppLocalization.text("shopping_discovery", fallback: "Shopping & Discovery"),
+                subtitle: AppLocalization.text("shopping_discovery_subtitle", fallback: "Favorites, recently viewed items, and recommendations."),
                 isExpanded: $isShoppingSectionExpanded,
                 content: shoppingSection
             )
             accountCollectionSection(
-                title: "Brewing Archive",
-                subtitle: "Keep your saved brew recipes close at hand.",
+                title: AppLocalization.text("brewing_archive", fallback: "Brewing Archive"),
+                subtitle: AppLocalization.text("brewing_archive_subtitle", fallback: "Keep your saved brew recipes close at hand."),
                 isExpanded: $isBrewingSectionExpanded,
                 content: brewingSection
             )
             accountCollectionSection(
-                title: "Support & Account Tools",
-                subtitle: "Quick references and help links when you need them.",
+                title: AppLocalization.text("support_tools", fallback: "Support & Account Tools"),
+                subtitle: AppLocalization.text("support_tools_subtitle", fallback: "Quick references and help links when you need them."),
                 isExpanded: $isSupportSectionExpanded,
                 content: supportSection
             )
@@ -94,8 +94,8 @@ struct AccountSectionView: View {
     private var accountQuickActions: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
             ActionTileView(
-                title: "Open Rewards",
-                detail: "Review points and redeem available rewards.",
+                title: AppLocalization.text("open_rewards", fallback: "Open Rewards"),
+                detail: AppLocalization.text("open_rewards_detail", fallback: "Review points and redeem available rewards."),
                 systemImage: "sparkles",
                 titleFont: quickActionTitleFont,
                 detailFont: quickActionBodyFont,
@@ -109,8 +109,16 @@ struct AccountSectionView: View {
             )
 
             ActionTileView(
-                title: "Delivery Setup",
-                detail: addressesCount == 0 ? "Add your first address." : "\(addressesCount) addresses saved.",
+                title: AppLocalization.text("delivery_setup", fallback: "Delivery Setup"),
+                detail: addressesCount == 0
+                    ? AppLocalization.text("delivery_setup_empty", fallback: "Add your first address.")
+                    : accountCountDetail(
+                        count: addressesCount,
+                        singularKey: "address_saved_singular",
+                        singularFallback: "1 address saved.",
+                        pluralKey: "address_saved_plural",
+                        pluralFallback: "\(addressesCount) addresses saved."
+                    ),
                 systemImage: "location.fill",
                 titleFont: quickActionTitleFont,
                 detailFont: quickActionBodyFont,
@@ -124,8 +132,16 @@ struct AccountSectionView: View {
             )
 
             ActionTileView(
-                title: "Saved Picks",
-                detail: favoriteCount == 0 ? "Start building your favorites." : "\(favoriteCount) favorites saved.",
+                title: AppLocalization.text("saved_picks", fallback: "Saved Picks"),
+                detail: favoriteCount == 0
+                    ? AppLocalization.text("saved_picks_empty", fallback: "Start building your favorites.")
+                    : accountCountDetail(
+                        count: favoriteCount,
+                        singularKey: "favorite_saved_singular",
+                        singularFallback: "1 favorite saved.",
+                        pluralKey: "favorite_saved_plural",
+                        pluralFallback: "\(favoriteCount) favorites saved."
+                    ),
                 systemImage: "heart.fill",
                 titleFont: quickActionTitleFont,
                 detailFont: quickActionBodyFont,
@@ -139,8 +155,16 @@ struct AccountSectionView: View {
             )
 
             ActionTileView(
-                title: "Brew Archive",
-                detail: brewRecipeCount == 0 ? "Keep recipes for later." : "\(brewRecipeCount) recipes saved.",
+                title: AppLocalization.text("brew_archive", fallback: "Brew Archive"),
+                detail: brewRecipeCount == 0
+                    ? AppLocalization.text("brew_archive_empty", fallback: "Keep recipes for later.")
+                    : accountCountDetail(
+                        count: brewRecipeCount,
+                        singularKey: "recipe_saved_singular",
+                        singularFallback: "1 recipe saved.",
+                        pluralKey: "recipe_saved_plural",
+                        pluralFallback: "\(brewRecipeCount) recipes saved."
+                    ),
                 systemImage: "book.closed.fill",
                 titleFont: quickActionTitleFont,
                 detailFont: quickActionBodyFont,
@@ -175,5 +199,20 @@ struct AccountSectionView: View {
         ) {
             content
         }
+    }
+
+    private func accountCountDetail(
+        count: Int,
+        singularKey: String,
+        singularFallback: String,
+        pluralKey: String,
+        pluralFallback: String
+    ) -> String {
+        if count == 1 {
+            return AppLocalization.text(singularKey, fallback: singularFallback)
+        }
+
+        return AppLocalization.text(pluralKey, fallback: pluralFallback.replacingOccurrences(of: "\(count)", with: String(count)))
+            .replacingOccurrences(of: "%d", with: String(count))
     }
 }

@@ -31,18 +31,18 @@ struct BrewingSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("The craft")
+                Text(AppLocalization.text("the_craft", fallback: "The craft"))
                     .font(labelFont)
                     .tracking(4)
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
-                Text("BREWING METHODS")
+                Text(AppLocalization.text("brewing_methods", fallback: "BREWING METHODS"))
                     .font(titleFont)
                     .tracking(1)
                     .foregroundColor(primaryTextColor)
 
-                Text("Guides for making better coffee at home.")
+                Text(AppLocalization.text("brewing_intro", fallback: "Guides for making better coffee at home."))
                     .font(.system(size: 16, weight: .light, design: .serif))
                     .italic()
                     .foregroundColor(tertiaryTextColor)
@@ -73,18 +73,18 @@ struct BrewingSectionView: View {
 
     private var goldenRatioSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("THE GOLDEN RATIO")
+            Text(AppLocalization.text("golden_ratio", fallback: "THE GOLDEN RATIO"))
                 .font(.system(size: 24, weight: .bold, design: .serif))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 12)], spacing: 12) {
-                ratioCard(ratio: "1:15", label: "Strong & Bold")
-                ratioCard(ratio: "1:16", label: "Balanced")
-                ratioCard(ratio: "1:17", label: "Light & Bright", showsDivider: false)
+                ratioCard(ratio: "1:15", label: AppLocalization.text("strong_bold", fallback: "Strong & Bold"))
+                ratioCard(ratio: "1:16", label: AppLocalization.text("balanced", fallback: "Balanced"))
+                ratioCard(ratio: "1:17", label: AppLocalization.text("light_bright", fallback: "Light & Bright"), showsDivider: false)
             }
 
-            Text("Coffee to water ratio. Adjust to your taste based on roast level and brew method.")
+            Text(AppLocalization.text("ratio_copy", fallback: "Coffee to water ratio. Adjust to your taste based on roast level and brew method."))
                 .font(.system(size: 15, weight: .light, design: .serif))
                 .italic()
                 .foregroundColor(tertiaryTextColor)
@@ -144,7 +144,9 @@ struct BrewingSectionView: View {
 
                 Spacer()
 
-                methodTag(method.articleURL == nil ? "In-App Guide" : "Coffee Journal")
+                methodTag(method.articleURL == nil
+                    ? AppLocalization.text("in_app_guide", fallback: "In-App Guide")
+                    : AppLocalization.text("coffee_journal", fallback: "Coffee Journal"))
             }
 
             Text(method.name)
@@ -171,15 +173,19 @@ struct BrewingSectionView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                brewingDetail(title: "Source", value: method.detail)
+                brewingDetail(title: AppLocalization.text("source", fallback: "Source"), value: method.detail)
                 brewingDetail(
-                    title: "Guide",
-                    value: method.articleURL == nil ? "In-app guide" : "Coffee journal article"
+                    title: AppLocalization.text("guide", fallback: "Guide"),
+                    value: method.articleURL == nil
+                        ? AppLocalization.text("in_app_guide", fallback: "In-app guide")
+                        : AppLocalization.text("coffee_journal_article", fallback: "Coffee journal article")
                 )
             }
 
             HStack {
-                Text(method.articleURL == nil ? "Use the built-in guide below." : "Open the full brew guide.")
+                Text(method.articleURL == nil
+                    ? AppLocalization.text("use_built_in_guide", fallback: "Use the built-in guide below.")
+                    : AppLocalization.text("open_full_guide", fallback: "Open the full brew guide."))
                     .font(Font.custom("AvenirNext-Regular", size: 12))
                     .foregroundColor(secondaryTextColor)
 
@@ -190,7 +196,7 @@ struct BrewingSectionView: View {
                         openArticleAction(articleURL)
                     } label: {
                         HStack(spacing: 6) {
-                            Text("Open Guide")
+                            Text(AppLocalization.text("open_guide", fallback: "Open Guide"))
                             Image(systemName: "arrow.up.right")
                                 .font(.system(size: 10, weight: .semibold))
                         }
@@ -201,7 +207,7 @@ struct BrewingSectionView: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Text("In App")
+                    Text(AppLocalization.text("in_app", fallback: "In App"))
                         .font(Font.custom("AvenirNext-Bold", size: 10))
                         .tracking(1.8)
                         .textCase(.uppercase)
@@ -237,15 +243,15 @@ struct BrewingSectionView: View {
 
     private var ratioCalculatorCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("RATIO CALCULATOR")
+            Text(AppLocalization.text("ratio_calculator", fallback: "RATIO CALCULATOR"))
                 .font(sectionTitleFont)
                 .tracking(2.2)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             HStack(spacing: 12) {
-                ratioInputField(title: "Coffee (g)", text: $ratioCoffeeInput)
-                ratioInputField(title: "Ratio", text: $ratioValueInput)
+                ratioInputField(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), text: $ratioCoffeeInput)
+                ratioInputField(title: AppLocalization.text("ratio", fallback: "Ratio"), text: $ratioValueInput)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -253,21 +259,25 @@ struct BrewingSectionView: View {
                     .font(Font.custom("Georgia-Bold", size: isCompact ? 26 : 30))
                     .foregroundColor(primaryTextColor)
 
-                Text("water")
+                Text(AppLocalization.text("water", fallback: "water"))
                     .font(Font.custom("AvenirNext-Regular", size: 14))
                     .foregroundColor(secondaryTextColor)
             }
 
-            Text("Based on \(formattedRatioValue(ratioCoffeeAmount)) g coffee at 1:\(formattedRatioValue(ratioValue)).")
+            Text(String(
+                format: AppLocalization.text("ratio_based_on", fallback: "Based on %@ g coffee at 1:%@."),
+                formattedRatioValue(ratioCoffeeAmount),
+                formattedRatioValue(ratioValue)
+            ))
                 .font(Font.custom("AvenirNext-Regular", size: 13))
                 .foregroundColor(secondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 10) {
-                ratioInputField(title: "Recipe Name", text: $brewRecipeName, keyboardType: .default)
+                ratioInputField(title: AppLocalization.text("recipe_name", fallback: "Recipe Name"), text: $brewRecipeName, keyboardType: .default)
 
                 Button(action: saveRecipeAction) {
-                    Text("Save Recipe")
+                    Text(AppLocalization.text("save_recipe", fallback: "Save Recipe"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(2)
                         .textCase(.uppercase)

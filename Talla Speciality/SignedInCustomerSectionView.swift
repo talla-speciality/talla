@@ -33,7 +33,7 @@ struct SignedInCustomerSectionView: View {
 
                 Spacer()
 
-                Text("ACTIVE")
+                Text(AppLocalization.text("active", fallback: "ACTIVE"))
                     .font(labelFont)
                     .tracking(2.4)
                     .textCase(.uppercase)
@@ -45,27 +45,43 @@ struct SignedInCustomerSectionView: View {
             }
 
             LazyVGrid(columns: workspaceColumns, spacing: 10) {
-                workspaceBenefit(title: "Customer Email", detail: profile.email)
-                workspaceBenefit(title: "Rewards Sync", detail: "Your rewards lookup is now tied to this sign-in.")
+                workspaceBenefit(title: AppLocalization.text("customer_email", fallback: "Customer Email"), detail: profile.email)
+                workspaceBenefit(title: AppLocalization.text("rewards_sync", fallback: "Rewards Sync"), detail: AppLocalization.text("rewards_sync_detail", fallback: "Your rewards lookup is now tied to this sign-in."))
                 workspaceBenefit(
-                    title: "Saved Addresses",
-                    detail: addressesCount == 0 ? "Add delivery details for faster checkout." : "\(addressesCount) address\(addressesCount == 1 ? "" : "es") ready to use."
+                    title: AppLocalization.text("saved_addresses", fallback: "Saved Addresses"),
+                    detail: addressesCount == 0
+                        ? AppLocalization.text("saved_addresses_empty", fallback: "Add delivery details for faster checkout.")
+                        : signedInCountDetail(
+                            count: addressesCount,
+                            singularKey: "saved_addresses_singular",
+                            singularFallback: "1 address ready to use.",
+                            pluralKey: "saved_addresses_plural",
+                            pluralFallback: "%d addresses ready to use."
+                        )
                 )
                 workspaceBenefit(
-                    title: "Recent Orders",
-                    detail: orderCount == 0 ? "Your next coffee run will show up here." : "\(orderCount) order\(orderCount == 1 ? "" : "s") available in your history."
+                    title: AppLocalization.text("recent_orders", fallback: "Recent Orders"),
+                    detail: orderCount == 0
+                        ? AppLocalization.text("recent_orders_empty", fallback: "Your next coffee run will show up here.")
+                        : signedInCountDetail(
+                            count: orderCount,
+                            singularKey: "recent_orders_singular",
+                            singularFallback: "1 order available in your history.",
+                            pluralKey: "recent_orders_plural",
+                            pluralFallback: "%d orders available in your history."
+                        )
                 )
             }
 
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Profile Workspace")
+                    Text(AppLocalization.text("profile_workspace", fallback: "Profile Workspace"))
                         .font(labelFont)
                         .tracking(1.8)
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
-                    Text("Edit account details, update your password, and review recent orders.")
+                    Text(AppLocalization.text("profile_workspace_detail", fallback: "Edit account details, update your password, and review recent orders."))
                         .font(Font.custom("AvenirNext-Regular", size: 13))
                         .foregroundColor(secondaryTextColor)
                 }
@@ -73,7 +89,7 @@ struct SignedInCustomerSectionView: View {
                 Spacer()
 
                 Button(action: signOutAction) {
-                    Text("Sign Out")
+                    Text(AppLocalization.text("sign_out", fallback: "Sign Out"))
                         .font(labelFont)
                         .tracking(1.8)
                         .textCase(.uppercase)
@@ -121,5 +137,22 @@ struct SignedInCustomerSectionView: View {
         ) {
             content
         }
+    }
+
+    private func signedInCountDetail(
+        count: Int,
+        singularKey: String,
+        singularFallback: String,
+        pluralKey: String,
+        pluralFallback: String
+    ) -> String {
+        if count == 1 {
+            return AppLocalization.text(singularKey, fallback: singularFallback)
+        }
+
+        return String(
+            format: AppLocalization.text(pluralKey, fallback: pluralFallback),
+            count
+        )
     }
 }

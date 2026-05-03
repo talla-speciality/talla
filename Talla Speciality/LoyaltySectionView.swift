@@ -30,7 +30,7 @@ struct LoyaltySectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Loyalty")
+            Text(AppLocalization.text("loyalty", fallback: "Loyalty"))
                 .font(labelFont)
                 .tracking(4)
                 .textCase(.uppercase)
@@ -41,7 +41,7 @@ struct LoyaltySectionView: View {
                     .font(titleFont)
                     .foregroundColor(primaryTextColor)
 
-                Text("Use your order email to unlock Beans, rewards, and Reserve perks in one place.")
+                Text(AppLocalization.text("reserve_copy", fallback: "Use your order email to unlock Beans, rewards, and Reserve perks in one place."))
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -50,7 +50,7 @@ struct LoyaltySectionView: View {
             loyaltyLookupCard
 
             if !savedLoyaltyEmail.isEmpty {
-                loyaltyBenefit(title: "Signed In", detail: savedLoyaltyEmail)
+                loyaltyBenefit(title: AppLocalization.text("signed_in", fallback: "Signed In"), detail: savedLoyaltyEmail)
             }
 
             if let loyaltyAccount {
@@ -60,7 +60,7 @@ struct LoyaltySectionView: View {
                             .font(Font.custom("CormorantGaramond-SemiBold", size: isCompact ? 38 : 44))
                             .foregroundColor(primaryTextColor)
 
-                        Text("Beans available")
+                        Text(AppLocalization.text("beans_available", fallback: "Beans available"))
                             .font(Font.custom("AvenirNext-DemiBold", size: 11))
                             .tracking(2.5)
                             .textCase(.uppercase)
@@ -84,8 +84,11 @@ struct LoyaltySectionView: View {
 
                 if let rewardProgress {
                     loyaltyProgressCard(
-                        title: "Next Reward",
-                        accent: "\(rewardProgress.remaining) Beans to go",
+                        title: AppLocalization.text("next_reward", fallback: "Next Reward"),
+                        accent: String(
+                            format: AppLocalization.text("beans_to_go", fallback: "%d Beans to go"),
+                            rewardProgress.remaining
+                        ),
                         current: rewardProgress.current,
                         target: rewardProgress.target,
                         fraction: rewardProgress.fraction
@@ -94,10 +97,14 @@ struct LoyaltySectionView: View {
 
                 if let tierProgress {
                     loyaltyProgressCard(
-                        title: "Tier Progress",
+                        title: AppLocalization.text("tier_progress", fallback: "Tier Progress"),
                         accent: tierProgress.remaining == 0
                             ? tierProgress.label
-                            : "\(tierProgress.remaining) Beans to \(tierProgress.label)",
+                            : String(
+                                format: AppLocalization.text("beans_to_tier", fallback: "%d Beans to %@"),
+                                tierProgress.remaining,
+                                tierProgress.label
+                            ),
                         current: tierProgress.current,
                         target: tierProgress.target,
                         fraction: tierProgress.fraction
@@ -105,20 +112,20 @@ struct LoyaltySectionView: View {
                 }
 
                 expiringRewardsSection
-                loyaltyBenefit(title: "Member ID", detail: loyaltyAccount.memberID)
+                loyaltyBenefit(title: AppLocalization.text("member_id", fallback: "Member ID"), detail: loyaltyAccount.memberID)
                 rewardsActionsSection
                 transactionsSection
             }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(loyaltyPerks, id: \.self) { perk in
-                    loyaltyBenefit(title: "Reserve benefit", detail: perk)
+                    loyaltyBenefit(title: AppLocalization.text("reserve_benefit", fallback: "Reserve benefit"), detail: perk)
                 }
             }
 
             walletCallToAction
 
-            Text("Completed orders now award 5 Beans per 1 BHD.")
+            Text(AppLocalization.text("orders_award_beans", fallback: "Completed orders now award 5 Beans per 1 BHD."))
                 .font(Font.custom("AvenirNext-Regular", size: 12))
                 .foregroundColor(tertiaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
@@ -138,7 +145,7 @@ struct LoyaltySectionView: View {
 
     private var loyaltyLookupCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Lookup Rewards")
+            Text(AppLocalization.text("lookup_rewards", fallback: "Lookup Rewards"))
                 .font(sectionTitleFont)
                 .tracking(2)
                 .textCase(.uppercase)
@@ -160,7 +167,9 @@ struct LoyaltySectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             Button(action: checkRewardsAction) {
-                Text(isLoadingLoyalty ? "CHECKING..." : "CHECK REWARDS")
+                Text(isLoadingLoyalty
+                    ? AppLocalization.text("checking", fallback: "CHECKING...")
+                    : AppLocalization.text("check_rewards", fallback: "CHECK REWARDS"))
                     .font(Font.custom("AvenirNext-Bold", size: 12))
                     .tracking(2.5)
                     .foregroundColor(Color(hex: 0x0A0804))
@@ -173,7 +182,7 @@ struct LoyaltySectionView: View {
 
             if !savedLoyaltyEmail.isEmpty {
                 Button(action: signOutAction) {
-                    Text("SIGN OUT")
+                    Text(AppLocalization.text("sign_out", fallback: "SIGN OUT"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(2)
                         .textCase(.uppercase)
@@ -243,9 +252,9 @@ struct LoyaltySectionView: View {
             .frame(height: 10)
 
             HStack {
-                Text("\(current) pts")
+                Text(String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), current))
                 Spacer()
-                Text("\(target) pts")
+                Text(String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), target))
             }
             .font(Font.custom("AvenirNext-Regular", size: 12))
             .foregroundColor(tertiaryTextColor)
