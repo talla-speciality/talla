@@ -480,10 +480,12 @@ private enum AccountService {
         }
 
         if 200 ..< 300 ~= httpResponse.statusCode {
-            guard let pass = try? PKPass(data: data) else {
-                throw ContentView.LoyaltyServiceError.operationFailed("The Wallet pass could not be loaded.")
-            }
-            return pass
+            return try await Task.detached(priority: .userInitiated) {
+                guard let pass = try? PKPass(data: data) else {
+                    throw ContentView.LoyaltyServiceError.operationFailed("The Wallet pass could not be loaded.")
+                }
+                return pass
+            }.value
         }
 
         if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
@@ -1016,11 +1018,16 @@ private enum ShopifyStorefrontClient {
                     featuredImage {
                       url
                     }
-                    variants(first: 1) {
+                    variants(first: 12) {
                       edges {
                         node {
                           id
+                          title
                           availableForSale
+                          price {
+                            amount
+                            currencyCode
+                          }
                         }
                       }
                     }
@@ -1221,7 +1228,9 @@ private struct ShopifyProductNode: Decodable {
 
     struct ProductVariant: Decodable {
         let id: String
+        let title: String
         let availableForSale: Bool
+        let price: Money
     }
 
     struct Money: Decodable {
@@ -1404,19 +1413,28 @@ private extension ContentView.Product {
             tags: shopifyNode.tags,
             title: shopifyNode.title
         )
-        let firstVariant = shopifyNode.variants.edges.first?.node
+        let variants = shopifyNode.variants.edges.map { edge in
+            ContentView.Product.Variant(
+                id: edge.node.id,
+                title: edge.node.title.isEmpty ? "Default" : edge.node.title,
+                price: Self.formattedPrice(from: edge.node.price),
+                isAvailableForSale: edge.node.availableForSale
+            )
+        }
+        let defaultVariant = variants.first(where: \.isAvailableForSale) ?? variants.first
 
         self.init(
             id: shopifyNode.id,
-            variantID: firstVariant?.id,
+            variantID: defaultVariant?.id,
+            variants: variants,
             name: shopifyNode.title,
-            price: Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
+            price: defaultVariant?.price ?? Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
             categoryKey: categoryKey,
             categoryLabel: Self.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
             imageURL: shopifyNode.featuredImage?.url,
             desc: shopifyNode.description.isEmpty ? "Freshly synced from Shopify." : shopifyNode.description,
             tag: Self.productTag(from: shopifyNode.tags),
-            isAvailableForSale: firstVariant?.availableForSale ?? false
+            isAvailableForSale: defaultVariant?.isAvailableForSale ?? false
         )
     }
 

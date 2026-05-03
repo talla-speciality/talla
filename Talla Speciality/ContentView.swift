@@ -76,8 +76,16 @@ struct ContentView: View {
     }
 
     struct Product: Identifiable, Hashable {
+        struct Variant: Identifiable, Hashable {
+            let id: String
+            let title: String
+            let price: String
+            let isAvailableForSale: Bool
+        }
+
         let id: String
         let variantID: String?
+        let variants: [Variant]
         let name: String
         let price: String
         let categoryKey: String
@@ -86,6 +94,14 @@ struct ContentView: View {
         let desc: String
         let tag: String?
         let isAvailableForSale: Bool
+
+        var defaultVariant: Variant? {
+            variants.first(where: \.isAvailableForSale) ?? variants.first
+        }
+
+        var hasVariantChoices: Bool {
+            variants.count > 1
+        }
     }
 
     struct BrewingMethod: Identifiable, Hashable {
@@ -112,6 +128,7 @@ struct ContentView: View {
     private struct CartItem: Identifiable, Hashable {
         let id: String
         let product: Product
+        let variant: Product.Variant
         var quantity: Int
     }
 
@@ -351,6 +368,7 @@ struct ContentView: View {
     @State private var addressCity = ""
     @State private var addressNotes = ""
     @State private var isSavingAddress = false
+    @State private var selectedVariantIDs: [String: String] = [:]
     @State private var loyaltyEmail = ""
     @State private var loyaltyAccount: LoyaltyAccount?
     @State private var loyaltyError: String?
@@ -994,11 +1012,6 @@ struct ContentView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    dismissKeyboard()
-                }
-            )
         }
         .frame(maxWidth: 400)
         .frame(maxWidth: .infinity)
@@ -3197,6 +3210,13 @@ struct ContentView: View {
                 .font(labelFont(size: 13, weight: .bold))
                 .foregroundColor(product.isAvailableForSale ? Color(hex: 0xC8965A) : tertiaryTextColor)
 
+            if product.hasVariantChoices, let variant = selectedVariant(for: product) {
+                Text("Default: \(variant.title)")
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(1)
+            }
+
             Button {
                 recordRecentlyViewed(product)
                 selectedProduct = product
@@ -3218,9 +3238,14 @@ struct ContentView: View {
             .buttonStyle(.plain)
 
             Button {
-                addToCart(product: product)
+                if product.hasVariantChoices {
+                    recordRecentlyViewed(product)
+                    selectedProduct = product
+                } else {
+                    addToCart(product: product)
+                }
             } label: {
-                Text(product.isAvailableForSale ? "Add to Bag" : "Sold Out")
+                Text(product.isAvailableForSale ? (product.hasVariantChoices ? "Choose Options" : "Add to Bag") : "Sold Out")
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(2)
                     .textCase(.uppercase)
@@ -3236,7 +3261,7 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
-            .disabled(!product.isAvailableForSale || product.variantID == nil)
+            .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
         }
         .padding(14)
         .background(
@@ -3256,7 +3281,9 @@ struct ContentView: View {
     }
 
     private func productDetailSheet(product: Product) -> some View {
-        ScrollView(showsIndicators: false) {
+        let selectedVariant = selectedVariant(for: product)
+
+        return ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
                 ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 22)
                     .frame(height: 280)
@@ -3290,14 +3317,64 @@ struct ContentView: View {
                     }
                 }
 
-                Text(product.price)
+                Text(selectedVariant?.price ?? product.price)
                     .font(displayFont(size: 24))
-                    .foregroundColor(product.isAvailableForSale ? Color(hex: 0xC8965A) : tertiaryTextColor)
+                    .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? Color(hex: 0xC8965A) : tertiaryTextColor)
 
                 Text(product.desc)
                     .font(bodyFont(size: 15))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if product.hasVariantChoices {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("VARIANTS")
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+
+                        ForEach(product.variants) { variant in
+                            Button {
+                                selectedVariantIDs[product.id] = variant.id
+                            } label: {
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(variant.title)
+                                            .font(bodyFont(size: 14))
+                                            .foregroundColor(primaryTextColor)
+                                        Text(variant.price)
+                                            .font(labelFont(size: 10, weight: .bold))
+                                            .tracking(1.4)
+                                            .foregroundColor(Color(hex: 0xC8965A))
+                                    }
+
+                                    Spacer()
+
+                                    Text(variant.isAvailableForSale ? "Available" : "Sold Out")
+                                        .font(labelFont(size: 9, weight: .bold))
+                                        .tracking(1.4)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(variant.isAvailableForSale ? primaryTextColor : tertiaryTextColor)
+
+                                    Image(systemName: selectedVariant?.id == variant.id ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(selectedVariant?.id == variant.id ? Color(hex: 0xC8965A) : tertiaryTextColor)
+                                }
+                                .padding(14)
+                                .background(cardFillColor)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(
+                                            (selectedVariant?.id == variant.id ? Color(hex: 0xC8965A) : Color(hex: 0xC8965A).opacity(0.14)),
+                                            lineWidth: 1
+                                        )
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
 
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     DetailStatusCardView(
@@ -3369,22 +3446,22 @@ struct ContentView: View {
                         addToCart(product: product)
                         selectedProduct = nil
                     } label: {
-                        Text(product.isAvailableForSale ? "Add to Bag" : "Sold Out")
+                        Text((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? "Add to Bag" : "Sold Out")
                             .font(labelFont(size: 11, weight: .bold))
                             .tracking(2)
                             .textCase(.uppercase)
-                            .foregroundColor(product.isAvailableForSale ? Color(hex: 0x0A0804) : tertiaryTextColor)
+                            .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? Color(hex: 0x0A0804) : tertiaryTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .glassEffect(
-                                product.isAvailableForSale
+                                (selectedVariant?.isAvailableForSale ?? product.isAvailableForSale)
                                     ? .regular.tint(Color(hex: 0xC8965A)).interactive()
                                     : .clear,
                                 in: .capsule
                             )
                     }
                     .buttonStyle(.plain)
-                    .disabled(!product.isAvailableForSale || product.variantID == nil)
+                    .disabled(!(selectedVariant?.isAvailableForSale ?? false))
                 }
             }
             .padding(20)
@@ -4514,25 +4591,41 @@ struct ContentView: View {
     }
 
     private func addToCart(product: Product) {
-        guard product.isAvailableForSale, product.variantID != nil else {
+        guard let variant = selectedVariant(for: product), variant.isAvailableForSale else {
             showToast(message: "\(product.name) is unavailable")
             return
         }
 
         recordRecentlyViewed(product)
 
-        if let index = cartItems.firstIndex(where: { $0.id == product.id }) {
+        let cartItemID = cartItemIdentifier(productID: product.id, variantID: variant.id)
+
+        if let index = cartItems.firstIndex(where: { $0.id == cartItemID }) {
             cartItems[index].quantity += 1
         } else {
-            cartItems.append(CartItem(id: product.id, product: product, quantity: 1))
+            cartItems.append(CartItem(id: cartItemID, product: product, variant: variant, quantity: 1))
         }
 
         checkoutError = nil
-        showToast(message: "\(product.name) added to cart")
+        let variantSuffix = product.hasVariantChoices ? " (\(variant.title))" : ""
+        showToast(message: "\(product.name)\(variantSuffix) added to cart")
     }
 
     private func removeFromCart(id: String) {
         cartItems.removeAll { $0.id == id }
+    }
+
+    private func cartItemIdentifier(productID: String, variantID: String) -> String {
+        "\(productID)::\(variantID)"
+    }
+
+    private func selectedVariant(for product: Product) -> Product.Variant? {
+        if let selectedVariantID = selectedVariantIDs[product.id],
+           let variant = product.variants.first(where: { $0.id == selectedVariantID }) {
+            return variant
+        }
+
+        return product.defaultVariant
     }
 
     private func isFavorite(_ product: Product) -> Bool {
@@ -4637,7 +4730,15 @@ struct ContentView: View {
 
         cartItems = []
         for (product, quantity) in matchedItems {
-            cartItems.append(CartItem(id: product.id, product: product, quantity: quantity))
+            guard let variant = selectedVariant(for: product) else { continue }
+            cartItems.append(
+                CartItem(
+                    id: cartItemIdentifier(productID: product.id, variantID: variant.id),
+                    product: product,
+                    variant: variant,
+                    quantity: quantity
+                )
+            )
         }
 
         cartOpen = true
@@ -4874,10 +4975,12 @@ struct ContentView: View {
         }
 
         for (product, quantity) in matchedProducts {
-            if let index = cartItems.firstIndex(where: { $0.id == product.id }) {
+            guard let variant = selectedVariant(for: product) else { continue }
+            let cartItemID = cartItemIdentifier(productID: product.id, variantID: variant.id)
+            if let index = cartItems.firstIndex(where: { $0.id == cartItemID }) {
                 cartItems[index].quantity += quantity
             } else {
-                cartItems.append(CartItem(id: product.id, product: product, quantity: quantity))
+                cartItems.append(CartItem(id: cartItemID, product: product, variant: variant, quantity: quantity))
             }
         }
 
@@ -4964,8 +5067,7 @@ struct ContentView: View {
         guard !isCheckingOut else { return }
 
         let lines = cartItems.compactMap { item -> ShopifyCheckoutLine? in
-            guard let variantID = item.product.variantID else { return nil }
-            return ShopifyCheckoutLine(merchandiseId: variantID, quantity: item.quantity)
+            ShopifyCheckoutLine(merchandiseId: item.variant.id, quantity: item.quantity)
         }
 
         guard !lines.isEmpty else {
@@ -6422,11 +6524,16 @@ private enum ShopifyStorefrontClient {
                     featuredImage {
                       url
                     }
-                    variants(first: 1) {
+                    variants(first: 12) {
                       edges {
                         node {
                           id
+                          title
                           availableForSale
+                          price {
+                            amount
+                            currencyCode
+                          }
                         }
                       }
                     }
@@ -6627,7 +6734,9 @@ private struct ShopifyProductNode: Decodable {
 
     struct ProductVariant: Decodable {
         let id: String
+        let title: String
         let availableForSale: Bool
+        let price: Money
     }
 
     struct Money: Decodable {
@@ -6913,19 +7022,28 @@ private extension ContentView.Product {
             tags: shopifyNode.tags,
             title: shopifyNode.title
         )
-        let firstVariant = shopifyNode.variants.edges.first?.node
+        let variants = shopifyNode.variants.edges.map { edge in
+            Variant(
+                id: edge.node.id,
+                title: edge.node.title.isEmpty ? "Default" : edge.node.title,
+                price: Self.formattedPrice(from: edge.node.price),
+                isAvailableForSale: edge.node.availableForSale
+            )
+        }
+        let defaultVariant = variants.first(where: \.isAvailableForSale) ?? variants.first
 
         self.init(
             id: shopifyNode.id,
-            variantID: firstVariant?.id,
+            variantID: defaultVariant?.id,
+            variants: variants,
             name: shopifyNode.title,
-            price: Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
+            price: defaultVariant?.price ?? Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
             categoryKey: categoryKey,
             categoryLabel: ProductCatalogRules.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
             imageURL: shopifyNode.featuredImage?.url,
             desc: shopifyNode.description.isEmpty ? "Freshly synced from Shopify." : shopifyNode.description,
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
-            isAvailableForSale: firstVariant?.availableForSale ?? false
+            isAvailableForSale: defaultVariant?.isAvailableForSale ?? false
         )
     }
 
