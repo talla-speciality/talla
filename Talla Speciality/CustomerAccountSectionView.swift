@@ -41,22 +41,22 @@ struct CustomerAccountSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Account")
+            Text(AppLocalization.text("account_title", fallback: "Account"))
                 .font(labelFont)
                 .tracking(4)
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("CUSTOMER SIGN IN")
+                Text(AppLocalization.text("customer_sign_in", fallback: "CUSTOMER SIGN IN"))
                     .font(titleFont)
                     .foregroundColor(primaryTextColor)
 
                 Text(accountAuthMode == .createAccount
-                    ? "Create one account for checkout, rewards, and saved details."
+                    ? AppLocalization.text("account_create_copy", fallback: "Create one account for checkout, rewards, and saved details.")
                     : accountAuthMode == .changePassword
-                        ? "Change your password without restoring a signed-in session first."
-                        : "Sign in once to access rewards, saved addresses, and order history.")
+                        ? AppLocalization.text("account_change_password_copy", fallback: "Change your password without restoring a signed-in session first.")
+                        : AppLocalization.text("account_sign_in_copy", fallback: "Sign in once to access rewards, saved addresses, and order history."))
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -91,21 +91,21 @@ struct CustomerAccountSectionView: View {
     private var signInForm: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                accountModeButton(title: "Sign In", mode: .signIn)
-                accountModeButton(title: "Create Account", mode: .createAccount)
-                accountModeButton(title: "Change Password", mode: .changePassword)
+                accountModeButton(title: AppLocalization.text("sign_in", fallback: "Sign In"), mode: .signIn)
+                accountModeButton(title: AppLocalization.text("create_account", fallback: "Create Account"), mode: .createAccount)
+                accountModeButton(title: AppLocalization.text("change_password", fallback: "Change Password"), mode: .changePassword)
             }
 
             if accountAuthMode == .createAccount {
                 HStack(spacing: 10) {
-                    styledTextField("First name", text: $accountFirstName, capitalization: .words)
-                    styledTextField("Last name", text: $accountLastName, capitalization: .words)
+                    styledTextField(AppLocalization.text("first_name", fallback: "First name"), text: $accountFirstName, capitalization: .words)
+                    styledTextField(AppLocalization.text("last_name", fallback: "Last name"), text: $accountLastName, capitalization: .words)
                 }
             }
 
-            styledTextField("Email address", text: $accountEmail, capitalization: .never, keyboardType: .emailAddress)
+            styledTextField(AppLocalization.text("email_address", fallback: "Email address"), text: $accountEmail, capitalization: .never, keyboardType: .emailAddress)
 
-            SecureField(accountAuthMode == .changePassword ? "Current password" : "Password", text: $accountPassword)
+            SecureField(accountAuthMode == .changePassword ? AppLocalization.text("current_password", fallback: "Current password") : AppLocalization.text("password", fallback: "Password"), text: $accountPassword)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(Font.custom("AvenirNext-Regular", size: 15))
@@ -120,7 +120,7 @@ struct CustomerAccountSectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             if accountAuthMode != .signIn {
-                SecureField(accountAuthMode == .changePassword ? "New password" : "Confirm password", text: $accountConfirmPassword)
+                SecureField(accountAuthMode == .changePassword ? AppLocalization.text("new_password", fallback: "New password") : AppLocalization.text("confirm_password", fallback: "Confirm password"), text: $accountConfirmPassword)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(Font.custom("AvenirNext-Regular", size: 15))
@@ -155,7 +155,7 @@ struct CustomerAccountSectionView: View {
                             .fill(accentColor.opacity(0.16))
                             .frame(height: 1)
 
-                        Text("or continue with")
+                        Text(AppLocalization.text("or_continue_with", fallback: "or continue with"))
                             .font(Font.custom("AvenirNext-Regular", size: 11))
                             .foregroundColor(secondaryTextColor)
 
@@ -175,7 +175,7 @@ struct CustomerAccountSectionView: View {
                     .disabled(isAppleSignInDisabled)
 
                     if isSigningInWithApple {
-                        Text("Signing in with Apple...")
+                        Text(AppLocalization.text("signing_in_with_apple", fallback: "Signing in with Apple..."))
                             .font(Font.custom("AvenirNext-Regular", size: 11))
                             .foregroundColor(secondaryTextColor)
                     }
@@ -185,14 +185,14 @@ struct CustomerAccountSectionView: View {
 
             HStack(spacing: 16) {
                 if accountAuthMode == .signIn {
-                    Text("Fast access for checkout and rewards")
+                    Text(AppLocalization.text("fast_access_checkout", fallback: "Fast access for checkout and rewards"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(1.8)
                         .foregroundColor(secondaryTextColor)
 
                     Spacer(minLength: 0)
 
-                    Button(isRequestingPasswordResetLink ? "Sending Link..." : "Email Reset Link") {
+                    Button(isRequestingPasswordResetLink ? AppLocalization.text("sending_link", fallback: "Sending Link...") : AppLocalization.text("email_reset_link", fallback: "Email Reset Link")) {
                         requestPasswordResetLinkAction()
                     }
                     .font(Font.custom("AvenirNext-Bold", size: 11))
@@ -202,7 +202,7 @@ struct CustomerAccountSectionView: View {
                     .buttonStyle(.plain)
                     .disabled(isResetLinkDisabled)
                 } else {
-                    Button(accountAuthMode == .createAccount ? "Already Have an Account?" : "Back to Sign In") {
+                    Button(accountAuthMode == .createAccount ? AppLocalization.text("already_have_account", fallback: "Already Have an Account?") : AppLocalization.text("back_to_sign_in", fallback: "Back to Sign In")) {
                         toggleModeAction(.signIn)
                     }
                     .font(Font.custom("AvenirNext-Bold", size: 11))

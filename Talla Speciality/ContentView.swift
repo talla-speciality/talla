@@ -3936,7 +3936,7 @@ struct ContentView: View {
     private func signInCustomer() async {
         let trimmedEmail = normalizedAccountEmail
         guard !trimmedEmail.isEmpty, !accountPassword.isEmpty else {
-            customerAuthError = "Enter your customer email and password."
+            customerAuthError = AppLocalization.text("enter_email_password", fallback: "Enter your customer email and password.")
             return
         }
 
@@ -3947,7 +3947,7 @@ struct ContentView: View {
             let session = try await AccountService.signIn(email: trimmedEmail, password: accountPassword)
             applySignedInSession(session)
             accountPassword = ""
-            showToast(message: "Signed in")
+            showToast(message: AppLocalization.text("signed_in_toast", fallback: "Signed in"))
         } catch {
             customerProfile = nil
             customerAuthError = friendlyCustomerAuthMessage(for: error)
@@ -3985,12 +3985,12 @@ struct ContentView: View {
 
             customerAuthError = friendlyCustomerAuthMessage(
                 for: error,
-                fallback: "Sign in with Apple is unavailable right now."
+                fallback: AppLocalization.text("apple_sign_in_unavailable", fallback: "Sign in with Apple is unavailable right now.")
             )
             isSigningInWithApple = false
         case .success(let authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                customerAuthError = "Apple sign-in did not return a valid account credential."
+                customerAuthError = AppLocalization.text("apple_sign_in_invalid_credential", fallback: "Apple sign-in did not return a valid account credential.")
                 isSigningInWithApple = false
                 return
             }
@@ -3998,14 +3998,14 @@ struct ContentView: View {
             guard let tokenData = credential.identityToken,
                   let identityToken = String(data: tokenData, encoding: .utf8),
                   !identityToken.isEmpty else {
-                customerAuthError = "Apple sign-in did not return an identity token."
+                customerAuthError = AppLocalization.text("apple_sign_in_missing_token", fallback: "Apple sign-in did not return an identity token.")
                 isSigningInWithApple = false
                 return
             }
 
             let nonce = appleSignInNonce
             guard !nonce.isEmpty else {
-                customerAuthError = "Apple sign-in could not be verified."
+                customerAuthError = AppLocalization.text("apple_sign_in_not_verified", fallback: "Apple sign-in could not be verified.")
                 isSigningInWithApple = false
                 return
             }
@@ -4025,12 +4025,12 @@ struct ContentView: View {
                 applySignedInSession(session)
                 accountPassword = ""
                 accountConfirmPassword = ""
-                showToast(message: "Signed in with Apple")
+                showToast(message: AppLocalization.text("signed_in_with_apple_toast", fallback: "Signed in with Apple"))
             } catch {
                 customerProfile = nil
                 customerAuthError = friendlyCustomerAuthMessage(
                     for: error,
-                    fallback: "Sign in with Apple is unavailable right now."
+                    fallback: AppLocalization.text("apple_sign_in_unavailable", fallback: "Sign in with Apple is unavailable right now.")
                 )
             }
 
@@ -4055,17 +4055,17 @@ struct ContentView: View {
         let trimmedEmail = normalizedAccountEmail
 
         guard !trimmedFirstName.isEmpty, !trimmedLastName.isEmpty, !trimmedEmail.isEmpty, !accountPassword.isEmpty else {
-            customerAuthError = "Complete your name, email, and password to create an account."
+            customerAuthError = AppLocalization.text("complete_account_fields", fallback: "Complete your name, email, and password to create an account.")
             return
         }
 
         guard accountPassword == accountConfirmPassword else {
-            customerAuthError = "Your password confirmation does not match."
+            customerAuthError = AppLocalization.text("password_confirmation_mismatch", fallback: "Your password confirmation does not match.")
             return
         }
 
         guard accountPassword.count >= 5 else {
-            customerAuthError = "Use a password with at least 5 characters."
+            customerAuthError = AppLocalization.text("password_min_length", fallback: "Use a password with at least 5 characters.")
             return
         }
 
@@ -4084,7 +4084,7 @@ struct ContentView: View {
             accountPassword = ""
             accountConfirmPassword = ""
             accountAuthMode = .signIn
-            showToast(message: "Account created")
+            showToast(message: AppLocalization.text("account_created_toast", fallback: "Account created"))
         } catch {
             customerProfile = nil
             customerAuthError = friendlyCustomerAuthMessage(for: error)
@@ -4097,7 +4097,7 @@ struct ContentView: View {
     private func requestPasswordResetLink() async {
         let trimmedEmail = normalizedAccountEmail
         guard !trimmedEmail.isEmpty else {
-            customerAuthError = "Enter your email address first."
+            customerAuthError = AppLocalization.text("enter_email_first", fallback: "Enter your email address first.")
             return
         }
 
@@ -4107,11 +4107,11 @@ struct ContentView: View {
         do {
             try await AccountService.requestPasswordResetLink(email: trimmedEmail)
             accountPassword = ""
-            showToast(message: "If an account exists for that email, a reset link has been sent.")
+            showToast(message: AppLocalization.text("reset_link_sent", fallback: "If an account exists for that email, a reset link has been sent."))
         } catch {
             customerAuthError = friendlyCustomerAuthMessage(
                 for: error,
-                fallback: "Password reset email is unavailable right now."
+                fallback: AppLocalization.text("email_reset_link", fallback: "Password reset email is unavailable right now.")
             )
         }
 
@@ -4211,7 +4211,7 @@ struct ContentView: View {
         let lastName = profileLastName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !firstName.isEmpty, !lastName.isEmpty else {
-            customerAuthError = "Enter both first and last name before saving."
+            customerAuthError = AppLocalization.text("enter_full_name_before_saving", fallback: "Enter both first and last name before saving.")
             return
         }
 
@@ -4223,7 +4223,7 @@ struct ContentView: View {
             customerProfile = updated
             profileFirstName = updated.firstName ?? ""
             profileLastName = updated.lastName ?? ""
-            showToast(message: "Profile updated")
+            showToast(message: AppLocalization.text("profile_updated_toast", fallback: "Profile updated"))
         } catch {
             customerAuthError = friendlyCustomerAuthMessage(for: error)
         }
@@ -4236,12 +4236,12 @@ struct ContentView: View {
         guard let profile = customerProfile else { return }
 
         guard newPasswordInput == confirmNewPasswordInput else {
-            customerAuthError = "The new password confirmation does not match."
+            customerAuthError = AppLocalization.text("new_password_confirmation_mismatch", fallback: "The new password confirmation does not match.")
             return
         }
 
         guard newPasswordInput.count >= 5 else {
-            customerAuthError = "Use a password with at least 5 characters."
+            customerAuthError = AppLocalization.text("password_min_length", fallback: "Use a password with at least 5 characters.")
             return
         }
 
@@ -4257,7 +4257,7 @@ struct ContentView: View {
             currentPasswordInput = ""
             newPasswordInput = ""
             confirmNewPasswordInput = ""
-            showToast(message: "Password updated")
+            showToast(message: AppLocalization.text("update_password", fallback: "Password updated"))
         } catch {
             customerAuthError = friendlyCustomerAuthMessage(for: error)
         }
@@ -4297,12 +4297,12 @@ struct ContentView: View {
         let trimmedEmail = normalizedAccountEmail
 
         guard !trimmedEmail.isEmpty, !accountPassword.isEmpty, !accountConfirmPassword.isEmpty else {
-            customerAuthError = "Enter your email, current password, and new password."
+            customerAuthError = AppLocalization.text("enter_email_current_new_password", fallback: "Enter your email, current password, and new password.")
             return
         }
 
         guard accountConfirmPassword.count >= 5 else {
-            customerAuthError = "Use a password with at least 5 characters."
+            customerAuthError = AppLocalization.text("password_min_length", fallback: "Use a password with at least 5 characters.")
             return
         }
 
@@ -4318,7 +4318,7 @@ struct ContentView: View {
             accountAuthMode = .signIn
             accountPassword = ""
             accountConfirmPassword = ""
-            showToast(message: "Password updated")
+            showToast(message: AppLocalization.text("update_password", fallback: "Password updated"))
         } catch {
             customerAuthError = friendlyCustomerAuthMessage(for: error)
         }
@@ -4403,7 +4403,7 @@ struct ContentView: View {
         let notes = addressNotes.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !label.isEmpty, !fullName.isEmpty, !phone.isEmpty, !line1.isEmpty, !city.isEmpty else {
-            showToast(message: "Complete the address details first")
+            showToast(message: AppLocalization.text("complete_address_details", fallback: "Complete the address details first"))
             return
         }
 
@@ -4426,7 +4426,7 @@ struct ContentView: View {
             addressLine1 = ""
             addressCity = ""
             addressNotes = ""
-            showToast(message: "Address saved")
+            showToast(message: AppLocalization.text("address_saved_toast", fallback: "Address saved"))
         } catch {
             showToast(message: error.localizedDescription)
         }
@@ -4438,7 +4438,7 @@ struct ContentView: View {
 
         do {
             addresses = try await AccountService.deleteAddress(email: profile.email, addressID: address.id)
-            showToast(message: "Address removed")
+            showToast(message: AppLocalization.text("address_removed_toast", fallback: "Address removed"))
         } catch {
             showToast(message: error.localizedDescription)
         }
@@ -4543,7 +4543,7 @@ struct ContentView: View {
             hasLoadedBrewingMethods = true
         } catch {
             brewingMethods = []
-            brewingMethodsError = "Brewing articles couldn't be loaded from Shopify. Showing curated fallback methods."
+            brewingMethodsError = AppLocalization.text("brewing_articles_fallback", fallback: "Brewing articles couldn't be loaded from Shopify. Showing curated fallback methods.")
         }
 
         isLoadingBrewingMethods = false
@@ -4553,7 +4553,7 @@ struct ContentView: View {
     private func loadLoyaltyAccount() async {
         let trimmedEmail = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmail.isEmpty else {
-            loyaltyError = "Enter the email you use for your coffee orders."
+            loyaltyError = AppLocalization.text("enter_order_email_loyalty", fallback: "Enter the email you use for your coffee orders.")
             return
         }
 
@@ -4564,7 +4564,7 @@ struct ContentView: View {
             loyaltyAccount = try await LoyaltyService.fetchAccount(email: trimmedEmail)
             savedLoyaltyEmail = trimmedEmail
             await loadAvailableVouchers(for: trimmedEmail)
-            showToast(message: "Rewards loaded")
+            showToast(message: AppLocalization.text("rewards_loaded_toast", fallback: "Rewards loaded"))
         } catch {
             loyaltyAccount = nil
             loyaltyError = error.localizedDescription
@@ -4577,7 +4577,7 @@ struct ContentView: View {
     private func redeemReward(points: Int, reward: String) async {
         let trimmedEmail = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmail.isEmpty else {
-            loyaltyError = "Enter the email tied to your rewards account first."
+            loyaltyError = AppLocalization.text("enter_rewards_email_first", fallback: "Enter the email tied to your rewards account first.")
             return
         }
 
@@ -4588,9 +4588,9 @@ struct ContentView: View {
             loyaltyAccount = try await LoyaltyService.redeemReward(email: trimmedEmail, points: points, reward: reward)
             let voucherCode = loyaltyAccount?.transactions.first(where: { $0.type == "redeem" })?.voucherCode
             if let voucherCode, !voucherCode.isEmpty {
-                showToast(message: "\(reward) redeemed • \(voucherCode)")
+                showToast(message: String(format: AppLocalization.text("reward_redeemed_with_code", fallback: "%@ redeemed • %@"), reward, voucherCode))
             } else {
-                showToast(message: "\(reward) redeemed")
+                showToast(message: String(format: AppLocalization.text("reward_redeemed", fallback: "%@ redeemed"), reward))
             }
         } catch {
             loyaltyError = error.localizedDescription
@@ -4603,7 +4603,7 @@ struct ContentView: View {
     private func earnPoints(points: Int, note: String) async {
         let trimmedEmail = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmail.isEmpty else {
-            loyaltyError = "Enter the email tied to your rewards account first."
+            loyaltyError = AppLocalization.text("enter_rewards_email_first", fallback: "Enter the email tied to your rewards account first.")
             return
         }
 
@@ -4612,7 +4612,7 @@ struct ContentView: View {
 
         do {
             loyaltyAccount = try await LoyaltyService.earnPoints(email: trimmedEmail, points: points, note: note)
-            showToast(message: "\(points) Beans added")
+            showToast(message: String(format: AppLocalization.text("beans_added_toast", fallback: "%d Beans added"), points))
         } catch {
             loyaltyError = error.localizedDescription
         }
@@ -4622,7 +4622,7 @@ struct ContentView: View {
 
     private func addToCart(product: Product) {
         guard let variant = selectedVariant(for: product), variant.isAvailableForSale else {
-            showToast(message: "\(product.name) is unavailable")
+            showToast(message: String(format: AppLocalization.text("product_unavailable_toast", fallback: "%@ is unavailable"), product.name))
             return
         }
 
@@ -4638,7 +4638,7 @@ struct ContentView: View {
 
         checkoutError = nil
         let variantSuffix = product.hasVariantChoices ? " (\(variant.title))" : ""
-        showToast(message: "\(product.name)\(variantSuffix) added to cart")
+        showToast(message: String(format: AppLocalization.text("product_added_to_cart", fallback: "%@%@ added to cart"), product.name, variantSuffix))
     }
 
     private func removeFromCart(id: String) {
@@ -4677,7 +4677,7 @@ struct ContentView: View {
 
     private func saveCurrentBrewRecipe() {
         guard ratioCoffeeAmount > 0, ratioValue > 0 else {
-            showToast(message: "Enter a valid brew recipe first")
+            showToast(message: AppLocalization.text("enter_valid_brew_recipe", fallback: "Enter a valid brew recipe first"))
             return
         }
 
@@ -4694,19 +4694,19 @@ struct ContentView: View {
 
         persistBrewRecipes([recipe] + brewRecipes)
         brewRecipeName = ""
-        showToast(message: "Brew recipe saved")
+        showToast(message: AppLocalization.text("brew_recipe_saved_toast", fallback: "Brew recipe saved"))
     }
 
     private func applyBrewRecipe(_ recipe: BrewRecipe) {
         ratioCoffeeInput = formattedRatioValue(recipe.coffeeGrams)
         ratioValueInput = formattedRatioValue(recipe.ratio)
         activeTab = .brewing
-        showToast(message: "\(recipe.name) loaded")
+        showToast(message: String(format: AppLocalization.text("recipe_loaded_toast", fallback: "%@ loaded"), recipe.name))
     }
 
     private func deleteBrewRecipe(_ recipe: BrewRecipe) {
         persistBrewRecipes(brewRecipes.filter { $0.id != recipe.id })
-        showToast(message: "Brew recipe deleted")
+        showToast(message: AppLocalization.text("brew_recipe_deleted_toast", fallback: "Brew recipe deleted"))
     }
 
     private func defaultBrewRecipeName() -> String {
@@ -4725,7 +4725,7 @@ struct ContentView: View {
 
     private func saveCurrentCart() {
         guard !cartItems.isEmpty else {
-            showToast(message: "Add items before saving a cart")
+            showToast(message: AppLocalization.text("add_items_before_saving_cart", fallback: "Add items before saving a cart"))
             return
         }
 
@@ -4741,7 +4741,7 @@ struct ContentView: View {
 
         persistSavedCarts([savedCart] + savedCarts)
         cartSaveName = ""
-        showToast(message: "Cart saved")
+        showToast(message: AppLocalization.text("cart_saved_toast", fallback: "Cart saved"))
     }
 
     private func applySavedCart(_ savedCart: SavedCart) {
@@ -4754,7 +4754,7 @@ struct ContentView: View {
         }
 
         guard !matchedItems.isEmpty else {
-            showToast(message: "Saved cart items are unavailable right now")
+            showToast(message: AppLocalization.text("saved_cart_unavailable", fallback: "Saved cart items are unavailable right now"))
             return
         }
 
@@ -4772,12 +4772,12 @@ struct ContentView: View {
         }
 
         cartOpen = true
-        showToast(message: "\(savedCart.name) loaded")
+        showToast(message: String(format: AppLocalization.text("saved_cart_loaded_toast", fallback: "%@ loaded"), savedCart.name))
     }
 
     private func deleteSavedCart(_ savedCart: SavedCart) {
         persistSavedCarts(savedCarts.filter { $0.id != savedCart.id })
-        showToast(message: "Saved cart deleted")
+        showToast(message: AppLocalization.text("saved_cart_deleted_toast", fallback: "Saved cart deleted"))
     }
 
     private func defaultSavedCartName() -> String {
@@ -4791,10 +4791,10 @@ struct ContentView: View {
 
         if updatedFavorites.contains(product.id) {
             updatedFavorites.remove(product.id)
-            showToast(message: "Removed from favorites")
+            showToast(message: AppLocalization.text("removed_from_favorites", fallback: "Removed from favorites"))
         } else {
             updatedFavorites.insert(product.id)
-            showToast(message: "Saved to favorites")
+            showToast(message: AppLocalization.text("saved_to_favorites", fallback: "Saved to favorites"))
         }
 
         savedFavoriteProductIDs = updatedFavorites.sorted().joined(separator: ",")
@@ -4811,7 +4811,7 @@ struct ContentView: View {
                 backendStockAlerts.removeAll { $0.productID == product.id }
             }
             await ProductAlertNotificationService.removeReminder(for: product.id)
-            showToast(message: "Removed from alerts")
+            showToast(message: AppLocalization.text("removed_from_alerts", fallback: "Removed from alerts"))
         } else {
             updatedAlerts.insert(product.id)
             recordRecentlyViewed(product)
@@ -4837,7 +4837,7 @@ struct ContentView: View {
                     body: notificationBody(for: product)
                 )
             }
-            showToast(message: "Added to alerts")
+            showToast(message: AppLocalization.text("added_to_alerts", fallback: "Added to alerts"))
         }
 
         savedAlertProductIDs = updatedAlerts.sorted().joined(separator: ",")
@@ -4901,9 +4901,9 @@ struct ContentView: View {
         if granted {
             registerForRemoteNotifications()
             await syncRemotePushTokenIfPossible()
-            showToast(message: "Notifications enabled")
+            showToast(message: AppLocalization.text("notifications_enabled", fallback: "Notifications enabled"))
         } else {
-            showToast(message: "Notifications not enabled")
+            showToast(message: AppLocalization.text("notifications_not_enabled", fallback: "Notifications not enabled"))
         }
     }
 
@@ -5000,7 +5000,7 @@ struct ContentView: View {
         }
 
         guard !matchedProducts.isEmpty else {
-            showToast(message: "Those items are currently unavailable")
+            showToast(message: AppLocalization.text("items_unavailable_currently", fallback: "Those items are currently unavailable"))
             return
         }
 
@@ -5018,9 +5018,9 @@ struct ContentView: View {
         cartOpen = true
 
         if matchedProducts.count == items.count {
-            showToast(message: "Order added to cart")
+            showToast(message: AppLocalization.text("order_added_to_cart", fallback: "Order added to cart"))
         } else {
-            showToast(message: "Available items from that order were added")
+            showToast(message: AppLocalization.text("available_items_added_from_order", fallback: "Available items from that order were added"))
         }
     }
 
@@ -5045,13 +5045,13 @@ struct ContentView: View {
     @MainActor
     private func applyVoucher() async {
         guard let profile = customerProfile else {
-            voucherError = "Sign in to apply a loyalty voucher."
+            voucherError = AppLocalization.text("sign_in_to_apply_voucher", fallback: "Sign in to apply a loyalty voucher.")
             return
         }
 
         let trimmedCode = voucherCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !trimmedCode.isEmpty else {
-            voucherError = "Enter a voucher code first."
+            voucherError = AppLocalization.text("enter_voucher_code_first", fallback: "Enter a voucher code first.")
             return
         }
 
@@ -5062,7 +5062,7 @@ struct ContentView: View {
             appliedVoucher = try await AccountService.previewVoucher(code: trimmedCode, email: profile.email)
             voucherCodeInput = trimmedCode
             await loadAvailableVouchers(for: profile.email)
-            showToast(message: "Voucher applied")
+            showToast(message: AppLocalization.text("voucher_applied_toast", fallback: "Voucher applied"))
         } catch {
             appliedVoucher = nil
             voucherError = error.localizedDescription
@@ -5101,7 +5101,7 @@ struct ContentView: View {
         }
 
         guard !lines.isEmpty else {
-            checkoutError = "Your cart has no purchasable items."
+            checkoutError = AppLocalization.text("cart_no_purchasable_items", fallback: "Your cart has no purchasable items.")
             return
         }
 
@@ -5133,7 +5133,7 @@ struct ContentView: View {
             appliedVoucher = nil
             voucherCodeInput = ""
             voucherError = nil
-            showToast(message: "Checkout opened")
+            showToast(message: AppLocalization.text("checkout_opened_toast", fallback: "Checkout opened"))
         } catch {
             checkoutError = error.localizedDescription
         }
@@ -5145,12 +5145,12 @@ struct ContentView: View {
     private func addLoyaltyPassToWallet() async {
 #if canImport(PassKit)
         guard PKPassLibrary.isPassLibraryAvailable() else {
-            showToast(message: "Apple Wallet is unavailable on this device")
+            showToast(message: AppLocalization.text("apple_wallet_unavailable", fallback: "Apple Wallet is unavailable on this device"))
             return
         }
 
         guard let email = customerProfile?.email ?? (!savedLoyaltyEmail.isEmpty ? savedLoyaltyEmail : nil) else {
-            showToast(message: "Sign in before adding your Wallet pass")
+            showToast(message: AppLocalization.text("sign_in_before_wallet_pass", fallback: "Sign in before adding your Wallet pass"))
             return
         }
 
@@ -5161,7 +5161,7 @@ struct ContentView: View {
             let library = PKPassLibrary()
             if library.containsPass(pass) {
                 isLoyaltyPassInWallet = true
-                showToast(message: "Loyalty card is already in Apple Wallet")
+                showToast(message: AppLocalization.text("wallet_pass_already_added", fallback: "Loyalty card is already in Apple Wallet"))
             } else {
                 loyaltyWalletPass = WalletPassItem(pass: pass)
             }
@@ -5171,7 +5171,7 @@ struct ContentView: View {
 
         isLoadingWalletPass = false
 #else
-        showToast(message: "Apple Wallet is unavailable on this device")
+        showToast(message: AppLocalization.text("apple_wallet_unavailable", fallback: "Apple Wallet is unavailable on this device"))
 #endif
     }
 
