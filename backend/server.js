@@ -4177,6 +4177,19 @@ const server = http.createServer(async (request, response) => {
                 }
 
                 const result = await createShopifyAdminProduct({ title, productType, price });
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "product_created",
+                    targetEmail: null,
+                    detail: `Created product ${title}`,
+                    metadata: {
+                        productID: result.product?.id || null,
+                        title,
+                        productType,
+                        price,
+                        published: result.published
+                    }
+                });
                 sendJSON(response, 200, {
                     product: result.product,
                     publicationConfigured: Boolean(shopifyAdminPublicationID),
@@ -4233,6 +4246,19 @@ const server = http.createServer(async (request, response) => {
                     price
                 });
 
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "product_updated",
+                    targetEmail: null,
+                    detail: `Updated product ${product.title || productID}`,
+                    metadata: {
+                        productID,
+                        title: title || null,
+                        descriptionUpdated: descriptionHTML !== undefined,
+                        defaultVariantID,
+                        price: hasPrice ? price : null
+                    }
+                });
                 sendJSON(response, 200, { product });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not update product." });
@@ -4258,6 +4284,17 @@ const server = http.createServer(async (request, response) => {
                 }
 
                 const product = await addShopifyProductImage({ productID, imageURL, altText });
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "product_image_added",
+                    targetEmail: null,
+                    detail: `Added image to product ${product.title || productID}`,
+                    metadata: {
+                        productID,
+                        imageURL,
+                        altText
+                    }
+                });
                 sendJSON(response, 200, { product });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not add product image." });
@@ -4292,6 +4329,19 @@ const server = http.createServer(async (request, response) => {
                 });
 
                 const product = (await listShopifyAdminProducts()).find((entry) => entry.id === productID) || null;
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "product_inventory_updated",
+                    targetEmail: null,
+                    detail: `Set inventory for product ${product?.title || productID} to ${quantity}`,
+                    metadata: {
+                        productID,
+                        inventoryItemID,
+                        locationID,
+                        compareQuantity: Number.isFinite(compareQuantity) ? compareQuantity : 0,
+                        quantity
+                    }
+                });
                 sendJSON(response, 200, { product });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not update inventory." });
@@ -4314,6 +4364,13 @@ const server = http.createServer(async (request, response) => {
                 }
 
                 await deleteShopifyAdminProduct(productID);
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "product_deleted",
+                    targetEmail: null,
+                    detail: `Deleted product ${productID}`,
+                    metadata: { productID }
+                });
                 sendJSON(response, 200, { success: true, id: productID });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not delete product." });
@@ -4340,6 +4397,18 @@ const server = http.createServer(async (request, response) => {
                     return;
                 }
 
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "customer_profile_updated",
+                    targetEmail: nextEmail,
+                    detail: "Updated customer profile from admin",
+                    metadata: {
+                        previousEmail: email,
+                        nextEmail,
+                        firstName,
+                        lastName
+                    }
+                });
                 sendJSON(response, 200, { profile: profilePayload(account) });
             } catch (error) {
                 if (error.message === "ACCOUNT_EMAIL_EXISTS") {
@@ -4454,6 +4523,13 @@ const server = http.createServer(async (request, response) => {
                     return;
                 }
 
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "customer_deleted",
+                    targetEmail: email,
+                    detail: "Deleted customer account and related local records",
+                    metadata: { email }
+                });
                 sendJSON(response, 200, { success: true, email });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid account delete payload." });
@@ -4528,6 +4604,22 @@ const server = http.createServer(async (request, response) => {
                     isPreferred
                 });
 
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: addressID ? "customer_address_updated" : "customer_address_created",
+                    targetEmail: email,
+                    detail: addressID ? `Updated address ${label}` : `Created address ${label}`,
+                    metadata: {
+                        addressID,
+                        label,
+                        fullName,
+                        phone,
+                        line1,
+                        city,
+                        hasNotes: Boolean(notes),
+                        isPreferred
+                    }
+                });
                 sendJSON(response, 200, { addresses });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid address payload." });
@@ -4553,6 +4645,13 @@ const server = http.createServer(async (request, response) => {
                 }
 
                 const addresses = await deleteAddress(email, addressID);
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "customer_address_deleted",
+                    targetEmail: email,
+                    detail: "Deleted customer address",
+                    metadata: { addressID }
+                });
                 sendJSON(response, 200, { addresses });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid address delete payload." });
@@ -4578,6 +4677,16 @@ const server = http.createServer(async (request, response) => {
                     return;
                 }
 
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "order_status_updated",
+                    targetEmail: email,
+                    detail: `Updated order ${orderID} to ${status}`,
+                    metadata: {
+                        orderID,
+                        status
+                    }
+                });
                 sendJSON(response, 200, { order });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid order update payload." });
@@ -4606,6 +4715,18 @@ const server = http.createServer(async (request, response) => {
                 }
 
                 const voucher = await createAdminVoucherRecord({ email, reward, points, detail, expiresInDays });
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "voucher_created",
+                    targetEmail: email,
+                    detail: `Created voucher ${voucher.code}`,
+                    metadata: {
+                        code: voucher.code,
+                        reward,
+                        points,
+                        expiresInDays
+                    }
+                });
                 sendJSON(response, 200, { voucher });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Voucher creation failed." });
@@ -4680,6 +4801,17 @@ const server = http.createServer(async (request, response) => {
                     return;
                 }
 
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "voucher_revoked",
+                    targetEmail: voucher.email,
+                    detail: `Revoked voucher ${code}`,
+                    metadata: {
+                        code,
+                        reward: voucher.reward,
+                        previousStatus: "active"
+                    }
+                });
                 sendJSON(response, 200, { voucher });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Voucher revoke failed." });
