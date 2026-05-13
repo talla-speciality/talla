@@ -239,6 +239,40 @@
             gap: 14px;
             margin-bottom: 18px;
         }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .dashboard-card {
+            min-height: 136px;
+            padding: 18px;
+            border-radius: 24px;
+            background:
+                linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(251, 247, 241, 0.72)),
+                radial-gradient(circle at top right, rgba(159, 95, 47, 0.16), transparent 48%);
+            border: 1px solid var(--border);
+            box-shadow: 0 16px 34px rgba(39, 23, 13, 0.08);
+            display: grid;
+            align-content: space-between;
+            gap: 14px;
+        }
+        .dashboard-card.warning {
+            background:
+                linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(251, 247, 241, 0.72)),
+                radial-gradient(circle at top right, rgba(155, 28, 28, 0.12), transparent 48%);
+        }
+        .dashboard-card .value {
+            font-family: Georgia, serif;
+            font-size: 36px;
+        }
+        .dashboard-card .muted {
+            font-size: 13px;
+            line-height: 1.35;
+        }
+        .dashboard-actions {
+            margin-top: 18px;
+        }
         .panel {
             padding: 22px;
         }
@@ -467,12 +501,13 @@
             .layout {
                 grid-template-columns: 1fr;
             }
-            .ops-grid {
+            .ops-grid,
+            .dashboard-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
         @media (max-width: 640px) {
-            .grid, .adjust-row, .ops-grid, .product-create-grid, .product-item-grid, .product-image-grid, .customer-profile-grid, .order-admin-row, .voucher-create-grid {
+            .grid, .adjust-row, .ops-grid, .dashboard-grid, .product-create-grid, .product-item-grid, .product-image-grid, .customer-profile-grid, .order-admin-row, .voucher-create-grid {
                 grid-template-columns: 1fr;
             }
             .directory-controls {
@@ -515,6 +550,11 @@
                 <button id="refresh" class="secondary">Refresh</button>
             </div>
             <div id="status" class="status info">Signed in. Search for a customer to begin.</div>
+        </section>
+
+        <section class="panel" style="margin-bottom: 20px;">
+            <h2>Admin Dashboard</h2>
+            <div id="admin-dashboard" class="empty">Loading dashboard...</div>
         </section>
 
         <details class="panel" open style="margin-bottom: 20px;">
@@ -644,7 +684,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [] };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], analytics: null, recentAdminActions: [], productControlAvailable: true };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -653,6 +693,7 @@
         const logoutButton = document.getElementById("logout");
         const loginStatusEl = document.getElementById("login-status");
         const sessionSummaryEl = document.getElementById("session-summary");
+        const adminDashboardEl = document.getElementById("admin-dashboard");
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
         const productsEl = document.getElementById("products");
@@ -734,6 +775,62 @@
             }
 
             sessionSummaryEl.textContent = `Signed in as ${state.session.username}`;
+        }
+
+        function lowStockProducts(threshold = 5) {
+            return state.products.filter((product) => {
+                const quantity = Number(product.availableQuantity);
+                return Number.isFinite(quantity) && quantity <= threshold;
+            });
+        }
+
+        function renderAdminDashboard() {
+            if (!state.analytics) {
+                adminDashboardEl.className = "empty";
+                adminDashboardEl.innerHTML = "Dashboard is unavailable right now.";
+                return;
+            }
+
+            const totals = state.analytics.totals || {};
+            const lowStock = lowStockProducts();
+            const lowStockDetail = state.productControlAvailable
+                ? (lowStock.length > 0 ? `${lowStock.slice(0, 3).map((product) => product.title).join(", ")}${lowStock.length > 3 ? "..." : ""}` : "No products at or under 5 units.")
+                : "Connect Shopify Admin to track inventory here.";
+
+            adminDashboardEl.className = "";
+            adminDashboardEl.innerHTML = `
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <span class="label">Pending Orders</span>
+                        <div class="value">${totals.pendingOrders || 0}</div>
+                        <div class="muted">Needs fulfilment follow-up.</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <span class="label">New Customers</span>
+                        <div class="value">${totals.newCustomersLast7Days || 0}</div>
+                        <div class="muted">Joined in the last 7 days.</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <span class="label">Active Vouchers</span>
+                        <div class="value">${totals.activeVouchers || 0}</div>
+                        <div class="muted">Currently redeemable rewards.</div>
+                    </div>
+                    <div class="dashboard-card ${lowStock.length > 0 ? "warning" : ""}">
+                        <span class="label">Low Stock</span>
+                        <div class="value">${state.productControlAvailable ? lowStock.length : "—"}</div>
+                        <div class="muted">${escapeHTML(lowStockDetail)}</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <span class="label">Total Customers</span>
+                        <div class="value">${totals.customers || 0}</div>
+                        <div class="muted">${totals.customersWithOrders || 0} with orders.</div>
+                    </div>
+                </div>
+                <div class="dashboard-actions">
+                    <h2 style="margin-top:0;">Recent Admin Actions</h2>
+                    <div class="list">${renderList(state.recentAdminActions, entry => `<div class="list-item"><strong>${escapeHTML(entry.detail || entry.action)}</strong><div class="muted">${escapeHTML(entry.adminUsername || "Admin")} ${entry.targetEmail ? `• ${escapeHTML(entry.targetEmail)}` : ""} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No admin actions recorded yet.")}</div>
+                </div>
+            `;
         }
 
         function filteredCustomers() {
@@ -1261,6 +1358,13 @@
             return payload;
         }
 
+        async function fetchRecentAdminActions() {
+            const response = await fetch("/admin/api/audit/recent?limit=8");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load recent admin actions.");
+            return payload;
+        }
+
         async function fetchProducts() {
             const response = await fetch("/admin/api/products");
             const payload = await response.json();
@@ -1281,6 +1385,7 @@
                 const payload = await fetchCustomers();
                 state.customers = payload.customers || [];
                 renderCustomerDirectory();
+                renderAdminDashboard();
             } catch (error) {
                 if (error.message === "Admin authorization required.") {
                     await logout();
@@ -1316,7 +1421,10 @@
                 loginPasswordInput.value = "";
                 renderSession();
                 renderOpsSummary(await fetchOpsSummary());
-                renderAnalyticsSummary(await fetchAnalyticsSummary());
+                state.analytics = await fetchAnalyticsSummary();
+                state.recentAdminActions = (await fetchRecentAdminActions()).auditLogs || [];
+                renderAnalyticsSummary(state.analytics);
+                renderAdminDashboard();
                 showApp();
                 await refreshCustomers();
                 await refreshProducts();
@@ -1343,6 +1451,11 @@
             productsEl.className = "empty";
             productsEl.innerHTML = "Sign in to manage Shopify products.";
             productsNoteEl.textContent = "";
+            state.analytics = null;
+            state.recentAdminActions = [];
+            state.productControlAvailable = true;
+            adminDashboardEl.className = "empty";
+            adminDashboardEl.innerHTML = "Sign in to view the admin dashboard.";
             analyticsSummaryEl.className = "empty";
             analyticsSummaryEl.innerHTML = "Sign in to view analytics summary.";
             customerDirectoryFilterInput.value = "";
@@ -1363,7 +1476,10 @@
                 state.session = session;
                 renderSession();
                 renderOpsSummary(await fetchOpsSummary());
-                renderAnalyticsSummary(await fetchAnalyticsSummary());
+                state.analytics = await fetchAnalyticsSummary();
+                state.recentAdminActions = (await fetchRecentAdminActions()).auditLogs || [];
+                renderAnalyticsSummary(state.analytics);
+                renderAdminDashboard();
                 showApp();
                 await refreshCustomers();
                 await refreshProducts();
@@ -1378,15 +1494,20 @@
                 setButtonBusy(refreshProductsButton, true, "Refresh Products", "Refreshing...");
                 const payload = await fetchProducts();
                 state.products = payload.products;
+                state.productControlAvailable = true;
                 renderProducts(payload.products, payload.publicationConfigured);
+                renderAdminDashboard();
             } catch (error) {
                 if (error.message === "Admin authorization required.") {
                     await logout();
                     return;
                 }
+                state.productControlAvailable = false;
+                state.products = [];
                 productsNoteEl.textContent = "";
                 productsEl.className = "empty";
                 productsEl.innerHTML = escapeHTML(error.message);
+                renderAdminDashboard();
             } finally {
                 setButtonBusy(refreshProductsButton, false, "Refresh Products");
             }

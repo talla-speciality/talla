@@ -3489,6 +3489,22 @@ async function adminAuditLogsFor(email, limit = 20) {
     return [];
 }
 
+async function recentAdminAuditLogs(limit = 8) {
+    if (!database.isEnabled()) {
+        return [];
+    }
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 30);
+    const result = await database.query(
+        `SELECT id, admin_username, action, target_email, detail, metadata, created_at
+         FROM admin_audit_logs
+         ORDER BY created_at DESC
+         LIMIT $1`,
+        [safeLimit]
+    );
+    return result.rows.map(adminAuditRowToRecord);
+}
+
 function buildCustomerTimeline({ account, loyalty, orders, vouchers, inbox, auditLogs, sessions }) {
     const timeline = [
         {
@@ -3798,6 +3814,11 @@ async function adminAnalyticsSummary() {
     const averagePoints = customers.length > 0
         ? Math.round(customers.reduce((sum, customer) => sum + customer.pointsBalance, 0) / customers.length)
         : 0;
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const newCustomersLast7Days = customers.filter((customer) => {
+        const createdAt = new Date(customer.createdAt).getTime();
+        return Number.isFinite(createdAt) && createdAt >= sevenDaysAgo;
+    }).length;
 
     const tierCounts = customers.reduce((accumulator, customer) => {
         accumulator[customer.loyaltyTier] = (accumulator[customer.loyaltyTier] || 0) + 1;
@@ -3836,7 +3857,8 @@ async function adminAnalyticsSummary() {
             pendingOrders,
             activeVouchers,
             usedVouchers,
-            averagePoints
+            averagePoints,
+            newCustomersLast7Days
         },
         tierCounts,
         topCustomers,
@@ -4143,6 +4165,12 @@ const server = http.createServer(async (request, response) => {
 
         if (request.method === "GET" && url.pathname === "/admin/api/analytics/summary") {
             sendJSON(response, 200, await adminAnalyticsSummary());
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/audit/recent") {
+            const limit = Number(url.searchParams.get("limit")) || 8;
+            sendJSON(response, 200, { auditLogs: await recentAdminAuditLogs(limit) });
             return;
         }
 
