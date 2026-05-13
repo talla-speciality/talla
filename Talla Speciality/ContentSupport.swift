@@ -64,6 +64,18 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 enum AppLocalization {
     private static let translations: [String: [String: String]] = [
         "language": ["ar": "اللغة"],
+        "language_preference_detail": ["ar": "اختر لغة النصوص واتجاه عرض التطبيق."],
+        "welcome_eyebrow": ["ar": "مرحباً بك في Talla"],
+        "welcome_title": ["ar": "القهوة والمكافآت وطقسك اليومي في مكان واحد."],
+        "welcome_intro": ["ar": "تسوق القهوة المختصة، واجمع Beans، واحتفظ بمكافآتك قريبة أثناء استكشاف Talla."],
+        "welcome_shop_title": ["ar": "تسوق أسرع"],
+        "welcome_shop_detail": ["ar": "ابحث ورتّب وتصفح القهوة والأدوات والهدايا."],
+        "welcome_beans_title": ["ar": "اكسب Beans"],
+        "welcome_beans_detail": ["ar": "تابع المكافآت واستبدل المزايا من حسابك."],
+        "welcome_wallet_title": ["ar": "ابقَ على اتصال"],
+        "welcome_wallet_detail": ["ar": "استخدم Wallet والتنبيهات عندما تريد التحديثات قريبة منك."],
+        "start_exploring": ["ar": "ابدأ الاستكشاف"],
+        "skip_for_now": ["ar": "تخطي الآن"],
         "home": ["ar": "الرئيسية"],
         "shop": ["ar": "المتجر"],
         "brewing": ["ar": "التحضير"],
@@ -75,6 +87,14 @@ enum AppLocalization {
         "categories": ["ar": "الفئات"],
         "clear": ["ar": "مسح"],
         "show_everything": ["ar": "عرض الكل"],
+        "sort_by": ["ar": "ترتيب حسب"],
+        "sort_featured": ["ar": "المميز"],
+        "sort_price_low": ["ar": "الأقل سعراً"],
+        "sort_price_high": ["ar": "الأعلى سعراً"],
+        "sort_available": ["ar": "المتوفر"],
+        "search_shop_placeholder": ["ar": "ابحث عن قهوة، أدوات، هدايا..."],
+        "clear_search": ["ar": "مسح البحث"],
+        "no_search_results": ["ar": "لا توجد منتجات مطابقة لهذا البحث حالياً."],
         "loading_shop": ["ar": "جاري تحميل المتجر"],
         "no_products": ["ar": "لا توجد منتجات مطابقة لهذه الفئة حالياً."],
         "show_all_products": ["ar": "عرض كل المنتجات"],
@@ -139,6 +159,11 @@ enum AppLocalization {
         ,"support_tools_subtitle": ["ar": "مراجع سريعة وروابط مساعدة عند الحاجة."]
         ,"open_rewards": ["ar": "افتح المكافآت"]
         ,"open_rewards_detail": ["ar": "راجع الرصيد واستبدل المكافآت المتاحة."]
+        ,"rewards_opened": ["ar": "تم فتح المكافآت"]
+        ,"delivery_opened": ["ar": "تم فتح التوصيل"]
+        ,"saved_opened": ["ar": "تم فتح المحفوظات"]
+        ,"brewing_archive_opened": ["ar": "تم فتح أرشيف التحضير"]
+        ,"support_opened": ["ar": "تم فتح الدعم"]
         ,"delivery_setup": ["ar": "إعداد التوصيل"]
         ,"delivery_setup_empty": ["ar": "أضف عنوانك الأول."]
         ,"address_saved_singular": ["ar": "تم حفظ عنوان واحد."]
@@ -293,19 +318,27 @@ enum AppLocalization {
         ,"city": ["ar": "المدينة"]
         ,"notes": ["ar": "ملاحظات"]
         ,"save_address": ["ar": "حفظ العنوان"]
+        ,"add_address": ["ar": "أضف عنواناً"]
         ,"no_saved_addresses": ["ar": "لا توجد عناوين محفوظة بعد."]
         ,"preferred": ["ar": "المفضل"]
         ,"saved_brew_recipes": ["ar": "وصفات التحضير المحفوظة"]
         ,"saved_brew_recipes_empty": ["ar": "احفظ نسب القهوة إلى الماء المفضلة من تبويب التحضير وستظهر هنا."]
+        ,"open_brewing": ["ar": "افتح التحضير"]
         ,"apply": ["ar": "تطبيق"]
         ,"recently_viewed": ["ar": "شوهد مؤخراً"]
         ,"recently_viewed_empty": ["ar": "المنتجات التي تفتحها أو تحفظها أو تضيفها إلى السلة ستظهر هنا للعودة السريعة."]
         ,"by_chef_ahmad": ["ar": "من الشيف أحمد"]
         ,"your_bag_is_empty": ["ar": "حقيبتك فارغة."]
+        ,"cart_empty_guidance": ["ar": "ابدأ بالقهوة أو الأدوات أو الهدايا. ستظهر اختياراتك هنا قبل إتمام الطلب."]
         ,"preferred_delivery": ["ar": "التوصيل المفضل"]
         ,"edit": ["ar": "تعديل"]
         ,"delivery_address_needed": ["ar": "مطلوب عنوان توصيل"]
         ,"add_preferred_address_before_checkout": ["ar": "أضف عنوانك المفضل قبل إتمام الطلب."]
+        ,"how_ordering_works": ["ar": "كيف يعمل الطلب"]
+        ,"ordering_step_review": ["ar": "راجع حقيبتك وبيانات التوصيل."]
+        ,"ordering_step_checkout": ["ar": "تابع إلى الدفع الآمن لإرسال الطلب."]
+        ,"ordering_step_confirm": ["ar": "تؤكد Talla التوفر والتوصيل والتسليم النهائي."]
+        ,"ordering_step_beans": ["ar": "تُضاف Beans بعد تسجيل الطلب المكتمل."]
         ,"rewards_voucher": ["ar": "المكافآت والقسيمة"]
         ,"rewards_voucher_detail": ["ar": "طبّق مكافأة قبل فتح الدفع، أو تابع بدونها."]
         ,"enter_voucher_code": ["ar": "أدخل رمز القسيمة"]

@@ -47,13 +47,20 @@ private final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotifica
 
 @main
 struct Talla_SpecialityApp: App {
+    @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
     #if canImport(UIKit) && canImport(UserNotifications)
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
 
+    private var appLanguage: AppLanguage {
+        AppLanguage(rawValue: savedAppLanguage) ?? .system
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(\.layoutDirection, appLanguage.layoutDirection)
+                .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
         }
     }
 }

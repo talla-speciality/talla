@@ -8,6 +8,8 @@ struct ShopSectionView: View {
     let isLoadingProducts: Bool
     let loadingError: String?
     @Binding var activeCategory: String
+    @Binding var searchQuery: String
+    @Binding var sortMode: ContentView.ShopSortMode
     let primaryTextColor: Color
     let secondaryTextColor: Color
     let tertiaryTextColor: Color
@@ -44,7 +46,8 @@ struct ShopSectionView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            shopQuickActions
+            shopSearchField
+            shopSortSection
             shopCategoriesSection
             shopResultsSummary
 
@@ -64,33 +67,81 @@ struct ShopSectionView: View {
         }
     }
 
-    private var shopQuickActions: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-            shortcutCard(
-                title: "Best for Daily Brewing",
-                detail: "Jump into roasted beans and signature staples.",
-                systemImage: "leaf.fill",
-                categoryKey: "coffee-beans"
-            )
-            shortcutCard(
-                title: "Quick Gift Ideas",
-                detail: "Open curated boxes and ready-to-share bundles.",
-                systemImage: "gift.fill",
-                categoryKey: "gifts"
-            )
-            shortcutCard(
-                title: "Tools & Equipment",
-                detail: "Find brewers, scales, and setup essentials.",
-                systemImage: "flask.fill",
-                categoryKey: "coffee-equipment"
-            )
-            shortcutCard(
-                title: AppLocalization.text("show_everything", fallback: "Show Everything"),
-                detail: AppLocalization.text("browse_catalog", fallback: "Reset filters and browse the full catalog."),
-                systemImage: "square.grid.2x2.fill",
-                categoryKey: "all"
-            )
+    private var shopSearchField: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(accentColor)
+
+            TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search coffee, tools, gifts..."), text: $searchQuery)
+                .font(bodyFont)
+                .foregroundColor(primaryTextColor)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+                .submitLabel(.search)
+
+            if !searchQuery.isEmpty {
+                Button {
+                    searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(secondaryTextColor.opacity(0.75))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("clear_search", fallback: "Clear search"))
+            }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var shopSortSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(AppLocalization.text("sort_by", fallback: "Sort by"))
+                .font(labelFont)
+                .tracking(4)
+                .textCase(.uppercase)
+                .foregroundColor(accentColor)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(ContentView.ShopSortMode.allCases) { mode in
+                        sortButton(mode)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private func sortButton(_ mode: ContentView.ShopSortMode) -> some View {
+        let isSelected = sortMode == mode
+
+        return Button {
+            sortMode = mode
+        } label: {
+            Text(mode.title)
+                .font(categoryLabelFont)
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(isSelected ? accentColor : cardFillColor)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(accentColor.opacity(isSelected ? 0 : 0.18), lineWidth: 1)
+                )
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var shopResultsSummary: some View {
@@ -102,16 +153,17 @@ struct ShopSectionView: View {
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
-                Text("\(filteredProducts.count) product\(filteredProducts.count == 1 ? "" : "s") available")
+                Text(resultsCountText)
                     .font(categoryBodyFont)
                     .foregroundColor(secondaryTextColor)
             }
 
             Spacer()
 
-            if activeCategory != "all" {
+            if activeCategory != "all" || !searchQuery.isEmpty {
                 Button {
                     activeCategory = "all"
+                    searchQuery = ""
                 } label: {
                     Text(AppLocalization.text("clear", fallback: "Clear"))
                         .font(categoryLabelFont)
@@ -138,6 +190,14 @@ struct ShopSectionView: View {
                 .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var resultsCountText: String {
+        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "\(filteredProducts.count) product\(filteredProducts.count == 1 ? "" : "s") available"
+        }
+
+        return "\(filteredProducts.count) result\(filteredProducts.count == 1 ? "" : "s") for \"\(searchQuery)\""
     }
 
     private var shopCategoriesSection: some View {
@@ -208,24 +268,6 @@ struct ShopSectionView: View {
         .foregroundColor(isSelected ? Color(hex: 0x0A0804) : accentColor)
     }
 
-    private func shortcutCard(title: String, detail: String, systemImage: String, categoryKey: String) -> some View {
-        ActionTileView(
-            title: title,
-            detail: detail,
-            systemImage: systemImage,
-            titleFont: categoryLabelFont,
-            detailFont: categoryBodyFont,
-            primaryTextColor: primaryTextColor,
-            secondaryTextColor: secondaryTextColor,
-            accentColor: accentColor,
-            backgroundColor: cardFillColor,
-            strokeColor: accentColor.opacity(isLightAppearance ? 0.14 : 0.08),
-            minHeight: 118
-        ) {
-            activeCategory = categoryKey
-        }
-    }
-
     private var loadingSection: some View {
         VStack(spacing: 16) {
             ProgressView()
@@ -243,12 +285,15 @@ struct ShopSectionView: View {
 
     private var emptySection: some View {
         VStack(spacing: 12) {
-            Text(AppLocalization.text("no_products", fallback: "No products match this category right now."))
+            Text(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? AppLocalization.text("no_products", fallback: "No products match this category right now.")
+                : AppLocalization.text("no_search_results", fallback: "No products match that search right now."))
                 .font(.system(size: 15, weight: .medium, design: .serif))
                 .foregroundColor(secondaryTextColor)
 
             Button {
                 activeCategory = "all"
+                searchQuery = ""
             } label: {
                 Text(AppLocalization.text("show_all_products", fallback: "Show All Products"))
                     .font(.system(size: 10, weight: .semibold))

@@ -1,5 +1,119 @@
 import SwiftUI
 
+struct WelcomeOverlayView: View {
+    let primaryTextColor: Color
+    let secondaryTextColor: Color
+    let cardFillColor: Color
+    let accentColor: Color
+    let scrimColor: Color
+    let titleFont: Font
+    let bodyFont: Font
+    let labelFont: Font
+    let startAction: () -> Void
+    let skipAction: () -> Void
+
+    var body: some View {
+        ZStack {
+            scrimColor
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(AppLocalization.text("welcome_eyebrow", fallback: "Welcome to Talla"))
+                        .font(labelFont)
+                        .tracking(2.4)
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
+
+                    Text(AppLocalization.text("welcome_title", fallback: "Coffee, rewards, and your daily ritual in one place."))
+                        .font(titleFont)
+                        .foregroundColor(primaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(AppLocalization.text("welcome_intro", fallback: "Shop specialty coffee, collect Beans, and keep your rewards close as you explore Talla."))
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(spacing: 12) {
+                    welcomePoint(
+                        icon: "bag.fill",
+                        title: AppLocalization.text("welcome_shop_title", fallback: "Shop faster"),
+                        detail: AppLocalization.text("welcome_shop_detail", fallback: "Search, sort, and browse coffees, tools, and gifts.")
+                    )
+                    welcomePoint(
+                        icon: "sparkles",
+                        title: AppLocalization.text("welcome_beans_title", fallback: "Earn Beans"),
+                        detail: AppLocalization.text("welcome_beans_detail", fallback: "Track rewards and redeem perks from your account.")
+                    )
+                    welcomePoint(
+                        icon: "wallet.pass.fill",
+                        title: AppLocalization.text("welcome_wallet_title", fallback: "Stay connected"),
+                        detail: AppLocalization.text("welcome_wallet_detail", fallback: "Use Wallet and alerts when you want updates close by.")
+                    )
+                }
+
+                VStack(spacing: 10) {
+                    Button(action: startAction) {
+                        Text(AppLocalization.text("start_exploring", fallback: "Start Exploring"))
+                            .font(labelFont)
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(accentColor)
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: skipAction) {
+                        Text(AppLocalization.text("skip_for_now", fallback: "Skip for now"))
+                            .font(bodyFont)
+                            .foregroundColor(secondaryTextColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 440)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(accentColor.opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private func welcomePoint(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(accentColor)
+                .frame(width: 34, height: 34)
+                .background(accentColor.opacity(0.14))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(labelFont)
+                    .foregroundColor(primaryTextColor)
+
+                Text(detail)
+                    .font(bodyFont)
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 struct SectionCardView<Content: View>: View {
     let backgroundColor: Color
     let strokeColor: Color

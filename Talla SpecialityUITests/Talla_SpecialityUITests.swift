@@ -8,7 +8,6 @@
 import XCTest
 
 final class Talla_SpecialityUITests: XCTestCase {
-
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
 
@@ -25,31 +24,42 @@ final class Talla_SpecialityUITests: XCTestCase {
     func testExample() throws {
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.buttons["Home"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Shop"].exists)
-        XCTAssertTrue(app.buttons["Brewing"].exists)
-        XCTAssertTrue(app.buttons["Account"].exists)
-        XCTAssertTrue(app.buttons["Open cart"].exists)
+
+        let homeExists = app.buttons["Home"].waitForExistence(timeout: 5)
+        let shopExists = app.buttons["Shop"].exists
+        let brewingExists = app.buttons["Brewing"].exists
+        let accountExists = app.buttons["Account"].exists
+        let cartExists = app.buttons["Open cart"].exists
+
+        XCTAssertTrue(homeExists)
+        XCTAssertTrue(shopExists)
+        XCTAssertTrue(brewingExists)
+        XCTAssertTrue(accountExists)
+        XCTAssertTrue(cartExists)
     }
 
     func testTabNavigationSmoke() throws {
         let app = XCUIApplication()
         app.launch()
 
-        let homeButton = app.buttons["Home"]
-        let shopButton = app.buttons["Shop"]
-        let brewingButton = app.buttons["Brewing"]
-        let accountButton = app.buttons["Account"]
+        let homeExists = app.buttons["Home"].waitForExistence(timeout: 5)
+        XCTAssertTrue(homeExists)
 
-        XCTAssertTrue(homeButton.waitForExistence(timeout: 5))
-        shopButton.tap()
-        XCTAssertTrue(app.buttons["Shop"].exists)
-        brewingButton.tap()
-        XCTAssertTrue(app.buttons["Brewing"].exists)
-        accountButton.tap()
-        XCTAssertTrue(app.buttons["Account"].exists)
-        homeButton.tap()
-        XCTAssertTrue(app.buttons["Home"].exists)
+        app.buttons["Shop"].tap()
+        let shopExists = app.buttons["Shop"].exists
+        XCTAssertTrue(shopExists)
+
+        app.buttons["Brewing"].tap()
+        let brewingExists = app.buttons["Brewing"].exists
+        XCTAssertTrue(brewingExists)
+
+        app.buttons["Account"].tap()
+        let accountExists = app.buttons["Account"].exists
+        XCTAssertTrue(accountExists)
+
+        app.buttons["Home"].tap()
+        let finalHomeExists = app.buttons["Home"].exists
+        XCTAssertTrue(finalHomeExists)
     }
 
     func testLaunchPerformance() throws {

@@ -57,7 +57,7 @@ struct CartDrawerView: View {
                     }
                 }
                 .padding(24)
-                .frame(maxWidth: 400)
+                .frame(maxWidth: min(geometry.size.width - 24, 560))
                 .frame(maxHeight: min(geometry.size.height * 0.82, 720), alignment: .top)
                 .background(elevatedSurfaceColor)
                 .overlay(

@@ -132,6 +132,7 @@ struct OrderHistorySectionView: View {
     let cardFillColor: Color
     let isLightAppearance: Bool
     let buyAgainAction: (ContentView.AccountOrder) -> Void
+    let browseProductsAction: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -151,9 +152,33 @@ struct OrderHistorySectionView: View {
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             } else if orders.isEmpty {
-                Text(AppLocalization.text("no_saved_orders", fallback: "No saved orders yet."))
-                    .font(Font.custom("AvenirNext-Regular", size: 13))
-                    .foregroundColor(secondaryTextColor)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(AppLocalization.text("no_saved_orders", fallback: "No saved orders yet."))
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button(action: browseProductsAction) {
+                        Text(AppLocalization.text("browse_products", fallback: "Browse Products"))
+                            .font(Font.custom("AvenirNext-Bold", size: 10))
+                            .tracking(1.5)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(accentColor)
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
                 ForEach(orders.prefix(4)) { order in
                     VStack(alignment: .leading, spacing: 12) {
