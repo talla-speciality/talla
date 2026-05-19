@@ -589,6 +589,7 @@
                         <button id="create-product">Add Product</button>
                     </div>
                     <div class="toolbar-row" style="padding: 0;">
+                        <button id="apply-eid-product-preset" class="secondary">Use Eid Product Preset</button>
                         <button id="refresh-products" class="secondary">Refresh Products</button>
                         <div id="products-note" class="muted"></div>
                     </div>
@@ -701,6 +702,7 @@
         const productsEl = document.getElementById("products");
         const productsNoteEl = document.getElementById("products-note");
         const refreshProductsButton = document.getElementById("refresh-products");
+        const applyEidProductPresetButton = document.getElementById("apply-eid-product-preset");
         const createProductButton = document.getElementById("create-product");
         const newProductTitleInput = document.getElementById("new-product-title");
         const newProductPriceInput = document.getElementById("new-product-price");
@@ -1652,6 +1654,13 @@
             }
         }
 
+        function applyEidProductPreset() {
+            newProductTitleInput.value = "Eid Majlis Gift Box";
+            newProductPriceInput.value = "12.000";
+            newProductTypeInput.value = "Eid Gifts";
+            setStatus("Eid product preset is ready. Adjust price/title if needed, then add the product.", "success");
+        }
+
         async function saveProduct(productID) {
             const productEl = productsEl.querySelector(`[data-product-id="${CSS.escape(productID)}"]`);
             if (!productEl) return;
@@ -2073,6 +2082,7 @@
         adjustButton.addEventListener("click", adjustLoyalty);
         refreshCustomersButton.addEventListener("click", refreshCustomers);
         refreshProductsButton.addEventListener("click", refreshProducts);
+        applyEidProductPresetButton.addEventListener("click", applyEidProductPreset);
         createProductButton.addEventListener("click", createProduct);
         customerDirectoryEl.addEventListener("click", (event) => {
             const item = event.target.closest(".directory-item");
