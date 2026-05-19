@@ -649,8 +649,8 @@ async function createShopifyAdminProduct({ title, price, productType }) {
     };
 }
 
-async function updateShopifyAdminProduct({ productID, title, descriptionHTML, defaultVariantID, price }) {
-    if (title || descriptionHTML !== undefined) {
+async function updateShopifyAdminProduct({ productID, title, productType, descriptionHTML, defaultVariantID, price }) {
+    if (title || productType !== undefined || descriptionHTML !== undefined) {
         const productUpdateData = await shopifyAdminGraphQLRequest(
             `mutation UpdateProduct($product: ProductUpdateInput!) {
                 productUpdate(product: $product) {
@@ -667,6 +667,7 @@ async function updateShopifyAdminProduct({ productID, title, descriptionHTML, de
                 product: {
                     id: productID,
                     title: title || undefined,
+                    productType,
                     descriptionHtml: descriptionHTML
                 }
             }
@@ -4244,6 +4245,9 @@ const server = http.createServer(async (request, response) => {
                 const body = await readBody(request);
                 const productID = String(body.id || "").trim();
                 const title = String(body.title || "").trim();
+                const productType = body.productType === undefined
+                    ? undefined
+                    : String(body.productType).trim();
                 const descriptionHTML = body.descriptionHTML === undefined
                     ? undefined
                     : String(body.descriptionHTML);
@@ -4269,6 +4273,7 @@ const server = http.createServer(async (request, response) => {
                 const product = await updateShopifyAdminProduct({
                     productID,
                     title: title || undefined,
+                    productType,
                     descriptionHTML,
                     defaultVariantID,
                     price
@@ -4282,6 +4287,7 @@ const server = http.createServer(async (request, response) => {
                     metadata: {
                         productID,
                         title: title || null,
+                        productType: productType === undefined ? null : productType,
                         descriptionUpdated: descriptionHTML !== undefined,
                         defaultVariantID,
                         price: hasPrice ? price : null

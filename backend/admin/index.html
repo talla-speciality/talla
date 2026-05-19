@@ -1143,7 +1143,7 @@
                     <div class="product-item-grid">
                         <input class="product-title-input" type="text" value="${escapeHTML(product.title)}" placeholder="Title">
                         <input class="product-price-input" type="number" min="0" step="0.01" value="${escapeHTML(product.price)}" placeholder="Price">
-                        <input class="product-type-input" type="text" value="${escapeHTML(product.productType || "")}" placeholder="Type" disabled>
+                        <input class="product-type-input" type="text" value="${escapeHTML(product.productType || "")}" placeholder="Category e.g. Beans">
                     </div>
                     <textarea class="product-description-input" placeholder="Description (HTML or plain text)">${escapeHTML(product.descriptionHTML || "")}</textarea>
                     <div class="product-image-grid">
@@ -1622,6 +1622,7 @@
 
             const title = productEl.querySelector(".product-title-input").value.trim();
             const price = productEl.querySelector(".product-price-input").value.trim();
+            const productType = productEl.querySelector(".product-type-input").value.trim();
             const descriptionHTML = productEl.querySelector(".product-description-input").value;
             const defaultVariantID = productEl.dataset.variantId;
 
@@ -1633,6 +1634,7 @@
                     body: JSON.stringify({
                         id: productID,
                         title,
+                        productType,
                         descriptionHTML,
                         price,
                         defaultVariantID
