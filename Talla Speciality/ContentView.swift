@@ -421,6 +421,7 @@ struct ContentView: View {
 
     private let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
+        ShopCategory(key: "eid-gifts", title: "Eid Gifts", subtitle: "Seasonal boxes", symbol: "moon.stars.fill"),
         ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Single-origin whole beans", symbol: "leaf.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
@@ -706,6 +707,18 @@ struct ContentView: View {
             .sorted { lhs, rhs in
                 if lhs.isAvailableForSale != rhs.isAvailableForSale {
                     return !lhs.isAvailableForSale && rhs.isAvailableForSale
+                }
+
+                return lhs.name < rhs.name
+            }
+    }
+
+    private var eidGiftProducts: [Product] {
+        products
+            .filter { $0.categoryKey == "eid-gifts" }
+            .sorted { lhs, rhs in
+                if lhs.isAvailableForSale != rhs.isAvailableForSale {
+                    return lhs.isAvailableForSale && !rhs.isAvailableForSale
                 }
 
                 return lhs.name < rhs.name
@@ -1304,10 +1317,83 @@ struct ContentView: View {
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
+            eidHomeBanner
             homeQuickActions
             homeLoyaltyTeaser
             featuredProducts
         }
+    }
+
+    private var eidHomeBanner: some View {
+        Button {
+            openEidGifts()
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(AppLocalization.text("eid_mubarak", fallback: "Eid Mubarak"))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(2.4)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xF7E0AA))
+
+                        Text(AppLocalization.text("eid_greeting_arabic", fallback: "عيدكم مبارك"))
+                            .font(displayFont(size: isCompact ? 28 : 34))
+                            .foregroundColor(.white)
+
+                        Text(AppLocalization.text("eid_banner_title", fallback: "Limited Eid rewards and gift boxes"))
+                            .font(titleFont(size: 20))
+                            .foregroundColor(Color(hex: 0xFFF6E6))
+                    }
+
+                    Spacer(minLength: 10)
+
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundColor(Color(hex: 0xF7E0AA))
+                }
+
+                Text(AppLocalization.text("eid_banner_detail", fallback: "Discover Eid Gifts and redeem the seasonal Majlis Reward while it is available."))
+                    .font(bodyFont(size: 14))
+                    .foregroundColor(Color(hex: 0xF7E0AA).opacity(0.88))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    Text(AppLocalization.text("shop_eid_gifts", fallback: "Shop Eid Gifts"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0x21140A))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color(hex: 0xF7E0AA))
+                        .clipShape(Capsule())
+
+                    Text(AppLocalization.text("limited_eid_rewards", fallback: "Limited Eid Rewards"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xF7E0AA))
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [Color(hex: 0x5B341A), Color(hex: 0x1F130D)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color(hex: 0xF7E0AA).opacity(0.24), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 16)
     }
 
     private var homeQuickActions: some View {
@@ -1932,6 +2018,15 @@ struct ContentView: View {
                     systemImage: "gift.fill",
                     color: Color(hex: 0x6D5C24),
                     categoryKey: "gifts"
+                )
+                collectionTile(
+                    eyebrow: "Eid",
+                    name: "Eid Gifts",
+                    desc: "Seasonal boxes, hosting picks, and limited Eid rewards for majlis gifting.",
+                    accent: "عيدكم مبارك from Talla.",
+                    systemImage: "moon.stars.fill",
+                    color: Color(hex: 0x5B341A),
+                    categoryKey: "eid-gifts"
                 )
             }
         }
@@ -3797,8 +3892,13 @@ struct ContentView: View {
 
     private func collectionTile(eyebrow: String, name: String, desc: String, accent: String, systemImage: String, color: Color, categoryKey: String) -> some View {
         Button {
-            activeTab = .shop
-            activeCategory = categoryKey
+            if categoryKey == "eid-gifts" {
+                openEidGifts()
+            } else {
+                activeTab = .shop
+                activeCategory = categoryKey
+                shopSearchQuery = ""
+            }
         } label: {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top) {
@@ -3853,6 +3953,12 @@ struct ContentView: View {
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private func openEidGifts() {
+        activeTab = .shop
+        activeCategory = "eid-gifts"
+        shopSearchQuery = eidGiftProducts.isEmpty ? "eid" : ""
     }
 
     private func featureItem(symbol: String, eyebrow: String, title: String, detail: String) -> some View {
@@ -7252,6 +7358,13 @@ enum ProductCatalogRules {
             return "gifts"
         }
 
+        if source.contains("eid")
+            || source.contains("عيد")
+            || source.contains("majlis")
+            || source.contains("gift box") {
+            return "eid-gifts"
+        }
+
         if source.contains("shamali coffee") {
             return "arabic-coffee-beans"
         }
@@ -7304,6 +7417,10 @@ enum ProductCatalogRules {
 
         if fallbackKey == "gifts" {
             return "Talla Boxes"
+        }
+
+        if fallbackKey == "eid-gifts" {
+            return "Eid Gifts"
         }
 
         if fallbackKey == "other" || fallbackKey == "arabic-coffee-beans" || fallbackKey == "arabic-coffee" {

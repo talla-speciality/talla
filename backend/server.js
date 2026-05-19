@@ -2240,6 +2240,7 @@ function rewardDetailsFor(reward) {
         "espresso pour": { detail: "Complimentary espresso or batch brew", expiresInDays: 30 },
         "pastry pairing": { detail: "One pastry on the house", expiresInDays: 21 },
         "signature sip": { detail: "One signature drink on the house", expiresInDays: 30 },
+        "eid majlis reward": { detail: "Limited Eid reward for coffee, sweets, or gift boxes", expiresInDays: 14 },
         "coffee bag credit": { detail: "BHD 4.000 off one coffee bag", expiresInDays: 30 },
         "talla box treat": { detail: "Curated reward on a Talla Box", expiresInDays: 45 },
         "gold reserve gift": { detail: "Premium Gold-tier gift reward", expiresInDays: 60 }
@@ -2941,6 +2942,31 @@ async function pushDevicesForEmail(email) {
         .filter((device) => device.deviceToken);
 }
 
+async function allPushDevices() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT DISTINCT ON (device_token)
+                    id, email, device_token, platform, created_at, updated_at, last_sent_at
+             FROM push_devices
+             ORDER BY device_token, updated_at DESC`
+        );
+        return result.rows.map(pushDeviceRowToRecord);
+    }
+
+    const store = readJSON(pushDevicesStorePath);
+    return (store.devices || [])
+        .map((device) => ({
+            id: device.id,
+            email: normalizeEmail(device.email),
+            deviceToken: normalizeDeviceToken(device.deviceToken),
+            platform: device.platform || "ios",
+            createdAt: device.createdAt,
+            updatedAt: device.updatedAt,
+            lastSentAt: device.lastSentAt || null
+        }))
+        .filter((device) => device.deviceToken);
+}
+
 async function registerPushDevice(email, deviceToken, platform = "ios") {
     const normalizedEmail = normalizeEmail(email);
     const normalizedToken = normalizeDeviceToken(deviceToken);
@@ -3177,6 +3203,31 @@ async function sendStockAlertPush(email, { title, body, productID }) {
             productID
         });
     }
+}
+
+async function sendCampaignPushToAll({ title, body, type = "campaign" }) {
+    if (!remotePushConfigured()) {
+        return { configured: false, targetCount: 0, sentCount: 0 };
+    }
+
+    const devices = await allPushDevices();
+    let sentCount = 0;
+    for (const device of devices) {
+        const didSend = await sendRemotePushToDevice(device.deviceToken, {
+            title,
+            body,
+            type
+        });
+        if (didSend) {
+            sentCount += 1;
+        }
+    }
+
+    return {
+        configured: true,
+        targetCount: devices.length,
+        sentCount
+    };
 }
 
 async function syncStockAlerts(email, alertPayloads) {
@@ -4816,6 +4867,44 @@ const server = http.createServer(async (request, response) => {
                 });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Bulk voucher creation failed." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/notifications/eid") {
+            try {
+                const body = await readBody(request);
+                const title = String(body.title || "Eid Mubarak from Talla").trim();
+                const message = String(body.body || "Eid Gifts and limited rewards are now available in the app.").trim();
+
+                if (!title || !message) {
+                    sendJSON(response, 400, { error: "Provide a notification title and message." });
+                    return;
+                }
+
+                const result = await sendCampaignPushToAll({
+                    title,
+                    body: message,
+                    type: "eid_campaign"
+                });
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "eid_push_sent",
+                    targetEmail: null,
+                    detail: `Sent Eid push campaign to ${result.sentCount}/${result.targetCount} devices`,
+                    metadata: {
+                        title,
+                        message,
+                        configured: result.configured,
+                        targetCount: result.targetCount,
+                        sentCount: result.sentCount
+                    }
+                });
+
+                sendJSON(response, 200, result);
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Eid push campaign failed." });
             }
             return;
         }

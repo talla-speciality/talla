@@ -19,6 +19,17 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Talla Boxes")
     }
 
+    @Test func mapsEidProductsToEidGiftsCategory() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Eid Gifts",
+            tags: ["Majlis"],
+            title: "Eid Morning Box"
+        )
+
+        #expect(key == "eid-gifts")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Eid Gifts")
+    }
+
     @Test func mapsTeaToReadyMadeDrinks() {
         let key = ProductCatalogRules.categoryKey(
             productType: "Tea",

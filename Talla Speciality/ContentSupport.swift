@@ -87,6 +87,12 @@ enum AppLocalization {
         "categories": ["ar": "الفئات"],
         "clear": ["ar": "مسح"],
         "show_everything": ["ar": "عرض الكل"],
+        "eid_mubarak": ["ar": "عيد مبارك"],
+        "eid_greeting_arabic": ["ar": "عيدكم مبارك"],
+        "eid_banner_title": ["ar": "مكافآت وهدايا العيد لفترة محدودة"],
+        "eid_banner_detail": ["ar": "اكتشف هدايا العيد واستبدل مكافأة المجلس الموسمية قبل انتهائها."],
+        "shop_eid_gifts": ["ar": "تسوق هدايا العيد"],
+        "limited_eid_rewards": ["ar": "مكافآت عيد محدودة"],
         "sort_by": ["ar": "ترتيب حسب"],
         "sort_featured": ["ar": "المميز"],
         "sort_price_low": ["ar": "الأقل سعراً"],
@@ -198,6 +204,7 @@ enum AppLocalization {
         ,"earn_beans_detail": ["ar": "تتحدّث مكافآتك تلقائياً بعد تسجيل المشتريات المكتملة."]
         ,"redeem_rewards": ["ar": "استبدال المكافآت"]
         ,"reward_espresso_pour": ["ar": "إسبريسو صغير"]
+        ,"reward_eid_majlis": ["ar": "مكافأة مجلس العيد"]
         ,"reward_pastry_pairing": ["ar": "مرافقة معجنات"]
         ,"reward_signature_sip": ["ar": "مشروب مميز"]
         ,"reward_bag_credit": ["ar": "رصيد كيس قهوة"]

@@ -647,7 +647,9 @@
                         <input id="bulk-voucher-expires-days" type="number" min="1" step="1" value="30" placeholder="Expires in days">
                     </div>
                     <div class="toolbar-row" style="padding: 12px 0 0;">
+                        <button id="apply-eid-voucher-preset" class="secondary">Use Eid Reward Preset</button>
                         <button id="bulk-create-voucher" class="secondary">Grant To Filtered Customers</button>
+                        <button id="send-eid-push" class="secondary">Send Eid Push</button>
                         <button id="export-customers" class="secondary">Export Filtered CSV</button>
                     </div>
                 </div>
@@ -720,7 +722,9 @@
         const customerAlertFilterInput = document.getElementById("customer-alert-filter");
         const customerSortInput = document.getElementById("customer-sort");
         const refreshCustomersButton = document.getElementById("refresh-customers");
+        const applyEidVoucherPresetButton = document.getElementById("apply-eid-voucher-preset");
         const bulkCreateVoucherButton = document.getElementById("bulk-create-voucher");
+        const sendEidPushButton = document.getElementById("send-eid-push");
         const exportCustomersButton = document.getElementById("export-customers");
         const bulkVoucherRewardInput = document.getElementById("bulk-voucher-reward");
         const bulkVoucherPointsInput = document.getElementById("bulk-voucher-points");
@@ -966,6 +970,38 @@
                 setStatus(error.message, "error");
             } finally {
                 setButtonBusy(bulkCreateVoucherButton, false, "Grant To Filtered Customers");
+            }
+        }
+
+        function applyEidVoucherPreset() {
+            bulkVoucherRewardInput.value = "Eid Majlis Reward";
+            bulkVoucherPointsInput.value = "120";
+            bulkVoucherDetailInput.value = "Limited Eid reward for coffee, sweets, or gift boxes";
+            bulkVoucherExpiresDaysInput.value = "14";
+            setStatus("Eid reward preset is ready. Filter customers, then grant it.", "success");
+        }
+
+        async function sendEidPush() {
+            setStatus("Sending Eid push campaign...", "info");
+            setButtonBusy(sendEidPushButton, true, "Send Eid Push", "Sending...");
+            try {
+                const response = await fetch("/admin/api/notifications/eid", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        title: "Eid Mubarak from Talla",
+                        body: "Eid Gifts and limited rewards are now available in the app."
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Eid push failed.");
+                setStatus(payload.configured
+                    ? `Eid push sent to ${payload.sentCount}/${payload.targetCount} devices.`
+                    : "APNs is not configured, so no push notifications were sent.", "success");
+            } catch (error) {
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(sendEidPushButton, false, "Send Eid Push");
             }
         }
 
@@ -2070,7 +2106,9 @@
         customerOrderFilterInput.addEventListener("change", renderCustomerDirectory);
         customerAlertFilterInput.addEventListener("change", renderCustomerDirectory);
         customerSortInput.addEventListener("change", renderCustomerDirectory);
+        applyEidVoucherPresetButton.addEventListener("click", applyEidVoucherPreset);
         bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
+        sendEidPushButton.addEventListener("click", sendEidPush);
         exportCustomersButton.addEventListener("click", exportCustomers);
         productsEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-product");
