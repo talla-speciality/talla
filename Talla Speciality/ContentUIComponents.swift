@@ -1,5 +1,66 @@
 import SwiftUI
 
+struct LambIconView: View {
+    let color: Color
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(color.opacity(0.88))
+                .frame(width: size * 0.16, height: size * 0.16)
+                .offset(x: -size * 0.38, y: -size * 0.02)
+
+            Circle()
+                .fill(color)
+                .frame(width: size * 0.24, height: size * 0.24)
+                .offset(x: -size * 0.22, y: -size * 0.08)
+
+            Circle()
+                .fill(color)
+                .frame(width: size * 0.30, height: size * 0.30)
+                .offset(x: -size * 0.04, y: -size * 0.12)
+
+            Circle()
+                .fill(color)
+                .frame(width: size * 0.26, height: size * 0.26)
+                .offset(x: size * 0.15, y: -size * 0.04)
+
+            Circle()
+                .fill(color)
+                .frame(width: size * 0.28, height: size * 0.28)
+                .offset(x: -size * 0.17, y: size * 0.08)
+
+            Circle()
+                .fill(color)
+                .frame(width: size * 0.30, height: size * 0.30)
+                .offset(x: size * 0.05, y: size * 0.11)
+
+            Circle()
+                .fill(color)
+                .frame(width: size * 0.25, height: size * 0.22)
+                .offset(x: size * 0.35, y: size * 0.02)
+
+            Circle()
+                .fill(color)
+                .frame(width: size * 0.12, height: size * 0.12)
+                .offset(x: size * 0.28, y: -size * 0.12)
+
+            Capsule()
+                .fill(color.opacity(0.92))
+                .frame(width: size * 0.07, height: size * 0.22)
+                .offset(x: -size * 0.17, y: size * 0.30)
+
+            Capsule()
+                .fill(color.opacity(0.92))
+                .frame(width: size * 0.07, height: size * 0.22)
+                .offset(x: size * 0.06, y: size * 0.31)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 struct WelcomeOverlayView: View {
     let primaryTextColor: Color
     let secondaryTextColor: Color

@@ -557,6 +557,27 @@
             <div id="admin-dashboard" class="empty">Loading dashboard...</div>
         </section>
 
+        <section class="panel" style="margin-bottom: 20px;">
+            <h2>Eid Campaign</h2>
+            <div class="subcopy" style="margin-bottom: 14px;">Control the Eid banner, Eid Gifts category promotion, and limited Eid product badges in the app.</div>
+            <div class="grid">
+                <label class="list-item" style="cursor:pointer;">
+                    <strong>Show Eid campaign in app</strong>
+                    <div class="muted" style="margin: 6px 0 12px;">Turn this off after the Eid campaign ends.</div>
+                    <input id="eid-mode-enabled" type="checkbox" style="width:auto;">
+                </label>
+                <div class="list-item">
+                    <strong>Offer ends</strong>
+                    <div class="muted" style="margin: 6px 0 12px;">Optional. Used for the countdown shown in the app.</div>
+                    <input id="eid-offer-ends-at" type="datetime-local">
+                </div>
+            </div>
+            <div class="toolbar-row" style="padding: 14px 0 0;">
+                <button id="save-eid-campaign" class="secondary">Save Eid Campaign</button>
+                <div id="eid-campaign-status" class="muted">Loading Eid campaign settings...</div>
+            </div>
+        </section>
+
         <details class="panel" open style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Operations Snapshot</h2>
@@ -687,7 +708,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], analytics: null, recentAdminActions: [], productControlAvailable: true };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -697,6 +718,10 @@
         const loginStatusEl = document.getElementById("login-status");
         const sessionSummaryEl = document.getElementById("session-summary");
         const adminDashboardEl = document.getElementById("admin-dashboard");
+        const eidModeEnabledInput = document.getElementById("eid-mode-enabled");
+        const eidOfferEndsAtInput = document.getElementById("eid-offer-ends-at");
+        const saveEidCampaignButton = document.getElementById("save-eid-campaign");
+        const eidCampaignStatusEl = document.getElementById("eid-campaign-status");
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
         const productsEl = document.getElementById("products");
@@ -837,6 +862,70 @@
                     <div class="list">${renderList(state.recentAdminActions, entry => `<div class="list-item"><strong>${escapeHTML(entry.detail || entry.action)}</strong><div class="muted">${escapeHTML(entry.adminUsername || "Admin")} ${entry.targetEmail ? `• ${escapeHTML(entry.targetEmail)}` : ""} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No admin actions recorded yet.")}</div>
                 </div>
             `;
+        }
+
+        function localDateTimeValue(isoValue) {
+            if (!isoValue) {
+                return "";
+            }
+
+            const date = new Date(isoValue);
+            if (Number.isNaN(date.getTime())) {
+                return "";
+            }
+
+            date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+            return date.toISOString().slice(0, 16);
+        }
+
+        function renderEidCampaign() {
+            const settings = state.eidCampaign || { eidModeEnabled: true, eidOfferEndsAt: null };
+            eidModeEnabledInput.checked = Boolean(settings.eidModeEnabled);
+            eidOfferEndsAtInput.value = localDateTimeValue(settings.eidOfferEndsAt);
+            eidCampaignStatusEl.textContent = settings.eidModeEnabled
+                ? `Eid mode is on${settings.eidOfferEndsAt ? ` until ${new Date(settings.eidOfferEndsAt).toLocaleString()}` : ""}.`
+                : "Eid mode is off.";
+        }
+
+        async function fetchEidCampaign() {
+            const response = await fetch("/admin/api/campaigns/eid");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load Eid campaign settings.");
+            return payload;
+        }
+
+        async function loadEidCampaign() {
+            try {
+                state.eidCampaign = await fetchEidCampaign();
+                renderEidCampaign();
+            } catch (error) {
+                eidCampaignStatusEl.textContent = error.message;
+            }
+        }
+
+        async function saveEidCampaign() {
+            setButtonBusy(saveEidCampaignButton, true, "Save Eid Campaign", "Saving...");
+            eidCampaignStatusEl.textContent = "Saving Eid campaign...";
+            try {
+                const response = await fetch("/admin/api/campaigns/eid", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        eidModeEnabled: eidModeEnabledInput.checked,
+                        eidOfferEndsAt: eidOfferEndsAtInput.value ? new Date(eidOfferEndsAtInput.value).toISOString() : null
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not save Eid campaign settings.");
+                state.eidCampaign = payload;
+                renderEidCampaign();
+                setStatus("Eid campaign settings saved.", "success");
+            } catch (error) {
+                eidCampaignStatusEl.textContent = error.message;
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(saveEidCampaignButton, false, "Save Eid Campaign");
+            }
         }
 
         function filteredCustomers() {
@@ -1463,6 +1552,7 @@
                 state.recentAdminActions = (await fetchRecentAdminActions()).auditLogs || [];
                 renderAnalyticsSummary(state.analytics);
                 renderAdminDashboard();
+                await loadEidCampaign();
                 showApp();
                 await refreshCustomers();
                 await refreshProducts();
@@ -1491,9 +1581,13 @@
             productsNoteEl.textContent = "";
             state.analytics = null;
             state.recentAdminActions = [];
+            state.eidCampaign = null;
             state.productControlAvailable = true;
             adminDashboardEl.className = "empty";
             adminDashboardEl.innerHTML = "Sign in to view the admin dashboard.";
+            eidCampaignStatusEl.textContent = "Sign in to manage Eid campaign settings.";
+            eidModeEnabledInput.checked = false;
+            eidOfferEndsAtInput.value = "";
             analyticsSummaryEl.className = "empty";
             analyticsSummaryEl.innerHTML = "Sign in to view analytics summary.";
             customerDirectoryFilterInput.value = "";
@@ -1518,6 +1612,7 @@
                 state.recentAdminActions = (await fetchRecentAdminActions()).auditLogs || [];
                 renderAnalyticsSummary(state.analytics);
                 renderAdminDashboard();
+                await loadEidCampaign();
                 showApp();
                 await refreshCustomers();
                 await refreshProducts();
@@ -2084,6 +2179,7 @@
         refreshProductsButton.addEventListener("click", refreshProducts);
         applyEidProductPresetButton.addEventListener("click", applyEidProductPreset);
         createProductButton.addEventListener("click", createProduct);
+        saveEidCampaignButton.addEventListener("click", saveEidCampaign);
         customerDirectoryEl.addEventListener("click", (event) => {
             const item = event.target.closest(".directory-item");
             if (!item) {

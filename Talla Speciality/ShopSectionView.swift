@@ -257,7 +257,12 @@ struct ShopSectionView: View {
 
     private func categoryButtonIcon(for category: ContentView.ShopCategory, isSelected: Bool) -> some View {
         Group {
-            if category.key == "coffee-beans" {
+            if category.key == "eid-gifts" {
+                LambIconView(
+                    color: isSelected ? Color(hex: 0x0A0804) : accentColor,
+                    size: 19
+                )
+            } else if category.key == "coffee-beans" {
                 Image(systemName: "capsule.portrait.fill")
                     .rotationEffect(.degrees(28))
             } else {

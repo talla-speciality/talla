@@ -20,6 +20,7 @@ const alertsStorePath = config.stores.alerts;
 const pushDevicesStorePath = config.stores.pushDevices;
 const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
+const campaignSettingsStorePath = config.stores.campaignSettings;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
@@ -82,6 +83,7 @@ ensureStoreFile(alertsStorePath, { alerts: {} });
 ensureStoreFile(pushDevicesStorePath, { devices: [] });
 ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
+ensureStoreFile(campaignSettingsStorePath, { campaignSettings: defaultCampaignSettings() });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 
 function ensureStoreFile(filePath, fallback) {
@@ -100,6 +102,27 @@ function readJSON(filePath) {
 
 function writeJSON(filePath, payload) {
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
+}
+
+function defaultCampaignSettings() {
+    return {
+        eidModeEnabled: true,
+        eidOfferEndsAt: null,
+        updatedAt: null
+    };
+}
+
+function normalizeCampaignSettings(value = {}) {
+    const fallback = defaultCampaignSettings();
+    const offerEndDate = value.eidOfferEndsAt ? new Date(value.eidOfferEndsAt) : null;
+    const eidOfferEndsAt = offerEndDate && Number.isFinite(offerEndDate.getTime())
+        ? offerEndDate.toISOString()
+        : null;
+    return {
+        eidModeEnabled: value.eidModeEnabled === undefined ? fallback.eidModeEnabled : Boolean(value.eidModeEnabled),
+        eidOfferEndsAt,
+        updatedAt: value.updatedAt || fallback.updatedAt
+    };
 }
 
 function sendJSON(response, statusCode, payload, extraHeaders = {}) {
@@ -3935,6 +3958,48 @@ async function createAdminAuditLog({ adminUser, action, targetEmail, detail, met
     return { id, adminUser, action, targetEmail, detail, metadata, createdAt };
 }
 
+async function getCampaignSettings() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT value, updated_at
+             FROM app_settings
+             WHERE key = $1`,
+            ["campaign_settings"]
+        );
+        if (result.rowCount > 0) {
+            return normalizeCampaignSettings({
+                ...result.rows[0].value,
+                updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
+            });
+        }
+        return defaultCampaignSettings();
+    }
+
+    const store = readJSON(campaignSettingsStorePath);
+    return normalizeCampaignSettings(store.campaignSettings || {});
+}
+
+async function saveCampaignSettings(nextSettings) {
+    const settings = normalizeCampaignSettings({
+        ...nextSettings,
+        updatedAt: new Date().toISOString()
+    });
+
+    if (database.isEnabled()) {
+        await database.query(
+            `INSERT INTO app_settings (key, value, updated_at)
+             VALUES ($1, $2::jsonb, NOW())
+             ON CONFLICT (key)
+             DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+            ["campaign_settings", JSON.stringify(settings)]
+        );
+        return getCampaignSettings();
+    }
+
+    writeJSON(campaignSettingsStorePath, { campaignSettings: settings });
+    return settings;
+}
+
 async function adminCustomerSummary(email) {
     const account = await getAccountByEmail(email);
     if (!account) {
@@ -4098,6 +4163,11 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/campaigns/eid") {
+        sendJSON(response, 200, await getCampaignSettings());
+        return;
+    }
+
     if (url.pathname.startsWith("/admin/api/")) {
         if (request.method === "GET" && url.pathname === "/admin/api/session") {
             if (!adminCredentialsConfigured()) {
@@ -4223,6 +4293,43 @@ const server = http.createServer(async (request, response) => {
         if (request.method === "GET" && url.pathname === "/admin/api/audit/recent") {
             const limit = Number(url.searchParams.get("limit")) || 8;
             sendJSON(response, 200, { auditLogs: await recentAdminAuditLogs(limit) });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/campaigns/eid") {
+            sendJSON(response, 200, await getCampaignSettings());
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/campaigns/eid") {
+            try {
+                const body = await readBody(request);
+                const eidModeEnabled = Boolean(body.eidModeEnabled);
+                const rawEndsAt = body.eidOfferEndsAt ? String(body.eidOfferEndsAt).trim() : "";
+                const endsAtDate = rawEndsAt ? new Date(rawEndsAt) : null;
+
+                if (rawEndsAt && !Number.isFinite(endsAtDate.getTime())) {
+                    sendJSON(response, 400, { error: "Provide a valid Eid offer end date." });
+                    return;
+                }
+
+                const settings = await saveCampaignSettings({
+                    eidModeEnabled,
+                    eidOfferEndsAt: endsAtDate ? endsAtDate.toISOString() : null
+                });
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "eid_campaign_updated",
+                    targetEmail: null,
+                    detail: `Eid campaign ${settings.eidModeEnabled ? "enabled" : "disabled"}`,
+                    metadata: settings
+                });
+
+                sendJSON(response, 200, settings);
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not save Eid campaign settings." });
+            }
             return;
         }
 

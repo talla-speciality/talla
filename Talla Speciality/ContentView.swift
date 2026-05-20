@@ -418,10 +418,11 @@ struct ContentView: View {
     @State private var isDeliveryDetailsExpanded = false
     @State private var accountScrollTarget: String?
     @State private var didRecordReviewLaunch = false
+    @State private var eidCampaignSettings = EidCampaignSettings.defaultActive
 
     private let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
-        ShopCategory(key: "eid-gifts", title: "Eid Gifts", subtitle: "Seasonal boxes", symbol: "moon.stars.fill"),
+        ShopCategory(key: "eid-gifts", title: "Eid Gifts", subtitle: "Seasonal boxes", symbol: "sheep"),
         ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Single-origin whole beans", symbol: "leaf.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
@@ -596,9 +597,29 @@ struct ContentView: View {
         }
     }
 
+    private var isEidCampaignEnabled: Bool {
+        eidCampaignSettings.eidModeEnabled
+    }
+
+    private var eidCountdownText: String {
+        guard let offerEndDate = eidCampaignSettings.offerEndDate else {
+            return AppLocalization.text("eid_offer_limited_time", fallback: "Limited-time Eid offer")
+        }
+
+        let remainingDays = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: offerEndDate)).day ?? 0
+        if remainingDays <= 0 {
+            return AppLocalization.text("eid_offer_ends_today", fallback: "Eid offer ends today")
+        }
+        if remainingDays == 1 {
+            return AppLocalization.text("eid_offer_ends_tomorrow", fallback: "Eid offer ends tomorrow")
+        }
+        return String(format: AppLocalization.text("eid_offer_ends_days", fallback: "Eid offer ends in %d days"), remainingDays)
+    }
+
     private var availableCategories: [ShopCategory] {
         let dynamic = Set(products.map(\.categoryKey))
-        let ordered = categoryCatalog.filter { $0.key == "all" || dynamic.contains($0.key) }
+        let visibleCatalog = categoryCatalog.filter { isEidCampaignEnabled || $0.key != "eid-gifts" }
+        let ordered = visibleCatalog.filter { $0.key == "all" || dynamic.contains($0.key) }
         let knownKeys = Set(categoryCatalog.map(\.key))
         let extras = dynamic
             .subtracting(knownKeys)
@@ -606,7 +627,7 @@ struct ContentView: View {
             .map(categoryDefinition(for:))
 
         if dynamic.isEmpty {
-            return categoryCatalog.filter { $0.key == "all" }
+            return visibleCatalog.filter { $0.key == "all" }
         }
 
         return ordered + extras
@@ -1060,6 +1081,7 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: cartOpen)
         .task {
+            await loadEidCampaignSettings()
             await loadProductsIfNeeded()
             await refreshNotificationStatus()
             await syncRemotePushTokenIfPossible()
@@ -1317,7 +1339,9 @@ struct ContentView: View {
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
-            eidHomeBanner
+            if isEidCampaignEnabled {
+                eidHomeBanner
+            }
             homeQuickActions
             homeLoyaltyTeaser
             featuredProducts
@@ -1348,9 +1372,7 @@ struct ContentView: View {
 
                     Spacer(minLength: 10)
 
-                    Image(systemName: "moon.stars.fill")
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xF7E0AA))
+                    LambIconView(color: Color(hex: 0xF7E0AA), size: 34)
                 }
 
                 Text(AppLocalization.text("eid_banner_detail", fallback: "Discover Eid Gifts and redeem the seasonal Majlis Reward while it is available."))
@@ -1374,6 +1396,12 @@ struct ContentView: View {
                         .tracking(1.6)
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xF7E0AA))
+
+                    Text(eidCountdownText)
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xF7E0AA).opacity(0.9))
                 }
             }
             .padding(18)
@@ -2019,15 +2047,17 @@ struct ContentView: View {
                     color: Color(hex: 0x6D5C24),
                     categoryKey: "gifts"
                 )
-                collectionTile(
-                    eyebrow: "Eid",
-                    name: "Eid Gifts",
-                    desc: "Seasonal boxes, hosting picks, and limited Eid rewards for majlis gifting.",
-                    accent: "عيدكم مبارك from Talla.",
-                    systemImage: "moon.stars.fill",
-                    color: Color(hex: 0x5B341A),
-                    categoryKey: "eid-gifts"
-                )
+                if isEidCampaignEnabled {
+                    collectionTile(
+                        eyebrow: "Eid",
+                        name: "Eid Gifts",
+                        desc: "Seasonal boxes, hosting picks, and limited Eid rewards for majlis gifting.",
+                        accent: "عيدكم مبارك from Talla.",
+                        systemImage: "sheep",
+                        color: Color(hex: 0x5B341A),
+                        categoryKey: "eid-gifts"
+                    )
+                }
             }
         }
         .padding(.horizontal, 18)
@@ -3563,6 +3593,20 @@ struct ContentView: View {
                 ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 10)
                     .frame(height: 184)
 
+                if isEidCampaignEnabled && product.categoryKey == "eid-gifts" {
+                    Text(AppLocalization.text("eid_limited_badge", fallback: "Limited Eid"))
+                        .font(labelFont(size: 8, weight: .bold))
+                        .tracking(1.5)
+                        .textCase(.uppercase)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 7)
+                        .foregroundColor(Color(hex: 0x21140A))
+                        .background(Color(hex: 0xF7E0AA))
+                        .clipShape(Capsule())
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(10)
+                }
+
                 VStack(alignment: .trailing, spacing: 8) {
                     Button {
                         toggleFavorite(product: product)
@@ -3916,9 +3960,13 @@ struct ContentView: View {
 
                     Spacer()
 
-                    Image(systemName: systemImage)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                    if systemImage == "sheep" {
+                        LambIconView(color: Color(hex: 0xC8965A), size: 30)
+                    } else {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(Color(hex: 0xC8965A))
+                    }
                 }
 
                 Text(desc)
@@ -4883,6 +4931,19 @@ struct ContentView: View {
 
     private var normalizedAccountEmail: String {
         accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    @MainActor
+    private func loadEidCampaignSettings() async {
+        do {
+            eidCampaignSettings = try await CampaignService.fetchEidCampaignSettings()
+            if !isEidCampaignEnabled && activeCategory == "eid-gifts" {
+                activeCategory = "all"
+                shopSearchQuery = ""
+            }
+        } catch {
+            eidCampaignSettings = .defaultActive
+        }
     }
 
     @MainActor

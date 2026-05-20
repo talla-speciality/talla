@@ -93,6 +93,11 @@ enum AppLocalization {
         "eid_banner_detail": ["ar": "اكتشف هدايا العيد واستبدل مكافأة المجلس الموسمية قبل انتهائها."],
         "shop_eid_gifts": ["ar": "تسوق هدايا العيد"],
         "limited_eid_rewards": ["ar": "مكافآت عيد محدودة"],
+        "eid_limited_badge": ["ar": "عيد محدود"],
+        "eid_offer_ends_today": ["ar": "ينتهي عرض العيد اليوم"],
+        "eid_offer_ends_tomorrow": ["ar": "ينتهي عرض العيد غداً"],
+        "eid_offer_ends_days": ["ar": "ينتهي عرض العيد خلال %d أيام"],
+        "eid_offer_limited_time": ["ar": "عرض العيد لفترة محدودة"],
         "sort_by": ["ar": "ترتيب حسب"],
         "sort_featured": ["ar": "المميز"],
         "sort_price_low": ["ar": "الأقل سعراً"],
@@ -477,6 +482,39 @@ enum BackendConfiguration {
         }
         return url
         #endif
+    }
+}
+
+struct EidCampaignSettings: Codable, Equatable {
+    let eidModeEnabled: Bool
+    let eidOfferEndsAt: String?
+
+    static let defaultActive = EidCampaignSettings(eidModeEnabled: true, eidOfferEndsAt: nil)
+
+    var offerEndDate: Date? {
+        guard let eidOfferEndsAt else { return nil }
+        return ISO8601DateFormatter().date(from: eidOfferEndsAt)
+    }
+}
+
+enum CampaignService {
+    private static let baseURL = BackendConfiguration.serviceBaseURL
+
+    static func fetchEidCampaignSettings() async throws -> EidCampaignSettings {
+        guard let baseURL else {
+            return .defaultActive
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/campaigns/eid"))
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200..<300).contains(httpResponse.statusCode) else {
+            throw ContentView.LoyaltyServiceError.operationFailed("Could not load Eid campaign settings.")
+        }
+
+        return try JSONDecoder().decode(EidCampaignSettings.self, from: data)
     }
 }
 
