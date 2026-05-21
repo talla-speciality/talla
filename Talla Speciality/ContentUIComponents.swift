@@ -397,6 +397,61 @@ struct SummaryValueRow: View {
     }
 }
 
+struct CoffeeBeansBurstView: View {
+    let accentColor: Color
+    let id: Int
+
+    private let beans: [(x: CGFloat, y: CGFloat, rotation: Double, delay: Double)] = [
+        (-54, -18, -28, 0),
+        (-38, -50, 18, 0.04),
+        (6, -62, -10, 0.08),
+        (46, -38, 34, 0.02),
+        (58, 4, -22, 0.1),
+        (18, 34, 16, 0.06)
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(beans.indices, id: \.self) { index in
+                CoffeeBeanParticle(color: accentColor)
+                    .rotationEffect(.degrees(beans[index].rotation))
+                    .offset(x: beans[index].x, y: beans[index].y)
+                    .opacity(0.88)
+                    .scaleEffect(index.isMultiple(of: 2) ? 1.05 : 0.9)
+                    .animation(
+                        .spring(response: 0.42, dampingFraction: 0.7).delay(beans[index].delay),
+                        value: id
+                    )
+            }
+        }
+        .frame(width: 150, height: 130)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct CoffeeBeanParticle: View {
+    let color: Color
+
+    var body: some View {
+        Capsule(style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [color.opacity(0.95), color.opacity(0.55)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 14, height: 22)
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+            )
+            .shadow(color: color.opacity(0.25), radius: 5, y: 2)
+    }
+}
+
 struct ToastBannerView: View {
     let message: String
     let font: Font
