@@ -26,18 +26,26 @@ struct ShopSectionView: View {
     let renderProductCard: (ContentView.Product, Bool) -> AnyView
     let retryLoad: () -> Void
 
+    private var usesArabicTypography: Bool {
+        AppLocalization.currentLanguage.effectiveLanguageCode == "ar"
+    }
+
+    private func localizedTracking(_ value: CGFloat) -> CGFloat {
+        usesArabicTypography ? 0 : value
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(AppLocalization.text("explore", fallback: "Explore"))
                     .font(labelFont)
-                    .tracking(4)
+                    .tracking(localizedTracking(4))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
                 Text(AppLocalization.text("all_products", fallback: "ALL PRODUCTS"))
                     .font(titleFont)
-                    .tracking(1)
+                    .tracking(localizedTracking(1))
                     .foregroundColor(primaryTextColor)
 
                 Text(AppLocalization.text("browse_catalog", fallback: "Browse by category, jump into customer favorites, and add to bag without hunting through the catalog."))
@@ -106,7 +114,7 @@ struct ShopSectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("sort_by", fallback: "Sort by"))
                 .font(labelFont)
-                .tracking(4)
+                .tracking(localizedTracking(4))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -129,7 +137,7 @@ struct ShopSectionView: View {
         } label: {
             Text(mode.title)
                 .font(categoryLabelFont)
-                .tracking(1.2)
+                .tracking(localizedTracking(1.2))
                 .textCase(.uppercase)
                 .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
                 .padding(.horizontal, 14)
@@ -149,7 +157,7 @@ struct ShopSectionView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(activeCategoryTitle)
                     .font(categoryLabelFont)
-                    .tracking(1.6)
+                    .tracking(localizedTracking(1.6))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
@@ -167,7 +175,7 @@ struct ShopSectionView: View {
                 } label: {
                     Text(AppLocalization.text("clear", fallback: "Clear"))
                         .font(categoryLabelFont)
-                        .tracking(1.6)
+                        .tracking(localizedTracking(1.6))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
                         .padding(.horizontal, 12)
@@ -194,17 +202,21 @@ struct ShopSectionView: View {
 
     private var resultsCountText: String {
         if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "\(filteredProducts.count) product\(filteredProducts.count == 1 ? "" : "s") available"
+            let key = filteredProducts.count == 1 ? "shop_product_count_one" : "shop_product_count_many"
+            let fallback = filteredProducts.count == 1 ? "%d product available" : "%d products available"
+            return String(format: AppLocalization.text(key, fallback: fallback), filteredProducts.count)
         }
 
-        return "\(filteredProducts.count) result\(filteredProducts.count == 1 ? "" : "s") for \"\(searchQuery)\""
+        let key = filteredProducts.count == 1 ? "shop_search_count_one" : "shop_search_count_many"
+        let fallback = filteredProducts.count == 1 ? "%d result for \"%@\"" : "%d results for \"%@\""
+        return String(format: AppLocalization.text(key, fallback: fallback), filteredProducts.count, searchQuery)
     }
 
     private var shopCategoriesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("categories", fallback: "CATEGORIES"))
                 .font(labelFont)
-                .tracking(4)
+                .tracking(localizedTracking(4))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -231,7 +243,7 @@ struct ShopSectionView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(category.title)
                         .font(categoryLabelFont)
-                        .tracking(1.4)
+                        .tracking(localizedTracking(1.4))
                         .textCase(.uppercase)
 
                     Text(category.subtitle)
@@ -280,7 +292,7 @@ struct ShopSectionView: View {
 
                 Text(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
                 .font(.system(size: 12, weight: .medium))
-                .tracking(2)
+                .tracking(localizedTracking(2))
                 .textCase(.uppercase)
                 .foregroundColor(secondaryTextColor)
         }
@@ -302,7 +314,7 @@ struct ShopSectionView: View {
             } label: {
                 Text(AppLocalization.text("show_all_products", fallback: "Show All Products"))
                     .font(.system(size: 10, weight: .semibold))
-                    .tracking(3)
+                    .tracking(localizedTracking(3))
                     .textCase(.uppercase)
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)
@@ -330,7 +342,7 @@ struct ShopSectionView: View {
             Button(action: retryLoad) {
                 Text(AppLocalization.text("retry", fallback: "Retry"))
                     .font(.system(size: 10, weight: .semibold))
-                    .tracking(3)
+                    .tracking(localizedTracking(3))
                     .textCase(.uppercase)
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)

@@ -492,9 +492,9 @@ struct ContentView: View {
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
         ShopCategory(key: "coffee-equipment", title: "Equipment", subtitle: "Brewers and tools", symbol: "flask.fill"),
-        ShopCategory(key: "ready-made-drinks", title: "Ready-Made Drinks", subtitle: "Bottled drinks, Drink Cups", symbol: "takeoutbag.and.cup.and.straw.fill"),
+        ShopCategory(key: "ready-made-drinks", title: "Ready-Made Drinks", subtitle: "Bottled drinks, Drink Cups", symbol: "cup.and.saucer.fill"),
         ShopCategory(key: "crmb-tallas-speciality-bakery", title: "CRMB", subtitle: "Fresh bakery items", symbol: "birthday.cake.fill"),
-        ShopCategory(key: "hot-chocolate", title: "Hot Chocolate", subtitle: "Cocoa and mixes", symbol: "mug.fill"),
+        ShopCategory(key: "hot-chocolate", title: "Hot Chocolate", subtitle: "Cocoa and mixes", symbol: "takeoutbag.and.cup.and.straw.fill"),
         ShopCategory(key: "gifts", title: "Talla Boxes", subtitle: "Curated bundles", symbol: "gift.fill"),
     ]
 
@@ -507,6 +507,14 @@ struct ContentView: View {
 
     private var cartCount: Int {
         cartItems.reduce(0) { $0 + $1.quantity }
+    }
+
+    private var isApplePayAvailable: Bool {
+#if canImport(PassKit)
+        PKPaymentAuthorizationController.canMakePayments()
+#else
+        false
+#endif
     }
 
     private var cartSubtotal: Double {
@@ -789,6 +797,20 @@ struct ContentView: View {
         }
     }
 
+    private var adminCatalogProducts: [Product] {
+        products.sorted { lhs, rhs in
+            if lhs.categoryLabel != rhs.categoryLabel {
+                return lhs.categoryLabel.localizedCaseInsensitiveCompare(rhs.categoryLabel) == .orderedAscending
+            }
+
+            if lhs.isAvailableForSale != rhs.isAvailableForSale {
+                return lhs.isAvailableForSale && !rhs.isAvailableForSale
+            }
+
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+    }
+
     private var favoriteProductIDs: Set<String> {
         Set(
             savedFavoriteProductIDs
@@ -869,6 +891,29 @@ struct ContentView: View {
 #if canImport(UserNotifications)
         notificationAuthorizationStatus == UNAuthorizationStatus.authorized.rawValue
             || notificationAuthorizationStatus == UNAuthorizationStatus.provisional.rawValue
+#else
+        false
+#endif
+    }
+
+    private var notificationStatusMessage: String {
+#if canImport(UserNotifications)
+        switch UNAuthorizationStatus(rawValue: notificationAuthorizationStatus) {
+        case .authorized, .provisional:
+            return AppLocalization.text("alerts_notifications_enabled_detail", fallback: "Push alerts are enabled for watched products and account updates.")
+        case .denied:
+            return AppLocalization.text("alerts_notifications_denied_detail", fallback: "Notifications are off. Turn them on in Settings to receive product alerts.")
+        default:
+            return AppLocalization.text("alerts_notifications_disabled_detail", fallback: "Enable notifications to receive reminders for watched products and important account updates.")
+        }
+#else
+        return AppLocalization.text("alerts_notifications_unavailable_detail", fallback: "Notifications are unavailable on this device.")
+#endif
+    }
+
+    private var canRequestNotificationAccess: Bool {
+#if canImport(UserNotifications)
+        UNAuthorizationStatus(rawValue: notificationAuthorizationStatus) != .denied && !notificationsEnabled
 #else
         false
 #endif
@@ -1068,18 +1113,18 @@ struct ContentView: View {
 
     private var checkoutReadinessMessage: String {
         if preferredAddress == nil {
-            return "Add a delivery address before checkout for a smoother handoff."
+            return AppLocalization.text("checkout_readiness_address", fallback: "Add a delivery address before checkout for a smoother handoff.")
         }
 
         if cartPurchasableItemsCount != cartItems.count {
-            return "Some items may not be available for checkout right now."
+            return AppLocalization.text("checkout_readiness_unavailable", fallback: "Some items may not be available for checkout right now.")
         }
 
         if appliedVoucher != nil {
-            return "Your voucher is applied and ready for checkout."
+            return AppLocalization.text("checkout_readiness_voucher", fallback: "Your voucher is applied and ready for checkout.")
         }
 
-        return "Your bag is ready. Review details, then continue to secure checkout."
+        return AppLocalization.text("checkout_readiness_ready", fallback: "Your bag is ready. Review details, then continue to secure checkout.")
     }
 
     private var currentAppVersion: String {
@@ -2499,6 +2544,7 @@ struct ContentView: View {
             ),
             shoppingSection: AnyView(
                 Group {
+                    adminProductsSection
                     favoritesSection
                     recentlyViewedSection
                     recommendedSection
@@ -2664,6 +2710,117 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
+    private var adminProductsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("admin_all_products", fallback: "ALL PRODUCTS"))
+                        .font(displayFont(size: 22))
+                        .tracking(2)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(String(format: AppLocalization.text("admin_products_summary", fallback: "%d products synced from Shopify"), adminCatalogProducts.count))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    Task {
+                        await loadProducts(force: true)
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Color(hex: 0xC8965A))
+                        .frame(width: 36, height: 36)
+                        .background(cardFillColor)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoadingProducts)
+            }
+
+            if isLoadingProducts && products.isEmpty {
+                loadingSection
+            } else if let loadingError, products.isEmpty {
+                errorSection(message: loadingError)
+            } else if adminCatalogProducts.isEmpty {
+                actionEmptyState(
+                    message: AppLocalization.text("admin_products_empty", fallback: "No Shopify products are loaded yet."),
+                    actionTitle: AppLocalization.text("retry", fallback: "Retry"),
+                    systemImage: "shippingbox.fill"
+                ) {
+                    Task {
+                        await loadProducts(force: true)
+                    }
+                }
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(adminCatalogProducts) { product in
+                        adminProductRow(product)
+                    }
+                }
+            }
+        }
+    }
+
+    private func adminProductRow(_ product: Product) -> some View {
+        Button {
+            recordRecentlyViewed(product)
+            selectedProduct = product
+        } label: {
+            HStack(alignment: .center, spacing: 12) {
+                ProductThumbnail(imageURL: product.imageURL, size: 54, cornerRadius: 12)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        Text(product.categoryLabel)
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(1.4)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+                            .lineLimit(1)
+
+                        Text(product.isAvailableForSale
+                            ? AppLocalization.text("available", fallback: "Available")
+                            : AppLocalization.text("currently_sold_out", fallback: "Sold out"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .foregroundColor(product.isAvailableForSale ? Color(hex: 0x4E8F5F) : tertiaryTextColor)
+                            .lineLimit(1)
+                    }
+
+                    Text(product.name)
+                        .font(titleFont(size: 16))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(2)
+
+                    Text(product.price)
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var favoritesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("favorites", fallback: "FAVORITES"))
@@ -2728,6 +2885,9 @@ struct ContentView: View {
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
+            alertNotificationStatusCard
+            broadcastNotificationStatusCard
+
             if alertProducts.isEmpty {
                 actionEmptyState(
                     message: AppLocalization.text("alerts_empty", fallback: "Tap the bell on a product to keep it on your back in stock or new roast watchlist."),
@@ -2773,48 +2933,6 @@ struct ContentView: View {
                         }
                     }
 
-                    HStack(spacing: 10) {
-                        Image(systemName: notificationsEnabled ? "bell.badge.fill" : "bell.slash")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color(hex: 0xC8965A))
-
-                        Text(
-                            notificationsEnabled
-                                ? "Local reminders are enabled for watched products."
-                                : "Enable notifications to get local reminders for watched products."
-                        )
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-
-                        Spacer(minLength: 0)
-
-                        if !notificationsEnabled {
-                            Button {
-                                Task {
-                                    await requestNotificationAccess()
-                                }
-                            } label: {
-                                Text("Enable")
-                                    .font(labelFont(size: 10, weight: .bold))
-                                    .tracking(1.6)
-                                    .textCase(.uppercase)
-                                    .foregroundColor(Color(hex: 0x0A0804))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 9)
-                                    .background(Color(hex: 0xC8965A))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(cardFillColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     ForEach(alertProducts.prefix(6)) { product in
                         HStack(alignment: .center, spacing: 12) {
@@ -2861,6 +2979,80 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private var alertNotificationStatusCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: notificationsEnabled ? "bell.badge.fill" : "bell.slash")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color(hex: 0xC8965A))
+
+            Text(notificationStatusMessage)
+                .font(bodyFont(size: 13))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            if canRequestNotificationAccess {
+                Button {
+                    Task {
+                        await requestNotificationAccess()
+                    }
+                } label: {
+                    Text(AppLocalization.text("enable_notifications", fallback: "Enable"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var broadcastNotificationStatusCard: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "dot.radiowaves.left.and.right")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color(hex: 0xC8965A))
+                .frame(width: 20, height: 20)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(AppLocalization.text("broadcast_push_title", fallback: "Broadcast Push"))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(1.4)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xC8965A))
+
+                Text(AppLocalization.text("broadcast_push_detail", fallback: "Apple broadcast channels are for Live Activity updates only. Use device-token pushes for regular customer alerts."))
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var addressesSection: some View {
@@ -3468,6 +3660,8 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            cartPaymentMethodsSection
+
             Button {
                 checkoutError = nil
                 Task {
@@ -3483,7 +3677,7 @@ struct ContentView: View {
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .tracking(2)
 
-                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Continue to the secure checkout handoff."))
+                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely with card or Apple Pay in Shopify checkout."))
                         .font(bodyFont(size: 11))
                         .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
                 }
@@ -3497,6 +3691,68 @@ struct ContentView: View {
             .padding(.top, 4)
             .disabled(cartItems.isEmpty || isCheckingOut)
         }
+    }
+
+    private var cartPaymentMethodsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("payment_methods", fallback: "Payment Methods"))
+                .font(labelFont(size: 10, weight: .bold))
+                .tracking(1.8)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0xC8965A))
+
+            Text(AppLocalization.text("payment_methods_detail", fallback: "Cards and Apple Pay are completed securely in Shopify checkout."))
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                paymentMethodChip(
+                    title: AppLocalization.text("credit_debit_cards", fallback: "Credit / Debit Cards"),
+                    systemImage: "creditcard.fill",
+                    isAvailable: true
+                )
+
+                paymentMethodChip(
+                    title: AppLocalization.text("apple_pay", fallback: "Apple Pay"),
+                    systemImage: "apple.logo",
+                    isAvailable: isApplePayAvailable
+                )
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func paymentMethodChip(title: String, systemImage: String, isAvailable: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+
+            Text(title)
+                .font(labelFont(size: 9, weight: .bold))
+                .tracking(1)
+                .textCase(.uppercase)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .foregroundColor(isAvailable ? primaryTextColor : tertiaryTextColor)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(isAvailable ? elevatedSurfaceColor : cardFillColor.opacity(0.65))
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isAvailable ? 0.18 : 0.08), lineWidth: 1)
+        )
+        .clipShape(Capsule(style: .continuous))
+        .accessibilityValue(isAvailable ? AppLocalization.text("available", fallback: "Available") : AppLocalization.text("unavailable", fallback: "Unavailable"))
     }
 
     private var cartDeliverySection: some View {
@@ -3564,7 +3820,7 @@ struct ContentView: View {
 
                         Spacer()
 
-                        Image(systemName: "chevron.right")
+                        Image(systemName: appLanguage.layoutDirection == .rightToLeft ? "chevron.left" : "chevron.right")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(Color(hex: 0xC8965A))
                     }
@@ -5636,8 +5892,10 @@ struct ContentView: View {
                     title: notificationTitle(for: product),
                     body: notificationBody(for: product)
                 )
+                showToast(message: AppLocalization.text("alert_notification_scheduled", fallback: "Alert saved. Notification reminder scheduled."))
+            } else {
+                showToast(message: AppLocalization.text("added_to_alerts_notifications_off", fallback: "Alert saved. Notifications are not enabled."))
             }
-            showToast(message: AppLocalization.text("added_to_alerts", fallback: "Added to alerts"))
         }
 
         delightFeedbackTrigger += 1
@@ -5653,14 +5911,14 @@ struct ContentView: View {
 
     private func productAlertLabel(for product: Product) -> String {
         if !product.isAvailableForSale {
-            return "Back in stock watch"
+            return AppLocalization.text("alert_label_back_in_stock", fallback: "Back in stock watch")
         }
 
         if let tag = product.tag, !tag.isEmpty {
-            return "\(tag) watch"
+            return String(format: AppLocalization.text("alert_label_tag_watch", fallback: "%@ watch"), tag)
         }
 
-        return "New roast watch"
+        return AppLocalization.text("alert_label_new_roast", fallback: "New roast watch")
     }
 
     private func stockAlertLabel(for product: Product) -> String {
@@ -5669,18 +5927,18 @@ struct ContentView: View {
 
     private func notificationTitle(for product: Product) -> String {
         if !product.isAvailableForSale {
-            return "\(product.name) watchlist reminder"
+            return String(format: AppLocalization.text("notification_title_watchlist", fallback: "%@ watchlist reminder"), product.name)
         }
 
-        return "\(product.name) roast reminder"
+        return String(format: AppLocalization.text("notification_title_roast", fallback: "%@ roast reminder"), product.name)
     }
 
     private func notificationBody(for product: Product) -> String {
         if !product.isAvailableForSale {
-            return "You asked to hear about \(product.name). Check Talla for availability updates."
+            return String(format: AppLocalization.text("notification_body_unavailable", fallback: "You asked to hear about %@. Check Talla for availability updates."), product.name)
         }
 
-        return "Still thinking about \(product.name)? Your watched roast is waiting in the app."
+        return String(format: AppLocalization.text("notification_body_available", fallback: "Still thinking about %@? Your watched roast is waiting in the app."), product.name)
     }
 
     @MainActor
@@ -6066,6 +6324,10 @@ struct ContentView: View {
             return "flask.fill"
         }
 
+        if key.contains("cup") {
+            return "mug.fill"
+        }
+
         if key.contains("drink") {
             return "takeoutbag.and.cup.and.straw.fill"
         }
@@ -6079,7 +6341,7 @@ struct ContentView: View {
         }
 
         if key.contains("chocolate") {
-            return "mug.fill"
+            return "takeoutbag.and.cup.and.straw.fill"
         }
 
         if key.contains("gift") {

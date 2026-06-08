@@ -109,6 +109,10 @@ enum AppLocalization {
         "loading_shop": ["ar": "جاري تحميل المتجر"],
         "no_products": ["ar": "لا توجد منتجات مطابقة لهذه الفئة حالياً."],
         "show_all_products": ["ar": "عرض كل المنتجات"],
+        "shop_product_count_one": ["ar": "%d منتج متاح"],
+        "shop_product_count_many": ["ar": "%d منتجات متاحة"],
+        "shop_search_count_one": ["ar": "%d نتيجة لـ \"%@\""],
+        "shop_search_count_many": ["ar": "%d نتائج لـ \"%@\""],
         "retry": ["ar": "إعادة المحاولة"],
         "account_title": ["ar": "الحساب"],
         "customer_sign_in": ["ar": "تسجيل دخول العملاء"],
@@ -313,6 +317,9 @@ enum AppLocalization {
         ,"recommended_for_you": ["ar": "موصى به لك"]
         ,"recommendations_empty": ["ar": "ستظهر التوصيات هنا بعد تحميل المنتجات."]
         ,"recommendations_detail": ["ar": "مختارة من القهوة والأدوات والفئات التي تعود إليها باستمرار."]
+        ,"admin_all_products": ["ar": "كل المنتجات"]
+        ,"admin_products_summary": ["ar": "%d منتج تمت مزامنته من Shopify"]
+        ,"admin_products_empty": ["ar": "لم يتم تحميل منتجات Shopify بعد."]
         ,"alerts": ["ar": "التنبيهات"]
         ,"alerts_empty": ["ar": "اضغط الجرس على أي منتج لإبقائه في قائمة المتابعة عند عودته أو عند نزول تحميص جديد."]
         ,"alerts_detail": ["ar": "تابع الإصدارات القادمة وارجع إلى أنواع القهوة التي لا تريد أن تفوتك."]
@@ -360,6 +367,10 @@ enum AppLocalization {
         ,"active_vouchers_empty": ["ar": "استبدل مكافأة في الحساب لتظهر قسائمك النشطة هنا."]
         ,"shop_load_failed": ["ar": "تعذر تحميل المتجر."]
         ,"checkout_ready": ["ar": "جاهز للطلب"]
+        ,"checkout_readiness_address": ["ar": "أضف عنوان توصيل قبل الدفع لتسهيل إتمام الطلب."]
+        ,"checkout_readiness_unavailable": ["ar": "قد لا تكون بعض العناصر متاحة للدفع حالياً."]
+        ,"checkout_readiness_voucher": ["ar": "تم تطبيق القسيمة وهي جاهزة للدفع."]
+        ,"checkout_readiness_ready": ["ar": "سلتك جاهزة. راجع التفاصيل ثم تابع إلى الدفع الآمن."]
         ,"items": ["ar": "العناصر"]
         ,"items_ready": ["ar": "%d في الحقيبة • %d جاهزة"]
         ,"voucher_none": ["ar": "لا يوجد تطبيق بعد"]
@@ -368,7 +379,12 @@ enum AppLocalization {
         ,"total": ["ar": "الإجمالي"]
         ,"opening_checkout": ["ar": "جارٍ فتح الدفع..."]
         ,"open_checkout": ["ar": "فتح الدفع"]
-        ,"secure_checkout_handoff": ["ar": "تابع إلى صفحة الدفع الآمنة."]
+        ,"secure_checkout_handoff": ["ar": "ادفع بأمان بالبطاقة أو Apple Pay عبر Shopify Checkout."]
+        ,"payment_methods": ["ar": "طرق الدفع"]
+        ,"payment_methods_detail": ["ar": "يتم الدفع بالبطاقات وApple Pay بأمان داخل Shopify Checkout."]
+        ,"credit_debit_cards": ["ar": "بطاقات الائتمان / الخصم"]
+        ,"apple_pay": ["ar": "Apple Pay"]
+        ,"unavailable": ["ar": "غير متاح"]
         ,"save_cart": ["ar": "حفظ السلة"]
         ,"save_cart_placeholder": ["ar": "بن الأسبوع، طلب هدية، طلب المكتب..."]
         ,"checkout_only_iphone": ["ar": "الدفع متاح على iPhone فقط."]
@@ -416,6 +432,22 @@ enum AppLocalization {
         ,"added_to_alerts": ["ar": "تمت الإضافة إلى التنبيهات"]
         ,"notifications_enabled": ["ar": "تم تفعيل الإشعارات"]
         ,"notifications_not_enabled": ["ar": "لم يتم تفعيل الإشعارات"]
+        ,"alerts_notifications_enabled_detail": ["ar": "تنبيهات المنتجات وتحديثات الحساب مفعّلة."]
+        ,"alerts_notifications_disabled_detail": ["ar": "فعّل الإشعارات لاستلام تذكيرات المنتجات المتابعة وتحديثات الحساب المهمة."]
+        ,"alerts_notifications_denied_detail": ["ar": "الإشعارات متوقفة. فعّلها من الإعدادات لاستلام تنبيهات المنتجات."]
+        ,"alerts_notifications_unavailable_detail": ["ar": "الإشعارات غير متاحة على هذا الجهاز."]
+        ,"enable_notifications": ["ar": "تفعيل"]
+        ,"alert_label_back_in_stock": ["ar": "تنبيه عودة التوفر"]
+        ,"alert_label_tag_watch": ["ar": "تنبيه %@"]
+        ,"alert_label_new_roast": ["ar": "تنبيه تحميصة جديدة"]
+        ,"notification_title_watchlist": ["ar": "تذكير متابعة %@"]
+        ,"notification_title_roast": ["ar": "تذكير تحميصة %@"]
+        ,"notification_body_unavailable": ["ar": "طلبت تنبيهاً عن %@. تحقق من Talla لمعرفة تحديثات التوفر."]
+        ,"notification_body_available": ["ar": "ما زلت تفكر في %@؟ التحميصة التي تتابعها بانتظارك في التطبيق."]
+        ,"alert_notification_scheduled": ["ar": "تم حفظ التنبيه وجدولة تذكير بالإشعار."]
+        ,"added_to_alerts_notifications_off": ["ar": "تم حفظ التنبيه. الإشعارات غير مفعّلة."]
+        ,"broadcast_push_title": ["ar": "إشعارات البث"]
+        ,"broadcast_push_detail": ["ar": "قنوات البث من Apple مخصصة لتحديثات Live Activity فقط. استخدم إشعارات رمز الجهاز لتنبيهات العملاء العادية."]
         ,"items_unavailable_currently": ["ar": "هذه العناصر غير متوفرة حالياً"]
         ,"order_added_to_cart": ["ar": "تمت إضافة الطلب إلى السلة"]
         ,"available_items_added_from_order": ["ar": "تمت إضافة العناصر المتوفرة من ذلك الطلب"]
