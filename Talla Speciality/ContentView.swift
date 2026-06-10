@@ -16,6 +16,9 @@ import UserNotifications
 #if canImport(PassKit)
 import PassKit
 #endif
+#if canImport(PhotosUI)
+import PhotosUI
+#endif
 #if canImport(SafariServices) && canImport(UIKit)
 import SafariServices
 import UIKit
@@ -88,26 +91,26 @@ struct ContentView: View {
         var title: String {
             switch self {
             case .majlis:
-                return AppLocalization.text("eid_mood_majlis", fallback: "Majlis")
+                return AppLocalization.text("mood_majlis", fallback: "Majlis")
             case .gifts:
-                return AppLocalization.text("eid_mood_gifts", fallback: "Gifts")
+                return AppLocalization.text("mood_gifts", fallback: "Gifts")
             case .arabic:
-                return AppLocalization.text("eid_mood_arabic", fallback: "Arabic")
+                return AppLocalization.text("mood_arabic", fallback: "Arabic")
             case .sweets:
-                return AppLocalization.text("eid_mood_sweets", fallback: "Sweets")
+                return AppLocalization.text("mood_sweets", fallback: "Sweets")
             }
         }
 
         var detail: String {
             switch self {
             case .majlis:
-                return AppLocalization.text("eid_mood_majlis_detail", fallback: "Hosting picks")
+                return AppLocalization.text("mood_majlis_detail", fallback: "Hosting picks")
             case .gifts:
-                return AppLocalization.text("eid_mood_gifts_detail", fallback: "Ready to share")
+                return AppLocalization.text("mood_gifts_detail", fallback: "Ready to share")
             case .arabic:
-                return AppLocalization.text("eid_mood_arabic_detail", fallback: "Traditional coffee")
+                return AppLocalization.text("mood_arabic_detail", fallback: "Traditional coffee")
             case .sweets:
-                return AppLocalization.text("eid_mood_sweets_detail", fallback: "Sweet pairings")
+                return AppLocalization.text("mood_sweets_detail", fallback: "Sweet pairings")
             }
         }
 
@@ -129,7 +132,7 @@ struct ContentView: View {
             case .majlis:
                 return "majlis"
             case .gifts:
-                return "eid"
+                return "gift"
             case .arabic:
                 return "arabic"
             case .sweets:
@@ -380,6 +383,14 @@ struct ContentView: View {
     @State private var shopSearchQuery = ""
     @State private var selectedCoffeeMood: CoffeeMood?
     @State private var shopSortMode: ShopSortMode = .featured
+    @State private var conciergeRequest = ""
+    @State private var conciergeResult: CoffeeConciergeResult?
+    @State private var isRunningConcierge = false
+#if canImport(PhotosUI)
+    @State private var conciergeImageSelection: PhotosPickerItem?
+#endif
+    @State private var conciergeImageData: Data?
+    @State private var isLoadingConciergeImage = false
     @State private var products: [Product] = []
     @State private var cartItems: [CartItem] = []
     @State private var cartOpen = false
@@ -428,6 +439,8 @@ struct ContentView: View {
     @AppStorage("brewRecipes.saved") private var savedBrewRecipes = ""
     @AppStorage("carts.saved") private var savedCartsPayload = ""
     @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
+    @AppStorage("shortcut.destination") private var shortcutDestination = ""
+    @AppStorage("shortcut.searchQuery") private var shortcutSearchQuery = ""
     @State private var notificationAuthorizationStatus: Int = 0
     @State private var accountAuthMode: AccountAuthMode = .signIn
     @State private var accountFirstName = ""
@@ -483,11 +496,9 @@ struct ContentView: View {
     @State private var isDeliveryDetailsExpanded = false
     @State private var accountScrollTarget: String?
     @State private var didRecordReviewLaunch = false
-    @State private var eidCampaignSettings = EidCampaignSettings.defaultActive
 
     private let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
-        ShopCategory(key: "eid-gifts", title: "Eid Gifts", subtitle: "Seasonal boxes", symbol: "sheep"),
         ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Single-origin whole beans", symbol: "leaf.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
@@ -670,29 +681,9 @@ struct ContentView: View {
         }
     }
 
-    private var isEidCampaignEnabled: Bool {
-        eidCampaignSettings.eidModeEnabled
-    }
-
-    private var eidCountdownText: String {
-        guard let offerEndDate = eidCampaignSettings.offerEndDate else {
-            return AppLocalization.text("eid_offer_limited_time", fallback: "Limited-time Eid offer")
-        }
-
-        let remainingDays = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: offerEndDate)).day ?? 0
-        if remainingDays <= 0 {
-            return AppLocalization.text("eid_offer_ends_today", fallback: "Eid offer ends today")
-        }
-        if remainingDays == 1 {
-            return AppLocalization.text("eid_offer_ends_tomorrow", fallback: "Eid offer ends tomorrow")
-        }
-        return String(format: AppLocalization.text("eid_offer_ends_days", fallback: "Eid offer ends in %d days"), remainingDays)
-    }
-
     private var availableCategories: [ShopCategory] {
         let dynamic = Set(products.map(\.categoryKey))
-        let visibleCatalog = categoryCatalog.filter { isEidCampaignEnabled || $0.key != "eid-gifts" }
-        let ordered = visibleCatalog.filter { $0.key == "all" || dynamic.contains($0.key) }
+        let ordered = categoryCatalog.filter { $0.key == "all" || dynamic.contains($0.key) }
         let knownKeys = Set(categoryCatalog.map(\.key))
         let extras = dynamic
             .subtracting(knownKeys)
@@ -700,7 +691,7 @@ struct ContentView: View {
             .map(categoryDefinition(for:))
 
         if dynamic.isEmpty {
-            return visibleCatalog.filter { $0.key == "all" }
+            return categoryCatalog.filter { $0.key == "all" }
         }
 
         return ordered.map(localizedCategory) + extras
@@ -719,8 +710,6 @@ struct ContentView: View {
         switch key {
         case "all":
             return AppLocalization.text("category_all_subtitle", fallback: fallback)
-        case "eid-gifts":
-            return AppLocalization.text("category_eid_gifts_subtitle", fallback: fallback)
         case "coffee-beans":
             return AppLocalization.text("category_coffee_beans_subtitle", fallback: fallback)
         case "arabic-coffee-beans":
@@ -797,18 +786,10 @@ struct ContentView: View {
         }
     }
 
-    private var adminCatalogProducts: [Product] {
-        products.sorted { lhs, rhs in
-            if lhs.categoryLabel != rhs.categoryLabel {
-                return lhs.categoryLabel.localizedCaseInsensitiveCompare(rhs.categoryLabel) == .orderedAscending
-            }
-
-            if lhs.isAvailableForSale != rhs.isAvailableForSale {
-                return lhs.isAvailableForSale && !rhs.isAvailableForSale
-            }
-
-            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-        }
+    private var conciergeProducts: [Product] {
+        guard let conciergeResult else { return [] }
+        let productsByID = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
+        return conciergeResult.productIDs.compactMap { productsByID[$0] }
     }
 
     private var favoriteProductIDs: Set<String> {
@@ -851,18 +832,6 @@ struct ContentView: View {
             .sorted { lhs, rhs in
                 if lhs.isAvailableForSale != rhs.isAvailableForSale {
                     return !lhs.isAvailableForSale && rhs.isAvailableForSale
-                }
-
-                return lhs.name < rhs.name
-            }
-    }
-
-    private var eidGiftProducts: [Product] {
-        products
-            .filter { $0.categoryKey == "eid-gifts" }
-            .sorted { lhs, rhs in
-                if lhs.isAvailableForSale != rhs.isAvailableForSale {
-                    return lhs.isAvailableForSale && !rhs.isAvailableForSale
                 }
 
                 return lhs.name < rhs.name
@@ -1232,11 +1201,11 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.25), value: cartOpen)
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
         .task {
-            await loadEidCampaignSettings()
             await loadProductsIfNeeded()
             await refreshNotificationStatus()
             await syncRemotePushTokenIfPossible()
             recordLaunchAndRequestReviewIfReady()
+            handleShortcutDestination()
         }
         .onChange(of: activeTab) { _, newTab in
             guard newTab == .shop, hasLoadedProducts else { return }
@@ -1266,6 +1235,16 @@ struct ContentView: View {
                 await syncRemotePushTokenIfPossible()
             }
         }
+        .onChange(of: shortcutDestination) { _, _ in
+            handleShortcutDestination()
+        }
+#if canImport(PhotosUI)
+        .onChange(of: conciergeImageSelection) { _, newSelection in
+            Task {
+                await loadConciergeImage(from: newSelection)
+            }
+        }
+#endif
         .sheet(item: $checkoutSession) { session in
             CheckoutWebView(url: session.url)
         }
@@ -1297,6 +1276,9 @@ struct ContentView: View {
             .padding(.trailing, 22)
             .padding(.bottom, 74)
             .zIndex(20)
+        }
+        .onOpenURL { url in
+            handleDeepLink(url)
         }
         .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
         .environment(\.layoutDirection, appLanguage.layoutDirection)
@@ -1375,6 +1357,51 @@ struct ContentView: View {
 #if canImport(UIKit)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 #endif
+    }
+
+    private func handleShortcutDestination() {
+        guard !shortcutDestination.isEmpty else { return }
+
+        hasSeenWelcome = true
+        let destination = shortcutDestination
+        let searchQuery = shortcutSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        shortcutDestination = ""
+        shortcutSearchQuery = ""
+
+        switch destination {
+        case "shop":
+            activeTab = .shop
+            activeCategory = "all"
+            shopSearchQuery = searchQuery
+        case "concierge":
+            activeTab = .shop
+            activeCategory = "all"
+            if !searchQuery.isEmpty {
+                conciergeRequest = searchQuery
+            }
+            showToast(message: AppLocalization.text("concierge_opened", fallback: "Coffee Concierge opened"))
+        case "brewing":
+            activeTab = .brewing
+        case "rewards":
+            activeTab = .account
+            savedLoyaltyEmail = savedCustomerEmail.isEmpty ? savedLoyaltyEmail : savedCustomerEmail
+            accountScrollTarget = AccountSectionView.ScrollTarget.loyalty
+        default:
+            break
+        }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme?.lowercased() == "talla" else { return }
+
+        let rawDestination = url.host?.isEmpty == false ? url.host : url.pathComponents.dropFirst().first
+        let destination = rawDestination?.lowercased() ?? ""
+        let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let searchQuery = queryItems.first(where: { $0.name == "q" || $0.name == "search" })?.value ?? ""
+
+        shortcutSearchQuery = searchQuery
+        shortcutDestination = destination
+        handleShortcutDestination()
     }
 
     private var header: some View {
@@ -1504,173 +1531,23 @@ struct ContentView: View {
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
-            if isEidCampaignEnabled {
-                eidHomeBanner
-                eidGiftSpotlight
-            }
             homeMoodMatcher
             homeLoyaltyTeaser
             featuredProducts
         }
     }
 
-    private var eidHomeBanner: some View {
-        Button {
-            openEidGifts()
-        } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(AppLocalization.text("eid_mubarak", fallback: "Eid Mubarak"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(2.4)
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xF7E0AA))
-
-                        Text(AppLocalization.text("eid_greeting_arabic", fallback: "عيدكم مبارك"))
-                            .font(displayFont(size: isCompact ? 28 : 34))
-                            .foregroundColor(.white)
-
-                        Text(AppLocalization.text("eid_banner_title", fallback: "Limited Eid rewards and gift boxes"))
-                            .font(titleFont(size: 20))
-                            .foregroundColor(Color(hex: 0xFFF6E6))
-                    }
-
-                    Spacer(minLength: 10)
-
-                    LambIconView(color: Color(hex: 0xF7E0AA), size: 34)
-                }
-
-                Text(AppLocalization.text("eid_banner_detail", fallback: "Discover Eid Gifts and redeem the seasonal Majlis Reward while it is available."))
-                    .font(bodyFont(size: 14))
-                    .foregroundColor(Color(hex: 0xF7E0AA).opacity(0.88))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 10) {
-                    Text(AppLocalization.text("shop_eid_gifts", fallback: "Shop Eid Gifts"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.8)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x21140A))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Color(hex: 0xF7E0AA))
-                        .clipShape(Capsule())
-
-                    Text(AppLocalization.text("limited_eid_rewards", fallback: "Limited Eid Rewards"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.6)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xF7E0AA))
-
-                    Text(eidCountdownText)
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.2)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xF7E0AA).opacity(0.9))
-                }
-            }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                LinearGradient(
-                    colors: [Color(hex: 0x5B341A), Color(hex: 0x1F130D)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color(hex: 0xF7E0AA).opacity(0.24), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 18)
-        .padding(.bottom, 16)
-    }
-
-    private var eidGiftSpotlight: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(AppLocalization.text("eid_gift_spotlight", fallback: "Eid Gift Spotlight"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
-
-                    Text(AppLocalization.text("eid_gift_spotlight_detail", fallback: "Seasonal boxes and hosting picks prepared for Eid visits, majlis tables, and last-minute gifting."))
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 12)
-
-                Button {
-                    openEidGifts()
-                } label: {
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Color(hex: 0x21140A))
-                        .frame(width: 34, height: 34)
-                        .background(Color(hex: 0xC8965A))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppLocalization.text("shop_eid_gifts", fallback: "Shop Eid Gifts"))
-            }
-
-            if eidGiftProducts.isEmpty {
-                HStack(spacing: 12) {
-                    LambIconView(color: Color(hex: 0xC8965A), size: 34)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(AppLocalization.text("eid_catalog_syncing", fallback: "Eid catalog is being prepared"))
-                            .font(titleFont(size: 18))
-                            .foregroundColor(primaryTextColor)
-
-                        Text(AppLocalization.text("eid_catalog_syncing_detail", fallback: "Browse Eid search results while the seasonal boxes sync from Shopify."))
-                            .font(bodyFont(size: 13))
-                            .foregroundColor(secondaryTextColor)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(elevatedSurfaceColor)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            } else {
-                LazyVGrid(columns: productGridColumns, spacing: 16) {
-                    ForEach(eidGiftProducts.prefix(isCompact ? 2 : 3)) { product in
-                        productCard(product: product, showDescription: false)
-                    }
-                }
-            }
-        }
-        .padding(18)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .padding(.horizontal, 18)
-        .padding(.bottom, 16)
-    }
-
     private var homeMoodMatcher: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(isEidCampaignEnabled ? AppLocalization.text("eid_plan_your_visit", fallback: "Plan your Eid") : AppLocalization.text("match_your_mood", fallback: "Match your mood"))
+                    Text(AppLocalization.text("match_your_mood", fallback: "Match your mood"))
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(2.2)
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(isEidCampaignEnabled ? AppLocalization.text("eid_picker_hint", fallback: "Choose the Eid moment and jump straight to matching gifts, coffee, or pairings.") : AppLocalization.text("mood_picker_hint", fallback: "Pick a vibe and jump straight to the right shelf."))
+                    Text(AppLocalization.text("mood_picker_hint", fallback: "Pick a vibe and jump straight to the right shelf."))
                         .font(bodyFont(size: 13))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1745,22 +1622,8 @@ struct ContentView: View {
 
     private func applyMood(_ mood: CoffeeMood) {
         selectedCoffeeMood = mood
-        if isEidCampaignEnabled {
-            switch mood {
-            case .majlis, .gifts:
-                activeCategory = "eid-gifts"
-                shopSearchQuery = eidGiftProducts.isEmpty ? mood.searchQuery : ""
-            case .arabic:
-                activeCategory = "arabic-coffee-beans"
-                shopSearchQuery = ""
-            case .sweets:
-                activeCategory = "all"
-                shopSearchQuery = mood.searchQuery
-            }
-        } else {
-            activeCategory = "all"
-            shopSearchQuery = mood.searchQuery
-        }
+        activeCategory = "all"
+        shopSearchQuery = mood.searchQuery
         activeTab = .shop
         delightFeedbackTrigger += 1
         showToast(message: String(format: AppLocalization.text("mood_applied_toast", fallback: "%@ picks are ready"), mood.title))
@@ -1945,13 +1808,13 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(isEidCampaignEnabled ? AppLocalization.text("eid_roastery", fallback: "Eid at Talla") : AppLocalization.text("roastery", fallback: "Roastery"))
+                    Text(AppLocalization.text("roastery", fallback: "Roastery"))
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(3)
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(isEidCampaignEnabled ? AppLocalization.text("eid_daily_rituals", fallback: "Gifts, majlis coffee, and rewards") : AppLocalization.text("coffee_daily_rituals", fallback: "Coffee for daily rituals"))
+                    Text(AppLocalization.text("coffee_daily_rituals", fallback: "Coffee for daily rituals"))
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
                 }
@@ -1961,7 +1824,7 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 12, weight: .semibold))
-                    Text(isEidCampaignEnabled ? AppLocalization.text("eid_ready", fallback: "Eid Ready") : AppLocalization.text("fresh_roast", fallback: "Fresh Roast"))
+                    Text(AppLocalization.text("fresh_roast", fallback: "Fresh Roast"))
                         .font(labelFont(size: 9, weight: .bold))
                         .tracking(1.5)
                         .textCase(.uppercase)
@@ -1980,12 +1843,12 @@ struct ContentView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(isEidCampaignEnabled ? AppLocalization.text("eid_hero_title", fallback: "Eid gifts,\ncoffee, and majlis moments") : AppLocalization.text("hero_title", fallback: "Specialty coffee,\nroasted with intention"))
+                Text(AppLocalization.text("hero_title", fallback: "Specialty coffee,\nroasted with intention"))
                     .font(displayFont(size: isCompact ? 28 : 36))
                     .lineSpacing(2)
                     .foregroundColor(primaryTextColor)
 
-                Text(isEidCampaignEnabled ? AppLocalization.text("eid_hero_subtitle", fallback: "Find seasonal boxes, Arabic coffee, sweet pairings, and limited rewards for every Eid visit.") : AppLocalization.text("hero_subtitle", fallback: "Shop roasted coffee, brewing essentials, and rewards without digging through the app."))
+                Text(AppLocalization.text("hero_subtitle", fallback: "Shop roasted coffee, brewing essentials, and rewards without digging through the app."))
                     .font(bodyFont(size: 14))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1993,13 +1856,9 @@ struct ContentView: View {
 
             HStack(spacing: 10) {
                 Button {
-                    if isEidCampaignEnabled {
-                        openEidGifts()
-                    } else {
-                        activeTab = .shop
-                    }
+                    activeTab = .shop
                 } label: {
-                    Text(isEidCampaignEnabled ? AppLocalization.text("shop_eid_gifts", fallback: "Shop Eid Gifts") : AppLocalization.text("explore_coffees", fallback: "EXPLORE COFFEES"))
+                    Text(AppLocalization.text("explore_coffees", fallback: "EXPLORE COFFEES"))
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(2)
                         .foregroundColor(Color(hex: 0x0A0804))
@@ -2013,7 +1872,7 @@ struct ContentView: View {
                 Button {
                     activeTab = .brewing
                 } label: {
-                    Text(isEidCampaignEnabled ? AppLocalization.text("eid_pairings", fallback: "EID PAIRINGS") : AppLocalization.text("brewing_guide", fallback: "BREWING GUIDE"))
+                    Text(AppLocalization.text("brewing_guide", fallback: "BREWING GUIDE"))
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(2)
                         .foregroundColor(primaryTextColor)
@@ -2393,17 +2252,6 @@ struct ContentView: View {
                     color: Color(hex: 0x6D5C24),
                     categoryKey: "gifts"
                 )
-                if isEidCampaignEnabled {
-                    collectionTile(
-                        eyebrow: "Eid",
-                        name: "Eid Gifts",
-                        desc: "Seasonal boxes, hosting picks, and limited Eid rewards for majlis gifting.",
-                        accent: "عيدكم مبارك from Talla.",
-                        systemImage: "sheep",
-                        color: Color(hex: 0x5B341A),
-                        categoryKey: "eid-gifts"
-                    )
-                }
             }
         }
         .padding(.horizontal, 18)
@@ -2434,6 +2282,7 @@ struct ContentView: View {
             categoryLabelFont: labelFont(size: 11, weight: .bold),
             categoryBodyFont: bodyFont(size: 13),
             gridColumns: shopProductGridColumns,
+            conciergePanel: AnyView(coffeeConciergePanel),
             renderProductCard: { product, showDescription in
                 AnyView(productCard(product: product, showDescription: showDescription))
             },
@@ -2445,6 +2294,254 @@ struct ContentView: View {
         )
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
+    }
+
+    private var coffeeConciergePanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 34, height: 34)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("coffee_concierge_title", fallback: "Coffee Concierge"))
+                        .font(labelFont(size: 11, weight: .bold))
+                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(AppLocalization.text("coffee_concierge_detail", fallback: "Ask for a roast, gift, mood, budget, or brew style and get focused Talla picks."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 10) {
+                TextField(AppLocalization.text("coffee_concierge_placeholder", fallback: "Example: gift under 20 BHD"), text: $conciergeRequest)
+                    .font(bodyFont(size: 14))
+                    .foregroundColor(primaryTextColor)
+                    .textInputAutocapitalization(.sentences)
+                    .submitLabel(.done)
+                    .onSubmit {
+                        Task { await runCoffeeConcierge() }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 13)
+                    .background(cardFillColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                Button {
+                    Task { await runCoffeeConcierge() }
+                } label: {
+                    Image(systemName: isRunningConcierge ? "hourglass" : "arrow.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(width: 42, height: 42)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(isRunningConcierge || products.isEmpty)
+            }
+
+#if canImport(PhotosUI)
+            HStack(alignment: .center, spacing: 10) {
+                PhotosPicker(selection: $conciergeImageSelection, matching: .images, photoLibrary: .shared()) {
+                    Label(
+                        conciergeImageData == nil
+                            ? AppLocalization.text("add_image", fallback: "Add Image")
+                            : AppLocalization.text("change_image", fallback: "Change Image"),
+                        systemImage: "photo.badge.plus"
+                    )
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
+                    .textCase(.uppercase)
+                    .foregroundColor(primaryTextColor)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(cardFillColor)
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                    )
+                    .clipShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                if isLoadingConciergeImage {
+                    ProgressView()
+                        .tint(Color(hex: 0xC8965A))
+                } else if conciergeImageData != nil {
+                    conciergeImagePreview
+
+                    Button {
+                        conciergeImageSelection = nil
+                        conciergeImageData = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(secondaryTextColor)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("remove_image", fallback: "Remove image"))
+                }
+
+                Spacer(minLength: 0)
+            }
+#endif
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_gift", fallback: "Gift box"))
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_arabic", fallback: "Arabic coffee"))
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_chocolate", fallback: "Chocolate pairing"))
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_tools", fallback: "Brew tools"))
+                }
+                .padding(.vertical, 2)
+            }
+
+            if let conciergeResult {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Text(conciergeResult.usedAppleIntelligence
+                            ? AppLocalization.text("apple_intelligence_used", fallback: "Apple Intelligence")
+                            : AppLocalization.text("smart_fallback_used", fallback: "Smart picks"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+
+                        Spacer(minLength: 0)
+                    }
+
+                    Text(conciergeResult.message)
+                        .font(bodyFont(size: 14))
+                        .foregroundColor(primaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if !conciergeProducts.isEmpty {
+                        LazyVGrid(columns: productGridColumns, spacing: 14) {
+                            ForEach(conciergeProducts) { product in
+                                productCard(product: product, showDescription: false)
+                            }
+                        }
+                    }
+                }
+                .padding(14)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(elevatedSurfaceColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+#if canImport(PhotosUI)
+    @ViewBuilder
+    private var conciergeImagePreview: some View {
+#if canImport(UIKit)
+        if let conciergeImageData, let image = UIImage(data: conciergeImageData) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 42, height: 42)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.22 : 0.12), lineWidth: 1)
+                )
+                .accessibilityLabel(AppLocalization.text("selected_image", fallback: "Selected image"))
+        }
+#else
+        Image(systemName: "photo.fill")
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundColor(Color(hex: 0xC8965A))
+            .frame(width: 42, height: 42)
+            .background(cardFillColor)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+#endif
+    }
+#endif
+
+    private func conciergePromptChip(_ title: String) -> some View {
+        Button {
+            conciergeRequest = title
+            Task { await runCoffeeConcierge() }
+        } label: {
+            Text(title)
+                .font(labelFont(size: 10, weight: .bold))
+                .lineLimit(1)
+                .foregroundColor(primaryTextColor)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(cardFillColor)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                )
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(isRunningConcierge || products.isEmpty)
+    }
+
+#if canImport(PhotosUI)
+    @MainActor
+    private func loadConciergeImage(from selection: PhotosPickerItem?) async {
+        guard let selection else {
+            conciergeImageData = nil
+            isLoadingConciergeImage = false
+            return
+        }
+
+        isLoadingConciergeImage = true
+        defer { isLoadingConciergeImage = false }
+
+        do {
+            conciergeImageData = try await selection.loadTransferable(type: Data.self)
+        } catch {
+            conciergeImageData = nil
+            showToast(message: AppLocalization.text("image_load_failed", fallback: "Could not load that image"))
+        }
+    }
+#endif
+
+    @MainActor
+    private func runCoffeeConcierge() async {
+        guard !isRunningConcierge else { return }
+        guard !products.isEmpty else {
+            showToast(message: AppLocalization.text("loading_shop", fallback: "Loading the shop"))
+            return
+        }
+
+        isRunningConcierge = true
+        let result = await CoffeeConciergeService.recommend(
+            request: conciergeRequest,
+            products: products,
+            localeIdentifier: appLanguage.localeIdentifier,
+            imageData: conciergeImageData
+        )
+        conciergeResult = result
+        delightFeedbackTrigger += 1
+        isRunningConcierge = false
     }
 
     private var brewingView: some View {
@@ -2544,7 +2641,6 @@ struct ContentView: View {
             ),
             shoppingSection: AnyView(
                 Group {
-                    adminProductsSection
                     favoritesSection
                     recentlyViewedSection
                     recommendedSection
@@ -2708,117 +2804,6 @@ struct ContentView: View {
                 .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    private var adminProductsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(AppLocalization.text("admin_all_products", fallback: "ALL PRODUCTS"))
-                        .font(displayFont(size: 22))
-                        .tracking(2)
-                        .foregroundColor(primaryTextColor)
-
-                    Text(String(format: AppLocalization.text("admin_products_summary", fallback: "%d products synced from Shopify"), adminCatalogProducts.count))
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-
-                Button {
-                    Task {
-                        await loadProducts(force: true)
-                    }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Color(hex: 0xC8965A))
-                        .frame(width: 36, height: 36)
-                        .background(cardFillColor)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .disabled(isLoadingProducts)
-            }
-
-            if isLoadingProducts && products.isEmpty {
-                loadingSection
-            } else if let loadingError, products.isEmpty {
-                errorSection(message: loadingError)
-            } else if adminCatalogProducts.isEmpty {
-                actionEmptyState(
-                    message: AppLocalization.text("admin_products_empty", fallback: "No Shopify products are loaded yet."),
-                    actionTitle: AppLocalization.text("retry", fallback: "Retry"),
-                    systemImage: "shippingbox.fill"
-                ) {
-                    Task {
-                        await loadProducts(force: true)
-                    }
-                }
-            } else {
-                LazyVStack(spacing: 10) {
-                    ForEach(adminCatalogProducts) { product in
-                        adminProductRow(product)
-                    }
-                }
-            }
-        }
-    }
-
-    private func adminProductRow(_ product: Product) -> some View {
-        Button {
-            recordRecentlyViewed(product)
-            selectedProduct = product
-        } label: {
-            HStack(alignment: .center, spacing: 12) {
-                ProductThumbnail(imageURL: product.imageURL, size: 54, cornerRadius: 12)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        Text(product.categoryLabel)
-                            .font(labelFont(size: 9, weight: .bold))
-                            .tracking(1.4)
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
-                            .lineLimit(1)
-
-                        Text(product.isAvailableForSale
-                            ? AppLocalization.text("available", fallback: "Available")
-                            : AppLocalization.text("currently_sold_out", fallback: "Sold out"))
-                            .font(labelFont(size: 9, weight: .bold))
-                            .foregroundColor(product.isAvailableForSale ? Color(hex: 0x4E8F5F) : tertiaryTextColor)
-                            .lineLimit(1)
-                    }
-
-                    Text(product.name)
-                        .font(titleFont(size: 16))
-                        .foregroundColor(primaryTextColor)
-                        .lineLimit(2)
-
-                    Text(product.price)
-                        .font(bodyFont(size: 12))
-                        .foregroundColor(secondaryTextColor)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(tertiaryTextColor)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 
     private var favoritesSection: some View {
@@ -4156,20 +4141,6 @@ struct ContentView: View {
                 ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 10)
                     .frame(height: 184)
 
-                if isEidCampaignEnabled && product.categoryKey == "eid-gifts" {
-                    Text(AppLocalization.text("eid_limited_badge", fallback: "Limited Eid"))
-                        .font(labelFont(size: 8, weight: .bold))
-                        .tracking(1.5)
-                        .textCase(.uppercase)
-                        .padding(.vertical, 5)
-                        .padding(.horizontal, 7)
-                        .foregroundColor(Color(hex: 0x21140A))
-                        .background(Color(hex: 0xF7E0AA))
-                        .clipShape(Capsule())
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(10)
-                }
-
                 VStack(alignment: .trailing, spacing: 8) {
                     Button {
                         toggleFavorite(product: product)
@@ -4502,13 +4473,9 @@ struct ContentView: View {
 
     private func collectionTile(eyebrow: String, name: String, desc: String, accent: String, systemImage: String, color: Color, categoryKey: String) -> some View {
         Button {
-            if categoryKey == "eid-gifts" {
-                openEidGifts()
-            } else {
-                activeTab = .shop
-                activeCategory = categoryKey
-                shopSearchQuery = ""
-            }
+            activeTab = .shop
+            activeCategory = categoryKey
+            shopSearchQuery = ""
         } label: {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top) {
@@ -4526,13 +4493,9 @@ struct ContentView: View {
 
                     Spacer()
 
-                    if systemImage == "sheep" {
-                        LambIconView(color: Color(hex: 0xC8965A), size: 30)
-                    } else {
-                        Image(systemName: systemImage)
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xC8965A))
-                    }
+                    Image(systemName: systemImage)
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(Color(hex: 0xC8965A))
                 }
 
                 Text(desc)
@@ -4567,14 +4530,6 @@ struct ContentView: View {
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .buttonStyle(.plain)
-    }
-
-    private func openEidGifts() {
-        activeTab = .shop
-        activeCategory = "eid-gifts"
-        shopSearchQuery = eidGiftProducts.isEmpty ? "eid" : ""
-        selectedCoffeeMood = .gifts
-        delightFeedbackTrigger += 1
     }
 
     private func featureItem(symbol: String, eyebrow: String, title: String, detail: String) -> some View {
@@ -5508,19 +5463,6 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func loadEidCampaignSettings() async {
-        do {
-            eidCampaignSettings = try await CampaignService.fetchEidCampaignSettings()
-            if !isEidCampaignEnabled && activeCategory == "eid-gifts" {
-                activeCategory = "all"
-                shopSearchQuery = ""
-            }
-        } catch {
-            eidCampaignSettings = .defaultActive
-        }
-    }
-
-    @MainActor
     private func loadProducts(force: Bool = false) async {
         guard !isLoadingProducts else { return }
         guard force || !hasLoadedProducts else { return }
@@ -6277,9 +6219,6 @@ struct ContentView: View {
 
     private func categoryLabel(for key: String) -> String {
         guard key != "all" else { return AppLocalization.text("category_all", fallback: "All") }
-        if key == "eid-gifts" {
-            return AppLocalization.text("category_eid_gifts", fallback: "Eid Gifts")
-        }
         if key == "coffee-beans" {
             return AppLocalization.text("category_coffee_beans", fallback: "Coffee Beans")
         }
@@ -8039,7 +7978,7 @@ enum ProductCatalogRules {
             || source.contains("عيد")
             || source.contains("majlis")
             || source.contains("gift box") {
-            return "eid-gifts"
+            return "gifts"
         }
 
         if source.contains("shamali coffee") {
@@ -8094,10 +8033,6 @@ enum ProductCatalogRules {
 
         if fallbackKey == "gifts" {
             return "Talla Boxes"
-        }
-
-        if fallbackKey == "eid-gifts" {
-            return "Eid Gifts"
         }
 
         if fallbackKey == "other" || fallbackKey == "arabic-coffee-beans" || fallbackKey == "arabic-coffee" {

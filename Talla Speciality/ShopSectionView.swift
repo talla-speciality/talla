@@ -23,6 +23,7 @@ struct ShopSectionView: View {
     let categoryLabelFont: Font
     let categoryBodyFont: Font
     let gridColumns: [GridItem]
+    let conciergePanel: AnyView
     let renderProductCard: (ContentView.Product, Bool) -> AnyView
     let retryLoad: () -> Void
 
@@ -55,6 +56,7 @@ struct ShopSectionView: View {
             }
 
             shopSearchField
+            conciergePanel
             shopSortSection
             shopCategoriesSection
             shopResultsSummary
@@ -269,12 +271,7 @@ struct ShopSectionView: View {
 
     private func categoryButtonIcon(for category: ContentView.ShopCategory, isSelected: Bool) -> some View {
         Group {
-            if category.key == "eid-gifts" {
-                LambIconView(
-                    color: isSelected ? Color(hex: 0x0A0804) : accentColor,
-                    size: 19
-                )
-            } else if category.key == "coffee-beans" {
+            if category.key == "coffee-beans" {
                 Image(systemName: "capsule.portrait.fill")
                     .rotationEffect(.degrees(28))
             } else {

@@ -49,7 +49,7 @@ struct LoyaltyRewardsActionsView: View {
                 .foregroundColor(accentColor)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                redeemButton(title: AppLocalization.text("reward_eid_majlis", fallback: "Eid Majlis Reward"), points: 120, reward: "Eid Majlis Reward")
+                redeemButton(title: AppLocalization.text("reward_majlis_hosting", fallback: "Majlis Hosting Reward"), points: 120, reward: "Majlis hosting reward")
                 redeemButton(title: AppLocalization.text("reward_espresso_pour", fallback: "Espresso Pour"), points: 50, reward: "Espresso pour")
                 redeemButton(title: AppLocalization.text("reward_pastry_pairing", fallback: "Pastry Pairing"), points: 75, reward: "Pastry pairing")
                 redeemButton(title: AppLocalization.text("reward_signature_sip", fallback: "Signature Sip"), points: 100, reward: "Signature sip")

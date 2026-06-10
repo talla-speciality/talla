@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(AppIntents)
+import AppIntents
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -54,6 +57,12 @@ struct Talla_SpecialityApp: App {
 
     private var appLanguage: AppLanguage {
         AppLanguage(rawValue: savedAppLanguage) ?? .system
+    }
+
+    init() {
+#if canImport(AppIntents)
+        TallaAppShortcuts.updateAppShortcutParameters()
+#endif
     }
 
     var body: some Scene {

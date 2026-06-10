@@ -85,19 +85,23 @@ enum AppLocalization {
         "all_products": ["ar": "كل المنتجات"],
         "browse_catalog": ["ar": "تصفح حسب الفئة، واكتشف مفضلات العملاء، وأضف إلى السلة بسهولة."],
         "categories": ["ar": "الفئات"],
+        "coffee_concierge_title": ["ar": "مرشد القهوة"],
+        "coffee_concierge_detail": ["ar": "اسأل عن تحميصة، هدية، مزاج، ميزانية، أو طريقة تحضير لتحصل على اختيارات Talla المناسبة."],
+        "coffee_concierge_placeholder": ["ar": "مثال: هدية أقل من 20 دينار"],
+        "concierge_opened": ["ar": "تم فتح مرشد القهوة"],
+        "concierge_prompt_gift": ["ar": "صندوق هدية"],
+        "concierge_prompt_arabic": ["ar": "قهوة عربية"],
+        "concierge_prompt_chocolate": ["ar": "مرافقة شوكولاتة"],
+        "concierge_prompt_tools": ["ar": "أدوات تحضير"],
+        "apple_intelligence_used": ["ar": "Apple Intelligence"],
+        "smart_fallback_used": ["ar": "اختيارات ذكية"],
+        "add_image": ["ar": "أضف صورة"],
+        "change_image": ["ar": "غيّر الصورة"],
+        "remove_image": ["ar": "إزالة الصورة"],
+        "selected_image": ["ar": "الصورة المختارة"],
+        "image_load_failed": ["ar": "تعذر تحميل الصورة"],
         "clear": ["ar": "مسح"],
         "show_everything": ["ar": "عرض الكل"],
-        "eid_mubarak": ["ar": "عيد مبارك"],
-        "eid_greeting_arabic": ["ar": "عيدكم مبارك"],
-        "eid_banner_title": ["ar": "مكافآت وهدايا العيد لفترة محدودة"],
-        "eid_banner_detail": ["ar": "اكتشف هدايا العيد واستبدل مكافأة المجلس الموسمية قبل انتهائها."],
-        "shop_eid_gifts": ["ar": "تسوق هدايا العيد"],
-        "limited_eid_rewards": ["ar": "مكافآت عيد محدودة"],
-        "eid_limited_badge": ["ar": "عيد محدود"],
-        "eid_offer_ends_today": ["ar": "ينتهي عرض العيد اليوم"],
-        "eid_offer_ends_tomorrow": ["ar": "ينتهي عرض العيد غداً"],
-        "eid_offer_ends_days": ["ar": "ينتهي عرض العيد خلال %d أيام"],
-        "eid_offer_limited_time": ["ar": "عرض العيد لفترة محدودة"],
         "sort_by": ["ar": "ترتيب حسب"],
         "sort_featured": ["ar": "المميز"],
         "sort_price_low": ["ar": "الأقل سعراً"],
@@ -213,7 +217,7 @@ enum AppLocalization {
         ,"earn_beans_detail": ["ar": "تتحدّث مكافآتك تلقائياً بعد تسجيل المشتريات المكتملة."]
         ,"redeem_rewards": ["ar": "استبدال المكافآت"]
         ,"reward_espresso_pour": ["ar": "إسبريسو صغير"]
-        ,"reward_eid_majlis": ["ar": "مكافأة مجلس العيد"]
+        ,"reward_majlis_hosting": ["ar": "مكافأة ضيافة المجلس"]
         ,"reward_pastry_pairing": ["ar": "مرافقة معجنات"]
         ,"reward_signature_sip": ["ar": "مشروب مميز"]
         ,"reward_bag_credit": ["ar": "رصيد كيس قهوة"]
@@ -317,9 +321,6 @@ enum AppLocalization {
         ,"recommended_for_you": ["ar": "موصى به لك"]
         ,"recommendations_empty": ["ar": "ستظهر التوصيات هنا بعد تحميل المنتجات."]
         ,"recommendations_detail": ["ar": "مختارة من القهوة والأدوات والفئات التي تعود إليها باستمرار."]
-        ,"admin_all_products": ["ar": "كل المنتجات"]
-        ,"admin_products_summary": ["ar": "%d منتج تمت مزامنته من Shopify"]
-        ,"admin_products_empty": ["ar": "لم يتم تحميل منتجات Shopify بعد."]
         ,"alerts": ["ar": "التنبيهات"]
         ,"alerts_empty": ["ar": "اضغط الجرس على أي منتج لإبقائه في قائمة المتابعة عند عودته أو عند نزول تحميص جديد."]
         ,"alerts_detail": ["ar": "تابع الإصدارات القادمة وارجع إلى أنواع القهوة التي لا تريد أن تفوتك."]
@@ -459,29 +460,16 @@ enum AppLocalization {
         ,"apple_wallet_unavailable": ["ar": "Apple Wallet غير متوفر على هذا الجهاز"]
         ,"sign_in_before_wallet_pass": ["ar": "سجّل الدخول قبل إضافة بطاقتك إلى Wallet"]
         ,"wallet_pass_already_added": ["ar": "بطاقة الولاء موجودة بالفعل في Apple Wallet"]
-        ,"eid_roastery": ["ar": "العيد في Talla"]
-        ,"eid_daily_rituals": ["ar": "هدايا وقهوة مجلس ومكافآت"]
-        ,"eid_ready": ["ar": "جاهز للعيد"]
-        ,"eid_hero_title": ["ar": "هدايا العيد،\nوقهوة المجلس"]
-        ,"eid_hero_subtitle": ["ar": "اختر صناديق موسمية، وقهوة عربية، ومرافِقات حلوة، ومكافآت محدودة لكل زيارة في العيد."]
-        ,"eid_pairings": ["ar": "مرافِقات العيد"]
-        ,"eid_gift_spotlight": ["ar": "هدايا العيد المختارة"]
-        ,"eid_gift_spotlight_detail": ["ar": "صناديق موسمية واختيارات للضيافة جاهزة لزيارات العيد ومجالس القهوة والهدايا السريعة."]
-        ,"eid_catalog_syncing": ["ar": "يجري تجهيز كتالوج العيد"]
-        ,"eid_catalog_syncing_detail": ["ar": "تصفح نتائج بحث العيد أثناء مزامنة الصناديق الموسمية من Shopify."]
-        ,"eid_plan_your_visit": ["ar": "خطط لعيدك"]
-        ,"eid_picker_hint": ["ar": "اختر مناسبة العيد وانتقل مباشرة إلى الهدايا أو القهوة أو المرافِقات المناسبة."]
-        ,"eid_mood_majlis": ["ar": "المجلس"]
-        ,"eid_mood_gifts": ["ar": "الهدايا"]
-        ,"eid_mood_arabic": ["ar": "العربية"]
-        ,"eid_mood_sweets": ["ar": "الحلويات"]
-        ,"eid_mood_majlis_detail": ["ar": "اختيارات الضيافة"]
-        ,"eid_mood_gifts_detail": ["ar": "جاهزة للمشاركة"]
-        ,"eid_mood_arabic_detail": ["ar": "قهوة تقليدية"]
-        ,"eid_mood_sweets_detail": ["ar": "مرافِقات حلوة"]
+        ,"mood_majlis": ["ar": "المجلس"]
+        ,"mood_gifts": ["ar": "الهدايا"]
+        ,"mood_arabic": ["ar": "العربية"]
+        ,"mood_sweets": ["ar": "الحلويات"]
+        ,"mood_majlis_detail": ["ar": "اختيارات الضيافة"]
+        ,"mood_gifts_detail": ["ar": "جاهزة للمشاركة"]
+        ,"mood_arabic_detail": ["ar": "قهوة تقليدية"]
+        ,"mood_sweets_detail": ["ar": "مرافِقات حلوة"]
         ,"mood_applied_toast": ["ar": "اختيارات %@ جاهزة"]
         ,"category_all": ["ar": "الكل"]
-        ,"category_eid_gifts": ["ar": "هدايا العيد"]
         ,"category_coffee_beans": ["ar": "حبوب القهوة"]
         ,"category_arabic_coffee": ["ar": "القهوة العربية والشمالية"]
         ,"category_drip_bags": ["ar": "أكياس الترشيح"]
@@ -555,39 +543,6 @@ enum BackendConfiguration {
         }
         return url
         #endif
-    }
-}
-
-struct EidCampaignSettings: Codable, Equatable {
-    let eidModeEnabled: Bool
-    let eidOfferEndsAt: String?
-
-    static let defaultActive = EidCampaignSettings(eidModeEnabled: true, eidOfferEndsAt: nil)
-
-    var offerEndDate: Date? {
-        guard let eidOfferEndsAt else { return nil }
-        return ISO8601DateFormatter().date(from: eidOfferEndsAt)
-    }
-}
-
-enum CampaignService {
-    private static let baseURL = BackendConfiguration.serviceBaseURL
-
-    static func fetchEidCampaignSettings() async throws -> EidCampaignSettings {
-        guard let baseURL else {
-            return .defaultActive
-        }
-
-        var request = URLRequest(url: baseURL.appending(path: "/campaigns/eid"))
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
-            throw ContentView.LoyaltyServiceError.operationFailed("Could not load Eid campaign settings.")
-        }
-
-        return try JSONDecoder().decode(EidCampaignSettings.self, from: data)
     }
 }
 
@@ -1981,7 +1936,11 @@ private extension ContentView.Product {
         if source.contains("talla box")
             || source.contains("mini talla box")
             || source.contains("mini coffee box")
-            || source.contains("mini arabic coffee box") {
+            || source.contains("mini arabic coffee box")
+            || source.contains("eid")
+            || source.contains("عيد")
+            || source.contains("majlis")
+            || source.contains("gift box") {
             return "gifts"
         }
 
@@ -1997,6 +1956,9 @@ private extension ContentView.Product {
             }
             if sluggedType == "tea" {
                 return "ready-made-drinks"
+            }
+            if sluggedType == "eid-gifts" {
+                return "gifts"
             }
             if sluggedType == "desserts" || sluggedType == "spreads" || sluggedType == "bread" {
                 return "crmb-tallas-speciality-bakery"
