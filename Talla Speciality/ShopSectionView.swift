@@ -38,18 +38,18 @@ struct ShopSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(AppLocalization.text("explore", fallback: "Explore"))
+                Text(AppLocalization.text("shop_eyebrow", fallback: "What are you craving?"))
                     .font(labelFont)
                     .tracking(localizedTracking(4))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
-                Text(AppLocalization.text("all_products", fallback: "ALL PRODUCTS"))
+                Text(AppLocalization.text("shop_heading", fallback: "Pick your Talla run"))
                     .font(titleFont)
                     .tracking(localizedTracking(1))
                     .foregroundColor(primaryTextColor)
 
-                Text(AppLocalization.text("browse_catalog", fallback: "Browse by category, jump into customer favorites, and add to bag without hunting through the catalog."))
+                Text(AppLocalization.text("shop_intro", fallback: "Start with cold summer drinks, grab cups for the road, add desserts, or restock your favorite beans."))
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -83,7 +83,7 @@ struct ShopSectionView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(accentColor)
 
-            TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search coffee, tools, gifts..."), text: $searchQuery)
+            TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search summer drinks, cups, desserts..."), text: $searchQuery)
                 .font(bodyFont)
                 .foregroundColor(primaryTextColor)
                 .textInputAutocapitalization(.never)
@@ -255,7 +255,7 @@ struct ShopSectionView: View {
                 }
                 .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
             }
-            .frame(width: 138, height: 96, alignment: .leading)
+            .frame(width: 148, height: 104, alignment: .leading)
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)

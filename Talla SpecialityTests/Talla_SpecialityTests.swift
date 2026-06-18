@@ -30,37 +30,59 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Talla Boxes")
     }
 
-    @Test func mapsTeaToReadyMadeDrinks() {
+    @Test func mapsTeaToCupsAndDrinks() {
         let key = ProductCatalogRules.categoryKey(
             productType: "Tea",
             tags: [],
             title: "Karak Tea"
         )
 
-        #expect(key == "ready-made-drinks")
-        #expect(ProductCatalogRules.categoryLabel(productType: "Tea", fallbackKey: key) == "Ready-Made Drinks")
+        #expect(key == "cups")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Tea", fallbackKey: key) == "Cups & Drinks")
     }
 
-    @Test func mapsBakerySignalsToBakeryCategory() {
+    @Test func mapsDessertSignalsToDessertsCategory() {
         let key = ProductCatalogRules.categoryKey(
             productType: "",
-            tags: ["butter"],
+            tags: ["gift"],
             title: "Date Cookies"
         )
 
-        #expect(key == "crmb-tallas-speciality-bakery")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "CRMB Talla's Speciality Bakery")
+        #expect(key == "desserts")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Desserts")
     }
 
-    @Test func mapsCupsToReadyMadeDrinks() {
+    @Test func mapsSpreadsSeparatelyFromDesserts() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "",
+            tags: ["jar"],
+            title: "Pistachio Spread"
+        )
+
+        #expect(key == "spreads")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Spreads")
+    }
+
+    @Test func mapsCupsToCupsAndDrinks() {
         let key = ProductCatalogRules.categoryKey(
             productType: "Drink Cups",
             tags: [],
+            title: "Talla Ceramic Cup"
+        )
+
+        #expect(key == "cups")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Drink Cups", fallbackKey: key) == "Cups & Drinks")
+    }
+
+    @Test func mapsIcedProductsToSummerDrinks() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Drink Cups",
+            tags: ["summer"],
             title: "Talla Iced Latte Cup"
         )
 
-        #expect(key == "ready-made-drinks")
-        #expect(ProductCatalogRules.categoryLabel(productType: "Drink Cups", fallbackKey: key) == "Ready-Made Drinks")
+        #expect(key == "summer-drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Drink Cups", fallbackKey: key) == "Summer Drinks")
     }
 
     @Test func mapsEquipmentSignalsToEquipmentCategory() {

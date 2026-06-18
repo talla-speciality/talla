@@ -84,6 +84,9 @@ enum AppLocalization {
         "explore": ["ar": "استكشف"],
         "all_products": ["ar": "كل المنتجات"],
         "browse_catalog": ["ar": "تصفح حسب الفئة، واكتشف مفضلات العملاء، وأضف إلى السلة بسهولة."],
+        "shop_eyebrow": ["ar": "ماذا تشتهي اليوم؟"],
+        "shop_heading": ["ar": "اختر طلبك من Talla"],
+        "shop_intro": ["ar": "ابدأ بمشروبات الصيف الباردة، أو خذ أكواباً للطريق، أو أضف حلى، أو جدّد قهوتك المفضلة."],
         "categories": ["ar": "الفئات"],
         "coffee_concierge_title": ["ar": "مرشد القهوة"],
         "coffee_concierge_detail": ["ar": "اسأل عن تحميصة، هدية، مزاج، ميزانية، أو طريقة تحضير لتحصل على اختيارات Talla المناسبة."],
@@ -107,7 +110,7 @@ enum AppLocalization {
         "sort_price_low": ["ar": "الأقل سعراً"],
         "sort_price_high": ["ar": "الأعلى سعراً"],
         "sort_available": ["ar": "المتوفر"],
-        "search_shop_placeholder": ["ar": "ابحث عن قهوة، أدوات، هدايا..."],
+        "search_shop_placeholder": ["ar": "ابحث عن مشروبات الصيف، أكواب، حلى..."],
         "clear_search": ["ar": "مسح البحث"],
         "no_search_results": ["ar": "لا توجد منتجات مطابقة لهذا البحث حالياً."],
         "loading_shop": ["ar": "جاري تحميل المتجر"],
@@ -472,22 +475,30 @@ enum AppLocalization {
         ,"mood_sweets_detail": ["ar": "مرافِقات حلوة"]
         ,"mood_applied_toast": ["ar": "اختيارات %@ جاهزة"]
         ,"category_all": ["ar": "الكل"]
+        ,"category_summer_drinks": ["ar": "مشروبات الصيف"]
         ,"category_coffee_beans": ["ar": "حبوب القهوة"]
         ,"category_arabic_coffee": ["ar": "القهوة العربية والشمالية"]
         ,"category_drip_bags": ["ar": "أكياس الترشيح"]
         ,"category_equipment": ["ar": "الأدوات"]
-        ,"category_ready_drinks": ["ar": "مشروبات جاهزة"]
-        ,"category_bakery": ["ar": "مخبوزات CRMB"]
+        ,"category_cups": ["ar": "الأكواب والمشروبات"]
+        ,"category_ready_drinks": ["ar": "الأكواب والمشروبات"]
+        ,"category_desserts": ["ar": "الحلى"]
+        ,"category_bakery": ["ar": "الحلى"]
+        ,"category_spreads": ["ar": "الدهنات"]
         ,"category_hot_chocolate": ["ar": "الشوكولاتة الساخنة"]
         ,"category_gifts": ["ar": "صناديق Talla"]
-        ,"category_all_subtitle": ["ar": "الكتالوج الكامل"]
+        ,"category_all_subtitle": ["ar": "كل اختيارات Talla"]
+        ,"category_summer_drinks_subtitle": ["ar": "مشروبات باردة موسمية"]
         ,"category_eid_gifts_subtitle": ["ar": "صناديق موسمية"]
         ,"category_coffee_beans_subtitle": ["ar": "حبوب كاملة مختارة"]
         ,"category_arabic_coffee_subtitle": ["ar": "تحميصات تقليدية"]
         ,"category_drip_bags_subtitle": ["ar": "تحضير فردي سريع"]
         ,"category_equipment_subtitle": ["ar": "أدوات التحضير"]
-        ,"category_ready_drinks_subtitle": ["ar": "مشروبات معبأة وأكواب"]
-        ,"category_bakery_subtitle": ["ar": "مخبوزات طازجة"]
+        ,"category_cups_subtitle": ["ar": "أكواب ومشروبات جاهزة"]
+        ,"category_ready_drinks_subtitle": ["ar": "أكواب ومشروبات جاهزة"]
+        ,"category_desserts_subtitle": ["ar": "اختيارات CRMB الحلوة"]
+        ,"category_bakery_subtitle": ["ar": "اختيارات CRMB الحلوة"]
+        ,"category_spreads_subtitle": ["ar": "مربى وزبدة ومرطبانات"]
         ,"category_hot_chocolate_subtitle": ["ar": "كاكاو وخلطات"]
         ,"category_gifts_subtitle": ["ar": "باقات مختارة"]
     ]
@@ -1937,34 +1948,39 @@ private extension ContentView.Product {
         let typeSlug = slug(from: productType)
 
         if containsAny(sourceSlug, [
-            "talla-box", "mini-talla-box", "mini-coffee-box", "mini-arabic-coffee-box",
-            "gift-box", "gift-set", "gift-bundle", "seasonal-gift", "gifts", "gift",
-            "bundle", "majlis", "eid"
-        ]) || source.contains("عيد") {
-            return "gifts"
+            "summer", "summertime", "iced", "ice", "cold", "cold-brew", "refresher", "refreshers",
+            "lemonade", "sparkling", "cooler", "coolers", "frappe", "frappé", "milkshake"
+        ]) || ["summer", "summer-drinks", "cold-drinks"].contains(typeSlug) {
+            return "summer-drinks"
         }
 
-        if containsAny(sourceSlug, ["hot-chocolate", "hot-cocoa", "cocoa-mix", "cacao", "chocolate-powder"]) {
+        if containsAny(sourceSlug, ["hot-chocolate", "hot-cocoa", "cocoa-mix", "cacao", "chocolate-powder"])
+            || typeSlug == "hot-chocolate" {
             return "hot-chocolate"
+        }
+
+        if containsAny(sourceSlug, ["jam", "jams", "spread", "spreads", "butter", "butters", "sauce", "sauces", "honey", "jar", "jars"])
+            || ["spreads", "spread", "jams", "butters"].contains(typeSlug) {
+            return "spreads"
         }
 
         if containsAny(sourceSlug, [
             "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
-            "cookie", "cookies", "cake", "bread", "jam", "spread", "spreads", "butter"
-        ]) || ["desserts", "spreads", "bread", "bakery"].contains(typeSlug) {
-            return "crmb-tallas-speciality-bakery"
+            "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "bread", "breads", "banana-bread"
+        ]) || ["desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
+            return "desserts"
+        }
+
+        if containsAny(sourceSlug, [
+            "cup", "cups", "latte-cup", "drink-cup", "talla-cup", "bottle", "bottled", "ready-made",
+            "ready-made-drink", "ready-made-drinks", "drink", "drinks", "tea", "karak", "matcha"
+        ]) || ["tea", "ready-made-drinks", "drink-cups", "drinks", "cups", "ready-made"].contains(typeSlug) {
+            return "cups"
         }
 
         if containsAny(sourceSlug, ["drip-bag", "drip-bags", "drip-coffee-bag", "single-serve", "coffee-bag"])
             || typeSlug == "drip-bags" {
             return "drip-bags"
-        }
-
-        if containsAny(sourceSlug, [
-            "ready-made", "ready-made-drink", "ready-made-drinks", "drink", "drinks",
-            "bottle", "bottled", "cup", "cups", "tea", "karak", "matcha", "iced", "cold-brew"
-        ]) || ["tea", "ready-made-drinks", "drink-cups", "drinks", "cups"].contains(typeSlug) {
-            return "ready-made-drinks"
         }
 
         if containsAny(sourceSlug, [
@@ -1976,8 +1992,14 @@ private extension ContentView.Product {
         }
 
         if containsAny(sourceSlug, [
-            "arabic-coffee", "shamali", "northern-coffee", "turkish", "qahwa", "gahwa", "dallah", "cardamom"
-        ]) || ["arabic-coffee", "arabic-coffee-beans", "northern-coffee"].contains(typeSlug) {
+            "talla-box", "mini-talla-box", "mini-coffee-box", "mini-arabic-coffee-box",
+            "gift-box", "gift-set", "gift-bundle", "seasonal-gift", "bundle", "majlis", "eid"
+        ]) || source.contains("عيد") || ["gifts", "gift", "eid-gifts"].contains(typeSlug) {
+            return "gifts"
+        }
+
+        if containsAny(sourceSlug, ["arabic-coffee", "shamali", "northern-coffee", "turkish", "qahwa", "gahwa", "dallah", "cardamom"])
+            || ["arabic-coffee", "arabic-coffee-beans", "northern-coffee"].contains(typeSlug) {
             return "arabic-coffee-beans"
         }
 
@@ -1993,6 +2015,8 @@ private extension ContentView.Product {
 
     private static func categoryLabel(productType: String, fallbackKey: String) -> String {
         switch fallbackKey {
+        case "summer-drinks":
+            return "Summer Drinks"
         case "coffee-beans":
             return "Coffee Beans"
         case "arabic-coffee-beans", "arabic-coffee", "northern-coffee", "other":
@@ -2002,9 +2026,11 @@ private extension ContentView.Product {
         case "coffee-equipment":
             return "Equipment"
         case "ready-made-drinks", "tea", "drink-cups", "cups":
-            return "Ready-Made Drinks"
-        case "crmb-tallas-speciality-bakery", "desserts", "spreads", "bread", "bakery":
-            return "CRMB Talla's Speciality Bakery"
+            return "Cups & Drinks"
+        case "crmb-tallas-speciality-bakery", "desserts", "bread", "bakery":
+            return "Desserts"
+        case "spreads":
+            return "Spreads"
         case "hot-chocolate":
             return "Hot Chocolate"
         case "gifts", "eid-gifts":

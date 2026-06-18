@@ -499,13 +499,15 @@ struct ContentView: View {
 
     private let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
-        ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Single-origin whole beans", symbol: "leaf.fill"),
+        ShopCategory(key: "summer-drinks", title: "Summer", subtitle: "Cold seasonal drinks", symbol: "sun.max.fill"),
+        ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Whole bean roasts", symbol: "leaf.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
+        ShopCategory(key: "cups", title: "Cups", subtitle: "Ready cups and bottled drinks", symbol: "cup.and.saucer.fill"),
+        ShopCategory(key: "desserts", title: "Desserts", subtitle: "Sweet CRMB picks", symbol: "birthday.cake.fill"),
+        ShopCategory(key: "spreads", title: "Spreads", subtitle: "Jams, butters, and jars", symbol: "takeoutbag.and.cup.and.straw.fill"),
+        ShopCategory(key: "hot-chocolate", title: "Hot Chocolate", subtitle: "Cocoa and mixes", symbol: "mug.fill"),
         ShopCategory(key: "coffee-equipment", title: "Equipment", subtitle: "Brewers and tools", symbol: "flask.fill"),
-        ShopCategory(key: "ready-made-drinks", title: "Ready-Made Drinks", subtitle: "Bottled drinks, Drink Cups", symbol: "cup.and.saucer.fill"),
-        ShopCategory(key: "crmb-tallas-speciality-bakery", title: "CRMB", subtitle: "Fresh bakery items", symbol: "birthday.cake.fill"),
-        ShopCategory(key: "hot-chocolate", title: "Hot Chocolate", subtitle: "Cocoa and mixes", symbol: "takeoutbag.and.cup.and.straw.fill"),
         ShopCategory(key: "gifts", title: "Talla Boxes", subtitle: "Curated bundles", symbol: "gift.fill"),
     ]
 
@@ -710,6 +712,8 @@ struct ContentView: View {
         switch key {
         case "all":
             return AppLocalization.text("category_all_subtitle", fallback: fallback)
+        case "summer-drinks":
+            return AppLocalization.text("category_summer_drinks_subtitle", fallback: fallback)
         case "coffee-beans":
             return AppLocalization.text("category_coffee_beans_subtitle", fallback: fallback)
         case "arabic-coffee-beans":
@@ -718,10 +722,12 @@ struct ContentView: View {
             return AppLocalization.text("category_drip_bags_subtitle", fallback: fallback)
         case "coffee-equipment":
             return AppLocalization.text("category_equipment_subtitle", fallback: fallback)
-        case "ready-made-drinks":
-            return AppLocalization.text("category_ready_drinks_subtitle", fallback: fallback)
-        case "crmb-tallas-speciality-bakery":
-            return AppLocalization.text("category_bakery_subtitle", fallback: fallback)
+        case "ready-made-drinks", "cups":
+            return AppLocalization.text("category_cups_subtitle", fallback: fallback)
+        case "crmb-tallas-speciality-bakery", "desserts":
+            return AppLocalization.text("category_desserts_subtitle", fallback: fallback)
+        case "spreads":
+            return AppLocalization.text("category_spreads_subtitle", fallback: fallback)
         case "hot-chocolate":
             return AppLocalization.text("category_hot_chocolate_subtitle", fallback: fallback)
         case "gifts":
@@ -6226,16 +6232,16 @@ struct ContentView: View {
     }
 
     private func categoryDefinition(for key: String) -> ShopCategory {
-        if key == "tea" {
-            return categoryDefinition(for: "ready-made-drinks")
+        if key == "tea" || key == "ready-made-drinks" || key == "drink-cups" {
+            return categoryDefinition(for: "cups")
         }
 
         if key == "northern-coffee" {
             return categoryDefinition(for: "arabic-coffee-beans")
         }
 
-        if key == "desserts" || key == "spreads" || key == "bread" {
-            return categoryDefinition(for: "crmb-tallas-speciality-bakery")
+        if key == "bread" || key == "crmb-tallas-speciality-bakery" {
+            return categoryDefinition(for: "desserts")
         }
 
         if key == "other" {
@@ -6258,6 +6264,9 @@ struct ContentView: View {
 
     private func categoryLabel(for key: String) -> String {
         guard key != "all" else { return AppLocalization.text("category_all", fallback: "All") }
+        if key == "summer-drinks" {
+            return AppLocalization.text("category_summer_drinks", fallback: "Summer Drinks")
+        }
         if key == "coffee-beans" {
             return AppLocalization.text("category_coffee_beans", fallback: "Coffee Beans")
         }
@@ -6270,11 +6279,14 @@ struct ContentView: View {
         if key == "coffee-equipment" {
             return AppLocalization.text("category_equipment", fallback: "Equipment")
         }
-        if key == "ready-made-drinks" || key == "tea" {
-            return AppLocalization.text("category_ready_drinks", fallback: "Ready-Made Drinks")
+        if key == "ready-made-drinks" || key == "tea" || key == "cups" {
+            return AppLocalization.text("category_cups", fallback: "Cups & Drinks")
         }
-        if key == "crmb-tallas-speciality-bakery" || key == "desserts" || key == "spreads" || key == "bread" {
-            return AppLocalization.text("category_bakery", fallback: "CRMB Talla's Speciality Bakery")
+        if key == "crmb-tallas-speciality-bakery" || key == "desserts" || key == "bread" {
+            return AppLocalization.text("category_desserts", fallback: "Desserts")
+        }
+        if key == "spreads" {
+            return AppLocalization.text("category_spreads", fallback: "Spreads")
         }
         if key == "hot-chocolate" {
             return AppLocalization.text("category_hot_chocolate", fallback: "Hot Chocolate")
@@ -6290,6 +6302,10 @@ struct ContentView: View {
     }
 
     private func categorySymbol(for key: String) -> String {
+        if key.contains("summer") {
+            return "sun.max.fill"
+        }
+
         if key.contains("bean") || key.contains("coffee") {
             return "leaf.fill"
         }
@@ -6315,7 +6331,11 @@ struct ContentView: View {
         }
 
         if key.contains("dessert") || key.contains("bread") {
-            return "fork.knife"
+            return "birthday.cake.fill"
+        }
+
+        if key.contains("spread") || key.contains("jam") || key.contains("butter") {
+            return "takeoutbag.and.cup.and.straw.fill"
         }
 
         if key.contains("chocolate") {
@@ -8008,24 +8028,36 @@ enum ProductCatalogRules {
         let typeSlug = slug(from: productType)
 
         if containsAny(sourceSlug, [
-            "talla-box", "mini-talla-box", "mini-coffee-box", "mini-arabic-coffee-box",
-            "gift-box", "gift-set", "gift-bundle", "seasonal-gift", "gifts", "gift",
-            "bundle", "majlis", "eid"
-        ]) || source.contains("عيد") {
-            return "gifts"
+            "summer", "summertime", "iced", "ice", "cold", "cold-brew", "refresher", "refreshers",
+            "lemonade", "sparkling", "cooler", "coolers", "frappe", "frappé", "milkshake"
+        ]) || ["summer", "summer-drinks", "cold-drinks"].contains(typeSlug) {
+            return "summer-drinks"
         }
 
         if containsAny(sourceSlug, [
             "hot-chocolate", "hot-cocoa", "cocoa-mix", "cacao", "chocolate-powder"
-        ]) {
+        ]) || typeSlug == "hot-chocolate" {
             return "hot-chocolate"
         }
 
         if containsAny(sourceSlug, [
+            "jam", "jams", "spread", "spreads", "butter", "butters", "sauce", "sauces", "honey", "jar", "jars"
+        ]) || ["spreads", "spread", "jams", "butters"].contains(typeSlug) {
+            return "spreads"
+        }
+
+        if containsAny(sourceSlug, [
             "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
-            "cookie", "cookies", "cake", "bread", "jam", "spread", "spreads", "butter"
-        ]) || ["desserts", "spreads", "bread", "bakery"].contains(typeSlug) {
-            return "crmb-tallas-speciality-bakery"
+            "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "bread", "breads", "banana-bread"
+        ]) || ["desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
+            return "desserts"
+        }
+
+        if containsAny(sourceSlug, [
+            "cup", "cups", "latte-cup", "drink-cup", "talla-cup", "bottle", "bottled", "ready-made",
+            "ready-made-drink", "ready-made-drinks", "drink", "drinks", "tea", "karak", "matcha"
+        ]) || ["tea", "ready-made-drinks", "drink-cups", "drinks", "cups", "ready-made"].contains(typeSlug) {
+            return "cups"
         }
 
         if containsAny(sourceSlug, [
@@ -8035,18 +8067,18 @@ enum ProductCatalogRules {
         }
 
         if containsAny(sourceSlug, [
-            "ready-made", "ready-made-drink", "ready-made-drinks", "drink", "drinks",
-            "bottle", "bottled", "cup", "cups", "tea", "karak", "matcha", "iced", "cold-brew"
-        ]) || ["tea", "ready-made-drinks", "drink-cups", "drinks", "cups"].contains(typeSlug) {
-            return "ready-made-drinks"
-        }
-
-        if containsAny(sourceSlug, [
             "equipment", "brewer", "brewers", "tool", "tools", "accessory", "accessories",
             "v60", "filter", "filters", "scale", "grinder", "kettle", "server", "dripper",
             "aeropress", "chemex", "french-press"
         ]) || ["coffee-equipment", "equipment", "accessories"].contains(typeSlug) {
             return "coffee-equipment"
+        }
+
+        if containsAny(sourceSlug, [
+            "talla-box", "mini-talla-box", "mini-coffee-box", "mini-arabic-coffee-box",
+            "gift-box", "gift-set", "gift-bundle", "seasonal-gift", "bundle", "majlis", "eid"
+        ]) || source.contains("عيد") || ["gifts", "gift", "eid-gifts"].contains(typeSlug) {
+            return "gifts"
         }
 
         if containsAny(sourceSlug, [
@@ -8068,6 +8100,8 @@ enum ProductCatalogRules {
 
     static func categoryLabel(productType: String, fallbackKey: String) -> String {
         switch fallbackKey {
+        case "summer-drinks":
+            return "Summer Drinks"
         case "coffee-beans":
             return "Coffee Beans"
         case "arabic-coffee-beans", "arabic-coffee", "northern-coffee", "other":
@@ -8077,9 +8111,11 @@ enum ProductCatalogRules {
         case "coffee-equipment":
             return "Equipment"
         case "ready-made-drinks", "tea", "drink-cups", "cups":
-            return "Ready-Made Drinks"
-        case "crmb-tallas-speciality-bakery", "desserts", "spreads", "bread", "bakery":
-            return "CRMB Talla's Speciality Bakery"
+            return "Cups & Drinks"
+        case "crmb-tallas-speciality-bakery", "desserts", "bread", "bakery":
+            return "Desserts"
+        case "spreads":
+            return "Spreads"
         case "hot-chocolate":
             return "Hot Chocolate"
         case "gifts", "eid-gifts":
