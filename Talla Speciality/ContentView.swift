@@ -888,12 +888,6 @@ struct ContentView: View {
 #endif
     }
 
-    private var pushDeviceTokenPreview: String {
-        let token = savedPushDeviceToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard token.count > 14 else { return token }
-        return "\(token.prefix(8))...\(token.suffix(6))"
-    }
-
     private var pushRegistrationStatusMessage: String {
         let token = savedPushDeviceToken.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !token.isEmpty else {
@@ -3007,74 +3001,28 @@ struct ContentView: View {
                         .foregroundColor(tertiaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if !pushDeviceTokenPreview.isEmpty {
-                        Text(pushDeviceTokenPreview)
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .foregroundColor(primaryTextColor)
-                            .lineLimit(1)
-                    }
                 }
 
                 Spacer(minLength: 0)
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
-                if canRequestNotificationAccess {
-                    Button {
-                        Task {
-                            await requestNotificationAccess()
-                        }
-                    } label: {
-                        Text(AppLocalization.text("enable_notifications", fallback: "Enable"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(1.6)
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0x0A0804))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(Color(hex: 0xC8965A))
-                            .clipShape(Capsule())
+            if canRequestNotificationAccess {
+                Button {
+                    Task {
+                        await requestNotificationAccess()
                     }
-                    .buttonStyle(.plain)
+                } label: {
+                    Text(AppLocalization.text("enable_notifications", fallback: "Enable"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Capsule())
                 }
-
-                if notificationsEnabled {
-                    Button {
-                        Task {
-                            await sendLocalTestNotification()
-                        }
-                    } label: {
-                        Text(AppLocalization.text("send_test_notification", fallback: "Test"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(1.4)
-                            .textCase(.uppercase)
-                            .foregroundColor(primaryTextColor)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(cardFillColor)
-                            .overlay(Capsule().stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                if !savedPushDeviceToken.isEmpty {
-                    Button {
-                        copyPushDeviceToken()
-                    } label: {
-                        Text(AppLocalization.text("copy_token", fallback: "Copy Token"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(1.4)
-                            .textCase(.uppercase)
-                            .foregroundColor(primaryTextColor)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(cardFillColor)
-                            .overlay(Capsule().stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
+                .buttonStyle(.plain)
             }
         }
         .padding(14)
@@ -6015,35 +5963,6 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func sendLocalTestNotification() async {
-#if canImport(UserNotifications)
-        let granted = await requestNotificationAccessIfNeeded()
-        guard granted else {
-            showToast(message: AppLocalization.text("notifications_not_enabled", fallback: "Notifications not enabled"))
-            return
-        }
-
-        await ProductAlertNotificationService.scheduleTestNotification(
-            title: AppLocalization.text("test_push_title", fallback: "Talla notification test"),
-            body: AppLocalization.text("test_push_body", fallback: "This device is ready to receive Talla alerts.")
-        )
-        showToast(message: AppLocalization.text("test_notification_scheduled", fallback: "Test notification scheduled"))
-#else
-        showToast(message: AppLocalization.text("alerts_notifications_unavailable_detail", fallback: "Notifications are unavailable on this device."))
-#endif
-    }
-
-    @MainActor
-    private func copyPushDeviceToken() {
-        let token = savedPushDeviceToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return }
-#if canImport(UIKit)
-        UIPasteboard.general.string = token
-#endif
-        showToast(message: AppLocalization.text("push_token_copied", fallback: "Device token copied"))
-    }
-
-    @MainActor
     private func registerForRemoteNotifications() {
 #if canImport(UIKit)
         UIApplication.shared.registerForRemoteNotifications()
@@ -6571,25 +6490,6 @@ private enum ProductAlertNotificationService {
 
     static func removeReminder(for productID: String) async {
         center.removePendingNotificationRequests(withIdentifiers: [reminderIdentifier(for: productID)])
-    }
-
-    static func scheduleTestNotification(title: String, body: String) async {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-
-        let request = UNNotificationRequest(
-            identifier: "push-readiness-test",
-            content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
-        )
-
-        do {
-            try await center.add(request)
-        } catch {
-            return
-        }
     }
 
     private static func reminderIdentifier(for productID: String) -> String {
