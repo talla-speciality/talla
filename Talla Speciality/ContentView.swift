@@ -8002,92 +8002,104 @@ enum ProductCatalogRules {
     }
 
     static func categoryKey(productType: String, tags: [String], title: String) -> String {
-        let source = ([title, productType] + tags)
-            .joined(separator: " ")
-            .lowercased()
+        let parts = [title, productType] + tags
+        let source = parts.joined(separator: " ").lowercased()
+        let sourceSlug = slug(from: parts.joined(separator: " "))
+        let typeSlug = slug(from: productType)
 
-        if source.contains("talla box")
-            || source.contains("mini talla box")
-            || source.contains("mini coffee box")
-            || source.contains("mini arabic coffee box") {
+        if containsAny(sourceSlug, [
+            "talla-box", "mini-talla-box", "mini-coffee-box", "mini-arabic-coffee-box",
+            "gift-box", "gift-set", "gift-bundle", "seasonal-gift", "gifts", "gift",
+            "bundle", "majlis", "eid"
+        ]) || source.contains("عيد") {
             return "gifts"
         }
 
-        if source.contains("eid")
-            || source.contains("عيد")
-            || source.contains("majlis")
-            || source.contains("gift box") {
-            return "gifts"
+        if containsAny(sourceSlug, [
+            "hot-chocolate", "hot-cocoa", "cocoa-mix", "cacao", "chocolate-powder"
+        ]) {
+            return "hot-chocolate"
         }
 
-        if source.contains("shamali coffee") {
-            return "arabic-coffee-beans"
-        }
-
-        let trimmedType = productType.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedType.isEmpty {
-            let sluggedType = slug(from: trimmedType)
-            if sluggedType == "northern-coffee" {
-                return "arabic-coffee-beans"
-            }
-            if sluggedType == "tea" {
-                return "ready-made-drinks"
-            }
-            if sluggedType == "desserts" || sluggedType == "spreads" || sluggedType == "bread" {
-                return "crmb-tallas-speciality-bakery"
-            }
-            return sluggedType
-        }
-
-        if source.contains("tea") {
-            return "ready-made-drinks"
-        }
-
-        if source.contains("dessert")
-            || source.contains("bread")
-            || source.contains("jam")
-            || source.contains("spread")
-            || source.contains("butter")
-            || source.contains("cookie")
-            || source.contains("cake") {
+        if containsAny(sourceSlug, [
+            "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
+            "cookie", "cookies", "cake", "bread", "jam", "spread", "spreads", "butter"
+        ]) || ["desserts", "spreads", "bread", "bakery"].contains(typeSlug) {
             return "crmb-tallas-speciality-bakery"
         }
 
-        return "arabic-coffee-beans"
+        if containsAny(sourceSlug, [
+            "drip-bag", "drip-bags", "drip-coffee-bag", "single-serve", "coffee-bag"
+        ]) || typeSlug == "drip-bags" {
+            return "drip-bags"
+        }
+
+        if containsAny(sourceSlug, [
+            "ready-made", "ready-made-drink", "ready-made-drinks", "drink", "drinks",
+            "bottle", "bottled", "cup", "cups", "tea", "karak", "matcha", "iced", "cold-brew"
+        ]) || ["tea", "ready-made-drinks", "drink-cups", "drinks", "cups"].contains(typeSlug) {
+            return "ready-made-drinks"
+        }
+
+        if containsAny(sourceSlug, [
+            "equipment", "brewer", "brewers", "tool", "tools", "accessory", "accessories",
+            "v60", "filter", "filters", "scale", "grinder", "kettle", "server", "dripper",
+            "aeropress", "chemex", "french-press"
+        ]) || ["coffee-equipment", "equipment", "accessories"].contains(typeSlug) {
+            return "coffee-equipment"
+        }
+
+        if containsAny(sourceSlug, [
+            "arabic-coffee", "shamali", "northern-coffee", "turkish", "qahwa", "gahwa",
+            "dallah", "cardamom"
+        ]) || ["arabic-coffee", "arabic-coffee-beans", "northern-coffee"].contains(typeSlug) {
+            return "arabic-coffee-beans"
+        }
+
+        if containsAny(sourceSlug, [
+            "coffee-bean", "coffee-beans", "beans", "espresso", "roast", "roasted", "single-origin",
+            "brazil", "colombia", "ethiopia", "yemen", "decaf"
+        ]) || ["coffee", "coffee-beans", "beans"].contains(typeSlug) {
+            return "coffee-beans"
+        }
+
+        return "coffee-beans"
     }
 
     static func categoryLabel(productType: String, fallbackKey: String) -> String {
-        let trimmedType = productType.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedType.isEmpty, slug(from: trimmedType) != "tea", fallbackKey != "gifts" {
-            return trimmedType
-        }
-
-        if fallbackKey == "ready-made-drinks" {
-            return "Ready-Made Drinks"
-        }
-
-        if fallbackKey == "crmb-tallas-speciality-bakery" {
-            return "CRMB Talla's Speciality Bakery"
-        }
-
-        if fallbackKey == "gifts" {
-            return "Talla Boxes"
-        }
-
-        if fallbackKey == "other" || fallbackKey == "arabic-coffee-beans" || fallbackKey == "arabic-coffee" {
+        switch fallbackKey {
+        case "coffee-beans":
+            return "Coffee Beans"
+        case "arabic-coffee-beans", "arabic-coffee", "northern-coffee", "other":
             return "Arabic & Shamali Coffee"
+        case "drip-bags":
+            return "Drip Bags"
+        case "coffee-equipment":
+            return "Equipment"
+        case "ready-made-drinks", "tea", "drink-cups", "cups":
+            return "Ready-Made Drinks"
+        case "crmb-tallas-speciality-bakery", "desserts", "spreads", "bread", "bakery":
+            return "CRMB Talla's Speciality Bakery"
+        case "hot-chocolate":
+            return "Hot Chocolate"
+        case "gifts", "eid-gifts":
+            return "Talla Boxes"
+        default:
+            return fallbackKey
+                .split(separator: "-")
+                .map { $0.capitalized }
+                .joined(separator: " ")
         }
-
-        return fallbackKey
-            .split(separator: "-")
-            .map { $0.capitalized }
-            .joined(separator: " ")
     }
 
     static func productTag(from tags: [String]) -> String? {
         let preferred = ["BESTSELLER", "NEW", "LOCAL", "PREMIUM", "GIFT"]
         let uppercased = tags.map { $0.uppercased() }
         return preferred.first(where: uppercased.contains)
+    }
+
+    private static func containsAny(_ source: String, _ needles: [String]) -> Bool {
+        needles.contains { source.contains($0) }
     }
 
     private static func slug(from value: String) -> String {

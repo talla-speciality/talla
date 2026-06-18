@@ -52,15 +52,59 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "CRMB Talla's Speciality Bakery")
     }
 
-    @Test func defaultsToArabicAndShamaliCoffeeLabel() {
+    @Test func mapsCupsToReadyMadeDrinks() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Drink Cups",
+            tags: [],
+            title: "Talla Iced Latte Cup"
+        )
+
+        #expect(key == "ready-made-drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Drink Cups", fallbackKey: key) == "Ready-Made Drinks")
+    }
+
+    @Test func mapsEquipmentSignalsToEquipmentCategory() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Accessories",
+            tags: ["V60"],
+            title: "Ceramic Dripper"
+        )
+
+        #expect(key == "coffee-equipment")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Accessories", fallbackKey: key) == "Equipment")
+    }
+
+    @Test func mapsHotChocolateToHotChocolateCategory() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "",
+            tags: ["Cocoa"],
+            title: "Classic Hot Chocolate"
+        )
+
+        #expect(key == "hot-chocolate")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Hot Chocolate")
+    }
+
+    @Test func mapsDripBagSignalsToDripBagsCategory() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "",
+            tags: ["single serve"],
+            title: "Ethiopia Drip Bags"
+        )
+
+        #expect(key == "drip-bags")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Drip Bags")
+    }
+
+    @Test func defaultsToCoffeeBeansLabel() {
         let key = ProductCatalogRules.categoryKey(
             productType: "",
             tags: [],
             title: "House Roast"
         )
 
-        #expect(key == "arabic-coffee-beans")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Arabic & Shamali Coffee")
+        #expect(key == "coffee-beans")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Coffee Beans")
     }
 
     @Test func picksPreferredMerchandisingTag() {
