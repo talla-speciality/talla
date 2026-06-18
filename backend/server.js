@@ -54,6 +54,7 @@ const shopifyAdminShopDomain = config.shopifyAdminShopDomain;
 const shopifyAdminAccessToken = config.shopifyAdminAccessToken;
 const shopifyAdminAPIVersion = config.shopifyAdminAPIVersion;
 const shopifyAdminPublicationID = config.shopifyAdminPublicationID;
+const shopifyWebhookSecret = config.shopifyWebhookSecret;
 const loyaltyPointsPerBHD = 5;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
@@ -1262,6 +1263,38 @@ function readBody(request) {
     });
 }
 
+function readRawBody(request) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+
+        request.on("data", (chunk) => {
+            chunks.push(Buffer.from(chunk));
+        });
+
+        request.on("end", () => {
+            resolve(Buffer.concat(chunks));
+        });
+
+        request.on("error", reject);
+    });
+}
+
+function verifyShopifyWebhook(rawBody, hmacHeader) {
+    if (!shopifyWebhookSecret || !hmacHeader) {
+        return false;
+    }
+
+    const expected = crypto
+        .createHmac("sha256", shopifyWebhookSecret)
+        .update(rawBody)
+        .digest("base64");
+    const expectedBuffer = Buffer.from(expected, "utf8");
+    const receivedBuffer = Buffer.from(String(hmacHeader), "utf8");
+
+    return expectedBuffer.length === receivedBuffer.length
+        && crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+}
+
 function hashPassword(password) {
     return crypto.createHash("sha256").update(String(password)).digest("hex");
 }
@@ -2318,7 +2351,185 @@ async function updateOrderStatusByID(orderID, status) {
     }
 
     await updateOrderStatusRecord(order.email, orderID, status);
-    return await findOrderByID(orderID);
+    const updatedOrder = await findOrderByID(orderID);
+    if (updatedOrder && ["Completed", "Fulfilled"].includes(updatedOrder.status)) {
+        await awardOrderBeans(updatedOrder);
+    }
+    return updatedOrder;
+}
+
+function orderStatusFromShopifyOrder(shopifyOrder, topic = "") {
+    const normalizedTopic = String(topic || "").toLowerCase();
+    const financialStatus = String(shopifyOrder.financial_status || "").toLowerCase();
+    const fulfillmentStatus = String(shopifyOrder.fulfillment_status || "").toLowerCase();
+
+    if (normalizedTopic.includes("fulfilled") || fulfillmentStatus === "fulfilled") {
+        return "Fulfilled";
+    }
+
+    if (normalizedTopic.includes("paid") || financialStatus === "paid" || financialStatus === "partially_paid") {
+        return "Completed";
+    }
+
+    if (financialStatus === "voided" || financialStatus === "refunded") {
+        return "Cancelled";
+    }
+
+    return "Pending";
+}
+
+function shopifyOrderRecord(shopifyOrder, topic = "") {
+    const id = `shopify_${shopifyOrder.id || shopifyOrder.admin_graphql_api_id || shopifyOrder.name || Date.now()}`;
+    const email = normalizeEmail(shopifyOrder.email || shopifyOrder.contact_email || shopifyOrder.customer?.email);
+    const totalNumber = Number(shopifyOrder.current_total_price || shopifyOrder.total_price || 0);
+    const currency = String(shopifyOrder.currency || "BHD").toUpperCase();
+    const items = Array.isArray(shopifyOrder.line_items)
+        ? shopifyOrder.line_items.map((item) => ({
+            name: String(item.name || item.title || "Item"),
+            quantity: Number(item.quantity || 1)
+        }))
+        : [];
+
+    return {
+        id,
+        email,
+        title: String(shopifyOrder.name || `Order ${shopifyOrder.order_number || ""}`).trim() || "Shopify Order",
+        total: `${currency} ${Number.isFinite(totalNumber) ? totalNumber.toFixed(3) : "0.000"}`,
+        totalNumber: Number.isFinite(totalNumber) ? totalNumber : 0,
+        status: orderStatusFromShopifyOrder(shopifyOrder, topic),
+        items,
+        createdAt: shopifyOrder.created_at || new Date().toISOString()
+    };
+}
+
+function numericOrderTotal(order) {
+    if (Number.isFinite(order.totalNumber)) {
+        return order.totalNumber;
+    }
+
+    const match = String(order.total || "").match(/-?\d+(?:\.\d+)?/);
+    const parsed = match ? Number(match[0]) : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function upsertOrderRecord(order) {
+    if (!order.email || !order.id) {
+        return null;
+    }
+
+    const account = await getAccountByEmail(order.email);
+    if (!account) {
+        return null;
+    }
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `INSERT INTO orders
+             (id, email, title, total, status, items, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+             ON CONFLICT (id)
+             DO UPDATE SET
+                email = EXCLUDED.email,
+                title = EXCLUDED.title,
+                total = EXCLUDED.total,
+                status = EXCLUDED.status,
+                items = EXCLUDED.items
+             RETURNING id, title, total, status, items, created_at`,
+            [order.id, order.email, order.title, order.total, order.status, JSON.stringify(order.items), order.createdAt]
+        );
+        return orderRowToRecord(result.rows[0]);
+    }
+
+    const store = readJSON(ordersStorePath);
+    const orders = store.orders[order.email] || [];
+    const index = orders.findIndex((entry) => entry.id === order.id);
+    const nextOrder = {
+        id: order.id,
+        title: order.title,
+        total: order.total,
+        status: order.status,
+        items: order.items,
+        createdAt: order.createdAt
+    };
+
+    if (index >= 0) {
+        orders[index] = { ...orders[index], ...nextOrder };
+    } else {
+        orders.unshift(nextOrder);
+    }
+
+    store.orders[order.email] = orders;
+    writeJSON(ordersStorePath, store);
+    return nextOrder;
+}
+
+async function hasLoyaltyTransaction(email, transactionID) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT 1
+             FROM loyalty_transactions
+             WHERE email = $1 AND id = $2`,
+            [email, transactionID]
+        );
+        return result.rowCount > 0;
+    }
+
+    const store = readJSON(loyaltyStorePath);
+    const transactions = store.accounts[email]?.transactions || [];
+    return transactions.some((transaction) => transaction.id === transactionID);
+}
+
+async function awardOrderBeans(order) {
+    if (!["Completed", "Fulfilled"].includes(order.status)) {
+        return { awarded: false, points: 0, reason: "ORDER_NOT_COMPLETED" };
+    }
+
+    const points = Math.max(0, Math.round(numericOrderTotal(order) * loyaltyPointsPerBHD));
+    if (points <= 0) {
+        return { awarded: false, points: 0, reason: "NO_POINTS" };
+    }
+
+    const transactionID = `txn_${order.id}`;
+    if (await hasLoyaltyTransaction(order.email, transactionID)) {
+        return { awarded: false, points, reason: "ALREADY_AWARDED" };
+    }
+
+    const updated = await updateLoyaltyAccount(order.email, (account) => {
+        account.pointsBalance += points;
+        account.transactions = account.transactions || [];
+        account.transactions.unshift({
+            id: transactionID,
+            type: "earn",
+            points,
+            note: `Completed order ${order.title} • ${points} Beans • ${order.total}`,
+            createdAt: new Date().toISOString()
+        });
+    });
+
+    if (!updated) {
+        return { awarded: false, points, reason: "LOYALTY_ACCOUNT_NOT_FOUND" };
+    }
+
+    return { awarded: true, points };
+}
+
+async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
+    const order = shopifyOrderRecord(shopifyOrder, topic);
+    if (!order.email) {
+        return { recorded: false, awarded: false, reason: "ORDER_EMAIL_MISSING" };
+    }
+
+    const recordedOrder = await upsertOrderRecord(order);
+    if (!recordedOrder) {
+        return { recorded: false, awarded: false, reason: "CUSTOMER_ACCOUNT_NOT_FOUND", email: order.email };
+    }
+
+    const award = await awardOrderBeans(order);
+    return {
+        recorded: true,
+        order: recordedOrder,
+        award
+    };
 }
 
 async function updateOrderStatusRecord(email, orderID, status) {
@@ -4288,6 +4499,24 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/campaigns/eid") {
         sendJSON(response, 200, await getCampaignSettings());
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/shopify/webhooks/orders") {
+        try {
+            const rawBody = await readRawBody(request);
+            if (!verifyShopifyWebhook(rawBody, request.headers["x-shopify-hmac-sha256"])) {
+                sendJSON(response, 401, { error: "Invalid Shopify webhook signature." });
+                return;
+            }
+
+            const shopifyOrder = JSON.parse(rawBody.toString("utf8"));
+            const topic = request.headers["x-shopify-topic"] || "";
+            const result = await processShopifyOrderWebhook(shopifyOrder, topic);
+            sendJSON(response, 200, result);
+        } catch (error) {
+            sendJSON(response, 400, { error: error.message || "Invalid Shopify webhook payload." });
+        }
         return;
     }
 

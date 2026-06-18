@@ -63,6 +63,7 @@ module.exports = {
     shopifyAdminAccessToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || "",
     shopifyAdminAPIVersion: process.env.SHOPIFY_ADMIN_API_VERSION || "2025-10",
     shopifyAdminPublicationID: process.env.SHOPIFY_ADMIN_PUBLICATION_ID || "",
+    shopifyWebhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || "",
     stores: {
         loyalty: path.join(dataDirectory, "loyalty.json"),
         accounts: path.join(dataDirectory, "accounts.json"),

@@ -1244,6 +1244,12 @@ struct ContentView: View {
                 await refreshWalletPassPresence()
                 await refreshNotificationStatus()
                 await syncRemotePushTokenIfPossible()
+                if customerProfile != nil {
+                    await loadOrderHistory()
+                    if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        await loadLoyaltyAccount()
+                    }
+                }
                 recordLaunchAndRequestReviewIfReady()
             }
         }
