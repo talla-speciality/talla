@@ -3706,29 +3706,41 @@ struct ContentView: View {
     }
 
     private var cartPaymentMethodsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(AppLocalization.text("payment_methods", fallback: "Payment Methods"))
-                .font(labelFont(size: 10, weight: .bold))
-                .tracking(1.8)
-                .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .frame(width: 20, height: 20)
 
-            Text(AppLocalization.text("payment_methods_detail", fallback: "Cards and Apple Pay are completed securely in Shopify checkout."))
-                .font(bodyFont(size: 12))
-                .foregroundColor(secondaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("payment_methods", fallback: "Payment Methods"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
 
-            HStack(spacing: 8) {
+                    Text(AppLocalization.text("payment_methods_detail", fallback: "Cards and Apple Pay are completed securely in Shopify checkout. Talla does not store card numbers in the app."))
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 8)], alignment: .leading, spacing: 8) {
                 paymentMethodChip(
                     title: AppLocalization.text("credit_debit_cards", fallback: "Credit / Debit Cards"),
-                    systemImage: "creditcard.fill",
-                    isAvailable: true
+                    systemImage: "creditcard.fill"
                 )
 
                 paymentMethodChip(
                     title: AppLocalization.text("apple_pay", fallback: "Apple Pay"),
-                    systemImage: "apple.logo",
-                    isAvailable: isApplePayAvailable
+                    systemImage: "apple.logo"
+                )
+
+                paymentMethodChip(
+                    title: AppLocalization.text("shopify_secure_checkout", fallback: "Secure Checkout"),
+                    systemImage: "checkmark.shield.fill"
                 )
             }
         }
@@ -3742,7 +3754,7 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func paymentMethodChip(title: String, systemImage: String, isAvailable: Bool) -> some View {
+    private func paymentMethodChip(title: String, systemImage: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
                 .font(.system(size: 12, weight: .semibold))
@@ -3754,17 +3766,17 @@ struct ContentView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
         }
-        .foregroundColor(isAvailable ? primaryTextColor : tertiaryTextColor)
+        .foregroundColor(primaryTextColor)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(isAvailable ? elevatedSurfaceColor : cardFillColor.opacity(0.65))
+        .background(elevatedSurfaceColor)
         .overlay(
             Capsule(style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isAvailable ? 0.18 : 0.08), lineWidth: 1)
+                .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
         )
         .clipShape(Capsule(style: .continuous))
-        .accessibilityValue(isAvailable ? AppLocalization.text("available", fallback: "Available") : AppLocalization.text("unavailable", fallback: "Unavailable"))
+        .accessibilityValue(AppLocalization.text("available_in_secure_checkout", fallback: "Available in secure checkout"))
     }
 
     private var cartDeliverySection: some View {
