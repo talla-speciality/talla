@@ -466,6 +466,10 @@ struct ContentView: View {
     @State private var orderHistory: [AccountOrder] = []
     @State private var isLoadingOrders = false
     @State private var ordersError: String?
+    @State private var adminOrders: [AccountOrder] = []
+    @State private var isLoadingAdminOrders = false
+    @State private var adminOrdersError: String?
+    @State private var updatingAdminOrderID: String?
     @State private var backendStockAlerts: [StockAlertRecord] = []
     @State private var isLoadingBackendAlerts = false
     @State private var alertInbox: [AlertInboxRecord] = []
@@ -2678,6 +2682,10 @@ struct ContentView: View {
 
                     languagePreferenceCard
 
+                    if customerProfile != nil {
+                        adminOrderManagementSection
+                    }
+
                     LazyVGrid(columns: collectionGridColumns, spacing: 12) {
                         accountStatusTile(
                             title: AppLocalization.text("talla_account", fallback: "Talla Account"),
@@ -2699,6 +2707,184 @@ struct ContentView: View {
         )
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
+    }
+
+    private var adminOrderManagementSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "list.clipboard.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .frame(width: 34, height: 34)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("admin_orders", fallback: "Admin Orders"))
+                        .font(labelFont(size: 11, weight: .bold))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(AppLocalization.text("admin_orders_detail", fallback: "Review incoming orders, update their status, and notify customers when pickup is ready."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    Task {
+                        await loadAdminOrders()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 34, height: 34)
+                        .background(cardFillColor)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoadingAdminOrders)
+            }
+
+            if isLoadingAdminOrders {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .scaleEffect(0.82)
+                        .tint(Color(hex: 0xC8965A))
+                    Text(AppLocalization.text("loading_admin_orders", fallback: "Loading orders..."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                }
+            } else if let adminOrdersError {
+                Text(adminOrdersError)
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(Color.red.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if adminOrders.isEmpty {
+                Text(AppLocalization.text("admin_orders_empty", fallback: "No active orders are waiting right now."))
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(adminOrders.prefix(8)) { order in
+                        adminOrderCard(order)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .task(id: savedCustomerAccessToken) {
+            guard customerProfile != nil, !savedCustomerAccessToken.isEmpty else { return }
+            await loadAdminOrders()
+        }
+    }
+
+    private func adminOrderCard(_ order: AccountOrder) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(order.title)
+                        .font(labelFont(size: 11, weight: .bold))
+                        .tracking(1.2)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(order.createdAt.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: ""))
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(tertiaryTextColor)
+                }
+
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(order.total)
+                        .font(labelFont(size: 11, weight: .bold))
+                        .foregroundColor(Color(hex: 0xC8965A))
+                    Text(order.status)
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                }
+            }
+
+            if let items = order.items, !items.isEmpty {
+                Text(items.map { "\($0.name) x\($0.quantity)" }.joined(separator: " • "))
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(adminOrderStatuses, id: \.self) { status in
+                    adminOrderStatusButton(order: order, status: status)
+                }
+
+                Button {
+                    Task {
+                        await notifyAdminOrderReady(order)
+                    }
+                } label: {
+                    Text(AppLocalization.text("notify_ready", fallback: "Notify Ready"))
+                        .font(labelFont(size: 9, weight: .bold))
+                        .tracking(1)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(elevatedSurfaceColor)
+                        .overlay(Capsule(style: .continuous).stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1))
+                        .clipShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(updatingAdminOrderID == order.id)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.72 : 0.42))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var adminOrderStatuses: [String] {
+        ["Preparing", "Ready", "Completed", "Cancelled"]
+    }
+
+    private func adminOrderStatusButton(order: AccountOrder, status: String) -> some View {
+        let isSelected = order.status.caseInsensitiveCompare(status) == .orderedSame
+        return Button {
+            Task {
+                await updateAdminOrder(order, status: status)
+            }
+        } label: {
+            Text(status)
+                .font(labelFont(size: 9, weight: .bold))
+                .tracking(1)
+                .textCase(.uppercase)
+                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .background(isSelected ? Color(hex: 0xC8965A) : cardFillColor)
+                .overlay(Capsule(style: .continuous).stroke(Color(hex: 0xC8965A).opacity(isSelected ? 0 : 0.18), lineWidth: 1))
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(updatingAdminOrderID == order.id || isSelected)
     }
 
     private var languagePreferenceCard: some View {
@@ -5361,6 +5547,72 @@ struct ContentView: View {
     }
 
     @MainActor
+    private func loadAdminOrders() async {
+        guard !isLoadingAdminOrders else { return }
+
+        isLoadingAdminOrders = true
+        adminOrdersError = nil
+
+        do {
+            adminOrders = try await AccountService.fetchAdminOrders()
+        } catch {
+            adminOrders = []
+            adminOrdersError = friendlyAdminOrderMessage(for: error)
+        }
+
+        isLoadingAdminOrders = false
+    }
+
+    @MainActor
+    private func updateAdminOrder(_ order: AccountOrder, status: String) async {
+        guard updatingAdminOrderID == nil else { return }
+
+        updatingAdminOrderID = order.id
+        adminOrdersError = nil
+
+        do {
+            adminOrders = try await AccountService.updateAdminOrderStatus(orderID: order.id, status: status)
+            showToast(message: String(format: AppLocalization.text("admin_order_status_updated", fallback: "%@ moved to %@"), order.title, status))
+        } catch {
+            adminOrdersError = friendlyAdminOrderMessage(for: error)
+        }
+
+        updatingAdminOrderID = nil
+    }
+
+    @MainActor
+    private func notifyAdminOrderReady(_ order: AccountOrder) async {
+        guard updatingAdminOrderID == nil else { return }
+
+        updatingAdminOrderID = order.id
+        adminOrdersError = nil
+
+        do {
+            try await AccountService.notifyOrderReady(orderID: order.id)
+            showToast(message: String(format: AppLocalization.text("admin_order_ready_notified", fallback: "Ready notification sent for %@"), order.title))
+        } catch {
+            adminOrdersError = friendlyAdminOrderMessage(for: error)
+        }
+
+        updatingAdminOrderID = nil
+    }
+
+    private func friendlyAdminOrderMessage(for error: Error) -> String {
+        let message = error.localizedDescription
+        let normalized = message.lowercased()
+
+        if normalized.contains("401") || normalized.contains("403") || normalized.contains("permission") || normalized.contains("unauthorized") || normalized.contains("forbidden") {
+            return AppLocalization.text("admin_orders_permission_error", fallback: "This account does not have admin access to manage orders.")
+        }
+
+        if normalized.contains("backendbaseurl") || normalized.contains("127.0.0.1") || normalized.contains("localhost") {
+            return BackendConfiguration.connectionMessage(for: "admin order service")
+        }
+
+        return message
+    }
+
+    @MainActor
     private func loadBackendStockAlerts() async {
         guard let profile = customerProfile, !isLoadingBackendAlerts else { return }
 
@@ -6733,6 +6985,54 @@ private enum AccountService {
         return try await performOrdersRequest(request)
     }
 
+    static func fetchAdminOrders() async throws -> [ContentView.AccountOrder] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Admin order service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/admin/orders"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
+
+        return try await performOrdersRequest(request)
+    }
+
+    static func updateAdminOrderStatus(orderID: String, status: String) async throws -> [ContentView.AccountOrder] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Admin order service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/admin/orders/status"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "orderID": orderID,
+            "status": status
+        ])
+
+        return try await performOrdersRequest(request)
+    }
+
+    static func notifyOrderReady(orderID: String) async throws {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Admin notification service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/admin/orders/notify-ready"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "orderID": orderID
+        ])
+
+        _ = try await performEmptyRequest(request)
+    }
+
     static func createSampleOrder(email: String) async throws -> [ContentView.AccountOrder] {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -8048,7 +8348,8 @@ enum ProductCatalogRules {
 
         if containsAny(sourceSlug, [
             "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
-            "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "bread", "breads", "banana-bread"
+            "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "fudge",
+            "creme-caramel", "crème-caramel", "cream-caramel", "caramel", "bread", "breads", "banana-bread"
         ]) || ["desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
             return "desserts"
         }

@@ -279,6 +279,14 @@ enum AppLocalization {
         ,"loading_orders": ["ar": "جارٍ تحميل الطلبات..."]
         ,"no_saved_orders": ["ar": "لا توجد طلبات محفوظة بعد."]
         ,"buy_again": ["ar": "اطلب مرة أخرى"]
+        ,"admin_orders": ["ar": "إدارة الطلبات"]
+        ,"admin_orders_detail": ["ar": "راجع الطلبات الجديدة، غيّر الحالة، وأرسل تنبيه الجاهزية للعميل."]
+        ,"loading_admin_orders": ["ar": "جارٍ تحميل الطلبات..."]
+        ,"admin_orders_empty": ["ar": "لا توجد طلبات نشطة حالياً."]
+        ,"notify_ready": ["ar": "تنبيه الجاهزية"]
+        ,"admin_order_status_updated": ["ar": "تم نقل %@ إلى %@"]
+        ,"admin_order_ready_notified": ["ar": "تم إرسال تنبيه الجاهزية لـ %@"]
+        ,"admin_orders_permission_error": ["ar": "هذا الحساب لا يملك صلاحية إدارة الطلبات."]
         ,"loading_wallet_pass": ["ar": "جارٍ تحميل بطاقة Wallet..."]
         ,"add_to_apple_wallet": ["ar": "أضف إلى Apple Wallet"]
         ,"your_cart": ["ar": "سلتك"]
@@ -1966,7 +1974,8 @@ private extension ContentView.Product {
 
         if containsAny(sourceSlug, [
             "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
-            "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "bread", "breads", "banana-bread"
+            "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "fudge",
+            "creme-caramel", "crème-caramel", "cream-caramel", "caramel", "bread", "breads", "banana-bread"
         ]) || ["desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
             return "desserts"
         }

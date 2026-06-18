@@ -52,6 +52,23 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Desserts")
     }
 
+    @Test func mapsFudgeAndCremeCaramelToDessertsBeforeBoxes() {
+        let fudgeKey = ProductCatalogRules.categoryKey(
+            productType: "Gift Box",
+            tags: ["gift"],
+            title: "Chocolate Fudge"
+        )
+        let caramelKey = ProductCatalogRules.categoryKey(
+            productType: "Seasonal Gifts",
+            tags: ["box"],
+            title: "Creme Caramel"
+        )
+
+        #expect(fudgeKey == "desserts")
+        #expect(caramelKey == "desserts")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: fudgeKey) == "Desserts")
+    }
+
     @Test func mapsSpreadsSeparatelyFromDesserts() {
         let key = ProductCatalogRules.categoryKey(
             productType: "",
