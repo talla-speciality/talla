@@ -25,6 +25,7 @@ const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
+const adminAppEmails = config.adminAppEmails;
 const adminSessionSecret = config.adminSessionSecret;
 const adminSessionHours = config.adminSessionHours;
 const customerTokenSecret = config.customerTokenSecret;
@@ -130,7 +131,7 @@ function sendJSON(response, statusCode, payload, extraHeaders = {}) {
         "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": config.corsAllowedOrigin,
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
         ...extraHeaders
     });
     response.end(JSON.stringify(payload));
@@ -1210,6 +1211,28 @@ function ensureAdminAccess(request, response) {
     return session;
 }
 
+async function ensureMobileAdminAccess(request, response) {
+    const authenticated = parseAuthenticatedCustomer(request, response);
+    if (!authenticated) {
+        return false;
+    }
+
+    const customer = await resolveCustomerSession(authenticated, response);
+    if (!customer) {
+        return false;
+    }
+
+    if (!adminAppEmails.includes(normalizeEmail(customer.email))) {
+        sendJSON(response, 403, { error: "This account does not have admin access." });
+        return false;
+    }
+
+    return {
+        username: customer.email,
+        email: customer.email
+    };
+}
+
 function normalizeEmail(email) {
     return String(email || "").trim().toLowerCase();
 }
@@ -2224,6 +2247,80 @@ async function ordersPayload(email) {
     return store.orders[email] || [];
 }
 
+async function allOrdersPayload() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, email, title, total, status, items, created_at
+             FROM orders
+             ORDER BY created_at DESC`
+        );
+        return result.rows.map((row) => ({
+            ...orderRowToRecord(row),
+            email: normalizeEmail(row.email)
+        }));
+    }
+
+    const store = readJSON(ordersStorePath);
+    return Object.entries(store.orders || {})
+        .flatMap(([email, orders]) => (
+            (Array.isArray(orders) ? orders : []).map((order) => ({
+                ...order,
+                email: normalizeEmail(email)
+            }))
+        ))
+        .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime());
+}
+
+async function findOrderByID(orderID) {
+    const normalizedOrderID = String(orderID || "").trim();
+    if (!normalizedOrderID) {
+        return null;
+    }
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, email, title, total, status, items, created_at
+             FROM orders
+             WHERE id = $1
+             LIMIT 1`,
+            [normalizedOrderID]
+        );
+
+        if (result.rowCount === 0) {
+            return null;
+        }
+
+        const row = result.rows[0];
+        return {
+            ...orderRowToRecord(row),
+            email: normalizeEmail(row.email)
+        };
+    }
+
+    const store = readJSON(ordersStorePath);
+    for (const [email, orders] of Object.entries(store.orders || {})) {
+        const order = (Array.isArray(orders) ? orders : []).find((entry) => entry.id === normalizedOrderID);
+        if (order) {
+            return {
+                ...order,
+                email: normalizeEmail(email)
+            };
+        }
+    }
+
+    return null;
+}
+
+async function updateOrderStatusByID(orderID, status) {
+    const order = await findOrderByID(orderID);
+    if (!order) {
+        return null;
+    }
+
+    await updateOrderStatusRecord(order.email, orderID, status);
+    return await findOrderByID(orderID);
+}
+
 async function updateOrderStatusRecord(email, orderID, status) {
     if (database.isEnabled()) {
         const result = await database.query(
@@ -3228,6 +3325,32 @@ async function sendStockAlertPush(email, { title, body, productID }) {
     }
 }
 
+async function sendOrderReadyPush(email, order) {
+    if (!remotePushConfigured()) {
+        return { configured: false, targetCount: 0, sentCount: 0 };
+    }
+
+    const devices = await pushDevicesForEmail(email);
+    let sentCount = 0;
+    for (const device of devices) {
+        const didSend = await sendRemotePushToDevice(device.deviceToken, {
+            title: "Your Talla order is ready",
+            body: `${order.title || "Your order"} is ready for pickup.`,
+            type: "order_ready",
+            productID: order.id || null
+        });
+        if (didSend) {
+            sentCount += 1;
+        }
+    }
+
+    return {
+        configured: true,
+        targetCount: devices.length,
+        sentCount
+    };
+}
+
 async function sendCampaignPushToAll({ title, body, type = "campaign" }) {
     if (!remotePushConfigured()) {
         return { configured: false, targetCount: 0, sentCount: 0 };
@@ -4165,6 +4288,102 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/campaigns/eid") {
         sendJSON(response, 200, await getCampaignSettings());
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/orders") {
+        const admin = await ensureMobileAdminAccess(request, response);
+        if (!admin) {
+            return;
+        }
+
+        sendJSON(response, 200, await allOrdersPayload());
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/orders/status") {
+        const admin = await ensureMobileAdminAccess(request, response);
+        if (!admin) {
+            return;
+        }
+
+        try {
+            const body = await readBody(request);
+            const orderID = String(body.orderID || body.id || "").trim();
+            const status = String(body.status || "").trim();
+
+            if (!orderID || !status) {
+                sendJSON(response, 400, { error: "Provide an orderID and status." });
+                return;
+            }
+
+            const order = await updateOrderStatusByID(orderID, status);
+            if (!order) {
+                sendJSON(response, 404, { error: "Order not found." });
+                return;
+            }
+
+            await createAdminAuditLog({
+                adminUser: admin.username,
+                action: "mobile_order_status_updated",
+                targetEmail: order.email,
+                detail: `Updated order ${orderID} to ${status} from the app`,
+                metadata: {
+                    orderID,
+                    status
+                }
+            });
+
+            sendJSON(response, 200, await allOrdersPayload());
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid order update payload." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/orders/notify-ready") {
+        const admin = await ensureMobileAdminAccess(request, response);
+        if (!admin) {
+            return;
+        }
+
+        try {
+            const body = await readBody(request);
+            const orderID = String(body.orderID || body.id || "").trim();
+
+            if (!orderID) {
+                sendJSON(response, 400, { error: "Provide an orderID." });
+                return;
+            }
+
+            const order = await findOrderByID(orderID);
+            if (!order) {
+                sendJSON(response, 404, { error: "Order not found." });
+                return;
+            }
+
+            const pushResult = await sendOrderReadyPush(order.email, order);
+            await createAdminAuditLog({
+                adminUser: admin.username,
+                action: "mobile_order_ready_notification_sent",
+                targetEmail: order.email,
+                detail: `Sent ready notification for order ${orderID}`,
+                metadata: {
+                    orderID,
+                    configured: pushResult.configured,
+                    targetCount: pushResult.targetCount,
+                    sentCount: pushResult.sentCount
+                }
+            });
+
+            sendJSON(response, 200, {
+                status: "ok",
+                order,
+                push: pushResult
+            });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid ready notification payload." });
+        }
         return;
     }
 

@@ -13,6 +13,13 @@ function toAbsolutePath(value) {
     return path.isAbsolute(value) ? value : path.resolve(__dirname, value);
 }
 
+function toList(value) {
+    return String(value || "")
+        .split(",")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean);
+}
+
 const host = process.env.HOST || "0.0.0.0";
 const port = toNumber(process.env.PORT, 8787);
 const dataDirectory = toAbsolutePath(process.env.DATA_DIRECTORY) || path.join(__dirname, "data");
@@ -28,6 +35,7 @@ module.exports = {
     adminUsername: process.env.ADMIN_USERNAME || "",
     adminPassword: process.env.ADMIN_PASSWORD || "",
     adminSessionSecret: process.env.ADMIN_SESSION_SECRET || "",
+    adminAppEmails: toList(process.env.ADMIN_APP_EMAILS || process.env.ADMIN_USERNAME || ""),
     adminSessionHours: toNumber(process.env.ADMIN_SESSION_HOURS, 12),
     customerTokenSecret: process.env.CUSTOMER_TOKEN_SECRET || process.env.ADMIN_SESSION_SECRET || "",
     customerTokenHours: toNumber(process.env.CUSTOMER_TOKEN_HOURS, 168),
