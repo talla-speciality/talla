@@ -386,6 +386,9 @@
             grid-template-columns: minmax(0, 1fr) auto;
             align-items: center;
         }
+        .order-queue-row {
+            grid-template-columns: minmax(0, 1fr) minmax(150px, 0.4fr) auto auto;
+        }
         .product-thumb {
             width: 84px;
             height: 84px;
@@ -557,6 +560,20 @@
             <div id="admin-dashboard" class="empty">Loading dashboard...</div>
         </section>
 
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
+                <h2>All Orders</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Manage every customer order from one queue. Update status and send pickup-ready notifications without opening the iOS app.</div>
+                <div class="toolbar-row" style="padding: 0 0 14px;">
+                    <button id="refresh-orders" class="secondary">Refresh Orders</button>
+                    <div id="orders-note" class="muted">Loading orders...</div>
+                </div>
+                <div id="all-orders" class="empty">Loading orders...</div>
+            </div>
+        </details>
+
         <section class="panel" style="margin-bottom: 20px;">
             <h2>Eid Campaign</h2>
             <div class="subcopy" style="margin-bottom: 14px;">Control the Eid banner, Eid Gifts category promotion, and limited Eid product badges in the app.</div>
@@ -708,7 +725,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -718,6 +735,9 @@
         const loginStatusEl = document.getElementById("login-status");
         const sessionSummaryEl = document.getElementById("session-summary");
         const adminDashboardEl = document.getElementById("admin-dashboard");
+        const allOrdersEl = document.getElementById("all-orders");
+        const ordersNoteEl = document.getElementById("orders-note");
+        const refreshOrdersButton = document.getElementById("refresh-orders");
         const eidModeEnabledInput = document.getElementById("eid-mode-enabled");
         const eidOfferEndsAtInput = document.getElementById("eid-offer-ends-at");
         const saveEidCampaignButton = document.getElementById("save-eid-campaign");
@@ -862,6 +882,108 @@
                     <div class="list">${renderList(state.recentAdminActions, entry => `<div class="list-item"><strong>${escapeHTML(entry.detail || entry.action)}</strong><div class="muted">${escapeHTML(entry.adminUsername || "Admin")} ${entry.targetEmail ? `• ${escapeHTML(entry.targetEmail)}` : ""} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`, "No admin actions recorded yet.")}</div>
                 </div>
             `;
+        }
+
+        const orderStatuses = ["Pending", "Confirmed", "Preparing", "Ready", "Completed", "Fulfilled", "Cancelled"];
+
+        function renderAllOrders() {
+            const orders = state.adminOrders || [];
+            ordersNoteEl.textContent = orders.length === 0
+                ? "No backend orders yet."
+                : `${orders.length} backend order${orders.length === 1 ? "" : "s"} loaded.`;
+
+            if (orders.length === 0) {
+                allOrdersEl.className = "empty";
+                allOrdersEl.innerHTML = "No orders yet.";
+                return;
+            }
+
+            allOrdersEl.className = "list";
+            allOrdersEl.innerHTML = renderList(orders, order => `
+                <div class="list-item" data-admin-order-id="${escapeHTML(order.id)}">
+                    <strong>${escapeHTML(order.title || order.id)}</strong>
+                    <div class="muted">${escapeHTML(order.email || "No customer email")} • ${escapeHTML(order.total || "No total")} • ${new Date(order.createdAt).toLocaleString()}</div>
+                    ${Array.isArray(order.items) && order.items.length > 0 ? `<div class="muted" style="margin-top:6px;">${escapeHTML(order.items.map(item => `${item.name} x${item.quantity}`).join(" • "))}</div>` : ""}
+                    <div class="order-admin-row order-queue-row" style="margin-top:10px;">
+                        <select class="admin-order-status-input" data-order-id="${escapeHTML(order.id)}">
+                            ${orderStatuses.map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}
+                        </select>
+                        <div class="muted">${escapeHTML(order.status || "No status")}</div>
+                        <button class="save-admin-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save</button>
+                        <button class="notify-admin-order-ready secondary" data-order-id="${escapeHTML(order.id)}">Notify Ready</button>
+                    </div>
+                </div>
+            `, "No orders yet.");
+        }
+
+        async function fetchAdminOrders() {
+            const response = await fetch("/admin/api/orders");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load orders.");
+            return payload.orders || [];
+        }
+
+        async function loadAdminOrders() {
+            setButtonBusy(refreshOrdersButton, true, "Refresh Orders", "Refreshing...");
+            ordersNoteEl.textContent = "Loading orders...";
+            try {
+                state.adminOrders = await fetchAdminOrders();
+                renderAllOrders();
+            } catch (error) {
+                if (error.message === "Admin authorization required.") {
+                    await logout();
+                    return;
+                }
+                state.adminOrders = [];
+                allOrdersEl.className = "empty";
+                allOrdersEl.innerHTML = escapeHTML(error.message);
+                ordersNoteEl.textContent = "Orders unavailable.";
+            } finally {
+                setButtonBusy(refreshOrdersButton, false, "Refresh Orders");
+            }
+        }
+
+        async function updateAdminOrderStatus(orderID) {
+            const orderEl = allOrdersEl.querySelector(`[data-admin-order-id="${CSS.escape(orderID)}"]`);
+            const status = orderEl?.querySelector(".admin-order-status-input")?.value;
+            if (!status) {
+                setStatus("Select an order status first.", true);
+                return;
+            }
+
+            setStatus("Updating order...");
+            try {
+                const response = await fetch("/admin/api/orders/status", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ orderID, status })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Order update failed.");
+                state.adminOrders = payload.orders || await fetchAdminOrders();
+                renderAllOrders();
+                if (state.currentEmail) await loadCustomer(state.currentEmail);
+                setStatus(`Updated ${payload.order?.title || orderID}.`, "success");
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
+        async function notifyAdminOrderReady(orderID) {
+            setStatus("Sending ready notification...");
+            try {
+                const response = await fetch("/admin/api/orders/notify-ready", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ orderID })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Ready notification failed.");
+                const push = payload.push || {};
+                setStatus(`Ready notification sent to ${push.sentCount || 0}/${push.targetCount || 0} devices.`, "success");
+            } catch (error) {
+                setStatus(error.message, true);
+            }
         }
 
         function localDateTimeValue(isoValue) {
@@ -1554,6 +1676,7 @@
                 renderAdminDashboard();
                 await loadEidCampaign();
                 showApp();
+                await loadAdminOrders();
                 await refreshCustomers();
                 await refreshProducts();
                 setStatus("Signed in. Search for a customer to begin.", "success");
@@ -1571,6 +1694,7 @@
             state.customer = null;
             state.products = [];
             state.customers = [];
+            state.adminOrders = [];
             emailInput.value = "";
             pointsInput.value = "";
             noteInput.value = "";
@@ -1585,6 +1709,9 @@
             state.productControlAvailable = true;
             adminDashboardEl.className = "empty";
             adminDashboardEl.innerHTML = "Sign in to view the admin dashboard.";
+            allOrdersEl.className = "empty";
+            allOrdersEl.innerHTML = "Sign in to manage orders.";
+            ordersNoteEl.textContent = "";
             eidCampaignStatusEl.textContent = "Sign in to manage Eid campaign settings.";
             eidModeEnabledInput.checked = false;
             eidOfferEndsAtInput.value = "";
@@ -1614,6 +1741,7 @@
                 renderAdminDashboard();
                 await loadEidCampaign();
                 showApp();
+                await loadAdminOrders();
                 await refreshCustomers();
                 await refreshProducts();
             } catch (error) {
@@ -2176,6 +2304,7 @@
         refreshButton.addEventListener("click", () => state.currentEmail ? lookupCustomer() : setStatus("No customer loaded yet."));
         adjustButton.addEventListener("click", adjustLoyalty);
         refreshCustomersButton.addEventListener("click", refreshCustomers);
+        refreshOrdersButton.addEventListener("click", loadAdminOrders);
         refreshProductsButton.addEventListener("click", refreshProducts);
         applyEidProductPresetButton.addEventListener("click", applyEidProductPreset);
         createProductButton.addEventListener("click", createProduct);
@@ -2216,6 +2345,18 @@
         bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
         sendEidPushButton.addEventListener("click", sendEidPush);
         exportCustomersButton.addEventListener("click", exportCustomers);
+        allOrdersEl.addEventListener("click", (event) => {
+            const saveButton = event.target.closest(".save-admin-order-status");
+            if (saveButton) {
+                void updateAdminOrderStatus(saveButton.dataset.orderId);
+                return;
+            }
+
+            const notifyButton = event.target.closest(".notify-admin-order-ready");
+            if (notifyButton) {
+                void notifyAdminOrderReady(notifyButton.dataset.orderId);
+            }
+        });
         productsEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-product");
             if (saveButton) {

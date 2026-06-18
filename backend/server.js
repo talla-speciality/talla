@@ -4515,6 +4515,81 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
+        if (request.method === "GET" && url.pathname === "/admin/api/orders") {
+            sendJSON(response, 200, { orders: await allOrdersPayload() });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/orders/status") {
+            try {
+                const body = await readBody(request);
+                const orderID = String(body.orderID || body.id || "").trim();
+                const status = String(body.status || "").trim();
+
+                if (!orderID || !status) {
+                    sendJSON(response, 400, { error: "Provide an orderID and status." });
+                    return;
+                }
+
+                const order = await updateOrderStatusByID(orderID, status);
+                if (!order) {
+                    sendJSON(response, 404, { error: "Order not found." });
+                    return;
+                }
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "order_status_updated",
+                    targetEmail: order.email,
+                    detail: `Updated order ${orderID} to ${status}`,
+                    metadata: {
+                        orderID,
+                        status
+                    }
+                });
+                sendJSON(response, 200, { order, orders: await allOrdersPayload() });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid order update payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/orders/notify-ready") {
+            try {
+                const body = await readBody(request);
+                const orderID = String(body.orderID || body.id || "").trim();
+
+                if (!orderID) {
+                    sendJSON(response, 400, { error: "Provide an orderID." });
+                    return;
+                }
+
+                const order = await findOrderByID(orderID);
+                if (!order) {
+                    sendJSON(response, 404, { error: "Order not found." });
+                    return;
+                }
+
+                const pushResult = await sendOrderReadyPush(order.email, order);
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "order_ready_notification_sent",
+                    targetEmail: order.email,
+                    detail: `Sent ready notification for order ${orderID}`,
+                    metadata: {
+                        orderID,
+                        configured: pushResult.configured,
+                        targetCount: pushResult.targetCount,
+                        sentCount: pushResult.sentCount
+                    }
+                });
+                sendJSON(response, 200, { order, push: pushResult });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid ready notification payload." });
+            }
+            return;
+        }
+
         if (request.method === "GET" && url.pathname === "/admin/api/campaigns/eid") {
             sendJSON(response, 200, await getCampaignSettings());
             return;
