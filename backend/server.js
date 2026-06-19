@@ -503,7 +503,8 @@ function shopifyAdminProductPayload(node) {
     };
 }
 
-async function listShopifyAdminProducts() {
+async function listShopifyAdminProducts(first = 250) {
+    const limit = Math.min(Math.max(Number(first) || 250, 1), 250);
     const data = await shopifyAdminGraphQLRequest(
         `query AdminProducts($first: Int!) {
             products(first: $first, sortKey: UPDATED_AT, reverse: true) {
@@ -558,7 +559,7 @@ async function listShopifyAdminProducts() {
                 }
             }
         }`,
-        { first: 40 }
+        { first: limit }
     );
 
     return (data.products?.edges || []).map(({ node }) => shopifyAdminProductPayload(node));
@@ -674,8 +675,8 @@ async function createShopifyAdminProduct({ title, price, productType }) {
     };
 }
 
-async function updateShopifyAdminProduct({ productID, title, productType, descriptionHTML, defaultVariantID, price }) {
-    if (title || productType !== undefined || descriptionHTML !== undefined) {
+async function updateShopifyAdminProduct({ productID, title, productType, descriptionHTML, status, defaultVariantID, price }) {
+    if (title || productType !== undefined || descriptionHTML !== undefined || status !== undefined) {
         const productUpdateData = await shopifyAdminGraphQLRequest(
             `mutation UpdateProduct($product: ProductUpdateInput!) {
                 productUpdate(product: $product) {
@@ -693,7 +694,8 @@ async function updateShopifyAdminProduct({ productID, title, productType, descri
                     id: productID,
                     title: title || undefined,
                     productType,
-                    descriptionHtml: descriptionHTML
+                    descriptionHtml: descriptionHTML,
+                    status
                 }
             }
         );
@@ -4862,8 +4864,9 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
+            const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 250), 1), 250);
             sendJSON(response, 200, {
-                products: await listShopifyAdminProducts(),
+                products: await listShopifyAdminProducts(limit),
                 publicationConfigured: Boolean(shopifyAdminPublicationID)
             });
             return;
@@ -4932,12 +4935,20 @@ const server = http.createServer(async (request, response) => {
                 const descriptionHTML = body.descriptionHTML === undefined
                     ? undefined
                     : String(body.descriptionHTML);
+                const status = body.status === undefined
+                    ? undefined
+                    : String(body.status || "").trim().toUpperCase();
                 const defaultVariantID = String(body.defaultVariantID || "").trim() || null;
                 const hasPrice = body.price !== undefined && body.price !== null && String(body.price).trim() !== "";
                 const price = hasPrice ? Number(body.price) : undefined;
 
-                if (!productID || (!title && !hasPrice && descriptionHTML === undefined)) {
-                    sendJSON(response, 400, { error: "Provide a product plus a title, description, or price to update." });
+                if (!productID || (!title && !hasPrice && descriptionHTML === undefined && productType === undefined && status === undefined)) {
+                    sendJSON(response, 400, { error: "Provide a product plus a field to update." });
+                    return;
+                }
+
+                if (status !== undefined && !["ACTIVE", "DRAFT", "ARCHIVED"].includes(status)) {
+                    sendJSON(response, 400, { error: "Product status must be Active, Draft, or Archived." });
                     return;
                 }
 
@@ -4956,6 +4967,7 @@ const server = http.createServer(async (request, response) => {
                     title: title || undefined,
                     productType,
                     descriptionHTML,
+                    status,
                     defaultVariantID,
                     price
                 });
@@ -4970,6 +4982,7 @@ const server = http.createServer(async (request, response) => {
                         title: title || null,
                         productType: productType === undefined ? null : productType,
                         descriptionUpdated: descriptionHTML !== undefined,
+                        status: status || null,
                         defaultVariantID,
                         price: hasPrice ? price : null
                     }
