@@ -504,7 +504,7 @@ struct ContentView: View {
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
         ShopCategory(key: "cups", title: "Cups", subtitle: "Ready cups and bottled drinks", symbol: "cup.and.saucer.fill"),
-        ShopCategory(key: "desserts", title: "Desserts", subtitle: "Sweet CRMB picks", symbol: "birthday.cake.fill"),
+        ShopCategory(key: "desserts", title: "CRMB", subtitle: "Sweet CRMB picks", symbol: "birthday.cake.fill"),
         ShopCategory(key: "spreads", title: "Spreads", subtitle: "Jams, butters, and jars", symbol: "takeoutbag.and.cup.and.straw.fill"),
         ShopCategory(key: "hot-chocolate", title: "Hot Chocolate", subtitle: "Cocoa and mixes", symbol: "mug.fill"),
         ShopCategory(key: "coffee-equipment", title: "Equipment", subtitle: "Brewers and tools", symbol: "flask.fill"),
@@ -6289,7 +6289,7 @@ struct ContentView: View {
             return AppLocalization.text("category_cups", fallback: "Cups & Drinks")
         }
         if key == "crmb-tallas-speciality-bakery" || key == "desserts" || key == "bread" {
-            return AppLocalization.text("category_desserts", fallback: "Desserts")
+            return AppLocalization.text("category_desserts", fallback: "CRMB")
         }
         if key == "spreads" {
             return AppLocalization.text("category_spreads", fallback: "Spreads")
@@ -8056,7 +8056,7 @@ enum ProductCatalogRules {
             "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
             "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "fudge",
             "creme-caramel", "crème-caramel", "cream-caramel", "caramel", "bread", "breads", "banana-bread"
-        ]) || ["desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
+        ]) || ["crmb", "desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
             return "desserts"
         }
 
@@ -8120,7 +8120,7 @@ enum ProductCatalogRules {
         case "ready-made-drinks", "tea", "drink-cups", "cups":
             return "Cups & Drinks"
         case "crmb-tallas-speciality-bakery", "desserts", "bread", "bakery":
-            return "Desserts"
+            return "CRMB"
         case "spreads":
             return "Spreads"
         case "hot-chocolate":

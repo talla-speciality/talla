@@ -49,7 +49,7 @@ struct ShopSectionView: View {
                     .tracking(localizedTracking(1))
                     .foregroundColor(primaryTextColor)
 
-                Text(AppLocalization.text("shop_intro", fallback: "Start with cold summer drinks, grab cups for the road, add desserts, or restock your favorite beans."))
+                Text(AppLocalization.text("shop_intro", fallback: "Start with cold summer drinks, grab cups for the road, add CRMB treats, or restock your favorite beans."))
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -83,7 +83,7 @@ struct ShopSectionView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(accentColor)
 
-            TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search summer drinks, cups, desserts..."), text: $searchQuery)
+            TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search summer drinks, cups, CRMB..."), text: $searchQuery)
                 .font(bodyFont)
                 .foregroundColor(primaryTextColor)
                 .textInputAutocapitalization(.never)

@@ -482,7 +482,7 @@ enum AppLocalization {
         ,"category_equipment": ["ar": "الأدوات"]
         ,"category_cups": ["ar": "الأكواب والمشروبات"]
         ,"category_ready_drinks": ["ar": "الأكواب والمشروبات"]
-        ,"category_desserts": ["ar": "الحلى"]
+        ,"category_desserts": ["ar": "CRMB"]
         ,"category_bakery": ["ar": "الحلى"]
         ,"category_spreads": ["ar": "الدهنات"]
         ,"category_hot_chocolate": ["ar": "الشوكولاتة الساخنة"]
@@ -1968,7 +1968,7 @@ private extension ContentView.Product {
             "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
             "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "fudge",
             "creme-caramel", "crème-caramel", "cream-caramel", "caramel", "bread", "breads", "banana-bread"
-        ]) || ["desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
+        ]) || ["crmb", "desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
             return "desserts"
         }
 
@@ -2029,7 +2029,7 @@ private extension ContentView.Product {
         case "ready-made-drinks", "tea", "drink-cups", "cups":
             return "Cups & Drinks"
         case "crmb-tallas-speciality-bakery", "desserts", "bread", "bakery":
-            return "Desserts"
+            return "CRMB"
         case "spreads":
             return "Spreads"
         case "hot-chocolate":

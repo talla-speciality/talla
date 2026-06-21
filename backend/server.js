@@ -66,7 +66,7 @@ const approvedProductTypes = new Set([
     "Arabic Coffee",
     "Drip Bags",
     "Cups",
-    "Desserts",
+    "CRMB",
     "Summer Drinks",
     "Spreads",
     "Hot Chocolate",
