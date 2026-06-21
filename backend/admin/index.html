@@ -647,7 +647,9 @@
                     <div class="product-create-grid">
                         <input id="new-product-title" type="text" placeholder="New product title">
                         <input id="new-product-price" type="number" min="0" step="0.01" placeholder="Price">
-                        <input id="new-product-type" type="text" placeholder="Type e.g. Beans">
+                        <select id="new-product-type">
+                            <option value="">Choose category</option>
+                        </select>
                         <button id="create-product">Add Product</button>
                     </div>
                     <div class="toolbar-row" style="padding: 0;">
@@ -805,6 +807,37 @@
         const bulkVoucherPointsInput = document.getElementById("bulk-voucher-points");
         const bulkVoucherDetailInput = document.getElementById("bulk-voucher-detail");
         const bulkVoucherExpiresDaysInput = document.getElementById("bulk-voucher-expires-days");
+        const approvedProductTypes = [
+            { value: "Coffee Beans", label: "Coffee Beans" },
+            { value: "Arabic Coffee", label: "Arabic & Shamali Coffee" },
+            { value: "Drip Bags", label: "Drip Bags" },
+            { value: "Cups", label: "Cups & Drinks" },
+            { value: "Desserts", label: "Desserts" },
+            { value: "Summer Drinks", label: "Summer Drinks" },
+            { value: "Spreads", label: "Spreads" },
+            { value: "Hot Chocolate", label: "Hot Chocolate" },
+            { value: "Coffee Equipment", label: "Equipment" },
+            { value: "Gifts", label: "Talla Boxes & Gifts" }
+        ];
+
+        function productTypeLabel(value) {
+            const match = approvedProductTypes.find((entry) => entry.value === value);
+            return match ? match.label : (value || "Uncategorized");
+        }
+
+        function productTypeOptions(selectedValue = "", includePlaceholder = false) {
+            const selected = String(selectedValue || "").trim();
+            const hasSelected = approvedProductTypes.some((entry) => entry.value === selected);
+            const customOption = selected && !hasSelected
+                ? `<option value="${escapeHTML(selected)}" selected>Current custom: ${escapeHTML(selected)}</option>`
+                : "";
+            const placeholder = includePlaceholder
+                ? `<option value="">Choose category</option>`
+                : "";
+            return `${placeholder}${customOption}${approvedProductTypes.map((entry) => (
+                `<option value="${escapeHTML(entry.value)}" ${entry.value === selected ? "selected" : ""}>${escapeHTML(entry.label)}</option>`
+            )).join("")}`;
+        }
 
         function applyStatus(el, message, tone = "info") {
             const resolvedTone = typeof tone === "boolean"
@@ -820,6 +853,10 @@
 
         function setLoginStatus(message, tone = "info") {
             applyStatus(loginStatusEl, message, tone);
+        }
+
+        function initializeProductCategoryControls() {
+            newProductTypeInput.innerHTML = productTypeOptions("", true);
         }
 
         function setButtonBusy(button, busy, idleLabel, busyLabel) {
@@ -1396,14 +1433,16 @@
         }
 
         function productTypes(products) {
-            return [...new Set((products || []).map((product) => product.productType || "Uncategorized"))]
+            const existingTypes = (products || []).map((product) => product.productType || "Uncategorized");
+            const approvedTypes = approvedProductTypes.map((entry) => entry.value);
+            return [...new Set([...approvedTypes, ...existingTypes])]
                 .sort((lhs, rhs) => lhs.localeCompare(rhs));
         }
 
         function syncProductTypeFilter(products) {
             const currentValue = productTypeFilterInput.value;
             const options = productTypes(products);
-            productTypeFilterInput.innerHTML = `<option value="">All categories</option>${options.map((type) => `<option value="${escapeHTML(type)}">${escapeHTML(type)}</option>`).join("")}`;
+            productTypeFilterInput.innerHTML = `<option value="">All categories</option>${options.map((type) => `<option value="${escapeHTML(type)}">${escapeHTML(productTypeLabel(type))}</option>`).join("")}`;
             productTypeFilterInput.value = options.includes(currentValue) ? currentValue : "";
         }
 
@@ -1471,7 +1510,9 @@
                     <div class="product-item-grid">
                         <input class="product-title-input" type="text" value="${escapeHTML(product.title)}" placeholder="Title">
                         <input class="product-price-input" type="number" min="0" step="0.01" value="${escapeHTML(product.price)}" placeholder="Price">
-                        <input class="product-type-input" type="text" value="${escapeHTML(product.productType || "")}" placeholder="Category e.g. Beans">
+                        <select class="product-type-input">
+                            ${productTypeOptions(product.productType || "")}
+                        </select>
                         <select class="product-status-input">
                             ${["ACTIVE", "DRAFT", "ARCHIVED"].map((status) => `<option value="${status}" ${product.status === status ? "selected" : ""}>${status[0]}${status.slice(1).toLowerCase()}</option>`).join("")}
                         </select>
@@ -1931,8 +1972,8 @@
             const price = newProductPriceInput.value.trim();
             const productType = newProductTypeInput.value.trim();
 
-            if (!title || !price) {
-                setStatus("Enter a product title and price.", "error");
+            if (!title || !price || !productType) {
+                setStatus("Enter a product title, price, and category.", "error");
                 return;
             }
 
@@ -1963,7 +2004,7 @@
         function applyEidProductPreset() {
             newProductTitleInput.value = "Eid Majlis Gift Box";
             newProductPriceInput.value = "12.000";
-            newProductTypeInput.value = "Eid Gifts";
+            newProductTypeInput.value = "Gifts";
             setStatus("Eid product preset is ready. Adjust price/title if needed, then add the product.", "success");
         }
 
@@ -2550,6 +2591,7 @@
         newProductPriceInput.addEventListener("keydown", (event) => {
             if (event.key === "Enter") createProduct();
         });
+        initializeProductCategoryControls();
         bootstrap();
     </script>
 </body>

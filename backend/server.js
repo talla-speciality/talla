@@ -61,6 +61,18 @@ const sampleOrderItems = [
     { name: "Brazil", quantity: 1 },
     { name: "Colombia", quantity: 1 }
 ];
+const approvedProductTypes = new Set([
+    "Coffee Beans",
+    "Arabic Coffee",
+    "Drip Bags",
+    "Cups",
+    "Desserts",
+    "Summer Drinks",
+    "Spreads",
+    "Hot Chocolate",
+    "Coffee Equipment",
+    "Gifts"
+]);
 const walletPassTemplateDirectory = config.walletPassTemplateDirectory;
 const walletPassCertificatePath = config.walletPassCertificatePath;
 const walletPassCertificateBase64 = config.walletPassCertificateBase64;
@@ -4884,8 +4896,13 @@ const server = http.createServer(async (request, response) => {
                 const productType = String(body.productType || "").trim();
                 const price = Number(body.price);
 
-                if (!title || !Number.isFinite(price) || price < 0) {
-                    sendJSON(response, 400, { error: "Provide a title and a valid non-negative price." });
+                if (!title || !productType || !Number.isFinite(price) || price < 0) {
+                    sendJSON(response, 400, { error: "Provide a title, category, and valid non-negative price." });
+                    return;
+                }
+
+                if (!approvedProductTypes.has(productType)) {
+                    sendJSON(response, 400, { error: "Choose one of the approved product categories." });
                     return;
                 }
 
@@ -4949,6 +4966,11 @@ const server = http.createServer(async (request, response) => {
 
                 if (status !== undefined && !["ACTIVE", "DRAFT", "ARCHIVED"].includes(status)) {
                     sendJSON(response, 400, { error: "Product status must be Active, Draft, or Archived." });
+                    return;
+                }
+
+                if (productType !== undefined && !approvedProductTypes.has(productType)) {
+                    sendJSON(response, 400, { error: "Choose one of the approved product categories." });
                     return;
                 }
 
