@@ -3602,7 +3602,8 @@ struct ContentView: View {
                 cartOrderingStep(number: "1", text: AppLocalization.text("ordering_step_review", fallback: "Review your bag and delivery details."))
                 cartOrderingStep(number: "2", text: AppLocalization.text("ordering_step_checkout", fallback: "Continue to secure checkout to submit the order."))
                 cartOrderingStep(number: "3", text: AppLocalization.text("ordering_step_confirm", fallback: "Talla confirms availability, delivery, and final handoff."))
-                cartOrderingStep(number: "4", text: AppLocalization.text("ordering_step_beans", fallback: "Beans are added after the completed order is recorded."))
+                cartOrderingStep(number: "4", text: AppLocalization.text("ordering_step_return", fallback: "Return to Talla after payment to see order status and Beans."))
+                cartOrderingStep(number: "5", text: AppLocalization.text("ordering_step_beans", fallback: "Beans are added after the completed order is recorded."))
             }
         }
         .padding(14)
@@ -3701,7 +3702,7 @@ struct ContentView: View {
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .tracking(2)
 
-                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely with card or Apple Pay in Shopify checkout."))
+                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely in Shopify, then return to Talla for order status and Beans."))
                         .font(bodyFont(size: 11))
                         .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
                 }
@@ -6185,7 +6186,7 @@ struct ContentView: View {
             appliedVoucher = nil
             voucherCodeInput = ""
             voucherError = nil
-            showToast(message: AppLocalization.text("checkout_opened_toast", fallback: "Checkout opened"))
+            showToast(message: AppLocalization.text("checkout_opened_toast", fallback: "Checkout opened. Return to Talla after payment."))
         } catch {
             checkoutError = error.localizedDescription
         }
