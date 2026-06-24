@@ -55,6 +55,7 @@ struct ProfileManagementSectionView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
+
 }
 
 struct PasswordResetSectionView: View {
@@ -196,13 +197,12 @@ struct OrderHistorySectionView: View {
 
                             Spacer()
 
-                            VStack(alignment: .trailing, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 6) {
                                 Text(order.total)
                                     .font(Font.custom("AvenirNext-Bold", size: 11))
                                     .foregroundColor(accentColor)
-                                Text(order.status)
-                                    .font(Font.custom("AvenirNext-Regular", size: 12))
-                                    .foregroundColor(secondaryTextColor)
+
+                                orderStatusBadge(order.status)
                             }
                         }
 
@@ -211,6 +211,20 @@ struct OrderHistorySectionView: View {
                                 .font(Font.custom("AvenirNext-Regular", size: 12))
                                 .foregroundColor(secondaryTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        if order.beansAwarded == true, let pointsAwarded = order.pointsAwarded, pointsAwarded > 0 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text(String(format: AppLocalization.text("order_beans_awarded", fallback: "%d Beans awarded"), pointsAwarded))
+                                    .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                            }
+                            .foregroundColor(accentColor)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
+                            .clipShape(Capsule(style: .continuous))
                         }
 
                         if let items = order.items, !items.isEmpty {
@@ -239,6 +253,55 @@ struct OrderHistorySectionView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
             }
+        }
+    }
+
+    private func orderStatusBadge(_ status: String) -> some View {
+        let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines)
+        let color = orderStatusColor(normalized)
+
+        return Text(orderStatusTitle(normalized))
+            .font(Font.custom("AvenirNext-Bold", size: 10))
+            .tracking(1.2)
+            .textCase(.uppercase)
+            .foregroundColor(color)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(color.opacity(isLightAppearance ? 0.12 : 0.18))
+            .clipShape(Capsule(style: .continuous))
+    }
+
+    private func orderStatusTitle(_ status: String) -> String {
+        switch status.lowercased() {
+        case "pending", "placed":
+            return AppLocalization.text("order_status_placed", fallback: "Placed")
+        case "confirmed":
+            return AppLocalization.text("order_status_confirmed", fallback: "Confirmed")
+        case "preparing":
+            return AppLocalization.text("order_status_preparing", fallback: "Preparing")
+        case "ready":
+            return AppLocalization.text("order_status_ready", fallback: "Ready")
+        case "completed", "fulfilled":
+            return AppLocalization.text("order_status_completed", fallback: "Completed")
+        case "cancelled", "canceled":
+            return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
+        default:
+            return status.isEmpty ? AppLocalization.text("order_status_placed", fallback: "Placed") : status
+        }
+    }
+
+    private func orderStatusColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "completed", "fulfilled":
+            return Color(hex: 0x4F8A5B)
+        case "ready":
+            return Color(hex: 0x2F7E8B)
+        case "preparing", "confirmed":
+            return accentColor
+        case "cancelled", "canceled":
+            return Color.red.opacity(0.8)
+        default:
+            return secondaryTextColor
         }
     }
 }

@@ -255,6 +255,8 @@ struct ContentView: View {
         let status: String
         let items: [Item]?
         let createdAt: String
+        let beansAwarded: Bool?
+        let pointsAwarded: Int?
     }
 
     struct VoucherRecord: Codable, Identifiable {

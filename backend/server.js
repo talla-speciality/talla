@@ -2278,7 +2278,43 @@ function orderRowToRecord(row) {
     };
 }
 
+function completedOrderStatuses() {
+    return new Set(["Completed", "Fulfilled"]);
+}
+
+function loyaltyTransactionIDForOrder(order) {
+    return `txn_${order.id}`;
+}
+
+function orderBeansFor(order) {
+    if (!completedOrderStatuses().has(order.status)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.round(numericOrderTotal(order) * loyaltyPointsPerBHD));
+}
+
+async function orderPayloadWithRewardState(email, order) {
+    const pointsAwarded = orderBeansFor(order);
+    const beansAwarded = pointsAwarded > 0
+        ? await hasLoyaltyTransaction(email, loyaltyTransactionIDForOrder(order))
+        : false;
+
+    return {
+        ...order,
+        beansAwarded,
+        pointsAwarded: beansAwarded ? pointsAwarded : 0
+    };
+}
+
+async function ordersWithRewardState(email, orders) {
+    return Promise.all(
+        (orders || []).map((order) => orderPayloadWithRewardState(email, order))
+    );
+}
+
 async function ordersPayload(email) {
+    let orders;
     if (database.isEnabled()) {
         const result = await database.query(
             `SELECT id, title, total, status, items, created_at
@@ -2287,35 +2323,42 @@ async function ordersPayload(email) {
              ORDER BY created_at DESC`,
             [email]
         );
-        return result.rows.map(orderRowToRecord);
+        orders = result.rows.map(orderRowToRecord);
+    } else {
+        const store = readJSON(ordersStorePath);
+        orders = store.orders[email] || [];
     }
 
-    const store = readJSON(ordersStorePath);
-    return store.orders[email] || [];
+    return ordersWithRewardState(email, orders);
 }
 
 async function allOrdersPayload() {
+    let orders;
     if (database.isEnabled()) {
         const result = await database.query(
             `SELECT id, email, title, total, status, items, created_at
              FROM orders
              ORDER BY created_at DESC`
         );
-        return result.rows.map((row) => ({
+        orders = result.rows.map((row) => ({
             ...orderRowToRecord(row),
             email: normalizeEmail(row.email)
         }));
+    } else {
+        const store = readJSON(ordersStorePath);
+        orders = Object.entries(store.orders || {})
+            .flatMap(([email, customerOrders]) => (
+                (Array.isArray(customerOrders) ? customerOrders : []).map((order) => ({
+                    ...order,
+                    email: normalizeEmail(email)
+                }))
+            ))
+            .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime());
     }
 
-    const store = readJSON(ordersStorePath);
-    return Object.entries(store.orders || {})
-        .flatMap(([email, orders]) => (
-            (Array.isArray(orders) ? orders : []).map((order) => ({
-                ...order,
-                email: normalizeEmail(email)
-            }))
-        ))
-        .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime());
+    return Promise.all(
+        orders.map((order) => orderPayloadWithRewardState(order.email, order))
+    );
 }
 
 async function findOrderByID(orderID) {
@@ -2364,12 +2407,7 @@ async function updateOrderStatusByID(orderID, status) {
         return null;
     }
 
-    await updateOrderStatusRecord(order.email, orderID, status);
-    const updatedOrder = await findOrderByID(orderID);
-    if (updatedOrder && ["Completed", "Fulfilled"].includes(updatedOrder.status)) {
-        await awardOrderBeans(updatedOrder);
-    }
-    return updatedOrder;
+    return updateOrderStatusAndAward(order.email, orderID, status);
 }
 
 function orderStatusFromShopifyOrder(shopifyOrder, topic = "") {
@@ -2494,16 +2532,16 @@ async function hasLoyaltyTransaction(email, transactionID) {
 }
 
 async function awardOrderBeans(order) {
-    if (!["Completed", "Fulfilled"].includes(order.status)) {
+    if (!completedOrderStatuses().has(order.status)) {
         return { awarded: false, points: 0, reason: "ORDER_NOT_COMPLETED" };
     }
 
-    const points = Math.max(0, Math.round(numericOrderTotal(order) * loyaltyPointsPerBHD));
+    const points = orderBeansFor(order);
     if (points <= 0) {
         return { awarded: false, points: 0, reason: "NO_POINTS" };
     }
 
-    const transactionID = `txn_${order.id}`;
+    const transactionID = loyaltyTransactionIDForOrder(order);
     if (await hasLoyaltyTransaction(order.email, transactionID)) {
         return { awarded: false, points, reason: "ALREADY_AWARDED" };
     }
@@ -2539,9 +2577,10 @@ async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
     }
 
     const award = await awardOrderBeans(order);
+    const rewardAwareOrder = await orderPayloadWithRewardState(order.email, recordedOrder);
     return {
         recorded: true,
-        order: recordedOrder,
+        order: rewardAwareOrder,
         award
     };
 }
@@ -2577,6 +2616,24 @@ async function updateOrderStatusRecord(email, orderID, status) {
     store.orders[email] = orders;
     writeJSON(ordersStorePath, store);
     return orders[index];
+}
+
+async function updateOrderStatusAndAward(email, orderID, status) {
+    const updatedOrder = await updateOrderStatusRecord(email, orderID, status);
+    if (!updatedOrder) {
+        return null;
+    }
+
+    const orderWithEmail = {
+        ...updatedOrder,
+        email
+    };
+
+    if (completedOrderStatuses().has(updatedOrder.status)) {
+        await awardOrderBeans(orderWithEmail);
+    }
+
+    return orderPayloadWithRewardState(email, updatedOrder);
 }
 
 function rewardDetailsFor(reward) {
@@ -5421,7 +5478,7 @@ const server = http.createServer(async (request, response) => {
                     return;
                 }
 
-                const order = await updateOrderStatusRecord(email, orderID, status);
+                const order = await updateOrderStatusAndAward(email, orderID, status);
                 if (!order) {
                     sendJSON(response, 404, { error: "Order not found." });
                     return;

@@ -968,6 +968,7 @@
                 <div class="list-item" data-admin-order-id="${escapeHTML(order.id)}">
                     <strong>${escapeHTML(order.title || order.id)}</strong>
                     <div class="muted">${escapeHTML(order.email || "No customer email")} • ${escapeHTML(order.total || "No total")} • ${new Date(order.createdAt).toLocaleString()}</div>
+                    ${order.beansAwarded ? `<div class="muted">${Number(order.pointsAwarded || 0)} Beans awarded</div>` : ""}
                     ${Array.isArray(order.items) && order.items.length > 0 ? `<div class="muted" style="margin-top:6px;">${escapeHTML(order.items.map(item => `${item.name} x${item.quantity}`).join(" • "))}</div>` : ""}
                     <div class="order-admin-row order-queue-row" style="margin-top:10px;">
                         <select class="admin-order-status-input" data-order-id="${escapeHTML(order.id)}">
@@ -1673,7 +1674,7 @@
                     <summary class="panel-summary" style="padding:0;">
                         <h2 style="margin-top:0;">Orders</h2>
                     </summary>
-                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${new Date(order.createdAt).toLocaleString()}</div><div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${["Pending", "Confirmed", "Preparing", "Fulfilled", "Cancelled"].map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button></div></div>`, "No orders yet.")}</div>
+                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${escapeHTML(order.status || "No status")} • ${new Date(order.createdAt).toLocaleString()}</div>${order.beansAwarded ? `<div class="muted">${Number(order.pointsAwarded || 0)} Beans awarded</div>` : ""}<div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${orderStatuses.map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button></div></div>`, "No orders yet.")}</div>
                 </details>
                 <details class="mini-section" open>
                     <summary class="panel-summary" style="padding:0;">
