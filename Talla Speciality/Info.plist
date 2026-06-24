@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
+		<key>CFBundleDisplayName</key>
+		<string>Talla Speciality</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>
@@ -37,7 +39,9 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Talla Speciality connects to your local development server so account, loyalty, and order features can be tested on this device.</string>
-	<key>BackendBaseURL</key>
+	<key>NSPhotoLibraryUsageDescription</key>
+		<string>Talla Speciality lets you choose a coffee or setup photo so the concierge can suggest better products and brewing guidance.</string>
+		<key>BackendBaseURL</key>
 	<string>https://talla-backend.onrender.com</string>
 </dict>
 </plist>

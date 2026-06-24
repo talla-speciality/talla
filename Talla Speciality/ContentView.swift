@@ -2698,6 +2698,18 @@ struct ContentView: View {
                             actionTitle: AppLocalization.text("whatsapp_us", fallback: "WhatsApp Us"),
                             destination: URL(string: "https://wa.me/97339392414")!
                         )
+                        infoTile(
+                            title: AppLocalization.text("privacy_policy", fallback: "Privacy Policy"),
+                            detail: AppLocalization.text("privacy_policy_detail", fallback: "Review how Talla handles account, order, rewards, and app data."),
+                            actionTitle: AppLocalization.text("open_policy", fallback: "Open Policy"),
+                            destination: URL(string: "https://duneroastery.myshopify.com/policies/privacy-policy")!
+                        )
+                        infoTile(
+                            title: AppLocalization.text("store_support", fallback: "Store Support"),
+                            detail: AppLocalization.text("store_support_detail", fallback: "Open the store support page for shipping, returns, and order help."),
+                            actionTitle: AppLocalization.text("open_support", fallback: "Open Support"),
+                            destination: URL(string: "https://duneroastery.myshopify.com/pages/contact")!
+                        )
                     }
                 }
             )
