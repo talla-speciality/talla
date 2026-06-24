@@ -2430,6 +2430,30 @@ function orderStatusFromShopifyOrder(shopifyOrder, topic = "") {
     return "Pending";
 }
 
+function orderStatusFromShopifyAdminOrder(order) {
+    const displayFinancialStatus = String(order.displayFinancialStatus || "").toLowerCase();
+    const displayFulfillmentStatus = String(order.displayFulfillmentStatus || "").toLowerCase();
+    const cancelledAt = order.cancelledAt || null;
+
+    if (cancelledAt || displayFinancialStatus.includes("voided") || displayFinancialStatus.includes("refunded")) {
+        return "Cancelled";
+    }
+
+    if (displayFulfillmentStatus.includes("fulfilled")) {
+        return "Fulfilled";
+    }
+
+    if (displayFinancialStatus.includes("paid") || displayFinancialStatus.includes("partially_paid")) {
+        return "Completed";
+    }
+
+    if (displayFinancialStatus.includes("pending")) {
+        return "Pending";
+    }
+
+    return "Pending";
+}
+
 function shopifyOrderRecord(shopifyOrder, topic = "") {
     const id = `shopify_${shopifyOrder.id || shopifyOrder.admin_graphql_api_id || shopifyOrder.name || Date.now()}`;
     const email = normalizeEmail(shopifyOrder.email || shopifyOrder.contact_email || shopifyOrder.customer?.email);
@@ -2451,6 +2475,26 @@ function shopifyOrderRecord(shopifyOrder, topic = "") {
         status: orderStatusFromShopifyOrder(shopifyOrder, topic),
         items,
         createdAt: shopifyOrder.created_at || new Date().toISOString()
+    };
+}
+
+function shopifyAdminOrderRecord(node, fallbackEmail) {
+    const totalAmount = Number(node.currentTotalPriceSet?.shopMoney?.amount || node.totalPriceSet?.shopMoney?.amount || 0);
+    const currency = String(node.currentTotalPriceSet?.shopMoney?.currencyCode || node.totalPriceSet?.shopMoney?.currencyCode || "BHD").toUpperCase();
+    const items = (node.lineItems?.edges || []).map(({ node: item }) => ({
+        name: String(item.name || item.title || "Item"),
+        quantity: Number(item.quantity || 1)
+    }));
+
+    return {
+        id: `shopify_${node.legacyResourceId || node.id || node.name || Date.now()}`,
+        email: normalizeEmail(node.email || fallbackEmail),
+        title: String(node.name || "Shopify Order"),
+        total: `${currency} ${Number.isFinite(totalAmount) ? totalAmount.toFixed(3) : "0.000"}`,
+        totalNumber: Number.isFinite(totalAmount) ? totalAmount : 0,
+        status: orderStatusFromShopifyAdminOrder(node),
+        items,
+        createdAt: node.createdAt || new Date().toISOString()
     };
 }
 
@@ -2583,6 +2627,72 @@ async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
         order: rewardAwareOrder,
         award
     };
+}
+
+async function syncRecentShopifyOrdersForEmail(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !shopifyAdminConfigured()) {
+        return { configured: shopifyAdminConfigured(), syncedCount: 0 };
+    }
+
+    const data = await shopifyAdminGraphQLRequest(
+        `query CustomerOrders($query: String!) {
+            orders(first: 20, query: $query, sortKey: CREATED_AT, reverse: true) {
+                edges {
+                    node {
+                        id
+                        legacyResourceId
+                        name
+                        email
+                        createdAt
+                        cancelledAt
+                        displayFinancialStatus
+                        displayFulfillmentStatus
+                        currentTotalPriceSet {
+                            shopMoney {
+                                amount
+                                currencyCode
+                            }
+                        }
+                        totalPriceSet {
+                            shopMoney {
+                                amount
+                                currencyCode
+                            }
+                        }
+                        lineItems(first: 30) {
+                            edges {
+                                node {
+                                    name
+                                    title
+                                    quantity
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }`,
+        { query: `email:${normalizedEmail}` }
+    );
+
+    const edges = data.orders?.edges || [];
+    let syncedCount = 0;
+
+    for (const { node } of edges) {
+        const order = shopifyAdminOrderRecord(node, normalizedEmail);
+        const recordedOrder = await upsertOrderRecord(order);
+        if (!recordedOrder) {
+            continue;
+        }
+
+        syncedCount += 1;
+        if (completedOrderStatuses().has(order.status)) {
+            await awardOrderBeans(order);
+        }
+    }
+
+    return { configured: true, syncedCount };
 }
 
 async function updateOrderStatusRecord(email, orderID, status) {
@@ -6248,6 +6358,12 @@ const server = http.createServer(async (request, response) => {
         if (!customerAccount) {
             sendJSON(response, 404, { error: "Account not found" });
             return;
+        }
+
+        try {
+            await syncRecentShopifyOrdersForEmail(customer.email);
+        } catch (error) {
+            console.warn(`Shopify order sync skipped for ${customer.email}:`, error.message);
         }
 
         sendJSON(response, 200, await ordersPayload(customer.email));
