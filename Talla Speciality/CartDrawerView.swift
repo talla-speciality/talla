@@ -45,12 +45,18 @@ struct CartDrawerView: View {
                     }
 
                     if hasItems {
-                        ScrollView(showsIndicators: false) {
-                            reviewContent
-                                .padding(.bottom, 8)
-                        }
+                        ScrollView(showsIndicators: true) {
+                            VStack(alignment: .leading, spacing: 18) {
+                                reviewContent
 
-                        footerContent
+                                Divider()
+                                    .overlay(accentColor.opacity(0.18))
+
+                                footerContent
+                            }
+                            .padding(.bottom, max(geometry.safeAreaInsets.bottom, 14))
+                        }
+                        .frame(maxHeight: .infinity)
                     } else {
                         emptyState
                         Spacer(minLength: 0)

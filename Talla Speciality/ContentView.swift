@@ -1199,8 +1199,7 @@ struct ContentView: View {
                     bodyFont: bodyFont(size: 14),
                     labelFont: labelFont(size: 10, weight: .bold),
                     startAction: {
-                        hasSeenWelcome = true
-                        activeTab = .shop
+                        startFirstRunAccountSetup()
                     },
                     skipAction: {
                         hasSeenWelcome = true
@@ -5072,6 +5071,34 @@ struct ContentView: View {
         appleSignInNonce = ""
     }
 
+    private func startFirstRunAccountSetup() {
+        hasSeenWelcome = true
+        cartOpen = false
+        activeTab = .account
+        switchAccountAuthMode(.createAccount)
+        accountScrollTarget = AccountSectionView.ScrollTarget.customer
+        showToast(message: AppLocalization.text("onboarding_account_started", fallback: "Create your account first. Delivery details come next."))
+    }
+
+    @MainActor
+    private func prepareNewCustomerAddressSetup(firstName: String, lastName: String) {
+        if addressLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            addressLabel = AppLocalization.text("home_address_label", fallback: "Home")
+        }
+
+        if addressFullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            addressFullName = [firstName, lastName]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+
+        isLibrarySectionExpanded = true
+        isDeliveryDetailsExpanded = true
+        activeTab = .account
+        accountScrollTarget = AccountSectionView.ScrollTarget.library
+        showToast(message: AppLocalization.text("account_created_add_address_toast", fallback: "Account created. Add delivery details next."))
+    }
+
     @MainActor
     private func createCustomerAccount() async {
         let trimmedFirstName = accountFirstName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -5108,7 +5135,7 @@ struct ContentView: View {
             accountPassword = ""
             accountConfirmPassword = ""
             accountAuthMode = .signIn
-            showToast(message: AppLocalization.text("account_created_toast", fallback: "Account created"))
+            prepareNewCustomerAddressSetup(firstName: trimmedFirstName, lastName: trimmedLastName)
         } catch {
             customerProfile = nil
             customerAuthError = friendlyCustomerAuthMessage(for: error)

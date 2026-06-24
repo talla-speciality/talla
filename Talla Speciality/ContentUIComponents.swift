@@ -86,12 +86,12 @@ struct WelcomeOverlayView: View {
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
-                    Text(AppLocalization.text("welcome_title", fallback: "Coffee, rewards, and your daily ritual in one place."))
+                    Text(AppLocalization.text("welcome_title", fallback: "Set up Talla once, then checkout faster."))
                         .font(titleFont)
                         .foregroundColor(primaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text(AppLocalization.text("welcome_intro", fallback: "Shop specialty coffee, collect Beans, and keep your rewards close as you explore Talla."))
+                    Text(AppLocalization.text("welcome_intro", fallback: "Create your account and save delivery details now, so orders, Beans, and checkout feel simple later."))
                         .font(bodyFont)
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -99,25 +99,25 @@ struct WelcomeOverlayView: View {
 
                 VStack(spacing: 12) {
                     welcomePoint(
-                        icon: "bag.fill",
-                        title: AppLocalization.text("welcome_shop_title", fallback: "Shop faster"),
-                        detail: AppLocalization.text("welcome_shop_detail", fallback: "Search, sort, and browse coffees, tools, and gifts.")
+                        icon: "person.crop.circle.badge.checkmark",
+                        title: AppLocalization.text("welcome_account_title", fallback: "Create your account"),
+                        detail: AppLocalization.text("welcome_account_detail", fallback: "Use one email for checkout, Beans, orders, and saved details.")
+                    )
+                    welcomePoint(
+                        icon: "location.fill",
+                        title: AppLocalization.text("welcome_delivery_title", fallback: "Save delivery details"),
+                        detail: AppLocalization.text("welcome_delivery_detail", fallback: "Add your address before the first order so checkout does not slow you down.")
                     )
                     welcomePoint(
                         icon: "sparkles",
                         title: AppLocalization.text("welcome_beans_title", fallback: "Earn Beans"),
-                        detail: AppLocalization.text("welcome_beans_detail", fallback: "Track rewards and redeem perks from your account.")
-                    )
-                    welcomePoint(
-                        icon: "wallet.pass.fill",
-                        title: AppLocalization.text("welcome_wallet_title", fallback: "Stay connected"),
-                        detail: AppLocalization.text("welcome_wallet_detail", fallback: "Use Wallet and alerts when you want updates close by.")
+                        detail: AppLocalization.text("welcome_beans_detail", fallback: "Completed orders can stay connected to rewards and order history.")
                     )
                 }
 
                 VStack(spacing: 10) {
                     Button(action: startAction) {
-                        Text(AppLocalization.text("start_exploring", fallback: "Start Exploring"))
+                        Text(AppLocalization.text("set_up_account", fallback: "Set Up Account"))
                             .font(labelFont)
                             .tracking(2)
                             .textCase(.uppercase)
