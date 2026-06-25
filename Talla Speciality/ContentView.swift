@@ -1415,6 +1415,16 @@ struct ContentView: View {
             activeTab = .account
             savedLoyaltyEmail = savedCustomerEmail.isEmpty ? savedLoyaltyEmail : savedCustomerEmail
             accountScrollTarget = AccountSectionView.ScrollTarget.loyalty
+        case "orders", "order-history", "checkout-return":
+            activeTab = .account
+            accountScrollTarget = AccountSectionView.ScrollTarget.customer
+            Task {
+                await loadOrderHistory()
+                if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    await loadLoyaltyAccount()
+                }
+            }
+            showToast(message: AppLocalization.text("order_history_opened", fallback: "Order history opened"))
         default:
             break
         }

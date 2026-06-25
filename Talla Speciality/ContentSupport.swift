@@ -289,6 +289,7 @@ enum AppLocalization {
         ,"order_status_ready": ["ar": "جاهز"]
         ,"order_status_completed": ["ar": "مكتمل"]
         ,"order_status_cancelled": ["ar": "ملغي"]
+        ,"order_history_opened": ["ar": "تم فتح سجل الطلبات"]
         ,"loading_wallet_pass": ["ar": "جارٍ تحميل بطاقة Wallet..."]
         ,"add_to_apple_wallet": ["ar": "أضف إلى Apple Wallet"]
         ,"your_cart": ["ar": "سلتك"]
