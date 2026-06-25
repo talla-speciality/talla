@@ -6220,6 +6220,7 @@ struct ContentView: View {
             }
             let checkoutURL = try await ShopifyStorefrontClient.createCheckoutURL(
                 lines: lines,
+                customerEmail: customerProfile?.email,
                 checkoutAddress: checkoutAddress
             )
             cartOpen = false
@@ -7718,7 +7719,7 @@ private enum ShopifyStorefrontClient {
         return payload
     }
 
-    static func createCheckoutURL(lines: [ShopifyCheckoutLine], checkoutAddress: ShopifyCheckoutAddress? = nil) async throws -> URL {
+    static func createCheckoutURL(lines: [ShopifyCheckoutLine], customerEmail: String? = nil, checkoutAddress: ShopifyCheckoutAddress? = nil) async throws -> URL {
         let lineInputs = lines.map { line in
             [
                 "merchandiseId": line.merchandiseId,
@@ -7726,7 +7727,15 @@ private enum ShopifyStorefrontClient {
             ] as [String: Any]
         }
 
-        let input: [String: Any]
+        var input: [String: Any] = [
+            "lines": lineInputs
+        ]
+        var buyerIdentity: [String: Any] = [:]
+
+        if let customerEmail = customerEmail?.trimmingCharacters(in: .whitespacesAndNewlines), !customerEmail.isEmpty {
+            buyerIdentity["email"] = customerEmail
+        }
+
         if let checkoutAddress {
             let nameParts = checkoutAddress.fullName
                 .split(separator: " ", omittingEmptySubsequences: true)
@@ -7744,20 +7753,13 @@ private enum ShopifyStorefrontClient {
             let deliveryAddressPreference: [String: Any] = [
                 "deliveryAddress": deliveryAddress
             ]
-            let buyerIdentity: [String: Any] = [
-                "email": checkoutAddress.email,
-                "phone": checkoutAddress.phone,
-                "deliveryAddressPreferences": [deliveryAddressPreference]
-            ]
+            buyerIdentity["email"] = checkoutAddress.email
+            buyerIdentity["phone"] = checkoutAddress.phone
+            buyerIdentity["deliveryAddressPreferences"] = [deliveryAddressPreference]
+        }
 
-            input = [
-                "lines": lineInputs,
-                "buyerIdentity": buyerIdentity
-            ]
-        } else {
-            input = [
-                "lines": lineInputs
-            ]
+        if !buyerIdentity.isEmpty {
+            input["buyerIdentity"] = buyerIdentity
         }
 
         let body = ShopifyGraphQLRequest(
