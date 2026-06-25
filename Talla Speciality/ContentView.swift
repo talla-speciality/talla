@@ -6228,6 +6228,20 @@ struct ContentView: View {
                 _ = try await AccountService.consumeVoucher(code: appliedVoucher.code, email: profile.email)
                 await loadAvailableVouchers(for: profile.email)
             }
+
+            if let profile = customerProfile {
+                let checkoutItems = cartItems.map { item in
+                    (name: item.product.name, quantity: item.quantity)
+                }
+                if let pendingOrders = try? await AccountService.recordCheckoutStarted(
+                    email: profile.email,
+                    items: checkoutItems,
+                    total: cartTotal
+                ) {
+                    orderHistory = pendingOrders
+                }
+            }
+
             let checkoutURL = try await ShopifyStorefrontClient.createCheckoutURL(
                 lines: lines,
                 customerEmail: customerProfile?.email,
@@ -6804,6 +6818,33 @@ private enum AccountService {
         try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email
+        ])
+
+        return try await performOrdersRequest(request)
+    }
+
+    static func recordCheckoutStarted(email: String, items: [(name: String, quantity: Int)], total: Double) async throws -> [ContentView.AccountOrder] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
+        }
+
+        let orderItems = items.map { item in
+            [
+                "name": item.name,
+                "quantity": item.quantity
+            ] as [String: Any]
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/orders/checkout-started"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "title": "Checkout started",
+            "total": total,
+            "items": orderItems
         ])
 
         return try await performOrdersRequest(request)

@@ -2518,6 +2518,8 @@ async function upsertOrderRecord(order) {
         return null;
     }
 
+    await deleteMatchingPendingCheckout(order);
+
     if (database.isEnabled()) {
         const result = await database.query(
             `INSERT INTO orders
@@ -2557,6 +2559,50 @@ async function upsertOrderRecord(order) {
     store.orders[order.email] = orders;
     writeJSON(ordersStorePath, store);
     return nextOrder;
+}
+
+async function deleteMatchingPendingCheckout(order) {
+    if (!order.email || String(order.id || "").startsWith("checkout_")) {
+        return;
+    }
+
+    const orderTotal = numericOrderTotal(order);
+    const createdAt = new Date(order.createdAt || Date.now()).getTime();
+    const isSimilarPendingOrder = (candidate) => {
+        const candidateCreatedAt = new Date(candidate.createdAt || candidate.created_at || Date.now()).getTime();
+        const ageDifference = Math.abs(createdAt - candidateCreatedAt);
+        return String(candidate.id || "").startsWith("checkout_")
+            && String(candidate.status || "").toLowerCase() === "pending"
+            && Math.abs(numericOrderTotal(candidate) - orderTotal) < 0.001
+            && ageDifference < 2 * 24 * 60 * 60 * 1000;
+    };
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, email, title, total, status, items, created_at
+             FROM orders
+             WHERE email = $1 AND id LIKE 'checkout_%' AND status = 'Pending'
+             ORDER BY created_at DESC
+             LIMIT 10`,
+            [order.email]
+        );
+        const matchingOrder = result.rows.map(orderRowToRecord).find(isSimilarPendingOrder);
+        if (matchingOrder) {
+            await database.query(
+                `DELETE FROM orders WHERE email = $1 AND id = $2`,
+                [order.email, matchingOrder.id]
+            );
+        }
+        return;
+    }
+
+    const store = readJSON(ordersStorePath);
+    const orders = Array.isArray(store.orders[order.email]) ? store.orders[order.email] : [];
+    const nextOrders = orders.filter((candidate) => !isSimilarPendingOrder(candidate));
+    if (nextOrders.length !== orders.length) {
+        store.orders[order.email] = nextOrders;
+        writeJSON(ordersStorePath, store);
+    }
 }
 
 async function hasLoyaltyTransaction(email, transactionID) {
@@ -6367,6 +6413,60 @@ const server = http.createServer(async (request, response) => {
         }
 
         sendJSON(response, 200, await ordersPayload(customer.email));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/orders/checkout-started") {
+        try {
+            const body = await readBody(request);
+            const requestedEmail = normalizeEmail(body.email);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) {
+                return;
+            }
+
+            const customerAccount = await getAccountByEmail(customer.email);
+            if (!customerAccount) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
+
+            const submittedItems = Array.isArray(body.items) ? body.items : [];
+            const items = submittedItems
+                .map((item) => ({
+                    name: String(item.name || "Item").trim() || "Item",
+                    quantity: Math.max(1, Math.round(Number(item.quantity || 1)))
+                }))
+                .slice(0, 30);
+
+            if (items.length === 0) {
+                sendJSON(response, 400, { error: "Order items are required." });
+                return;
+            }
+
+            const totalNumber = Number(body.total);
+            const safeTotal = Number.isFinite(totalNumber) && totalNumber >= 0 ? totalNumber : 0;
+            const pendingOrder = {
+                id: `checkout_${Date.now()}`,
+                email: customer.email,
+                title: String(body.title || "Checkout started").trim() || "Checkout started",
+                total: `BHD ${safeTotal.toFixed(3)}`,
+                totalNumber: safeTotal,
+                status: "Pending",
+                items,
+                createdAt: new Date().toISOString()
+            };
+
+            await upsertOrderRecord(pendingOrder);
+            sendJSON(response, 200, await ordersPayload(customer.email));
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid checkout order." });
+        }
         return;
     }
 
