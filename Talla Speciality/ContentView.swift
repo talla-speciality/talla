@@ -80,67 +80,6 @@ struct ContentView: View {
         }
     }
 
-    private enum CoffeeMood: String, CaseIterable, Identifiable {
-        case majlis
-        case gifts
-        case arabic
-        case sweets
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .majlis:
-                return AppLocalization.text("mood_majlis", fallback: "Majlis")
-            case .gifts:
-                return AppLocalization.text("mood_gifts", fallback: "Gifts")
-            case .arabic:
-                return AppLocalization.text("mood_arabic", fallback: "Arabic")
-            case .sweets:
-                return AppLocalization.text("mood_sweets", fallback: "Sweets")
-            }
-        }
-
-        var detail: String {
-            switch self {
-            case .majlis:
-                return AppLocalization.text("mood_majlis_detail", fallback: "Hosting picks")
-            case .gifts:
-                return AppLocalization.text("mood_gifts_detail", fallback: "Ready to share")
-            case .arabic:
-                return AppLocalization.text("mood_arabic_detail", fallback: "Traditional coffee")
-            case .sweets:
-                return AppLocalization.text("mood_sweets_detail", fallback: "Sweet pairings")
-            }
-        }
-
-        var symbol: String {
-            switch self {
-            case .majlis:
-                return "person.3.fill"
-            case .gifts:
-                return "gift.fill"
-            case .arabic:
-                return "cup.and.saucer.fill"
-            case .sweets:
-                return "birthday.cake.fill"
-            }
-        }
-
-        var searchQuery: String {
-            switch self {
-            case .majlis:
-                return "majlis"
-            case .gifts:
-                return "gift"
-            case .arabic:
-                return "arabic"
-            case .sweets:
-                return "pastry"
-            }
-        }
-    }
-
     struct Product: Identifiable, Hashable {
         struct Variant: Identifiable, Hashable {
             let id: String
@@ -383,7 +322,6 @@ struct ContentView: View {
     @State private var activeTab: Tab = .home
     @State private var activeCategory = "all"
     @State private var shopSearchQuery = ""
-    @State private var selectedCoffeeMood: CoffeeMood?
     @State private var surprisePickProductID = ""
     @State private var shopSortMode: ShopSortMode = .featured
     @State private var conciergeRequest = ""
@@ -1589,103 +1527,10 @@ struct ContentView: View {
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
-            homeMoodMatcher
             homeSurprisePick
             homeLoyaltyTeaser
             featuredProducts
         }
-    }
-
-    private var homeMoodMatcher: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(AppLocalization.text("match_your_mood", fallback: "Match your mood"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
-
-                    Text(AppLocalization.text("mood_picker_hint", fallback: "Pick a vibe and jump straight to the right shelf."))
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 12)
-
-                Image(systemName: "wand.and.stars")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xC8965A))
-                    .symbolEffect(.bounce, value: selectedCoffeeMood?.rawValue ?? "")
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(CoffeeMood.allCases) { mood in
-                        moodButton(mood)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .padding(16)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 18)
-        .padding(.bottom, 16)
-    }
-
-    private func moodButton(_ mood: CoffeeMood) -> some View {
-        let isSelected = selectedCoffeeMood == mood
-
-        return Button {
-            applyMood(mood)
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: mood.symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(isSelected ? Color(hex: 0x0A0804) : Color(hex: 0xC8965A))
-                    .symbolEffect(.bounce, value: isSelected)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(mood.title)
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.4)
-                        .textCase(.uppercase)
-
-                    Text(mood.detail)
-                        .font(bodyFont(size: 12))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
-            }
-            .frame(width: 128, height: 86, alignment: .leading)
-            .padding(12)
-            .background(isSelected ? Color(hex: 0xC8965A) : elevatedSurfaceColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isSelected ? 0 : 0.18), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .scaleEffect(isSelected ? 1.02 : 1)
-        }
-        .buttonStyle(.plain)
-        .hoverEffect(.lift)
-    }
-
-    private func applyMood(_ mood: CoffeeMood) {
-        selectedCoffeeMood = mood
-        activeCategory = "all"
-        shopSearchQuery = mood.searchQuery
-        activeTab = .shop
-        delightFeedbackTrigger += 1
-        showToast(message: String(format: AppLocalization.text("mood_applied_toast", fallback: "%@ picks are ready"), mood.title))
     }
 
     private var homeSurprisePick: some View {
