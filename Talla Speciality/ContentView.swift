@@ -384,6 +384,7 @@ struct ContentView: View {
     @State private var activeCategory = "all"
     @State private var shopSearchQuery = ""
     @State private var selectedCoffeeMood: CoffeeMood?
+    @State private var surprisePickProductID = ""
     @State private var shopSortMode: ShopSortMode = .featured
     @State private var conciergeRequest = ""
     @State private var conciergeResult: CoffeeConciergeResult?
@@ -577,6 +578,24 @@ struct ContentView: View {
         let preferredIDs = Set(preferredProducts.map(\.id))
         let fallbackProducts = products.filter { !preferredIDs.contains($0.id) }
         return Array((preferredProducts + fallbackProducts).prefix(4))
+    }
+
+    private var surprisePickProducts: [Product] {
+        products.filter { product in
+            product.isAvailableForSale && selectedVariant(for: product)?.isAvailableForSale == true
+        }
+    }
+
+    private var surprisePickProduct: Product? {
+        let availableProducts = surprisePickProducts
+        guard !availableProducts.isEmpty else { return nil }
+
+        if let selectedProduct = availableProducts.first(where: { $0.id == surprisePickProductID }) {
+            return selectedProduct
+        }
+
+        let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        return availableProducts[day % availableProducts.count]
     }
 
     private var isLightAppearance: Bool {
@@ -1571,6 +1590,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             heroSection
             homeMoodMatcher
+            homeSurprisePick
             homeLoyaltyTeaser
             featuredProducts
         }
@@ -1666,6 +1686,140 @@ struct ContentView: View {
         activeTab = .shop
         delightFeedbackTrigger += 1
         showToast(message: String(format: AppLocalization.text("mood_applied_toast", fallback: "%@ picks are ready"), mood.title))
+    }
+
+    private var homeSurprisePick: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("daily_surprise_title", fallback: "Today's fun pick"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(2.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(AppLocalization.text("daily_surprise_detail", fallback: "Tap surprise and let Talla choose something from the shelf."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                Button {
+                    refreshSurprisePick()
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(width: 42, height: 42)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("surprise_me", fallback: "Surprise me"))
+            }
+
+            if let product = surprisePickProduct {
+                HStack(alignment: .center, spacing: 14) {
+                    ProductThumbnail(imageURL: product.imageURL, size: isCompact ? 82 : 96, cornerRadius: 18)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(product.categoryLabel)
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(1.5)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+
+                        Text(product.name)
+                            .font(titleFont(size: isCompact ? 17 : 19))
+                            .foregroundColor(primaryTextColor)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(product.price)
+                            .font(labelFont(size: 12, weight: .bold))
+                            .foregroundColor(secondaryTextColor)
+
+                        HStack(spacing: 8) {
+                            Button {
+                                addToCart(product: product)
+                            } label: {
+                                Label(AppLocalization.text("add_pick_to_bag", fallback: "Add"), systemImage: "bag.badge.plus")
+                                    .font(labelFont(size: 11, weight: .bold))
+                                    .foregroundColor(Color(hex: 0x0A0804))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 9)
+                                    .background(Color(hex: 0xC8965A))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                activeCategory = product.categoryKey
+                                shopSearchQuery = ""
+                                activeTab = .shop
+                                delightFeedbackTrigger += 1
+                            } label: {
+                                Label(AppLocalization.text("see_more", fallback: "See more"), systemImage: "arrow.right")
+                                    .font(labelFont(size: 11, weight: .bold))
+                                    .foregroundColor(primaryTextColor)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 9)
+                                    .background(elevatedSurfaceColor)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            } else {
+                actionEmptyState(
+                    message: AppLocalization.text("surprise_pick_empty", fallback: "Load the shop once and Talla will pick something fun for you."),
+                    actionTitle: AppLocalization.text("browse_shop", fallback: "Browse Shop"),
+                    systemImage: "sparkles"
+                ) {
+                    activeTab = .shop
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            LinearGradient(
+                colors: isLightAppearance
+                    ? [Color(hex: 0xFFF8EF), Color(hex: 0xF0DEC5)]
+                    : [Color(hex: 0x21170F), Color(hex: 0x120D08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.2 : 0.1), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(.horizontal, 18)
+        .padding(.bottom, 16)
+    }
+
+    private func refreshSurprisePick() {
+        let availableProducts = surprisePickProducts
+        guard !availableProducts.isEmpty else {
+            activeTab = .shop
+            showToast(message: AppLocalization.text("loading_shop", fallback: "Loading the shop"))
+            return
+        }
+
+        if availableProducts.count == 1 {
+            surprisePickProductID = availableProducts[0].id
+        } else {
+            let currentID = surprisePickProduct?.id
+            let nextProduct = availableProducts.filter { $0.id != currentID }.randomElement() ?? availableProducts[0]
+            surprisePickProductID = nextProduct.id
+        }
+
+        delightFeedbackTrigger += 1
+        showToast(message: AppLocalization.text("surprise_pick_ready", fallback: "New pick ready"))
     }
 
     private var homeQuickActions: some View {
