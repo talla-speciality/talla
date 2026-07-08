@@ -267,6 +267,15 @@ struct ContentView: View {
         let createdAt: String
     }
 
+    private struct BrewJournalEntry: Codable, Identifiable {
+        let id: UUID
+        let title: String
+        let method: String
+        let rating: Int
+        let notes: String
+        let createdAt: String
+    }
+
     enum AccountAuthMode: String {
         case signIn
         case createAccount
@@ -351,6 +360,15 @@ struct ContentView: View {
     @State private var ratioCoffeeInput = "20"
     @State private var ratioValueInput = "16"
     @State private var brewRecipeName = ""
+    @State private var selectedBrewTimerName = "Pour Over"
+    @State private var selectedBrewTimerSeconds = 210
+    @State private var brewTimerRemainingSeconds = 210
+    @State private var isBrewTimerRunning = false
+    @State private var brewTimerRunID = UUID()
+    @State private var journalTitleInput = ""
+    @State private var journalMethodInput = "Pour Over"
+    @State private var journalNotesInput = ""
+    @State private var journalRating = 4
     @State private var cartSaveName = ""
     @State private var isCheckingOut = false
     @State private var checkoutError: String?
@@ -378,6 +396,7 @@ struct ContentView: View {
     @AppStorage("recentlyViewed.productIDs") private var savedRecentlyViewedProductIDs = ""
     @AppStorage("alerts.productIDs") private var savedAlertProductIDs = ""
     @AppStorage("brewRecipes.saved") private var savedBrewRecipes = ""
+    @AppStorage("brewJournal.saved") private var savedBrewJournal = ""
     @AppStorage("carts.saved") private var savedCartsPayload = ""
     @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
     @AppStorage("shortcut.destination") private var shortcutDestination = ""
@@ -810,6 +829,29 @@ struct ContentView: View {
         }
 
         return decoded
+    }
+
+    private var brewJournalEntries: [BrewJournalEntry] {
+        guard let data = savedBrewJournal.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([BrewJournalEntry].self, from: data) else {
+            return []
+        }
+
+        return decoded
+    }
+
+    private var passportCategoryKeys: [String] {
+        ["coffee-beans", "arabic-coffee-beans", "drip-bags", "cups", "desserts", "coffee-equipment", "gifts"]
+    }
+
+    private var stampedPassportCategoryKeys: Set<String> {
+        let touchedProducts = favoriteProducts + recentlyViewedProducts + orderedProducts + cartItems.map(\.product)
+        return Set(touchedProducts.map(\.categoryKey)).intersection(passportCategoryKeys)
+    }
+
+    private var passportProgressFraction: Double {
+        guard !passportCategoryKeys.isEmpty else { return 0 }
+        return min(Double(stampedPassportCategoryKeys.count) / Double(passportCategoryKeys.count), 1)
     }
 
     private var savedCarts: [SavedCart] {
@@ -1528,7 +1570,9 @@ struct ContentView: View {
         VStack(spacing: 0) {
             heroSection
             homeSurprisePick
+            homeFavoritesShelf
             homeLoyaltyTeaser
+            tallaPassportSection
             featuredProducts
         }
     }
@@ -1665,6 +1709,176 @@ struct ContentView: View {
 
         delightFeedbackTrigger += 1
         showToast(message: AppLocalization.text("surprise_pick_ready", fallback: "New pick ready"))
+    }
+
+    private var homeFavoritesShelf: some View {
+        let shelfProducts = Array((favoriteProducts + recentlyViewedProducts + recommendedProducts).uniquedByID().prefix(6))
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("favorites_shelf", fallback: "Your shelf"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(2.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(AppLocalization.text("favorites_shelf_detail", fallback: "Favorites, recent picks, and useful returns in one place."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                Button {
+                    isShoppingSectionExpanded = true
+                    accountScrollTarget = AccountSectionView.ScrollTarget.shopping
+                    activeTab = .account
+                } label: {
+                    Image(systemName: "books.vertical.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(width: 38, height: 38)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("open_favorites_shelf", fallback: "Open favorites shelf"))
+            }
+
+            if shelfProducts.isEmpty {
+                actionEmptyState(
+                    message: AppLocalization.text("favorites_shelf_empty", fallback: "Save or open a few products and your shelf will start filling up."),
+                    actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
+                    systemImage: "heart.fill"
+                ) {
+                    activeTab = .shop
+                }
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(shelfProducts) { product in
+                            Button {
+                                recordRecentlyViewed(product)
+                                selectedProduct = product
+                            } label: {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ProductThumbnail(imageURL: product.imageURL, size: 74, cornerRadius: 16)
+
+                                    Text(product.name)
+                                        .font(titleFont(size: 15))
+                                        .foregroundColor(primaryTextColor)
+                                        .lineLimit(2)
+                                        .frame(width: 116, alignment: .leading)
+
+                                    Text(product.price)
+                                        .font(labelFont(size: 10, weight: .bold))
+                                        .foregroundColor(Color(hex: 0xC8965A))
+                                }
+                                .padding(12)
+                                .frame(width: 140, alignment: .leading)
+                                .background(cardFillColor)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+    }
+
+    private var tallaPassportSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "seal.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 38, height: 38)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("talla_passport", fallback: "Talla Passport"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(2.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(String(format: AppLocalization.text("talla_passport_detail", fallback: "%d of %d shelves stamped through favorites, views, orders, or your bag."), stampedPassportCategoryKeys.count, passportCategoryKeys.count))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.10))
+
+                    Capsule(style: .continuous)
+                        .fill(LinearGradient(colors: [Color(hex: 0xC8965A), Color(hex: 0x6F8B55)], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: max(proxy.size.width * passportProgressFraction, stampedPassportCategoryKeys.isEmpty ? 0 : 12))
+                        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: stampedPassportCategoryKeys.count)
+                }
+            }
+            .frame(height: 10)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
+                ForEach(passportCategoryKeys, id: \.self) { key in
+                    passportStampButton(for: key)
+                }
+            }
+        }
+        .padding(18)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(.horizontal, 18)
+        .padding(.bottom, 20)
+    }
+
+    private func passportStampButton(for key: String) -> some View {
+        let isStamped = stampedPassportCategoryKeys.contains(key)
+
+        return Button {
+            activeCategory = key
+            shopSearchQuery = ""
+            activeTab = .shop
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isStamped ? "checkmark.seal.fill" : categoryDefinition(for: key).symbol)
+                    .font(.system(size: 13, weight: .bold))
+
+                Text(categoryLabel(for: key))
+                    .font(labelFont(size: 9, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .foregroundColor(isStamped ? Color(hex: 0x0A0804) : primaryTextColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isStamped ? Color(hex: 0xC8965A) : elevatedSurfaceColor)
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isStamped ? 0 : 0.18), lineWidth: 1)
+            )
+            .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var homeQuickActions: some View {
@@ -1812,6 +2026,7 @@ struct ContentView: View {
                                         )
                                     )
                                     .frame(width: max(proxy.size.width * rewardProgressState.fraction, 10))
+                                    .animation(.spring(response: 0.48, dampingFraction: 0.78), value: rewardProgressState.fraction)
                             }
                         }
                         .frame(height: 8)
@@ -2613,10 +2828,275 @@ struct ContentView: View {
             openArticleAction: { url in
                 articleSession = CheckoutSession(url: url)
             },
+            brewTimerSection: AnyView(brewTimerSection),
+            coffeeJournalSection: AnyView(coffeeJournalSection),
             loadingView: AnyView(loadingSection)
         )
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
+    }
+
+    private var brewTimerPresets: [(name: String, seconds: Int, symbol: String)] {
+        [
+            ("Pour Over", 210, "drop.fill"),
+            ("French Press", 240, "cup.and.saucer.fill"),
+            ("Arabic Coffee", 480, "flame.fill"),
+            ("Cold Brew", 43_200, "snowflake")
+        ]
+    }
+
+    private var brewTimerSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "timer")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 38, height: 38)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("brew_timer", fallback: "Brew Timer"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(2.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(AppLocalization.text("brew_timer_detail", fallback: "Start a focused timer for the brew you are making now."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Text(formattedTimerTime(brewTimerRemainingSeconds))
+                .font(displayFont(size: isCompact ? 42 : 52))
+                .monospacedDigit()
+                .foregroundColor(primaryTextColor)
+                .contentTransition(.numericText())
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.10))
+
+                    Capsule(style: .continuous)
+                        .fill(Color(hex: 0xC8965A))
+                        .frame(width: max(proxy.size.width * brewTimerFraction, isBrewTimerRunning ? 10 : 0))
+                        .animation(.linear(duration: 0.2), value: brewTimerRemainingSeconds)
+                }
+            }
+            .frame(height: 9)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], spacing: 8) {
+                ForEach(brewTimerPresets, id: \.name) { preset in
+                    brewTimerPresetButton(preset)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    if isBrewTimerRunning {
+                        isBrewTimerRunning = false
+                    } else {
+                        startBrewTimer()
+                    }
+                } label: {
+                    Label(isBrewTimerRunning ? AppLocalization.text("pause", fallback: "Pause") : AppLocalization.text("start", fallback: "Start"), systemImage: isBrewTimerRunning ? "pause.fill" : "play.fill")
+                        .font(labelFont(size: 11, weight: .bold))
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(brewTimerRemainingSeconds == 0)
+
+                Button {
+                    resetBrewTimer()
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 44, height: 44)
+                        .background(cardFillColor)
+                        .overlay(
+                            Circle()
+                                .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("reset_timer", fallback: "Reset timer"))
+            }
+        }
+        .padding(18)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private var coffeeJournalSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "book.pages.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .frame(width: 38, height: 38)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("coffee_journal", fallback: "Coffee Journal"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(2.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(AppLocalization.text("coffee_journal_detail", fallback: "Save what worked: method, rating, and a note for your next cup."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            TextField(AppLocalization.text("journal_title", fallback: "Coffee or recipe name"), text: $journalTitleInput)
+                .textInputAutocapitalization(.words)
+                .font(bodyFont(size: 14))
+                .foregroundColor(primaryTextColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(elevatedSurfaceColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            HStack(spacing: 10) {
+                TextField(AppLocalization.text("method", fallback: "Method"), text: $journalMethodInput)
+                    .textInputAutocapitalization(.words)
+                    .font(bodyFont(size: 14))
+                    .foregroundColor(primaryTextColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(elevatedSurfaceColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Stepper(value: $journalRating, in: 1...5) {
+                    Label("\(journalRating)/5", systemImage: "star.fill")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: 0xC8965A))
+                }
+                .frame(maxWidth: 138)
+            }
+
+            TextField(AppLocalization.text("tasting_notes", fallback: "Tasting notes"), text: $journalNotesInput, axis: .vertical)
+                .lineLimit(2...4)
+                .textInputAutocapitalization(.sentences)
+                .font(bodyFont(size: 14))
+                .foregroundColor(primaryTextColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(elevatedSurfaceColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            Button {
+                saveCoffeeJournalEntry()
+            } label: {
+                Text(AppLocalization.text("save_journal_entry", fallback: "Save Journal Entry"))
+                    .font(labelFont(size: 11, weight: .bold))
+                    .tracking(1.8)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+
+            if !brewJournalEntries.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(AppLocalization.text("recent_notes", fallback: "Recent Notes"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    ForEach(brewJournalEntries.prefix(3)) { entry in
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(entry.title)
+                                    .font(titleFont(size: 17))
+                                    .foregroundColor(primaryTextColor)
+
+                                Text("\(entry.method) • \(entry.rating)/5")
+                                    .font(labelFont(size: 10, weight: .bold))
+                                    .tracking(1.2)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(Color(hex: 0xC8965A))
+
+                                if !entry.notes.isEmpty {
+                                    Text(entry.notes)
+                                        .font(bodyFont(size: 13))
+                                        .foregroundColor(secondaryTextColor)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+
+                            Spacer(minLength: 0)
+
+                            Button {
+                                deleteCoffeeJournalEntry(entry)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(primaryTextColor)
+                                    .frame(width: 32, height: 32)
+                                    .background(cardFillColor)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(14)
+                        .background(elevatedSurfaceColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func brewTimerPresetButton(_ preset: (name: String, seconds: Int, symbol: String)) -> some View {
+        let isSelected = selectedBrewTimerName == preset.name
+
+        return Button {
+            selectedBrewTimerName = preset.name
+            selectedBrewTimerSeconds = preset.seconds
+            brewTimerRemainingSeconds = preset.seconds
+            isBrewTimerRunning = false
+            journalMethodInput = preset.name
+        } label: {
+            Label(preset.name, systemImage: preset.symbol)
+                .font(labelFont(size: 10, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(isSelected ? Color(hex: 0xC8965A) : elevatedSurfaceColor)
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var accountView: some View {
@@ -5774,6 +6254,101 @@ struct ContentView: View {
         savedBrewRecipes = json
     }
 
+    private var brewTimerFraction: Double {
+        guard selectedBrewTimerSeconds > 0 else { return 0 }
+        return min(max(Double(brewTimerRemainingSeconds) / Double(selectedBrewTimerSeconds), 0), 1)
+    }
+
+    private func tickBrewTimer() {
+        guard isBrewTimerRunning else { return }
+        guard brewTimerRemainingSeconds > 0 else {
+            isBrewTimerRunning = false
+            return
+        }
+
+        brewTimerRemainingSeconds -= 1
+
+        if brewTimerRemainingSeconds == 0 {
+            isBrewTimerRunning = false
+            delightFeedbackTrigger += 1
+            showToast(message: AppLocalization.text("brew_timer_done", fallback: "Brew timer done"))
+        }
+    }
+
+    private func startBrewTimer() {
+        guard brewTimerRemainingSeconds > 0 else { return }
+
+        let runID = UUID()
+        brewTimerRunID = runID
+        isBrewTimerRunning = true
+        delightFeedbackTrigger += 1
+
+        Task { @MainActor in
+            while isBrewTimerRunning && brewTimerRunID == runID && brewTimerRemainingSeconds > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                guard isBrewTimerRunning, brewTimerRunID == runID else { return }
+                tickBrewTimer()
+            }
+        }
+    }
+
+    private func resetBrewTimer() {
+        brewTimerRunID = UUID()
+        brewTimerRemainingSeconds = selectedBrewTimerSeconds
+        isBrewTimerRunning = false
+    }
+
+    private func formattedTimerTime(_ seconds: Int) -> String {
+        let hours = seconds / 3_600
+        let minutes = (seconds % 3_600) / 60
+        let remainingSeconds = seconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, remainingSeconds)
+        }
+
+        return String(format: "%d:%02d", minutes, remainingSeconds)
+    }
+
+    private func persistCoffeeJournalEntries(_ entries: [BrewJournalEntry]) {
+        guard let data = try? JSONEncoder().encode(entries),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        savedBrewJournal = json
+    }
+
+    private func saveCoffeeJournalEntry() {
+        let title = journalTitleInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let method = journalMethodInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notes = journalNotesInput.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !title.isEmpty || !notes.isEmpty else {
+            showToast(message: AppLocalization.text("journal_needs_note", fallback: "Add a coffee name or note first"))
+            return
+        }
+
+        let entry = BrewJournalEntry(
+            id: UUID(),
+            title: title.isEmpty ? defaultBrewRecipeName() : title,
+            method: method.isEmpty ? selectedBrewTimerName : method,
+            rating: journalRating,
+            notes: notes,
+            createdAt: ISO8601DateFormatter().string(from: Date())
+        )
+
+        persistCoffeeJournalEntries(Array(([entry] + brewJournalEntries).prefix(20)))
+        journalTitleInput = ""
+        journalNotesInput = ""
+        showToast(message: AppLocalization.text("journal_saved_toast", fallback: "Coffee note saved"))
+    }
+
+    private func deleteCoffeeJournalEntry(_ entry: BrewJournalEntry) {
+        persistCoffeeJournalEntries(brewJournalEntries.filter { $0.id != entry.id })
+        showToast(message: AppLocalization.text("journal_deleted_toast", fallback: "Coffee note deleted"))
+    }
+
     private func saveCurrentBrewRecipe() {
         guard ratioCoffeeAmount > 0, ratioValue > 0 else {
             showToast(message: AppLocalization.text("enter_valid_brew_recipe", fallback: "Enter a valid brew recipe first"))
@@ -8455,6 +9030,15 @@ extension Color {
         let green = Double((hex >> 8) & 0xFF) / 255.0
         let blue = Double(hex & 0xFF) / 255.0
         self.init(red: red, green: green, blue: blue)
+    }
+}
+
+private extension Array where Element: Identifiable {
+    func uniquedByID() -> [Element] where Element.ID: Hashable {
+        var seenIDs = Set<Element.ID>()
+        return filter { element in
+            seenIDs.insert(element.id).inserted
+        }
     }
 }
 

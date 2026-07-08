@@ -26,6 +26,8 @@ struct BrewingSectionView: View {
     let labelFont: Font
     let saveRecipeAction: () -> Void
     let openArticleAction: (URL) -> Void
+    let brewTimerSection: AnyView
+    let coffeeJournalSection: AnyView
     let loadingView: AnyView
 
     var body: some View {
@@ -53,6 +55,8 @@ struct BrewingSectionView: View {
                 loadingView
             } else {
                 goldenRatioSection
+                brewTimerSection
+                coffeeJournalSection
                 brewingCategoriesSection
 
                 LazyVGrid(columns: gridColumns, spacing: 16) {

@@ -247,6 +247,7 @@ struct LoyaltySectionView: View {
                     Capsule()
                         .fill(accentColor)
                         .frame(width: max(geometry.size.width * fraction, 12))
+                        .animation(.spring(response: 0.48, dampingFraction: 0.78), value: fraction)
                 }
             }
             .frame(height: 10)
