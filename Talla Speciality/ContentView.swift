@@ -2737,7 +2737,7 @@ struct ContentView: View {
     private func conciergePromptChip(_ title: String) -> some View {
         Button {
             conciergeRequest = title
-            Task { await runCoffeeConcierge() }
+            Task { await runCoffeeConcierge(requestOverride: title) }
         } label: {
             Text(title)
                 .font(labelFont(size: 10, weight: .bold))
@@ -2778,7 +2778,7 @@ struct ContentView: View {
 #endif
 
     @MainActor
-    private func runCoffeeConcierge() async {
+    private func runCoffeeConcierge(requestOverride: String? = nil) async {
         guard !isRunningConcierge else { return }
         guard !products.isEmpty else {
             showToast(message: AppLocalization.text("loading_shop", fallback: "Loading the shop"))
@@ -2786,12 +2786,14 @@ struct ContentView: View {
         }
 
         isRunningConcierge = true
+        let request = requestOverride ?? conciergeRequest
         let result = await CoffeeConciergeService.recommend(
-            request: conciergeRequest,
+            request: request,
             products: products,
             localeIdentifier: appLanguage.localeIdentifier,
             imageData: conciergeImageData
         )
+        conciergeRequest = request
         conciergeResult = result
         delightFeedbackTrigger += 1
         isRunningConcierge = false
@@ -3538,6 +3540,28 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            if !savedPushDeviceToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button {
+                    copyPushDeviceToken()
+                } label: {
+                    Label(AppLocalization.text("copy_device_token", fallback: "Copy Device Token"), systemImage: "doc.on.doc.fill")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(elevatedSurfaceColor)
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(AppLocalization.text("copy_device_token_hint", fallback: "Copies the APNs token for Apple's Push Notifications Console."))
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -3551,19 +3575,19 @@ struct ContentView: View {
 
     private var broadcastNotificationStatusCard: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "dot.radiowaves.left.and.right")
+            Image(systemName: "paperplane.fill")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(Color(hex: 0xC8965A))
                 .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(AppLocalization.text("broadcast_push_title", fallback: "Broadcast Push"))
+                Text(AppLocalization.text("customer_push_title", fallback: "Customer Push Notifications"))
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(1.4)
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0xC8965A))
 
-                Text(AppLocalization.text("broadcast_push_detail", fallback: "Apple broadcast channels are for Live Activity updates only. Use device-token pushes for regular customer alerts."))
+                Text(AppLocalization.text("customer_push_detail", fallback: "Customer notifications use saved APNs device tokens. Your backend can send campaigns to every token that has granted notification permission."))
                     .font(bodyFont(size: 13))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -6626,10 +6650,23 @@ struct ContentView: View {
 #endif
     }
 
+    private func copyPushDeviceToken() {
+        let token = savedPushDeviceToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else {
+            showToast(message: AppLocalization.text("push_token_waiting", fallback: "No APNs device token yet. Enable notifications on a real device to create one."))
+            return
+        }
+
+#if canImport(UIKit)
+        UIPasteboard.general.string = token
+        showToast(message: AppLocalization.text("device_token_copied", fallback: "Device token copied"))
+#else
+        showToast(message: token)
+#endif
+    }
+
     @MainActor
     private func syncRemotePushTokenIfPossible() async {
-        guard let profile = customerProfile else { return }
-
         let normalizedToken = savedPushDeviceToken
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -6640,13 +6677,18 @@ struct ContentView: View {
             || status == UNAuthorizationStatus.provisional.rawValue
         guard notificationsEnabled else { return }
 
-        if savedRegisteredPushDeviceEmail == profile.email && savedRegisteredPushDeviceToken == normalizedToken {
+        let email = (customerProfile?.email ?? savedCustomerEmail)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !email.isEmpty else { return }
+
+        if savedRegisteredPushDeviceEmail == email && savedRegisteredPushDeviceToken == normalizedToken {
             return
         }
 
         do {
-            try await AccountService.registerPushDeviceToken(email: profile.email, deviceToken: normalizedToken)
-            savedRegisteredPushDeviceEmail = profile.email
+            try await AccountService.registerPushDeviceToken(email: email, deviceToken: normalizedToken)
+            savedRegisteredPushDeviceEmail = email
             savedRegisteredPushDeviceToken = normalizedToken
         } catch {
             return

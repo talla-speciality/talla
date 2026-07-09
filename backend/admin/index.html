@@ -600,6 +600,20 @@
             </div>
         </section>
 
+        <section class="panel" style="margin-bottom: 20px;">
+            <h2>Customer Push</h2>
+            <div class="subcopy" style="margin-bottom: 14px;">Send a normal APNs notification to every saved iOS device token that has granted notification permission.</div>
+            <div class="grid">
+                <input id="customer-push-title" type="text" maxlength="120" placeholder="Notification title">
+                <input id="customer-push-url" type="text" placeholder="Optional app link, e.g. talla://shop">
+            </div>
+            <textarea id="customer-push-body" style="width:100%; min-height: 96px; margin-top: 12px; resize: vertical;" maxlength="220" placeholder="Notification message"></textarea>
+            <div class="toolbar-row" style="padding: 14px 0 0;">
+                <button id="send-customer-push" class="secondary">Send To All Devices</button>
+                <div class="muted">Only devices with saved APNs tokens can receive this.</div>
+            </div>
+        </section>
+
         <details class="panel" open style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Operations Snapshot</h2>
@@ -768,6 +782,10 @@
         const eidOfferEndsAtInput = document.getElementById("eid-offer-ends-at");
         const saveEidCampaignButton = document.getElementById("save-eid-campaign");
         const eidCampaignStatusEl = document.getElementById("eid-campaign-status");
+        const customerPushTitleInput = document.getElementById("customer-push-title");
+        const customerPushBodyInput = document.getElementById("customer-push-body");
+        const customerPushURLInput = document.getElementById("customer-push-url");
+        const sendCustomerPushButton = document.getElementById("send-customer-push");
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
         const productsEl = document.getElementById("products");
@@ -1281,6 +1299,37 @@
                 setStatus(error.message, "error");
             } finally {
                 setButtonBusy(sendEidPushButton, false, "Send Eid Push");
+            }
+        }
+
+        async function sendCustomerPush() {
+            const title = customerPushTitleInput.value.trim();
+            const body = customerPushBodyInput.value.trim();
+            const url = customerPushURLInput.value.trim();
+
+            if (!title || !body) {
+                setStatus("Add a notification title and message first.", "error");
+                return;
+            }
+
+            setStatus("Sending customer push notification...", "info");
+            setButtonBusy(sendCustomerPushButton, true, "Send To All Devices", "Sending...");
+            try {
+                const response = await fetch("/admin/api/notifications/push/send-all", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title, body, url })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Customer push failed.");
+
+                setStatus(payload.configured
+                    ? `Customer push sent to ${payload.sentCount}/${payload.targetCount} devices.`
+                    : "APNs is not configured, so no push notifications were sent.", "success");
+            } catch (error) {
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(sendCustomerPushButton, false, "Send To All Devices");
             }
         }
 
@@ -2475,6 +2524,7 @@
         applyEidVoucherPresetButton.addEventListener("click", applyEidVoucherPreset);
         bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
         sendEidPushButton.addEventListener("click", sendEidPush);
+        sendCustomerPushButton.addEventListener("click", sendCustomerPush);
         exportCustomersButton.addEventListener("click", exportCustomers);
         allOrdersEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-admin-order-status");

@@ -3691,7 +3691,8 @@ async function sendRemotePushToDevice(deviceToken, notification) {
                 sound: "default"
             },
             type: notification.type || "stock_alert",
-            productID: notification.productID || null
+            productID: notification.productID || null,
+            url: notification.url || null
         });
 
         client.on("error", () => {
@@ -3789,7 +3790,7 @@ async function sendOrderReadyPush(email, order) {
     };
 }
 
-async function sendCampaignPushToAll({ title, body, type = "campaign" }) {
+async function sendCampaignPushToAll({ title, body, type = "campaign", url = null }) {
     if (!remotePushConfigured()) {
         return { configured: false, targetCount: 0, sentCount: 0 };
     }
@@ -3800,7 +3801,8 @@ async function sendCampaignPushToAll({ title, body, type = "campaign" }) {
         const didSend = await sendRemotePushToDevice(device.deviceToken, {
             title,
             body,
-            type
+            type,
+            url
         });
         if (didSend) {
             sentCount += 1;
@@ -5783,6 +5785,52 @@ const server = http.createServer(async (request, response) => {
                 sendJSON(response, 200, result);
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Eid push campaign failed." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/notifications/push/send-all") {
+            try {
+                const body = await readBody(request);
+                const title = String(body.title || "").trim();
+                const message = String(body.body || "").trim();
+                const deepLinkURL = String(body.url || "").trim();
+
+                if (!title || !message) {
+                    sendJSON(response, 400, { error: "Provide a notification title and message." });
+                    return;
+                }
+
+                if (title.length > 120 || message.length > 220) {
+                    sendJSON(response, 400, { error: "Keep the title under 120 characters and message under 220 characters." });
+                    return;
+                }
+
+                const result = await sendCampaignPushToAll({
+                    title,
+                    body: message,
+                    type: "customer_campaign",
+                    url: deepLinkURL || null
+                });
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "customer_push_sent",
+                    targetEmail: null,
+                    detail: `Sent customer push campaign to ${result.sentCount}/${result.targetCount} devices`,
+                    metadata: {
+                        title,
+                        message,
+                        url: deepLinkURL || null,
+                        configured: result.configured,
+                        targetCount: result.targetCount,
+                        sentCount: result.sentCount
+                    }
+                });
+
+                sendJSON(response, 200, result);
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Customer push campaign failed." });
             }
             return;
         }
