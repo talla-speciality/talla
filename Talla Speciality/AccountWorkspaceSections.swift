@@ -213,6 +213,8 @@ struct OrderHistorySectionView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
+                        orderProgressRow(status: order.status)
+
                         if order.beansAwarded == true, let pointsAwarded = order.pointsAwarded, pointsAwarded > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "sparkles")
@@ -253,6 +255,62 @@ struct OrderHistorySectionView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
             }
+        }
+    }
+
+    private func orderProgressRow(status: String) -> some View {
+        let currentIndex = orderStatusStepIndex(status)
+        let steps = orderStatusSteps
+
+        return HStack(spacing: 0) {
+            ForEach(Array(steps.enumerated()), id: \.element.key) { index, step in
+                VStack(spacing: 6) {
+                    Circle()
+                        .fill(index <= currentIndex ? accentColor : secondaryTextColor.opacity(0.24))
+                        .frame(width: 10, height: 10)
+
+                    Text(step.title)
+                        .font(Font.custom("AvenirNext-DemiBold", size: 9))
+                        .foregroundColor(index <= currentIndex ? primaryTextColor : tertiaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .frame(maxWidth: .infinity)
+
+                if index < steps.count - 1 {
+                    Rectangle()
+                        .fill(index < currentIndex ? accentColor : secondaryTextColor.opacity(0.18))
+                        .frame(height: 2)
+                        .offset(y: -10)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityLabel(AppLocalization.text("order_status_progress", fallback: "Order status progress"))
+        .accessibilityValue(orderStatusTitle(status))
+    }
+
+    private var orderStatusSteps: [(key: String, title: String)] {
+        [
+            ("pending", AppLocalization.text("order_step_received", fallback: "Received")),
+            ("preparing", AppLocalization.text("order_step_preparing", fallback: "Preparing")),
+            ("ready", AppLocalization.text("order_step_ready", fallback: "Ready")),
+            ("completed", AppLocalization.text("order_step_completed", fallback: "Completed"))
+        ]
+    }
+
+    private func orderStatusStepIndex(_ status: String) -> Int {
+        switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "confirmed", "preparing":
+            return 1
+        case "ready":
+            return 2
+        case "completed", "fulfilled":
+            return 3
+        case "cancelled", "canceled":
+            return 0
+        default:
+            return 0
         }
     }
 

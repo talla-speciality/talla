@@ -1063,6 +1063,19 @@
             }
         }
 
+        function orderUpdateStatusMessage(orderTitle, fallbackID, push) {
+            const baseMessage = `Updated ${orderTitle || fallbackID}.`;
+            if (!push) {
+                return baseMessage;
+            }
+
+            if (push.configured === false) {
+                return `${baseMessage} Ready push is not configured.`;
+            }
+
+            return `${baseMessage} Ready notification sent to ${push.sentCount || 0}/${push.targetCount || 0} devices.`;
+        }
+
         async function updateAdminOrderStatus(orderID) {
             const orderEl = allOrdersEl.querySelector(`[data-admin-order-id="${CSS.escape(orderID)}"]`);
             const status = orderEl?.querySelector(".admin-order-status-input")?.value;
@@ -1083,7 +1096,7 @@
                 state.adminOrders = payload.orders || await fetchAdminOrders();
                 renderAllOrders();
                 if (state.currentEmail) await loadCustomer(state.currentEmail);
-                setStatus(`Updated ${payload.order?.title || orderID}.`, "success");
+                setStatus(orderUpdateStatusMessage(payload.order?.title, orderID, payload.push), "success");
             } catch (error) {
                 setStatus(error.message, true);
             }
@@ -2525,7 +2538,7 @@
                 const payload = await response.json();
                 if (!response.ok) throw new Error(payload.error || "Order update failed.");
                 await lookupCustomer();
-                setStatus(`Updated ${payload.order.title}`);
+                setStatus(orderUpdateStatusMessage(payload.order?.title, orderID, payload.push), "success");
             } catch (error) {
                 setStatus(error.message, true);
             }

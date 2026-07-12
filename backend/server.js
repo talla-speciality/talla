@@ -2328,6 +2328,20 @@ function completedOrderStatuses() {
     return new Set(["Completed", "Fulfilled"]);
 }
 
+function allowedOrderStatuses() {
+    return new Set(["Pending", "Confirmed", "Preparing", "Ready", "Completed", "Fulfilled", "Cancelled"]);
+}
+
+function normalizeOrderStatus(status) {
+    const rawStatus = String(status || "").trim();
+    if (!rawStatus) {
+        return "";
+    }
+
+    const normalizedStatus = rawStatus.toLowerCase();
+    return Array.from(allowedOrderStatuses()).find((entry) => entry.toLowerCase() === normalizedStatus) || "";
+}
+
 function loyaltyTransactionIDForOrder(order) {
     return `txn_${order.id}`;
 }
@@ -2821,7 +2835,12 @@ async function updateOrderStatusRecord(email, orderID, status) {
 }
 
 async function updateOrderStatusAndAward(email, orderID, status) {
-    const updatedOrder = await updateOrderStatusRecord(email, orderID, status);
+    const normalizedStatus = normalizeOrderStatus(status);
+    if (!normalizedStatus) {
+        return null;
+    }
+
+    const updatedOrder = await updateOrderStatusRecord(email, orderID, normalizedStatus);
     if (!updatedOrder) {
         return null;
     }
@@ -2835,7 +2854,10 @@ async function updateOrderStatusAndAward(email, orderID, status) {
         await awardOrderBeans(orderWithEmail);
     }
 
-    return orderPayloadWithRewardState(email, updatedOrder);
+    return {
+        ...(await orderPayloadWithRewardState(email, updatedOrder)),
+        email
+    };
 }
 
 function rewardDetailsFor(reward) {
@@ -3834,6 +3856,14 @@ async function sendOrderReadyPush(email, order) {
         targetCount: devices.length,
         sentCount
     };
+}
+
+async function sendOrderReadyPushIfNeeded(status, order) {
+    if (normalizeOrderStatus(status) !== "Ready" || !order?.email) {
+        return null;
+    }
+
+    return sendOrderReadyPush(order.email, order);
 }
 
 async function sendCampaignPushToAll({ title, body, type = "campaign", url = null }) {
@@ -4861,10 +4891,10 @@ const server = http.createServer(async (request, response) => {
         try {
             const body = await readBody(request);
             const orderID = String(body.orderID || body.id || "").trim();
-            const status = String(body.status || "").trim();
+            const status = normalizeOrderStatus(body.status);
 
             if (!orderID || !status) {
-                sendJSON(response, 400, { error: "Provide an orderID and status." });
+                sendJSON(response, 400, { error: "Provide an orderID and valid status." });
                 return;
             }
 
@@ -4885,7 +4915,8 @@ const server = http.createServer(async (request, response) => {
                 }
             });
 
-            sendJSON(response, 200, await allOrdersPayload());
+            const pushResult = await sendOrderReadyPushIfNeeded(status, order);
+            sendJSON(response, 200, { orders: await allOrdersPayload(), push: pushResult });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid order update payload." });
         }
@@ -5075,10 +5106,10 @@ const server = http.createServer(async (request, response) => {
             try {
                 const body = await readBody(request);
                 const orderID = String(body.orderID || body.id || "").trim();
-                const status = String(body.status || "").trim();
+                const status = normalizeOrderStatus(body.status);
 
                 if (!orderID || !status) {
-                    sendJSON(response, 400, { error: "Provide an orderID and status." });
+                    sendJSON(response, 400, { error: "Provide an orderID and valid status." });
                     return;
                 }
 
@@ -5098,7 +5129,8 @@ const server = http.createServer(async (request, response) => {
                         status
                     }
                 });
-                sendJSON(response, 200, { order, orders: await allOrdersPayload() });
+                const pushResult = await sendOrderReadyPushIfNeeded(status, order);
+                sendJSON(response, 200, { order, orders: await allOrdersPayload(), push: pushResult });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid order update payload." });
             }
@@ -5763,10 +5795,10 @@ const server = http.createServer(async (request, response) => {
                 const body = await readBody(request);
                 const email = normalizeEmail(body.email);
                 const orderID = String(body.id || "").trim();
-                const status = String(body.status || "").trim();
+                const status = normalizeOrderStatus(body.status);
 
                 if (!email || !orderID || !status) {
-                    sendJSON(response, 400, { error: "Provide an email, order, and status." });
+                    sendJSON(response, 400, { error: "Provide an email, order, and valid status." });
                     return;
                 }
 
@@ -5786,7 +5818,8 @@ const server = http.createServer(async (request, response) => {
                         status
                     }
                 });
-                sendJSON(response, 200, { order });
+                const pushResult = await sendOrderReadyPushIfNeeded(status, order);
+                sendJSON(response, 200, { order, push: pushResult });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid order update payload." });
             }
