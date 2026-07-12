@@ -4994,6 +4994,10 @@ struct ContentView: View {
             badges.append(AppLocalization.text("back_soon", fallback: "Back soon"))
         } else if normalizedTag.contains("new") {
             badges.append(AppLocalization.text("new", fallback: "New"))
+        } else if normalizedTag.contains("limited") {
+            badges.append(AppLocalization.text("limited", fallback: "Limited"))
+        } else if normalizedTag.contains("staff") {
+            badges.append(AppLocalization.text("staff_pick", fallback: "Staff Pick"))
         } else if normalizedTag.contains("popular") || normalizedTag.contains("best") {
             badges.append(AppLocalization.text("popular", fallback: "Popular"))
         }
@@ -9074,9 +9078,10 @@ enum ProductCatalogRules {
     }
 
     static func productTag(from tags: [String]) -> String? {
-        let preferred = ["BESTSELLER", "NEW", "LOCAL", "PREMIUM", "GIFT"]
+        let preferred = ["STAFF PICK", "BESTSELLER", "LIMITED", "NEW", "LOCAL", "PREMIUM", "GIFT"]
         let uppercased = tags.map { $0.uppercased() }
-        return preferred.first(where: uppercased.contains)
+        guard let tag = preferred.first(where: uppercased.contains) else { return nil }
+        return tag == "BESTSELLER" ? "BEST SELLER" : tag
     }
 
     private static func containsAny(_ source: String, _ needles: [String]) -> Bool {

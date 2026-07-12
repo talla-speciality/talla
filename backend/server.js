@@ -74,6 +74,7 @@ const approvedProductTypes = new Set([
     "Coffee Equipment",
     "Gifts"
 ]);
+const managedProductBadgeTags = ["NEW", "LIMITED", "STAFF PICK", "BESTSELLER"];
 const walletPassTemplateDirectory = config.walletPassTemplateDirectory;
 const walletPassCertificatePath = config.walletPassCertificatePath;
 const walletPassCertificateBase64 = config.walletPassCertificateBase64;
@@ -545,6 +546,8 @@ function shopifyAdminProductPayload(node) {
         descriptionHTML: node.descriptionHtml || "",
         status: node.status,
         productType: node.productType || "",
+        tags: Array.isArray(node.tags) ? node.tags : [],
+        badge: productBadgeFromTags(node.tags || ""),
         onlineStoreURL: node.onlineStoreUrl || null,
         imageID: firstImage?.id || null,
         imageURL: firstImage?.image?.url || "",
@@ -561,6 +564,29 @@ function shopifyAdminProductPayload(node) {
     };
 }
 
+function productBadgeFromTags(tags = []) {
+    const uppercasedTags = new Set((Array.isArray(tags) ? tags : []).map((tag) => String(tag || "").trim().toUpperCase()));
+    return managedProductBadgeTags.find((tag) => uppercasedTags.has(tag)) || "";
+}
+
+function nextProductTags(existingTags = [], badge = "") {
+    const normalizedBadge = String(badge || "").trim().toUpperCase();
+    if (normalizedBadge && !managedProductBadgeTags.includes(normalizedBadge)) {
+        throw new Error("Choose one of the approved product badges.");
+    }
+
+    const nextTags = (Array.isArray(existingTags) ? existingTags : [])
+        .map((tag) => String(tag || "").trim())
+        .filter(Boolean)
+        .filter((tag) => !managedProductBadgeTags.includes(tag.toUpperCase()));
+
+    if (normalizedBadge) {
+        nextTags.push(normalizedBadge);
+    }
+
+    return Array.from(new Set(nextTags));
+}
+
 async function listShopifyAdminProducts(first = 250) {
     const limit = Math.min(Math.max(Number(first) || 250, 1), 250);
     const data = await shopifyAdminGraphQLRequest(
@@ -573,6 +599,7 @@ async function listShopifyAdminProducts(first = 250) {
                         descriptionHtml
                         status
                         productType
+                        tags
                         onlineStoreUrl
                         media(first: 6) {
                             nodes {
@@ -733,8 +760,8 @@ async function createShopifyAdminProduct({ title, price, productType }) {
     };
 }
 
-async function updateShopifyAdminProduct({ productID, title, productType, descriptionHTML, status, defaultVariantID, price }) {
-    if (title || productType !== undefined || descriptionHTML !== undefined || status !== undefined) {
+async function updateShopifyAdminProduct({ productID, title, productType, descriptionHTML, status, tags, defaultVariantID, price }) {
+    if (title || productType !== undefined || descriptionHTML !== undefined || status !== undefined || tags !== undefined) {
         const productUpdateData = await shopifyAdminGraphQLRequest(
             `mutation UpdateProduct($product: ProductUpdateInput!) {
                 productUpdate(product: $product) {
@@ -753,7 +780,8 @@ async function updateShopifyAdminProduct({ productID, title, productType, descri
                     title: title || undefined,
                     productType,
                     descriptionHtml: descriptionHTML,
-                    status
+                    status,
+                    tags
                 }
             }
         );
@@ -5336,11 +5364,16 @@ const server = http.createServer(async (request, response) => {
                 const status = body.status === undefined
                     ? undefined
                     : String(body.status || "").trim().toUpperCase();
+                const badge = body.badge === undefined
+                    ? undefined
+                    : String(body.badge || "").trim().toUpperCase();
+                const existingTags = Array.isArray(body.existingTags) ? body.existingTags : [];
+                const tags = badge === undefined ? undefined : nextProductTags(existingTags, badge);
                 const defaultVariantID = String(body.defaultVariantID || "").trim() || null;
                 const hasPrice = body.price !== undefined && body.price !== null && String(body.price).trim() !== "";
                 const price = hasPrice ? Number(body.price) : undefined;
 
-                if (!productID || (!title && !hasPrice && descriptionHTML === undefined && productType === undefined && status === undefined)) {
+                if (!productID || (!title && !hasPrice && descriptionHTML === undefined && productType === undefined && status === undefined && tags === undefined)) {
                     sendJSON(response, 400, { error: "Provide a product plus a field to update." });
                     return;
                 }
@@ -5371,6 +5404,7 @@ const server = http.createServer(async (request, response) => {
                     productType,
                     descriptionHTML,
                     status,
+                    tags,
                     defaultVariantID,
                     price
                 });
@@ -5386,6 +5420,7 @@ const server = http.createServer(async (request, response) => {
                         productType: productType === undefined ? null : productType,
                         descriptionUpdated: descriptionHTML !== undefined,
                         status: status || null,
+                        badge: badge === undefined ? null : badge,
                         defaultVariantID,
                         price: hasPrice ? price : null
                     }

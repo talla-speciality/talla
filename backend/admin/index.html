@@ -356,7 +356,7 @@
         }
         .product-item-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 0.8fr));
+            grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 0.8fr));
             gap: 10px;
         }
         .product-filter-grid {
@@ -891,6 +891,19 @@
             return `${placeholder}${customOption}${approvedProductTypes.map((entry) => (
                 `<option value="${escapeHTML(entry.value)}" ${entry.value === selected ? "selected" : ""}>${escapeHTML(entry.label)}</option>`
             )).join("")}`;
+        }
+
+        function productBadgeOptions(selectedValue = "") {
+            const selected = String(selectedValue || "").trim().toUpperCase();
+            const badges = [
+                { value: "", label: "No badge" },
+                { value: "NEW", label: "New" },
+                { value: "LIMITED", label: "Limited" },
+                { value: "STAFF PICK", label: "Staff Pick" },
+                { value: "BESTSELLER", label: "Best Seller" }
+            ];
+
+            return badges.map((badge) => `<option value="${escapeHTML(badge.value)}" ${badge.value === selected ? "selected" : ""}>${escapeHTML(badge.label)}</option>`).join("");
         }
 
         function applyStatus(el, message, tone = "info") {
@@ -1685,12 +1698,13 @@
 
             productsEl.className = "product-list";
             productsEl.innerHTML = visibleProducts.map((product) => `
-                <div class="product-item" data-product-id="${escapeHTML(product.id)}" data-variant-id="${escapeHTML(product.defaultVariantID || "")}">
+                <div class="product-item" data-product-id="${escapeHTML(product.id)}" data-variant-id="${escapeHTML(product.defaultVariantID || "")}" data-product-tags="${escapeHTML(JSON.stringify(product.tags || []))}">
                     <div class="product-item-head">
                         <strong>${escapeHTML(product.title)}</strong>
                         <div class="toolbar-row" style="padding: 0;">
                             <span class="product-badge ${product.onlineStoreURL ? "published" : "unpublished"}">${product.onlineStoreURL ? "Published" : "Not Published"}</span>
                             <span class="product-badge ${product.availableForSale ? "instock" : "soldout"}">${product.availableForSale ? "In Stock" : "Sold Out"}</span>
+                            ${product.badge ? `<span class="product-badge instock">${escapeHTML(product.badge)}</span>` : ""}
                             <div class="product-meta">${escapeHTML(product.status)}${product.onlineStoreURL ? ` • <a href="${escapeHTML(product.onlineStoreURL)}" target="_blank" rel="noreferrer">Open</a>` : ""}</div>
                         </div>
                     </div>
@@ -1702,6 +1716,9 @@
                         </select>
                         <select class="product-status-input">
                             ${["ACTIVE", "DRAFT", "ARCHIVED"].map((status) => `<option value="${status}" ${product.status === status ? "selected" : ""}>${status[0]}${status.slice(1).toLowerCase()}</option>`).join("")}
+                        </select>
+                        <select class="product-badge-input">
+                            ${productBadgeOptions(product.badge || "")}
                         </select>
                     </div>
                     <textarea class="product-description-input" placeholder="Description (HTML or plain text)">${escapeHTML(product.descriptionHTML || "")}</textarea>
@@ -2210,8 +2227,15 @@
             const price = productEl.querySelector(".product-price-input").value.trim();
             const productType = productEl.querySelector(".product-type-input").value.trim();
             const status = productEl.querySelector(".product-status-input").value;
+            const badge = productEl.querySelector(".product-badge-input").value;
             const descriptionHTML = productEl.querySelector(".product-description-input").value;
             const defaultVariantID = productEl.dataset.variantId;
+            let existingTags = [];
+            try {
+                existingTags = JSON.parse(productEl.dataset.productTags || "[]");
+            } catch {
+                existingTags = [];
+            }
 
             setStatus("Saving product...");
             try {
@@ -2223,6 +2247,8 @@
                         title,
                         productType,
                         status,
+                        badge,
+                        existingTags,
                         descriptionHTML,
                         price,
                         defaultVariantID
