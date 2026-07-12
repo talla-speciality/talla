@@ -109,6 +109,10 @@ struct ContentView: View {
         }
     }
 
+    struct HomeSettings: Decodable {
+        let signatureRoastProductIDs: [String]
+    }
+
     struct BrewingMethod: Identifiable, Hashable {
         let id: String
         let name: String
@@ -383,6 +387,7 @@ struct ContentView: View {
     @State private var isLoadingAvailableVouchers = false
     @AppStorage("app.appearanceMode") private var savedAppearanceMode = AppearanceMode.system.rawValue
     @AppStorage("app.hasSeenWelcome") private var hasSeenWelcome = false
+    @AppStorage("app.hasAskedInitialNotificationPermission") private var hasAskedInitialNotificationPermission = false
     @AppStorage("app.reviewLaunchCount") private var reviewLaunchCount = 0
     @AppStorage("app.reviewLastPromptAt") private var reviewLastPromptAt = 0.0
     @AppStorage("app.reviewPromptedVersion") private var reviewPromptedVersion = ""
@@ -402,6 +407,7 @@ struct ContentView: View {
     @AppStorage("shortcut.destination") private var shortcutDestination = ""
     @AppStorage("shortcut.searchQuery") private var shortcutSearchQuery = ""
     @State private var notificationAuthorizationStatus: Int = 0
+    @State private var showLaunchSplash = true
     @State private var accountAuthMode: AccountAuthMode = .signIn
     @State private var accountFirstName = ""
     @State private var accountLastName = ""
@@ -438,6 +444,7 @@ struct ContentView: View {
     @State private var addressNotes = ""
     @State private var isSavingAddress = false
     @State private var selectedVariantIDs: [String: String] = [:]
+    @State private var remoteSignatureRoastProductIDs: [String] = []
     @State private var loyaltyEmail = ""
     @State private var loyaltyAccount: LoyaltyAccount?
     @State private var loyaltyError: String?
@@ -522,6 +529,16 @@ struct ContentView: View {
     }
 
     private var signatureRoastProducts: [Product] {
+        let remoteProducts = remoteSignatureRoastProductIDs.compactMap { productID in
+            products.first { $0.id == productID }
+        }
+
+        if !remoteProducts.isEmpty {
+            let remoteIDs = Set(remoteProducts.map(\.id))
+            let fallbackProducts = products.filter { !remoteIDs.contains($0.id) }
+            return Array((remoteProducts + fallbackProducts).prefix(4))
+        }
+
         let preferredProducts = signatureRoastProductNames.compactMap { preferredName in
             products.first { product in
                 product.name.localizedCaseInsensitiveContains(preferredName)
@@ -1123,6 +1140,56 @@ struct ContentView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
+    private var launchSplashView: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(hex: 0x100B07),
+                    Color(hex: 0x1A120C),
+                    Color(hex: 0x0A0804)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            Circle()
+                .fill(Color(hex: 0xC8965A).opacity(0.12))
+                .blur(radius: 90)
+                .frame(width: 240, height: 240)
+                .offset(x: 90, y: -160)
+
+            Image("Logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: isCompact ? 132 : 168, height: isCompact ? 132 : 168)
+                .accessibilityLabel(AppLocalization.text("talla_logo", fallback: "Talla Speciality"))
+        }
+    }
+
+    @MainActor
+    private func runInitialLaunchSequence() async {
+        let startTime = Date()
+
+        await loadProductsIfNeeded()
+        await refreshNotificationStatus()
+        await syncRemotePushTokenIfPossible()
+
+        let minimumSplashDuration: TimeInterval = 1.25
+        let elapsed = Date().timeIntervalSince(startTime)
+        if elapsed < minimumSplashDuration {
+            try? await Task.sleep(nanoseconds: UInt64((minimumSplashDuration - elapsed) * 1_000_000_000))
+        }
+
+        withAnimation(.easeInOut(duration: 0.28)) {
+            showLaunchSplash = false
+        }
+
+        await requestInitialNotificationAccessIfNeeded()
+        recordLaunchAndRequestReviewIfReady()
+        handleShortcutDestination()
+    }
+
     private func recordLaunchAndRequestReviewIfReady() {
         guard !didRecordReviewLaunch else { return }
         didRecordReviewLaunch = true
@@ -1202,12 +1269,21 @@ struct ContentView: View {
                     startAction: {
                         startFirstRunAccountSetup()
                     },
+                    choiceAction: { choice in
+                        handleWelcomeChoice(choice)
+                    },
                     skipAction: {
                         hasSeenWelcome = true
                     }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 .zIndex(40)
+            }
+
+            if showLaunchSplash {
+                launchSplashView
+                    .transition(.opacity)
+                    .zIndex(80)
             }
 
             if let toastMessage {
@@ -1221,13 +1297,10 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: cartOpen)
+        .animation(.easeInOut(duration: 0.28), value: showLaunchSplash)
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
         .task {
-            await loadProductsIfNeeded()
-            await refreshNotificationStatus()
-            await syncRemotePushTokenIfPossible()
-            recordLaunchAndRequestReviewIfReady()
-            handleShortcutDestination()
+            await runInitialLaunchSequence()
         }
         .onChange(of: activeTab) { _, newTab in
             guard newTab == .shop, hasLoadedProducts else { return }
@@ -1292,14 +1365,17 @@ struct ContentView: View {
         }
 #endif
         .overlay(alignment: .bottomTrailing) {
-            ZStack(alignment: .center) {
+            ZStack(alignment: .bottomTrailing) {
                 if showingCartCelebration {
                     CoffeeBeansBurstView(accentColor: Color(hex: 0xC8965A), id: cartCelebrationID)
                         .transition(.scale(scale: 0.2).combined(with: .opacity))
                         .allowsHitTesting(false)
                 }
 
-                floatingCartButton
+                VStack(alignment: .trailing, spacing: 10) {
+                    floatingConciergeButton
+                    floatingCartButton
+                }
             }
             .padding(.trailing, 22)
             .padding(.bottom, 74)
@@ -1427,6 +1503,40 @@ struct ContentView: View {
         default:
             break
         }
+    }
+
+    private func handleWelcomeChoice(_ choice: WelcomeChoice) {
+        hasSeenWelcome = true
+
+        switch choice {
+        case .beans:
+            activeCategory = "coffee-beans"
+            shopSearchQuery = ""
+            activeTab = .shop
+        case .drinks:
+            activeCategory = "cups"
+            shopSearchQuery = ""
+            activeTab = .shop
+        case .gifts:
+            activeCategory = "gifts"
+            shopSearchQuery = ""
+            activeTab = .shop
+        case .concierge:
+            openCoffeeConcierge()
+        }
+    }
+
+    private func openCoffeeConcierge() {
+        activeTab = .shop
+        activeCategory = "all"
+        shopSearchQuery = ""
+        showToast(message: AppLocalization.text("concierge_opened", fallback: "Coffee Concierge opened"))
+    }
+
+    private func formattedBrewTimerTime(_ seconds: Int) -> String {
+        let minutes = max(seconds, 0) / 60
+        let remainder = max(seconds, 0) % 60
+        return String(format: "%d:%02d", minutes, remainder)
     }
 
     private func handleDeepLink(_ url: URL) {
@@ -1566,15 +1676,172 @@ struct ContentView: View {
         .accessibilityValue(cartCount > 0 ? "\(cartCount) items" : "Empty")
     }
 
+    private var floatingConciergeButton: some View {
+        Button {
+            openCoffeeConcierge()
+        } label: {
+            Image(systemName: "sparkles")
+                .font(.system(size: 16, weight: .bold))
+            .foregroundColor(Color(hex: 0x0A0804))
+            .frame(width: 48, height: 48)
+            .background(Color(hex: 0xC8965A))
+            .clipShape(Circle())
+            .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.28), radius: 16, x: 0, y: 8)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(AppLocalization.text("open_coffee_concierge", fallback: "Open Coffee Concierge"))
+    }
+
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
-            homeSurprisePick
+            homeContinueSection
             homeFavoritesShelf
-            homeLoyaltyTeaser
-            tallaPassportSection
             featuredProducts
         }
+    }
+
+    @ViewBuilder
+    private var homeContinueSection: some View {
+        let recentProduct = recentlyViewedProducts.first
+        let favoriteProduct = favoriteProducts.first
+        let hasSomethingToContinue = !cartItems.isEmpty || recentProduct != nil || favoriteProduct != nil || isBrewTimerRunning
+
+        if hasSomethingToContinue {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(AppLocalization.text("continue_where_left_off", fallback: "Continue where you left off"))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(2.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xC8965A))
+
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    if !cartItems.isEmpty {
+                        continueActionTile(
+                            title: AppLocalization.text("review_bag", fallback: "Review Bag"),
+                            detail: String(format: AppLocalization.text("bag_items_count", fallback: "%d items ready"), cartCount),
+                            symbol: "bag.fill"
+                        ) {
+                            cartOpen = true
+                        }
+                    }
+
+                    if let recentProduct {
+                        continueActionTile(
+                            title: AppLocalization.text("last_viewed", fallback: "Last Viewed"),
+                            detail: recentProduct.name,
+                            symbol: "clock.fill"
+                        ) {
+                            selectedProduct = recentProduct
+                        }
+                    }
+
+                    if let favoriteProduct {
+                        continueActionTile(
+                            title: AppLocalization.text("saved_coffee", fallback: "Saved Coffee"),
+                            detail: favoriteProduct.name,
+                            symbol: "heart.fill"
+                        ) {
+                            selectedProduct = favoriteProduct
+                        }
+                    }
+
+                    if isBrewTimerRunning {
+                        continueActionTile(
+                            title: AppLocalization.text("brew_timer", fallback: "Brew Timer"),
+                            detail: formattedBrewTimerTime(brewTimerRemainingSeconds),
+                            symbol: "timer"
+                        ) {
+                            activeTab = .brewing
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 18)
+            .padding(.bottom, 16)
+        }
+    }
+
+    private var homeConciergeShortcut: some View {
+        Button {
+            openCoffeeConcierge()
+        } label: {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 42, height: 42)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("coffee_concierge_title", fallback: "Coffee Concierge"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(AppLocalization.text("coffee_concierge_home_detail", fallback: "Not sure what to buy? Ask for beans, gifts, budget, or brew style."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 16)
+    }
+
+    private func continueActionTile(title: String, detail: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .frame(width: 28, height: 28)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(labelFont(size: 9, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+
+                    Text(detail)
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .background(elevatedSurfaceColor)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var homeSurprisePick: some View {
@@ -1711,10 +1978,12 @@ struct ContentView: View {
         showToast(message: AppLocalization.text("surprise_pick_ready", fallback: "New pick ready"))
     }
 
+    @ViewBuilder
     private var homeFavoritesShelf: some View {
         let shelfProducts = Array((favoriteProducts + recentlyViewedProducts + recommendedProducts).uniquedByID().prefix(6))
 
-        return VStack(alignment: .leading, spacing: 14) {
+        if !shelfProducts.isEmpty {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("favorites_shelf", fallback: "Your shelf"))
@@ -1747,53 +2016,44 @@ struct ContentView: View {
                 .accessibilityLabel(AppLocalization.text("open_favorites_shelf", fallback: "Open favorites shelf"))
             }
 
-            if shelfProducts.isEmpty {
-                actionEmptyState(
-                    message: AppLocalization.text("favorites_shelf_empty", fallback: "Save or open a few products and your shelf will start filling up."),
-                    actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
-                    systemImage: "heart.fill"
-                ) {
-                    activeTab = .shop
-                }
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(shelfProducts) { product in
-                            Button {
-                                recordRecentlyViewed(product)
-                                selectedProduct = product
-                            } label: {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ProductThumbnail(imageURL: product.imageURL, size: 74, cornerRadius: 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(shelfProducts) { product in
+                        Button {
+                            recordRecentlyViewed(product)
+                            selectedProduct = product
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ProductThumbnail(imageURL: product.imageURL, size: 74, cornerRadius: 16)
 
-                                    Text(product.name)
-                                        .font(titleFont(size: 15))
-                                        .foregroundColor(primaryTextColor)
-                                        .lineLimit(2)
-                                        .frame(width: 116, alignment: .leading)
+                                Text(product.name)
+                                    .font(titleFont(size: 15))
+                                    .foregroundColor(primaryTextColor)
+                                    .lineLimit(2)
+                                    .frame(width: 116, alignment: .leading)
 
-                                    Text(product.price)
-                                        .font(labelFont(size: 10, weight: .bold))
-                                        .foregroundColor(Color(hex: 0xC8965A))
-                                }
-                                .padding(12)
-                                .frame(width: 140, alignment: .leading)
-                                .background(cardFillColor)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                Text(product.price)
+                                    .font(labelFont(size: 10, weight: .bold))
+                                    .foregroundColor(Color(hex: 0xC8965A))
                             }
-                            .buttonStyle(.plain)
+                            .padding(12)
+                            .frame(width: 140, alignment: .leading)
+                            .background(cardFillColor)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 2)
                 }
+                .padding(.vertical, 2)
             }
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 18)
+        }
     }
 
     private var tallaPassportSection: some View {
@@ -2418,23 +2678,28 @@ struct ContentView: View {
     }
 
     private var featuredProducts: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(AppLocalization.text("roastery_selection", fallback: "Roastery Selection"))
-                    .font(labelFont(size: 10, weight: .semibold))
-                    .tracking(4)
-                    .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
-                Text(AppLocalization.text("signature_roasts", fallback: "SIGNATURE ROASTS"))
-                    .font(displayFont(size: 30))
-                    .tracking(1)
-                    .foregroundColor(primaryTextColor)
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(AppLocalization.text("roastery_selection", fallback: "Roastery Selection"))
+                        .font(labelFont(size: 10, weight: .semibold))
+                        .tracking(3)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(AppLocalization.text("signature_roasts", fallback: "Signature Roasts"))
+                        .font(displayFont(size: 24))
+                        .tracking(0.5)
+                        .foregroundColor(primaryTextColor)
+                }
+
+                Spacer(minLength: 12)
+
                 Button {
                     activeTab = .shop
                 } label: {
-                    Text(AppLocalization.text("browse_shop", fallback: "Browse Shop"))
+                    Label(AppLocalization.text("browse_shop", fallback: "Browse Shop"), systemImage: "arrow.right")
                         .font(labelFont(size: 11, weight: .bold))
-                        .tracking(2)
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
                 }
@@ -2447,14 +2712,15 @@ struct ContentView: View {
                 errorSection(message: loadingError)
             } else {
                 LazyVGrid(columns: productGridColumns, spacing: 16) {
-                    ForEach(signatureRoastProducts) { product in
+                    ForEach(Array(signatureRoastProducts.prefix(isCompact ? 2 : 4))) { product in
                         productCard(product: product, showDescription: false)
                     }
                 }
             }
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 28)
+        .padding(.top, 4)
+        .padding(.bottom, 28)
     }
 
     private var collections: some View {
@@ -3347,7 +3613,7 @@ struct ContentView: View {
 
             if favoriteProducts.isEmpty {
                 actionEmptyState(
-                    message: AppLocalization.text("favorites_empty", fallback: "Save coffees, tools, and gifts you want to come back to."),
+                    message: AppLocalization.text("favorites_empty", fallback: "Tap the heart on any coffee or gift to save it here."),
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "heart.fill"
                 ) {
@@ -3397,17 +3663,14 @@ struct ContentView: View {
 
     private var alertsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(AppLocalization.text("alerts", fallback: "ALERTS"))
+            Text(AppLocalization.text("back_in_stock_reminders", fallback: "BACK IN STOCK REMINDERS"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
-            alertNotificationStatusCard
-            broadcastNotificationStatusCard
-
             if alertProducts.isEmpty {
                 actionEmptyState(
-                    message: AppLocalization.text("alerts_empty", fallback: "Tap the bell on a product to keep it on your back in stock or new roast watchlist."),
+                    message: AppLocalization.text("alerts_empty", fallback: "Tap the bell on sold-out or watched items to know when they return."),
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "bell.fill"
                 ) {
@@ -3496,113 +3759,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-
-    private var alertNotificationStatusCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: notificationsEnabled ? "bell.badge.fill" : "bell.slash")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
-                    .frame(width: 20, height: 20)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(notificationStatusMessage)
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(pushRegistrationStatusMessage)
-                        .font(bodyFont(size: 12))
-                        .foregroundColor(tertiaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            if canRequestNotificationAccess {
-                Button {
-                    Task {
-                        await requestNotificationAccess()
-                    }
-                } label: {
-                    Text(AppLocalization.text("enable_notifications", fallback: "Enable"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.6)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(Color(hex: 0xC8965A))
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-
-            if !savedPushDeviceToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button {
-                    copyPushDeviceToken()
-                } label: {
-                    Label(AppLocalization.text("copy_device_token", fallback: "Copy Device Token"), systemImage: "doc.on.doc.fill")
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.6)
-                        .textCase(.uppercase)
-                        .foregroundColor(primaryTextColor)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(elevatedSurfaceColor)
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
-                        )
-                        .clipShape(Capsule(style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint(AppLocalization.text("copy_device_token_hint", fallback: "Copies the APNs token for Apple's Push Notifications Console."))
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    private var broadcastNotificationStatusCard: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "paperplane.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(Color(hex: 0xC8965A))
-                .frame(width: 20, height: 20)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(AppLocalization.text("customer_push_title", fallback: "Customer Push Notifications"))
-                    .font(labelFont(size: 10, weight: .bold))
-                    .tracking(1.4)
-                    .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
-
-                Text(AppLocalization.text("customer_push_detail", fallback: "Customer notifications use saved APNs device tokens. Your backend can send campaigns to every token that has granted notification permission."))
-                    .font(bodyFont(size: 13))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var addressesSection: some View {
@@ -4096,8 +4252,32 @@ struct ContentView: View {
                         strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
                     )
                     DetailStatusCardView(
+                        title: AppLocalization.text("address", fallback: "Address"),
+                        detail: preferredAddress == nil
+                            ? AppLocalization.text("address_missing", fallback: "Add before checkout")
+                            : AppLocalization.text("address_ready", fallback: "Saved for checkout"),
+                        titleFont: labelFont(size: 10, weight: .bold),
+                        detailFont: bodyFont(size: 13),
+                        accentColor: Color(hex: 0xC8965A),
+                        primaryTextColor: primaryTextColor,
+                        backgroundColor: cardFillColor,
+                        strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
+                    )
+                    DetailStatusCardView(
                         title: AppLocalization.text("voucher", fallback: "Voucher"),
                         detail: appliedVoucher == nil ? AppLocalization.text("voucher_none", fallback: "None applied yet") : appliedVoucher?.code ?? AppLocalization.text("saved", fallback: "Applied"),
+                        titleFont: labelFont(size: 10, weight: .bold),
+                        detailFont: bodyFont(size: 13),
+                        accentColor: Color(hex: 0xC8965A),
+                        primaryTextColor: primaryTextColor,
+                        backgroundColor: cardFillColor,
+                        strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
+                    )
+                    DetailStatusCardView(
+                        title: AppLocalization.text("apple_pay", fallback: "Apple Pay"),
+                        detail: isApplePayAvailable
+                            ? AppLocalization.text("apple_pay_ready", fallback: "Available")
+                            : AppLocalization.text("apple_pay_unavailable", fallback: "Card checkout ready"),
                         titleFont: labelFont(size: 10, weight: .bold),
                         detailFont: bodyFont(size: 13),
                         accentColor: Color(hex: 0xC8965A),
@@ -4719,6 +4899,14 @@ struct ContentView: View {
                 ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 10)
                     .frame(height: 184)
 
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(productBadges(for: product), id: \.self) { badge in
+                        productBadge(badge)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(10)
+
                 VStack(alignment: .trailing, spacing: 8) {
                     Button {
                         toggleFavorite(product: product)
@@ -4857,6 +5045,46 @@ struct ContentView: View {
                 recordRecentlyViewed(product)
             }
         )
+    }
+
+    private func productBadges(for product: Product) -> [String] {
+        var badges: [String] = []
+        let normalizedTag = product.tag?.lowercased() ?? ""
+        let normalizedName = product.name.lowercased()
+
+        if !product.isAvailableForSale {
+            badges.append(AppLocalization.text("back_soon", fallback: "Back soon"))
+        } else if normalizedTag.contains("new") {
+            badges.append(AppLocalization.text("new", fallback: "New"))
+        } else if normalizedTag.contains("popular") || normalizedTag.contains("best") {
+            badges.append(AppLocalization.text("popular", fallback: "Popular"))
+        }
+
+        if product.categoryKey == "gifts" {
+            badges.append(AppLocalization.text("gift_ready", fallback: "Gift ready"))
+        }
+
+        if product.categoryKey.contains("coffee") && product.isAvailableForSale {
+            badges.append(AppLocalization.text("reward_eligible", fallback: "Reward eligible"))
+        }
+
+        if normalizedName.contains("cold") || normalizedName.contains("iced") || product.categoryKey == "summer-drinks" {
+            badges.append(AppLocalization.text("cold_pick", fallback: "Cold pick"))
+        }
+
+        return Array(badges.prefix(2))
+    }
+
+    private func productBadge(_ title: String) -> some View {
+        Text(title)
+            .font(labelFont(size: 8, weight: .bold))
+            .tracking(1.2)
+            .textCase(.uppercase)
+            .foregroundColor(Color(hex: 0x0A0804))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color(hex: 0xC8965A))
+            .clipShape(Capsule(style: .continuous))
     }
 
     private func productDetailSheet(product: Product) -> some View {
@@ -6081,6 +6309,7 @@ struct ContentView: View {
             products = fetchedProducts
             hasLoadedProducts = true
             lastProductsRefreshAt = Date()
+            await loadHomeSettings()
 
             if !availableCategories.contains(where: { $0.key == activeCategory }) {
                 activeCategory = "all"
@@ -6095,6 +6324,16 @@ struct ContentView: View {
         }
 
         isLoadingProducts = false
+    }
+
+    @MainActor
+    private func loadHomeSettings() async {
+        do {
+            let settings = try await HomeSettingsService.fetchHomeSettings()
+            remoteSignatureRoastProductIDs = settings.signatureRoastProductIDs
+        } catch {
+            remoteSignatureRoastProductIDs = []
+        }
     }
 
     @MainActor
@@ -6607,6 +6846,29 @@ struct ContentView: View {
         } else {
             showToast(message: AppLocalization.text("notifications_not_enabled", fallback: "Notifications not enabled"))
         }
+    }
+
+    @MainActor
+    private func requestInitialNotificationAccessIfNeeded() async {
+#if canImport(UserNotifications)
+        guard !hasAskedInitialNotificationPermission else { return }
+
+        let status = await ProductAlertNotificationService.authorizationStatus()
+        notificationAuthorizationStatus = status.rawValue
+        guard status == .notDetermined else {
+            hasAskedInitialNotificationPermission = true
+            return
+        }
+
+        hasAskedInitialNotificationPermission = true
+        let granted = await ProductAlertNotificationService.requestAuthorization()
+        await refreshNotificationStatus()
+
+        if granted {
+            registerForRemoteNotifications()
+            await syncRemotePushTokenIfPossible()
+        }
+#endif
     }
 
     @MainActor
@@ -7218,6 +7480,31 @@ private enum ProductAlertNotificationService {
     }
 }
 #endif
+
+private enum HomeSettingsService {
+    private static let baseURL = BackendConfiguration.serviceBaseURL
+
+    static func fetchHomeSettings() async throws -> ContentView.HomeSettings {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Home settings service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/home-settings"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The home settings service returned an invalid response.")
+        }
+
+        guard 200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The home settings service could not complete your request.")
+        }
+
+        return try JSONDecoder().decode(ContentView.HomeSettings.self, from: data)
+    }
+}
 
 private enum AccountService {
     private static let baseURL = BackendConfiguration.serviceBaseURL

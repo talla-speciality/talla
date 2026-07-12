@@ -21,6 +21,7 @@ const pushDevicesStorePath = config.stores.pushDevices;
 const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
 const campaignSettingsStorePath = config.stores.campaignSettings;
+const homeSettingsStorePath = config.stores.homeSettings;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
@@ -98,6 +99,7 @@ ensureStoreFile(pushDevicesStorePath, { devices: [] });
 ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
 ensureStoreFile(campaignSettingsStorePath, { campaignSettings: defaultCampaignSettings() });
+ensureStoreFile(homeSettingsStorePath, { homeSettings: defaultHomeSettings() });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 
 function ensureStoreFile(filePath, fallback) {
@@ -135,6 +137,35 @@ function normalizeCampaignSettings(value = {}) {
     return {
         eidModeEnabled: value.eidModeEnabled === undefined ? fallback.eidModeEnabled : Boolean(value.eidModeEnabled),
         eidOfferEndsAt,
+        updatedAt: value.updatedAt || fallback.updatedAt
+    };
+}
+
+function defaultHomeSettings() {
+    return {
+        signatureRoastProductIDs: [],
+        updatedAt: null
+    };
+}
+
+function normalizeHomeSettings(value = {}) {
+    const fallback = defaultHomeSettings();
+    const seen = new Set();
+    const signatureRoastProductIDs = Array.isArray(value.signatureRoastProductIDs)
+        ? value.signatureRoastProductIDs
+            .map((productID) => String(productID || "").trim())
+            .filter((productID) => {
+                if (!productID || seen.has(productID)) {
+                    return false;
+                }
+                seen.add(productID);
+                return true;
+            })
+            .slice(0, 4)
+        : fallback.signatureRoastProductIDs;
+
+    return {
+        signatureRoastProductIDs,
         updatedAt: value.updatedAt || fallback.updatedAt
     };
 }
@@ -4563,6 +4594,48 @@ async function saveCampaignSettings(nextSettings) {
     return settings;
 }
 
+async function getHomeSettings() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT value, updated_at
+             FROM app_settings
+             WHERE key = $1`,
+            ["home_settings"]
+        );
+        if (result.rowCount > 0) {
+            return normalizeHomeSettings({
+                ...result.rows[0].value,
+                updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
+            });
+        }
+        return defaultHomeSettings();
+    }
+
+    const store = readJSON(homeSettingsStorePath);
+    return normalizeHomeSettings(store.homeSettings || {});
+}
+
+async function saveHomeSettings(nextSettings) {
+    const settings = normalizeHomeSettings({
+        ...nextSettings,
+        updatedAt: new Date().toISOString()
+    });
+
+    if (database.isEnabled()) {
+        await database.query(
+            `INSERT INTO app_settings (key, value, updated_at)
+             VALUES ($1, $2::jsonb, NOW())
+             ON CONFLICT (key)
+             DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+            ["home_settings", JSON.stringify(settings)]
+        );
+        return getHomeSettings();
+    }
+
+    writeJSON(homeSettingsStorePath, { homeSettings: settings });
+    return settings;
+}
+
 async function adminCustomerSummary(email) {
     const account = await getAccountByEmail(email);
     if (!account) {
@@ -4728,6 +4801,11 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/campaigns/eid") {
         sendJSON(response, 200, await getCampaignSettings());
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/app/home-settings") {
+        sendJSON(response, 200, await getHomeSettings());
         return;
     }
 
@@ -5081,6 +5159,40 @@ const server = http.createServer(async (request, response) => {
                 sendJSON(response, 200, settings);
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not save Eid campaign settings." });
+            }
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/home/signature-roasts") {
+            sendJSON(response, 200, await getHomeSettings());
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/home/signature-roasts") {
+            try {
+                const body = await readBody(request);
+                if (Array.isArray(body.signatureRoastProductIDs) && body.signatureRoastProductIDs.length > 4) {
+                    sendJSON(response, 400, { error: "Choose up to four signature roasts." });
+                    return;
+                }
+
+                const settings = normalizeHomeSettings({
+                    signatureRoastProductIDs: body.signatureRoastProductIDs
+                });
+
+                const savedSettings = await saveHomeSettings(settings);
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "signature_roasts_updated",
+                    targetEmail: null,
+                    detail: "Updated Home signature roasts",
+                    metadata: savedSettings
+                });
+
+                sendJSON(response, 200, savedSettings);
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not save signature roasts." });
             }
             return;
         }

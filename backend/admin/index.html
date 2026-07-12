@@ -634,6 +634,20 @@
 
         <details class="panel" open style="margin-bottom: 20px;">
             <summary class="panel-summary">
+                <h2>Home Signature Roasts</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Choose up to four Shopify products to feature in the app Home signature roasts shelf. The order follows the product list order shown here.</div>
+                <div id="signature-roasts" class="empty">Loading signature roasts...</div>
+                <div class="toolbar-row" style="padding: 14px 0 0;">
+                    <button id="save-signature-roasts" class="secondary">Save Signature Roasts</button>
+                    <div id="signature-roasts-status" class="muted">Select products after the Shopify list loads.</div>
+                </div>
+            </div>
+        </details>
+
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
                 <h2>Products</h2>
             </summary>
             <div class="panel-body">
@@ -765,7 +779,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [] } };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -788,6 +802,9 @@
         const sendCustomerPushButton = document.getElementById("send-customer-push");
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
+        const signatureRoastsEl = document.getElementById("signature-roasts");
+        const signatureRoastsStatusEl = document.getElementById("signature-roasts-status");
+        const saveSignatureRoastsButton = document.getElementById("save-signature-roasts");
         const productsEl = document.getElementById("products");
         const productsNoteEl = document.getElementById("products-note");
         const refreshProductsButton = document.getElementById("refresh-products");
@@ -1131,6 +1148,83 @@
                 setStatus(error.message, "error");
             } finally {
                 setButtonBusy(saveEidCampaignButton, false, "Save Eid Campaign");
+            }
+        }
+
+        async function fetchSignatureRoasts() {
+            const response = await fetch("/admin/api/home/signature-roasts");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load signature roasts.");
+            return payload;
+        }
+
+        function renderSignatureRoasts() {
+            const selectedIDs = new Set(state.signatureRoasts?.signatureRoastProductIDs || []);
+            const products = state.products || [];
+            const selectedCount = selectedIDs.size;
+
+            if (!products.length) {
+                signatureRoastsEl.className = "empty";
+                signatureRoastsEl.innerHTML = state.productControlAvailable
+                    ? "Load Shopify products to choose signature roasts."
+                    : "Shopify product control is unavailable.";
+                signatureRoastsStatusEl.textContent = "Select up to four products after the Shopify list loads.";
+                return;
+            }
+
+            signatureRoastsEl.className = "list";
+            signatureRoastsEl.innerHTML = products.map((product) => {
+                const isSelected = selectedIDs.has(product.id);
+                return `
+                    <label class="list-item" style="display:flex;align-items:flex-start;gap:12px;">
+                        <input class="signature-roast-input" type="checkbox" value="${escapeHTML(product.id)}" ${isSelected ? "checked" : ""}>
+                        <span>
+                            <strong>${escapeHTML(product.title)}</strong>
+                            <span class="muted">${escapeHTML(product.productType || "Uncategorized")} • ${escapeHTML(product.status || "Unknown")}${product.availableForSale ? " • In stock" : " • Sold out"}</span>
+                        </span>
+                    </label>
+                `;
+            }).join("");
+            signatureRoastsStatusEl.textContent = `${selectedCount}/4 selected. Save to update the app Home screen.`;
+        }
+
+        async function loadSignatureRoasts() {
+            try {
+                state.signatureRoasts = await fetchSignatureRoasts();
+                renderSignatureRoasts();
+            } catch (error) {
+                signatureRoastsStatusEl.textContent = error.message;
+            }
+        }
+
+        async function saveSignatureRoasts() {
+            const selectedProductIDs = Array.from(signatureRoastsEl.querySelectorAll(".signature-roast-input:checked"))
+                .map((input) => input.value)
+                .slice(0, 4);
+
+            if (selectedProductIDs.length === 0) {
+                setStatus("Choose at least one signature roast.", "error");
+                return;
+            }
+
+            setButtonBusy(saveSignatureRoastsButton, true, "Save Signature Roasts", "Saving...");
+            signatureRoastsStatusEl.textContent = "Saving signature roasts...";
+            try {
+                const response = await fetch("/admin/api/home/signature-roasts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ signatureRoastProductIDs: selectedProductIDs })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not save signature roasts.");
+                state.signatureRoasts = payload;
+                renderSignatureRoasts();
+                setStatus("Signature roasts saved.", "success");
+            } catch (error) {
+                signatureRoastsStatusEl.textContent = error.message;
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(saveSignatureRoastsButton, false, "Save Signature Roasts");
             }
         }
 
@@ -1852,6 +1946,7 @@
                 await loadAdminOrders();
                 await refreshCustomers();
                 await refreshProducts();
+                await loadSignatureRoasts();
                 setStatus("Signed in. Search for a customer to begin.", "success");
             } catch (error) {
                 setLoginStatus(error.message, "error");
@@ -1879,6 +1974,7 @@
             state.analytics = null;
             state.recentAdminActions = [];
             state.eidCampaign = null;
+            state.signatureRoasts = { signatureRoastProductIDs: [] };
             state.productControlAvailable = true;
             adminDashboardEl.className = "empty";
             adminDashboardEl.innerHTML = "Sign in to view the admin dashboard.";
@@ -1888,6 +1984,9 @@
             eidCampaignStatusEl.textContent = "Sign in to manage Eid campaign settings.";
             eidModeEnabledInput.checked = false;
             eidOfferEndsAtInput.value = "";
+            signatureRoastsEl.className = "empty";
+            signatureRoastsEl.innerHTML = "Sign in to manage Home signature roasts.";
+            signatureRoastsStatusEl.textContent = "";
             analyticsSummaryEl.className = "empty";
             analyticsSummaryEl.innerHTML = "Sign in to view analytics summary.";
             customerDirectoryFilterInput.value = "";
@@ -1917,6 +2016,7 @@
                 await loadAdminOrders();
                 await refreshCustomers();
                 await refreshProducts();
+                await loadSignatureRoasts();
             } catch (error) {
                 showLogin();
                 setLoginStatus(error.message, true);
@@ -1931,6 +2031,7 @@
                 state.publicationConfigured = Boolean(payload.publicationConfigured);
                 state.productControlAvailable = true;
                 renderProducts(payload.products, payload.publicationConfigured);
+                renderSignatureRoasts();
                 renderAdminDashboard();
             } catch (error) {
                 if (error.message === "Admin authorization required.") {
@@ -2489,6 +2590,21 @@
         applyEidProductPresetButton.addEventListener("click", applyEidProductPreset);
         createProductButton.addEventListener("click", createProduct);
         saveEidCampaignButton.addEventListener("click", saveEidCampaign);
+        saveSignatureRoastsButton.addEventListener("click", saveSignatureRoasts);
+        signatureRoastsEl.addEventListener("change", (event) => {
+            if (!event.target.classList.contains("signature-roast-input")) {
+                return;
+            }
+
+            const selectedInputs = Array.from(signatureRoastsEl.querySelectorAll(".signature-roast-input:checked"));
+            if (selectedInputs.length > 4) {
+                event.target.checked = false;
+                setStatus("Choose up to four signature roasts.", "error");
+                return;
+            }
+
+            signatureRoastsStatusEl.textContent = `${selectedInputs.length}/4 selected. Save to update the app Home screen.`;
+        });
         customerDirectoryEl.addEventListener("click", (event) => {
             const item = event.target.closest(".directory-item");
             if (!item) {
