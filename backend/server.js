@@ -144,6 +144,13 @@ function normalizeCampaignSettings(value = {}) {
 function defaultHomeSettings() {
     return {
         signatureRoastProductIDs: [],
+        funPickProductID: "",
+        heroEyebrow: "",
+        heroTitle: "",
+        heroSubtitle: "",
+        heroBadge: "",
+        primaryButtonTitle: "",
+        secondaryButtonTitle: "",
         updatedAt: null
     };
 }
@@ -163,9 +170,17 @@ function normalizeHomeSettings(value = {}) {
             })
             .slice(0, 4)
         : fallback.signatureRoastProductIDs;
+    const trimText = (text, maxLength) => String(text || "").trim().slice(0, maxLength);
 
     return {
         signatureRoastProductIDs,
+        funPickProductID: trimText(value.funPickProductID, 180),
+        heroEyebrow: trimText(value.heroEyebrow, 40),
+        heroTitle: trimText(value.heroTitle, 80),
+        heroSubtitle: trimText(value.heroSubtitle, 180),
+        heroBadge: trimText(value.heroBadge, 40),
+        primaryButtonTitle: trimText(value.primaryButtonTitle, 28),
+        secondaryButtonTitle: trimText(value.secondaryButtonTitle, 28),
         updatedAt: value.updatedAt || fallback.updatedAt
     };
 }
@@ -5177,7 +5192,14 @@ const server = http.createServer(async (request, response) => {
                 }
 
                 const settings = normalizeHomeSettings({
-                    signatureRoastProductIDs: body.signatureRoastProductIDs
+                    signatureRoastProductIDs: body.signatureRoastProductIDs,
+                    funPickProductID: body.funPickProductID,
+                    heroEyebrow: body.heroEyebrow,
+                    heroTitle: body.heroTitle,
+                    heroSubtitle: body.heroSubtitle,
+                    heroBadge: body.heroBadge,
+                    primaryButtonTitle: body.primaryButtonTitle,
+                    secondaryButtonTitle: body.secondaryButtonTitle
                 });
 
                 const savedSettings = await saveHomeSettings(settings);

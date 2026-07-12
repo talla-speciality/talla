@@ -111,6 +111,36 @@ struct ContentView: View {
 
     struct HomeSettings: Decodable {
         let signatureRoastProductIDs: [String]
+        let funPickProductID: String?
+        let heroEyebrow: String?
+        let heroTitle: String?
+        let heroSubtitle: String?
+        let heroBadge: String?
+        let primaryButtonTitle: String?
+        let secondaryButtonTitle: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case signatureRoastProductIDs
+            case funPickProductID
+            case heroEyebrow
+            case heroTitle
+            case heroSubtitle
+            case heroBadge
+            case primaryButtonTitle
+            case secondaryButtonTitle
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            signatureRoastProductIDs = try container.decodeIfPresent([String].self, forKey: .signatureRoastProductIDs) ?? []
+            funPickProductID = try container.decodeIfPresent(String.self, forKey: .funPickProductID)
+            heroEyebrow = try container.decodeIfPresent(String.self, forKey: .heroEyebrow)
+            heroTitle = try container.decodeIfPresent(String.self, forKey: .heroTitle)
+            heroSubtitle = try container.decodeIfPresent(String.self, forKey: .heroSubtitle)
+            heroBadge = try container.decodeIfPresent(String.self, forKey: .heroBadge)
+            primaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .primaryButtonTitle)
+            secondaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .secondaryButtonTitle)
+        }
     }
 
     struct BrewingMethod: Identifiable, Hashable {
@@ -445,6 +475,7 @@ struct ContentView: View {
     @State private var isSavingAddress = false
     @State private var selectedVariantIDs: [String: String] = [:]
     @State private var remoteSignatureRoastProductIDs: [String] = []
+    @State private var remoteHomeSettings: HomeSettings?
     @State private var loyaltyEmail = ""
     @State private var loyaltyAccount: LoyaltyAccount?
     @State private var loyaltyError: String?
@@ -561,6 +592,12 @@ struct ContentView: View {
     }
 
     private var surprisePickProduct: Product? {
+        if let remoteFunPickID = remoteHomeSettings?.funPickProductID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !remoteFunPickID.isEmpty,
+           let remoteProduct = products.first(where: { $0.id == remoteFunPickID }) {
+            return remoteProduct
+        }
+
         let availableProducts = surprisePickProducts
         guard !availableProducts.isEmpty else { return nil }
 
@@ -1533,12 +1570,6 @@ struct ContentView: View {
         showToast(message: AppLocalization.text("concierge_opened", fallback: "Coffee Concierge opened"))
     }
 
-    private func formattedBrewTimerTime(_ seconds: Int) -> String {
-        let minutes = max(seconds, 0) / 60
-        let remainder = max(seconds, 0) % 60
-        return String(format: "%d:%02d", minutes, remainder)
-    }
-
     private func handleDeepLink(_ url: URL) {
         guard url.scheme?.lowercased() == "talla" else { return }
 
@@ -1550,6 +1581,11 @@ struct ContentView: View {
         shortcutSearchQuery = searchQuery
         shortcutDestination = destination
         handleShortcutDestination()
+    }
+
+    private func homeSettingText(_ value: String?, localizationKey: String, fallback: String) -> String {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedValue.isEmpty ? AppLocalization.text(localizationKey, fallback: fallback) : trimmedValue
     }
 
     private var header: some View {
@@ -1695,77 +1731,9 @@ struct ContentView: View {
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
-            homeContinueSection
+            homeSurprisePick
             homeFavoritesShelf
             featuredProducts
-        }
-    }
-
-    @ViewBuilder
-    private var homeContinueSection: some View {
-        let recentProduct = recentlyViewedProducts.first
-        let favoriteProduct = favoriteProducts.first
-        let hasSomethingToContinue = !cartItems.isEmpty || recentProduct != nil || favoriteProduct != nil || isBrewTimerRunning
-
-        if hasSomethingToContinue {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(AppLocalization.text("continue_where_left_off", fallback: "Continue where you left off"))
-                    .font(labelFont(size: 10, weight: .bold))
-                    .tracking(2.2)
-                    .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
-
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    if !cartItems.isEmpty {
-                        continueActionTile(
-                            title: AppLocalization.text("review_bag", fallback: "Review Bag"),
-                            detail: String(format: AppLocalization.text("bag_items_count", fallback: "%d items ready"), cartCount),
-                            symbol: "bag.fill"
-                        ) {
-                            cartOpen = true
-                        }
-                    }
-
-                    if let recentProduct {
-                        continueActionTile(
-                            title: AppLocalization.text("last_viewed", fallback: "Last Viewed"),
-                            detail: recentProduct.name,
-                            symbol: "clock.fill"
-                        ) {
-                            selectedProduct = recentProduct
-                        }
-                    }
-
-                    if let favoriteProduct {
-                        continueActionTile(
-                            title: AppLocalization.text("saved_coffee", fallback: "Saved Coffee"),
-                            detail: favoriteProduct.name,
-                            symbol: "heart.fill"
-                        ) {
-                            selectedProduct = favoriteProduct
-                        }
-                    }
-
-                    if isBrewTimerRunning {
-                        continueActionTile(
-                            title: AppLocalization.text("brew_timer", fallback: "Brew Timer"),
-                            detail: formattedBrewTimerTime(brewTimerRemainingSeconds),
-                            symbol: "timer"
-                        ) {
-                            activeTab = .brewing
-                        }
-                    }
-                }
-            }
-            .padding(16)
-            .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .padding(.horizontal, 18)
-            .padding(.bottom, 16)
         }
     }
 
@@ -1812,36 +1780,6 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 18)
         .padding(.bottom, 16)
-    }
-
-    private func continueActionTile(title: String, detail: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
-                    .frame(width: 28, height: 28)
-                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
-                    .clipShape(Circle())
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(labelFont(size: 9, weight: .bold))
-                        .foregroundColor(primaryTextColor)
-                        .lineLimit(1)
-
-                    Text(detail)
-                        .font(bodyFont(size: 12))
-                        .foregroundColor(secondaryTextColor)
-                        .lineLimit(1)
-                }
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-            .background(elevatedSurfaceColor)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 
     private var homeSurprisePick: some View {
@@ -2321,7 +2259,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(AppLocalization.text("roastery", fallback: "Roastery"))
+                    Text(homeSettingText(remoteHomeSettings?.heroEyebrow, localizationKey: "roastery", fallback: "Roastery"))
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(3)
                         .textCase(.uppercase)
@@ -2337,7 +2275,7 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 12, weight: .semibold))
-                    Text(AppLocalization.text("fresh_roast", fallback: "Fresh Roast"))
+                    Text(homeSettingText(remoteHomeSettings?.heroBadge, localizationKey: "fresh_roast", fallback: "Fresh Roast"))
                         .font(labelFont(size: 9, weight: .bold))
                         .tracking(1.5)
                         .textCase(.uppercase)
@@ -2356,12 +2294,12 @@ struct ContentView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(AppLocalization.text("hero_title", fallback: "Specialty coffee,\nroasted with intention"))
+                Text(homeSettingText(remoteHomeSettings?.heroTitle, localizationKey: "hero_title", fallback: "Specialty coffee,\nroasted with intention"))
                     .font(displayFont(size: isCompact ? 28 : 36))
                     .lineSpacing(2)
                     .foregroundColor(primaryTextColor)
 
-                Text(AppLocalization.text("hero_subtitle", fallback: "Shop roasted coffee, brewing essentials, and rewards without digging through the app."))
+                Text(homeSettingText(remoteHomeSettings?.heroSubtitle, localizationKey: "hero_subtitle", fallback: "Shop roasted coffee, brewing essentials, and rewards without digging through the app."))
                     .font(bodyFont(size: 14))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2371,7 +2309,7 @@ struct ContentView: View {
                 Button {
                     activeTab = .shop
                 } label: {
-                    Text(AppLocalization.text("explore_coffees", fallback: "EXPLORE COFFEES"))
+                    Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, localizationKey: "explore_coffees", fallback: "EXPLORE COFFEES").uppercased())
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(2)
                         .foregroundColor(Color(hex: 0x0A0804))
@@ -2385,7 +2323,7 @@ struct ContentView: View {
                 Button {
                     activeTab = .brewing
                 } label: {
-                    Text(AppLocalization.text("brewing_guide", fallback: "BREWING GUIDE"))
+                    Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, localizationKey: "brewing_guide", fallback: "BREWING GUIDE").uppercased())
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(2)
                         .foregroundColor(primaryTextColor)
@@ -6330,8 +6268,10 @@ struct ContentView: View {
     private func loadHomeSettings() async {
         do {
             let settings = try await HomeSettingsService.fetchHomeSettings()
+            remoteHomeSettings = settings
             remoteSignatureRoastProductIDs = settings.signatureRoastProductIDs
         } catch {
+            remoteHomeSettings = nil
             remoteSignatureRoastProductIDs = []
         }
     }
