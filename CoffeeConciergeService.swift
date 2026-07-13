@@ -110,12 +110,13 @@ enum CoffeeConciergeService {
         let terms = normalized
             .split { !$0.isLetter && !$0.isNumber }
             .map(String.init)
+        let budget = budgetValue(from: normalized)
 
         return products
             .filter(\.isAvailableForSale)
             .sorted { lhs, rhs in
-                let lhsScore = score(product: lhs, terms: terms, request: normalized)
-                let rhsScore = score(product: rhs, terms: terms, request: normalized)
+                let lhsScore = score(product: lhs, terms: terms, request: normalized, budget: budget)
+                let rhsScore = score(product: rhs, terms: terms, request: normalized, budget: budget)
 
                 if lhsScore != rhsScore {
                     return lhsScore > rhsScore
@@ -128,7 +129,8 @@ enum CoffeeConciergeService {
     private static func score(
         product: ContentView.Product,
         terms: [String],
-        request: String
+        request: String,
+        budget: Double?
     ) -> Int {
         let haystack = [
             product.name,
@@ -149,6 +151,7 @@ enum CoffeeConciergeService {
         if request.contains("gift") || request.contains("هدية") {
             if product.categoryKey.contains("gift") { score += 14 }
             if haystack.contains("box") { score += 8 }
+            if product.categoryKey.contains("coffee") { score += 3 }
         }
 
         if request.contains("arabic") || request.contains("عربي") || request.contains("مجلس") {
@@ -156,26 +159,69 @@ enum CoffeeConciergeService {
             if haystack.contains("arabic") { score += 8 }
         }
 
-        if request.contains("drip") || request.contains("travel") || request.contains("office") {
+        if request.contains("drip") || request.contains("travel") || request.contains("office") || request.contains("work") {
             if product.categoryKey.contains("drip") { score += 12 }
+            if product.categoryKey.contains("cup") || product.categoryKey.contains("drink") { score += 5 }
         }
 
-        if request.contains("tool") || request.contains("brew") || request.contains("equipment") {
+        if request.contains("tool") || request.contains("brew") || request.contains("equipment") || request.contains("v60") || request.contains("filter") {
             if product.categoryKey.contains("equipment") { score += 12 }
+            if product.categoryKey.contains("drip") { score += 5 }
         }
 
-        if request.contains("chocolate") || request.contains("sweet") || request.contains("حلو") {
+        if request.contains("chocolate") || request.contains("sweet") || request.contains("dessert") || request.contains("حلو") {
             if product.categoryKey.contains("chocolate") { score += 12 }
             if product.categoryKey.contains("bakery") { score += 8 }
+            if product.categoryKey.contains("dessert") { score += 8 }
+            if product.categoryKey.contains("spread") { score += 6 }
         }
 
-        if request.contains("cup") || request.contains("drink") {
+        if request.contains("cup") || request.contains("drink") || request.contains("cold") || request.contains("summer") || request.contains("iced") {
             if product.categoryKey.contains("drink") || product.categoryKey.contains("cup") { score += 12 }
+            if product.categoryKey.contains("summer") { score += 10 }
+        }
+
+        if request.contains("bean") || request.contains("beans") || request.contains("roast") || request.contains("espresso") || request.contains("filter") {
+            if product.categoryKey.contains("coffee") { score += 10 }
+            if haystack.contains("espresso") || haystack.contains("filter") { score += 4 }
+        }
+
+        if request.contains("beginner") || request.contains("easy") || request.contains("first") {
+            if product.categoryKey.contains("drip") { score += 8 }
+            if product.categoryKey.contains("coffee") { score += 4 }
+        }
+
+        if let budget {
+            let price = priceValue(from: product.price)
+            if price > 0, price <= budget {
+                score += 10
+                let closeness = max(0, 5 - Int((budget - price).rounded(.down)))
+                score += closeness
+            } else if price > budget {
+                score -= 18
+            }
         }
 
         if product.tag?.lowercased().contains("new") == true { score += 2 }
+        if request.isEmpty && product.categoryKey.contains("coffee") { score += 3 }
         if score == 0 && product.categoryKey.contains("coffee") { score += 1 }
         return score
+    }
+
+    private static func budgetValue(from request: String) -> Double? {
+        let budgetMarkers = ["under", "below", "less than", "up to", "budget", "أقل", "تحت"]
+        guard budgetMarkers.contains(where: { request.contains($0) }) else { return nil }
+
+        let normalized = request.replacingOccurrences(of: ",", with: ".")
+        let matches = normalized.matches(of: /\d+(\.\d+)?/)
+        return matches.compactMap { Double(String($0.output.0)) }.max()
+    }
+
+    private static func priceValue(from rawValue: String) -> Double {
+        let normalized = rawValue.replacingOccurrences(of: ",", with: ".")
+        let match = normalized.firstMatch(of: /\d+(\.\d+)?/)
+        guard let value = match?.output.0 else { return 0 }
+        return Double(String(value)) ?? 0
     }
 
     private static func fallbackReason(
@@ -292,7 +338,7 @@ enum CoffeeConciergeService {
         imageAnalysis: ImageAnalysis?
     ) async throws -> String {
         let model = SystemLanguageModel.default
-        guard model.isAvailable else { throw ConciergeError.unavailable }
+        guard case .available = model.availability else { throw ConciergeError.unavailable }
         guard model.supportsLocale(Locale(identifier: localeIdentifier)) else { throw ConciergeError.unavailable }
 
         let catalog = products

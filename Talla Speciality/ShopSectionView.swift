@@ -23,8 +23,13 @@ struct ShopSectionView: View {
     let categoryLabelFont: Font
     let categoryBodyFont: Font
     let gridColumns: [GridItem]
+    let recentSearches: [String]
+    let quickSearches: [(title: String, query: String, categoryKey: String)]
     let conciergePanel: AnyView
     let renderProductCard: (ContentView.Product, Bool) -> AnyView
+    let submitSearch: (String) -> Void
+    let selectQuickSearch: (String, String) -> Void
+    let clearRecentSearches: () -> Void
     let retryLoad: () -> Void
 
     private var usesArabicTypography: Bool {
@@ -56,6 +61,7 @@ struct ShopSectionView: View {
             }
 
             shopSearchField
+            shopSearchSuggestions
             conciergePanel
             shopSortSection
             shopCategoriesSection
@@ -89,6 +95,9 @@ struct ShopSectionView: View {
                 .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
                 .submitLabel(.search)
+                .onSubmit {
+                    submitSearch(searchQuery)
+                }
 
             if !searchQuery.isEmpty {
                 Button {
@@ -110,6 +119,74 @@ struct ShopSectionView: View {
                 .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var shopSearchSuggestions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            searchChipRow(
+                title: AppLocalization.text("quick_searches", fallback: "Quick searches"),
+                items: quickSearches.map { ($0.title, $0.query, $0.categoryKey) },
+                showClear: false
+            )
+
+            if !recentSearches.isEmpty {
+                searchChipRow(
+                    title: AppLocalization.text("recent_searches", fallback: "Recent searches"),
+                    items: recentSearches.map { ($0, $0, "all") },
+                    showClear: true
+                )
+            }
+        }
+    }
+
+    private func searchChipRow(title: String, items: [(title: String, query: String, categoryKey: String)], showClear: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(categoryLabelFont)
+                    .tracking(localizedTracking(1.6))
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
+
+                Spacer()
+
+                if showClear {
+                    Button(action: clearRecentSearches) {
+                        Text(AppLocalization.text("clear", fallback: "Clear"))
+                            .font(categoryLabelFont)
+                            .foregroundColor(secondaryTextColor)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(items.indices, id: \.self) { index in
+                        let item = items[index]
+                        Button {
+                            selectQuickSearch(item.query, item.categoryKey)
+                        } label: {
+                            Text(item.title)
+                                .font(categoryLabelFont)
+                                .tracking(localizedTracking(1.2))
+                                .textCase(.uppercase)
+                                .foregroundColor(primaryTextColor)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 9)
+                                .background(cardFillColor)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                                )
+                                .clipShape(Capsule(style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
     }
 
     private var shopSortSection: some View {
@@ -283,27 +360,78 @@ struct ShopSectionView: View {
     }
 
     private var loadingSection: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .tint(accentColor)
-
-                Text(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
-                .font(.system(size: 12, weight: .medium))
-                .tracking(localizedTracking(2))
-                .textCase(.uppercase)
-                .foregroundColor(secondaryTextColor)
+        LazyVGrid(columns: gridColumns, spacing: 16) {
+            ForEach(0..<6, id: \.self) { _ in
+                productSkeletonCard
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 48)
+        .accessibilityLabel(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
+    }
+
+    private var productSkeletonCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(skeletonFill)
+                .frame(height: 184)
+
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(skeletonFill)
+                .frame(width: 92, height: 10)
+
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(skeletonFill)
+                .frame(height: 22)
+
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(skeletonFill)
+                .frame(width: 150, height: 22)
+
+            VStack(alignment: .leading, spacing: 7) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(skeletonFill)
+                    .frame(height: 10)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(skeletonFill)
+                    .frame(width: 132, height: 10)
+            }
+
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(skeletonFill)
+                .frame(width: 78, height: 14)
+
+            RoundedRectangle(cornerRadius: 999, style: .continuous)
+                .fill(skeletonFill)
+                .frame(height: 38)
+        }
+        .padding(14)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .redacted(reason: .placeholder)
+        .allowsHitTesting(false)
+    }
+
+    private var skeletonFill: Color {
+        isLightAppearance ? accentColor.opacity(0.13) : Color.white.opacity(0.08)
     }
 
     private var emptySection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Text(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? AppLocalization.text("no_products", fallback: "No products match this category right now.")
                 : AppLocalization.text("no_search_results", fallback: "No products match that search right now."))
                 .font(.system(size: 15, weight: .medium, design: .serif))
                 .foregroundColor(secondaryTextColor)
+
+            if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(AppLocalization.text("try_quick_searches", fallback: "Try one of the quick searches above or clear the search to browse everything."))
+                    .font(categoryBodyFont)
+                    .foregroundColor(secondaryTextColor)
+                    .multilineTextAlignment(.center)
+            }
 
             Button {
                 activeCategory = "all"

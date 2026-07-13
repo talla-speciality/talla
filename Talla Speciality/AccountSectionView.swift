@@ -79,29 +79,15 @@ struct AccountSectionView: View {
                 .id(ScrollTarget.loyalty)
 
             accountCollectionSection(
-                title: AppLocalization.text("library_delivery", fallback: "Library & Delivery"),
-                subtitle: AppLocalization.text("library_delivery_subtitle", fallback: "Addresses, alerts, and saved carts for faster reorders."),
+                title: AppLocalization.text("delivery_reminders", fallback: "Delivery & Reminders"),
+                subtitle: AppLocalization.text("delivery_reminders_subtitle", fallback: "Addresses, back in stock reminders, and saved carts for faster reorders."),
                 isExpanded: $isLibrarySectionExpanded,
                 content: librarySection
             )
             .id(ScrollTarget.library)
             accountCollectionSection(
-                title: AppLocalization.text("shopping_discovery", fallback: "Shopping & Discovery"),
-                subtitle: AppLocalization.text("shopping_discovery_subtitle", fallback: "Favorites, recently viewed items, and recommendations."),
-                isExpanded: $isShoppingSectionExpanded,
-                content: shoppingSection
-            )
-            .id(ScrollTarget.shopping)
-            accountCollectionSection(
-                title: AppLocalization.text("brewing_archive", fallback: "Brewing Archive"),
-                subtitle: AppLocalization.text("brewing_archive_subtitle", fallback: "Keep your saved brew recipes close at hand."),
-                isExpanded: $isBrewingSectionExpanded,
-                content: brewingSection
-            )
-            .id(ScrollTarget.brewing)
-            accountCollectionSection(
-                title: AppLocalization.text("support_tools", fallback: "Support & Account Tools"),
-                subtitle: AppLocalization.text("support_tools_subtitle", fallback: "Quick references and help links when you need them."),
+                title: AppLocalization.text("settings_help", fallback: "Settings & Help"),
+                subtitle: AppLocalization.text("settings_help_subtitle", fallback: "Quick references and account tools when you need them."),
                 isExpanded: $isSupportSectionExpanded,
                 content: supportSection
             )
@@ -128,25 +114,7 @@ struct AccountSectionView: View {
             )
 
             accountQuickChip(
-                title: AppLocalization.text("saved_picks", fallback: "Saved"),
-                detail: favoriteCount == 0
-                    ? AppLocalization.text("saved_picks_empty", fallback: "Favorites")
-                    : "\(favoriteCount) saved",
-                systemImage: "heart.fill",
-                action: openSavedPicksAction
-            )
-
-            accountQuickChip(
-                title: AppLocalization.text("brewing", fallback: "Brewing"),
-                detail: brewRecipeCount == 0
-                    ? AppLocalization.text("brew_archive", fallback: "Archive")
-                    : "\(brewRecipeCount) recipes",
-                systemImage: "book.closed.fill",
-                action: openBrewArchiveAction
-            )
-
-            accountQuickChip(
-                title: AppLocalization.text("support", fallback: "Support"),
+                title: AppLocalization.text("settings_help_short", fallback: "Help"),
                 detail: AppLocalization.text("account_tools", fallback: "Tools"),
                 systemImage: "questionmark.circle.fill",
                 action: openSupportAction

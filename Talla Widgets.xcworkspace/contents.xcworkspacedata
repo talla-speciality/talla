@@ -2,7 +2,7 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "self:">
+      location = "container:Talla Speciality/Talla Speciality.xcodeproj">
    </FileRef>
    <Group
       location = "group:Talla Widgets"
@@ -12,6 +12,12 @@
       </FileRef>
       <FileRef
          location = "group:TallaWidgetsBundle.swift">
+      </FileRef>
+      <FileRef
+         location = "group:Talla Speciality/TallaAppIntents.swift">
+      </FileRef>
+      <FileRef
+         location = "group:Talla Speciality/TallaWidgets.swift">
       </FileRef>
    </Group>
 </Workspace>

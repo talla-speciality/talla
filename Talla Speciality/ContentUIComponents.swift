@@ -61,6 +61,13 @@ struct LambIconView: View {
     }
 }
 
+enum WelcomeChoice {
+    case beans
+    case drinks
+    case gifts
+    case concierge
+}
+
 struct WelcomeOverlayView: View {
     let primaryTextColor: Color
     let secondaryTextColor: Color
@@ -71,6 +78,7 @@ struct WelcomeOverlayView: View {
     let bodyFont: Font
     let labelFont: Font
     let startAction: () -> Void
+    let choiceAction: (WelcomeChoice) -> Void
     let skipAction: () -> Void
 
     var body: some View {
@@ -86,32 +94,41 @@ struct WelcomeOverlayView: View {
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
-                    Text(AppLocalization.text("welcome_title", fallback: "Set up Talla once, then checkout faster."))
+                    Text(AppLocalization.text("welcome_title", fallback: "What are you here for today?"))
                         .font(titleFont)
                         .foregroundColor(primaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text(AppLocalization.text("welcome_intro", fallback: "Create your account and save delivery details now, so orders, Beans, and checkout feel simple later."))
+                    Text(AppLocalization.text("welcome_intro", fallback: "Choose a starting point and Talla will take you to the right shelf. You can still set up your account anytime."))
                         .font(bodyFont)
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 VStack(spacing: 12) {
-                    welcomePoint(
-                        icon: "person.crop.circle.badge.checkmark",
-                        title: AppLocalization.text("welcome_account_title", fallback: "Create your account"),
-                        detail: AppLocalization.text("welcome_account_detail", fallback: "Use one email for checkout, Beans, orders, and saved details.")
+                    welcomeChoiceButton(
+                        icon: "leaf.fill",
+                        title: AppLocalization.text("welcome_choice_beans", fallback: "I want beans"),
+                        detail: AppLocalization.text("welcome_choice_beans_detail", fallback: "Browse whole bean and Arabic coffee."),
+                        choice: .beans
                     )
-                    welcomePoint(
-                        icon: "location.fill",
-                        title: AppLocalization.text("welcome_delivery_title", fallback: "Save delivery details"),
-                        detail: AppLocalization.text("welcome_delivery_detail", fallback: "Add your address before the first order so checkout does not slow you down.")
+                    welcomeChoiceButton(
+                        icon: "cup.and.saucer.fill",
+                        title: AppLocalization.text("welcome_choice_drinks", fallback: "I want ready drinks"),
+                        detail: AppLocalization.text("welcome_choice_drinks_detail", fallback: "Go to cups, bottles, and daily pours."),
+                        choice: .drinks
                     )
-                    welcomePoint(
+                    welcomeChoiceButton(
+                        icon: "gift.fill",
+                        title: AppLocalization.text("welcome_choice_gifts", fallback: "I want gifts"),
+                        detail: AppLocalization.text("welcome_choice_gifts_detail", fallback: "Find boxes and thoughtful coffee gifts."),
+                        choice: .gifts
+                    )
+                    welcomeChoiceButton(
                         icon: "sparkles",
-                        title: AppLocalization.text("welcome_beans_title", fallback: "Earn Beans"),
-                        detail: AppLocalization.text("welcome_beans_detail", fallback: "Completed orders can stay connected to rewards and order history.")
+                        title: AppLocalization.text("welcome_choice_concierge", fallback: "Help me choose"),
+                        detail: AppLocalization.text("welcome_choice_concierge_detail", fallback: "Open Coffee Concierge for guided picks."),
+                        choice: .concierge
                     )
                 }
 
@@ -151,27 +168,41 @@ struct WelcomeOverlayView: View {
         }
     }
 
-    private func welcomePoint(icon: String, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(accentColor)
-                .frame(width: 34, height: 34)
-                .background(accentColor.opacity(0.14))
-                .clipShape(Circle())
+    private func welcomeChoiceButton(icon: String, title: String, detail: String, choice: WelcomeChoice) -> some View {
+        Button {
+            choiceAction(choice)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(accentColor)
+                    .frame(width: 34, height: 34)
+                    .background(accentColor.opacity(0.14))
+                    .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(labelFont)
-                    .foregroundColor(primaryTextColor)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(labelFont)
+                        .foregroundColor(primaryTextColor)
 
-                Text(detail)
-                    .font(bodyFont)
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(detail)
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(accentColor)
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(accentColor.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
     }
 }
 

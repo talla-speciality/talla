@@ -29,6 +29,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.requestReview) private var requestReview
+    @Environment(\.openURL) private var openURL
 
     private enum Tab: String, CaseIterable {
         case home
@@ -429,6 +430,7 @@ struct ContentView: View {
     @AppStorage("loyalty.email") private var savedLoyaltyEmail = ""
     @AppStorage("favorites.productIDs") private var savedFavoriteProductIDs = ""
     @AppStorage("recentlyViewed.productIDs") private var savedRecentlyViewedProductIDs = ""
+    @AppStorage("recentSearches.queries") private var savedRecentSearchQueries = ""
     @AppStorage("alerts.productIDs") private var savedAlertProductIDs = ""
     @AppStorage("brewRecipes.saved") private var savedBrewRecipes = ""
     @AppStorage("brewJournal.saved") private var savedBrewJournal = ""
@@ -1409,9 +1411,12 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
 
-                VStack(alignment: .trailing, spacing: 10) {
-                    floatingConciergeButton
-                    floatingCartButton
+                if !showLaunchSplash {
+                    VStack(alignment: .trailing, spacing: 10) {
+                        floatingConciergeButton
+                        floatingCartButton
+                    }
+                    .transition(.opacity)
                 }
             }
             .padding(.trailing, 22)
@@ -1814,7 +1819,9 @@ struct ContentView: View {
                 .accessibilityLabel(AppLocalization.text("surprise_me", fallback: "Surprise me"))
             }
 
-            if let product = surprisePickProduct {
+            if isLoadingProducts && products.isEmpty {
+                homeSurprisePickSkeleton
+            } else if let product = surprisePickProduct {
                 HStack(alignment: .center, spacing: 14) {
                     ProductThumbnail(imageURL: product.imageURL, size: isCompact ? 82 : 96, cornerRadius: 18)
 
@@ -2645,7 +2652,7 @@ struct ContentView: View {
             }
 
             if isLoadingProducts && products.isEmpty {
-                loadingSection
+                productSkeletonGrid(count: isCompact ? 2 : 4)
             } else if let loadingError, products.isEmpty {
                 errorSection(message: loadingError)
             } else {
@@ -2739,9 +2746,22 @@ struct ContentView: View {
             categoryLabelFont: labelFont(size: 11, weight: .bold),
             categoryBodyFont: bodyFont(size: 13),
             gridColumns: shopProductGridColumns,
+            recentSearches: recentSearchQueries,
+            quickSearches: quickSearches,
             conciergePanel: AnyView(coffeeConciergePanel),
             renderProductCard: { product, showDescription in
                 AnyView(productCard(product: product, showDescription: showDescription))
+            },
+            submitSearch: { query in
+                recordRecentSearch(query)
+            },
+            selectQuickSearch: { query, categoryKey in
+                activeCategory = categoryKey
+                shopSearchQuery = query
+                recordRecentSearch(query)
+            },
+            clearRecentSearches: {
+                savedRecentSearchQueries = ""
             },
             retryLoad: {
                 Task {
@@ -2751,6 +2771,32 @@ struct ContentView: View {
         )
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
+    }
+
+    private var recentSearchQueries: [String] {
+        savedRecentSearchQueries
+            .split(separator: "|")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var quickSearches: [(title: String, query: String, categoryKey: String)] {
+        [
+            (AppLocalization.text("beans", fallback: "Beans"), "beans", "coffee-beans"),
+            (AppLocalization.text("cold_drinks", fallback: "Cold Drinks"), "cold", "summer-drinks"),
+            (AppLocalization.text("gifts", fallback: "Gifts"), "gift", "gifts"),
+            (AppLocalization.text("crmb", fallback: "CRMB"), "crmb", "desserts"),
+            (AppLocalization.text("equipment", fallback: "Equipment"), "brew", "coffee-equipment")
+        ]
+    }
+
+    private func recordRecentSearch(_ query: String) {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return }
+
+        var queries = recentSearchQueries.filter { $0.localizedCaseInsensitiveCompare(trimmedQuery) != .orderedSame }
+        queries.insert(trimmedQuery, at: 0)
+        savedRecentSearchQueries = queries.prefix(6).joined(separator: "|")
     }
 
     private var coffeeConciergePanel: some View {
@@ -3386,20 +3432,44 @@ struct ContentView: View {
                             detail: AppLocalization.text("talla_account_detail", fallback: "Your Talla account connects checkout, rewards, and saved details in one place.")
                         )
                         accountStatusTile(
-                            title: AppLocalization.text("rewards_ready", fallback: "Rewards Ready"),
-                            detail: AppLocalization.text("rewards_ready_detail", fallback: "Your account email is used to keep rewards and loyalty in sync across the app.")
+                            title: AppLocalization.text("about_talla", fallback: "About Talla"),
+                            detail: AppLocalization.text("about_talla_detail", fallback: "Speciality coffee, rewards, and roastery essentials built around daily rituals in Bahrain.")
                         )
                         infoTile(
-                            title: AppLocalization.text("support", fallback: "Support"),
+                            title: AppLocalization.text("whatsapp_support", fallback: "WhatsApp Support"),
                             detail: AppLocalization.text("support_detail", fallback: "Need help with orders or rewards? Reach the roastery team directly."),
                             actionTitle: AppLocalization.text("whatsapp_us", fallback: "WhatsApp Us"),
                             destination: URL(string: "https://wa.me/97339392414")!
+                        )
+                        infoTile(
+                            title: AppLocalization.text("email_support", fallback: "Email Support"),
+                            detail: AppLocalization.text("email_support_detail", fallback: "Send a note for account, app, order, or rewards support."),
+                            actionTitle: AppLocalization.text("send_email", fallback: "Send Email"),
+                            destination: URL(string: "mailto:Support@talla.me")!
+                        )
+                        infoTile(
+                            title: AppLocalization.text("store_location", fallback: "Store Location"),
+                            detail: AppLocalization.text("store_location_detail", fallback: "Open maps for directions, pickup planning, and visit details."),
+                            actionTitle: AppLocalization.text("open_maps", fallback: "Open Maps"),
+                            destination: URL(string: "https://maps.app.goo.gl/cRiBhdmSUiqSF5x59?g_st=ic")!
+                        )
+                        infoTile(
+                            title: AppLocalization.text("instagram", fallback: "Instagram"),
+                            detail: AppLocalization.text("instagram_detail", fallback: "Follow launches, limited roasts, and cafe updates."),
+                            actionTitle: AppLocalization.text("open_instagram", fallback: "Open Instagram"),
+                            destination: URL(string: "https://www.instagram.com/talla.bh/")!
                         )
                         infoTile(
                             title: AppLocalization.text("privacy_policy", fallback: "Privacy Policy"),
                             detail: AppLocalization.text("privacy_policy_detail", fallback: "Review how Talla handles account, order, rewards, and app data."),
                             actionTitle: AppLocalization.text("open_policy", fallback: "Open Policy"),
                             destination: URL(string: "https://duneroastery.myshopify.com/policies/privacy-policy")!
+                        )
+                        infoTile(
+                            title: AppLocalization.text("terms_of_service", fallback: "Terms of Service"),
+                            detail: AppLocalization.text("terms_detail", fallback: "Read the terms for using the store, checkout, rewards, and app services."),
+                            actionTitle: AppLocalization.text("open_terms", fallback: "Open Terms"),
+                            destination: URL(string: "https://duneroastery.myshopify.com/policies/terms-of-service")!
                         )
                         infoTile(
                             title: AppLocalization.text("store_support", fallback: "Store Support"),
@@ -4774,6 +4844,91 @@ struct ContentView: View {
         .padding(.vertical, 48)
     }
 
+    private var homeSurprisePickSkeleton: some View {
+        HStack(alignment: .center, spacing: 14) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(skeletonFillColor)
+                .frame(width: isCompact ? 82 : 96, height: isCompact ? 82 : 96)
+
+            VStack(alignment: .leading, spacing: 9) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(skeletonFillColor)
+                    .frame(width: 92, height: 10)
+
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(skeletonFillColor)
+                    .frame(height: 20)
+
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(skeletonFillColor)
+                    .frame(width: 130, height: 20)
+
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 999, style: .continuous)
+                        .fill(skeletonFillColor)
+                        .frame(width: 72, height: 34)
+
+                    RoundedRectangle(cornerRadius: 999, style: .continuous)
+                        .fill(skeletonFillColor)
+                        .frame(width: 94, height: 34)
+                }
+            }
+        }
+        .redacted(reason: .placeholder)
+        .allowsHitTesting(false)
+        .accessibilityLabel(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
+    }
+
+    private func productSkeletonGrid(count: Int) -> some View {
+        LazyVGrid(columns: productGridColumns, spacing: 16) {
+            ForEach(0..<count, id: \.self) { _ in
+                productSkeletonCard
+            }
+        }
+        .accessibilityLabel(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
+    }
+
+    private var productSkeletonCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(skeletonFillColor)
+                .frame(height: 184)
+
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(skeletonFillColor)
+                .frame(width: 92, height: 10)
+
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(skeletonFillColor)
+                .frame(height: 22)
+
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(skeletonFillColor)
+                .frame(width: 150, height: 22)
+
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(skeletonFillColor)
+                .frame(width: 78, height: 14)
+
+            RoundedRectangle(cornerRadius: 999, style: .continuous)
+                .fill(skeletonFillColor)
+                .frame(height: 38)
+        }
+        .padding(14)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .redacted(reason: .placeholder)
+        .allowsHitTesting(false)
+    }
+
+    private var skeletonFillColor: Color {
+        isLightAppearance ? Color(hex: 0xC8965A).opacity(0.13) : Color.white.opacity(0.08)
+    }
+
     private var emptySection: some View {
         VStack(spacing: 12) {
             Text("No products match this category right now.")
@@ -5568,11 +5723,19 @@ struct ContentView: View {
 
             Spacer(minLength: 0)
 
-            Link(actionTitle, destination: destination)
+            Button {
+                openURL(destination)
+            } label: {
+                HStack(spacing: 6) {
+                    Text(actionTitle)
+                    Image(systemName: "arrow.up.right")
+                }
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(1.8)
                 .textCase(.uppercase)
                 .foregroundColor(Color(hex: 0xC8965A))
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, minHeight: 164, alignment: .topLeading)
         .padding(18)
@@ -7117,13 +7280,7 @@ struct ContentView: View {
     }
 
     private func showToast(message: String) {
-        toastMessage = message
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-            if toastMessage == message {
-                toastMessage = nil
-            }
-        }
+        toastMessage = nil
     }
 
     private func categoryDefinition(for key: String) -> ShopCategory {
