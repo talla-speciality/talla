@@ -13,6 +13,9 @@ import CryptoKit
 #if canImport(UserNotifications)
 import UserNotifications
 #endif
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 #if canImport(PassKit)
 import PassKit
 #endif
@@ -23,6 +26,31 @@ import PhotosUI
 import SafariServices
 import UIKit
 #endif
+
+private enum TallaWidgetSharedState {
+    static let appGroupID = "group.Talla-Speciality.Talla-Speciality"
+    static let widgetKind = "com.talla.speciality.quick-actions"
+
+    static let loyaltyEmailKey = "loyalty.email"
+    static let favoriteProductIDsKey = "favorites.productIDs"
+    static let recentlyViewedProductIDsKey = "recentlyViewed.productIDs"
+    static let savedCartsKey = "carts.saved"
+    static let favoriteCountKey = "widget.favoriteCount"
+    static let recentCountKey = "widget.recentCount"
+    static let savedCartCountKey = "widget.savedCartCount"
+    static let languageKey = "app.language"
+    static let lastUpdatedKey = "widget.lastUpdated"
+
+    static var defaults: UserDefaults {
+        UserDefaults(suiteName: appGroupID) ?? .standard
+    }
+
+    static func reloadWidget() {
+#if canImport(WidgetKit)
+        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
+#endif
+    }
+}
 
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -410,6 +438,7 @@ struct ContentView: View {
     @State private var checkoutSession: CheckoutSession?
     @State private var articleSession: CheckoutSession?
     @State private var selectedProduct: Product?
+    @State private var isFavoriteShelfPresented = false
     @State private var voucherCodeInput = ""
     @State private var appliedVoucher: VoucherRecord?
     @State private var isApplyingVoucher = false
@@ -489,6 +518,8 @@ struct ContentView: View {
 #if canImport(PassKit)
     @State private var loyaltyWalletPass: WalletPassItem?
 #endif
+    @State private var isCustomerSectionExpanded = true
+    @State private var isLoyaltySectionExpanded = true
     @State private var isLibrarySectionExpanded = true
     @State private var isShoppingSectionExpanded = false
     @State private var isBrewingSectionExpanded = false
@@ -1339,7 +1370,9 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.28), value: showLaunchSplash)
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
         .task {
+            syncWidgetSharedState(reload: false)
             await runInitialLaunchSequence()
+            syncWidgetSharedState(reload: true)
         }
         .onChange(of: activeTab) { _, newTab in
             guard newTab == .shop, hasLoadedProducts else { return }
@@ -1375,6 +1408,21 @@ struct ContentView: View {
                 await syncRemotePushTokenIfPossible()
             }
         }
+        .onChange(of: savedLoyaltyEmail) { _, _ in
+            syncWidgetSharedState(reload: true)
+        }
+        .onChange(of: savedFavoriteProductIDs) { _, _ in
+            syncWidgetSharedState(reload: true)
+        }
+        .onChange(of: savedRecentlyViewedProductIDs) { _, _ in
+            syncWidgetSharedState(reload: true)
+        }
+        .onChange(of: savedCartsPayload) { _, _ in
+            syncWidgetSharedState(reload: true)
+        }
+        .onChange(of: savedAppLanguage) { _, _ in
+            syncWidgetSharedState(reload: true)
+        }
         .onChange(of: shortcutDestination) { _, _ in
             handleShortcutDestination()
         }
@@ -1393,6 +1441,9 @@ struct ContentView: View {
         }
         .sheet(item: $selectedProduct) { product in
             productDetailSheet(product: product)
+        }
+        .sheet(isPresented: $isFavoriteShelfPresented) {
+            favoriteShelfSheet
         }
 #if canImport(PassKit)
         .sheet(item: $loyaltyWalletPass, onDismiss: {
@@ -1528,12 +1579,19 @@ struct ContentView: View {
             showToast(message: AppLocalization.text("concierge_opened", fallback: "Coffee Concierge opened"))
         case "brewing":
             activeTab = .brewing
+        case "shelf", "favorites":
+            activeTab = .home
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                isFavoriteShelfPresented = true
+            }
         case "rewards":
             activeTab = .account
             savedLoyaltyEmail = savedCustomerEmail.isEmpty ? savedLoyaltyEmail : savedCustomerEmail
+            isLoyaltySectionExpanded = true
             accountScrollTarget = AccountSectionView.ScrollTarget.loyalty
         case "orders", "order-history", "checkout-return":
             activeTab = .account
+            isCustomerSectionExpanded = true
             accountScrollTarget = AccountSectionView.ScrollTarget.customer
             Task {
                 await loadOrderHistory()
@@ -1946,9 +2004,7 @@ struct ContentView: View {
                 Spacer(minLength: 12)
 
                 Button {
-                    isShoppingSectionExpanded = true
-                    accountScrollTarget = AccountSectionView.ScrollTarget.shopping
-                    activeTab = .account
+                    isFavoriteShelfPresented = true
                 } label: {
                     Image(systemName: "books.vertical.fill")
                         .font(.system(size: 15, weight: .bold))
@@ -1999,6 +2055,165 @@ struct ContentView: View {
         .padding(.horizontal, 18)
         .padding(.bottom, 18)
         }
+    }
+
+    private var favoriteShelfSheet: some View {
+        ZStack {
+            LinearGradient(
+                colors: backgroundGradientColors,
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(AppLocalization.text("favorites_shelf", fallback: "Your shelf"))
+                                .font(displayFont(size: isCompact ? 30 : 34))
+                                .tracking(1.4)
+                                .foregroundColor(primaryTextColor)
+
+                            Text(AppLocalization.text("favorites_shelf_stand_detail", fallback: "A stand for the coffees and goods you heart."))
+                                .font(bodyFont(size: 14))
+                                .foregroundColor(secondaryTextColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer(minLength: 12)
+
+                        Button {
+                            isFavoriteShelfPresented = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(primaryTextColor)
+                                .frame(width: 36, height: 36)
+                                .background(cardFillColor)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+                    }
+
+                    favoriteShelfStand
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 22)
+                .padding(.bottom, 34)
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var favoriteShelfStand: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "books.vertical.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 38, height: 38)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppLocalization.text("favorites_stand", fallback: "Favorites stand"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(2.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(String(format: AppLocalization.text("favorites_count", fallback: "%d saved picks"), favoriteProducts.count))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                }
+            }
+            .padding(.bottom, 16)
+
+            if favoriteProducts.isEmpty {
+                actionEmptyState(
+                    message: AppLocalization.text("favorites_empty", fallback: "Tap the heart on any coffee or gift to save it here."),
+                    actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
+                    systemImage: "heart.fill"
+                ) {
+                    isFavoriteShelfPresented = false
+                    activeCategory = "all"
+                    shopSearchQuery = ""
+                    activeTab = .shop
+                }
+            } else {
+                ForEach(Array(favoriteProducts.enumerated()), id: \.element.id) { index, product in
+                    favoriteShelfProductRow(product: product, index: index)
+
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.34 : 0.24))
+                        .frame(height: 8)
+                        .overlay(alignment: .top) {
+                            Rectangle()
+                                .fill(Color.white.opacity(isLightAppearance ? 0.35 : 0.08))
+                                .frame(height: 1)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.bottom, 14)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(elevatedSurfaceColor)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(isLightAppearance ? 0.08 : 0.24), radius: 18, x: 0, y: 10)
+    }
+
+    private func favoriteShelfProductRow(product: Product, index: Int) -> some View {
+        Button {
+            isFavoriteShelfPresented = false
+            recordRecentlyViewed(product)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                selectedProduct = product
+            }
+        } label: {
+            HStack(alignment: .center, spacing: 14) {
+                ProductThumbnail(imageURL: product.imageURL, size: 78, cornerRadius: 14)
+                    .rotationEffect(.degrees(index.isMultiple(of: 2) ? -2 : 2))
+                    .shadow(color: Color.black.opacity(isLightAppearance ? 0.08 : 0.24), radius: 8, x: 0, y: 5)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(product.categoryLabel)
+                        .font(labelFont(size: 9, weight: .bold))
+                        .tracking(2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(product.name)
+                        .font(titleFont(size: 18))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(product.price)
+                        .font(labelFont(size: 11, weight: .bold))
+                        .foregroundColor(secondaryTextColor)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(12)
+            .background(cardFillColor)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var tallaPassportSection: some View {
@@ -3370,12 +3585,15 @@ struct ContentView: View {
             addressesCount: addresses.count,
             favoriteCount: favoriteProducts.count,
             brewRecipeCount: brewRecipes.count,
+            isCustomerSectionExpanded: $isCustomerSectionExpanded,
+            isLoyaltySectionExpanded: $isLoyaltySectionExpanded,
             isLibrarySectionExpanded: $isLibrarySectionExpanded,
             isShoppingSectionExpanded: $isShoppingSectionExpanded,
             isBrewingSectionExpanded: $isBrewingSectionExpanded,
             isSupportSectionExpanded: $isSupportSectionExpanded,
             openRewardsAction: {
                 savedLoyaltyEmail = savedCustomerEmail.isEmpty ? savedLoyaltyEmail : savedCustomerEmail
+                isLoyaltySectionExpanded = true
                 accountScrollTarget = AccountSectionView.ScrollTarget.loyalty
                 showToast(message: AppLocalization.text("rewards_opened", fallback: "Rewards opened"))
             },
@@ -5936,6 +6154,7 @@ struct ContentView: View {
         cartOpen = false
         activeTab = .account
         switchAccountAuthMode(.createAccount)
+        isCustomerSectionExpanded = true
         accountScrollTarget = AccountSectionView.ScrollTarget.customer
         showToast(message: AppLocalization.text("onboarding_account_started", fallback: "Create your account first. Delivery details come next."))
     }
@@ -7277,6 +7496,23 @@ struct ContentView: View {
 #else
         showToast(message: AppLocalization.text("apple_wallet_unavailable", fallback: "Apple Wallet is unavailable on this device"))
 #endif
+    }
+
+    private func syncWidgetSharedState(reload: Bool) {
+        let defaults = TallaWidgetSharedState.defaults
+        defaults.set(savedLoyaltyEmail, forKey: TallaWidgetSharedState.loyaltyEmailKey)
+        defaults.set(savedFavoriteProductIDs, forKey: TallaWidgetSharedState.favoriteProductIDsKey)
+        defaults.set(savedRecentlyViewedProductIDs, forKey: TallaWidgetSharedState.recentlyViewedProductIDsKey)
+        defaults.set(savedCartsPayload, forKey: TallaWidgetSharedState.savedCartsKey)
+        defaults.set(favoriteProductIDs.count, forKey: TallaWidgetSharedState.favoriteCountKey)
+        defaults.set(recentlyViewedProductIDs.count, forKey: TallaWidgetSharedState.recentCountKey)
+        defaults.set(savedCarts.count, forKey: TallaWidgetSharedState.savedCartCountKey)
+        defaults.set(appLanguage.effectiveLanguageCode, forKey: TallaWidgetSharedState.languageKey)
+        defaults.set(Date().timeIntervalSince1970, forKey: TallaWidgetSharedState.lastUpdatedKey)
+
+        if reload {
+            TallaWidgetSharedState.reloadWidget()
+        }
     }
 
     private func showToast(message: String) {

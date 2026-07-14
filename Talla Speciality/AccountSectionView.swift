@@ -29,6 +29,8 @@ struct AccountSectionView: View {
     let addressesCount: Int
     let favoriteCount: Int
     let brewRecipeCount: Int
+    @Binding var isCustomerSectionExpanded: Bool
+    @Binding var isLoyaltySectionExpanded: Bool
     @Binding var isLibrarySectionExpanded: Bool
     @Binding var isShoppingSectionExpanded: Bool
     @Binding var isBrewingSectionExpanded: Bool
@@ -73,10 +75,20 @@ struct AccountSectionView: View {
             }
 
             accountQuickActions
-            customerAccountSection
-                .id(ScrollTarget.customer)
-            loyaltySection
-                .id(ScrollTarget.loyalty)
+            accountCollectionSection(
+                title: AppLocalization.text("talla_account", fallback: "Talla Account"),
+                subtitle: AppLocalization.text("talla_account_detail", fallback: "Your Talla account connects checkout, rewards, and saved details in one place."),
+                isExpanded: $isCustomerSectionExpanded,
+                content: customerAccountSection
+            )
+            .id(ScrollTarget.customer)
+            accountCollectionSection(
+                title: "TALLA RESERVE",
+                subtitle: AppLocalization.text("reserve_copy", fallback: "Use your order email to unlock Beans, rewards, and Reserve perks in one place."),
+                isExpanded: $isLoyaltySectionExpanded,
+                content: loyaltySection
+            )
+            .id(ScrollTarget.loyalty)
 
             accountCollectionSection(
                 title: AppLocalization.text("delivery_reminders", fallback: "Delivery & Reminders"),
