@@ -2088,6 +2088,17 @@ private extension ContentView.Product {
             }
         }
 
+        for tag in tags {
+            switch slug(from: tag) {
+            case "cups", "cup", "drink-cups", "mugs", "mug", "drinkware", "tumblers", "tumbler":
+                return "cups"
+            case "ready-made-drinks", "ready-made", "drinks", "drink":
+                return "ready-made-drinks"
+            default:
+                continue
+            }
+        }
+
         return nil
     }
 

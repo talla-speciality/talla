@@ -168,6 +168,24 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Drinks")
     }
 
+    @Test func plainShopifyTagsCanForceCupsAndDrinksCategories() {
+        let cupsKey = ProductCatalogRules.categoryKey(
+            productType: "Gift Box",
+            tags: ["Cups"],
+            title: "Ceramic Set"
+        )
+        let drinksKey = ProductCatalogRules.categoryKey(
+            productType: "Gift Box",
+            tags: ["Drinks"],
+            title: "Bottled Set"
+        )
+
+        #expect(cupsKey == "cups")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: cupsKey) == "Cups")
+        #expect(drinksKey == "ready-made-drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: drinksKey) == "Drinks")
+    }
+
     @Test func appCategoryTagSupportsAliases() {
         let key = ProductCatalogRules.categoryKey(
             productType: "Coffee",
