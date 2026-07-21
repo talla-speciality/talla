@@ -18,6 +18,9 @@ private enum TallaWidgetSharedState {
     static let recentCountKey = "widget.recentCount"
     static let savedCartCountKey = "widget.savedCartCount"
     static let languageKey = "app.language"
+    static let loyaltyPointsKey = "watch.loyalty.points"
+    static let loyaltyTierKey = "watch.loyalty.tier"
+    static let loyaltyNextRewardKey = "watch.loyalty.nextReward"
 
     static var defaults: UserDefaults {
         UserDefaults(suiteName: appGroupID) ?? .standard
@@ -32,6 +35,9 @@ struct TallaQuickActionsEntry: TimelineEntry {
     let recentCount: Int
     let savedCartCount: Int
     let languageCode: String
+    let loyaltyPoints: Int
+    let loyaltyTier: String
+    let loyaltyNextReward: String
 
     var hasShelf: Bool { favoriteCount > 0 }
     var isArabic: Bool { languageCode == "ar" }
@@ -47,7 +53,10 @@ struct TallaQuickActionsProvider: TimelineProvider {
             favoriteCount: 3,
             recentCount: 5,
             savedCartCount: 1,
-            languageCode: "en"
+            languageCode: "en",
+            loyaltyPoints: 72,
+            loyaltyTier: "Reserve",
+            loyaltyNextReward: "28 Beans to next reward"
         )
     }
 
@@ -68,6 +77,9 @@ struct TallaQuickActionsProvider: TimelineProvider {
         let recentCount = defaults.integer(forKey: TallaWidgetSharedState.recentCountKey)
         let savedCartCount = defaults.integer(forKey: TallaWidgetSharedState.savedCartCountKey)
         let languageCode = defaults.string(forKey: TallaWidgetSharedState.languageKey) == "ar" ? "ar" : "en"
+        let loyaltyPoints = defaults.integer(forKey: TallaWidgetSharedState.loyaltyPointsKey)
+        let loyaltyTier = defaults.string(forKey: TallaWidgetSharedState.loyaltyTierKey) ?? "Reserve"
+        let loyaltyNextReward = defaults.string(forKey: TallaWidgetSharedState.loyaltyNextRewardKey) ?? "Check rewards in app"
         let isArabic = languageCode == "ar"
         let beansText = loyaltyEmail.isEmpty
             ? (isArabic ? "سجّل الدخول للـ Beans" : "Sign in for Beans")
@@ -83,7 +95,10 @@ struct TallaQuickActionsProvider: TimelineProvider {
             favoriteCount: favoriteCount,
             recentCount: recentCount,
             savedCartCount: savedCartCount,
-            languageCode: languageCode
+            languageCode: languageCode,
+            loyaltyPoints: loyaltyPoints,
+            loyaltyTier: loyaltyTier,
+            loyaltyNextReward: loyaltyNextReward
         )
     }
 }
@@ -91,6 +106,7 @@ struct TallaQuickActionsProvider: TimelineProvider {
 struct TallaQuickActionsWidgetView: View {
     let entry: TallaQuickActionsEntry
     @Environment(\.widgetFamily) private var widgetFamily
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.showsWidgetContainerBackground) private var showsWidgetContainerBackground
     @Environment(\.widgetRenderingMode) private var widgetRenderingMode
 
@@ -100,37 +116,131 @@ struct TallaQuickActionsWidgetView: View {
 
     var body: some View {
         Group {
-            if widgetFamily == .systemMedium {
+            switch widgetFamily {
+            case .accessoryCircular:
+                circularAccessory
+            case .accessoryRectangular:
+                rectangularAccessory
+            case .accessoryInline:
+                inlineAccessory
+            case .systemMedium:
                 mediumWidget
-            } else {
+            default:
                 smallWidget
             }
         }
         .containerBackground(for: .widget) {
             widgetBackground
         }
-        .foregroundStyle(isClearAppearance ? Color.primary : Color(red: 0.98, green: 0.91, blue: 0.78))
+        .foregroundStyle(primaryForeground)
         .widgetURL(entry.preferredURL)
     }
 
+    private var primaryForeground: Color {
+        if isClearAppearance {
+            return .primary
+        }
+
+        return colorScheme == .dark
+            ? Color(red: 0.98, green: 0.92, blue: 0.80)
+            : Color(red: 0.16, green: 0.10, blue: 0.06)
+    }
+
     private var panelFill: Color {
-        isClearAppearance ? Color.primary.opacity(0.08) : Color.white.opacity(0.12)
+        if isClearAppearance {
+            return Color.primary.opacity(0.08)
+        }
+
+        return colorScheme == .dark
+            ? Color.white.opacity(0.12)
+            : Color.white.opacity(0.54)
     }
 
     private var subtlePanelFill: Color {
-        isClearAppearance ? Color.primary.opacity(0.06) : Color.white.opacity(0.13)
+        if isClearAppearance {
+            return Color.primary.opacity(0.06)
+        }
+
+        return colorScheme == .dark
+            ? Color.white.opacity(0.11)
+            : Color.white.opacity(0.42)
     }
 
     private var accentFill: Color {
-        isClearAppearance ? Color.accentColor.opacity(0.22) : Color(red: 0.79, green: 0.59, blue: 0.35)
+        if isClearAppearance {
+            return Color.accentColor.opacity(0.22)
+        }
+
+        return colorScheme == .dark
+            ? Color(red: 0.82, green: 0.62, blue: 0.36)
+            : Color(red: 0.53, green: 0.34, blue: 0.17)
     }
 
     private var accentText: Color {
-        isClearAppearance ? Color.primary : Color(red: 0.06, green: 0.04, blue: 0.02)
+        if isClearAppearance {
+            return Color.primary
+        }
+
+        return colorScheme == .dark
+            ? Color(red: 0.06, green: 0.04, blue: 0.02)
+            : Color.white
+    }
+
+    private var secondaryForeground: Color {
+        if isClearAppearance {
+            return Color.secondary
+        }
+
+        return colorScheme == .dark
+            ? Color(red: 0.98, green: 0.92, blue: 0.80).opacity(0.72)
+            : Color(red: 0.16, green: 0.10, blue: 0.06).opacity(0.66)
     }
 
     private func localized(_ english: String, _ arabic: String) -> String {
         entry.isArabic ? arabic : english
+    }
+
+    private var accessoryProgress: Double {
+        Double(entry.loyaltyPoints % 100) / 100
+    }
+
+    private var circularAccessory: some View {
+        Gauge(value: accessoryProgress) {
+            Image(systemName: "cup.and.saucer.fill")
+        } currentValueLabel: {
+            Text("\(entry.loyaltyPoints)")
+                .font(.system(size: 15, weight: .black, design: .serif))
+                .minimumScaleFactor(0.6)
+        }
+        .gaugeStyle(.accessoryCircular)
+        .tint(accentFill)
+        .widgetURL(TallaWidgetDeepLinks.rewards)
+    }
+
+    private var rectangularAccessory: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: "cup.and.saucer.fill")
+                Text("TALLA")
+                    .font(.system(size: 11, weight: .black, design: .serif))
+            }
+            .foregroundStyle(accentFill)
+
+            Text("\(entry.loyaltyPoints) Beans")
+                .font(.system(size: 14, weight: .black))
+                .lineLimit(1)
+
+            Text(entry.loyaltyNextReward)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .widgetURL(TallaWidgetDeepLinks.rewards)
+    }
+
+    private var inlineAccessory: some View {
+        Label("\(entry.loyaltyPoints) Beans", systemImage: "cup.and.saucer.fill")
+            .widgetURL(TallaWidgetDeepLinks.rewards)
     }
 
     private var smallWidget: some View {
@@ -206,7 +316,7 @@ struct TallaQuickActionsWidgetView: View {
                     .widgetAccentable()
                 Text(entry.beansText)
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryForeground)
                     .lineLimit(1)
             }
         }
@@ -221,7 +331,7 @@ struct TallaQuickActionsWidgetView: View {
                 .font(.system(size: 10, weight: .bold))
                 .lineLimit(1)
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(secondaryForeground)
     }
 
     private func statPill(title: String, value: Int, icon: String) -> some View {
@@ -233,7 +343,7 @@ struct TallaQuickActionsWidgetView: View {
             Text(title)
                 .font(.system(size: 8, weight: .bold))
                 .textCase(.uppercase)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(secondaryForeground)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
@@ -258,27 +368,47 @@ struct TallaQuickActionsWidgetView: View {
                 highlighted ? accentFill : subtlePanelFill,
                 in: RoundedRectangle(cornerRadius: 10, style: .continuous)
             )
-            .foregroundStyle(highlighted ? accentText : (isClearAppearance ? Color.primary : Color(red: 0.98, green: 0.91, blue: 0.78)))
+            .foregroundStyle(highlighted ? accentText : primaryForeground)
         }
     }
 
     private var widgetBackground: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.10, green: 0.06, blue: 0.03),
-                    Color(red: 0.28, green: 0.17, blue: 0.09),
-                    Color(red: 0.48, green: 0.31, blue: 0.15)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            if isClearAppearance {
+                Color.clear
+            } else if colorScheme == .dark {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.08, green: 0.05, blue: 0.03),
+                        Color(red: 0.18, green: 0.11, blue: 0.06),
+                        Color(red: 0.30, green: 0.19, blue: 0.10)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
 
-            LinearGradient(
-                colors: [Color.white.opacity(0.18), Color.clear],
-                startPoint: .top,
-                endPoint: .center
-            )
+                LinearGradient(
+                    colors: [Color.white.opacity(0.14), Color.clear],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.99, green: 0.95, blue: 0.88),
+                        Color(red: 0.94, green: 0.86, blue: 0.74),
+                        Color(red: 0.84, green: 0.69, blue: 0.51)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                LinearGradient(
+                    colors: [Color.white.opacity(0.48), Color.clear],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+            }
         }
     }
 }
@@ -292,7 +422,7 @@ struct TallaQuickActionsWidget: Widget {
         }
         .configurationDisplayName("Talla Shelf")
         .description("Open your saved shelf, shop, Coffee Concierge, and rewards quickly.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
         .containerBackgroundRemovable(true)
     }
 }

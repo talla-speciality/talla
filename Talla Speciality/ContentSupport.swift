@@ -508,8 +508,8 @@ enum AppLocalization {
         ,"category_arabic_coffee": ["ar": "القهوة العربية والشمالية"]
         ,"category_drip_bags": ["ar": "أكياس الترشيح"]
         ,"category_equipment": ["ar": "الأدوات"]
-        ,"category_cups": ["ar": "الأكواب والمشروبات"]
-        ,"category_ready_drinks": ["ar": "الأكواب والمشروبات"]
+        ,"category_cups": ["ar": "الأكواب"]
+        ,"category_ready_drinks": ["ar": "المشروبات"]
         ,"category_desserts": ["ar": "CRMB"]
         ,"category_bakery": ["ar": "الحلى"]
         ,"category_spreads": ["ar": "الدهنات"]
@@ -522,8 +522,8 @@ enum AppLocalization {
         ,"category_arabic_coffee_subtitle": ["ar": "تحميصات تقليدية"]
         ,"category_drip_bags_subtitle": ["ar": "تحضير فردي سريع"]
         ,"category_equipment_subtitle": ["ar": "أدوات التحضير"]
-        ,"category_cups_subtitle": ["ar": "أكواب ومشروبات جاهزة"]
-        ,"category_ready_drinks_subtitle": ["ar": "أكواب ومشروبات جاهزة"]
+        ,"category_cups_subtitle": ["ar": "أكواب وأدوات للشرب"]
+        ,"category_ready_drinks_subtitle": ["ar": "مشروبات جاهزة وأكواب الطريق"]
         ,"category_desserts_subtitle": ["ar": "اختيارات CRMB الحلوة"]
         ,"category_bakery_subtitle": ["ar": "اختيارات CRMB الحلوة"]
         ,"category_spreads_subtitle": ["ar": "مربى وزبدة ومرطبانات"]
@@ -745,22 +745,6 @@ private enum AccountService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        return try await performOrdersRequest(request)
-    }
-
-    static func createSampleOrder(email: String) async throws -> [ContentView.AccountOrder] {
-        guard let baseURL else {
-            throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
-        }
-
-        var request = URLRequest(url: baseURL.appending(path: "/orders/sample"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "email": email
-        ])
 
         return try await performOrdersRequest(request)
     }
@@ -1970,6 +1954,10 @@ private extension ContentView.Product {
     }
 
     private static func categoryKey(productType: String, tags: [String], title: String) -> String {
+        if let appCategory = appCategoryOverride(from: tags) {
+            return appCategory
+        }
+
         let parts = [title, productType] + tags
         let source = parts.joined(separator: " ").lowercased()
         let sourceSlug = slug(from: parts.joined(separator: " "))
@@ -2001,9 +1989,15 @@ private extension ContentView.Product {
         }
 
         if containsAny(sourceSlug, [
-            "cup", "cups", "latte-cup", "drink-cup", "talla-cup", "bottle", "bottled", "ready-made",
-            "ready-made-drink", "ready-made-drinks", "drink", "drinks", "tea", "karak", "matcha"
-        ]) || ["tea", "ready-made-drinks", "drink-cups", "drinks", "cups", "ready-made"].contains(typeSlug) {
+            "bottle", "bottled", "ready-made", "ready-made-drink", "ready-made-drinks",
+            "tea", "karak", "matcha", "juice", "beverage", "beverages"
+        ]) || ["tea", "ready-made-drinks", "drinks", "ready-made"].contains(typeSlug) {
+            return "ready-made-drinks"
+        }
+
+        if containsAny(sourceSlug, [
+            "cup", "cups", "latte-cup", "drink-cup", "talla-cup", "mug", "mugs", "tumbler", "tumblers", "drinkware"
+        ]) || ["drink-cups", "cups", "mugs", "drinkware"].contains(typeSlug) {
             return "cups"
         }
 
@@ -2054,8 +2048,10 @@ private extension ContentView.Product {
             return "Drip Bags"
         case "coffee-equipment":
             return "Equipment"
-        case "ready-made-drinks", "tea", "drink-cups", "cups":
-            return "Cups & Drinks"
+        case "ready-made-drinks", "tea", "drinks":
+            return "Drinks"
+        case "drink-cups", "cups", "mugs", "drinkware":
+            return "Cups"
         case "crmb-tallas-speciality-bakery", "desserts", "bread", "bakery":
             return "CRMB"
         case "spreads":
@@ -2074,6 +2070,54 @@ private extension ContentView.Product {
 
     private static func containsAny(_ source: String, _ needles: [String]) -> Bool {
         needles.contains { source.contains($0) }
+    }
+
+    private static func appCategoryOverride(from tags: [String]) -> String? {
+        for tag in tags {
+            let trimmedTag = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lowercasedTag = trimmedTag.lowercased()
+            let prefixes = ["app-category:", "app-category=", "app_category:", "app_category="]
+
+            guard let prefix = prefixes.first(where: { lowercasedTag.hasPrefix($0) }) else {
+                continue
+            }
+
+            let rawValue = String(trimmedTag.dropFirst(prefix.count))
+            if let categoryKey = canonicalAppCategoryKey(from: rawValue) {
+                return categoryKey
+            }
+        }
+
+        return nil
+    }
+
+    private static func canonicalAppCategoryKey(from value: String) -> String? {
+        switch slug(from: value) {
+        case "summer", "summer-drinks", "cold-drinks":
+            return "summer-drinks"
+        case "coffee", "coffee-beans", "beans":
+            return "coffee-beans"
+        case "arabic-coffee", "arabic-coffee-beans", "northern-coffee", "shamali":
+            return "arabic-coffee-beans"
+        case "drip-bags", "drip-bag":
+            return "drip-bags"
+        case "cups", "cup", "drink-cups", "mugs", "mug", "drinkware", "tumblers", "tumbler":
+            return "cups"
+        case "ready-made-drinks", "ready-made", "drinks", "drink", "tea", "karak", "matcha", "cups-and-drinks":
+            return "ready-made-drinks"
+        case "desserts", "dessert", "crmb", "bakery", "bread":
+            return "desserts"
+        case "spreads", "spread", "jams", "butters":
+            return "spreads"
+        case "hot-chocolate", "hot-cocoa", "cocoa":
+            return "hot-chocolate"
+        case "equipment", "coffee-equipment", "accessories", "tools":
+            return "coffee-equipment"
+        case "gifts", "gift", "talla-boxes", "boxes", "eid-gifts":
+            return "gifts"
+        default:
+            return nil
+        }
     }
 
     private static func slug(from value: String) -> String {

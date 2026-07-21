@@ -30,15 +30,15 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Talla Boxes")
     }
 
-    @Test func mapsTeaToCupsAndDrinks() {
+    @Test func mapsTeaToDrinks() {
         let key = ProductCatalogRules.categoryKey(
             productType: "Tea",
             tags: [],
             title: "Karak Tea"
         )
 
-        #expect(key == "cups")
-        #expect(ProductCatalogRules.categoryLabel(productType: "Tea", fallbackKey: key) == "Cups & Drinks")
+        #expect(key == "ready-made-drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Tea", fallbackKey: key) == "Drinks")
     }
 
     @Test func mapsDessertSignalsToDessertsCategory() {
@@ -49,7 +49,7 @@ struct Talla_SpecialityTests {
         )
 
         #expect(key == "desserts")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Desserts")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "CRMB")
     }
 
     @Test func mapsFudgeAndCremeCaramelToDessertsBeforeBoxes() {
@@ -66,7 +66,7 @@ struct Talla_SpecialityTests {
 
         #expect(fudgeKey == "desserts")
         #expect(caramelKey == "desserts")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: fudgeKey) == "Desserts")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: fudgeKey) == "CRMB")
     }
 
     @Test func mapsSpreadsSeparatelyFromDesserts() {
@@ -80,7 +80,7 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Spreads")
     }
 
-    @Test func mapsCupsToCupsAndDrinks() {
+    @Test func mapsCupsToCups() {
         let key = ProductCatalogRules.categoryKey(
             productType: "Drink Cups",
             tags: [],
@@ -88,7 +88,18 @@ struct Talla_SpecialityTests {
         )
 
         #expect(key == "cups")
-        #expect(ProductCatalogRules.categoryLabel(productType: "Drink Cups", fallbackKey: key) == "Cups & Drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Drink Cups", fallbackKey: key) == "Cups")
+    }
+
+    @Test func mapsBottledProductsToDrinks() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Ready Made Drinks",
+            tags: [],
+            title: "Bottled Karak"
+        )
+
+        #expect(key == "ready-made-drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Ready Made Drinks", fallbackKey: key) == "Drinks")
     }
 
     @Test func mapsIcedProductsToSummerDrinks() {
@@ -133,6 +144,39 @@ struct Talla_SpecialityTests {
 
         #expect(key == "drip-bags")
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Drip Bags")
+    }
+
+    @Test func appCategoryTagOverridesAutomaticCategory() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Gift Box",
+            tags: ["app-category:cups"],
+            title: "Iced Bottle Gift Set"
+        )
+
+        #expect(key == "cups")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Cups")
+    }
+
+    @Test func appCategoryTagCanForceDrinksCategory() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Gift Box",
+            tags: ["app-category:drinks"],
+            title: "Ceramic Cup Set"
+        )
+
+        #expect(key == "ready-made-drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Drinks")
+    }
+
+    @Test func appCategoryTagSupportsAliases() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Coffee",
+            tags: ["app_category=CRMB"],
+            title: "House Roast"
+        )
+
+        #expect(key == "desserts")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "CRMB")
     }
 
     @Test func defaultsToCoffeeBeansLabel() {

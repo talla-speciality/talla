@@ -25,17 +25,10 @@ final class Talla_SpecialityUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let homeExists = app.buttons["Home"].waitForExistence(timeout: 5)
-        let shopExists = app.buttons["Shop"].exists
-        let brewingExists = app.buttons["Brewing"].exists
-        let accountExists = app.buttons["Account"].exists
-        let cartExists = app.buttons["Open cart"].exists
-
-        XCTAssertTrue(homeExists)
-        XCTAssertTrue(shopExists)
-        XCTAssertTrue(brewingExists)
-        XCTAssertTrue(accountExists)
-        XCTAssertTrue(cartExists)
+        XCTAssertTrue(app.buttons["Home"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Shop"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Brewing"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Account"].waitForExistence(timeout: 5))
     }
 
     func testTabNavigationSmoke() throws {
@@ -62,10 +55,11 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertTrue(finalHomeExists)
     }
 
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
+    func testLaunchSmoke() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+        XCTAssertTrue(app.buttons["Home"].waitForExistence(timeout: 5))
     }
 }

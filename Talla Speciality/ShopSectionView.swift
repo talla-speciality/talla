@@ -31,6 +31,7 @@ struct ShopSectionView: View {
     let selectQuickSearch: (String, String) -> Void
     let clearRecentSearches: () -> Void
     let retryLoad: () -> Void
+    @State private var isSearchExpanded = false
 
     private var usesArabicTypography: Bool {
         AppLocalization.currentLanguage.effectiveLanguageCode == "ar"
@@ -41,30 +42,55 @@ struct ShopSectionView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(AppLocalization.text("shop_eyebrow", fallback: "What are you craving?"))
-                    .font(labelFont)
-                    .tracking(localizedTracking(4))
-                    .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(AppLocalization.text("shop_eyebrow", fallback: "What are you craving?"))
+                        .font(labelFont)
+                        .tracking(localizedTracking(4))
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
 
-                Text(AppLocalization.text("shop_heading", fallback: "Pick your Talla run"))
-                    .font(titleFont)
-                    .tracking(localizedTracking(1))
-                    .foregroundColor(primaryTextColor)
+                    Text(AppLocalization.text("shop_heading", fallback: "Pick your Talla run"))
+                        .font(titleFont)
+                        .tracking(localizedTracking(1))
+                        .foregroundColor(primaryTextColor)
 
-                Text(AppLocalization.text("shop_intro", fallback: "Start with cold summer drinks, grab cups for the road, add CRMB treats, or restock your favorite beans."))
-                    .font(bodyFont)
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(AppLocalization.text("shop_intro", fallback: "Start with cold summer drinks, grab cups for the road, add CRMB treats, or restock your favorite beans."))
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        isSearchExpanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: isSearchExpanded ? "xmark" : "magnifyingglass")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(width: 44, height: 44)
+                        .background(accentColor)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("search", fallback: "Search"))
             }
 
-            shopSearchField
-            shopSearchSuggestions
+            if isSearchExpanded || !searchQuery.isEmpty {
+                VStack(alignment: .leading, spacing: 14) {
+                    shopSearchField
+                    shopSearchSuggestions
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             conciergePanel
-            shopSortSection
             shopCategoriesSection
+            shopSortSection
             shopResultsSummary
 
             if isLoadingProducts && allProductsAreEmpty {
