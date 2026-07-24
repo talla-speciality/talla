@@ -75,6 +75,7 @@ module.exports = {
         alertInbox: path.join(dataDirectory, "alertInbox.json"),
         campaignSettings: path.join(dataDirectory, "campaignSettings.json"),
         homeSettings: path.join(dataDirectory, "homeSettings.json"),
+        tasteMemory: path.join(dataDirectory, "tasteMemory.json"),
         passwordResetTokens: path.join(dataDirectory, "passwordResetTokens.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",

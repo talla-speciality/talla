@@ -265,6 +265,16 @@ struct ContentView: View {
         let pointsAwarded: Int?
     }
 
+    struct TasteMemoryRecord: Codable, Hashable {
+        let id: String
+        let orderID: String?
+        let productName: String
+        let reaction: String
+        let tags: [String]
+        let createdAt: String
+        let updatedAt: String?
+    }
+
     struct VoucherRecord: Codable, Identifiable {
         var id: String { code }
 
@@ -343,6 +353,12 @@ struct ContentView: View {
         let createdAt: String
     }
 
+    private struct ReorderPrompt {
+        let order: AccountOrder
+        let product: Product
+        let daysAgo: Int
+    }
+
     enum AccountAuthMode: String {
         case signIn
         case createAccount
@@ -399,6 +415,9 @@ struct ContentView: View {
     @State private var activeCategory = "all"
     @State private var shopSearchQuery = ""
     @State private var surprisePickProductID = ""
+    @State private var isSurprisePickExpanded = false
+    @State private var isSurprisePickRevealed = false
+    @State private var surpriseRevealID = 0
     @State private var shopSortMode: ShopSortMode = .featured
     @State private var conciergeRequest = ""
     @State private var conciergeResult: CoffeeConciergeResult?
@@ -408,6 +427,11 @@ struct ContentView: View {
 #endif
     @State private var conciergeImageData: Data?
     @State private var isLoadingConciergeImage = false
+    @State private var isCoffeeConciergePresented = false
+    @State private var isCoffeeQuizExpanded = false
+    @State private var quizBrewMethod = "v60"
+    @State private var quizFlavor = "fruity"
+    @State private var quizAdventure = "curious"
     @State private var products: [Product] = []
     @State private var cartItems: [CartItem] = []
     @State private var cartOpen = false
@@ -467,6 +491,7 @@ struct ContentView: View {
     @AppStorage("alerts.productIDs") private var savedAlertProductIDs = ""
     @AppStorage("brewRecipes.saved") private var savedBrewRecipes = ""
     @AppStorage("brewJournal.saved") private var savedBrewJournal = ""
+    @AppStorage("tasteMemory.saved") private var savedTasteMemory = ""
     @AppStorage("carts.saved") private var savedCartsPayload = ""
     @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
     @AppStorage("shortcut.destination") private var shortcutDestination = ""
@@ -864,12 +889,6 @@ struct ContentView: View {
         }
     }
 
-    private var conciergeProducts: [Product] {
-        guard let conciergeResult else { return [] }
-        let productsByID = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
-        return conciergeResult.productIDs.compactMap { productsByID[$0] }
-    }
-
     private var favoriteProductIDs: Set<String> {
         Set(
             savedFavoriteProductIDs
@@ -877,6 +896,12 @@ struct ContentView: View {
                 .map { String($0) }
                 .filter { !$0.isEmpty }
         )
+    }
+
+    private var conciergeProducts: [Product] {
+        guard let conciergeResult else { return [] }
+        let productsByID = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
+        return conciergeResult.productIDs.compactMap { productsByID[$0] }
     }
 
     private var favoriteProducts: [Product] {
@@ -1080,6 +1105,19 @@ struct ContentView: View {
         }
     }
 
+    private var tasteMemoryRecords: [TasteMemoryRecord] {
+        guard let data = savedTasteMemory.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([TasteMemoryRecord].self, from: data) else {
+            return []
+        }
+
+        return decoded
+    }
+
+    private var tasteMemoryLookup: [String: TasteMemoryRecord] {
+        Dictionary(uniqueKeysWithValues: tasteMemoryRecords.map { ($0.id, $0) })
+    }
+
     private var recommendedProducts: [Product] {
         let sourceProducts = favoriteProducts + recentlyViewedProducts + orderedProducts
 
@@ -1097,8 +1135,8 @@ struct ContentView: View {
         let ranked = products
             .filter { !excludedIDs.contains($0.id) }
             .sorted { lhs, rhs in
-                let lhsScore = categoryWeights[lhs.categoryKey, default: 0]
-                let rhsScore = categoryWeights[rhs.categoryKey, default: 0]
+                let lhsScore = categoryWeights[lhs.categoryKey, default: 0] + tastePreferenceScore(for: lhs)
+                let rhsScore = categoryWeights[rhs.categoryKey, default: 0] + tastePreferenceScore(for: rhs)
 
                 if lhsScore != rhsScore {
                     return lhsScore > rhsScore
@@ -1116,6 +1154,56 @@ struct ContentView: View {
         }
 
         return Array(ranked.prefix(4))
+    }
+
+    private var reorderPrompt: ReorderPrompt? {
+        let sortedOrders = orderHistory.sorted { lhs, rhs in
+            orderDate(from: lhs.createdAt) > orderDate(from: rhs.createdAt)
+        }
+
+        for order in sortedOrders {
+            guard let items = order.items else { continue }
+
+            for item in items {
+                if let product = matchingProduct(for: item.name) {
+                    return ReorderPrompt(
+                        order: order,
+                        product: product,
+                        daysAgo: daysSinceOrder(order)
+                    )
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private var orderBasedRecommendation: (source: Product, recommended: Product)? {
+        guard let source = orderedProducts.first else { return nil }
+
+        let sourceNotes = Set(productTasteSummary(for: source).components(separatedBy: " - "))
+        let candidates = products.filter {
+            $0.id != source.id &&
+            !$0.name.isEmpty &&
+            $0.isAvailableForSale &&
+            ($0.categoryKey == source.categoryKey || $0.categoryKey == "coffee-beans" || $0.categoryKey == "arabic-coffee-beans")
+        }
+
+        let ranked = candidates.sorted { lhs, rhs in
+            let lhsNotes = Set(productTasteSummary(for: lhs).components(separatedBy: " - "))
+            let rhsNotes = Set(productTasteSummary(for: rhs).components(separatedBy: " - "))
+            let lhsScore = sourceNotes.intersection(lhsNotes).count + (lhs.categoryKey == source.categoryKey ? 2 : 0)
+            let rhsScore = sourceNotes.intersection(rhsNotes).count + (rhs.categoryKey == source.categoryKey ? 2 : 0)
+
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+
+            return lhs.name < rhs.name
+        }
+
+        guard let recommended = ranked.first else { return nil }
+        return (source, recommended)
     }
 
     private var displayedBrewingMethods: [BrewingMethod] {
@@ -1184,6 +1272,15 @@ struct ContentView: View {
 
     private var calculatedWaterAmount: Double {
         ratioCoffeeAmount * ratioValue
+    }
+
+    private var brewAgainHistoryItems: [(title: String, detail: String)] {
+        brewRecipes.prefix(3).map { recipe in
+            (
+                recipe.name,
+                "\(formattedRatioValue(recipe.coffeeGrams)) g coffee - \(formattedRatioValue(recipe.waterGrams)) g water"
+            )
+        }
     }
 
     private var loyaltyPerks: [String] {
@@ -1452,6 +1549,9 @@ struct ContentView: View {
         .sheet(isPresented: $isFavoriteShelfPresented) {
             favoriteShelfSheet
         }
+        .sheet(isPresented: $isCoffeeConciergePresented) {
+            coffeeConciergeSheet
+        }
 #if canImport(PassKit)
         .sheet(item: $loyaltyWalletPass, onDismiss: {
             Task {
@@ -1471,7 +1571,7 @@ struct ContentView: View {
 
                 if !showLaunchSplash {
                     VStack(alignment: .trailing, spacing: 10) {
-                        floatingConciergeButton
+                        floatingDrinksButton
                         floatingCartButton
                     }
                     .transition(.opacity)
@@ -1532,11 +1632,10 @@ struct ContentView: View {
 
     private func tabScreen<Content: View>(_ content: Content) -> some View {
         VStack(spacing: 0) {
-            header
-
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
+                        header
                         content
                         footer
                     }
@@ -1578,12 +1677,10 @@ struct ContentView: View {
             activeCategory = "all"
             shopSearchQuery = searchQuery
         case "concierge":
-            activeTab = .shop
-            activeCategory = "all"
             if !searchQuery.isEmpty {
                 conciergeRequest = searchQuery
             }
-            showToast(message: AppLocalization.text("concierge_opened", fallback: "Coffee Concierge opened"))
+            openCoffeeConcierge()
         case "brewing":
             activeTab = .brewing
         case "shelf", "favorites":
@@ -1621,9 +1718,7 @@ struct ContentView: View {
             shopSearchQuery = ""
             activeTab = .shop
         case .drinks:
-            activeCategory = "cups"
-            shopSearchQuery = ""
-            activeTab = .shop
+            openDrinksSection()
         case .gifts:
             activeCategory = "gifts"
             shopSearchQuery = ""
@@ -1634,10 +1729,15 @@ struct ContentView: View {
     }
 
     private func openCoffeeConcierge() {
-        activeTab = .shop
-        activeCategory = "all"
-        shopSearchQuery = ""
+        isCoffeeConciergePresented = true
         showToast(message: AppLocalization.text("concierge_opened", fallback: "Coffee Concierge opened"))
+    }
+
+    private func openDrinksSection() {
+        activeTab = .shop
+        activeCategory = "ready-made-drinks"
+        shopSearchQuery = ""
+        showToast(message: AppLocalization.text("drinks_opened", fallback: "Drinks opened"))
     }
 
     private func handleDeepLink(_ url: URL) {
@@ -1782,11 +1882,11 @@ struct ContentView: View {
         .accessibilityValue(cartCount > 0 ? "\(cartCount) items" : "Empty")
     }
 
-    private var floatingConciergeButton: some View {
+    private var floatingDrinksButton: some View {
         Button {
-            openCoffeeConcierge()
+            openDrinksSection()
         } label: {
-            Image(systemName: "sparkles")
+            Image(systemName: "takeoutbag.and.cup.and.straw.fill")
                 .font(.system(size: 16, weight: .bold))
             .foregroundColor(Color(hex: 0x0A0804))
             .frame(width: 48, height: 48)
@@ -1795,7 +1895,7 @@ struct ContentView: View {
             .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.28), radius: 16, x: 0, y: 8)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(AppLocalization.text("open_coffee_concierge", fallback: "Open Coffee Concierge"))
+        .accessibilityLabel(AppLocalization.text("open_drinks", fallback: "Open Drinks"))
     }
 
     private var homeView: some View {
@@ -1803,153 +1903,21 @@ struct ContentView: View {
             heroSection
             homeSurprisePick
             homeFavoritesShelf
+            homeOrderAgainSection
             featuredProducts
         }
     }
 
-    private var homeConciergeShortcut: some View {
-        Button {
-            openCoffeeConcierge()
-        } label: {
-            HStack(alignment: .center, spacing: 14) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Color(hex: 0x0A0804))
-                    .frame(width: 42, height: 42)
-                    .background(Color(hex: 0xC8965A))
-                    .clipShape(Circle())
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(AppLocalization.text("coffee_concierge_title", fallback: "Coffee Concierge"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.8)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
-
-                    Text(AppLocalization.text("coffee_concierge_home_detail", fallback: "Not sure what to buy? Ask for beans, gifts, budget, or brew style."))
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-
-                Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xC8965A))
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 18)
-        .padding(.bottom, 16)
-    }
-
     private var homeSurprisePick: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(AppLocalization.text("daily_surprise_title", fallback: "Today's fun pick"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+            surprisePickHeader
 
-                    Text(AppLocalization.text("daily_surprise_detail", fallback: "Tap surprise and let Talla choose something from the shelf."))
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 12)
-
-                Button {
-                    refreshSurprisePick()
-                } label: {
-                    Image(systemName: "shuffle")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .frame(width: 42, height: 42)
-                        .background(Color(hex: 0xC8965A))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppLocalization.text("surprise_me", fallback: "Surprise me"))
-            }
-
-            if isLoadingProducts && products.isEmpty {
-                homeSurprisePickSkeleton
-            } else if let product = surprisePickProduct {
-                HStack(alignment: .center, spacing: 14) {
-                    ProductThumbnail(imageURL: product.imageURL, size: isCompact ? 82 : 96, cornerRadius: 18)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(product.categoryLabel)
-                            .font(labelFont(size: 9, weight: .bold))
-                            .tracking(1.5)
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
-
-                        Text(product.name)
-                            .font(titleFont(size: isCompact ? 17 : 19))
-                            .foregroundColor(primaryTextColor)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Text(product.price)
-                            .font(labelFont(size: 12, weight: .bold))
-                            .foregroundColor(secondaryTextColor)
-
-                        HStack(spacing: 8) {
-                            Button {
-                                addToCart(product: product)
-                            } label: {
-                                Label(AppLocalization.text("add_pick_to_bag", fallback: "Add"), systemImage: "bag.badge.plus")
-                                    .font(labelFont(size: 11, weight: .bold))
-                                    .foregroundColor(Color(hex: 0x0A0804))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 9)
-                                    .background(Color(hex: 0xC8965A))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-
-                            Button {
-                                activeCategory = product.categoryKey
-                                shopSearchQuery = ""
-                                activeTab = .shop
-                                delightFeedbackTrigger += 1
-                            } label: {
-                                Label(AppLocalization.text("see_more", fallback: "See more"), systemImage: "arrow.right")
-                                    .font(labelFont(size: 11, weight: .bold))
-                                    .foregroundColor(primaryTextColor)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 9)
-                                    .background(elevatedSurfaceColor)
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            } else {
-                actionEmptyState(
-                    message: AppLocalization.text("surprise_pick_empty", fallback: "Load the shop once and Talla will pick something fun for you."),
-                    actionTitle: AppLocalization.text("browse_shop", fallback: "Browse Shop"),
-                    systemImage: "sparkles"
-                ) {
-                    activeTab = .shop
-                }
+            if isSurprisePickExpanded {
+                surprisePickExpandedContent
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(16)
+        .padding(isSurprisePickExpanded ? 16 : 12)
         .background(
             LinearGradient(
                 colors: isLightAppearance
@@ -1966,6 +1934,261 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 18)
         .padding(.bottom, 16)
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isSurprisePickExpanded)
+    }
+
+    private var surprisePickHeader: some View {
+        Button {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                isSurprisePickExpanded.toggle()
+            }
+        } label: {
+            HStack(alignment: .center, spacing: 12) {
+                Image("Logo")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .padding(10)
+                    .frame(width: isSurprisePickExpanded ? 42 : 36, height: isSurprisePickExpanded ? 42 : 36)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: isSurprisePickExpanded ? 4 : 2) {
+                    Text(AppLocalization.text("daily_surprise_title", fallback: "Today's Hot Pick"))
+                        .font(labelFont(size: isSurprisePickExpanded ? 10 : 9, weight: .bold))
+                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Text(AppLocalization.text("daily_surprise_detail", fallback: "Not sure what to choose? Let Talla surprise you."))
+                        .font(bodyFont(size: isSurprisePickExpanded ? 13 : 12))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(isSurprisePickExpanded ? 2 : 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: isSurprisePickExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(primaryTextColor)
+                    .frame(width: 30, height: 30)
+                    .background(elevatedSurfaceColor.opacity(0.8))
+                    .clipShape(Circle())
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(AppLocalization.text("daily_surprise_title", fallback: "Today's Hot Pick"))
+        .accessibilityValue(isSurprisePickExpanded ? "Expanded" : "Collapsed")
+    }
+
+    private var surprisePickExpandedContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Spacer(minLength: 0)
+
+                Button {
+                    refreshSurprisePick()
+                } label: {
+                    Text(AppLocalization.text("surprise_me_refresh", fallback: "Surprise me ↻"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 12)
+                        .frame(height: 38)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("surprise_me_refresh", fallback: "Surprise me ↻"))
+            }
+
+            if isLoadingProducts && products.isEmpty {
+                homeSurprisePickSkeleton
+            } else if let product = surprisePickProduct {
+                if isSurprisePickRevealed {
+                    revealedSurprisePick(product)
+                        .transition(.scale(scale: 0.96).combined(with: .opacity))
+                } else {
+                    surpriseRevealCup
+                        .transition(.scale(scale: 0.96).combined(with: .opacity))
+                }
+            } else {
+                actionEmptyState(
+                    message: AppLocalization.text("surprise_pick_empty", fallback: "Load the shop once and Talla will pick something fun for you."),
+                    actionTitle: AppLocalization.text("browse_shop", fallback: "Browse Shop"),
+                    systemImage: "sparkles"
+                ) {
+                    activeTab = .shop
+                }
+            }
+        }
+    }
+
+    private var surpriseRevealCup: some View {
+        Button {
+            revealSurprisePick()
+        } label: {
+            ZStack {
+                CoffeeBeansBurstView(accentColor: Color(hex: 0xC8965A), id: surpriseRevealID)
+                    .opacity(surpriseRevealID == 0 ? 0 : 1)
+                    .offset(y: -12)
+
+                VStack(spacing: 12) {
+                    Image("Logo")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .padding(24)
+                        .frame(width: 104, height: 104)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Circle())
+                        .rotationEffect(.degrees(surpriseRevealID.isMultiple(of: 2) ? -4 : 4))
+                        .animation(.spring(response: 0.22, dampingFraction: 0.42), value: surpriseRevealID)
+
+                    Text(AppLocalization.text("tap_cup_reveal_pick", fallback: "Tap the cup to reveal today's pick"))
+                        .font(labelFont(size: 11, weight: .bold))
+                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(AppLocalization.text("limited_daily_reward", fallback: "Limited daily reward inside"))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(AppLocalization.text("tap_cup_reveal_pick", fallback: "Tap the cup to reveal today's pick"))
+    }
+
+    private func revealedSurprisePick(_ product: Product) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                ProductThumbnail(imageURL: product.imageURL, size: isCompact ? 92 : 108, cornerRadius: 18)
+                    .scaleEffect(surpriseRevealID.isMultiple(of: 2) ? 1 : 1.045)
+                    .rotationEffect(.degrees(surpriseRevealID.isMultiple(of: 2) ? -1.5 : 1.5))
+                    .animation(.spring(response: 0.32, dampingFraction: 0.58), value: surpriseRevealID)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(AppLocalization.text("surprise_revealed", fallback: "Revealed"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+
+                        Text(AppLocalization.text("limited_daily_reward", fallback: "Limited daily reward inside"))
+                            .font(labelFont(size: 8, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(Color(hex: 0xC8965A).opacity(0.9))
+                            .clipShape(Capsule())
+                    }
+
+                    Text(product.name)
+                        .font(titleFont(size: isCompact ? 18 : 21))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(product.price)
+                        .font(labelFont(size: 12, weight: .bold))
+                        .foregroundColor(secondaryTextColor)
+                }
+            }
+
+            surprisePickInfoRow(
+                title: AppLocalization.text("why_selected", fallback: "Why it was selected"),
+                detail: surprisePickReason(for: product),
+                systemImage: "sparkles"
+            )
+
+            surprisePickInfoRow(
+                title: AppLocalization.text("best_brewing_method", fallback: "Best brewing method"),
+                detail: surprisePickBrewMethod(for: product),
+                systemImage: "drop.fill"
+            )
+
+            HStack(spacing: 8) {
+                Button {
+                    addToCart(product: product)
+                } label: {
+                    Label(AppLocalization.text("add_pick_to_bag", fallback: "Add"), systemImage: "bag.badge.plus")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
+
+                Button {
+                    refreshSurprisePick()
+                } label: {
+                    Label(AppLocalization.text("surprise_me", fallback: "Surprise me"), systemImage: "shuffle")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.68)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(elevatedSurfaceColor)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.78 : 0.62))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(alignment: .topTrailing) {
+            CoffeeBeansBurstView(accentColor: Color(hex: 0xC8965A), id: surpriseRevealID)
+                .offset(x: 18, y: -34)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func surprisePickInfoRow(title: String, detail: String, systemImage: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(Color(hex: 0xC8965A))
+                .frame(width: 24, height: 24)
+                .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(labelFont(size: 9, weight: .bold))
+                    .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xC8965A))
+
+                Text(detail)
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func refreshSurprisePick() {
@@ -1984,8 +2207,68 @@ struct ContentView: View {
             surprisePickProductID = nextProduct.id
         }
 
+        isSurprisePickRevealed = true
+        surpriseRevealID += 1
         delightFeedbackTrigger += 1
         showToast(message: AppLocalization.text("surprise_pick_ready", fallback: "New pick ready"))
+    }
+
+    private func revealSurprisePick() {
+        guard surprisePickProduct != nil else {
+            activeTab = .shop
+            showToast(message: AppLocalization.text("loading_shop", fallback: "Loading the shop"))
+            return
+        }
+
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+            isSurprisePickRevealed = true
+            surpriseRevealID += 1
+        }
+        delightFeedbackTrigger += 1
+    }
+
+    private func surprisePickReason(for product: Product) -> String {
+        let source = "\(product.name) \(product.desc) \(product.categoryLabel)".lowercased()
+
+        if source.contains("ethiopia") || source.contains("guji") || source.contains("floral") || source.contains("berry") {
+            return AppLocalization.text("surprise_reason_floral", fallback: "It brings a bright, expressive cup with floral and berry-like energy.")
+        }
+
+        if source.contains("arabic") || source.contains("shamali") || source.contains("qahwa") || source.contains("cardamom") {
+            return AppLocalization.text("surprise_reason_arabic", fallback: "It fits the Talla ritual: warm, aromatic and made for sharing.")
+        }
+
+        if source.contains("brazil") || source.contains("chocolate") || source.contains("caramel") {
+            return AppLocalization.text("surprise_reason_comfort", fallback: "It is an easy crowd-pleaser with a sweet, comforting profile.")
+        }
+
+        if source.contains("gift") || source.contains("box") {
+            return AppLocalization.text("surprise_reason_gift", fallback: "It is a ready-to-share pick for hosting, gifting or a small treat.")
+        }
+
+        return AppLocalization.text("surprise_reason_default", fallback: "It stood out as a useful daily pick from the Talla shelf.")
+    }
+
+    private func surprisePickBrewMethod(for product: Product) -> String {
+        let source = "\(product.name) \(product.desc) \(product.categoryLabel)".lowercased()
+
+        if source.contains("arabic") || source.contains("shamali") || source.contains("qahwa") || source.contains("cardamom") {
+            return AppLocalization.text("brew_method_arabic", fallback: "Arabic coffee")
+        }
+
+        if source.contains("espresso") || source.contains("brazil") || source.contains("chocolate") {
+            return AppLocalization.text("brew_method_espresso", fallback: "Espresso")
+        }
+
+        if source.contains("aeropress") || source.contains("balanced") {
+            return "AeroPress"
+        }
+
+        if source.contains("coffee") || source.contains("bean") || source.contains("ethiopia") || source.contains("guji") || source.contains("colombia") {
+            return "V60"
+        }
+
+        return AppLocalization.text("brew_method_any", fallback: "Enjoy as-is")
     }
 
     @ViewBuilder
@@ -2062,6 +2345,153 @@ struct ContentView: View {
         .padding(.horizontal, 18)
         .padding(.bottom, 18)
         }
+    }
+
+    @ViewBuilder
+    private var homeOrderAgainSection: some View {
+        if let prompt = reorderPrompt {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(AppLocalization.text("personalized_for_you", fallback: "For You"))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(2.2)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+
+                        Text(AppLocalization.text("order_again_home", fallback: "Order Again"))
+                            .font(displayFont(size: 24))
+                            .tracking(0.4)
+                            .foregroundColor(primaryTextColor)
+                    }
+
+                    Spacer(minLength: 12)
+
+                    Button {
+                        activeTab = .account
+                        isCustomerSectionExpanded = true
+                        accountScrollTarget = AccountSectionView.ScrollTarget.customer
+                    } label: {
+                        Label(AppLocalization.text("view_orders", fallback: "View Orders"), systemImage: "clock.arrow.circlepath")
+                            .font(labelFont(size: 10, weight: .bold))
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                reorderPromptCard(prompt)
+
+                if let recommendation = orderBasedRecommendation {
+                    orderRecommendationCard(source: recommendation.source, recommended: recommendation.recommended)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private func reorderPromptCard(_ prompt: ReorderPrompt) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            ProductThumbnail(imageURL: prompt.product.imageURL, size: isCompact ? 82 : 96, cornerRadius: 18)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(format: AppLocalization.text("running_low_on_product", fallback: "Running low on %@?"), prompt.product.name))
+                    .font(titleFont(size: isCompact ? 19 : 21))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(String(format: AppLocalization.text("last_ordered_days_ago", fallback: "Last ordered %d days ago"), prompt.daysAgo))
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+
+                HStack(spacing: 8) {
+                    Text(productTasteSummary(for: prompt.product))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Spacer(minLength: 0)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                buyAgain(order: prompt.order)
+            } label: {
+                Text(AppLocalization.text("reorder", fallback: "Reorder"))
+                    .font(labelFont(size: 11, weight: .bold))
+                    .tracking(1.4)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 11)
+                    .glassEffect(.regular.tint(Color(hex: 0xC8965A)).interactive(), in: .capsule)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func orderRecommendationCard(source: Product, recommended: Product) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color(hex: 0xC8965A))
+                .frame(width: 34, height: 34)
+                .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(String(format: AppLocalization.text("similar_order_recommendation", fallback: "You enjoyed %@ - try %@."), source.name, recommended.name))
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(productTasteSummary(for: recommended))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                if recommended.hasVariantChoices {
+                    recordRecentlyViewed(recommended)
+                    selectedProduct = recommended
+                } else {
+                    addToCart(product: recommended)
+                }
+            } label: {
+                Image(systemName: recommended.hasVariantChoices ? "slider.horizontal.3" : "plus")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 38, height: 38)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!recommended.isAvailableForSale || selectedVariant(for: recommended) == nil)
+            .accessibilityLabel(AppLocalization.text("add_recommended_product", fallback: "Add recommended product"))
+        }
+        .padding(14)
+        .background(elevatedSurfaceColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var favoriteShelfSheet: some View {
@@ -2835,8 +3265,12 @@ struct ContentView: View {
             accentColor: Color(hex: 0xC8965A),
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
+            tasteMemoryLookup: tasteMemoryLookup,
             buyAgainAction: { order in
                 buyAgain(order: order)
+            },
+            saveTasteMemoryAction: { order, item, reaction, tags in
+                saveTasteMemory(order: order, item: item, reaction: reaction, tags: tags)
             },
             browseProductsAction: {
                 activeTab = .shop
@@ -2880,7 +3314,7 @@ struct ContentView: View {
             } else {
                 LazyVGrid(columns: productGridColumns, spacing: 16) {
                     ForEach(Array(signatureRoastProducts.prefix(isCompact ? 2 : 4))) { product in
-                        productCard(product: product, showDescription: false)
+                        productCard(product: product, showDescription: true)
                     }
                 }
             }
@@ -2970,7 +3404,7 @@ struct ContentView: View {
             gridColumns: shopProductGridColumns,
             recentSearches: recentSearchQueries,
             quickSearches: quickSearches,
-            conciergePanel: AnyView(coffeeConciergePanel),
+            guidancePanel: AnyView(shopGuidancePanel),
             renderProductCard: { product, showDescription in
                 AnyView(productCard(product: product, showDescription: showDescription))
             },
@@ -3019,6 +3453,370 @@ struct ContentView: View {
         var queries = recentSearchQueries.filter { $0.localizedCaseInsensitiveCompare(trimmedQuery) != .orderedSame }
         queries.insert(trimmedQuery, at: 0)
         savedRecentSearchQueries = queries.prefix(6).joined(separator: "|")
+    }
+
+    private var shopGuidancePanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            coffeeQuizPanel
+        }
+    }
+
+    private var coffeeQuizPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "cup.and.saucer.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 34, height: 34)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("coffee_quiz_title", fallback: "Find Your Talla"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(AppLocalization.text("coffee_quiz_detail", fallback: "Answer three quick questions and get a coffee match without needing to understand origins or tasting notes."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Button {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                        isCoffeeQuizExpanded.toggle()
+                    }
+                    delightFeedbackTrigger += 1
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(isCoffeeQuizExpanded
+                            ? AppLocalization.text("collapse", fallback: "Close")
+                            : AppLocalization.text("start_quiz", fallback: "Start"))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                            .textCase(.uppercase)
+
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .bold))
+                            .rotationEffect(.degrees(isCoffeeQuizExpanded ? 180 : 0))
+                    }
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+
+            if isCoffeeQuizExpanded {
+                quizOptionRow(
+                    title: AppLocalization.text("coffee_quiz_brew_question", fallback: "How do you brew?"),
+                    options: [
+                        ("v60", "V60"),
+                        ("espresso", "Espresso"),
+                        ("aeropress", "AeroPress"),
+                        ("arabic", "Arabic coffee")
+                    ],
+                    selection: $quizBrewMethod
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+
+                quizOptionRow(
+                    title: AppLocalization.text("coffee_quiz_flavor_question", fallback: "What flavours do you enjoy?"),
+                    options: [
+                        ("chocolate", "Chocolate"),
+                        ("fruity", "Fruity"),
+                        ("floral", "Floral"),
+                        ("caramel", "Caramel")
+                    ],
+                    selection: $quizFlavor
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+
+                quizOptionRow(
+                    title: AppLocalization.text("coffee_quiz_adventure_question", fallback: "How adventurous are you?"),
+                    options: [
+                        ("comfort", "Keep it familiar"),
+                        ("curious", "Curious"),
+                        ("wild", "Surprise me")
+                    ],
+                    selection: $quizAdventure
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+
+                if let match = quizMatchedProduct {
+                    quizResultCard(match)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    Text(AppLocalization.text("coffee_quiz_loading", fallback: "Load the shop once and Talla will match you with a real coffee."))
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .padding(isCoffeeQuizExpanded ? 16 : 14)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func quizOptionRow(
+        title: String,
+        options: [(id: String, title: String)],
+        selection: Binding<String>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(labelFont(size: 9, weight: .bold))
+                .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0xC8965A))
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
+                ForEach(options.indices, id: \.self) { index in
+                    let option = options[index]
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            selection.wrappedValue = option.id
+                        }
+                    } label: {
+                        Text(option.title)
+                            .font(bodyFont(size: 13))
+                            .foregroundColor(selection.wrappedValue == option.id ? Color(hex: 0x0A0804) : primaryTextColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 10)
+                            .background(selection.wrappedValue == option.id ? Color(hex: 0xC8965A) : cardFillColor)
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(Color(hex: 0xC8965A).opacity(selection.wrappedValue == option.id ? 0 : 0.18), lineWidth: 1)
+                            )
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func quizResultCard(_ product: Product) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 12)
+                .frame(width: 82, height: 98)
+
+            VStack(alignment: .leading, spacing: 9) {
+                Text(AppLocalization.text("coffee_quiz_match_label", fallback: "Your Talla Match"))
+                    .font(labelFont(size: 9, weight: .bold))
+                    .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.3)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xC8965A))
+
+                Text(product.name)
+                    .font(titleFont(size: 20))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+
+                Text(quizResultDescription(for: product))
+                    .font(bodyFont(size: 14))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 8)], spacing: 8) {
+                    Button {
+                        addToCart(product: product)
+                    } label: {
+                        Text(AppLocalization.text("add_to_bag", fallback: "Add to Bag"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(Color(hex: 0xC8965A))
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
+
+                    Button {
+                        activeCategory = product.categoryKey
+                        shopSearchQuery = ""
+                    } label: {
+                        Text(AppLocalization.text("see_alternatives", fallback: "See Alternatives"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                            .textCase(.uppercase)
+                            .foregroundColor(primaryTextColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.62)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(cardFillColor)
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                            )
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        activeTab = .brewing
+                        activeBrewingCategory = "All"
+                    } label: {
+                        Text(AppLocalization.text("start_brewing", fallback: "Start Brewing"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                            .textCase(.uppercase)
+                            .foregroundColor(primaryTextColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.62)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(cardFillColor)
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                            )
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.09 : 0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var quizMatchedProduct: Product? {
+        quizCandidateProducts.max { lhs, rhs in
+            quizScore(for: lhs) < quizScore(for: rhs)
+        }
+    }
+
+    private var quizCandidateProducts: [Product] {
+        let candidates = products.filter {
+            $0.categoryKey == "coffee-beans" || $0.categoryKey == "arabic-coffee-beans"
+        }
+
+        return candidates.isEmpty ? signatureRoastProducts : candidates
+    }
+
+    private func quizScore(for product: Product) -> Int {
+        let text = "\(product.name) \(product.desc) \(product.categoryLabel)".lowercased()
+        var score = 0
+
+        switch quizBrewMethod {
+        case "v60":
+            score += quizTextScore(text, keywords: ["v60", "filter", "pour", "ethiopia", "guji", "washed", "floral", "berry"])
+        case "espresso":
+            score += quizTextScore(text, keywords: ["espresso", "brazil", "colombia", "chocolate", "caramel", "nut", "body"])
+        case "aeropress":
+            score += quizTextScore(text, keywords: ["aeropress", "filter", "balanced", "colombia", "sweet", "clean"])
+        case "arabic":
+            score += quizTextScore(text, keywords: ["arabic", "shamali", "qahwa", "gahwa", "cardamom", "yemen"])
+        default:
+            break
+        }
+
+        switch quizFlavor {
+        case "chocolate":
+            score += quizTextScore(text, keywords: ["chocolate", "cocoa", "nut", "brazil", "espresso"])
+        case "fruity":
+            score += quizTextScore(text, keywords: ["fruit", "fruity", "berry", "citrus", "ethiopia", "guji"])
+        case "floral":
+            score += quizTextScore(text, keywords: ["floral", "jasmine", "tea", "washed", "ethiopia", "guji"])
+        case "caramel":
+            score += quizTextScore(text, keywords: ["caramel", "toffee", "brown sugar", "sweet", "colombia"])
+        default:
+            break
+        }
+
+        switch quizAdventure {
+        case "comfort":
+            score += quizTextScore(text, keywords: ["brazil", "colombia", "classic", "balanced", "chocolate"])
+        case "curious":
+            score += quizTextScore(text, keywords: ["ethiopia", "colombia", "washed", "single-origin", "sweet"])
+        case "wild":
+            score += quizTextScore(text, keywords: ["guji", "ethiopia", "natural", "anaerobic", "floral", "berry"])
+        default:
+            break
+        }
+
+        if product.isAvailableForSale {
+            score += 3
+        }
+
+        return score
+    }
+
+    private func quizTextScore(_ text: String, keywords: [String]) -> Int {
+        keywords.reduce(0) { partialResult, keyword in
+            partialResult + (text.contains(keyword) ? 4 : 0)
+        }
+    }
+
+    private func quizResultDescription(for product: Product) -> String {
+        let flavorText: String
+        switch quizFlavor {
+        case "chocolate":
+            flavorText = "Chocolate-led, rounded and easy to love"
+        case "floral":
+            flavorText = "Floral, aromatic and elegant"
+        case "caramel":
+            flavorText = "Sweet, caramel-like and comforting"
+        default:
+            flavorText = "Fruity, bright and expressive"
+        }
+
+        let brewText: String
+        switch quizBrewMethod {
+        case "espresso":
+            brewText = "espresso"
+        case "aeropress":
+            brewText = "AeroPress"
+        case "arabic":
+            brewText = "Arabic coffee"
+        default:
+            brewText = "V60"
+        }
+
+        return "\(flavorText), and a strong fit for \(brewText)."
+    }
+
+    private var coffeeConciergeSheet: some View {
+        ScrollView {
+            coffeeConciergePanel
+                .padding(18)
+        }
+        .background(
+            LinearGradient(
+                colors: backgroundGradientColors,
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+        .presentationDetents([.medium, .large])
     }
 
     private var coffeeConciergePanel: some View {
@@ -3292,6 +4090,7 @@ struct ContentView: View {
             calculatedWaterAmount: calculatedWaterAmount,
             ratioCoffeeAmount: ratioCoffeeAmount,
             ratioValue: ratioValue,
+            brewHistoryItems: brewAgainHistoryItems,
             titleFont: displayFont(size: 32),
             sectionTitleFont: labelFont(size: 11, weight: .bold),
             bodyFont: bodyFont(size: 13),
@@ -5212,8 +6011,10 @@ struct ContentView: View {
     }
 
     private func productCard(product: Product, showDescription: Bool) -> some View {
-        let previewLineCount = isCompact ? 1 : 2
-        let descriptionHeight: CGFloat = showDescription ? (isCompact ? 24 : 48) : 0
+        let tasteSummary = productTasteSummary(for: product)
+        let brewRecommendation = productBrewRecommendation(for: product)
+        let metadataChips = productMetadataChips(for: product)
+        let cardMinimumHeight: CGFloat = showDescription ? (isCompact ? 468 : 488) : (isCompact ? 396 : 416)
 
         return VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .topTrailing) {
@@ -5274,7 +6075,7 @@ struct ContentView: View {
                 .padding(10)
             }
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(product.categoryLabel)
                     .font(labelFont(size: 10, weight: .semibold))
                     .tracking(1.4)
@@ -5293,91 +6094,90 @@ struct ContentView: View {
                     .frame(height: 48, alignment: .topLeading)
 
                 if showDescription {
-                    Text(product.desc)
-                        .font(bodyFont(size: isCompact ? 16 : 17))
+                    Text(tasteSummary)
+                        .font(labelFont(size: isCompact ? 12 : 13, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
+
+                    Label(brewRecommendation, systemImage: "drop.fill")
+                        .font(bodyFont(size: isCompact ? 13 : 14))
                         .foregroundColor(secondaryTextColor)
-                        .lineLimit(previewLineCount)
-                        .lineSpacing(1)
-                        .minimumScaleFactor(0.88)
-                        .truncationMode(.tail)
-                        .frame(height: descriptionHeight, alignment: .topLeading)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+                        .frame(maxWidth: .infinity, minHeight: isCompact ? 34 : 38, alignment: .leading)
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 74 : 84), spacing: 6)], spacing: 6) {
+                        ForEach(metadataChips.indices, id: \.self) { index in
+                            productMetadataChip(icon: metadataChips[index].icon, title: metadataChips[index].title)
+                        }
+                    }
+                    .frame(height: isCompact ? 72 : 76, alignment: .topLeading)
                 }
             }
 
             Spacer(minLength: 0)
 
-            VStack(alignment: .leading, spacing: 4) {
+            if product.hasVariantChoices, let variant = selectedVariant(for: product) {
+                Text("\(AppLocalization.text("default_variant", fallback: "Default:")) \(variant.title)")
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .minimumScaleFactor(0.82)
+                    .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
+            } else {
+                Text(" ")
+                    .font(bodyFont(size: 12))
+                    .lineLimit(1)
+                    .frame(height: 20)
+                    .accessibilityHidden(true)
+            }
+
+            HStack(spacing: 10) {
                 Text(product.price)
-                    .font(labelFont(size: 13, weight: .bold))
+                    .font(labelFont(size: isCompact ? 14 : 15, weight: .bold))
                     .foregroundColor(product.isAvailableForSale ? Color(hex: 0xC8965A) : tertiaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
-                if product.hasVariantChoices, let variant = selectedVariant(for: product) {
-                    Text("\(AppLocalization.text("default_variant", fallback: "Default:")) \(variant.title)")
-                        .font(bodyFont(size: 12))
-                        .foregroundColor(secondaryTextColor)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .minimumScaleFactor(0.82)
-                } else {
-                    Text(" ")
-                        .font(bodyFont(size: 12))
-                        .lineLimit(1)
-                        .accessibilityHidden(true)
-                }
-            }
-            .frame(height: 36, alignment: .topLeading)
+                Spacer(minLength: 0)
 
-            Button {
-                recordRecentlyViewed(product)
-                selectedProduct = product
-            } label: {
-                Text(AppLocalization.text("view_details", fallback: "View Details"))
-                    .font(labelFont(size: isCompact ? 9 : 10, weight: .bold))
-                    .tracking(isCompact ? 1.1 : 1.6)
-                    .textCase(.uppercase)
-                    .foregroundColor(primaryTextColor)
-                    .frame(maxWidth: .infinity)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .padding(.vertical, 11)
-                    .background(cardFillColor)
-                    .overlay(
-                        Capsule()
-                            .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
-                    )
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
+                Button {
+                    if product.hasVariantChoices {
+                        recordRecentlyViewed(product)
+                        selectedProduct = product
+                    } else {
+                        addToCart(product: product)
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: product.hasVariantChoices ? "slider.horizontal.3" : "plus")
+                            .font(.system(size: 11, weight: .bold))
 
-            Button {
-                if product.hasVariantChoices {
-                    recordRecentlyViewed(product)
-                    selectedProduct = product
-                } else {
-                    addToCart(product: product)
-                }
-            } label: {
-                Text(product.isAvailableForSale ? (product.hasVariantChoices ? AppLocalization.text("choose_options", fallback: "Choose Options") : AppLocalization.text("add_to_bag", fallback: "Add to Bag")) : AppLocalization.text("sold_out", fallback: "Sold Out"))
-                    .font(labelFont(size: isCompact ? 9 : 11, weight: .bold))
-                    .tracking(isCompact ? 1.1 : 2)
-                    .textCase(.uppercase)
-                    .frame(maxWidth: .infinity)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.64)
-                    .padding(.vertical, 12)
+                        Text(product.isAvailableForSale ? (product.hasVariantChoices ? AppLocalization.text("options", fallback: "Options") : AppLocalization.text("add", fallback: "Add")) : AppLocalization.text("sold_out", fallback: "Sold Out"))
+                            .font(labelFont(size: isCompact ? 9 : 10, weight: .bold))
+                            .tracking(isCompact ? 0.4 : 0.8)
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .frame(minWidth: isCompact ? 88 : 98)
                     .foregroundColor(product.isAvailableForSale ? Color(hex: 0x0A0804) : tertiaryTextColor)
+                    .padding(.horizontal, isCompact ? 10 : 12)
+                    .padding(.vertical, 10)
                     .glassEffect(
                         product.isAvailableForSale
                             ? .regular.tint(Color(hex: 0xC8965A)).interactive()
                             : .clear,
                         in: .capsule
                     )
+                }
+                .buttonStyle(.plain)
+                .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
             }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-            .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
+            .frame(height: 44, alignment: .center)
         }
         .padding(14)
         .background(
@@ -5388,13 +6188,193 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: cardMinimumHeight, alignment: .topLeading)
         .hoverEffect(.lift)
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onTapGesture {
             recordRecentlyViewed(product)
             selectedProduct = product
         }
+    }
+
+    private func productPreviewDescription(for product: Product) -> String {
+        let plainDescription = product.desc
+            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+
+        let fallback = product.categoryLabel.isEmpty
+            ? AppLocalization.text("shop_product_preview_fallback", fallback: "Tap for full details.")
+            : product.categoryLabel
+        let description = plainDescription.isEmpty ? fallback : plainDescription
+        let maxLength = isCompact ? 74 : 112
+
+        guard description.count > maxLength else { return description }
+
+        let endIndex = description.index(description.startIndex, offsetBy: maxLength)
+        return description[..<endIndex].trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+
+    private func productTasteSummary(for product: Product) -> String {
+        let searchableText = normalizedSearchText(for: product)
+        let notes = [
+            ("berry", "Berries"),
+            ("berries", "Berries"),
+            ("floral", "Floral"),
+            ("jasmine", "Floral"),
+            ("chocolate", "Chocolate"),
+            ("cocoa", "Chocolate"),
+            ("caramel", "Caramel"),
+            ("citrus", "Citrus"),
+            ("orange", "Citrus"),
+            ("fruit", "Fruity"),
+            ("nut", "Nutty"),
+            ("honey", "Honey"),
+            ("vanilla", "Vanilla")
+        ]
+
+        let matchedNotes = orderedUniqueValues(
+            notes.compactMap { searchableText.contains($0.0) ? $0.1 : nil }
+        )
+
+        if !matchedNotes.isEmpty {
+            return matchedNotes.prefix(3).joined(separator: " - ")
+        }
+
+        if product.categoryKey == "coffee-beans" || product.categoryKey == "drip-bags" {
+            return AppLocalization.text("coffee_card_default_taste", fallback: "Balanced - Sweet - Clean")
+        }
+
+        return productPreviewDescription(for: product)
+    }
+
+    private func productBrewRecommendation(for product: Product) -> String {
+        let searchableText = normalizedSearchText(for: product)
+
+        if product.categoryKey == "ready-made-drinks" || product.categoryKey == "summer-drinks" {
+            return AppLocalization.text("best_ready_to_drink", fallback: "Best served chilled and ready to drink.")
+        }
+
+        if product.categoryKey == "cups" {
+            return AppLocalization.text("best_for_cups", fallback: "Best for serving hot and cold drinks.")
+        }
+
+        if product.categoryKey == "coffee-equipment" {
+            return AppLocalization.text("best_for_home_brewing", fallback: "Best for your home brewing setup.")
+        }
+
+        if searchableText.contains("arabic") {
+            return AppLocalization.text("best_for_arabic_coffee", fallback: "Best for Arabic coffee and sharing.")
+        }
+
+        if searchableText.contains("espresso") {
+            return AppLocalization.text("best_for_espresso", fallback: "Best for espresso and milk drinks.")
+        }
+
+        if searchableText.contains("iced") || searchableText.contains("cold") {
+            return AppLocalization.text("best_for_iced_v60", fallback: "Best for V60 and iced coffee.")
+        }
+
+        if searchableText.contains("drip") {
+            return AppLocalization.text("best_for_drip_bags", fallback: "Best for easy travel brewing.")
+        }
+
+        return AppLocalization.text("best_for_v60", fallback: "Best for V60 and filter brewing.")
+    }
+
+    private func productMetadataChips(for product: Product) -> [(icon: String, title: String)] {
+        let searchableText = normalizedSearchText(for: product)
+        var chips: [(icon: String, title: String)] = []
+
+        if let roast = firstMatchedValue(in: searchableText, matches: [
+            ("light roast", "Light"),
+            ("medium roast", "Medium"),
+            ("dark roast", "Dark"),
+            ("light", "Light"),
+            ("medium", "Medium"),
+            ("dark", "Dark")
+        ]) {
+            chips.append(("flame.fill", roast))
+        }
+
+        if let process = firstMatchedValue(in: searchableText, matches: [
+            ("anaerobic", "Anaerobic"),
+            ("natural", "Natural"),
+            ("washed", "Washed"),
+            ("honey", "Honey")
+        ]) {
+            chips.append(("sparkles", process))
+        }
+
+        if let origin = firstMatchedValue(in: searchableText, matches: [
+            ("ethiopia", "Ethiopia"),
+            ("colombia", "Colombia"),
+            ("brazil", "Brazil"),
+            ("yemen", "Yemen"),
+            ("kenya", "Kenya"),
+            ("guatemala", "Guatemala"),
+            ("costa rica", "Costa Rica"),
+            ("arabic", "Arabic")
+        ]) {
+            chips.append(("globe.europe.africa.fill", origin))
+        }
+
+        chips.append(("drop.fill", productBrewChipTitle(for: product)))
+
+        if chips.count < 4 {
+            chips.append(("tag.fill", product.categoryLabel))
+        }
+
+        return Array(chips.prefix(4))
+    }
+
+    private func productMetadataChip(icon: String, title: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+
+            Text(title)
+                .font(labelFont(size: 9, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .foregroundColor(Color(hex: 0xC8965A))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+        .clipShape(Capsule())
+    }
+
+    private func productBrewChipTitle(for product: Product) -> String {
+        let searchableText = normalizedSearchText(for: product)
+
+        if product.categoryKey == "ready-made-drinks" || product.categoryKey == "summer-drinks" { return "Chilled" }
+        if product.categoryKey == "cups" { return "Serve" }
+        if product.categoryKey == "coffee-equipment" { return "Gear" }
+        if searchableText.contains("espresso") { return "Espresso" }
+        if searchableText.contains("arabic") { return "Arabic" }
+        if searchableText.contains("drip") { return "Drip" }
+        return "V60"
+    }
+
+    private func normalizedSearchText(for product: Product) -> String {
+        "\(product.name) \(product.categoryLabel) \(product.tag ?? "") \(productPreviewDescription(for: product))"
+            .lowercased()
+    }
+
+    private func firstMatchedValue(in text: String, matches: [(needle: String, value: String)]) -> String? {
+        matches.first { text.contains($0.needle) }?.value
+    }
+
+    private func orderedUniqueValues(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
     }
 
     private func productBadges(for product: Product) -> [String] {
@@ -6504,6 +7484,9 @@ struct ContentView: View {
 
         do {
             orderHistory = try await AccountService.fetchOrders(email: profile.email)
+            if let remoteTasteMemory = try? await AccountService.fetchTasteMemory(email: profile.email) {
+                persistTasteMemoryRecords(remoteTasteMemory)
+            }
         } catch {
             orderHistory = []
             ordersError = error.localizedDescription
@@ -7374,6 +8357,66 @@ struct ContentView: View {
         }
     }
 
+    private func saveTasteMemory(order: AccountOrder, item: AccountOrder.Item, reaction: String, tags: [String]) {
+        let record = TasteMemoryRecord(
+            id: tasteMemoryKey(order: order, item: item),
+            orderID: order.id,
+            productName: item.name,
+            reaction: reaction,
+            tags: tags,
+            createdAt: ISO8601DateFormatter().string(from: Date()),
+            updatedAt: nil
+        )
+        let existing = tasteMemoryRecords.filter { $0.id != record.id }
+        let updated = Array(([record] + existing).prefix(80))
+
+        persistTasteMemoryRecords(updated)
+        delightFeedbackTrigger += 1
+        showToast(message: AppLocalization.text("taste_memory_saved", fallback: "Taste memory saved"))
+
+        if let profile = customerProfile {
+            Task {
+                do {
+                    _ = try await AccountService.saveTasteMemory(
+                        email: profile.email,
+                        orderID: order.id,
+                        productName: item.name,
+                        reaction: reaction,
+                        tags: tags
+                    )
+                    let remoteTasteMemory = try await AccountService.fetchTasteMemory(email: profile.email)
+                    await MainActor.run {
+                        persistTasteMemoryRecords(remoteTasteMemory)
+                    }
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func persistTasteMemoryRecords(_ records: [TasteMemoryRecord]) {
+        let sortedRecords = records
+            .sorted {
+                let lhsDate = ISO8601DateFormatter().date(from: $0.updatedAt ?? $0.createdAt) ?? .distantPast
+                let rhsDate = ISO8601DateFormatter().date(from: $1.updatedAt ?? $1.createdAt) ?? .distantPast
+                return lhsDate > rhsDate
+            }
+        var seenRecordIDs = Set<String>()
+        let uniqueRecords = Array(sortedRecords.filter { record in
+            guard !seenRecordIDs.contains(record.id) else { return false }
+            seenRecordIDs.insert(record.id)
+            return true
+        }.prefix(80))
+
+        guard let data = try? JSONEncoder().encode(uniqueRecords),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        savedTasteMemory = json
+    }
+
     private func matchingProduct(for orderItemName: String) -> Product? {
         let normalizedOrderName = normalizedProductName(orderItemName)
 
@@ -7382,6 +8425,45 @@ struct ContentView: View {
                 let normalizedProduct = normalizedProductName($0.name)
                 return normalizedProduct.contains(normalizedOrderName) || normalizedOrderName.contains(normalizedProduct)
             }
+    }
+
+    private func tasteMemoryKey(order: AccountOrder, item: AccountOrder.Item) -> String {
+        "\(order.id)-\(normalizedProductName(item.name))"
+    }
+
+    private func tastePreferenceScore(for product: Product) -> Int {
+        let productText = normalizedSearchText(for: product)
+
+        return tasteMemoryRecords.reduce(0) { score, record in
+            let tagScore = record.tags.reduce(0) { partialResult, tag in
+                partialResult + (productText.contains(tag.lowercased()) ? 3 : 0)
+            }
+            let reactionScore = record.reaction == "loved" ? tagScore : -tagScore
+            let productPenalty = record.reaction == "not-for-me" && normalizedProductName(record.productName) == normalizedProductName(product.name) ? -8 : 0
+            return score + reactionScore + productPenalty
+        }
+    }
+
+    private func daysSinceOrder(_ order: AccountOrder) -> Int {
+        let startOfOrderDay = Calendar.current.startOfDay(for: orderDate(from: order.createdAt))
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+        return max(Calendar.current.dateComponents([.day], from: startOfOrderDay, to: startOfToday).day ?? 0, 0)
+    }
+
+    private func orderDate(from value: String) -> Date {
+        if let date = ISO8601DateFormatter().date(from: value) {
+            return date
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"
+        if let date = formatter.date(from: value) {
+            return date
+        }
+
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: value) ?? .distantPast
     }
 
     private func normalizedProductName(_ name: String) -> String {
@@ -8099,6 +9181,47 @@ private enum AccountService {
         return try await performOrdersRequest(request)
     }
 
+    static func fetchTasteMemory(email: String) async throws -> [ContentView.TasteMemoryRecord] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
+        }
+
+        var components = URLComponents(url: baseURL.appending(path: "/taste-memory"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "email", value: email)]
+
+        guard let url = components?.url else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service URL is invalid.")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
+
+        return try await performTasteMemoryRequest(request)
+    }
+
+    static func saveTasteMemory(email: String, orderID: String, productName: String, reaction: String, tags: [String]) async throws -> [ContentView.TasteMemoryRecord] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/taste-memory/save"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "orderID": orderID,
+            "productName": productName,
+            "reaction": reaction,
+            "tags": tags
+        ])
+
+        return try await performTasteMemoryEnvelopeRequest(request)
+    }
+
     static func recordCheckoutStarted(email: String, items: [(name: String, quantity: Int)], total: Double) async throws -> [ContentView.AccountOrder] {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -8509,6 +9632,42 @@ private enum AccountService {
         }
 
         throw ContentView.LoyaltyServiceError.operationFailed("The orders service could not complete your request.")
+    }
+
+    private static func performTasteMemoryRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service returned an invalid response.")
+        }
+
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            return try JSONDecoder().decode([ContentView.TasteMemoryRecord].self, from: data)
+        }
+
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+
+        throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service could not complete your request.")
+    }
+
+    private static func performTasteMemoryEnvelopeRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service returned an invalid response.")
+        }
+
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            return try JSONDecoder().decode(TasteMemoryResponse.self, from: data).tasteMemory
+        }
+
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+
+        throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service could not complete your request.")
     }
 
     private static func performVouchersRequest(_ request: URLRequest) async throws -> [ContentView.VoucherRecord] {
@@ -9383,6 +10542,10 @@ private struct AccountSessionResponse: Decodable {
     let profile: AccountProfileResponse
     let accessToken: String
     let expiresAt: String
+}
+
+private struct TasteMemoryResponse: Decodable {
+    let tasteMemory: [ContentView.TasteMemoryRecord]
 }
 
 private struct ServiceErrorResponse: Decodable {

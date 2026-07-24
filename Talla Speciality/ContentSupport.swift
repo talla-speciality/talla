@@ -90,11 +90,22 @@ enum AppLocalization {
         "shop_eyebrow": ["ar": "ماذا تشتهي اليوم؟"],
         "shop_heading": ["ar": "اختر طلبك من Talla"],
         "shop_intro": ["ar": "ابدأ بمشروبات الصيف الباردة، أو خذ أكواباً للطريق، أو أضف حلى، أو جدّد قهوتك المفضلة."],
+        "coffee_quiz_title": ["ar": "اكتشف قهوتك من Talla"],
+        "coffee_quiz_detail": ["ar": "أجب على ثلاثة أسئلة سريعة لنرشح لك قهوة مناسبة بدون الحاجة لفهم المناطق أو المعالجة أو النكهات."],
+        "coffee_quiz_brew_question": ["ar": "كيف تحضر القهوة؟"],
+        "coffee_quiz_flavor_question": ["ar": "ما النكهات التي تحبها؟"],
+        "coffee_quiz_adventure_question": ["ar": "ما مدى رغبتك بالتجربة؟"],
+        "coffee_quiz_match_label": ["ar": "اختيار Talla لك"],
+        "coffee_quiz_loading": ["ar": "حمّل المتجر مرة واحدة وسيختار لك Talla قهوة حقيقية."],
+        "see_alternatives": ["ar": "بدائل أخرى"],
+        "start_brewing": ["ar": "ابدأ التحضير"],
         "categories": ["ar": "الفئات"],
         "coffee_concierge_title": ["ar": "مرشد القهوة"],
         "coffee_concierge_detail": ["ar": "اسأل عن تحميصة، هدية، مزاج، ميزانية، أو طريقة تحضير لتحصل على اختيارات Talla المناسبة."],
         "coffee_concierge_placeholder": ["ar": "مثال: هدية أقل من 20 دينار"],
         "concierge_opened": ["ar": "تم فتح مرشد القهوة"],
+        "open_drinks": ["ar": "فتح المشروبات"],
+        "drinks_opened": ["ar": "تم فتح المشروبات"],
         "concierge_prompt_gift": ["ar": "صندوق هدية"],
         "concierge_prompt_arabic": ["ar": "قهوة عربية"],
         "concierge_prompt_chocolate": ["ar": "مرافقة شوكولاتة"],
@@ -489,13 +500,27 @@ enum AppLocalization {
         ,"apple_wallet_unavailable": ["ar": "Apple Wallet غير متوفر على هذا الجهاز"]
         ,"sign_in_before_wallet_pass": ["ar": "سجّل الدخول قبل إضافة بطاقتك إلى Wallet"]
         ,"wallet_pass_already_added": ["ar": "بطاقة الولاء موجودة بالفعل في Apple Wallet"]
-        ,"daily_surprise_title": ["ar": "اختيار اليوم الممتع"]
-        ,"daily_surprise_detail": ["ar": "اضغط مفاجأة ودع Talla تختار لك شيئاً من الرف."]
+        ,"daily_surprise_title": ["ar": "اختيار اليوم"]
+        ,"daily_surprise_detail": ["ar": "لست متأكداً ماذا تختار؟ دع Talla يفاجئك."]
         ,"surprise_me": ["ar": "فاجئني"]
+        ,"surprise_me_refresh": ["ar": "فاجئني ↻"]
         ,"add_pick_to_bag": ["ar": "أضف"]
         ,"see_more": ["ar": "المزيد"]
         ,"surprise_pick_empty": ["ar": "حمّل المتجر مرة واحدة وسيختار Talla شيئاً ممتعاً لك."]
         ,"surprise_pick_ready": ["ar": "اختيار جديد جاهز"]
+        ,"tap_cup_reveal_pick": ["ar": "اضغط الكوب لكشف اختيار اليوم"]
+        ,"surprise_revealed": ["ar": "تم الكشف"]
+        ,"limited_daily_reward": ["ar": "مكافأة يومية محدودة"]
+        ,"why_selected": ["ar": "لماذا اخترناه"]
+        ,"best_brewing_method": ["ar": "أفضل طريقة تحضير"]
+        ,"surprise_reason_floral": ["ar": "يعطي كوباً مشرقاً ومعبراً بطابع زهري ولمسات تشبه التوت."]
+        ,"surprise_reason_arabic": ["ar": "يناسب طقس Talla: دافئ، عطري، ومثالي للمشاركة."]
+        ,"surprise_reason_comfort": ["ar": "اختيار سهل ومحبوب بطابع حلو ومريح."]
+        ,"surprise_reason_gift": ["ar": "اختيار جاهز للمشاركة أو الهدية أو لحظة لطيفة."]
+        ,"surprise_reason_default": ["ar": "برز كاختيار يومي مفيد من رف Talla."]
+        ,"brew_method_arabic": ["ar": "القهوة العربية"]
+        ,"brew_method_espresso": ["ar": "إسبريسو"]
+        ,"brew_method_any": ["ar": "استمتع به كما هو"]
         ,"favorites_shelf": ["ar": "رفّك"]
         ,"favorites_shelf_detail": ["ar": "مفضلاتك، وآخر اختياراتك، وكل ما تريد العودة إليه في مكان واحد."]
         ,"open_favorites_shelf": ["ar": "فتح رف المفضلة"]

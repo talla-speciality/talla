@@ -22,6 +22,7 @@ const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
 const campaignSettingsStorePath = config.stores.campaignSettings;
 const homeSettingsStorePath = config.stores.homeSettings;
+const tasteMemoryStorePath = config.stores.tasteMemory;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
@@ -102,6 +103,7 @@ ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
 ensureStoreFile(campaignSettingsStorePath, { campaignSettings: defaultCampaignSettings() });
 ensureStoreFile(homeSettingsStorePath, { homeSettings: defaultHomeSettings() });
+ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 
 function ensureStoreFile(filePath, fallback) {
@@ -2354,11 +2356,24 @@ function orderRowToRecord(row) {
 }
 
 function completedOrderStatuses() {
-    return new Set(["Completed", "Fulfilled"]);
+    return new Set(["Completed", "Fulfilled", "Delivered"]);
 }
 
 function allowedOrderStatuses() {
-    return new Set(["Pending", "Confirmed", "Preparing", "Ready", "Completed", "Fulfilled", "Cancelled"]);
+    return new Set([
+        "Pending",
+        "Confirmed",
+        "Preparing",
+        "Roasting",
+        "Resting",
+        "Packed",
+        "On its way",
+        "Ready",
+        "Completed",
+        "Fulfilled",
+        "Delivered",
+        "Cancelled"
+    ]);
 }
 
 function normalizeOrderStatus(status) {
@@ -2448,6 +2463,164 @@ async function allOrdersPayload() {
     return Promise.all(
         orders.map((order) => orderPayloadWithRewardState(order.email, order))
     );
+}
+
+function tasteMemoryRowToRecord(row) {
+    return {
+        id: row.id,
+        orderID: row.order_id,
+        productName: row.product_name,
+        reaction: row.reaction,
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
+    };
+}
+
+function allowedTasteMemoryTags() {
+    return new Set(["Chocolate", "Fruity", "Floral", "Caramel", "Citrus", "Nutty"]);
+}
+
+function normalizeTasteMemoryTags(tags) {
+    const allowed = allowedTasteMemoryTags();
+    return [...new Set((Array.isArray(tags) ? tags : [])
+        .map((tag) => String(tag || "").trim())
+        .filter((tag) => allowed.has(tag)))]
+        .slice(0, 6);
+}
+
+function normalizeTasteMemoryReaction(reaction) {
+    const normalized = String(reaction || "").trim().toLowerCase();
+    return ["loved", "not-for-me"].includes(normalized) ? normalized : "";
+}
+
+function tasteMemoryIDFor(email, orderID, productName) {
+    const rawID = `${normalizeEmail(email)}|${String(orderID || "").trim()}|${String(productName || "").trim().toLowerCase()}`;
+    return `taste_${crypto.createHash("sha256").update(rawID).digest("hex").slice(0, 18)}`;
+}
+
+function normalizeTasteMemoryInput(email, body) {
+    const orderID = String(body.orderID || body.orderId || body.order_id || "").trim();
+    const productName = String(body.productName || body.product_name || "").trim();
+    const reaction = normalizeTasteMemoryReaction(body.reaction);
+    const tags = normalizeTasteMemoryTags(body.tags);
+    const submittedCreatedAt = body.createdAt ? new Date(body.createdAt) : null;
+
+    if (!orderID || !productName || !reaction) {
+        return null;
+    }
+
+    return {
+        id: String(body.id || "").trim() || tasteMemoryIDFor(email, orderID, productName),
+        orderID,
+        productName,
+        reaction,
+        tags,
+        createdAt: submittedCreatedAt && Number.isFinite(submittedCreatedAt.getTime())
+            ? submittedCreatedAt.toISOString()
+            : new Date().toISOString()
+    };
+}
+
+async function tasteMemoryPayload(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+        return [];
+    }
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT id, order_id, product_name, reaction, tags, created_at, updated_at
+             FROM taste_memory
+             WHERE email = $1
+             ORDER BY updated_at DESC`,
+            [normalizedEmail]
+        );
+        return result.rows.map(tasteMemoryRowToRecord);
+    }
+
+    const store = readJSON(tasteMemoryStorePath);
+    return (store.tasteMemory?.[normalizedEmail] || [])
+        .slice()
+        .sort((first, second) => new Date(second.updatedAt || second.createdAt).getTime() - new Date(first.updatedAt || first.createdAt).getTime());
+}
+
+async function allTasteMemoryPayload() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT email, id, order_id, product_name, reaction, tags, created_at, updated_at
+             FROM taste_memory
+             ORDER BY updated_at DESC`
+        );
+        return result.rows.map((row) => ({
+            ...tasteMemoryRowToRecord(row),
+            email: normalizeEmail(row.email)
+        }));
+    }
+
+    const store = readJSON(tasteMemoryStorePath);
+    return Object.entries(store.tasteMemory || {})
+        .flatMap(([email, records]) => (
+            (Array.isArray(records) ? records : []).map((record) => ({
+                ...record,
+                email: normalizeEmail(email)
+            }))
+        ))
+        .sort((first, second) => new Date(second.updatedAt || second.createdAt).getTime() - new Date(first.updatedAt || first.createdAt).getTime());
+}
+
+async function saveTasteMemoryRecord(email, input) {
+    const normalizedEmail = normalizeEmail(email);
+    const record = normalizeTasteMemoryInput(normalizedEmail, input);
+    if (!normalizedEmail || !record) {
+        return null;
+    }
+
+    const timestamp = new Date().toISOString();
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `INSERT INTO taste_memory
+             (email, id, order_id, product_name, reaction, tags, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+             ON CONFLICT (email, id)
+             DO UPDATE SET
+                order_id = EXCLUDED.order_id,
+                product_name = EXCLUDED.product_name,
+                reaction = EXCLUDED.reaction,
+                tags = EXCLUDED.tags,
+                updated_at = EXCLUDED.updated_at
+             RETURNING id, order_id, product_name, reaction, tags, created_at, updated_at`,
+            [
+                normalizedEmail,
+                record.id,
+                record.orderID,
+                record.productName,
+                record.reaction,
+                JSON.stringify(record.tags),
+                record.createdAt,
+                timestamp
+            ]
+        );
+        return tasteMemoryRowToRecord(result.rows[0]);
+    }
+
+    const store = readJSON(tasteMemoryStorePath);
+    const records = Array.isArray(store.tasteMemory?.[normalizedEmail])
+        ? store.tasteMemory[normalizedEmail]
+        : [];
+    const nextRecord = {
+        ...record,
+        updatedAt: timestamp
+    };
+    const nextRecords = [
+        nextRecord,
+        ...records.filter((entry) => entry.id !== record.id)
+    ].slice(0, 120);
+
+    store.tasteMemory = store.tasteMemory || {};
+    store.tasteMemory[normalizedEmail] = nextRecords;
+    writeJSON(tasteMemoryStorePath, store);
+    return nextRecord;
 }
 
 async function findOrderByID(orderID) {
@@ -4248,7 +4421,7 @@ async function recentAdminAuditLogs(limit = 8) {
     return result.rows.map(adminAuditRowToRecord);
 }
 
-function buildCustomerTimeline({ account, loyalty, orders, vouchers, inbox, auditLogs, sessions }) {
+function buildCustomerTimeline({ account, loyalty, orders, vouchers, inbox, auditLogs, sessions, tasteMemory }) {
     const timeline = [
         {
             id: `account_${account.id}`,
@@ -4284,6 +4457,13 @@ function buildCustomerTimeline({ account, loyalty, orders, vouchers, inbox, audi
             title: item.title,
             detail: item.detail,
             createdAt: item.createdAt
+        })),
+        ...tasteMemory.map((record) => ({
+            id: `taste_${record.id}`,
+            kind: "taste_memory",
+            title: `Taste memory: ${record.productName}`,
+            detail: `${record.reaction === "loved" ? "Loved it" : "Not for me"}${record.tags.length ? ` • ${record.tags.join(", ")}` : ""}`,
+            createdAt: record.updatedAt || record.createdAt
         })),
         ...auditLogs.map((entry) => ({
             id: `audit_${entry.id}`,
@@ -4519,7 +4699,10 @@ async function adminOperationsSummary() {
 }
 
 async function adminAnalyticsSummary() {
-    const accounts = await allAccounts();
+    const [accounts, tasteMemory] = await Promise.all([
+        allAccounts(),
+        allTasteMemoryPayload()
+    ]);
     const customers = await Promise.all(accounts.map(async (account) => {
         const [loyalty, orders, vouchers, alerts] = await Promise.all([
             ensureLoyaltyAccount(account.email),
@@ -4544,7 +4727,7 @@ async function adminAnalyticsSummary() {
 
     const totalOrders = customers.reduce((sum, customer) => sum + customer.orders.length, 0);
     const pendingOrders = customers.reduce((sum, customer) => (
-        sum + customer.orders.filter((order) => ["Pending", "Confirmed", "Preparing"].includes(order.status)).length
+        sum + customer.orders.filter((order) => !completedOrderStatuses().has(order.status) && order.status !== "Cancelled").length
     ), 0);
     const activeVouchers = customers.reduce((sum, customer) => (
         sum + customer.vouchers.filter((voucher) => voucher.status === "active").length
@@ -4554,6 +4737,7 @@ async function adminAnalyticsSummary() {
     ), 0);
     const customersWithOrders = customers.filter((customer) => customer.orders.length > 0).length;
     const customersWithAlerts = customers.filter((customer) => customer.alerts.length > 0).length;
+    const customersWithTasteMemory = new Set(tasteMemory.map((record) => record.email)).size;
     const averagePoints = customers.length > 0
         ? Math.round(customers.reduce((sum, customer) => sum + customer.pointsBalance, 0) / customers.length)
         : 0;
@@ -4600,6 +4784,8 @@ async function adminAnalyticsSummary() {
             pendingOrders,
             activeVouchers,
             usedVouchers,
+            tasteMemory: tasteMemory.length,
+            customersWithTasteMemory,
             averagePoints,
             newCustomersLast7Days
         },
@@ -4716,7 +4902,7 @@ async function adminCustomerSummary(email) {
         return null;
     }
 
-    const [loyalty, orders, alerts, inbox, addresses, vouchers, auditLogs, sessions] = await Promise.all([
+    const [loyalty, orders, alerts, inbox, addresses, vouchers, auditLogs, sessions, tasteMemory] = await Promise.all([
         ensureLoyaltyAccount(email),
         ordersPayload(email),
         stockAlertsFor(email),
@@ -4724,7 +4910,8 @@ async function adminCustomerSummary(email) {
         addressesFor(email),
         allVouchersFor(email),
         adminAuditLogsFor(email),
-        activeCustomerSessionsForEmail(email)
+        activeCustomerSessionsForEmail(email),
+        tasteMemoryPayload(email)
     ]);
 
     return {
@@ -4735,6 +4922,7 @@ async function adminCustomerSummary(email) {
         inbox,
         addresses,
         vouchers,
+        tasteMemory,
         auditLogs,
         sessions,
         timeline: buildCustomerTimeline({
@@ -4744,7 +4932,8 @@ async function adminCustomerSummary(email) {
             vouchers,
             inbox,
             auditLogs,
-            sessions
+            sessions,
+            tasteMemory
         })
     };
 }
@@ -5128,6 +5317,11 @@ const server = http.createServer(async (request, response) => {
 
         if (request.method === "GET" && url.pathname === "/admin/api/orders") {
             sendJSON(response, 200, { orders: await allOrdersPayload() });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/taste-memory") {
+            sendJSON(response, 200, { tasteMemory: await allTasteMemoryPayload() });
             return;
         }
 
@@ -6664,6 +6858,52 @@ const server = http.createServer(async (request, response) => {
         }
 
         sendJSON(response, 200, await ordersPayload(customer.email));
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/taste-memory") {
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) {
+            return;
+        }
+
+        sendJSON(response, 200, await tasteMemoryPayload(customer.email));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/taste-memory/save") {
+        try {
+            const body = await readBody(request);
+            const requestedEmail = normalizeEmail(body.email);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) {
+                return;
+            }
+
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) {
+                return;
+            }
+
+            const record = await saveTasteMemoryRecord(customer.email, body);
+            if (!record) {
+                sendJSON(response, 400, { error: "Invalid taste memory payload." });
+                return;
+            }
+
+            sendJSON(response, 200, {
+                record,
+                tasteMemory: await tasteMemoryPayload(customer.email)
+            });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid taste memory payload." });
+        }
         return;
     }
 

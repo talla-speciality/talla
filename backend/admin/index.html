@@ -634,6 +634,16 @@
 
         <details class="panel" open style="margin-bottom: 20px;">
             <summary class="panel-summary">
+                <h2>Taste Memory</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">See what customers loved or disliked after delivery, including the flavour tags they picked.</div>
+                <div id="taste-memory" class="empty">Loading taste memory...</div>
+            </div>
+        </details>
+
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
                 <h2>Home Controls</h2>
             </summary>
             <div class="panel-body">
@@ -791,7 +801,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [] } };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [] } };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -804,6 +814,7 @@
         const allOrdersEl = document.getElementById("all-orders");
         const ordersNoteEl = document.getElementById("orders-note");
         const refreshOrdersButton = document.getElementById("refresh-orders");
+        const tasteMemoryEl = document.getElementById("taste-memory");
         const eidModeEnabledInput = document.getElementById("eid-mode-enabled");
         const eidOfferEndsAtInput = document.getElementById("eid-offer-ends-at");
         const saveEidCampaignButton = document.getElementById("save-eid-campaign");
@@ -1009,6 +1020,11 @@
                         <div class="value">${totals.customers || 0}</div>
                         <div class="muted">${totals.customersWithOrders || 0} with orders.</div>
                     </div>
+                    <div class="dashboard-card">
+                        <span class="label">Taste Memory</span>
+                        <div class="value">${totals.tasteMemory || 0}</div>
+                        <div class="muted">${totals.customersWithTasteMemory || 0} customers gave feedback.</div>
+                    </div>
                 </div>
                 <div class="dashboard-actions">
                     <h2 style="margin-top:0;">Recent Admin Actions</h2>
@@ -1017,7 +1033,7 @@
             `;
         }
 
-        const orderStatuses = ["Pending", "Confirmed", "Preparing", "Ready", "Completed", "Fulfilled", "Cancelled"];
+        const orderStatuses = ["Pending", "Confirmed", "Preparing", "Roasting", "Resting", "Packed", "On its way", "Ready", "Completed", "Fulfilled", "Delivered", "Cancelled"];
 
         function renderAllOrders() {
             const orders = state.adminOrders || [];
@@ -1074,6 +1090,46 @@
                 ordersNoteEl.textContent = "Orders unavailable.";
             } finally {
                 setButtonBusy(refreshOrdersButton, false, "Refresh Orders");
+            }
+        }
+
+        function renderTasteMemory() {
+            const records = state.tasteMemory || [];
+            if (records.length === 0) {
+                tasteMemoryEl.className = "empty";
+                tasteMemoryEl.innerHTML = "No customer taste feedback yet.";
+                return;
+            }
+
+            tasteMemoryEl.className = "list";
+            tasteMemoryEl.innerHTML = renderList(records.slice(0, 40), record => `
+                <div class="list-item">
+                    <strong>${escapeHTML(record.productName)}</strong>
+                    <div class="muted">${escapeHTML(record.email || "No email")} • ${record.reaction === "loved" ? "Loved it" : "Not for me"} • ${new Date(record.updatedAt || record.createdAt).toLocaleString()}</div>
+                    ${Array.isArray(record.tags) && record.tags.length > 0 ? `<div class="muted" style="margin-top:6px;">${record.tags.map(tag => escapeHTML(tag)).join(" • ")}</div>` : ""}
+                </div>
+            `, "No customer taste feedback yet.");
+        }
+
+        async function fetchTasteMemory() {
+            const response = await fetch("/admin/api/taste-memory");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load taste memory.");
+            return payload.tasteMemory || [];
+        }
+
+        async function loadTasteMemory() {
+            try {
+                state.tasteMemory = await fetchTasteMemory();
+                renderTasteMemory();
+            } catch (error) {
+                if (error.message === "Admin authorization required.") {
+                    await logout();
+                    return;
+                }
+                state.tasteMemory = [];
+                tasteMemoryEl.className = "empty";
+                tasteMemoryEl.innerHTML = escapeHTML(error.message);
             }
         }
 
@@ -1751,7 +1807,7 @@
                 return;
             }
 
-            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, auditLogs, sessions, timeline } = customer;
+            const { profile, loyalty, vouchers, addresses, alerts, inbox, orders, tasteMemory, auditLogs, sessions, timeline } = customer;
             snapshotEl.className = "";
             snapshotEl.innerHTML = `
                 <details class="mini-section" open>
@@ -1882,6 +1938,12 @@
                 </details>
                 <details class="mini-section" open>
                     <summary class="panel-summary" style="padding:0;">
+                        <h2 style="margin-top:0;">Taste Memory</h2>
+                    </summary>
+                    <div class="list">${renderList(tasteMemory, record => `<div class="list-item"><strong>${escapeHTML(record.productName)}</strong><div class="muted">${record.reaction === "loved" ? "Loved it" : "Not for me"} • ${new Date(record.updatedAt || record.createdAt).toLocaleString()}</div>${Array.isArray(record.tags) && record.tags.length > 0 ? `<div class="muted" style="margin-top:6px;">${record.tags.map(tag => escapeHTML(tag)).join(" • ")}</div>` : ""}</div>`, "No taste feedback yet.")}</div>
+                </details>
+                <details class="mini-section" open>
+                    <summary class="panel-summary" style="padding:0;">
                         <h2 style="margin-top:0;">Customer Timeline</h2>
                     </summary>
                     <div class="list">${renderList(timeline, entry => `<div class="list-item"><strong>${escapeHTML(entry.title)}</strong><div class="muted">${escapeHTML(entry.kind.replaceAll("_", " "))} • ${new Date(entry.createdAt).toLocaleString()}</div><div class="muted">${escapeHTML(entry.detail || "")}</div></div>`, "No customer activity yet.")}</div>
@@ -2005,6 +2067,7 @@
                 await loadEidCampaign();
                 showApp();
                 await loadAdminOrders();
+                await loadTasteMemory();
                 await refreshCustomers();
                 await refreshProducts();
                 await loadSignatureRoasts();
@@ -2024,6 +2087,7 @@
             state.products = [];
             state.customers = [];
             state.adminOrders = [];
+            state.tasteMemory = [];
             emailInput.value = "";
             pointsInput.value = "";
             noteInput.value = "";
@@ -2042,6 +2106,8 @@
             allOrdersEl.className = "empty";
             allOrdersEl.innerHTML = "Sign in to manage orders.";
             ordersNoteEl.textContent = "";
+            tasteMemoryEl.className = "empty";
+            tasteMemoryEl.innerHTML = "Sign in to view customer taste feedback.";
             eidCampaignStatusEl.textContent = "Sign in to manage Eid campaign settings.";
             eidModeEnabledInput.checked = false;
             eidOfferEndsAtInput.value = "";
@@ -2075,6 +2141,7 @@
                 await loadEidCampaign();
                 showApp();
                 await loadAdminOrders();
+                await loadTasteMemory();
                 await refreshCustomers();
                 await refreshProducts();
                 await loadSignatureRoasts();

@@ -25,7 +25,7 @@ struct ShopSectionView: View {
     let gridColumns: [GridItem]
     let recentSearches: [String]
     let quickSearches: [(title: String, query: String, categoryKey: String)]
-    let conciergePanel: AnyView
+    let guidancePanel: AnyView
     let renderProductCard: (ContentView.Product, Bool) -> AnyView
     let submitSearch: (String) -> Void
     let selectQuickSearch: (String, String) -> Void
@@ -88,7 +88,7 @@ struct ShopSectionView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            conciergePanel
+            guidancePanel
             shopCategoriesSection
             shopSortSection
             shopResultsSummary

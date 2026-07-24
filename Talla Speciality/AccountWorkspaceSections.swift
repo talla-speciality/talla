@@ -132,7 +132,9 @@ struct OrderHistorySectionView: View {
     let accentColor: Color
     let cardFillColor: Color
     let isLightAppearance: Bool
+    let tasteMemoryLookup: [String: ContentView.TasteMemoryRecord]
     let buyAgainAction: (ContentView.AccountOrder) -> Void
+    let saveTasteMemoryAction: (ContentView.AccountOrder, ContentView.AccountOrder.Item, String, [String]) -> Void
     let browseProductsAction: () -> Void
 
     var body: some View {
@@ -229,6 +231,10 @@ struct OrderHistorySectionView: View {
                             .clipShape(Capsule(style: .continuous))
                         }
 
+                        if let item = tasteMemoryItem(for: order) {
+                            tasteMemoryPrompt(order: order, item: item)
+                        }
+
                         if let items = order.items, !items.isEmpty {
                             Button {
                                 buyAgainAction(order)
@@ -258,60 +264,247 @@ struct OrderHistorySectionView: View {
         }
     }
 
+    private func tasteMemoryItem(for order: ContentView.AccountOrder) -> ContentView.AccountOrder.Item? {
+        guard isTasteMemoryEligible(status: order.status), let items = order.items else { return nil }
+        return items.first
+    }
+
+    private func tasteMemoryPrompt(order: ContentView.AccountOrder, item: ContentView.AccountOrder.Item) -> some View {
+        let key = tasteMemoryKey(order: order, item: item)
+        let existing = tasteMemoryLookup[key]
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 32, height: 32)
+                    .background(accentColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(format: AppLocalization.text("taste_memory_question", fallback: "How was your %@?"), item.name))
+                        .font(Font.custom("AvenirNext-Bold", size: 13))
+                        .foregroundColor(primaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(existing == nil
+                        ? AppLocalization.text("taste_memory_detail", fallback: "Your answer helps Talla improve future recommendations.")
+                        : AppLocalization.text("taste_memory_saved_detail", fallback: "Saved. Talla will use this for future recommendations."))
+                        .font(Font.custom("AvenirNext-Regular", size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 8) {
+                tasteReactionButton(
+                    title: AppLocalization.text("loved_it", fallback: "Loved it"),
+                    systemImage: "heart.fill",
+                    isSelected: existing?.reaction == "loved"
+                ) {
+                    saveTasteMemoryAction(order, item, "loved", existing?.tags ?? [])
+                }
+
+                tasteReactionButton(
+                    title: AppLocalization.text("not_for_me", fallback: "Not for me"),
+                    systemImage: "hand.thumbsdown.fill",
+                    isSelected: existing?.reaction == "not-for-me"
+                ) {
+                    saveTasteMemoryAction(order, item, "not-for-me", existing?.tags ?? [])
+                }
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 7)], spacing: 7) {
+                ForEach(tasteTagOptions, id: \.self) { tag in
+                    tasteTagButton(tag: tag, isSelected: existing?.tags.contains(tag) == true) {
+                        let currentTags = existing?.tags ?? []
+                        let updatedTags = currentTags.contains(tag)
+                            ? currentTags.filter { $0 != tag }
+                            : currentTags + [tag]
+                        saveTasteMemoryAction(order, item, existing?.reaction ?? "loved", updatedTags)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var tasteTagOptions: [String] {
+        ["Chocolate", "Fruity", "Floral", "Caramel", "Citrus", "Nutty"]
+    }
+
+    private func tasteReactionButton(title: String, systemImage: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(Font.custom("AvenirNext-Bold", size: 10))
+                .tracking(1.0)
+                .textCase(.uppercase)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(isSelected ? accentColor : cardFillColor)
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func tasteTagButton(tag: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(tag)
+                .font(Font.custom("AvenirNext-Bold", size: 9))
+                .tracking(0.8)
+                .textCase(.uppercase)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : accentColor)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(isSelected ? accentColor : accentColor.opacity(isLightAppearance ? 0.10 : 0.14))
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
     private func orderProgressRow(status: String) -> some View {
         let currentIndex = orderStatusStepIndex(status)
         let steps = orderStatusSteps
 
-        return HStack(spacing: 0) {
-            ForEach(Array(steps.enumerated()), id: \.element.key) { index, step in
-                VStack(spacing: 6) {
-                    Circle()
-                        .fill(index <= currentIndex ? accentColor : secondaryTextColor.opacity(0.24))
-                        .frame(width: 10, height: 10)
+        return VStack(alignment: .leading, spacing: 10) {
+            GeometryReader { proxy in
+                let trackWidth = max(proxy.size.width - 28, 1)
+                let progress = CGFloat(currentIndex) / CGFloat(max(steps.count - 1, 1))
+                let bagOffset = trackWidth * progress
 
-                    Text(step.title)
-                        .font(Font.custom("AvenirNext-DemiBold", size: 9))
-                        .foregroundColor(index <= currentIndex ? primaryTextColor : tertiaryTextColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(secondaryTextColor.opacity(0.16))
+                        .frame(height: 5)
+                        .padding(.horizontal, 14)
+
+                    Capsule(style: .continuous)
+                        .fill(accentColor.opacity(0.82))
+                        .frame(width: 28 + bagOffset, height: 5)
+                        .padding(.leading, 14)
+                        .animation(.spring(response: 0.42, dampingFraction: 0.78), value: currentIndex)
+
+                    HStack(spacing: 0) {
+                        ForEach(Array(steps.enumerated()), id: \.element.key) { index, _ in
+                            ZStack {
+                                Circle()
+                                    .fill(index <= currentIndex ? accentColor : cardFillColor)
+                                    .frame(width: 14, height: 14)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(index <= currentIndex ? accentColor : secondaryTextColor.opacity(0.26), lineWidth: 1)
+                                    )
+
+                                if index < currentIndex {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 7, weight: .bold))
+                                        .foregroundColor(Color(hex: 0x0A0804))
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+
+                    coffeeBagMarker
+                        .offset(x: bagOffset, y: -15)
+                        .animation(.spring(response: 0.42, dampingFraction: 0.72), value: currentIndex)
                 }
-                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 42)
 
-                if index < steps.count - 1 {
-                    Rectangle()
-                        .fill(index < currentIndex ? accentColor : secondaryTextColor.opacity(0.18))
-                        .frame(height: 2)
-                        .offset(y: -10)
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(Array(steps.enumerated()), id: \.element.key) { index, step in
+                    Text(step.title)
+                        .font(Font.custom("AvenirNext-DemiBold", size: 8))
+                        .foregroundColor(index <= currentIndex ? primaryTextColor : tertiaryTextColor)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.72)
+                        .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(12)
+        .background(accentColor.opacity(isLightAppearance ? 0.07 : 0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityLabel(AppLocalization.text("order_status_progress", fallback: "Order status progress"))
         .accessibilityValue(orderStatusTitle(status))
     }
 
     private var orderStatusSteps: [(key: String, title: String)] {
         [
-            ("pending", AppLocalization.text("order_step_received", fallback: "Received")),
-            ("preparing", AppLocalization.text("order_step_preparing", fallback: "Preparing")),
-            ("ready", AppLocalization.text("order_step_ready", fallback: "Ready")),
-            ("completed", AppLocalization.text("order_step_completed", fallback: "Completed"))
+            ("received", AppLocalization.text("order_step_received", fallback: "Received")),
+            ("roasting", AppLocalization.text("order_step_roasting", fallback: "Roasting")),
+            ("resting", AppLocalization.text("order_step_resting", fallback: "Resting")),
+            ("packed", AppLocalization.text("order_step_packed", fallback: "Packed")),
+            ("on-the-way", AppLocalization.text("order_step_on_the_way", fallback: "On its way"))
         ]
     }
 
     private func orderStatusStepIndex(_ status: String) -> Int {
         switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "confirmed", "preparing":
+        case "confirmed", "preparing", "roasting", "in progress":
             return 1
-        case "ready":
+        case "resting":
             return 2
-        case "completed", "fulfilled":
+        case "ready", "packed":
             return 3
+        case "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered":
+            return 4
         case "cancelled", "canceled":
             return 0
         default:
             return 0
         }
+    }
+
+    private func isTasteMemoryEligible(status: String) -> Bool {
+        switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "completed", "fulfilled", "delivered":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func tasteMemoryKey(order: ContentView.AccountOrder, item: ContentView.AccountOrder.Item) -> String {
+        "\(order.id)-\(normalizedProductName(item.name))"
+    }
+
+    private func normalizedProductName(_ name: String) -> String {
+        name
+            .lowercased()
+            .replacingOccurrences(of: "&", with: "and")
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .joined()
+    }
+
+    private var coffeeBagMarker: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(accentColor)
+                .frame(width: 28, height: 30)
+                .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.30), radius: 6, x: 0, y: 4)
+
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color(hex: 0x0A0804).opacity(0.12))
+                .frame(width: 16, height: 4)
+                .offset(y: -8)
+
+            Image(systemName: "leaf.fill")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(Color(hex: 0x0A0804))
+                .offset(y: 3)
+        }
+        .frame(width: 28, height: 30)
     }
 
     private func orderStatusBadge(_ status: String) -> some View {
