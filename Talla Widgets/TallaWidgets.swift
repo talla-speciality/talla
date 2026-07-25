@@ -2,6 +2,12 @@
 import AppIntents
 import SwiftUI
 import WidgetKit
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct TallaWidgetDeepLinks {
     static let shop = URL(string: "talla://shop")!
@@ -426,6 +432,223 @@ struct TallaQuickActionsWidget: Widget {
         .containerBackgroundRemovable(true)
     }
 }
+
+#if canImport(ActivityKit)
+struct TallaBrewActivityAttributes: ActivityAttributes {
+    struct ContentState: Codable, Hashable {
+        let elapsedSeconds: Int
+        let timerStartDate: Date
+        let currentStep: String
+        let nextStep: String
+        let currentWaterGrams: Double
+        let isPaused: Bool
+    }
+
+    let methodName: String
+    let coffeeGrams: Double
+    let ratio: Double
+    let totalWaterGrams: Double
+    let totalSeconds: Int
+}
+
+private enum TallaBrewActivityStyle {
+    static let accent = Color(red: 0.78, green: 0.55, blue: 0.29)
+
+    static var background: Color {
+#if canImport(UIKit)
+        Color(UIColor.systemBackground)
+#else
+        Color.primary.opacity(0.10)
+#endif
+    }
+
+    static var primaryText: Color {
+#if canImport(UIKit)
+        Color(UIColor.label)
+#else
+        .primary
+#endif
+    }
+
+    static var secondaryText: Color {
+#if canImport(UIKit)
+        Color(UIColor.secondaryLabel)
+#else
+        .secondary
+#endif
+    }
+
+    static var iconForeground: Color {
+#if canImport(UIKit)
+        Color(UIColor.systemBackground)
+#else
+        .primary
+#endif
+    }
+}
+
+@available(iOS 16.1, *)
+struct TallaBrewLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: TallaBrewActivityAttributes.self) { context in
+            TallaBrewLockScreenView(context: context)
+                .activityBackgroundTint(TallaBrewActivityStyle.background)
+                .activitySystemActionForegroundColor(TallaBrewActivityStyle.accent)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(context.attributes.methodName)
+                            .font(.caption.weight(.bold))
+                            .lineLimit(1)
+                        Text("\(Int(context.attributes.coffeeGrams.rounded())) g coffee")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                DynamicIslandExpandedRegion(.trailing) {
+                    VStack(alignment: .trailing, spacing: 3) {
+                        TallaBrewActivityTimer(context: context, font: .caption.weight(.black))
+                        Text("\(Int(context.state.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                DynamicIslandExpandedRegion(.bottom) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(context.state.currentStep)
+                            .font(.headline.weight(.bold))
+                            .lineLimit(1)
+                        Text("Next: \(context.state.nextStep)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        TallaBrewActivityProgress(context: context)
+                    }
+                }
+            } compactLeading: {
+                Image(systemName: "drop.fill")
+                    .foregroundStyle(TallaBrewActivityStyle.accent)
+            } compactTrailing: {
+                TallaBrewActivityTimer(context: context, font: .caption2.weight(.bold))
+                    .frame(maxWidth: 40)
+            } minimal: {
+                Image(systemName: "drop.fill")
+                    .foregroundStyle(TallaBrewActivityStyle.accent)
+            }
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+private struct TallaBrewLockScreenView: View {
+    let context: ActivityViewContext<TallaBrewActivityAttributes>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "drop.fill")
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundStyle(TallaBrewActivityStyle.iconForeground)
+                    .frame(width: 42, height: 42)
+                    .background(TallaBrewActivityStyle.accent, in: Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Guided Brew")
+                        .font(.caption.weight(.black))
+                        .tracking(1.4)
+                        .textCase(.uppercase)
+                        .foregroundStyle(TallaBrewActivityStyle.accent)
+                    Text(context.attributes.methodName)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(TallaBrewActivityStyle.primaryText)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 10)
+
+                TallaBrewActivityTimer(context: context, font: .title2.weight(.black))
+                    .foregroundStyle(TallaBrewActivityStyle.primaryText)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(context.state.currentStep)
+                    .font(.title3.weight(.black))
+                    .foregroundStyle(TallaBrewActivityStyle.primaryText)
+                    .lineLimit(2)
+
+                Text("Target: \(Int(context.state.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(TallaBrewActivityStyle.secondaryText)
+
+                Text("Next: \(context.state.nextStep)")
+                    .font(.caption)
+                    .foregroundStyle(TallaBrewActivityStyle.secondaryText)
+                    .lineLimit(1)
+            }
+
+            TallaBrewActivityProgress(context: context)
+        }
+        .padding(16)
+    }
+}
+
+@available(iOS 16.1, *)
+private struct TallaBrewActivityTimer: View {
+    let context: ActivityViewContext<TallaBrewActivityAttributes>
+    let font: Font
+
+    var body: some View {
+        Group {
+            if context.state.isPaused {
+                Text(formattedTime(context.state.elapsedSeconds))
+            } else {
+                Text(
+                    timerInterval: context.state.timerStartDate...context.state.timerStartDate.addingTimeInterval(Double(context.attributes.totalSeconds)),
+                    countsDown: false
+                )
+            }
+        }
+        .font(font)
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+    }
+
+    private func formattedTime(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        return String(format: "%d:%02d", minutes, remainingSeconds)
+    }
+}
+
+@available(iOS 16.1, *)
+private struct TallaBrewActivityProgress: View {
+    let context: ActivityViewContext<TallaBrewActivityAttributes>
+
+    private var progress: Double {
+        let elapsed = context.state.isPaused
+            ? context.state.elapsedSeconds
+            : max(context.state.elapsedSeconds, Int(Date().timeIntervalSince(context.state.timerStartDate)))
+        return min(max(Double(elapsed) / Double(max(context.attributes.totalSeconds, 1)), 0), 1)
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule(style: .continuous)
+                    .fill(TallaBrewActivityStyle.accent.opacity(0.22))
+                Capsule(style: .continuous)
+                    .fill(TallaBrewActivityStyle.accent)
+                    .frame(width: proxy.size.width * progress)
+            }
+        }
+        .frame(height: 6)
+    }
+}
+#endif
 
 @available(iOS 18.0, *)
 struct TallaConciergeControl: ControlWidget {

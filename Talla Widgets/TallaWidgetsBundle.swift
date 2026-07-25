@@ -7,6 +7,10 @@ struct TallaWidgetsBundle: WidgetBundle {
     var body: some Widget {
         TallaQuickActionsWidget()
 
+        if #available(iOS 16.1, *) {
+            TallaBrewLiveActivity()
+        }
+
         if #available(iOS 18.0, *) {
             TallaConciergeControl()
             TallaShopControl()
