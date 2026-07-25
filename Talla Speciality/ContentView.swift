@@ -176,6 +176,20 @@ struct ContentView: View {
         }
     }
 
+    struct PassportSettings: Decodable {
+        struct Origin: Decodable {
+            let id: String
+            let title: String
+            let emoji: String
+            let keywords: [String]
+            let rewardLabel: String?
+        }
+
+        let origins: [Origin]
+        let completionRewardTitle: String?
+        let completionRewardDetail: String?
+    }
+
     struct BrewingMethod: Identifiable, Hashable {
         let id: String
         let name: String
@@ -359,6 +373,13 @@ struct ContentView: View {
         let daysAgo: Int
     }
 
+    private struct CoffeePassportOrigin: Identifiable, Hashable {
+        let id: String
+        let title: String
+        let detail: String
+        let symbol: String
+    }
+
     enum AccountAuthMode: String {
         case signIn
         case createAccount
@@ -536,6 +557,7 @@ struct ContentView: View {
     @State private var selectedVariantIDs: [String: String] = [:]
     @State private var remoteSignatureRoastProductIDs: [String] = []
     @State private var remoteHomeSettings: HomeSettings?
+    @State private var remotePassportSettings: PassportSettings?
     @State private var loyaltyEmail = ""
     @State private var loyaltyAccount: LoyaltyAccount?
     @State private var loyaltyError: String?
@@ -554,7 +576,9 @@ struct ContentView: View {
     @State private var isBrewingSectionExpanded = false
     @State private var isSupportSectionExpanded = false
     @State private var isDeliveryDetailsExpanded = false
+    @State private var isTallaPassportExpanded = false
     @State private var accountScrollTarget: String?
+    @State private var tabScrollTarget: Tab?
     @State private var didRecordReviewLaunch = false
 
     private let categoryCatalog: [ShopCategory] = [
@@ -578,6 +602,29 @@ struct ContentView: View {
         "Ethiopia",
         "Yemen"
     ]
+
+    private let defaultCoffeePassportOrigins = [
+        CoffeePassportOrigin(id: "ethiopia", title: "Ethiopia", detail: "Floral, bright, berry-like cups", symbol: "🇪🇹"),
+        CoffeePassportOrigin(id: "yemen", title: "Yemen", detail: "Deep spice, cocoa, dried fruit", symbol: "🇾🇪"),
+        CoffeePassportOrigin(id: "colombia", title: "Colombia", detail: "Balanced caramel and chocolate", symbol: "🇨🇴"),
+        CoffeePassportOrigin(id: "brazil", title: "Brazil", detail: "Smooth nuts, cocoa, comfort", symbol: "🇧🇷")
+    ]
+
+    private var coffeePassportOrigins: [CoffeePassportOrigin] {
+        guard let origins = remotePassportSettings?.origins, !origins.isEmpty else {
+            return defaultCoffeePassportOrigins
+        }
+
+        return origins.map { origin in
+            let detail = origin.rewardLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CoffeePassportOrigin(
+                id: origin.id,
+                title: origin.title,
+                detail: (detail?.isEmpty == false ? detail : nil) ?? origin.keywords.prefix(3).joined(separator: ", "),
+                symbol: origin.emoji
+            )
+        }
+    }
 
     private var cartCount: Int {
         cartItems.reduce(0) { $0 + $1.quantity }
@@ -920,6 +967,11 @@ struct ContentView: View {
         return recentlyViewedProductIDs.compactMap { productsByID[$0] }
     }
 
+    private var recentlyViewedUnboughtProducts: [Product] {
+        let orderedProductIDs = Set(orderedProducts.map(\.id))
+        return recentlyViewedProducts.filter { !orderedProductIDs.contains($0.id) }
+    }
+
     private var alertProductIDs: Set<String> {
         Set(
             savedAlertProductIDs
@@ -959,18 +1011,35 @@ struct ContentView: View {
         return decoded
     }
 
-    private var passportCategoryKeys: [String] {
-        ["coffee-beans", "arabic-coffee-beans", "drip-bags", "cups", "desserts", "coffee-equipment", "gifts"]
-    }
+    private var stampedCoffeePassportOriginKeys: Set<String> {
+        var stamps = Set<String>()
 
-    private var stampedPassportCategoryKeys: Set<String> {
-        let touchedProducts = favoriteProducts + recentlyViewedProducts + orderedProducts + cartItems.map(\.product)
-        return Set(touchedProducts.map(\.categoryKey)).intersection(passportCategoryKeys)
+        for order in orderHistory {
+            guard let items = order.items else { continue }
+
+            for item in items {
+                let product = matchingProduct(for: item.name)
+                let searchableText = [
+                    item.name,
+                    product.map { normalizedSearchText(for: $0) } ?? ""
+                ].joined(separator: " ")
+
+                if let originKey = coffeePassportOriginKey(in: searchableText) {
+                    stamps.insert(originKey)
+                }
+            }
+        }
+
+        return stamps
     }
 
     private var passportProgressFraction: Double {
-        guard !passportCategoryKeys.isEmpty else { return 0 }
-        return min(Double(stampedPassportCategoryKeys.count) / Double(passportCategoryKeys.count), 1)
+        guard !coffeePassportOrigins.isEmpty else { return 0 }
+        return min(Double(stampedCoffeePassportOriginKeys.count) / Double(coffeePassportOrigins.count), 1)
+    }
+
+    private var isCoffeePassportComplete: Bool {
+        stampedCoffeePassportOriginKeys.count == coffeePassportOrigins.count
     }
 
     private var savedCarts: [SavedCart] {
@@ -1156,26 +1225,33 @@ struct ContentView: View {
         return Array(ranked.prefix(4))
     }
 
-    private var reorderPrompt: ReorderPrompt? {
+    private var reorderPrompts: [ReorderPrompt] {
         let sortedOrders = orderHistory.sorted { lhs, rhs in
             orderDate(from: lhs.createdAt) > orderDate(from: rhs.createdAt)
         }
+        var prompts: [ReorderPrompt] = []
+        var seenProductIDs = Set<String>()
 
         for order in sortedOrders {
             guard let items = order.items else { continue }
 
             for item in items {
-                if let product = matchingProduct(for: item.name) {
-                    return ReorderPrompt(
+                if let product = matchingProduct(for: item.name), !seenProductIDs.contains(product.id) {
+                    seenProductIDs.insert(product.id)
+                    prompts.append(ReorderPrompt(
                         order: order,
                         product: product,
                         daysAgo: daysSinceOrder(order)
-                    )
+                    ))
                 }
             }
         }
 
-        return nil
+        return prompts
+    }
+
+    private var reorderPrompt: ReorderPrompt? {
+        reorderPrompts.first
     }
 
     private var orderBasedRecommendation: (source: Product, recommended: Product)? {
@@ -1601,25 +1677,25 @@ struct ContentView: View {
 
     private var baseTabView: some View {
         TabView(selection: $activeTab) {
-            tabScreen(homeView)
+            tabScreen(homeView, tab: .home)
                 .tag(Tab.home)
                 .tabItem {
                     Label(AppLocalization.text("home", fallback: "Home"), systemImage: Tab.home.systemImage)
                 }
 
-            tabScreen(shopView)
+            tabScreen(shopView, tab: .shop)
                 .tag(Tab.shop)
                 .tabItem {
                     Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
                 }
 
-            tabScreen(brewingView)
+            tabScreen(brewingView, tab: .brewing)
                 .tag(Tab.brewing)
                 .tabItem {
                     Label(AppLocalization.text("brewing", fallback: "Brewing"), systemImage: Tab.brewing.systemImage)
                 }
 
-            tabScreen(accountView)
+            tabScreen(accountView, tab: .account)
                 .tag(Tab.account)
                 .tabItem {
                     Label(AppLocalization.text("account", fallback: "Account"), systemImage: Tab.account.systemImage)
@@ -1630,11 +1706,14 @@ struct ContentView: View {
         .toolbarBackground(.regularMaterial, for: .tabBar)
     }
 
-    private func tabScreen<Content: View>(_ content: Content) -> some View {
+    private func tabScreen<Content: View>(_ content: Content, tab: Tab) -> some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
+                        Color.clear
+                            .frame(height: 0)
+                            .id("tab-top")
                         header
                         content
                         footer
@@ -1650,6 +1729,15 @@ struct ContentView: View {
                         accountScrollTarget = nil
                     }
                 }
+                .onChange(of: tabScrollTarget) { _, target in
+                    guard activeTab == tab, target == tab else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                        withAnimation(.easeInOut(duration: 0.28)) {
+                            proxy.scrollTo("tab-top", anchor: .top)
+                        }
+                        tabScrollTarget = nil
+                    }
+                }
             }
         }
         .frame(maxWidth: contentMaxWidth)
@@ -1660,6 +1748,55 @@ struct ContentView: View {
 #if canImport(UIKit)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 #endif
+    }
+
+    private func openTab(_ tab: Tab) {
+        activeTab = tab
+        tabScrollTarget = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            tabScrollTarget = tab
+        }
+    }
+
+    private func openShop(category: String = "all", searchQuery: String = "") {
+        activeCategory = category
+        shopSearchQuery = searchQuery
+        openTab(.shop)
+    }
+
+    private func openBrewing(category: String = "All") {
+        activeBrewingCategory = category
+        openTab(.brewing)
+    }
+
+    private func openAccountSection(_ target: String, authMode: AccountAuthMode? = nil) {
+        if let authMode {
+            switchAccountAuthMode(authMode)
+        }
+
+        switch target {
+        case AccountSectionView.ScrollTarget.customer:
+            isCustomerSectionExpanded = true
+        case AccountSectionView.ScrollTarget.loyalty:
+            isLoyaltySectionExpanded = true
+            savedLoyaltyEmail = savedCustomerEmail.isEmpty ? savedLoyaltyEmail : savedCustomerEmail
+        case AccountSectionView.ScrollTarget.library:
+            isLibrarySectionExpanded = true
+        case AccountSectionView.ScrollTarget.shopping:
+            isShoppingSectionExpanded = true
+        case AccountSectionView.ScrollTarget.brewing:
+            isBrewingSectionExpanded = true
+        case AccountSectionView.ScrollTarget.support:
+            isSupportSectionExpanded = true
+        default:
+            break
+        }
+
+        activeTab = .account
+        accountScrollTarget = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            accountScrollTarget = target
+        }
     }
 
     private func handleShortcutDestination() {
@@ -1673,30 +1810,23 @@ struct ContentView: View {
 
         switch destination {
         case "shop":
-            activeTab = .shop
-            activeCategory = "all"
-            shopSearchQuery = searchQuery
+            openShop(searchQuery: searchQuery)
         case "concierge":
             if !searchQuery.isEmpty {
                 conciergeRequest = searchQuery
             }
             openCoffeeConcierge()
         case "brewing":
-            activeTab = .brewing
+            openBrewing()
         case "shelf", "favorites":
-            activeTab = .home
+            openTab(.home)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 isFavoriteShelfPresented = true
             }
         case "rewards":
-            activeTab = .account
-            savedLoyaltyEmail = savedCustomerEmail.isEmpty ? savedLoyaltyEmail : savedCustomerEmail
-            isLoyaltySectionExpanded = true
-            accountScrollTarget = AccountSectionView.ScrollTarget.loyalty
+            openAccountSection(AccountSectionView.ScrollTarget.loyalty)
         case "orders", "order-history", "checkout-return":
-            activeTab = .account
-            isCustomerSectionExpanded = true
-            accountScrollTarget = AccountSectionView.ScrollTarget.customer
+            openAccountSection(AccountSectionView.ScrollTarget.customer)
             Task {
                 await loadOrderHistory()
                 if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1714,15 +1844,11 @@ struct ContentView: View {
 
         switch choice {
         case .beans:
-            activeCategory = "coffee-beans"
-            shopSearchQuery = ""
-            activeTab = .shop
+            openShop(category: "coffee-beans")
         case .drinks:
             openDrinksSection()
         case .gifts:
-            activeCategory = "gifts"
-            shopSearchQuery = ""
-            activeTab = .shop
+            openShop(category: "gifts")
         case .concierge:
             openCoffeeConcierge()
         }
@@ -1734,9 +1860,7 @@ struct ContentView: View {
     }
 
     private func openDrinksSection() {
-        activeTab = .shop
-        activeCategory = "ready-made-drinks"
-        shopSearchQuery = ""
+        openShop(category: "ready-made-drinks")
         showToast(message: AppLocalization.text("drinks_opened", fallback: "Drinks opened"))
     }
 
@@ -1758,24 +1882,54 @@ struct ContentView: View {
         return trimmedValue.isEmpty ? AppLocalization.text(localizationKey, fallback: fallback) : trimmedValue
     }
 
+    private var homeHeroSubtitleText: String {
+        let subtitle = homeSettingText(
+            remoteHomeSettings?.heroSubtitle,
+            localizationKey: "hero_subtitle",
+            fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals."
+        )
+
+        if subtitle.localizedCaseInsensitiveContains("without digging through the app") {
+            return AppLocalization.text("hero_subtitle_refined", fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals.")
+        }
+
+        return subtitle
+    }
+
     private var header: some View {
         VStack(spacing: 14) {
             HStack {
                 Button {
-                    activeTab = .home
+                    openTab(.home)
                 } label: {
                     HStack(spacing: 12) {
                         Image("Logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 52, height: 52)
+                            .frame(width: customerProfile == nil ? 52 : 44, height: customerProfile == nil ? 52 : 44)
 
-                        Text("TALLA")
-                            .font(displayFont(size: isCompact ? 32 : 28))
-                            .tracking(isCompact ? 2 : 3)
-                            .foregroundColor(primaryTextColor)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                        if let customerProfile {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(AppLocalization.text("welcome_back", fallback: "Welcome back,"))
+                                    .font(labelFont(size: 10, weight: .bold))
+                                    .tracking(1.5)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(Color(hex: 0xC8965A))
+
+                                Text(customerFirstName(for: customerProfile))
+                                    .font(displayFont(size: isCompact ? 25 : 26))
+                                    .foregroundColor(primaryTextColor)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                            }
+                        } else {
+                            Text("TALLA")
+                                .font(displayFont(size: isCompact ? 32 : 28))
+                                .tracking(isCompact ? 2 : 3)
+                                .foregroundColor(primaryTextColor)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
                     }
                 }
                 .buttonStyle(.plain)
@@ -1903,8 +2057,9 @@ struct ContentView: View {
             heroSection
             homeSurprisePick
             homeFavoritesShelf
-            homeOrderAgainSection
             featuredProducts
+            tallaPassportSection
+            homeRecentlyViewedShelf
         }
     }
 
@@ -1961,10 +2116,10 @@ struct ContentView: View {
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(AppLocalization.text("daily_surprise_detail", fallback: "Not sure what to choose? Let Talla surprise you."))
+                    Text(AppLocalization.text("daily_surprise_detail", fallback: "Not sure what to choose? Let Talla decide."))
                         .font(bodyFont(size: isSurprisePickExpanded ? 13 : 12))
                         .foregroundColor(secondaryTextColor)
-                        .lineLimit(isSurprisePickExpanded ? 2 : 1)
+                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -2024,7 +2179,7 @@ struct ContentView: View {
                     actionTitle: AppLocalization.text("browse_shop", fallback: "Browse Shop"),
                     systemImage: "sparkles"
                 ) {
-                    activeTab = .shop
+                    openShop()
                 }
             }
         }
@@ -2194,7 +2349,7 @@ struct ContentView: View {
     private func refreshSurprisePick() {
         let availableProducts = surprisePickProducts
         guard !availableProducts.isEmpty else {
-            activeTab = .shop
+            openShop()
             showToast(message: AppLocalization.text("loading_shop", fallback: "Loading the shop"))
             return
         }
@@ -2215,7 +2370,7 @@ struct ContentView: View {
 
     private func revealSurprisePick() {
         guard surprisePickProduct != nil else {
-            activeTab = .shop
+            openShop()
             showToast(message: AppLocalization.text("loading_shop", fallback: "Loading the shop"))
             return
         }
@@ -2273,9 +2428,6 @@ struct ContentView: View {
 
     @ViewBuilder
     private var homeFavoritesShelf: some View {
-        let shelfProducts = Array((favoriteProducts + recentlyViewedProducts + recommendedProducts).uniquedByID().prefix(6))
-
-        if !shelfProducts.isEmpty {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -2285,7 +2437,7 @@ struct ContentView: View {
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(AppLocalization.text("favorites_shelf_detail", fallback: "Favorites, recent picks, and useful returns in one place."))
+                    Text(AppLocalization.text("shelf_functional_detail", fallback: "Your favourites, previous orders, and recent discoveries."))
                         .font(bodyFont(size: 13))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2307,97 +2459,270 @@ struct ContentView: View {
                 .accessibilityLabel(AppLocalization.text("open_favorites_shelf", fallback: "Open favorites shelf"))
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(shelfProducts) { product in
-                        Button {
-                            recordRecentlyViewed(product)
-                            selectedProduct = product
-                        } label: {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ProductThumbnail(imageURL: product.imageURL, size: 74, cornerRadius: 16)
+            if customerProfile == nil {
+                signedOutShelfPrompt
+            }
 
-                                Text(product.name)
-                                    .font(titleFont(size: 15))
-                                    .foregroundColor(primaryTextColor)
-                                    .lineLimit(2)
-                                    .frame(width: 116, alignment: .leading)
-
-                                Text(product.price)
-                                    .font(labelFont(size: 10, weight: .bold))
-                                    .foregroundColor(Color(hex: 0xC8965A))
-                            }
-                            .padding(12)
-                            .frame(width: 140, alignment: .leading)
-                            .background(cardFillColor)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            if !reorderPrompts.isEmpty {
+                personalizedShelfSection(
+                    title: AppLocalization.text("order_again_home", fallback: "Order Again"),
+                    detail: AppLocalization.text("order_again_detail", fallback: "Products you previously purchased."),
+                    systemImage: "clock.arrow.circlepath"
+                ) {
+                    VStack(spacing: 10) {
+                        ForEach(reorderPrompts.prefix(3), id: \.product.id) { prompt in
+                            reorderPromptCard(prompt)
                         }
-                        .buttonStyle(.plain)
+
+                        if let recommendation = orderBasedRecommendation {
+                            orderRecommendationCard(source: recommendation.source, recommended: recommendation.recommended)
+                        }
                     }
                 }
-                .padding(.vertical, 2)
+            }
+
+            if customerProfile != nil && reorderPrompts.isEmpty && recentlyViewedUnboughtProducts.isEmpty {
+                actionEmptyState(
+                    message: AppLocalization.text("your_shelf_empty", fallback: "Your shelf will fill with reorders and recently viewed products. Saved favourites stay inside the shelf button."),
+                    actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
+                    systemImage: "books.vertical.fill"
+                ) {
+                    openShop()
+                }
             }
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 18)
+    }
+
+    @ViewBuilder
+    private var homeRecentlyViewedShelf: some View {
+        recentlyViewedShelfSection
+            .padding(.horizontal, 18)
+            .padding(.bottom, 20)
+    }
+
+    @ViewBuilder
+    private var recentlyViewedShelfSection: some View {
+        personalizedShelfSection(
+            title: AppLocalization.text("recently_viewed", fallback: "Recently Viewed"),
+            detail: AppLocalization.text("recently_viewed_home_detail", fallback: "Products you explored but did not buy."),
+            systemImage: "eye.fill",
+            trailingHeader: recentlyViewedSectionMenu
+        ) {
+            let products = Array(recentlyViewedUnboughtProducts.prefix(6))
+
+            if products.isEmpty {
+                Text(AppLocalization.text("home_recently_viewed_empty", fallback: "Open products in the shop and they will appear here."))
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(tertiaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.72 : 0.54))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                GeometryReader { proxy in
+                    let cardWidth = max(132, min(162, (proxy.size.width - 24) / 2.15))
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(products) { product in
+                                shelfProductCard(product, width: cardWidth)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+                .frame(height: 172)
+            }
         }
     }
 
     @ViewBuilder
-    private var homeOrderAgainSection: some View {
-        if let prompt = reorderPrompt {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(AppLocalization.text("personalized_for_you", fallback: "For You"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(2.2)
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
-
-                        Text(AppLocalization.text("order_again_home", fallback: "Order Again"))
-                            .font(displayFont(size: 24))
-                            .tracking(0.4)
-                            .foregroundColor(primaryTextColor)
+    private func personalizedProductShelfSection(title: String, detail: String, systemImage: String, products: [Product], emptyMessage: String) -> some View {
+        personalizedShelfSection(title: title, detail: detail, systemImage: systemImage) {
+            if products.isEmpty {
+                Text(emptyMessage)
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(tertiaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.72 : 0.54))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(products) { product in
+                            shelfProductCard(product)
+                        }
                     }
-
-                    Spacer(minLength: 12)
-
-                    Button {
-                        activeTab = .account
-                        isCustomerSectionExpanded = true
-                        accountScrollTarget = AccountSectionView.ScrollTarget.customer
-                    } label: {
-                        Label(AppLocalization.text("view_orders", fallback: "View Orders"), systemImage: "clock.arrow.circlepath")
-                            .font(labelFont(size: 10, weight: .bold))
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                reorderPromptCard(prompt)
-
-                if let recommendation = orderBasedRecommendation {
-                    orderRecommendationCard(source: recommendation.source, recommended: recommendation.recommended)
+                    .padding(.vertical, 2)
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 24)
         }
+    }
+
+    private var recentlyViewedSectionMenu: AnyView {
+        AnyView(
+            Menu {
+                Button(role: .destructive) {
+                    savedRecentlyViewedProductIDs = ""
+                } label: {
+                    Label(AppLocalization.text("clear_history", fallback: "Clear history"), systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .frame(width: 30, height: 30)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                    .clipShape(Circle())
+            }
+            .menuStyle(.button)
+            .disabled(recentlyViewedProductIDs.isEmpty)
+        )
+    }
+
+    private func personalizedShelfSection<Content: View>(title: String, detail: String, systemImage: String, trailingHeader: AnyView = AnyView(EmptyView()), @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 9) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .frame(width: 28, height: 28)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(detail)
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                }
+
+                Spacer(minLength: 8)
+
+                trailingHeader
+            }
+
+            content()
+        }
+        .padding(12)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.07), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var shelfGreetingText: String {
+        if let profile = customerProfile {
+            let displayName = customerFirstName(for: profile)
+            return String(format: AppLocalization.text("shelf_welcome_back", fallback: "Welcome back, %@. Ready for another cup?"), displayName)
+        }
+
+        return AppLocalization.text("shelf_signed_out_prompt", fallback: "Sign in to save favourites and quickly reorder.")
+    }
+
+    private func customerFirstName(for profile: ShopifyCustomerProfile) -> String {
+        let candidates = [
+            profile.firstName,
+            profile.displayName.components(separatedBy: .whitespacesAndNewlines).first,
+            profile.email.components(separatedBy: "@").first
+        ]
+
+        for candidate in candidates {
+            let name = (candidate ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalized = name.lowercased()
+
+            if !name.isEmpty && normalized != "talla" && normalized != "admin" && normalized != "customer" {
+                return name
+            }
+        }
+
+        return AppLocalization.text("customer_fallback_name", fallback: "there")
+    }
+
+    private var signedOutShelfPrompt: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.plus")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(hex: 0xC8965A))
+                .frame(width: 34, height: 34)
+                .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                .clipShape(Circle())
+
+            Text(AppLocalization.text("shelf_sign_in_detail", fallback: "Sign in to save favourites and quickly reorder."))
+                .font(bodyFont(size: 13))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 8)
+
+            Button {
+                openAccountSection(AccountSectionView.ScrollTarget.customer, authMode: .signIn)
+            } label: {
+                Text(AppLocalization.text("sign_in", fallback: "Sign In"))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.72 : 0.54))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func shelfProductCard(_ product: Product, width: CGFloat = 140) -> some View {
+        Button {
+            recordRecentlyViewed(product)
+            selectedProduct = product
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                ProductThumbnail(imageURL: product.imageURL, size: 76, cornerRadius: 16)
+
+                Text(customerFacingProductName(for: product))
+                    .font(titleFont(size: 15))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                    .frame(width: width - 24, alignment: .leading)
+
+                Text(product.price)
+                    .font(labelFont(size: 10, weight: .bold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+            }
+            .padding(12)
+            .frame(width: width, alignment: .topLeading)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+            .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.72 : 0.54))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func reorderPromptCard(_ prompt: ReorderPrompt) -> some View {
         HStack(alignment: .center, spacing: 14) {
             ProductThumbnail(imageURL: prompt.product.imageURL, size: isCompact ? 82 : 96, cornerRadius: 18)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text(String(format: AppLocalization.text("running_low_on_product", fallback: "Running low on %@?"), prompt.product.name))
-                    .font(titleFont(size: isCompact ? 19 : 21))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(String(format: AppLocalization.text("running_low_on_product", fallback: "Running low on %@?"), customerFacingProductName(for: prompt.product)))
+                    .font(titleFont(size: isCompact ? 21 : 23))
                     .foregroundColor(primaryTextColor)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2405,16 +2730,6 @@ struct ContentView: View {
                 Text(String(format: AppLocalization.text("last_ordered_days_ago", fallback: "Last ordered %d days ago"), prompt.daysAgo))
                     .font(bodyFont(size: 13))
                     .foregroundColor(secondaryTextColor)
-
-                HStack(spacing: 8) {
-                    Text(productTasteSummary(for: prompt.product))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .foregroundColor(Color(hex: 0xC8965A))
-
-                    Spacer(minLength: 0)
-                }
             }
 
             Spacer(minLength: 0)
@@ -2451,17 +2766,20 @@ struct ContentView: View {
                 .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
                 .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(String(format: AppLocalization.text("similar_order_recommendation", fallback: "You enjoyed %@ - try %@."), source.name, recommended.name))
-                    .font(bodyFont(size: 13))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(format: AppLocalization.text("loved_product_prompt", fallback: "Loved %@?"), customerFacingProductName(for: source)))
+                    .font(titleFont(size: 15))
                     .foregroundColor(primaryTextColor)
                     .lineLimit(2)
+                    .minimumScaleFactor(0.82)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(productTasteSummary(for: recommended))
-                    .font(labelFont(size: 10, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
-                    .lineLimit(1)
+                Text(String(format: AppLocalization.text("try_product_gathering", fallback: "Try %@ for your next gathering."), customerFacingProductName(for: recommended)))
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.86)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
@@ -2485,7 +2803,7 @@ struct ContentView: View {
             .disabled(!recommended.isAvailableForSale || selectedVariant(for: recommended) == nil)
             .accessibilityLabel(AppLocalization.text("add_recommended_product", fallback: "Add recommended product"))
         }
-        .padding(14)
+        .padding(12)
         .background(elevatedSurfaceColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -2576,9 +2894,7 @@ struct ContentView: View {
                     systemImage: "heart.fill"
                 ) {
                     isFavoriteShelfPresented = false
-                    activeCategory = "all"
-                    shopSearchQuery = ""
-                    activeTab = .shop
+                    openShop()
                 }
             } else {
                 ForEach(Array(favoriteProducts.enumerated()), id: \.element.id) { index, product in
@@ -2654,27 +2970,31 @@ struct ContentView: View {
     }
 
     private var tallaPassportSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "seal.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(hex: 0x0A0804))
-                    .frame(width: 38, height: 38)
-                    .background(Color(hex: 0xC8965A))
-                    .clipShape(Circle())
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                passportLogoIcon
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(AppLocalization.text("talla_passport", fallback: "Talla Passport"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(AppLocalization.text("talla_passport", fallback: "Talla Passport"))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(2.2)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(String(format: AppLocalization.text("talla_passport_detail", fallback: "%d of %d shelves stamped through favorites, views, orders, or your bag."), stampedPassportCategoryKeys.count, passportCategoryKeys.count))
+                        Text("\(stampedCoffeePassportOriginKeys.count) / \(coffeePassportOrigins.count) \(AppLocalization.text("passport_origins", fallback: "origins"))")
+                            .font(labelFont(size: 10, weight: .bold))
+                            .foregroundColor(secondaryTextColor)
+                    }
+
+                    Text(coffeePassportOrigins.map(\.title).joined(separator: " · "))
                         .font(bodyFont(size: 13))
                         .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
+
+                Spacer(minLength: 0)
             }
 
             GeometryReader { proxy in
@@ -2684,19 +3004,53 @@ struct ContentView: View {
 
                     Capsule(style: .continuous)
                         .fill(LinearGradient(colors: [Color(hex: 0xC8965A), Color(hex: 0x6F8B55)], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: max(proxy.size.width * passportProgressFraction, stampedPassportCategoryKeys.isEmpty ? 0 : 12))
-                        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: stampedPassportCategoryKeys.count)
+                        .frame(width: max(proxy.size.width * passportProgressFraction, stampedCoffeePassportOriginKeys.isEmpty ? 0 : 12))
+                        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: stampedCoffeePassportOriginKeys.count)
                 }
             }
             .frame(height: 10)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
-                ForEach(passportCategoryKeys, id: \.self) { key in
-                    passportStampButton(for: key)
+            Text(String(format: AppLocalization.text("passport_completed_count", fallback: "%d of %d completed"), stampedCoffeePassportOriginKeys.count, coffeePassportOrigins.count))
+                .font(labelFont(size: 9, weight: .bold))
+                .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
+                .textCase(.uppercase)
+                .foregroundColor(tertiaryTextColor)
+
+            Text(isCoffeePassportComplete
+                ? AppLocalization.text("talla_passport_complete_short", fallback: "Passport complete. Your reward is ready in Rewards.")
+                : AppLocalization.text("talla_passport_reward_hint_short", fallback: "Complete your passport to unlock a reward."))
+                .font(bodyFont(size: 12))
+                .foregroundColor(isCoffeePassportComplete ? Color(hex: 0x6F8B55) : secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    isTallaPassportExpanded.toggle()
                 }
+            } label: {
+                Label(
+                    isTallaPassportExpanded
+                        ? AppLocalization.text("hide_passport", fallback: "Hide Passport")
+                        : AppLocalization.text("view_passport", fallback: "View Passport"),
+                    systemImage: isTallaPassportExpanded ? "chevron.up" : "arrow.right"
+                )
+                .font(labelFont(size: 10, weight: .bold))
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0xC8965A))
+            }
+            .buttonStyle(.plain)
+
+            if isTallaPassportExpanded {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
+                    ForEach(coffeePassportOrigins) { origin in
+                        passportStampButton(for: origin)
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(18)
+        .padding(14)
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -2707,33 +3061,78 @@ struct ContentView: View {
         .padding(.bottom, 20)
     }
 
-    private func passportStampButton(for key: String) -> some View {
-        let isStamped = stampedPassportCategoryKeys.contains(key)
+    private var passportLogoIcon: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hex: 0xC8965A))
+
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color(hex: 0x0A0804))
+                .frame(width: 16, height: 20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color(hex: 0xF7E1B7).opacity(0.85), lineWidth: 1)
+                )
+
+            Image(systemName: "seal.fill")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundColor(Color(hex: 0xF7E1B7))
+                .offset(y: 1)
+        }
+        .frame(width: 38, height: 38)
+        .accessibilityHidden(true)
+    }
+
+    private func passportStampButton(for origin: CoffeePassportOrigin) -> some View {
+        let isStamped = stampedCoffeePassportOriginKeys.contains(origin.id)
 
         return Button {
-            activeCategory = key
-            shopSearchQuery = ""
-            activeTab = .shop
+            openShop(category: "coffee-beans", searchQuery: origin.title)
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: isStamped ? "checkmark.seal.fill" : categoryDefinition(for: key).symbol)
-                    .font(.system(size: 13, weight: .bold))
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 8) {
+                    Text(origin.symbol)
+                        .font(.system(size: 17, weight: .bold))
+                        .frame(width: 20, height: 20)
 
-                Text(categoryLabel(for: key))
-                    .font(labelFont(size: 9, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    Text(origin.title)
+                        .font(labelFont(size: 10, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Text(isStamped
+                    ? AppLocalization.text("passport_origin_stamped", fallback: "Stamped")
+                    : origin.detail)
+                    .font(bodyFont(size: 11))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
             }
             .foregroundColor(isStamped ? Color(hex: 0x0A0804) : primaryTextColor)
             .padding(.horizontal, 10)
-            .padding(.vertical, 9)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(isStamped ? Color(hex: 0xC8965A) : elevatedSurfaceColor)
             .overlay(
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color(hex: 0xC8965A).opacity(isStamped ? 0 : 0.18), lineWidth: 1)
             )
-            .clipShape(Capsule(style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                if isStamped {
+                    Text(AppLocalization.text("passport_stamp_mark", fallback: "STAMPED"))
+                        .font(labelFont(size: 7, weight: .black))
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: 0xF7E1B7).opacity(0.9))
+                        .clipShape(Capsule())
+                        .rotationEffect(.degrees(-8))
+                        .padding(8)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -2760,7 +3159,7 @@ struct ContentView: View {
                     strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
                     minHeight: 106
                 ) {
-                    activeTab = .shop
+                    openShop()
                 }
 
                 ActionTileView(
@@ -2776,7 +3175,7 @@ struct ContentView: View {
                     strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
                     minHeight: 106
                 ) {
-                    activeTab = .account
+                    openAccountSection(AccountSectionView.ScrollTarget.loyalty)
                 }
 
                 ActionTileView(
@@ -2794,7 +3193,7 @@ struct ContentView: View {
                 ) {
                     isLibrarySectionExpanded = true
                     isDeliveryDetailsExpanded = false
-                    activeTab = .account
+                    openAccountSection(AccountSectionView.ScrollTarget.library)
                 }
 
                 ActionTileView(
@@ -2810,7 +3209,7 @@ struct ContentView: View {
                     strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
                     minHeight: 106
                 ) {
-                    activeTab = .brewing
+                    openBrewing()
                 }
             }
         }
@@ -2841,7 +3240,7 @@ struct ContentView: View {
                         Spacer(minLength: 12)
 
                         Button {
-                            activeTab = .account
+                            openAccountSection(AccountSectionView.ScrollTarget.loyalty)
                         } label: {
                             Text(AppLocalization.text("rewards_button", fallback: "Rewards"))
                                 .font(labelFont(size: 10, weight: .bold))
@@ -2915,7 +3314,7 @@ struct ContentView: View {
     }
 
     private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(homeSettingText(remoteHomeSettings?.heroEyebrow, localizationKey: "roastery", fallback: "Roastery"))
@@ -2941,7 +3340,7 @@ struct ContentView: View {
                 }
                 .foregroundColor(Color(hex: 0x8B5B2A))
                 .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
                 .background(
                     Capsule(style: .continuous)
                         .fill(Color(hex: 0xF3DFC2).opacity(isLightAppearance ? 0.95 : 0.12))
@@ -2952,42 +3351,42 @@ struct ContentView: View {
                 )
             }
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(homeSettingText(remoteHomeSettings?.heroTitle, localizationKey: "hero_title", fallback: "Specialty coffee,\nroasted with intention"))
-                    .font(displayFont(size: isCompact ? 28 : 36))
-                    .lineSpacing(2)
+                    .font(displayFont(size: isCompact ? 24 : 30))
+                    .lineSpacing(1)
                     .foregroundColor(primaryTextColor)
 
-                Text(homeSettingText(remoteHomeSettings?.heroSubtitle, localizationKey: "hero_subtitle", fallback: "Shop roasted coffee, brewing essentials, and rewards without digging through the app."))
-                    .font(bodyFont(size: 14))
+                Text(homeHeroSubtitleText)
+                    .font(bodyFont(size: 13))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: 10) {
                 Button {
-                    activeTab = .shop
+                    openShop()
                 } label: {
                     Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, localizationKey: "explore_coffees", fallback: "EXPLORE COFFEES").uppercased())
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(2)
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 9)
                         .background(Color(hex: 0xC8965A))
                         .cornerRadius(14)
                 }
                 .buttonStyle(.plain)
 
                 Button {
-                    activeTab = .brewing
+                    openBrewing()
                 } label: {
                     Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, localizationKey: "brewing_guide", fallback: "BREWING GUIDE").uppercased())
                         .font(labelFont(size: 11, weight: .bold))
                         .tracking(2)
                         .foregroundColor(primaryTextColor)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 9)
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
@@ -2998,7 +3397,7 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(18)
+        .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
@@ -3031,8 +3430,8 @@ struct ContentView: View {
                 .offset(x: -24, y: 30)
         }
         .padding(.horizontal, 18)
-        .padding(.top, 10)
-        .padding(.bottom, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 
     private var featureStrip: some View {
@@ -3273,7 +3672,7 @@ struct ContentView: View {
                 saveTasteMemory(order: order, item: item, reaction: reaction, tags: tags)
             },
             browseProductsAction: {
-                activeTab = .shop
+                openShop()
             }
         )
     }
@@ -3297,7 +3696,7 @@ struct ContentView: View {
                 Spacer(minLength: 12)
 
                 Button {
-                    activeTab = .shop
+                    openShop()
                 } label: {
                     Label(AppLocalization.text("browse_shop", fallback: "Browse Shop"), systemImage: "arrow.right")
                         .font(labelFont(size: 11, weight: .bold))
@@ -3312,10 +3711,13 @@ struct ContentView: View {
             } else if let loadingError, products.isEmpty {
                 errorSection(message: loadingError)
             } else {
-                LazyVGrid(columns: productGridColumns, spacing: 16) {
-                    ForEach(Array(signatureRoastProducts.prefix(isCompact ? 2 : 4))) { product in
-                        productCard(product: product, showDescription: true)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(Array(signatureRoastProducts.prefix(6))) { product in
+                            signatureRoastCard(product)
+                        }
                     }
+                    .padding(.vertical, 2)
                 }
             }
         }
@@ -3655,8 +4057,7 @@ struct ContentView: View {
                     .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
 
                     Button {
-                        activeCategory = product.categoryKey
-                        shopSearchQuery = ""
+                        openShop(category: product.categoryKey)
                     } label: {
                         Text(AppLocalization.text("see_alternatives", fallback: "See Alternatives"))
                             .font(labelFont(size: 9, weight: .bold))
@@ -3678,8 +4079,7 @@ struct ContentView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        activeTab = .brewing
-                        activeBrewingCategory = "All"
+                        openBrewing()
                     } label: {
                         Text(AppLocalization.text("start_brewing", fallback: "Start Brewing"))
                             .font(labelFont(size: 9, weight: .bold))
@@ -4398,30 +4798,24 @@ struct ContentView: View {
             isBrewingSectionExpanded: $isBrewingSectionExpanded,
             isSupportSectionExpanded: $isSupportSectionExpanded,
             openRewardsAction: {
-                savedLoyaltyEmail = savedCustomerEmail.isEmpty ? savedLoyaltyEmail : savedCustomerEmail
-                isLoyaltySectionExpanded = true
-                accountScrollTarget = AccountSectionView.ScrollTarget.loyalty
+                openAccountSection(AccountSectionView.ScrollTarget.loyalty)
                 showToast(message: AppLocalization.text("rewards_opened", fallback: "Rewards opened"))
             },
             openDeliveryAction: {
-                isLibrarySectionExpanded = true
                 isDeliveryDetailsExpanded = true
-                accountScrollTarget = AccountSectionView.ScrollTarget.library
+                openAccountSection(AccountSectionView.ScrollTarget.library)
                 showToast(message: AppLocalization.text("delivery_opened", fallback: "Delivery opened"))
             },
             openSavedPicksAction: {
-                isShoppingSectionExpanded = true
-                accountScrollTarget = AccountSectionView.ScrollTarget.shopping
+                openAccountSection(AccountSectionView.ScrollTarget.shopping)
                 showToast(message: AppLocalization.text("saved_opened", fallback: "Saved picks opened"))
             },
             openBrewArchiveAction: {
-                isBrewingSectionExpanded = true
-                accountScrollTarget = AccountSectionView.ScrollTarget.brewing
+                openAccountSection(AccountSectionView.ScrollTarget.brewing)
                 showToast(message: AppLocalization.text("brewing_archive_opened", fallback: "Brewing archive opened"))
             },
             openSupportAction: {
-                isSupportSectionExpanded = true
-                accountScrollTarget = AccountSectionView.ScrollTarget.support
+                openAccountSection(AccountSectionView.ScrollTarget.support)
                 showToast(message: AppLocalization.text("support_opened", fallback: "Support opened"))
             },
             customerAccountSection: AnyView(customerAccountSection),
@@ -4649,7 +5043,7 @@ struct ContentView: View {
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "heart.fill"
                 ) {
-                        activeTab = .shop
+                    openShop()
                 }
             } else {
                 LazyVGrid(columns: productGridColumns, spacing: 16) {
@@ -4674,7 +5068,7 @@ struct ContentView: View {
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "sparkles"
                 ) {
-                    activeTab = .shop
+                    openShop()
                 }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -4706,7 +5100,7 @@ struct ContentView: View {
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "bell.fill"
                 ) {
-                    activeTab = .shop
+                    openShop()
                 }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
@@ -4997,7 +5391,7 @@ struct ContentView: View {
                     actionTitle: AppLocalization.text("open_brewing", fallback: "Open Brewing"),
                     systemImage: "book.closed.fill"
                 ) {
-                    activeTab = .brewing
+                    openBrewing()
                 }
             } else {
                 VStack(spacing: 12) {
@@ -5078,7 +5472,7 @@ struct ContentView: View {
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "cart.fill"
                 ) {
-                    activeTab = .shop
+                    openShop()
                 }
             } else {
                 VStack(spacing: 12) {
@@ -5153,7 +5547,7 @@ struct ContentView: View {
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "clock.fill"
                 ) {
-                    activeTab = .shop
+                    openShop()
                 }
             } else {
                 LazyVGrid(columns: productGridColumns, spacing: 16) {
@@ -5189,20 +5583,20 @@ struct ContentView: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 3) {
             Text("TALLA")
-                .font(displayFont(size: 24))
-                .tracking(4)
+                .font(displayFont(size: 22))
+                .tracking(3)
                 .foregroundColor(Color(hex: 0xC8965A))
 
-            Text(AppLocalization.text("by_chef_ahmad", fallback: "By Chef Ahmad"))
-                .font(.system(size: 9, weight: .light))
-                .tracking(3)
+            Text(AppLocalization.text("made_with_love_bahrain", fallback: "Made with love in Bahrain 🇧🇭"))
+                .font(.system(size: 10, weight: .medium))
+                .tracking(2)
                 .textCase(.uppercase)
                 .foregroundColor(tertiaryTextColor)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
+        .padding(.vertical, 14)
         .overlay(
             Rectangle()
                 .fill(Color(hex: 0xC8965A).opacity(0.1))
@@ -5241,7 +5635,7 @@ struct ContentView: View {
 
             Button {
                 cartOpen = false
-                activeTab = .shop
+                openShop()
             } label: {
                 Text(AppLocalization.text("browse_products", fallback: "Browse Products"))
                     .font(labelFont(size: 10, weight: .bold))
@@ -5553,9 +5947,8 @@ struct ContentView: View {
 
                         Button {
                             cartOpen = false
-                            isLibrarySectionExpanded = true
                             isDeliveryDetailsExpanded = true
-                            activeTab = .account
+                            openAccountSection(AccountSectionView.ScrollTarget.library)
                         } label: {
                             Text(AppLocalization.text("edit", fallback: "Edit"))
                                 .font(labelFont(size: 10, weight: .bold))
@@ -5577,9 +5970,8 @@ struct ContentView: View {
             } else {
                 Button {
                     cartOpen = false
-                    isLibrarySectionExpanded = true
                     isDeliveryDetailsExpanded = true
-                    activeTab = .account
+                    openAccountSection(AccountSectionView.ScrollTarget.library)
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
@@ -6197,6 +6589,111 @@ struct ContentView: View {
         }
     }
 
+    private func signatureRoastCard(_ product: Product) -> some View {
+        let notes = productTasteNotes(for: product)
+        let cardWidth: CGFloat = isCompact ? 176 : 194
+
+        return VStack(alignment: .leading, spacing: 7) {
+            ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 14)
+                .frame(width: cardWidth - 20, height: isCompact ? 122 : 134)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(productOriginLabel(for: product))
+                    .font(labelFont(size: 8, weight: .bold))
+                    .tracking(1)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
+
+                Text(customerFacingProductName(for: product))
+                    .font(titleFont(size: isCompact ? 15 : 16))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                    .lineSpacing(1)
+                    .minimumScaleFactor(0.78)
+                    .frame(height: 38, alignment: .topLeading)
+
+                HStack(spacing: 5) {
+                    ForEach(notes.prefix(2), id: \.self) { note in
+                        Text(note)
+                            .font(labelFont(size: 8, weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                            .foregroundColor(primaryTextColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                            .clipShape(Capsule())
+                    }
+                }
+                .frame(height: 22, alignment: .leading)
+            }
+
+            HStack(spacing: 8) {
+                Text(product.price)
+                    .font(labelFont(size: 11, weight: .bold))
+                    .foregroundColor(product.isAvailableForSale ? Color(hex: 0xC8965A) : tertiaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    if product.hasVariantChoices {
+                        recordRecentlyViewed(product)
+                        selectedProduct = product
+                    } else {
+                        addToCart(product: product)
+                    }
+                } label: {
+                    Text(signatureRoastActionTitle(for: product))
+                        .font(labelFont(size: 8, weight: .bold))
+                        .tracking(0.6)
+                        .textCase(.uppercase)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.68)
+                        .foregroundColor(product.isAvailableForSale ? Color(hex: 0x0A0804) : tertiaryTextColor)
+                        .frame(width: 82)
+                        .padding(.vertical, 7)
+                        .glassEffect(
+                            product.isAvailableForSale
+                                ? .regular.tint(Color(hex: 0xC8965A)).interactive()
+                                : .clear,
+                            in: .capsule
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
+            }
+            .frame(height: 30, alignment: .center)
+        }
+        .padding(10)
+        .frame(width: cardWidth, height: isCompact ? 258 : 276, alignment: .topLeading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .onTapGesture {
+            recordRecentlyViewed(product)
+            selectedProduct = product
+        }
+        .hoverEffect(.lift)
+    }
+
+    private func signatureRoastActionTitle(for product: Product) -> String {
+        if !product.isAvailableForSale {
+            return AppLocalization.text("sold_out", fallback: "Sold Out")
+        }
+
+        return product.hasVariantChoices
+            ? AppLocalization.text("choose_options", fallback: "Choose options")
+            : AppLocalization.text("add", fallback: "Add")
+    }
+
     private func productPreviewDescription(for product: Product) -> String {
         let plainDescription = product.desc
             .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
@@ -6211,13 +6708,98 @@ struct ContentView: View {
         let fallback = product.categoryLabel.isEmpty
             ? AppLocalization.text("shop_product_preview_fallback", fallback: "Tap for full details.")
             : product.categoryLabel
-        let description = plainDescription.isEmpty ? fallback : plainDescription
+        let cleanedDescription = customerFacingText(plainDescription)
+        let description = cleanedDescription.isEmpty ? fallback : cleanedDescription
         let maxLength = isCompact ? 74 : 112
 
         guard description.count > maxLength else { return description }
 
         let endIndex = description.index(description.startIndex, offsetBy: maxLength)
         return description[..<endIndex].trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+
+    private func customerFacingProductName(for product: Product) -> String {
+        let cleanedName = customerFacingText(product.name)
+        return cleanedName.isEmpty ? AppLocalization.text("this_product", fallback: "this product") : cleanedName
+    }
+
+    private func customerFacingText(_ text: String) -> String {
+        var cleaned = text
+            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+
+        let prefixes = [
+            "Product Description:",
+            "Description:",
+            "Product Details:",
+            "Product Experience:",
+            "Product Quality:"
+        ]
+
+        var removedPrefix = true
+        while removedPrefix {
+            removedPrefix = false
+            for prefix in prefixes where cleaned.range(of: prefix, options: [.caseInsensitive, .anchored]) != nil {
+                cleaned = String(cleaned.dropFirst(prefix.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                removedPrefix = true
+            }
+        }
+
+        return cleaned
+    }
+
+    private func recommendationCopy(source: Product, recommended: Product) -> String {
+        let sourceName = customerFacingProductName(for: source)
+        let recommendedName = customerFacingProductName(for: recommended)
+        return String(format: AppLocalization.text("similar_order_recommendation_plain", fallback: "Loved %@? Try %@ for your next gathering."), sourceName, recommendedName)
+    }
+
+    private func productOriginLabel(for product: Product) -> String {
+        let searchableText = normalizedSearchText(for: product)
+
+        if let origin = firstMatchedValue(in: searchableText, matches: [
+            ("ethiopia", "Ethiopia"),
+            ("colombia", "Colombia"),
+            ("brazil", "Brazil"),
+            ("yemen", "Yemen"),
+            ("kenya", "Kenya"),
+            ("guatemala", "Guatemala"),
+            ("costa rica", "Costa Rica"),
+            ("arabic", "Arabic Coffee")
+        ]) {
+            return origin
+        }
+
+        return product.categoryLabel.isEmpty
+            ? AppLocalization.text("signature_roast_origin_fallback", fallback: "Signature Roast")
+            : product.categoryLabel
+    }
+
+    private func productTasteNotes(for product: Product) -> [String] {
+        let notes = productTasteSummary(for: product)
+            .components(separatedBy: " - ")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        if notes.isEmpty {
+            return [
+                AppLocalization.text("taste_note_balanced", fallback: "Balanced"),
+                AppLocalization.text("taste_note_sweet", fallback: "Sweet")
+            ]
+        }
+
+        if notes.count == 1 {
+            return notes + [AppLocalization.text("taste_note_clean", fallback: "Clean")]
+        }
+
+        return Array(notes.prefix(2))
     }
 
     private func productTasteSummary(for product: Product) -> String {
@@ -6366,6 +6948,21 @@ struct ContentView: View {
     private func normalizedSearchText(for product: Product) -> String {
         "\(product.name) \(product.categoryLabel) \(product.tag ?? "") \(productPreviewDescription(for: product))"
             .lowercased()
+    }
+
+    private func coffeePassportOriginKey(in text: String) -> String? {
+        let normalizedText = text.lowercased()
+        if let origin = remotePassportSettings?.origins.first(where: { origin in
+            origin.keywords.contains { keyword in
+                normalizedText.contains(keyword.lowercased())
+            }
+        }) {
+            return origin.id
+        }
+
+        return defaultCoffeePassportOrigins.first { origin in
+            normalizedText.contains(origin.id) || normalizedText.contains(origin.title.lowercased())
+        }?.id
     }
 
     private func firstMatchedValue(in text: String, matches: [(needle: String, value: String)]) -> String? {
@@ -6613,9 +7210,7 @@ struct ContentView: View {
 
     private func collectionTile(eyebrow: String, name: String, desc: String, accent: String, systemImage: String, color: Color, categoryKey: String) -> some View {
         Button {
-            activeTab = .shop
-            activeCategory = categoryKey
-            shopSearchQuery = ""
+            openShop(category: categoryKey)
         } label: {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top) {
@@ -7171,10 +7766,7 @@ struct ContentView: View {
     private func startFirstRunAccountSetup() {
         hasSeenWelcome = true
         cartOpen = false
-        activeTab = .account
-        switchAccountAuthMode(.createAccount)
-        isCustomerSectionExpanded = true
-        accountScrollTarget = AccountSectionView.ScrollTarget.customer
+        openAccountSection(AccountSectionView.ScrollTarget.customer, authMode: .createAccount)
         showToast(message: AppLocalization.text("onboarding_account_started", fallback: "Create your account first. Delivery details come next."))
     }
 
@@ -7190,10 +7782,8 @@ struct ContentView: View {
                 .joined(separator: " ")
         }
 
-        isLibrarySectionExpanded = true
         isDeliveryDetailsExpanded = true
-        activeTab = .account
-        accountScrollTarget = AccountSectionView.ScrollTarget.library
+        openAccountSection(AccountSectionView.ScrollTarget.library)
         showToast(message: AppLocalization.text("account_created_add_address_toast", fallback: "Account created. Add delivery details next."))
     }
 
@@ -7656,6 +8246,7 @@ struct ContentView: View {
             hasLoadedProducts = true
             lastProductsRefreshAt = Date()
             await loadHomeSettings()
+            await loadPassportSettings()
 
             if !availableCategories.contains(where: { $0.key == activeCategory }) {
                 activeCategory = "all"
@@ -7681,6 +8272,15 @@ struct ContentView: View {
         } catch {
             remoteHomeSettings = nil
             remoteSignatureRoastProductIDs = []
+        }
+    }
+
+    @MainActor
+    private func loadPassportSettings() async {
+        do {
+            remotePassportSettings = try await HomeSettingsService.fetchPassportSettings()
+        } catch {
+            remotePassportSettings = nil
         }
     }
 
@@ -7988,7 +8588,7 @@ struct ContentView: View {
     private func applyBrewRecipe(_ recipe: BrewRecipe) {
         ratioCoffeeInput = formattedRatioValue(recipe.coffeeGrams)
         ratioValueInput = formattedRatioValue(recipe.ratio)
-        activeTab = .brewing
+        openBrewing()
         showToast(message: String(format: AppLocalization.text("recipe_loaded_toast", fallback: "%@ loaded"), recipe.name))
     }
 
@@ -8975,6 +9575,27 @@ private enum HomeSettingsService {
         }
 
         return try JSONDecoder().decode(ContentView.HomeSettings.self, from: data)
+    }
+
+    static func fetchPassportSettings() async throws -> ContentView.PassportSettings {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Passport settings service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/passport-settings"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The passport settings service returned an invalid response.")
+        }
+
+        guard 200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The passport settings service could not complete your request.")
+        }
+
+        return try JSONDecoder().decode(ContentView.PassportSettings.self, from: data)
     }
 }
 

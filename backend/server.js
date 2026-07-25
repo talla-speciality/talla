@@ -22,6 +22,7 @@ const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
 const campaignSettingsStorePath = config.stores.campaignSettings;
 const homeSettingsStorePath = config.stores.homeSettings;
+const passportSettingsStorePath = config.stores.passportSettings;
 const tasteMemoryStorePath = config.stores.tasteMemory;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const adminDirectory = config.adminDirectory;
@@ -103,6 +104,7 @@ ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
 ensureStoreFile(campaignSettingsStorePath, { campaignSettings: defaultCampaignSettings() });
 ensureStoreFile(homeSettingsStorePath, { homeSettings: defaultHomeSettings() });
+ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSettings() });
 ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 
@@ -185,6 +187,61 @@ function normalizeHomeSettings(value = {}) {
         heroBadge: trimText(value.heroBadge, 40),
         primaryButtonTitle: trimText(value.primaryButtonTitle, 28),
         secondaryButtonTitle: trimText(value.secondaryButtonTitle, 28),
+        updatedAt: value.updatedAt || fallback.updatedAt
+    };
+}
+
+function defaultPassportSettings() {
+    return {
+        origins: [
+            { id: "ethiopia", title: "Ethiopia", emoji: "🇪🇹", keywords: ["ethiopia", "ethiopian"], rewardLabel: "" },
+            { id: "yemen", title: "Yemen", emoji: "🇾🇪", keywords: ["yemen", "yemeni"], rewardLabel: "" },
+            { id: "colombia", title: "Colombia", emoji: "🇨🇴", keywords: ["colombia", "colombian"], rewardLabel: "" },
+            { id: "brazil", title: "Brazil", emoji: "🇧🇷", keywords: ["brazil", "brazilian"], rewardLabel: "" }
+        ],
+        completionRewardTitle: "Passport reward",
+        completionRewardDetail: "Complete your passport to unlock a reward.",
+        updatedAt: null
+    };
+}
+
+function normalizePassportSettings(value = {}) {
+    const fallback = defaultPassportSettings();
+    const trimText = (text, maxLength) => String(text || "").trim().slice(0, maxLength);
+    const fallbackByID = new Map(fallback.origins.map((origin) => [origin.id, origin]));
+    const seen = new Set();
+    const sourceOrigins = Array.isArray(value.origins) ? value.origins : fallback.origins;
+    const origins = sourceOrigins
+        .map((origin) => {
+            const id = trimText(origin?.id, 40).toLowerCase().replace(/[^a-z0-9-]/g, "-");
+            if (!id || seen.has(id)) {
+                return null;
+            }
+            seen.add(id);
+            const fallbackOrigin = fallbackByID.get(id) || {};
+            const keywords = Array.isArray(origin?.keywords)
+                ? origin.keywords
+                : String(origin?.keywords || "")
+                    .split(",");
+
+            return {
+                id,
+                title: trimText(origin?.title || fallbackOrigin.title || id, 40),
+                emoji: trimText(origin?.emoji || fallbackOrigin.emoji || "☕️", 8),
+                keywords: keywords
+                    .map((keyword) => trimText(keyword, 40).toLowerCase())
+                    .filter(Boolean)
+                    .slice(0, 8),
+                rewardLabel: trimText(origin?.rewardLabel || "", 80)
+            };
+        })
+        .filter(Boolean)
+        .slice(0, 8);
+
+    return {
+        origins: origins.length ? origins : fallback.origins,
+        completionRewardTitle: trimText(value.completionRewardTitle || fallback.completionRewardTitle, 80),
+        completionRewardDetail: trimText(value.completionRewardDetail || fallback.completionRewardDetail, 180),
         updatedAt: value.updatedAt || fallback.updatedAt
     };
 }
@@ -4896,6 +4953,48 @@ async function saveHomeSettings(nextSettings) {
     return settings;
 }
 
+async function getPassportSettings() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT value, updated_at
+             FROM app_settings
+             WHERE key = $1`,
+            ["passport_settings"]
+        );
+        if (result.rowCount > 0) {
+            return normalizePassportSettings({
+                ...result.rows[0].value,
+                updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
+            });
+        }
+        return defaultPassportSettings();
+    }
+
+    const store = readJSON(passportSettingsStorePath);
+    return normalizePassportSettings(store.passportSettings || {});
+}
+
+async function savePassportSettings(nextSettings) {
+    const settings = normalizePassportSettings({
+        ...nextSettings,
+        updatedAt: new Date().toISOString()
+    });
+
+    if (database.isEnabled()) {
+        await database.query(
+            `INSERT INTO app_settings (key, value, updated_at)
+             VALUES ($1, $2::jsonb, NOW())
+             ON CONFLICT (key)
+             DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+            ["passport_settings", JSON.stringify(settings)]
+        );
+        return getPassportSettings();
+    }
+
+    writeJSON(passportSettingsStorePath, { passportSettings: settings });
+    return settings;
+}
+
 async function adminCustomerSummary(email) {
     const account = await getAccountByEmail(email);
     if (!account) {
@@ -5069,6 +5168,11 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/app/home-settings") {
         sendJSON(response, 200, await getHomeSettings());
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/app/passport-settings") {
+        sendJSON(response, 200, await getPassportSettings());
         return;
     }
 
@@ -5435,6 +5539,36 @@ const server = http.createServer(async (request, response) => {
 
         if (request.method === "GET" && url.pathname === "/admin/api/home/signature-roasts") {
             sendJSON(response, 200, await getHomeSettings());
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/passport-settings") {
+            sendJSON(response, 200, await getPassportSettings());
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/passport-settings") {
+            try {
+                const body = await readBody(request);
+                const settings = normalizePassportSettings({
+                    origins: body.origins,
+                    completionRewardTitle: body.completionRewardTitle,
+                    completionRewardDetail: body.completionRewardDetail
+                });
+                const savedSettings = await savePassportSettings(settings);
+
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "passport_settings_updated",
+                    targetEmail: null,
+                    detail: "Updated Talla Passport settings",
+                    metadata: savedSettings
+                });
+
+                sendJSON(response, 200, savedSettings);
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not save passport settings." });
+            }
             return;
         }
 

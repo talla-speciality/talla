@@ -318,7 +318,7 @@ struct ShopSectionView: View {
     }
 
     private var shopCategoriesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("categories", fallback: "CATEGORIES"))
                 .font(labelFont)
                 .tracking(localizedTracking(4))
@@ -326,12 +326,12 @@ struct ShopSectionView: View {
                 .foregroundColor(accentColor)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     ForEach(availableCategories) { category in
                         shopCategoryButton(category)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 2)
             }
         }
     }
@@ -342,24 +342,20 @@ struct ShopSectionView: View {
         return Button {
             activeCategory = category.key
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
                 categoryButtonIcon(for: category, isSelected: isSelected)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(category.title)
-                        .font(categoryLabelFont)
-                        .tracking(localizedTracking(1.4))
-                        .textCase(.uppercase)
-
-                    Text(category.subtitle)
-                        .font(categoryBodyFont)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                Text(category.title)
+                    .font(categoryLabelFont)
+                    .tracking(localizedTracking(0.8))
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
+                    .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
             }
-            .frame(width: 148, height: 104, alignment: .leading)
-            .padding(12)
+            .frame(width: 116, height: 42, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(isSelected ? accentColor : cardFillColor)
@@ -383,6 +379,7 @@ struct ShopSectionView: View {
         }
         .font(.system(size: 15, weight: .semibold))
         .foregroundColor(isSelected ? Color(hex: 0x0A0804) : accentColor)
+        .frame(width: 18, height: 18)
     }
 
     private var loadingSection: some View {

@@ -98,6 +98,20 @@ struct AccountSectionView: View {
             )
             .id(ScrollTarget.library)
             accountCollectionSection(
+                title: AppLocalization.text("saved_picks", fallback: "Saved Picks"),
+                subtitle: AppLocalization.text("saved_picks_subtitle", fallback: "Favourites, recently viewed products, and recommendations."),
+                isExpanded: $isShoppingSectionExpanded,
+                content: shoppingSection
+            )
+            .id(ScrollTarget.shopping)
+            accountCollectionSection(
+                title: AppLocalization.text("brew_archive", fallback: "Brew Archive"),
+                subtitle: AppLocalization.text("brew_archive_subtitle", fallback: "Saved recipes and brewing notes for repeat sessions."),
+                isExpanded: $isBrewingSectionExpanded,
+                content: brewingSection
+            )
+            .id(ScrollTarget.brewing)
+            accountCollectionSection(
                 title: AppLocalization.text("settings_help", fallback: "Settings & Help"),
                 subtitle: AppLocalization.text("settings_help_subtitle", fallback: "Quick references and account tools when you need them."),
                 isExpanded: $isSupportSectionExpanded,

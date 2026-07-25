@@ -670,6 +670,24 @@
 
         <details class="panel" open style="margin-bottom: 20px;">
             <summary class="panel-summary">
+                <h2>Talla Passport</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Control which origins count toward the coffee passport and what reward copy customers see after completing it.</div>
+                <div class="product-filter-grid" style="margin-bottom: 12px;">
+                    <input id="passport-reward-title" type="text" maxlength="80" placeholder="Completion reward title">
+                    <input id="passport-reward-detail" type="text" maxlength="180" placeholder="Completion reward detail">
+                </div>
+                <div id="passport-origins" class="empty">Loading passport origins...</div>
+                <div class="toolbar-row" style="padding: 14px 0 0;">
+                    <button id="save-passport-settings" class="secondary">Save Passport</button>
+                    <div id="passport-settings-status" class="muted">Update origin keywords and reward copy.</div>
+                </div>
+            </div>
+        </details>
+
+        <details class="panel" open style="margin-bottom: 20px;">
+            <summary class="panel-summary">
                 <h2>Products</h2>
             </summary>
             <div class="panel-body">
@@ -801,7 +819,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [] } };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [] }, passportSettings: null };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -835,6 +853,11 @@
         const homePrimaryButtonInput = document.getElementById("home-primary-button");
         const homeSecondaryButtonInput = document.getElementById("home-secondary-button");
         const homeFunPickInput = document.getElementById("home-fun-pick");
+        const passportRewardTitleInput = document.getElementById("passport-reward-title");
+        const passportRewardDetailInput = document.getElementById("passport-reward-detail");
+        const passportOriginsEl = document.getElementById("passport-origins");
+        const passportSettingsStatusEl = document.getElementById("passport-settings-status");
+        const savePassportSettingsButton = document.getElementById("save-passport-settings");
         const productsEl = document.getElementById("products");
         const productsNoteEl = document.getElementById("products-note");
         const refreshProductsButton = document.getElementById("refresh-products");
@@ -1338,6 +1361,88 @@
                 setStatus(error.message, "error");
             } finally {
                 setButtonBusy(saveSignatureRoastsButton, false, "Save Home Controls");
+            }
+        }
+
+        async function fetchPassportSettings() {
+            const response = await fetch("/admin/api/passport-settings");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load passport settings.");
+            return payload;
+        }
+
+        function renderPassportSettings() {
+            const settings = state.passportSettings || { origins: [] };
+            passportRewardTitleInput.value = settings.completionRewardTitle || "";
+            passportRewardDetailInput.value = settings.completionRewardDetail || "";
+
+            if (!settings.origins.length) {
+                passportOriginsEl.className = "empty";
+                passportOriginsEl.textContent = "No passport origins configured.";
+                passportSettingsStatusEl.textContent = "Add origins in backend defaults first.";
+                return;
+            }
+
+            passportOriginsEl.className = "list";
+            passportOriginsEl.innerHTML = settings.origins.map((origin, index) => `
+                <div class="list-item passport-origin-row" data-index="${index}">
+                    <div class="product-filter-grid">
+                        <input class="passport-origin-title" type="text" maxlength="40" placeholder="Origin" value="${escapeHTML(origin.title)}">
+                        <input class="passport-origin-emoji" type="text" maxlength="8" placeholder="Emoji" value="${escapeHTML(origin.emoji)}">
+                        <input class="passport-origin-keywords" type="text" maxlength="220" placeholder="Keywords, comma separated" value="${escapeHTML((origin.keywords || []).join(", "))}">
+                        <input class="passport-origin-reward" type="text" maxlength="80" placeholder="Optional reward label" value="${escapeHTML(origin.rewardLabel || "")}">
+                    </div>
+                    <div class="muted">ID: ${escapeHTML(origin.id)}. Keywords match product names, descriptions, tags, and categories.</div>
+                </div>
+            `).join("");
+            passportSettingsStatusEl.textContent = `${settings.origins.length} origins configured.`;
+        }
+
+        async function loadPassportSettings() {
+            try {
+                state.passportSettings = await fetchPassportSettings();
+                renderPassportSettings();
+            } catch (error) {
+                passportSettingsStatusEl.textContent = error.message;
+            }
+        }
+
+        async function savePassportSettings() {
+            const currentOrigins = state.passportSettings?.origins || [];
+            const origins = Array.from(passportOriginsEl.querySelectorAll(".passport-origin-row")).map((row) => {
+                const index = Number(row.dataset.index);
+                const current = currentOrigins[index] || {};
+                return {
+                    id: current.id,
+                    title: row.querySelector(".passport-origin-title").value,
+                    emoji: row.querySelector(".passport-origin-emoji").value,
+                    keywords: row.querySelector(".passport-origin-keywords").value.split(",").map((keyword) => keyword.trim()).filter(Boolean),
+                    rewardLabel: row.querySelector(".passport-origin-reward").value
+                };
+            });
+
+            setButtonBusy(savePassportSettingsButton, true, "Save Passport", "Saving...");
+            passportSettingsStatusEl.textContent = "Saving passport settings...";
+            try {
+                const response = await fetch("/admin/api/passport-settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        origins,
+                        completionRewardTitle: passportRewardTitleInput.value,
+                        completionRewardDetail: passportRewardDetailInput.value
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not save passport settings.");
+                state.passportSettings = payload;
+                renderPassportSettings();
+                setStatus("Passport settings saved.", "success");
+            } catch (error) {
+                passportSettingsStatusEl.textContent = error.message;
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(savePassportSettingsButton, false, "Save Passport");
             }
         }
 
@@ -2071,6 +2176,7 @@
                 await refreshCustomers();
                 await refreshProducts();
                 await loadSignatureRoasts();
+                await loadPassportSettings();
                 setStatus("Signed in. Search for a customer to begin.", "success");
             } catch (error) {
                 setLoginStatus(error.message, "error");
@@ -2100,6 +2206,7 @@
             state.recentAdminActions = [];
             state.eidCampaign = null;
             state.signatureRoasts = { signatureRoastProductIDs: [] };
+            state.passportSettings = null;
             state.productControlAvailable = true;
             adminDashboardEl.className = "empty";
             adminDashboardEl.innerHTML = "Sign in to view the admin dashboard.";
@@ -2114,6 +2221,9 @@
             signatureRoastsEl.className = "empty";
             signatureRoastsEl.innerHTML = "Sign in to manage Home signature roasts.";
             signatureRoastsStatusEl.textContent = "";
+            passportOriginsEl.className = "empty";
+            passportOriginsEl.innerHTML = "Sign in to manage Talla Passport.";
+            passportSettingsStatusEl.textContent = "";
             analyticsSummaryEl.className = "empty";
             analyticsSummaryEl.innerHTML = "Sign in to view analytics summary.";
             customerDirectoryFilterInput.value = "";
@@ -2145,6 +2255,7 @@
                 await refreshCustomers();
                 await refreshProducts();
                 await loadSignatureRoasts();
+                await loadPassportSettings();
             } catch (error) {
                 showLogin();
                 setLoginStatus(error.message, true);
@@ -2728,6 +2839,7 @@
         createProductButton.addEventListener("click", createProduct);
         saveEidCampaignButton.addEventListener("click", saveEidCampaign);
         saveSignatureRoastsButton.addEventListener("click", saveSignatureRoasts);
+        savePassportSettingsButton.addEventListener("click", savePassportSettings);
         signatureRoastsEl.addEventListener("change", (event) => {
             if (!event.target.classList.contains("signature-roast-input")) {
                 return;
