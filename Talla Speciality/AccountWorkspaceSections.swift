@@ -187,12 +187,12 @@ struct OrderHistorySectionView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(order.title)
+                                Text(orderStatusTitle(order.status))
                                     .font(Font.custom("AvenirNext-Bold", size: 11))
                                     .tracking(1.5)
                                     .foregroundColor(primaryTextColor)
 
-                                Text(order.createdAt.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: ""))
+                                Text(formattedOrderDate(order.createdAt))
                                     .font(Font.custom("AvenirNext-Regular", size: 12))
                                     .foregroundColor(tertiaryTextColor)
                             }
@@ -213,6 +213,16 @@ struct OrderHistorySectionView: View {
                                 .font(Font.custom("AvenirNext-Regular", size: 12))
                                 .foregroundColor(secondaryTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(orderNumberLabel(for: order))
+                                .font(Font.custom("AvenirNext-Bold", size: 12))
+                                .foregroundColor(primaryTextColor)
+
+                            Text(String(format: AppLocalization.text("estimated_delivery_format", fallback: "Estimated delivery: %@"), estimatedDeliveryLabel(for: order)))
+                                .font(Font.custom("AvenirNext-Regular", size: 12))
+                                .foregroundColor(secondaryTextColor)
                         }
 
                         orderProgressRow(status: order.status)
@@ -524,20 +534,64 @@ struct OrderHistorySectionView: View {
 
     private func orderStatusTitle(_ status: String) -> String {
         switch status.lowercased() {
-        case "pending", "placed":
-            return AppLocalization.text("order_status_placed", fallback: "Placed")
-        case "confirmed":
-            return AppLocalization.text("order_status_confirmed", fallback: "Confirmed")
-        case "preparing":
-            return AppLocalization.text("order_status_preparing", fallback: "Preparing")
-        case "ready":
-            return AppLocalization.text("order_status_ready", fallback: "Ready")
-        case "completed", "fulfilled":
-            return AppLocalization.text("order_status_completed", fallback: "Completed")
         case "cancelled", "canceled":
             return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
         default:
-            return status.isEmpty ? AppLocalization.text("order_status_placed", fallback: "Placed") : status
+            return AppLocalization.text("order_status_received", fallback: "Order received")
+        }
+    }
+
+    private func formattedOrderDate(_ value: String) -> String {
+        let normalized = value
+            .replacingOccurrences(of: "T", with: " ")
+            .replacingOccurrences(of: "Z", with: "")
+
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = .current
+
+        for format in ["yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"] {
+            parser.dateFormat = format
+            if let date = parser.date(from: normalized) {
+                return displayOrderDate(date)
+            }
+        }
+
+        let isoParser = ISO8601DateFormatter()
+        isoParser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoParser.date(from: value) {
+            return displayOrderDate(date)
+        }
+
+        return normalized
+    }
+
+    private func displayOrderDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "d MMMM yyyy · h:mm a"
+        return formatter.string(from: date)
+    }
+
+    private func orderNumberLabel(for order: ContentView.AccountOrder) -> String {
+        for candidate in [order.title, order.id] {
+            let digits = candidate.filter(\.isNumber)
+            if !digits.isEmpty {
+                return String(format: AppLocalization.text("order_number_format", fallback: "Order #%@"), String(digits.suffix(6)))
+            }
+        }
+
+        return String(format: AppLocalization.text("order_number_format", fallback: "Order #%@"), String(order.id.prefix(6)))
+    }
+
+    private func estimatedDeliveryLabel(for order: ContentView.AccountOrder) -> String {
+        switch order.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "completed", "fulfilled", "delivered":
+            return AppLocalization.text("delivered", fallback: "Delivered")
+        case "cancelled", "canceled":
+            return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
+        default:
+            return AppLocalization.text("tomorrow", fallback: "Tomorrow")
         }
     }
 

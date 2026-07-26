@@ -547,51 +547,63 @@ private struct TallaBrewLockScreenView: View {
     let context: ActivityViewContext<TallaBrewActivityAttributes>
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "drop.fill")
-                    .font(.system(size: 18, weight: .black))
+                    .font(.system(size: 15, weight: .black))
                     .foregroundStyle(TallaBrewActivityStyle.iconForeground)
-                    .frame(width: 42, height: 42)
+                    .frame(width: 34, height: 34)
                     .background(TallaBrewActivityStyle.accent, in: Circle())
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("Guided Brew")
-                        .font(.caption.weight(.black))
+                        .font(.system(size: 11, weight: .black))
                         .tracking(1.4)
                         .textCase(.uppercase)
                         .foregroundStyle(TallaBrewActivityStyle.accent)
+
                     Text(context.attributes.methodName)
-                        .font(.headline.weight(.bold))
+                        .font(.system(size: 19, weight: .heavy))
                         .foregroundStyle(TallaBrewActivityStyle.primaryText)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.78)
                 }
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 8)
 
-                TallaBrewActivityTimer(context: context, font: .title2.weight(.black))
+                TallaBrewActivityTimer(context: context, font: .system(size: 24, weight: .heavy))
                     .foregroundStyle(TallaBrewActivityStyle.primaryText)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(context.state.currentStep)
-                    .font(.title3.weight(.black))
+                    .font(.system(size: 24, weight: .heavy))
                     .foregroundStyle(TallaBrewActivityStyle.primaryText)
-                    .lineLimit(2)
-
-                Text("Target: \(Int(context.state.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(TallaBrewActivityStyle.secondaryText)
-
-                Text("Next: \(context.state.nextStep)")
-                    .font(.caption)
-                    .foregroundStyle(TallaBrewActivityStyle.secondaryText)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                HStack(spacing: 8) {
+                    Text("\(Int(context.state.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(TallaBrewActivityStyle.secondaryText)
+                        .lineLimit(1)
+
+                    Circle()
+                        .fill(TallaBrewActivityStyle.secondaryText.opacity(0.35))
+                        .frame(width: 4, height: 4)
+
+                    Text("Next: \(context.state.nextStep)")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(TallaBrewActivityStyle.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
             }
 
             TallaBrewActivityProgress(context: context)
         }
-        .padding(16)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 18)
     }
 }
 

@@ -123,8 +123,14 @@ struct BrewingSectionView: View {
         .fullScreenCover(isPresented: $isFocusedBrewPresented) {
             focusedBrewModeView
         }
-        .onChange(of: isBrewModeRunning) { _, isRunning in
-            setBrewIdleTimerDisabled(isRunning)
+        .onChange(of: isFocusedBrewPresented) { _, _ in
+            updateBrewIdleTimerState()
+        }
+        .onChange(of: isBrewModeRunning) { _, _ in
+            updateBrewIdleTimerState()
+        }
+        .onChange(of: brewModeElapsedSeconds) { _, _ in
+            updateBrewIdleTimerState()
         }
         .onDisappear {
             setBrewIdleTimerDisabled(false)
@@ -490,6 +496,12 @@ struct BrewingSectionView: View {
                 Spacer(minLength: 0)
 
                 VStack(alignment: .leading, spacing: 18) {
+                    Text(AppLocalization.text("current_instruction", fallback: "Current instruction"))
+                        .font(Font.custom("AvenirNext-Bold", size: 10))
+                        .tracking(1.7)
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
+
                     Text(currentBrewModeStep.title)
                         .font(Font.custom("Georgia-Bold", size: isCompact ? 34 : 42))
                         .foregroundColor(primaryTextColor)
@@ -513,7 +525,7 @@ struct BrewingSectionView: View {
                             .foregroundColor(primaryTextColor)
                             .contentTransition(.numericText())
 
-                        Text(AppLocalization.text("large_timer", fallback: "Large timer"))
+                        Text(isBrewModeRunning ? AppLocalization.text("brewing_now", fallback: "Brewing now") : AppLocalization.text("brew_paused", fallback: "Paused"))
                             .font(Font.custom("AvenirNext-Bold", size: 10))
                             .tracking(1.6)
                             .textCase(.uppercase)
@@ -529,7 +541,7 @@ struct BrewingSectionView: View {
                         .textCase(.uppercase)
                         .foregroundColor(tertiaryTextColor)
 
-                    Text("\(formattedWholeGram(currentWaterTarget)) / \(formattedWholeGram(validWaterAmount)) g")
+                    Text("\(formattedWholeGram(currentWaterTarget)) / \(formattedWholeGram(validWaterAmount)) g water")
                         .font(Font.custom("Georgia-Bold", size: isCompact ? 34 : 40))
                         .monospacedDigit()
                         .foregroundColor(accentColor)
@@ -1210,7 +1222,7 @@ struct BrewingSectionView: View {
 
     private var pourOverBrewModeSteps: [BrewModeStep] {
         let bloomWater = min(validWaterAmount, validCoffeeAmount * 3)
-        let firstPourWater = min(validWaterAmount, max(bloomWater, validWaterAmount * 0.56))
+        let firstPourWater = min(validWaterAmount, max(bloomWater, roundedBrewTarget(validWaterAmount * 0.56)))
 
         return [
             BrewModeStep(
@@ -1573,6 +1585,10 @@ struct BrewingSectionView: View {
         setBrewIdleTimerDisabled(false)
     }
 
+    private func updateBrewIdleTimerState() {
+        setBrewIdleTimerDisabled(isFocusedBrewPresented && (isBrewModeRunning || brewModeElapsedSeconds > 0))
+    }
+
     private func setBrewIdleTimerDisabled(_ isDisabled: Bool) {
 #if canImport(UIKit)
         UIApplication.shared.isIdleTimerDisabled = isDisabled
@@ -1831,5 +1847,9 @@ struct BrewingSectionView: View {
 
     private func formattedWholeGram(_ value: Double) -> String {
         String(Int(value.rounded()))
+    }
+
+    private func roundedBrewTarget(_ value: Double) -> Double {
+        (value / 10).rounded() * 10
     }
 }

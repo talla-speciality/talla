@@ -83,6 +83,15 @@ struct ContentView: View {
         }
     }
 
+    private enum SettingsDetail: String, Identifiable {
+        case language
+        case notifications
+        case aboutTalla
+        case deleteAccount
+
+        var id: String { rawValue }
+    }
+
     private enum AppearanceMode: String, CaseIterable, Identifiable {
         case system
         case light
@@ -362,6 +371,10 @@ struct ContentView: View {
         let id: UUID
         let title: String
         let method: String
+        let coffeeGrams: Double?
+        let ratio: Double?
+        let waterGrams: Double?
+        let brewTimeSeconds: Int?
         let rating: Int
         let notes: String
         let createdAt: String
@@ -390,6 +403,7 @@ struct ContentView: View {
         case featured
         case priceLow
         case priceHigh
+        case newest
         case available
 
         var id: String { rawValue }
@@ -399,11 +413,13 @@ struct ContentView: View {
             case .featured:
                 return AppLocalization.text("sort_featured", fallback: "Featured")
             case .priceLow:
-                return AppLocalization.text("sort_price_low", fallback: "Price Low")
+                return AppLocalization.text("sort_price_low", fallback: "Price: Low to High")
             case .priceHigh:
-                return AppLocalization.text("sort_price_high", fallback: "Price High")
+                return AppLocalization.text("sort_price_high", fallback: "Price: High to Low")
+            case .newest:
+                return AppLocalization.text("sort_newest", fallback: "Newest")
             case .available:
-                return AppLocalization.text("sort_available", fallback: "Available")
+                return AppLocalization.text("sort_available", fallback: "Availability")
             }
         }
     }
@@ -480,10 +496,16 @@ struct ContentView: View {
     @State private var journalTitleInput = ""
     @State private var journalMethodInput = "Pour Over"
     @State private var journalNotesInput = ""
+    @State private var journalCoffeeGrams: Double?
+    @State private var journalRatio: Double?
+    @State private var journalWaterGrams: Double?
+    @State private var journalBrewTimeSeconds: Int?
     @State private var journalRating = 4
     @State private var cartSaveName = ""
     @State private var isCheckingOut = false
     @State private var checkoutError: String?
+    @State private var pendingCartRemovalID: String?
+    @State private var isConfirmingEmptyBag = false
     @State private var checkoutSession: CheckoutSession?
     @State private var articleSession: CheckoutSession?
     @State private var selectedProduct: Product?
@@ -496,6 +518,7 @@ struct ContentView: View {
     @State private var isLoadingAvailableVouchers = false
     @AppStorage("app.appearanceMode") private var savedAppearanceMode = AppearanceMode.system.rawValue
     @AppStorage("app.hasSeenWelcome") private var hasSeenWelcome = false
+    @AppStorage("app.hasSeenFeatureTour") private var hasSeenFeatureTour = false
     @AppStorage("app.hasAskedInitialNotificationPermission") private var hasAskedInitialNotificationPermission = false
     @AppStorage("app.reviewLaunchCount") private var reviewLaunchCount = 0
     @AppStorage("app.reviewLastPromptAt") private var reviewLastPromptAt = 0.0
@@ -519,6 +542,7 @@ struct ContentView: View {
     @AppStorage("shortcut.searchQuery") private var shortcutSearchQuery = ""
     @State private var notificationAuthorizationStatus: Int = 0
     @State private var showLaunchSplash = true
+    @State private var featureTourIndex = 0
     @State private var accountAuthMode: AccountAuthMode = .signIn
     @State private var accountFirstName = ""
     @State private var accountLastName = ""
@@ -575,10 +599,15 @@ struct ContentView: View {
     @State private var isShoppingSectionExpanded = false
     @State private var isBrewingSectionExpanded = false
     @State private var isSupportSectionExpanded = false
+    @State private var isCheckoutNoteExpanded = false
+    @State private var isVoucherCodeEntryExpanded = false
+    @State private var isCartSaveEntryExpanded = false
     @State private var isDeliveryDetailsExpanded = false
     @State private var isTallaPassportExpanded = false
+    @State private var selectedSettingsDetail: SettingsDetail?
     @State private var accountScrollTarget: String?
     @State private var tabScrollTarget: Tab?
+    @State private var shopCatalogueScrollRequest = 0
     @State private var didRecordReviewLaunch = false
 
     private let categoryCatalog: [ShopCategory] = [
@@ -775,6 +804,10 @@ struct ContentView: View {
         horizontalSizeClass != .regular
     }
 
+    private var shouldShowHeaderCartButton: Bool {
+        activeTab == .home || activeTab == .shop
+    }
+
     private var contentMaxWidth: CGFloat {
         isCompact ? 400 : 980
     }
@@ -925,6 +958,8 @@ struct ContentView: View {
                     ? $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
                     : priceValue(from: $0.price) > priceValue(from: $1.price)
             }
+        case .newest:
+            return searchedProducts
         case .available:
             return searchedProducts.sorted {
                 if $0.isAvailableForSale != $1.isAvailableForSale {
@@ -1291,7 +1326,7 @@ struct ContentView: View {
                     id: "fallback-pour-over",
                     name: "Pour Over",
                     summary: "Clean, articulate cups with a steady pour and a paper filter.",
-                    detail: "Curated fallback guide",
+                    detail: "Step-by-step brew guide",
                     symbol: "drop.fill",
                     articleURL: nil,
                     categories: ["Pour Over", "Filter"],
@@ -1302,7 +1337,7 @@ struct ContentView: View {
                     id: "fallback-french-press",
                     name: "French Press",
                     summary: "A fuller-bodied brew with a deeper texture and round finish.",
-                    detail: "Curated fallback guide",
+                    detail: "Step-by-step brew guide",
                     symbol: "cup.and.saucer.fill",
                     articleURL: nil,
                     categories: ["Immersion"],
@@ -1313,12 +1348,34 @@ struct ContentView: View {
                     id: "fallback-chemex",
                     name: "Chemex",
                     summary: "Bright clarity and delicate texture for clean specialty cups.",
-                    detail: "Curated fallback guide",
+                    detail: "Step-by-step brew guide",
                     symbol: "flask.fill",
                     articleURL: nil,
                     categories: ["Pour Over", "Filter"],
                     difficulty: "Intermediate",
                     brewTime: "4-5 min"
+                ),
+                BrewingMethod(
+                    id: "fallback-arabic-coffee",
+                    name: "Arabic Coffee",
+                    summary: "A fragrant traditional brew with spice, depth, and a long finish.",
+                    detail: "Step-by-step brew guide",
+                    symbol: "flame.fill",
+                    articleURL: nil,
+                    categories: ["Traditional"],
+                    difficulty: "Intermediate",
+                    brewTime: "8 min"
+                ),
+                BrewingMethod(
+                    id: "fallback-cold-brew",
+                    name: "Cold Brew",
+                    summary: "Slow extraction for a smooth, chilled cup with low acidity.",
+                    detail: "Step-by-step brew guide",
+                    symbol: "snowflake",
+                    articleURL: nil,
+                    categories: ["Cold Brew"],
+                    difficulty: "Easy",
+                    brewTime: "12 hr"
                 )
             ]
         } else {
@@ -1335,7 +1392,8 @@ struct ContentView: View {
     private var brewingCategories: [String] {
         let source = brewingMethods.isEmpty ? displayedBrewingMethods : brewingMethods
         let categories = Set(source.flatMap(\.categories))
-        return ["All"] + categories.sorted()
+        let preferredOrder = ["Pour Over", "Immersion", "Traditional", "Cold Brew"]
+        return ["All"] + preferredOrder.filter { categories.contains($0) }
     }
 
     private var ratioCoffeeAmount: Double {
@@ -1350,13 +1408,31 @@ struct ContentView: View {
         ratioCoffeeAmount * ratioValue
     }
 
-    private var brewAgainHistoryItems: [(title: String, detail: String)] {
-        brewRecipes.prefix(3).map { recipe in
-            (
-                recipe.name,
-                "\(formattedRatioValue(recipe.coffeeGrams)) g coffee - \(formattedRatioValue(recipe.waterGrams)) g water"
+    private var brewAgainHistoryItems: [(title: String, detail: String, coffeeGrams: Double?, ratio: Double?)] {
+        let journalItems = brewJournalEntries.compactMap { entry -> (title: String, detail: String, coffeeGrams: Double?, ratio: Double?)? in
+            guard let coffeeGrams = entry.coffeeGrams,
+                  let ratio = entry.ratio else {
+                return nil
+            }
+
+            return (
+                entry.title,
+                "\(entry.method) - \(formattedRatioValue(coffeeGrams)) g - 1:\(formattedRatioValue(ratio)) - Rated \(entry.rating)/5",
+                coffeeGrams,
+                ratio
             )
         }
+
+        let recipeItems = brewRecipes.map { recipe in
+            (
+                recipe.name,
+                "\(recipe.category) - \(formattedRatioValue(recipe.coffeeGrams)) g - 1:\(formattedRatioValue(recipe.ratio))",
+                recipe.coffeeGrams,
+                recipe.ratio
+            )
+        }
+
+        return Array((journalItems + recipeItems).prefix(3))
     }
 
     private var loyaltyPerks: [String] {
@@ -1366,28 +1442,69 @@ struct ContentView: View {
         ]
     }
 
-    private var cartPurchasableItemsCount: Int {
-        cartItems.filter { $0.product.variantID != nil && $0.product.isAvailableForSale }.count
+    private var checkoutReadinessTitle: String {
+        preferredAddress == nil
+            ? AppLocalization.text("almost_ready", fallback: "Almost ready")
+            : AppLocalization.text("ready_to_checkout_checked", fallback: "Ready to checkout ✓")
     }
 
-    private var checkoutReadinessMessage: String {
-        if preferredAddress == nil {
-            return AppLocalization.text("checkout_readiness_address", fallback: "Add a delivery address before checkout for a smoother handoff.")
-        }
+    private var checkoutReadinessSummary: String {
+        let itemKey = cartCount == 1 ? "cart_item_count_singular" : "cart_item_count_plural"
+        let itemFallback = cartCount == 1 ? "%d item" : "%d items"
+        let itemText = String(format: AppLocalization.text(itemKey, fallback: itemFallback), cartCount)
+        let addressText = preferredAddress == nil
+            ? AppLocalization.text("delivery_address_needed_short", fallback: "Delivery address needed")
+            : AppLocalization.text("address_saved", fallback: "Address saved")
 
-        if cartPurchasableItemsCount != cartItems.count {
-            return AppLocalization.text("checkout_readiness_unavailable", fallback: "Some items may not be available for checkout right now.")
-        }
-
-        if appliedVoucher != nil {
-            return AppLocalization.text("checkout_readiness_voucher", fallback: "Your voucher is applied and ready for checkout.")
-        }
-
-        return AppLocalization.text("checkout_readiness_ready", fallback: "Your bag is ready. Review details, then continue to secure checkout.")
+        return "\(itemText) · \(addressText)"
     }
 
     private var currentAppVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
+    private var shouldShowFeatureTour: Bool {
+        hasSeenWelcome && !hasSeenFeatureTour && !showLaunchSplash
+    }
+
+    private var featureTourHighlights: [FeatureTourHighlight] {
+        [
+            FeatureTourHighlight(
+                id: "find-your-talla",
+                icon: "sparkles",
+                title: AppLocalization.text("tour_find_talla_title", fallback: "Find Your Talla"),
+                detail: AppLocalization.text("tour_find_talla_detail", fallback: "Discover a coffee through three quick questions.")
+            ),
+            FeatureTourHighlight(
+                id: "guided-brew",
+                icon: "drop.fill",
+                title: AppLocalization.text("tour_guided_brew_title", fallback: "Guided Brew"),
+                detail: AppLocalization.text("tour_guided_brew_detail", fallback: "Follow each pour with live targets and a focused timer.")
+            ),
+            FeatureTourHighlight(
+                id: "talla-passport",
+                icon: "book.closed.fill",
+                title: AppLocalization.text("tour_passport_title", fallback: "Talla Passport"),
+                detail: AppLocalization.text("tour_passport_detail", fallback: "Collect origins and unlock rewards as you explore.")
+            )
+        ]
+    }
+
+    private func advanceFeatureTour() {
+        if featureTourIndex >= featureTourHighlights.count - 1 {
+            dismissFeatureTour()
+        } else {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                featureTourIndex += 1
+            }
+        }
+    }
+
+    private func dismissFeatureTour() {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            hasSeenFeatureTour = true
+            featureTourIndex = 0
+        }
     }
 
     private var launchSplashView: some View {
@@ -1530,6 +1647,25 @@ struct ContentView: View {
                 .zIndex(40)
             }
 
+            if shouldShowFeatureTour {
+                FeatureTourOverlayView(
+                    highlights: featureTourHighlights,
+                    currentIndex: featureTourIndex,
+                    primaryTextColor: primaryTextColor,
+                    secondaryTextColor: secondaryTextColor,
+                    cardFillColor: elevatedSurfaceColor,
+                    accentColor: Color(hex: 0xC8965A),
+                    scrimColor: scrimColor,
+                    titleFont: displayFont(size: isCompact ? 30 : 36),
+                    bodyFont: bodyFont(size: 14),
+                    labelFont: labelFont(size: 10, weight: .bold),
+                    nextAction: advanceFeatureTour,
+                    skipAction: dismissFeatureTour
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .zIndex(45)
+            }
+
             if showLaunchSplash {
                 launchSplashView
                     .transition(.opacity)
@@ -1628,6 +1764,20 @@ struct ContentView: View {
         .sheet(isPresented: $isCoffeeConciergePresented) {
             coffeeConciergeSheet
         }
+        .alert(AppLocalization.text("empty_bag_confirmation_title", fallback: "Empty bag?"), isPresented: $isConfirmingEmptyBag) {
+            Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) {
+                pendingCartRemovalID = nil
+            }
+
+            Button(AppLocalization.text("remove", fallback: "Remove"), role: .destructive) {
+                if let pendingCartRemovalID {
+                    removeFromCart(id: pendingCartRemovalID)
+                }
+                pendingCartRemovalID = nil
+            }
+        } message: {
+            Text(AppLocalization.text("empty_bag_confirmation_message", fallback: "Remove the last item from your bag?"))
+        }
 #if canImport(PassKit)
         .sheet(item: $loyaltyWalletPass, onDismiss: {
             Task {
@@ -1637,26 +1787,6 @@ struct ContentView: View {
             WalletPassView(pass: item.pass)
         }
 #endif
-        .overlay(alignment: .bottomTrailing) {
-            ZStack(alignment: .bottomTrailing) {
-                if showingCartCelebration {
-                    CoffeeBeansBurstView(accentColor: Color(hex: 0xC8965A), id: cartCelebrationID)
-                        .transition(.scale(scale: 0.2).combined(with: .opacity))
-                        .allowsHitTesting(false)
-                }
-
-                if !showLaunchSplash {
-                    VStack(alignment: .trailing, spacing: 10) {
-                        floatingDrinksButton
-                        floatingCartButton
-                    }
-                    .transition(.opacity)
-                }
-            }
-            .padding(.trailing, 22)
-            .padding(.bottom, 74)
-            .zIndex(20)
-        }
         .onOpenURL { url in
             handleDeepLink(url)
         }
@@ -1703,21 +1833,27 @@ struct ContentView: View {
         }
         .toolbar(.visible, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-        .toolbarBackground(.regularMaterial, for: .tabBar)
+        .toolbarBackground(tabBarBackgroundColor, for: .tabBar)
     }
 
     private func tabScreen<Content: View>(_ content: Content, tab: Tab) -> some View {
         VStack(spacing: 0) {
+            header
+                .frame(maxWidth: .infinity)
+                .zIndex(10)
+
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         Color.clear
                             .frame(height: 0)
                             .id("tab-top")
-                        header
                         content
                         footer
+                        Color.clear
+                            .frame(height: bottomScrollPadding(for: tab))
                     }
+                    .padding(.top, topScrollPadding(for: tab))
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: accountScrollTarget) { _, target in
@@ -1738,10 +1874,33 @@ struct ContentView: View {
                         tabScrollTarget = nil
                     }
                 }
+                .onChange(of: shopCatalogueScrollRequest) { _, _ in
+                    guard activeTab == .shop, tab == .shop else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                        withAnimation(.easeInOut(duration: 0.28)) {
+                            proxy.scrollTo("shop-catalogue", anchor: .top)
+                        }
+                    }
+                }
             }
+            .frame(maxHeight: .infinity)
         }
         .frame(maxWidth: contentMaxWidth)
         .frame(maxWidth: .infinity)
+    }
+
+    private var tabBarBackgroundColor: Color {
+        isLightAppearance
+            ? Color(hex: 0xFFFDF9).opacity(0.96)
+            : Color(hex: 0x17120E).opacity(0.96)
+    }
+
+    private func topScrollPadding(for tab: Tab) -> CGFloat {
+        tab == .account ? 8 : 0
+    }
+
+    private func bottomScrollPadding(for tab: Tab) -> CGFloat {
+        tab == .account ? 104 : 76
     }
 
     private func dismissKeyboard() {
@@ -1936,6 +2095,10 @@ struct ContentView: View {
 
                 Spacer()
 
+                if !showLaunchSplash && shouldShowHeaderCartButton {
+                    headerCartButton
+                }
+
                 Menu {
                     Section(AppLocalization.text("appearance", fallback: "Appearance")) {
                         ForEach(AppearanceMode.allCases) { mode in
@@ -1990,7 +2153,7 @@ struct ContentView: View {
         )
     }
 
-    private var floatingCartButton: some View {
+    private var headerCartButton: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.18)) {
                 cartOpen = true
@@ -1998,23 +2161,23 @@ struct ContentView: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: cartCount > 0 ? "bag.fill" : "bag")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundColor(primaryTextColor.opacity(isLightAppearance ? 0.88 : 0.94))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(cartCount > 0 ? Color(hex: 0x0A0804) : Color(hex: 0xC8965A))
                     .symbolEffect(.bounce, value: cartCelebrationID)
-                    .frame(width: 54, height: 54)
-                    .glassEffect(
-                        .regular
-                            .tint((cartCount > 0 ? Color(hex: 0xC8965A) : Color.white).opacity(cartCount > 0 ? 0.78 : (isLightAppearance ? 0.16 : 0.08)))
-                            .interactive(),
-                        in: .circle
+                    .frame(width: 40, height: 40)
+                    .background(cartCount > 0 ? Color(hex: 0xC8965A) : cardFillColor)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.20 : 0.14), lineWidth: 1)
                     )
 
                 if cartCount > 0 {
                     Text(cartCount > 99 ? "99+" : "\(cartCount)")
-                        .font(.system(size: cartCount > 99 ? 10 : 11, weight: .black))
+                        .font(.system(size: cartCount > 99 ? 8 : 9, weight: .black))
                         .foregroundColor(Color(hex: 0x1A1208))
-                        .padding(.horizontal, cartCount > 99 ? 8 : 0)
-                        .frame(minWidth: 24, minHeight: 24)
+                        .padding(.horizontal, cartCount > 99 ? 6 : 0)
+                        .frame(minWidth: 18, minHeight: 18)
                         .background(Color(hex: 0xF7E1B7))
                         .contentTransition(.numericText())
                         .clipShape(Capsule())
@@ -2022,11 +2185,11 @@ struct ContentView: View {
                             Capsule()
                                 .stroke(Color(hex: 0x8A5E30).opacity(0.35), lineWidth: 1.2)
                         )
-                        .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.22), radius: 6, y: 2)
-                        .offset(x: 8, y: -2)
+                        .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.22), radius: 5, y: 2)
+                        .offset(x: 5, y: -4)
                 }
             }
-            .frame(width: 62, height: 62, alignment: .center)
+            .frame(width: 44, height: 44, alignment: .center)
             .scaleEffect(showingCartCelebration ? 1.08 : 1)
             .animation(.spring(response: 0.28, dampingFraction: 0.55), value: showingCartCelebration)
             .contentShape(Rectangle())
@@ -2034,22 +2197,6 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Open cart")
         .accessibilityValue(cartCount > 0 ? "\(cartCount) items" : "Empty")
-    }
-
-    private var floatingDrinksButton: some View {
-        Button {
-            openDrinksSection()
-        } label: {
-            Image(systemName: "takeoutbag.and.cup.and.straw.fill")
-                .font(.system(size: 16, weight: .bold))
-            .foregroundColor(Color(hex: 0x0A0804))
-            .frame(width: 48, height: 48)
-            .background(Color(hex: 0xC8965A))
-            .clipShape(Circle())
-            .shadow(color: Color.black.opacity(isLightAppearance ? 0.12 : 0.28), radius: 16, x: 0, y: 8)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(AppLocalization.text("open_drinks", fallback: "Open Drinks"))
     }
 
     private var homeView: some View {
@@ -2624,9 +2771,8 @@ struct ContentView: View {
     }
 
     private var shelfGreetingText: String {
-        if let profile = customerProfile {
-            let displayName = customerFirstName(for: profile)
-            return String(format: AppLocalization.text("shelf_welcome_back", fallback: "Welcome back, %@. Ready for another cup?"), displayName)
+        if customerProfile != nil {
+            return AppLocalization.text("shelf_summary_signed_in", fallback: "Your favourites, previous orders, and recent discoveries.")
         }
 
         return AppLocalization.text("shelf_signed_out_prompt", fallback: "Sign in to save favourites and quickly reorder.")
@@ -3180,7 +3326,7 @@ struct ContentView: View {
 
                 ActionTileView(
                     title: AppLocalization.text("reorder_faster", fallback: "Reorder Faster"),
-                    detail: AppLocalization.text("reorder_faster_detail", fallback: "Open saved carts, addresses, and recent orders."),
+                    detail: AppLocalization.text("reorder_faster_detail", fallback: "Open saved bags, addresses, and recent orders."),
                     systemImage: "arrow.clockwise.circle.fill",
                     titleFont: labelFont(size: 10, weight: .bold),
                     detailFont: bodyFont(size: 12),
@@ -3480,6 +3626,7 @@ struct ContentView: View {
             titleFont: displayFont(size: isCompact ? 28 : 32),
             bodyFont: bodyFont(size: 15),
             sectionTitleFont: labelFont(size: 11, weight: .bold),
+            isCustomerSignedIn: customerProfile != nil,
             savedLoyaltyEmail: savedLoyaltyEmail,
             loyaltyEmail: $loyaltyEmail,
             loyaltyError: loyaltyError,
@@ -3817,6 +3964,7 @@ struct ContentView: View {
                 activeCategory = categoryKey
                 shopSearchQuery = query
                 recordRecentSearch(query)
+                shopCatalogueScrollRequest += 1
             },
             clearRecentSearches: {
                 savedRecentSearchQueries = ""
@@ -3825,6 +3973,9 @@ struct ContentView: View {
                 Task {
                     await loadProducts(force: true)
                 }
+            },
+            categorySelected: {
+                shopCatalogueScrollRequest += 1
             }
         )
         .padding(.horizontal, 18)
@@ -3880,7 +4031,7 @@ struct ContentView: View {
                         .textCase(.uppercase)
                         .foregroundColor(primaryTextColor)
 
-                    Text(AppLocalization.text("coffee_quiz_detail", fallback: "Answer three quick questions and get a coffee match without needing to understand origins or tasting notes."))
+                    Text(AppLocalization.text("coffee_quiz_detail", fallback: "Answer three quick questions and discover your ideal coffee."))
                         .font(bodyFont(size: 13))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -3902,9 +4053,8 @@ struct ContentView: View {
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
                             .textCase(.uppercase)
 
-                        Image(systemName: "chevron.down")
+                        Image(systemName: isCoffeeQuizExpanded ? "chevron.up" : "arrow.forward")
                             .font(.system(size: 10, weight: .bold))
-                            .rotationEffect(.degrees(isCoffeeQuizExpanded ? 180 : 0))
                     }
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 12)
@@ -4501,6 +4651,15 @@ struct ContentView: View {
             openArticleAction: { url in
                 articleSession = CheckoutSession(url: url)
             },
+            guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime in
+                prepareJournalEntryFromGuidedBrew(
+                    method: method,
+                    coffeeAmount: coffeeAmount,
+                    ratio: ratio,
+                    waterAmount: waterAmount,
+                    brewTime: brewTime
+                )
+            },
             brewTimerSection: AnyView(brewTimerSection),
             coffeeJournalSection: AnyView(coffeeJournalSection),
             loadingView: AnyView(loadingSection)
@@ -4542,11 +4701,41 @@ struct ContentView: View {
                 }
             }
 
-            Text(formattedTimerTime(brewTimerRemainingSeconds))
-                .font(displayFont(size: isCompact ? 42 : 52))
-                .monospacedDigit()
-                .foregroundColor(primaryTextColor)
-                .contentTransition(.numericText())
+            HStack(alignment: .center, spacing: 12) {
+                Text(formattedTimerTime(brewTimerRemainingSeconds))
+                    .font(displayFont(size: isCompact ? 42 : 52))
+                    .monospacedDigit()
+                    .foregroundColor(primaryTextColor)
+                    .contentTransition(.numericText())
+
+                Spacer(minLength: 0)
+
+                Button {
+                    resetBrewTimer()
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 44, height: 44)
+                        .background(cardFillColor)
+                        .overlay(
+                            Circle()
+                                .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("reset_timer", fallback: "Reset timer"))
+            }
+
+            Text(brewTimerCueText)
+                .font(labelFont(size: 11, weight: .bold))
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0xC8965A))
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .contentTransition(.opacity)
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
@@ -4575,7 +4764,7 @@ struct ContentView: View {
                         startBrewTimer()
                     }
                 } label: {
-                    Label(isBrewTimerRunning ? AppLocalization.text("pause", fallback: "Pause") : AppLocalization.text("start", fallback: "Start"), systemImage: isBrewTimerRunning ? "pause.fill" : "play.fill")
+                    Label(brewTimerPrimaryActionTitle, systemImage: isBrewTimerRunning ? "pause.fill" : "play.fill")
                         .font(labelFont(size: 11, weight: .bold))
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
@@ -4584,24 +4773,6 @@ struct ContentView: View {
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .disabled(brewTimerRemainingSeconds == 0)
-
-                Button {
-                    resetBrewTimer()
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(primaryTextColor)
-                        .frame(width: 44, height: 44)
-                        .background(cardFillColor)
-                        .overlay(
-                            Circle()
-                                .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
-                        )
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppLocalization.text("reset_timer", fallback: "Reset timer"))
             }
         }
         .padding(18)
@@ -4646,22 +4817,44 @@ struct ContentView: View {
                 .background(elevatedSurfaceColor)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-            HStack(spacing: 10) {
-                TextField(AppLocalization.text("method", fallback: "Method"), text: $journalMethodInput)
-                    .textInputAutocapitalization(.words)
-                    .font(bodyFont(size: 14))
-                    .foregroundColor(primaryTextColor)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(elevatedSurfaceColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            TextField(AppLocalization.text("method", fallback: "Method"), text: $journalMethodInput)
+                .textInputAutocapitalization(.words)
+                .font(bodyFont(size: 14))
+                .foregroundColor(primaryTextColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(elevatedSurfaceColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                Stepper(value: $journalRating, in: 1...5) {
-                    Label("\(journalRating)/5", systemImage: "star.fill")
-                        .font(labelFont(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+            if let journalBrewDetailLine {
+                Text(journalBrewDetailLine)
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(1.1)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xC8965A))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.16))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
+            HStack(spacing: 8) {
+                ForEach(1...5, id: \.self) { rating in
+                    Button {
+                        journalRating = rating
+                        delightFeedbackTrigger += 1
+                    } label: {
+                        Image(systemName: rating <= journalRating ? "star.fill" : "star")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(Color(hex: 0xC8965A))
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(rating) \(AppLocalization.text("stars", fallback: "stars"))")
                 }
-                .frame(maxWidth: 138)
+
+                Spacer(minLength: 0)
             }
 
             TextField(AppLocalization.text("tasting_notes", fallback: "Tasting notes"), text: $journalNotesInput, axis: .vertical)
@@ -4709,6 +4902,15 @@ struct ContentView: View {
                                     .tracking(1.2)
                                     .textCase(.uppercase)
                                     .foregroundColor(Color(hex: 0xC8965A))
+
+                                if let detail = brewJournalDetailLine(for: entry) {
+                                    Text(detail)
+                                        .font(labelFont(size: 9, weight: .bold))
+                                        .tracking(0.9)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(tertiaryTextColor)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
 
                                 if !entry.notes.isEmpty {
                                     Text(entry.notes)
@@ -4772,6 +4974,31 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
+    private var latestAccountOrderSummary: (title: String, detail: String)? {
+        guard let order = orderHistory.max(by: { orderDate(from: $0.createdAt) < orderDate(from: $1.createdAt) }) else {
+            return nil
+        }
+
+        let digits = [order.title, order.id]
+            .map { $0.filter(\.isNumber) }
+            .first(where: { !$0.isEmpty }) ?? String(order.id.prefix(6))
+        let orderNumber = String(format: AppLocalization.text("order_number_format", fallback: "Order #%@"), String(digits.suffix(6)))
+        let daysAgo = daysSinceOrder(order)
+        let timing = daysAgo == 0
+            ? AppLocalization.text("ordered_today", fallback: "Ordered today")
+            : String(format: AppLocalization.text("last_ordered_days_ago", fallback: "Last ordered %d days ago"), daysAgo)
+
+        return (orderNumber, "\(order.total) · \(timing)")
+    }
+
+    private var recentlySavedAccountSummary: (title: String, detail: String)? {
+        guard let product = favoriteProducts.first else {
+            return nil
+        }
+
+        return (customerFacingProductName(for: product), product.price)
+    }
+
     private var accountView: some View {
         AccountSectionView(
             primaryTextColor: primaryTextColor,
@@ -4788,15 +5015,34 @@ struct ContentView: View {
             sectionBodyFont: bodyFont(size: 14),
             quickActionTitleFont: labelFont(size: 11, weight: .bold),
             quickActionBodyFont: bodyFont(size: 13),
+            isCustomerSignedIn: customerProfile != nil,
+            accountDisplayName: customerProfile?.displayName ?? AppLocalization.text("guest_account_name", fallback: "Buddy Specialty"),
+            accountEmail: customerProfile?.email ?? savedCustomerEmail,
+            membershipTier: loyaltyAccount?.tier ?? AppLocalization.text("bronze", fallback: "Bronze"),
+            beansBalance: loyaltyAccount?.pointsBalance ?? 0,
+            beansUntilNextReward: loyaltyAccount.map { rewardProgress(for: $0.pointsBalance).remaining } ?? 50,
+            orderCount: orderHistory.count,
             addressesCount: addresses.count,
             favoriteCount: favoriteProducts.count,
             brewRecipeCount: brewRecipes.count,
+            journalEntryCount: brewJournalEntries.count,
+            latestOrderTitle: latestAccountOrderSummary?.title,
+            latestOrderDetail: latestAccountOrderSummary?.detail,
+            recentlySavedTitle: recentlySavedAccountSummary?.title,
+            recentlySavedDetail: recentlySavedAccountSummary?.detail,
             isCustomerSectionExpanded: $isCustomerSectionExpanded,
             isLoyaltySectionExpanded: $isLoyaltySectionExpanded,
             isLibrarySectionExpanded: $isLibrarySectionExpanded,
             isShoppingSectionExpanded: $isShoppingSectionExpanded,
             isBrewingSectionExpanded: $isBrewingSectionExpanded,
             isSupportSectionExpanded: $isSupportSectionExpanded,
+            openOrdersAction: {
+                openAccountSection(AccountSectionView.ScrollTarget.customer)
+                Task {
+                    await loadOrderHistory()
+                }
+                showToast(message: AppLocalization.text("orders_opened", fallback: "Orders opened"))
+            },
             openRewardsAction: {
                 openAccountSection(AccountSectionView.ScrollTarget.loyalty)
                 showToast(message: AppLocalization.text("rewards_opened", fallback: "Rewards opened"))
@@ -4811,93 +5057,29 @@ struct ContentView: View {
                 showToast(message: AppLocalization.text("saved_opened", fallback: "Saved picks opened"))
             },
             openBrewArchiveAction: {
-                openAccountSection(AccountSectionView.ScrollTarget.brewing)
+                openBrewing()
                 showToast(message: AppLocalization.text("brewing_archive_opened", fallback: "Brewing archive opened"))
             },
             openSupportAction: {
                 openAccountSection(AccountSectionView.ScrollTarget.support)
                 showToast(message: AppLocalization.text("support_opened", fallback: "Support opened"))
             },
+            signOutAction: {
+                signOutCustomer()
+            },
             customerAccountSection: AnyView(customerAccountSection),
+            personalDetailsSection: AnyView(profileManagementSection),
+            passwordSection: AnyView(passwordResetSection),
+            ordersSection: AnyView(orderHistorySection),
             loyaltySection: AnyView(loyaltySection),
-            librarySection: AnyView(
-                Group {
-                    addressesSection
-                    alertsSection
-                    savedCartsSection
-                }
-            ),
-            shoppingSection: AnyView(
-                Group {
-                    favoritesSection
-                    recentlyViewedSection
-                    recommendedSection
-                }
-            ),
-            brewingSection: AnyView(brewRecipesSection),
-            supportSection: AnyView(
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(AppLocalization.text("account_tools", fallback: "ACCOUNT TOOLS"))
-                        .font(displayFont(size: 22))
-                        .tracking(2)
-                        .foregroundColor(primaryTextColor)
-
-                    languagePreferenceCard
-
-                    LazyVGrid(columns: collectionGridColumns, spacing: 12) {
-                        accountStatusTile(
-                            title: AppLocalization.text("talla_account", fallback: "Talla Account"),
-                            detail: AppLocalization.text("talla_account_detail", fallback: "Your Talla account connects checkout, rewards, and saved details in one place.")
-                        )
-                        accountStatusTile(
-                            title: AppLocalization.text("about_talla", fallback: "About Talla"),
-                            detail: AppLocalization.text("about_talla_detail", fallback: "Speciality coffee, rewards, and roastery essentials built around daily rituals in Bahrain.")
-                        )
-                        infoTile(
-                            title: AppLocalization.text("whatsapp_support", fallback: "WhatsApp Support"),
-                            detail: AppLocalization.text("support_detail", fallback: "Need help with orders or rewards? Reach the roastery team directly."),
-                            actionTitle: AppLocalization.text("whatsapp_us", fallback: "WhatsApp Us"),
-                            destination: URL(string: "https://wa.me/97339392414")!
-                        )
-                        infoTile(
-                            title: AppLocalization.text("email_support", fallback: "Email Support"),
-                            detail: AppLocalization.text("email_support_detail", fallback: "Send a note for account, app, order, or rewards support."),
-                            actionTitle: AppLocalization.text("send_email", fallback: "Send Email"),
-                            destination: URL(string: "mailto:Support@talla.me")!
-                        )
-                        infoTile(
-                            title: AppLocalization.text("store_location", fallback: "Store Location"),
-                            detail: AppLocalization.text("store_location_detail", fallback: "Open maps for directions, pickup planning, and visit details."),
-                            actionTitle: AppLocalization.text("open_maps", fallback: "Open Maps"),
-                            destination: URL(string: "https://maps.app.goo.gl/cRiBhdmSUiqSF5x59?g_st=ic")!
-                        )
-                        infoTile(
-                            title: AppLocalization.text("instagram", fallback: "Instagram"),
-                            detail: AppLocalization.text("instagram_detail", fallback: "Follow launches, limited roasts, and cafe updates."),
-                            actionTitle: AppLocalization.text("open_instagram", fallback: "Open Instagram"),
-                            destination: URL(string: "https://www.instagram.com/talla.bh/")!
-                        )
-                        infoTile(
-                            title: AppLocalization.text("privacy_policy", fallback: "Privacy Policy"),
-                            detail: AppLocalization.text("privacy_policy_detail", fallback: "Review how Talla handles account, order, rewards, and app data."),
-                            actionTitle: AppLocalization.text("open_policy", fallback: "Open Policy"),
-                            destination: URL(string: "https://duneroastery.myshopify.com/policies/privacy-policy")!
-                        )
-                        infoTile(
-                            title: AppLocalization.text("terms_of_service", fallback: "Terms of Service"),
-                            detail: AppLocalization.text("terms_detail", fallback: "Read the terms for using the store, checkout, rewards, and app services."),
-                            actionTitle: AppLocalization.text("open_terms", fallback: "Open Terms"),
-                            destination: URL(string: "https://duneroastery.myshopify.com/policies/terms-of-service")!
-                        )
-                        infoTile(
-                            title: AppLocalization.text("store_support", fallback: "Store Support"),
-                            detail: AppLocalization.text("store_support_detail", fallback: "Open the store support page for shipping, returns, and order help."),
-                            actionTitle: AppLocalization.text("open_support", fallback: "Open Support"),
-                            destination: URL(string: "https://duneroastery.myshopify.com/pages/contact")!
-                        )
-                    }
-                }
-            )
+            addressesSection: AnyView(addressesSection),
+            savedCartsSection: AnyView(savedCartsSection),
+            alertsSection: AnyView(alertsSection),
+            favoritesSection: AnyView(favoritesSection),
+            recentlyViewedSection: AnyView(recentlyViewedSection),
+            savedRecipesSection: AnyView(brewRecipesSection),
+            journalSection: AnyView(coffeeJournalSection),
+            supportSection: AnyView(settingsAndHelpSection)
         )
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
@@ -4941,6 +5123,276 @@ struct ContentView: View {
                 .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var settingsAndHelpSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(AppLocalization.text("settings_and_help", fallback: "SETTINGS & HELP"))
+                .font(displayFont(size: 22))
+                .tracking(2)
+                .foregroundColor(primaryTextColor)
+
+            VStack(spacing: 0) {
+                settingsRow(
+                    title: AppLocalization.text("language", fallback: "Language"),
+                    value: currentLanguageTitle,
+                    systemImage: "globe"
+                ) {
+                    selectedSettingsDetail = .language
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    title: AppLocalization.text("notifications", fallback: "Notifications"),
+                    value: notificationsEnabled
+                        ? AppLocalization.text("on", fallback: "On")
+                        : AppLocalization.text("off", fallback: "Off"),
+                    systemImage: "bell.fill"
+                ) {
+                    selectedSettingsDetail = .notifications
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    title: AppLocalization.text("whatsapp_support", fallback: "WhatsApp Support"),
+                    systemImage: "message.fill"
+                ) {
+                    openURL(URL(string: "https://wa.me/97339392414")!)
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    title: AppLocalization.text("about_talla", fallback: "About Talla"),
+                    systemImage: "info.circle.fill"
+                ) {
+                    selectedSettingsDetail = .aboutTalla
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    title: AppLocalization.text("privacy_policy", fallback: "Privacy Policy"),
+                    systemImage: "hand.raised.fill"
+                ) {
+                    openURL(URL(string: "https://duneroastery.myshopify.com/policies/privacy-policy")!)
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    title: AppLocalization.text("terms_and_conditions", fallback: "Terms and Conditions"),
+                    systemImage: "doc.text.fill"
+                ) {
+                    openURL(URL(string: "https://duneroastery.myshopify.com/policies/terms-of-service")!)
+                }
+
+                settingsDivider
+
+                settingsRow(
+                    title: AppLocalization.text("delete_account", fallback: "Delete Account"),
+                    systemImage: "trash.fill",
+                    isDestructive: true
+                ) {
+                    selectedSettingsDetail = .deleteAccount
+                }
+            }
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .sheet(item: $selectedSettingsDetail) { detail in
+            settingsDetailScreen(detail)
+        }
+    }
+
+    private var currentLanguageTitle: String {
+        (AppLanguage(rawValue: savedAppLanguage) ?? .system).title
+    }
+
+    private var settingsDivider: some View {
+        Rectangle()
+            .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.06))
+            .frame(height: 1)
+            .padding(.leading, 54)
+    }
+
+    private func settingsRow(
+        title: String,
+        value: String? = nil,
+        systemImage: String,
+        isDestructive: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(isDestructive ? .red : Color(hex: 0xC8965A))
+                    .frame(width: 34, height: 34)
+                    .background((isDestructive ? Color.red : Color(hex: 0xC8965A)).opacity(isLightAppearance ? 0.10 : 0.14))
+                    .clipShape(Circle())
+
+                Text(title)
+                    .font(labelFont(size: 12, weight: .bold))
+                    .foregroundColor(isDestructive ? .red : primaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                Spacer(minLength: 8)
+
+                if let value {
+                    Text(value)
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func settingsDetailScreen(_ detail: SettingsDetail) -> some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                settingsDetailContent(detail)
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+            .navigationTitle(settingsDetailTitle(detail))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        selectedSettingsDetail = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                            .frame(width: 32, height: 32)
+                            .background(cardFillColor)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+                }
+            }
+        }
+    }
+
+    private func settingsDetailTitle(_ detail: SettingsDetail) -> String {
+        switch detail {
+        case .language:
+            return AppLocalization.text("language", fallback: "Language")
+        case .notifications:
+            return AppLocalization.text("notifications", fallback: "Notifications")
+        case .aboutTalla:
+            return AppLocalization.text("about_talla", fallback: "About Talla")
+        case .deleteAccount:
+            return AppLocalization.text("delete_account", fallback: "Delete Account")
+        }
+    }
+
+    @ViewBuilder
+    private func settingsDetailContent(_ detail: SettingsDetail) -> some View {
+        switch detail {
+        case .language:
+            languagePreferenceCard
+        case .notifications:
+            notificationSettingsCard
+        case .aboutTalla:
+            accountStatusTile(
+                title: AppLocalization.text("about_talla", fallback: "About Talla"),
+                detail: AppLocalization.text("about_talla_detail", fallback: "Speciality coffee, rewards, and roastery essentials built around daily rituals in Bahrain.")
+            )
+        case .deleteAccount:
+            deleteAccountSettingsCard
+        }
+    }
+
+    private var notificationSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(notificationStatusMessage)
+                .font(bodyFont(size: 14))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                Task {
+                    await requestNotificationAccess()
+                }
+            } label: {
+                Text(notificationsEnabled
+                    ? AppLocalization.text("notifications_enabled", fallback: "Notifications enabled")
+                    : AppLocalization.text("enable_notifications", fallback: "Enable Notifications"))
+                    .font(labelFont(size: 11, weight: .bold))
+                    .tracking(1.6)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canRequestNotificationAccess)
+        }
+        .padding(16)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var deleteAccountSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(AppLocalization.text("delete_account_detail", fallback: "To delete your Talla account and associated app data, contact support and we will help complete the request."))
+                .font(bodyFont(size: 14))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                openURL(URL(string: "https://wa.me/97339392414")!)
+            } label: {
+                Text(AppLocalization.text("contact_support", fallback: "Contact Support"))
+                    .font(labelFont(size: 11, weight: .bold))
+                    .tracking(1.6)
+                    .textCase(.uppercase)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.red.opacity(0.86))
+                    .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.red.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func languageOptionButton(_ language: AppLanguage) -> some View {
@@ -5046,11 +5498,10 @@ struct ContentView: View {
                     openShop()
                 }
             } else {
-                LazyVGrid(columns: productGridColumns, spacing: 16) {
-                    ForEach(favoriteProducts.prefix(4)) { product in
-                        productCard(product: product, showDescription: false)
-                    }
-                }
+                accountCompactProductSection(
+                    products: Array(favoriteProducts.prefix(3)),
+                    viewAllTitle: AppLocalization.text("view_all_saved_products", fallback: "View all saved products")
+                )
             }
         }
     }
@@ -5461,14 +5912,14 @@ struct ContentView: View {
 
     private var savedCartsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(AppLocalization.text("saved_carts", fallback: "SAVED CARTS"))
+            Text(AppLocalization.text("saved_carts", fallback: "SAVED BAGS"))
                 .font(displayFont(size: 22))
                 .tracking(2)
                 .foregroundColor(primaryTextColor)
 
             if savedCarts.isEmpty {
                 actionEmptyState(
-                    message: AppLocalization.text("saved_carts_empty", fallback: "Save a filled cart from the bag and come back to it whenever you are ready to check out."),
+                    message: AppLocalization.text("saved_carts_empty", fallback: "Save a filled bag and come back to it whenever you are ready to check out."),
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "cart.fill"
                 ) {
@@ -5550,13 +6001,121 @@ struct ContentView: View {
                     openShop()
                 }
             } else {
-                LazyVGrid(columns: productGridColumns, spacing: 16) {
-                    ForEach(recentlyViewedProducts.prefix(4)) { product in
-                        productCard(product: product, showDescription: false)
-                    }
-                }
+                accountCompactProductSection(
+                    products: Array(recentlyViewedProducts.prefix(3)),
+                    viewAllTitle: AppLocalization.text("view_all_recent_products", fallback: "View all recent products")
+                )
             }
         }
+    }
+
+    private func accountCompactProductSection(products: [Product], viewAllTitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(products) { product in
+                        accountCompactProductCard(product)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            Button {
+                openShop()
+            } label: {
+                HStack(spacing: 8) {
+                    Text(viewAllTitle)
+                    Image(systemName: "arrow.right")
+                }
+                .font(labelFont(size: 11, weight: .bold))
+                .tracking(1.4)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0xC8965A))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func accountCompactProductCard(_ product: Product) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                recordRecentlyViewed(product)
+                selectedProduct = product
+            } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    ProductThumbnail(imageURL: product.imageURL, size: 58, cornerRadius: 12)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(customerFacingProductName(for: product))
+                            .font(titleFont(size: 17))
+                            .foregroundColor(primaryTextColor)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.82)
+
+                        Text(accountCompactProductMeta(for: product))
+                            .font(bodyFont(size: 12))
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                if product.hasVariantChoices {
+                    recordRecentlyViewed(product)
+                    selectedProduct = product
+                } else {
+                    addToCart(product: product)
+                }
+            } label: {
+                Text(product.hasVariantChoices
+                    ? AppLocalization.text("options", fallback: "Options")
+                    : AppLocalization.text("add", fallback: "Add"))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(1.4)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color(hex: 0xC8965A))
+                    .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .frame(width: 230, alignment: .topLeading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func accountCompactProductMeta(for product: Product) -> String {
+        let variant = accountCompactVariantLabel(for: product)
+        guard !variant.isEmpty else {
+            return product.price
+        }
+
+        return "\(product.price) · \(variant)"
+    }
+
+    private func accountCompactVariantLabel(for product: Product) -> String {
+        guard let title = product.defaultVariant?.title.trimmingCharacters(in: .whitespacesAndNewlines),
+              !title.isEmpty,
+              title.lowercased() != "default title",
+              title.lowercased() != "default" else {
+            return ""
+        }
+
+        return title
     }
 
     private func accountStatusTile(title: String, detail: String) -> some View {
@@ -5654,88 +6213,89 @@ struct ContentView: View {
 
     private var cartReviewContent: some View {
         VStack(alignment: .leading, spacing: 18) {
+            cartItemsListSection
+
             VStack(alignment: .leading, spacing: 10) {
-                Text(AppLocalization.text("checkout_ready", fallback: "Checkout Ready"))
-                    .font(labelFont(size: 10, weight: .bold))
-                    .tracking(1.8)
+                Text(checkoutReadinessTitle)
+                    .font(labelFont(size: 11, weight: .bold))
+                    .tracking(1.4)
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0xC8965A))
 
-                Text(checkoutReadinessMessage)
-                    .font(bodyFont(size: 13))
-                    .foregroundColor(secondaryTextColor)
+                Text(checkoutReadinessSummary)
+                    .font(bodyFont(size: 14))
+                    .foregroundColor(primaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
 
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    DetailStatusCardView(
-                        title: AppLocalization.text("items", fallback: "Items"),
-                        detail: String(format: AppLocalization.text("items_ready", fallback: "%d in bag • %d ready"), cartCount, cartPurchasableItemsCount),
-                        titleFont: labelFont(size: 10, weight: .bold),
-                        detailFont: bodyFont(size: 13),
-                        accentColor: Color(hex: 0xC8965A),
-                        primaryTextColor: primaryTextColor,
-                        backgroundColor: cardFillColor,
-                        strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
-                    )
-                    DetailStatusCardView(
-                        title: AppLocalization.text("address", fallback: "Address"),
-                        detail: preferredAddress == nil
-                            ? AppLocalization.text("address_missing", fallback: "Add before checkout")
-                            : AppLocalization.text("address_ready", fallback: "Saved for checkout"),
-                        titleFont: labelFont(size: 10, weight: .bold),
-                        detailFont: bodyFont(size: 13),
-                        accentColor: Color(hex: 0xC8965A),
-                        primaryTextColor: primaryTextColor,
-                        backgroundColor: cardFillColor,
-                        strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
-                    )
-                    DetailStatusCardView(
-                        title: AppLocalization.text("voucher", fallback: "Voucher"),
-                        detail: appliedVoucher == nil ? AppLocalization.text("voucher_none", fallback: "None applied yet") : appliedVoucher?.code ?? AppLocalization.text("saved", fallback: "Applied"),
-                        titleFont: labelFont(size: 10, weight: .bold),
-                        detailFont: bodyFont(size: 13),
-                        accentColor: Color(hex: 0xC8965A),
-                        primaryTextColor: primaryTextColor,
-                        backgroundColor: cardFillColor,
-                        strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
-                    )
-                    DetailStatusCardView(
-                        title: AppLocalization.text("apple_pay", fallback: "Apple Pay"),
-                        detail: isApplePayAvailable
-                            ? AppLocalization.text("apple_pay_ready", fallback: "Available")
-                            : AppLocalization.text("apple_pay_unavailable", fallback: "Card checkout ready"),
-                        titleFont: labelFont(size: 10, weight: .bold),
-                        detailFont: bodyFont(size: 13),
-                        accentColor: Color(hex: 0xC8965A),
-                        primaryTextColor: primaryTextColor,
-                        backgroundColor: cardFillColor,
-                        strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
-                    )
+                if let appliedVoucher {
+                    Text(String(format: AppLocalization.text("voucher_applied_summary", fallback: "Voucher %@ applied"), appliedVoucher.code))
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+
+                if preferredAddress == nil {
+                    Button {
+                        cartOpen = false
+                        isDeliveryDetailsExpanded = true
+                        openAccountSection(AccountSectionView.ScrollTarget.library)
+                    } label: {
+                        Label(AppLocalization.text("add_delivery_address", fallback: "Add Delivery Address"), systemImage: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(1.3)
+                            .textCase(.uppercase)
+                            .foregroundColor(Color(hex: 0xC8965A))
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-            cartDeliverySection
-            cartOrderingGuideSection
-            cartItemsListSection
             cartRewardsSection
+            cartOrderSummarySection
+            cartPaymentMethodsSection
             cartSaveSection
+            cartOrderingGuideSection
         }
     }
 
     private var cartOrderingGuideSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.text("how_ordering_works", fallback: "How ordering works"))
-                .font(labelFont(size: 10, weight: .bold))
-                .tracking(1.8)
-                .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isCheckoutNoteExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Text(AppLocalization.text("how_checkout_works", fallback: "How checkout works"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
 
-            VStack(alignment: .leading, spacing: 10) {
-                cartOrderingStep(number: "1", text: AppLocalization.text("ordering_step_review", fallback: "Review your bag and delivery details."))
-                cartOrderingStep(number: "2", text: AppLocalization.text("ordering_step_checkout", fallback: "Continue to secure checkout to submit the order."))
-                cartOrderingStep(number: "3", text: AppLocalization.text("ordering_step_confirm", fallback: "Talla confirms availability, delivery, and final handoff."))
-                cartOrderingStep(number: "4", text: AppLocalization.text("ordering_step_return", fallback: "Return to Talla after payment to see order status and Beans."))
-                cartOrderingStep(number: "5", text: AppLocalization.text("ordering_step_beans", fallback: "Beans are added after the completed order is recorded."))
+                    Spacer()
+
+                    Image(systemName: isCheckoutNoteExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Color(hex: 0xC8965A))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isCheckoutNoteExpanded {
+                Text(AppLocalization.text("checkout_note_detail", fallback: "Payment is completed securely through Shopify. Return to Talla afterwards to track your order and receive Beans."))
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(14)
@@ -5748,31 +6308,76 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func cartOrderingStep(number: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(number)
-                .font(labelFont(size: 10, weight: .bold))
-                .foregroundColor(Color(hex: 0x0A0804))
-                .frame(width: 22, height: 22)
-                .background(Color(hex: 0xC8965A))
-                .clipShape(Circle())
+    private var cartFooterContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(AppLocalization.text("total", fallback: "Total"))
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
 
-            Text(text)
-                .font(bodyFont(size: 13))
-                .foregroundColor(secondaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+
+                Text(formattedBHD(cartTotal))
+                    .font(labelFont(size: 13, weight: .bold))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            if let checkoutError {
+                Text(checkoutError)
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(Color.red.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                checkoutError = nil
+                if preferredAddress == nil {
+                    cartOpen = false
+                    isDeliveryDetailsExpanded = true
+                    openAccountSection(AccountSectionView.ScrollTarget.library)
+                } else {
+                    Task {
+                        await beginCheckout(useDeliveryAddress: true)
+                    }
+                }
+            } label: {
+                VStack(spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text(isCheckingOut
+                            ? AppLocalization.text("opening_checkout", fallback: "OPENING CHECKOUT...")
+                            : preferredAddress == nil
+                                ? AppLocalization.text("add_address_to_continue", fallback: "ADD ADDRESS TO CONTINUE")
+                                : AppLocalization.text("continue_secure_checkout", fallback: "SECURE CHECKOUT"))
+                    }
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .tracking(1.2)
+
+                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely through Shopify, then return to Talla for order tracking and Beans."))
+                        .font(bodyFont(size: 11))
+                        .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
+                }
+                .foregroundColor(Color(hex: 0x0A0804))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color(hex: 0xC8965A))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(cartItems.isEmpty || isCheckingOut)
         }
     }
 
-    private var cartFooterContent: some View {
+    private var cartOrderSummarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(AppLocalization.text("order_summary", fallback: "Order Summary"))
-                    .font(labelFont(size: 10, weight: .bold))
-                    .tracking(1.8)
-                    .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+            Text(AppLocalization.text("order_summary", fallback: "Order Summary"))
+                .font(labelFont(size: 10, weight: .bold))
+                .tracking(1.8)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0xC8965A))
 
+            VStack(alignment: .leading, spacing: 10) {
                 SummaryValueRow(
                     title: AppLocalization.text("subtotal", fallback: "Subtotal"),
                     value: formattedBHD(cartSubtotal),
@@ -5784,18 +6389,27 @@ struct ContentView: View {
                     accentColor: Color(hex: 0xC8965A)
                 )
 
-                if appliedVoucher != nil {
-                    SummaryValueRow(
-                        title: AppLocalization.text("voucher", fallback: "Voucher"),
-                        value: "-\(formattedBHD(cartDiscount))",
-                        emphasized: false,
-                        regularFont: bodyFont(size: 13),
-                        emphasizedFont: labelFont(size: 11, weight: .bold),
-                        primaryTextColor: primaryTextColor,
-                        secondaryTextColor: secondaryTextColor,
-                        accentColor: Color(hex: 0xC8965A)
-                    )
-                }
+                SummaryValueRow(
+                    title: AppLocalization.text("delivery", fallback: "Delivery"),
+                    value: AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout"),
+                    emphasized: false,
+                    regularFont: bodyFont(size: 13),
+                    emphasizedFont: labelFont(size: 11, weight: .bold),
+                    primaryTextColor: primaryTextColor,
+                    secondaryTextColor: secondaryTextColor,
+                    accentColor: Color(hex: 0xC8965A)
+                )
+
+                SummaryValueRow(
+                    title: AppLocalization.text("discount", fallback: "Discount"),
+                    value: cartDiscount > 0 ? "-\(formattedBHD(cartDiscount))" : AppLocalization.text("none_dash", fallback: "—"),
+                    emphasized: false,
+                    regularFont: bodyFont(size: 13),
+                    emphasizedFont: labelFont(size: 11, weight: .bold),
+                    primaryTextColor: primaryTextColor,
+                    secondaryTextColor: secondaryTextColor,
+                    accentColor: Color(hex: 0xC8965A)
+                )
 
                 SummaryValueRow(
                     title: AppLocalization.text("total", fallback: "Total"),
@@ -5808,46 +6422,15 @@ struct ContentView: View {
                     accentColor: Color(hex: 0xC8965A)
                 )
             }
-            .padding(.top, 4)
-
-            if let checkoutError {
-                Text(checkoutError)
-                    .font(bodyFont(size: 13))
-                    .foregroundColor(Color.red.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            cartPaymentMethodsSection
-
-            Button {
-                checkoutError = nil
-                Task {
-                    await beginCheckout(useDeliveryAddress: preferredAddress != nil)
-                }
-            } label: {
-                VStack(spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text(isCheckingOut
-                            ? AppLocalization.text("opening_checkout", fallback: "OPENING CHECKOUT...")
-                            : AppLocalization.text("open_checkout", fallback: "OPEN CHECKOUT"))
-                    }
-                    .font(.system(size: 16, weight: .bold, design: .serif))
-                    .tracking(2)
-
-                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely in Shopify, then return to Talla for order status and Beans."))
-                        .font(bodyFont(size: 11))
-                        .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
-                }
-                .foregroundColor(Color(hex: 0x0A0804))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color(hex: 0xC8965A))
-                .cornerRadius(2)
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-            .disabled(cartItems.isEmpty || isCheckingOut)
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var cartPaymentMethodsSection: some View {
@@ -5859,13 +6442,13 @@ struct ContentView: View {
                     .frame(width: 20, height: 20)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(AppLocalization.text("payment_methods", fallback: "Payment Methods"))
+                    Text(AppLocalization.text("secure_payment", fallback: "Secure payment"))
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(1.8)
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(AppLocalization.text("payment_methods_detail", fallback: "Cards and Apple Pay are completed securely in Shopify checkout. Talla does not store card numbers in the app."))
+                    Text(AppLocalization.text("payment_methods_detail", fallback: "Pay using Apple Pay or card through Shopify. Talla never stores your card details."))
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -5874,18 +6457,13 @@ struct ContentView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 8)], alignment: .leading, spacing: 8) {
                 paymentMethodChip(
-                    title: AppLocalization.text("credit_debit_cards", fallback: "Credit / Debit Cards"),
-                    systemImage: "creditcard.fill"
-                )
-
-                paymentMethodChip(
                     title: AppLocalization.text("apple_pay", fallback: "Apple Pay"),
                     systemImage: "apple.logo"
                 )
 
                 paymentMethodChip(
-                    title: AppLocalization.text("shopify_secure_checkout", fallback: "Secure Checkout"),
-                    systemImage: "checkmark.shield.fill"
+                    title: AppLocalization.text("credit_debit_cards", fallback: "Credit / Debit Cards"),
+                    systemImage: "creditcard.fill"
                 )
             }
         }
@@ -5924,110 +6502,74 @@ struct ContentView: View {
         .accessibilityValue(AppLocalization.text("available_in_secure_checkout", fallback: "Available in secure checkout"))
     }
 
-    private var cartDeliverySection: some View {
-        Group {
-            if let preferredAddress {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(AppLocalization.text("preferred_delivery", fallback: "Preferred Delivery"))
-                                .font(labelFont(size: 10, weight: .bold))
-                                .tracking(1.6)
-                                .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0xC8965A))
-                            Text("\(preferredAddress.fullName) • \(preferredAddress.phone)")
-                                .font(bodyFont(size: 13))
-                                .foregroundColor(primaryTextColor)
-                            Text("\(preferredAddress.line1), \(preferredAddress.city)")
-                                .font(bodyFont(size: 13))
-                                .foregroundColor(secondaryTextColor)
-                        }
-
-                        Spacer(minLength: 12)
-
-                        Button {
-                            cartOpen = false
-                            isDeliveryDetailsExpanded = true
-                            openAccountSection(AccountSectionView.ScrollTarget.library)
-                        } label: {
-                            Text(AppLocalization.text("edit", fallback: "Edit"))
-                                .font(labelFont(size: 10, weight: .bold))
-                                .tracking(1.5)
-                                .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0xC8965A))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(cardFillColor)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            } else {
-                Button {
-                    cartOpen = false
-                    isDeliveryDetailsExpanded = true
-                    openAccountSection(AccountSectionView.ScrollTarget.library)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(AppLocalization.text("delivery_address_needed", fallback: "Delivery Address Needed"))
-                                .font(labelFont(size: 10, weight: .bold))
-                                .tracking(1.6)
-                                .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0xC8965A))
-                            Text(AppLocalization.text("add_preferred_address_before_checkout", fallback: "Add your preferred address before checkout."))
-                                .font(bodyFont(size: 13))
-                                .foregroundColor(secondaryTextColor)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: appLanguage.layoutDirection == .rightToLeft ? "chevron.left" : "chevron.right")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(Color(hex: 0xC8965A))
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(cardFillColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
     private var cartItemsListSection: some View {
         ForEach(cartItems) { item in
-            HStack(spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 ProductThumbnail(imageURL: item.product.imageURL, size: 44, cornerRadius: 8)
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(item.product.name)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(primaryTextColor)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.86)
 
-                    Text("\(item.product.price) x \(item.quantity)")
+                    if let variantTitle = cartVariantDisplayTitle(for: item) {
+                        Text(variantTitle)
+                            .font(.system(size: 10, weight: .light))
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+
+                    Text(item.variant.price)
                         .font(.system(size: 10, weight: .light))
                         .foregroundColor(Color(hex: 0xC8965A))
                 }
 
                 Spacer()
 
+                HStack(spacing: 0) {
+                    Button {
+                        decrementCartItem(id: item.id)
+                    } label: {
+                        Image(systemName: "minus")
+                            .font(.system(size: 10, weight: .bold))
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("decrease_quantity", fallback: "Decrease quantity"))
+
+                    Text("\(item.quantity)")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 28, height: 36)
+                        .accessibilityLabel("\(AppLocalization.text("quantity", fallback: "Quantity")) \(item.quantity)")
+
+                    Button {
+                        incrementCartItem(id: item.id)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .bold))
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("increase_quantity", fallback: "Increase quantity"))
+                }
+                .foregroundColor(Color(hex: 0xC8965A))
+                .background(cardFillColor)
+                .overlay(
+                    Capsule()
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.18 : 0.1), lineWidth: 1)
+                )
+                .clipShape(Capsule())
+
                 Button {
-                    removeFromCart(id: item.id)
+                    requestRemoveFromCart(id: item.id)
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .frame(width: 22, height: 22)
+                        .frame(width: 32, height: 32)
                         .overlay(
                             Circle()
                                 .stroke(Color(hex: 0xC8965A).opacity(0.2), lineWidth: 1)
@@ -6048,7 +6590,7 @@ struct ContentView: View {
 
     private var cartRewardsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.text("rewards_voucher", fallback: "Rewards & Voucher"))
+            Text(AppLocalization.text("rewards_voucher", fallback: "Rewards & Vouchers"))
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(2)
                 .textCase(.uppercase)
@@ -6059,37 +6601,68 @@ struct ContentView: View {
                 .foregroundColor(secondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 10) {
-                TextField(AppLocalization.text("enter_voucher_code", fallback: "Enter voucher code"), text: $voucherCodeInput)
-                    .textInputAutocapitalization(.characters)
-                    .disableAutocorrection(true)
-                    .font(bodyFont(size: 14))
-                    .foregroundColor(primaryTextColor)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 14)
-                    .background(cardFillColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                Button {
-                    Task {
-                        await applyVoucher()
-                    }
-                } label: {
-                    Text(isApplyingVoucher ? "..." : AppLocalization.text("apply", fallback: "Apply"))
-                        .font(labelFont(size: 11, weight: .bold))
-                        .tracking(1.5)
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .background(Color(hex: 0xC8965A))
-                        .clipShape(Capsule(style: .continuous))
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isVoucherCodeEntryExpanded.toggle()
                 }
-                .buttonStyle(.plain)
-                .disabled(isApplyingVoucher || voucherCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } label: {
+                HStack(spacing: 10) {
+                    Text(AppLocalization.text("add_voucher_discount_code", fallback: "Add voucher or discount code"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(1.4)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0xC8965A))
+
+                    Spacer()
+
+                    Image(systemName: isVoucherCodeEntryExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Color(hex: 0xC8965A))
+                }
+                .padding(14)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if isVoucherCodeEntryExpanded {
+                HStack(spacing: 10) {
+                    TextField(AppLocalization.text("enter_voucher_code", fallback: "Enter voucher code"), text: $voucherCodeInput)
+                        .textInputAutocapitalization(.characters)
+                        .disableAutocorrection(true)
+                        .font(bodyFont(size: 14))
+                        .foregroundColor(primaryTextColor)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 14)
+                        .background(cardFillColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    Button {
+                        Task {
+                            await applyVoucher()
+                        }
+                    } label: {
+                        Text(isApplyingVoucher ? "..." : AppLocalization.text("apply", fallback: "Apply"))
+                            .font(labelFont(size: 11, weight: .bold))
+                            .tracking(1.5)
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(Color(hex: 0xC8965A))
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isApplyingVoucher || voucherCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             if let appliedVoucher {
@@ -6138,28 +6711,70 @@ struct ContentView: View {
 
             if let profile = customerProfile {
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text(AppLocalization.text("your_active_vouchers", fallback: "Your Active Vouchers"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(1.6)
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
-
-                        Spacer()
-
-                        if isLoadingAvailableVouchers {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .tint(Color(hex: 0xC8965A))
-                        }
-                    }
-
                     if availableVouchers.isEmpty {
-                        Text(AppLocalization.text("active_vouchers_empty", fallback: "Redeem a reward in Account to see your active vouchers here."))
-                            .font(bodyFont(size: 12))
-                            .foregroundColor(secondaryTextColor)
-                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "ticket")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Color(hex: 0xC8965A))
+                                .frame(width: 20, height: 20)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 8) {
+                                    Text(AppLocalization.text("no_active_vouchers", fallback: "No active vouchers"))
+                                        .font(labelFont(size: 10, weight: .bold))
+                                        .tracking(1.2)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(primaryTextColor)
+
+                                    if isLoadingAvailableVouchers {
+                                        ProgressView()
+                                            .scaleEffect(0.75)
+                                            .tint(Color(hex: 0xC8965A))
+                                    }
+                                }
+
+                                Text(AppLocalization.text("active_vouchers_empty", fallback: "Redeem Beans in Talla Reserve to unlock one."))
+                                    .font(bodyFont(size: 12))
+                                    .foregroundColor(secondaryTextColor)
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                Button {
+                                    cartOpen = false
+                                    openAccountSection(AccountSectionView.ScrollTarget.loyalty)
+                                } label: {
+                                    Label(AppLocalization.text("view_rewards", fallback: "View Rewards"), systemImage: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
+                                        .font(labelFont(size: 10, weight: .bold))
+                                        .tracking(1.3)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(Color(hex: 0xC8965A))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(14)
+                        .background(cardFillColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     } else {
+                        HStack {
+                            Text(AppLocalization.text("your_active_vouchers", fallback: "Your Active Vouchers"))
+                                .font(labelFont(size: 10, weight: .bold))
+                                .tracking(1.6)
+                                .textCase(.uppercase)
+                                .foregroundColor(Color(hex: 0xC8965A))
+
+                            Spacer()
+
+                            if isLoadingAvailableVouchers {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(Color(hex: 0xC8965A))
+                            }
+                        }
+
                         ForEach(availableVouchers.prefix(3)) { voucher in
                             Button {
                                 voucherCodeInput = voucher.code
@@ -6209,38 +6824,61 @@ struct ContentView: View {
 
     private var cartSaveSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.text("save_cart", fallback: "Save Cart"))
-                .font(labelFont(size: 11, weight: .bold))
-                .tracking(2)
-                .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
-
-            HStack(spacing: 10) {
-                TextField(AppLocalization.text("save_cart_placeholder", fallback: "Weekend beans, gifting run, office order..."), text: $cartSaveName)
-                    .font(bodyFont(size: 14))
-                    .foregroundColor(primaryTextColor)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 14)
-                    .background(cardFillColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                Button {
-                    saveCurrentCart()
-                } label: {
-                    Text(AppLocalization.text("save", fallback: "Save"))
-                        .font(labelFont(size: 11, weight: .bold))
-                        .tracking(1.5)
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .background(Color(hex: 0xC8965A))
-                        .clipShape(Capsule(style: .continuous))
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isCartSaveEntryExpanded.toggle()
                 }
-                .buttonStyle(.plain)
+            } label: {
+                HStack(spacing: 10) {
+                    Label(AppLocalization.text("save_cart_later", fallback: "Save this bag for later"), systemImage: "bookmark")
+                        .font(labelFont(size: 12, weight: .semibold))
+                        .foregroundColor(primaryTextColor)
+
+                    Spacer()
+
+                    Image(systemName: isCartSaveEntryExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Color(hex: 0xC8965A))
+                }
+                .padding(14)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if isCartSaveEntryExpanded {
+                HStack(spacing: 10) {
+                    TextField(AppLocalization.text("save_cart_placeholder", fallback: "Weekend beans, gifting run, office order..."), text: $cartSaveName)
+                        .font(bodyFont(size: 14))
+                        .foregroundColor(primaryTextColor)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 14)
+                        .background(cardFillColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    Button {
+                        saveCurrentCart()
+                    } label: {
+                        Text(AppLocalization.text("save", fallback: "Save"))
+                            .font(labelFont(size: 11, weight: .bold))
+                            .tracking(1.5)
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(Color(hex: 0xC8965A))
+                            .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
@@ -6407,6 +7045,7 @@ struct ContentView: View {
         let brewRecommendation = productBrewRecommendation(for: product)
         let metadataChips = productMetadataChips(for: product)
         let cardMinimumHeight: CGFloat = showDescription ? (isCompact ? 468 : 488) : (isCompact ? 396 : 416)
+        let shouldShowAlertButton = !product.isAvailableForSale || isAlertEnabled(product)
 
         return VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .topTrailing) {
@@ -6435,20 +7074,25 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button {
-                        Task {
-                            await toggleAlert(product: product)
+                    if shouldShowAlertButton {
+                        Button {
+                            Task {
+                                await toggleAlert(product: product)
+                            }
+                        } label: {
+                            Image(systemName: isAlertEnabled(product) ? "bell.fill" : "bell")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(isAlertEnabled(product) ? Color(hex: 0xC8965A) : primaryTextColor)
+                                .symbolEffect(.bounce, value: isAlertEnabled(product))
+                                .frame(width: 34, height: 34)
+                                .background(cardFillColor.opacity(0.92))
+                                .clipShape(Circle())
                         }
-                    } label: {
-                        Image(systemName: isAlertEnabled(product) ? "bell.fill" : "bell")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(isAlertEnabled(product) ? Color(hex: 0xC8965A) : primaryTextColor)
-                            .symbolEffect(.bounce, value: isAlertEnabled(product))
-                            .frame(width: 34, height: 34)
-                            .background(cardFillColor.opacity(0.92))
-                            .clipShape(Circle())
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isAlertEnabled(product)
+                            ? AppLocalization.text("remove_alert", fallback: "Remove alert")
+                            : AppLocalization.text("notify_me", fallback: "Notify me"))
                     }
-                    .buttonStyle(.plain)
 
                     if let tag = product.tag {
                         Text(tag)
@@ -6512,7 +7156,7 @@ struct ContentView: View {
             Spacer(minLength: 0)
 
             if product.hasVariantChoices, let variant = selectedVariant(for: product) {
-                Text("\(AppLocalization.text("default_variant", fallback: "Default:")) \(variant.title)")
+                Text("\(AppLocalization.text("selected_variant", fallback: "Variant:")) \(variant.title)")
                     .font(bodyFont(size: 12))
                     .foregroundColor(secondaryTextColor)
                     .lineLimit(1)
@@ -6527,14 +7171,13 @@ struct ContentView: View {
                     .accessibilityHidden(true)
             }
 
-            HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(product.price)
                     .font(labelFont(size: isCompact ? 14 : 15, weight: .bold))
                     .foregroundColor(product.isAvailableForSale ? Color(hex: 0xC8965A) : tertiaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-
-                Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
 
                 Button {
                     if product.hasVariantChoices {
@@ -6555,7 +7198,7 @@ struct ContentView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
-                    .frame(minWidth: isCompact ? 88 : 98)
+                    .frame(maxWidth: .infinity, minHeight: 18)
                     .foregroundColor(product.isAvailableForSale ? Color(hex: 0x0A0804) : tertiaryTextColor)
                     .padding(.horizontal, isCompact ? 10 : 12)
                     .padding(.vertical, 10)
@@ -6569,7 +7212,7 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
             }
-            .frame(height: 44, alignment: .center)
+            .frame(maxWidth: .infinity, minHeight: 74, alignment: .bottom)
         }
         .padding(14)
         .background(
@@ -6690,7 +7333,7 @@ struct ContentView: View {
         }
 
         return product.hasVariantChoices
-            ? AppLocalization.text("choose_options", fallback: "Choose options")
+            ? AppLocalization.text("options", fallback: "Options")
             : AppLocalization.text("add", fallback: "Add")
     }
 
@@ -6832,7 +7475,22 @@ struct ContentView: View {
             return AppLocalization.text("coffee_card_default_taste", fallback: "Balanced - Sweet - Clean")
         }
 
-        return productPreviewDescription(for: product)
+        switch product.categoryKey {
+        case "ready-made-drinks", "summer-drinks":
+            return AppLocalization.text("ready_drink_card_summary", fallback: "Ready to drink")
+        case "cups":
+            return AppLocalization.text("cups_card_summary", fallback: "Reusable cup")
+        case "coffee-equipment":
+            return AppLocalization.text("equipment_card_summary", fallback: "Brewing gear")
+        case "gifts":
+            return AppLocalization.text("gifts_card_summary", fallback: "Gift box")
+        case "arabic-coffee":
+            return AppLocalization.text("arabic_card_summary", fallback: "Arabic coffee")
+        default:
+            return product.categoryLabel.isEmpty
+                ? AppLocalization.text("product_card_summary_fallback", fallback: "Talla pick")
+                : product.categoryLabel
+        }
     }
 
     private func productBrewRecommendation(for product: Product) -> String {
@@ -7918,7 +8576,7 @@ struct ContentView: View {
         profileFirstName = profile.firstName ?? ""
         profileLastName = profile.lastName ?? ""
 
-        if loadLoyalty && loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if loadLoyalty {
             loyaltyEmail = profile.email
         }
 
@@ -7926,7 +8584,7 @@ struct ContentView: View {
         Task {
             await refreshWalletPassPresence()
             await syncRemotePushTokenIfPossible()
-            if loadLoyalty && loyaltyEmail == profile.email {
+            if loadLoyalty {
                 await loadLoyaltyAccount()
             }
             await loadOrderHistory()
@@ -8079,7 +8737,10 @@ struct ContentView: View {
             }
         } catch {
             orderHistory = []
-            ordersError = error.localizedDescription
+            ordersError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("orders_refresh_failed", fallback: "Orders could not be refreshed right now.")
+            )
         }
 
         isLoadingOrders = false
@@ -8170,7 +8831,10 @@ struct ContentView: View {
             addressNotes = ""
             showToast(message: AppLocalization.text("address_saved_toast", fallback: "Address saved"))
         } catch {
-            showToast(message: error.localizedDescription)
+            showToast(message: customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("address_save_failed", fallback: "Address could not be saved right now.")
+            ))
         }
     }
 
@@ -8188,7 +8852,10 @@ struct ContentView: View {
             addresses = try await AccountService.deleteAddress(email: profile.email, addressID: address.id)
             showToast(message: AppLocalization.text("address_removed_toast", fallback: "Address removed"))
         } catch {
-            showToast(message: error.localizedDescription)
+            showToast(message: customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("address_remove_failed", fallback: "Address could not be removed right now.")
+            ))
         }
     }
 
@@ -8202,7 +8869,7 @@ struct ContentView: View {
         let normalized = message.lowercased()
 
         if normalized.contains("backendbaseurl") || normalized.contains("127.0.0.1") || normalized.contains("localhost") {
-            return fallback ?? message
+            return fallback ?? AppLocalization.text("connection_issue_try_again", fallback: "Talla is having trouble connecting. Check your internet connection and try again.")
         }
 
         if normalized.contains("invalid email or password") {
@@ -8226,6 +8893,29 @@ struct ContentView: View {
         }
 
         return fallback ?? message
+    }
+
+    private func customerFacingServiceMessage(for error: Error, fallback: String) -> String {
+        if let urlError = error as? URLError,
+           [.cannotConnectToHost, .cannotFindHost, .timedOut, .networkConnectionLost, .notConnectedToInternet].contains(urlError.code) {
+            return AppLocalization.text("connection_issue_try_again", fallback: "Talla is having trouble connecting. Check your internet connection and try again.")
+        }
+
+        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = message.lowercased()
+
+        if message.isEmpty ||
+            normalized.contains("backendbaseurl") ||
+            normalized.contains("127.0.0.1") ||
+            normalized.contains("localhost") ||
+            normalized.contains("url is invalid") ||
+            normalized.contains("invalid response") ||
+            normalized.contains("service is unavailable") ||
+            normalized.contains("could not complete your request") {
+            return fallback
+        }
+
+        return message
     }
 
     private var normalizedAccountEmail: String {
@@ -8257,7 +8947,10 @@ struct ContentView: View {
                 await loadBackendStockAlerts()
             }
         } catch {
-            loadingError = error.localizedDescription
+            loadingError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("shop_retry_later", fallback: "Products could not be loaded right now. Please try again.")
+            )
         }
 
         isLoadingProducts = false
@@ -8339,7 +9032,10 @@ struct ContentView: View {
             showToast(message: AppLocalization.text("rewards_loaded_toast", fallback: "Rewards loaded"))
         } catch {
             loyaltyAccount = nil
-            loyaltyError = error.localizedDescription
+            loyaltyError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("rewards_refresh_failed", fallback: "Rewards could not be refreshed right now.")
+            )
         }
 
         isLoadingLoyalty = false
@@ -8366,7 +9062,10 @@ struct ContentView: View {
                 showToast(message: String(format: AppLocalization.text("reward_redeemed", fallback: "%@ redeemed"), reward))
             }
         } catch {
-            loyaltyError = error.localizedDescription
+            loyaltyError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("reward_redeem_failed", fallback: "This reward could not be redeemed right now.")
+            )
         }
 
         isRedeemingReward = false
@@ -8388,7 +9087,10 @@ struct ContentView: View {
             syncWidgetSharedState(reload: true)
             showToast(message: String(format: AppLocalization.text("beans_added_toast", fallback: "%d Beans added"), points))
         } catch {
-            loyaltyError = error.localizedDescription
+            loyaltyError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("beans_update_failed", fallback: "Beans could not be updated right now.")
+            )
         }
 
         isEarningPoints = false
@@ -8413,7 +9115,7 @@ struct ContentView: View {
         checkoutError = nil
         triggerCartCelebration()
         let variantSuffix = product.hasVariantChoices ? " (\(variant.title))" : ""
-        showToast(message: String(format: AppLocalization.text("product_added_to_cart", fallback: "%@%@ added to cart"), product.name, variantSuffix))
+        showToast(message: String(format: AppLocalization.text("product_added_to_cart", fallback: "%@%@ added to bag"), product.name, variantSuffix))
     }
 
     private func triggerCartCelebration() {
@@ -8436,6 +9138,37 @@ struct ContentView: View {
 
     private func removeFromCart(id: String) {
         cartItems.removeAll { $0.id == id }
+        checkoutError = nil
+    }
+
+    private func requestRemoveFromCart(id: String) {
+        if cartItems.count == 1 {
+            pendingCartRemovalID = id
+            isConfirmingEmptyBag = true
+        } else {
+            removeFromCart(id: id)
+        }
+    }
+
+    private func incrementCartItem(id: String) {
+        guard let index = cartItems.firstIndex(where: { $0.id == id }) else { return }
+        cartItems[index].quantity += 1
+        checkoutError = nil
+    }
+
+    private func decrementCartItem(id: String) {
+        guard let index = cartItems.firstIndex(where: { $0.id == id }) else { return }
+
+        if cartItems[index].quantity > 1 {
+            cartItems[index].quantity -= 1
+        } else if cartItems.count == 1 {
+            pendingCartRemovalID = id
+            isConfirmingEmptyBag = true
+        } else {
+            cartItems.remove(at: index)
+        }
+
+        checkoutError = nil
     }
 
     private func cartItemIdentifier(productID: String, variantID: String) -> String {
@@ -8449,6 +9182,18 @@ struct ContentView: View {
         }
 
         return product.defaultVariant
+    }
+
+    private func cartVariantDisplayTitle(for item: CartItem) -> String? {
+        let title = item.variant.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard item.product.hasVariantChoices,
+              !title.isEmpty,
+              title.localizedCaseInsensitiveCompare("Default") != .orderedSame,
+              title.localizedCaseInsensitiveCompare("Default Title") != .orderedSame else {
+            return nil
+        }
+
+        return title
     }
 
     private func isFavorite(_ product: Product) -> Bool {
@@ -8473,6 +9218,82 @@ struct ContentView: View {
         return min(max(Double(brewTimerRemainingSeconds) / Double(selectedBrewTimerSeconds), 0), 1)
     }
 
+    private var brewTimerElapsedSeconds: Int {
+        max(selectedBrewTimerSeconds - brewTimerRemainingSeconds, 0)
+    }
+
+    private var brewTimerPrimaryActionTitle: String {
+        if isBrewTimerRunning {
+            return AppLocalization.text("pause", fallback: "Pause")
+        }
+
+        if brewTimerRemainingSeconds == selectedBrewTimerSeconds {
+            return AppLocalization.text("start", fallback: "Start")
+        }
+
+        if brewTimerRemainingSeconds == 0 {
+            return AppLocalization.text("brew_again", fallback: "Brew Again")
+        }
+
+        return AppLocalization.text("resume", fallback: "Resume")
+    }
+
+    private var brewTimerCueText: String {
+        let elapsed = brewTimerElapsedSeconds
+        let method = selectedBrewTimerName.lowercased()
+
+        if brewTimerRemainingSeconds == 0 {
+            return AppLocalization.text("brew_ready_message", fallback: "Your brew is ready. Enjoy it slowly.")
+        }
+
+        if method.contains("cold") {
+            if elapsed < 60 {
+                return AppLocalization.text("cold_timer_cue_saturate", fallback: "Saturate the grounds")
+            }
+            if elapsed < 43_000 {
+                return AppLocalization.text("cold_timer_cue_steep", fallback: "Steep slowly")
+            }
+            return AppLocalization.text("cold_timer_cue_filter", fallback: "Filter and serve chilled")
+        }
+
+        if method.contains("arabic") {
+            if elapsed < 90 {
+                return AppLocalization.text("arabic_timer_cue_heat", fallback: "Heat the water")
+            }
+            if elapsed < 180 {
+                return AppLocalization.text("arabic_timer_cue_add", fallback: "Add coffee and spices")
+            }
+            if elapsed < 360 {
+                return AppLocalization.text("arabic_timer_cue_simmer", fallback: "Simmer gently")
+            }
+            return AppLocalization.text("arabic_timer_cue_settle", fallback: "Let it settle")
+        }
+
+        if method.contains("press") {
+            if elapsed < 30 {
+                return AppLocalization.text("press_timer_cue_pour", fallback: "Pour and saturate")
+            }
+            if elapsed < 210 {
+                return AppLocalization.text("press_timer_cue_steep", fallback: "Let it steep")
+            }
+            return AppLocalization.text("press_timer_cue_plunge", fallback: "Press slowly")
+        }
+
+        if elapsed < 30 {
+            return AppLocalization.text("pour_timer_cue_bloom", fallback: "Blooming")
+        }
+        if elapsed < 45 {
+            return AppLocalization.text("pour_timer_cue_bloom_done", fallback: "Bloom complete")
+        }
+        if elapsed < 90 {
+            return AppLocalization.text("pour_timer_cue_second_pour", fallback: "Begin second pour")
+        }
+        if elapsed < 165 {
+            return AppLocalization.text("pour_timer_cue_drawdown", fallback: "Drawdown should start now")
+        }
+        return AppLocalization.text("pour_timer_cue_finish", fallback: "Let it finish")
+    }
+
     private func tickBrewTimer() {
         guard isBrewTimerRunning else { return }
         guard brewTimerRemainingSeconds > 0 else {
@@ -8490,7 +9311,9 @@ struct ContentView: View {
     }
 
     private func startBrewTimer() {
-        guard brewTimerRemainingSeconds > 0 else { return }
+        if brewTimerRemainingSeconds == 0 {
+            brewTimerRemainingSeconds = selectedBrewTimerSeconds
+        }
 
         let runID = UUID()
         brewTimerRunID = runID
@@ -8547,6 +9370,10 @@ struct ContentView: View {
             id: UUID(),
             title: title.isEmpty ? defaultBrewRecipeName() : title,
             method: method.isEmpty ? selectedBrewTimerName : method,
+            coffeeGrams: journalCoffeeGrams,
+            ratio: journalRatio,
+            waterGrams: journalWaterGrams,
+            brewTimeSeconds: journalBrewTimeSeconds,
             rating: journalRating,
             notes: notes,
             createdAt: ISO8601DateFormatter().string(from: Date())
@@ -8555,7 +9382,71 @@ struct ContentView: View {
         persistCoffeeJournalEntries(Array(([entry] + brewJournalEntries).prefix(20)))
         journalTitleInput = ""
         journalNotesInput = ""
+        clearJournalBrewDetails()
         showToast(message: AppLocalization.text("journal_saved_toast", fallback: "Coffee note saved"))
+    }
+
+    private func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int) {
+        let methodName = method?.name ?? (activeBrewingCategory == "All" ? selectedBrewTimerName : activeBrewingCategory)
+        let recipeName = methodName.isEmpty ? defaultBrewRecipeName() : methodName
+
+        journalTitleInput = recipeName
+        journalMethodInput = methodName
+        journalCoffeeGrams = coffeeAmount
+        journalRatio = ratio
+        journalWaterGrams = waterAmount
+        journalBrewTimeSeconds = brewTime
+        journalNotesInput = ""
+        brewRecipeName = recipeName
+        showToast(message: AppLocalization.text("guided_brew_journal_ready", fallback: "Journal entry prepared"))
+    }
+
+    private var journalBrewDetailLine: String? {
+        guard let coffeeGrams = journalCoffeeGrams,
+              let ratio = journalRatio,
+              let waterGrams = journalWaterGrams,
+              let brewTimeSeconds = journalBrewTimeSeconds else {
+            return nil
+        }
+
+        return brewJournalDetailLine(
+            coffeeGrams: coffeeGrams,
+            ratio: ratio,
+            waterGrams: waterGrams,
+            brewTimeSeconds: brewTimeSeconds
+        )
+    }
+
+    private func brewJournalDetailLine(for entry: BrewJournalEntry) -> String? {
+        guard let coffeeGrams = entry.coffeeGrams,
+              let ratio = entry.ratio,
+              let waterGrams = entry.waterGrams,
+              let brewTimeSeconds = entry.brewTimeSeconds else {
+            return nil
+        }
+
+        return brewJournalDetailLine(
+            coffeeGrams: coffeeGrams,
+            ratio: ratio,
+            waterGrams: waterGrams,
+            brewTimeSeconds: brewTimeSeconds
+        )
+    }
+
+    private func brewJournalDetailLine(coffeeGrams: Double, ratio: Double, waterGrams: Double, brewTimeSeconds: Int) -> String {
+        [
+            "\(formattedRatioValue(coffeeGrams)) g coffee",
+            "1:\(formattedRatioValue(ratio))",
+            "\(formattedRatioValue(waterGrams)) g water",
+            formattedTimerTime(brewTimeSeconds)
+        ].joined(separator: " - ")
+    }
+
+    private func clearJournalBrewDetails() {
+        journalCoffeeGrams = nil
+        journalRatio = nil
+        journalWaterGrams = nil
+        journalBrewTimeSeconds = nil
     }
 
     private func deleteCoffeeJournalEntry(_ entry: BrewJournalEntry) {
@@ -8613,7 +9504,7 @@ struct ContentView: View {
 
     private func saveCurrentCart() {
         guard !cartItems.isEmpty else {
-            showToast(message: AppLocalization.text("add_items_before_saving_cart", fallback: "Add items before saving a cart"))
+            showToast(message: AppLocalization.text("add_items_before_saving_cart", fallback: "Add items before saving a bag"))
             return
         }
 
@@ -8629,7 +9520,8 @@ struct ContentView: View {
 
         persistSavedCarts([savedCart] + savedCarts)
         cartSaveName = ""
-        showToast(message: AppLocalization.text("cart_saved_toast", fallback: "Cart saved"))
+        isCartSaveEntryExpanded = false
+        showToast(message: AppLocalization.text("cart_saved_toast", fallback: "Bag saved"))
     }
 
     private func applySavedCart(_ savedCart: SavedCart) {
@@ -8642,7 +9534,7 @@ struct ContentView: View {
         }
 
         guard !matchedItems.isEmpty else {
-            showToast(message: AppLocalization.text("saved_cart_unavailable", fallback: "Saved cart items are unavailable right now"))
+            showToast(message: AppLocalization.text("saved_cart_unavailable", fallback: "Saved bag items are unavailable right now"))
             return
         }
 
@@ -8665,7 +9557,7 @@ struct ContentView: View {
 
     private func deleteSavedCart(_ savedCart: SavedCart) {
         persistSavedCarts(savedCarts.filter { $0.id != savedCart.id })
-        showToast(message: AppLocalization.text("saved_cart_deleted_toast", fallback: "Saved cart deleted"))
+        showToast(message: AppLocalization.text("saved_cart_deleted_toast", fallback: "Saved bag deleted"))
     }
 
     private func defaultSavedCartName() -> String {
@@ -8951,7 +9843,7 @@ struct ContentView: View {
         cartOpen = true
 
         if matchedProducts.count == items.count {
-            showToast(message: AppLocalization.text("order_added_to_cart", fallback: "Order added to cart"))
+            showToast(message: AppLocalization.text("order_added_to_cart", fallback: "Order added to bag"))
         } else {
             showToast(message: AppLocalization.text("available_items_added_from_order", fallback: "Available items from that order were added"))
         }
@@ -9097,7 +9989,10 @@ struct ContentView: View {
             showToast(message: AppLocalization.text("voucher_applied_toast", fallback: "Voucher applied"))
         } catch {
             appliedVoucher = nil
-            voucherError = error.localizedDescription
+            voucherError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("voucher_apply_failed", fallback: "This voucher could not be applied right now.")
+            )
         }
 
         isApplyingVoucher = false
@@ -9133,7 +10028,7 @@ struct ContentView: View {
         }
 
         guard !lines.isEmpty else {
-            checkoutError = AppLocalization.text("cart_no_purchasable_items", fallback: "Your cart has no purchasable items.")
+            checkoutError = AppLocalization.text("cart_no_purchasable_items", fallback: "Your bag has no purchasable items.")
             return
         }
 
@@ -9182,7 +10077,10 @@ struct ContentView: View {
             voucherError = nil
             showToast(message: AppLocalization.text("checkout_opened_toast", fallback: "Checkout opened. Return to Talla after payment."))
         } catch {
-            checkoutError = error.localizedDescription
+            checkoutError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("checkout_start_failed", fallback: "Checkout could not be started right now. Your bag is still saved.")
+            )
         }
 
         isCheckingOut = false
@@ -9213,7 +10111,10 @@ struct ContentView: View {
                 loyaltyWalletPass = WalletPassItem(pass: pass)
             }
         } catch {
-            showToast(message: error.localizedDescription)
+            showToast(message: customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("wallet_pass_failed", fallback: "Wallet pass could not be loaded right now.")
+            ))
         }
 
         isLoadingWalletPass = false
@@ -9277,7 +10178,7 @@ struct ContentView: View {
         return ShopCategory(
             key: key,
             title: categoryLabel(for: key),
-            subtitle: normalizedKey.contains("drink") ? "Live Shopify category" : "Shopify product type",
+            subtitle: normalizedKey.contains("drink") ? "Ready-to-enjoy picks" : "Curated Talla selection",
             symbol: categorySymbol(for: normalizedKey)
         )
     }
@@ -10563,6 +11464,7 @@ private struct CheckoutWebView: View {
 
 private enum ShopifyStorefrontClient {
     private static let endpoint = URL(string: "https://\(ShopifyConfiguration.shopDomain)/api/2025-10/graphql.json")!
+    private static let brewingArticlePageSize = 50
 
     static func fetchAllProducts() async throws -> [ContentView.Product] {
         var products: [ContentView.Product] = []
@@ -10587,68 +11489,146 @@ private enum ShopifyStorefrontClient {
     }
 
     static func fetchBrewingMethods() async throws -> [ContentView.BrewingMethod] {
-        let body = ShopifyGraphQLRequest(
-            query: """
-            query BrewingArticles($handle: String!, $query: String!) {
-              blog(handle: $handle) {
-                articles(first: 12) {
-                  edges {
-                    node {
-                      id
-                      handle
-                      title
-                      excerpt
-                      content(truncateAt: 180)
-                      tags
-                      onlineStoreUrl
-                      blog {
-                        handle
-                        title
-                      }
-                    }
-                  }
-                }
-              }
-              articles(first: 12, sortKey: PUBLISHED_AT, reverse: true, query: $query) {
-                edges {
-                  node {
-                    id
-                    handle
-                    title
-                    excerpt
-                    content(truncateAt: 180)
-                    tags
-                    onlineStoreUrl
-                    blog {
-                      handle
-                      title
-                    }
-                  }
-                }
-              }
-            }
-            """,
-            variables: [
-                "handle": ShopifyConfiguration.brewingBlogHandle,
-                "query": ShopifyConfiguration.brewingArticlesQuery
-            ]
-        )
-
-        let decoded: ShopifyBrewingArticlesResponse = try await performRequest(body)
-
-        if let errors = decoded.errors, let first = errors.first {
-            throw ShopifyError.api(first.message)
-        }
-
-        let nodesFromBlog = decoded.data?.blog?.articles.edges.map(\.node) ?? []
-        let fallbackNodes = decoded.data?.articles.edges.map(\.node) ?? []
-        let selectedNodes = nodesFromBlog.isEmpty ? fallbackNodes : nodesFromBlog
+        let nodesFromBlog = try await fetchBrewingBlogArticleNodes()
+        let fallbackNodes = nodesFromBlog.isEmpty ? try await fetchBrewingSearchArticleNodes() : []
+        let selectedNodes = uniqueArticleNodes(nodesFromBlog.isEmpty ? fallbackNodes : nodesFromBlog)
 
         guard !selectedNodes.isEmpty else {
             throw ShopifyError.api("No brewing articles are available in Shopify yet.")
         }
 
         return selectedNodes.map(ContentView.BrewingMethod.init(article:))
+    }
+
+    private static func fetchBrewingBlogArticleNodes() async throws -> [ShopifyBrewingArticlesResponse.ArticleNode] {
+        var nodes: [ShopifyBrewingArticlesResponse.ArticleNode] = []
+        var cursor: String?
+        var hasNextPage = true
+
+        while hasNextPage {
+            var variables: [String: Any] = [
+                "handle": ShopifyConfiguration.brewingBlogHandle,
+                "first": brewingArticlePageSize
+            ]
+            if let cursor {
+                variables["cursor"] = cursor
+            }
+
+            let body = ShopifyGraphQLRequest(
+                query: """
+                query BrewingBlogArticles($handle: String!, $first: Int!, $cursor: String) {
+                  blog(handle: $handle) {
+                    articles(first: $first, after: $cursor) {
+                      pageInfo {
+                        hasNextPage
+                        endCursor
+                      }
+                      edges {
+                        node {
+                          id
+                          handle
+                          title
+                          excerpt
+                          content(truncateAt: 180)
+                          tags
+                          onlineStoreUrl
+                          blog {
+                            handle
+                            title
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """,
+                variables: variables
+            )
+
+            let decoded: ShopifyBrewingArticlesResponse = try await performRequest(body)
+
+            if let errors = decoded.errors, let first = errors.first {
+                throw ShopifyError.api(first.message)
+            }
+
+            guard let connection = decoded.data?.blog?.articles else {
+                return nodes
+            }
+
+            nodes.append(contentsOf: connection.edges.map(\.node))
+            hasNextPage = connection.pageInfo.hasNextPage
+            cursor = connection.pageInfo.endCursor
+        }
+
+        return nodes
+    }
+
+    private static func fetchBrewingSearchArticleNodes() async throws -> [ShopifyBrewingArticlesResponse.ArticleNode] {
+        var nodes: [ShopifyBrewingArticlesResponse.ArticleNode] = []
+        var cursor: String?
+        var hasNextPage = true
+
+        while hasNextPage {
+            var variables: [String: Any] = [
+                "query": ShopifyConfiguration.brewingArticlesQuery,
+                "first": brewingArticlePageSize
+            ]
+            if let cursor {
+                variables["cursor"] = cursor
+            }
+
+            let body = ShopifyGraphQLRequest(
+                query: """
+                query BrewingSearchArticles($query: String!, $first: Int!, $cursor: String) {
+                  articles(first: $first, after: $cursor, sortKey: PUBLISHED_AT, reverse: true, query: $query) {
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                    edges {
+                      node {
+                        id
+                        handle
+                        title
+                        excerpt
+                        content(truncateAt: 180)
+                        tags
+                        onlineStoreUrl
+                        blog {
+                          handle
+                          title
+                        }
+                      }
+                    }
+                  }
+                }
+                """,
+                variables: variables
+            )
+
+            let decoded: ShopifyBrewingArticlesResponse = try await performRequest(body)
+
+            if let errors = decoded.errors, let first = errors.first {
+                throw ShopifyError.api(first.message)
+            }
+
+            guard let connection = decoded.data?.articles else {
+                return nodes
+            }
+
+            nodes.append(contentsOf: connection.edges.map(\.node))
+            hasNextPage = connection.pageInfo.hasNextPage
+            cursor = connection.pageInfo.endCursor
+        }
+
+        return nodes
+    }
+
+    private static func uniqueArticleNodes(_ nodes: [ShopifyBrewingArticlesResponse.ArticleNode]) -> [ShopifyBrewingArticlesResponse.ArticleNode] {
+        var seenIDs: Set<String> = []
+        return nodes.filter { node in
+            seenIDs.insert(node.id).inserted
+        }
     }
 
     static func createCustomerAccessToken(email: String, password: String) async throws -> ShopifyCustomerSession {
@@ -11120,7 +12100,7 @@ private struct ShopifyBrewingArticlesResponse: Decodable {
 
     struct DataPayload: Decodable {
         let blog: Blog?
-        let articles: ArticleConnection
+        let articles: ArticleConnection?
     }
 
     struct Blog: Decodable {
@@ -11128,7 +12108,13 @@ private struct ShopifyBrewingArticlesResponse: Decodable {
     }
 
     struct ArticleConnection: Decodable {
+        let pageInfo: PageInfo
         let edges: [ArticleEdge]
+    }
+
+    struct PageInfo: Decodable {
+        let hasNextPage: Bool
+        let endCursor: String?
     }
 
     struct ArticleEdge: Decodable {
@@ -11416,7 +12402,7 @@ private extension ContentView.Product {
             categoryKey: categoryKey,
             categoryLabel: ProductCatalogRules.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
             imageURL: shopifyNode.featuredImage?.url,
-            desc: shopifyNode.description.isEmpty ? "Freshly synced from Shopify." : shopifyNode.description,
+            desc: shopifyNode.description,
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
             isAvailableForSale: defaultVariant?.isAvailableForSale ?? false
         )
@@ -11481,32 +12467,27 @@ private extension ContentView.BrewingMethod {
     }
 
     private static func categories(title: String, tags: [String]) -> [String] {
-        let cleanedTags = tags
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        if !cleanedTags.isEmpty {
-            return Array(Set(cleanedTags)).sorted()
-        }
- 
-        let source = title.lowercased()
-        if source.contains("press") {
-            return ["Immersion"]
-        }
-
-        if source.contains("chemex") || source.contains("pour") {
-            return ["Pour Over"]
-        }
-
-        if source.contains("espresso") {
-            return ["Espresso"]
-        }
+        let source = ([title] + tags)
+            .joined(separator: " ")
+            .lowercased()
 
         if source.contains("cold") {
             return ["Cold Brew"]
         }
 
-        return ["Guide"]
+        if source.contains("arabic") || source.contains("dallah") || source.contains("traditional") {
+            return ["Traditional"]
+        }
+
+        if source.contains("press") || source.contains("immersion") {
+            return ["Immersion"]
+        }
+
+        if source.contains("chemex") || source.contains("v60") || source.contains("pour") || source.contains("filter") {
+            return ["Pour Over"]
+        }
+
+        return ["Pour Over"]
     }
 
     private static func difficulty(title: String, tags: [String]) -> String {

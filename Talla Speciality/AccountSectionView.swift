@@ -2,6 +2,27 @@ import SwiftUI
 
 struct AccountSectionView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var presentedDetail: AccountDetail?
+
+    private enum AccountDetail: String, Identifiable {
+        case personalDetails
+        case password
+        case orders
+        case addresses
+        case savedCarts
+        case alerts
+        case beansBalance
+        case rewardProgress
+        case redeemRewards
+        case appleWallet
+        case favourites
+        case recentlyViewed
+        case savedRecipes
+        case journalEntries
+        case support
+
+        var id: String { rawValue }
+    }
 
     enum ScrollTarget {
         static let customer = "account-customer"
@@ -26,112 +47,594 @@ struct AccountSectionView: View {
     let sectionBodyFont: Font
     let quickActionTitleFont: Font
     let quickActionBodyFont: Font
+    let isCustomerSignedIn: Bool
+    let accountDisplayName: String
+    let accountEmail: String
+    let membershipTier: String
+    let beansBalance: Int
+    let beansUntilNextReward: Int
+    let orderCount: Int
     let addressesCount: Int
     let favoriteCount: Int
     let brewRecipeCount: Int
+    let journalEntryCount: Int
+    let latestOrderTitle: String?
+    let latestOrderDetail: String?
+    let recentlySavedTitle: String?
+    let recentlySavedDetail: String?
     @Binding var isCustomerSectionExpanded: Bool
     @Binding var isLoyaltySectionExpanded: Bool
     @Binding var isLibrarySectionExpanded: Bool
     @Binding var isShoppingSectionExpanded: Bool
     @Binding var isBrewingSectionExpanded: Bool
     @Binding var isSupportSectionExpanded: Bool
+    let openOrdersAction: () -> Void
     let openRewardsAction: () -> Void
     let openDeliveryAction: () -> Void
     let openSavedPicksAction: () -> Void
     let openBrewArchiveAction: () -> Void
     let openSupportAction: () -> Void
+    let signOutAction: () -> Void
     let customerAccountSection: AnyView
+    let personalDetailsSection: AnyView
+    let passwordSection: AnyView
+    let ordersSection: AnyView
     let loyaltySection: AnyView
-    let librarySection: AnyView
-    let shoppingSection: AnyView
-    let brewingSection: AnyView
+    let addressesSection: AnyView
+    let savedCartsSection: AnyView
+    let alertsSection: AnyView
+    let favoritesSection: AnyView
+    let recentlyViewedSection: AnyView
+    let savedRecipesSection: AnyView
+    let journalSection: AnyView
     let supportSection: AnyView
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(AppLocalization.text("customer", fallback: "Customer"))
-                    .font(labelFont)
-                    .tracking(4)
-                    .textCase(.uppercase)
-                    .foregroundColor(accentColor)
-
-                Text(AppLocalization.text("account_heading", fallback: "ACCOUNT"))
-                    .font(titleFont)
-                    .tracking(1)
-                    .foregroundColor(primaryTextColor)
-            }
-
-            VStack(alignment: .leading, spacing: 14) {
-                Text(AppLocalization.text("account_intro", fallback: "Manage your customer sign-in, review rewards, and keep your coffee membership in one place."))
-                    .font(introFont)
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(AppLocalization.text("account_sync_hint", fallback: "Keep the same email across checkout and rewards so everything stays in sync."))
-                    .font(bodyFont)
-                    .foregroundColor(tertiaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
+        VStack(alignment: .leading, spacing: 20) {
+            accountSummaryCard
             accountQuickActions
-            accountCollectionSection(
-                title: AppLocalization.text("talla_account", fallback: "Talla Account"),
-                subtitle: AppLocalization.text("talla_account_detail", fallback: "Your Talla account connects checkout, rewards, and saved details in one place."),
-                isExpanded: $isCustomerSectionExpanded,
-                content: customerAccountSection
+            accountHomeHighlights
+            accountNavigationAreas
+        }
+        .sheet(item: $presentedDetail) { detail in
+            accountDetailScreen(detail)
+        }
+    }
+
+    private var accountSummaryCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(accentColor)
+                    .frame(width: 46, height: 46)
+                    .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(accountDisplayName)
+                        .font(titleFont)
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    Text(String(format: AppLocalization.text("member_tier_format", fallback: "%@ Member"), membershipTier))
+                        .font(Font.custom("AvenirNext-Bold", size: 12))
+                        .tracking(1.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+            }
+
+            HStack(spacing: 10) {
+                accountSummaryMetric(
+                    value: "\(beansBalance)",
+                    label: AppLocalization.text("beans", fallback: "Beans")
+                )
+
+                accountSummaryMetric(
+                    value: "\(beansUntilNextReward)",
+                    label: AppLocalization.text("until_next_reward", fallback: "until reward")
+                )
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func accountSummaryMetric(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value)
+                .font(Font.custom("Georgia-Bold", size: 28))
+                .foregroundColor(primaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+
+            Text(label)
+                .font(Font.custom("AvenirNext-Bold", size: 10))
+                .tracking(1.3)
+                .textCase(.uppercase)
+                .foregroundColor(secondaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var accountHomeHighlights: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let latestOrderTitle, let latestOrderDetail {
+                accountHighlightCard(
+                    eyebrow: AppLocalization.text("latest_order", fallback: "Latest order"),
+                    title: latestOrderTitle,
+                    detail: latestOrderDetail,
+                    systemImage: "shippingbox.fill",
+                    action: openOrdersAction
+                )
+            }
+
+            if let recentlySavedTitle, let recentlySavedDetail {
+                accountHighlightCard(
+                    eyebrow: AppLocalization.text("recently_saved_item", fallback: "Recently saved item"),
+                    title: recentlySavedTitle,
+                    detail: recentlySavedDetail,
+                    systemImage: "heart.fill",
+                    action: openSavedPicksAction
+                )
+            }
+        }
+    }
+
+    private func accountHighlightCard(
+        eyebrow: String,
+        title: String,
+        detail: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(accentColor)
+                    .frame(width: 38, height: 38)
+                    .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.14))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(eyebrow)
+                        .font(labelFont)
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
+                        .lineLimit(1)
+
+                    Text(title)
+                        .font(quickActionTitleFont)
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    Text(detail)
+                        .font(quickActionBodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var accountNavigationAreas: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            accountAreaCard(
+                title: AppLocalization.text("account_and_settings", fallback: "Account & Settings"),
+                rows: [
+                    accountNavigationRowData(
+                        detail: .personalDetails,
+                        title: AppLocalization.text("personal_information", fallback: "Personal information"),
+                        subtitle: accountProfileSubtitle,
+                        systemImage: "person.text.rectangle.fill"
+                    ),
+                    accountNavigationRowData(
+                        detail: .password,
+                        title: AppLocalization.text("password_and_security", fallback: "Password and security"),
+                        subtitle: AppLocalization.text("manage_password", fallback: "Manage password"),
+                        systemImage: "lock.fill"
+                    ),
+                    accountNavigationRowData(
+                        detail: .support,
+                        title: AppLocalization.text("support", fallback: "Support"),
+                        subtitle: AppLocalization.text("settings_help_summary", fallback: "Language, notifications, support"),
+                        systemImage: "gearshape.fill",
+                        action: openSupportAction
+                    )
+                ]
             )
             .id(ScrollTarget.customer)
-            accountCollectionSection(
-                title: "TALLA RESERVE",
-                subtitle: AppLocalization.text("reserve_copy", fallback: "Use your order email to unlock Beans, rewards, and Reserve perks in one place."),
-                isExpanded: $isLoyaltySectionExpanded,
-                content: loyaltySection
+
+            accountAreaCard(
+                title: AppLocalization.text("shopping", fallback: "Shopping"),
+                rows: [
+                    accountNavigationRowData(
+                        detail: .orders,
+                        title: AppLocalization.text("orders", fallback: "Orders"),
+                        subtitle: orderCount == 0 ? AppLocalization.text("no_orders_short", fallback: "No orders") : "\(orderCount) saved",
+                        systemImage: "shippingbox.fill",
+                        action: openOrdersAction
+                    ),
+                    accountNavigationRowData(
+                        detail: .addresses,
+                        title: AppLocalization.text("delivery_addresses", fallback: "Delivery addresses"),
+                        subtitle: addressesCount == 0 ? AppLocalization.text("delivery_setup_empty", fallback: "Add address") : "\(addressesCount) saved",
+                        systemImage: "location.fill",
+                        action: openDeliveryAction
+                    ),
+                    accountNavigationRowData(
+                        detail: .savedCarts,
+                        title: AppLocalization.text("saved_carts", fallback: "Saved bags"),
+                        subtitle: AppLocalization.text("resume_checkout", fallback: "Resume checkout"),
+                        systemImage: "bag.badge.plus"
+                    ),
+                    accountNavigationRowData(
+                        detail: .alerts,
+                        title: AppLocalization.text("back_in_stock_alerts", fallback: "Back-in-stock alerts"),
+                        subtitle: AppLocalization.text("notify_when_available", fallback: "Notify when available"),
+                        systemImage: "bell.fill"
+                    )
+                ]
+            )
+            .id(ScrollTarget.library)
+
+            accountAreaCard(
+                title: "Talla Reserve",
+                rows: [
+                    accountNavigationRowData(
+                        detail: .beansBalance,
+                        title: AppLocalization.text("beans_balance", fallback: "Beans balance"),
+                        subtitle: "\(beansBalance) Beans",
+                        systemImage: "sparkles"
+                    ),
+                    accountNavigationRowData(
+                        detail: .rewardProgress,
+                        title: AppLocalization.text("reward_progress", fallback: "Reward progress"),
+                        subtitle: "\(beansUntilNextReward) until reward",
+                        systemImage: "chart.line.uptrend.xyaxis"
+                    ),
+                    accountNavigationRowData(
+                        detail: .redeemRewards,
+                        title: AppLocalization.text("redeem_rewards", fallback: "Redeem rewards"),
+                        subtitle: AppLocalization.text("use_your_beans", fallback: "Use your Beans"),
+                        systemImage: "gift.fill"
+                    ),
+                    accountNavigationRowData(
+                        detail: .appleWallet,
+                        title: AppLocalization.text("apple_wallet", fallback: "Apple Wallet"),
+                        subtitle: AppLocalization.text("wallet_pass", fallback: "Wallet pass"),
+                        systemImage: "wallet.pass.fill"
+                    )
+                ]
             )
             .id(ScrollTarget.loyalty)
 
-            accountCollectionSection(
-                title: AppLocalization.text("delivery_reminders", fallback: "Delivery & Reminders"),
-                subtitle: AppLocalization.text("delivery_reminders_subtitle", fallback: "Addresses, back in stock reminders, and saved carts for faster reorders."),
-                isExpanded: $isLibrarySectionExpanded,
-                content: librarySection
-            )
-            .id(ScrollTarget.library)
-            accountCollectionSection(
-                title: AppLocalization.text("saved_picks", fallback: "Saved Picks"),
-                subtitle: AppLocalization.text("saved_picks_subtitle", fallback: "Favourites, recently viewed products, and recommendations."),
-                isExpanded: $isShoppingSectionExpanded,
-                content: shoppingSection
-            )
-            .id(ScrollTarget.shopping)
-            accountCollectionSection(
-                title: AppLocalization.text("brew_archive", fallback: "Brew Archive"),
-                subtitle: AppLocalization.text("brew_archive_subtitle", fallback: "Saved recipes and brewing notes for repeat sessions."),
-                isExpanded: $isBrewingSectionExpanded,
-                content: brewingSection
+            accountAreaCard(
+                title: AppLocalization.text("saved_and_brewing", fallback: "Saved & Brewing"),
+                rows: [
+                    accountNavigationRowData(
+                        detail: .favourites,
+                        title: AppLocalization.text("favorites", fallback: "Favourites"),
+                        subtitle: "\(favoriteCount) picks",
+                        systemImage: "heart.fill",
+                        action: openSavedPicksAction
+                    ),
+                    accountNavigationRowData(
+                        detail: .recentlyViewed,
+                        title: AppLocalization.text("recently_viewed", fallback: "Recently viewed"),
+                        subtitle: AppLocalization.text("recent_discoveries", fallback: "Recent discoveries"),
+                        systemImage: "eye.fill"
+                    ),
+                    accountNavigationRowData(
+                        detail: nil,
+                        title: AppLocalization.text("brew_archive", fallback: "Brew Archive"),
+                        subtitle: brewArchiveSubtitle,
+                        systemImage: "book.closed.fill",
+                        action: openBrewArchiveAction
+                    )
+                ]
             )
             .id(ScrollTarget.brewing)
-            accountCollectionSection(
-                title: AppLocalization.text("settings_help", fallback: "Settings & Help"),
-                subtitle: AppLocalization.text("settings_help_subtitle", fallback: "Quick references and account tools when you need them."),
-                isExpanded: $isSupportSectionExpanded,
-                content: supportSection
+
+            accountAreaCard(
+                title: AppLocalization.text("session", fallback: "Session"),
+                rows: [
+                    accountNavigationRowData(
+                        detail: nil,
+                        title: AppLocalization.text("sign_out", fallback: "Sign out"),
+                        subtitle: isCustomerSignedIn ? AppLocalization.text("end_session", fallback: "End this session") : AppLocalization.text("not_signed_in", fallback: "Not signed in"),
+                        systemImage: "rectangle.portrait.and.arrow.right",
+                        action: signOutAction
+                    )
+                ]
             )
-            .id(ScrollTarget.support)
+        }
+    }
+
+    private struct AccountNavigationRowData: Identifiable {
+        let id = UUID()
+        let detail: AccountDetail?
+        let title: String
+        let subtitle: String
+        let systemImage: String
+        let action: (() -> Void)?
+    }
+
+    private func accountNavigationRowData(
+        detail: AccountDetail?,
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        action: (() -> Void)? = nil
+    ) -> AccountNavigationRowData {
+        AccountNavigationRowData(detail: detail, title: title, subtitle: subtitle, systemImage: systemImage, action: action)
+    }
+
+    private func accountAreaCard(title: String, rows: [AccountNavigationRowData]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(sectionTitleFont)
+                .tracking(1.8)
+                .textCase(.uppercase)
+                .foregroundColor(accentColor)
+
+            VStack(spacing: 0) {
+                ForEach(rows.indices, id: \.self) { index in
+                    accountNavigationRow(rows[index])
+
+                    if index < rows.count - 1 {
+                        Rectangle()
+                            .fill(accentColor.opacity(isLightAppearance ? 0.10 : 0.06))
+                            .frame(height: 1)
+                            .padding(.leading, 50)
+                    }
+                }
+            }
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+    }
+
+    private func accountNavigationRow(_ row: AccountNavigationRowData) -> some View {
+        Button {
+            row.action?()
+            if let detail = row.detail {
+                presentedDetail = detail
+                expandBackingSection(for: detail)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: row.systemImage)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(accentColor)
+                    .frame(width: 34, height: 34)
+                    .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.14))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(row.title)
+                        .font(quickActionTitleFont)
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+
+                    Text(row.subtitle)
+                        .font(quickActionBodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var accountProfileSubtitle: String {
+        guard isCustomerSignedIn else {
+            return AppLocalization.text("sign_in_required", fallback: "Sign in required")
+        }
+
+        if accountEmail.isEmpty {
+            return accountDisplayName
+        }
+
+        return "\(accountDisplayName) · \(accountEmail)"
+    }
+
+    private var brewArchiveSubtitle: String {
+        let recipeLabel = brewRecipeCount == 1
+            ? AppLocalization.text("one_saved_recipe", fallback: "1 saved recipe")
+            : String(format: AppLocalization.text("saved_recipes_count", fallback: "%d saved recipes"), brewRecipeCount)
+        let journalLabel = journalEntryCount == 1
+            ? AppLocalization.text("one_journal_entry", fallback: "1 journal entry")
+            : String(format: AppLocalization.text("journal_entries_count", fallback: "%d journal entries"), journalEntryCount)
+
+        return "\(recipeLabel) and \(journalLabel)"
+    }
+
+    private func accountDetailScreen(_ detail: AccountDetail) -> some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                activeDetailContent(detail)
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+            .navigationTitle(activeDetailTitle(detail))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        presentedDetail = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                            .frame(width: 32, height: 32)
+                            .background(cardFillColor)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+                }
+            }
+        }
+    }
+
+    private func activeDetailTitle(_ detail: AccountDetail) -> String {
+        switch detail {
+        case .personalDetails:
+            return AppLocalization.text("personal_details", fallback: "Personal details")
+        case .password:
+            return AppLocalization.text("password", fallback: "Password")
+        case .orders:
+            return AppLocalization.text("orders", fallback: "Orders")
+        case .addresses:
+            return AppLocalization.text("delivery_addresses", fallback: "Delivery addresses")
+        case .savedCarts:
+            return AppLocalization.text("saved_carts", fallback: "Saved bags")
+        case .alerts:
+            return AppLocalization.text("back_in_stock_alerts", fallback: "Back-in-stock alerts")
+        case .beansBalance:
+            return AppLocalization.text("beans_balance", fallback: "Beans balance")
+        case .rewardProgress:
+            return AppLocalization.text("reward_progress", fallback: "Reward progress")
+        case .redeemRewards:
+            return AppLocalization.text("redeem_rewards", fallback: "Redeem rewards")
+        case .appleWallet:
+            return AppLocalization.text("apple_wallet", fallback: "Apple Wallet")
+        case .favourites:
+            return AppLocalization.text("favorites", fallback: "Favourites")
+        case .recentlyViewed:
+            return AppLocalization.text("recently_viewed", fallback: "Recently viewed")
+        case .savedRecipes:
+            return AppLocalization.text("saved_recipes", fallback: "Saved recipes")
+        case .journalEntries:
+            return AppLocalization.text("journal_entries", fallback: "Journal entries")
+        case .support:
+            return AppLocalization.text("settings_and_help", fallback: "Settings & Help")
+        }
+    }
+
+    @ViewBuilder
+    private func activeDetailContent(_ detail: AccountDetail) -> some View {
+        switch detail {
+        case .personalDetails:
+            isCustomerSignedIn ? personalDetailsSection : customerAccountSection
+        case .password:
+            isCustomerSignedIn ? passwordSection : customerAccountSection
+        case .orders:
+            ordersSection
+        case .addresses:
+            addressesSection
+        case .savedCarts:
+            savedCartsSection
+        case .alerts:
+            alertsSection
+        case .beansBalance, .rewardProgress, .redeemRewards, .appleWallet:
+            loyaltySection
+        case .favourites:
+            favoritesSection
+        case .recentlyViewed:
+            recentlyViewedSection
+        case .savedRecipes:
+            savedRecipesSection
+        case .journalEntries:
+            journalSection
+        case .support:
+            supportSection
+        }
+    }
+
+    private func expandBackingSection(for detail: AccountDetail) {
+        switch detail {
+        case .personalDetails, .password, .orders:
+            isCustomerSectionExpanded = true
+        case .addresses, .savedCarts, .alerts:
+            isLibrarySectionExpanded = true
+        case .beansBalance, .rewardProgress, .redeemRewards, .appleWallet:
+            isLoyaltySectionExpanded = true
+        case .favourites, .recentlyViewed:
+            isShoppingSectionExpanded = true
+        case .savedRecipes, .journalEntries:
+            isBrewingSectionExpanded = true
+        case .support:
+            isSupportSectionExpanded = true
         }
     }
 
     private var accountQuickActions: some View {
         LazyVGrid(columns: accountQuickActionColumns, spacing: 10) {
             accountQuickChip(
+                title: AppLocalization.text("orders", fallback: "Orders"),
+                detail: orderCount == 0
+                    ? AppLocalization.text("no_orders_short", fallback: "No orders")
+                    : "\(orderCount) saved",
+                systemImage: "shippingbox.fill",
+                action: openOrdersAction
+            )
+
+            accountQuickChip(
                 title: AppLocalization.text("loyalty", fallback: "Rewards"),
-                detail: AppLocalization.text("open_rewards", fallback: "Open Rewards"),
+                detail: "\(beansBalance) Beans",
                 systemImage: "sparkles",
                 action: openRewardsAction
             )
 
             accountQuickChip(
-                title: AppLocalization.text("delivery_setup", fallback: "Delivery"),
+                title: AppLocalization.text("addresses", fallback: "Addresses"),
                 detail: addressesCount == 0
                     ? AppLocalization.text("delivery_setup_empty", fallback: "Add address")
                     : "\(addressesCount) saved",
@@ -140,16 +643,16 @@ struct AccountSectionView: View {
             )
 
             accountQuickChip(
-                title: AppLocalization.text("settings_help_short", fallback: "Help"),
-                detail: AppLocalization.text("account_tools", fallback: "Tools"),
-                systemImage: "questionmark.circle.fill",
-                action: openSupportAction
+                title: AppLocalization.text("saved", fallback: "Saved"),
+                detail: "\(favoriteCount) picks",
+                systemImage: "heart.fill",
+                action: openSavedPicksAction
             )
         }
     }
 
     private var accountQuickActionColumns: [GridItem] {
-        let count = horizontalSizeClass == .regular ? 3 : 2
+        let count = horizontalSizeClass == .regular ? 4 : 2
         return Array(repeating: GridItem(.flexible(), spacing: 10), count: count)
     }
 

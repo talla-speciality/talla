@@ -20,58 +20,43 @@ struct SignedInCustomerSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(accentColor)
+                    .frame(width: 44, height: 44)
+                    .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
+                    .clipShape(Circle())
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(profile.displayName)
                         .font(titleFont)
                         .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
 
                     Text(profile.email)
                         .font(bodyFont)
                         .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    Label(AppLocalization.text("rewards_connected", fallback: "Rewards connected"), systemImage: "checkmark.circle.fill")
+                        .font(labelFont)
+                        .tracking(1.3)
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
                 }
 
-                Spacer()
-
-                Text(AppLocalization.text("active", fallback: "ACTIVE"))
-                    .font(labelFont)
-                    .tracking(2.4)
-                    .textCase(.uppercase)
-                    .foregroundColor(accentColor)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(accentColor.opacity(0.12))
-                    .clipShape(Capsule())
+                Spacer(minLength: 8)
             }
-
-            LazyVGrid(columns: workspaceColumns, spacing: 10) {
-                workspaceBenefit(title: AppLocalization.text("customer_email", fallback: "Customer Email"), detail: profile.email)
-                workspaceBenefit(title: AppLocalization.text("rewards_sync", fallback: "Rewards Sync"), detail: AppLocalization.text("rewards_sync_detail", fallback: "Your rewards lookup is now tied to this sign-in."))
-                workspaceBenefit(
-                    title: AppLocalization.text("saved_addresses", fallback: "Saved Addresses"),
-                    detail: addressesCount == 0
-                        ? AppLocalization.text("saved_addresses_empty", fallback: "Add delivery details for faster checkout.")
-                        : signedInCountDetail(
-                            count: addressesCount,
-                            singularKey: "saved_addresses_singular",
-                            singularFallback: "1 address ready to use.",
-                            pluralKey: "saved_addresses_plural",
-                            pluralFallback: "%d addresses ready to use."
-                        )
-                )
-                workspaceBenefit(
-                    title: AppLocalization.text("recent_orders", fallback: "Recent Orders"),
-                    detail: orderCount == 0
-                        ? AppLocalization.text("recent_orders_empty", fallback: "Your next coffee run will show up here.")
-                        : signedInCountDetail(
-                            count: orderCount,
-                            singularKey: "recent_orders_singular",
-                            singularFallback: "1 order available in your history.",
-                            pluralKey: "recent_orders_plural",
-                            pluralFallback: "%d orders available in your history."
-                        )
-                )
-            }
+            .padding(14)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -87,15 +72,6 @@ struct SignedInCustomerSectionView: View {
                 }
 
                 Spacer()
-
-                Button(action: signOutAction) {
-                    Text(AppLocalization.text("sign_out", fallback: "Sign Out"))
-                        .font(labelFont)
-                        .tracking(1.8)
-                        .textCase(.uppercase)
-                        .foregroundColor(secondaryTextColor)
-                }
-                .buttonStyle(.plain)
             }
 
             LazyVGrid(columns: workspaceColumns, spacing: 14) {

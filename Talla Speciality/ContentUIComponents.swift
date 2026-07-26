@@ -206,6 +206,124 @@ struct WelcomeOverlayView: View {
     }
 }
 
+struct FeatureTourHighlight: Identifiable {
+    let id: String
+    let icon: String
+    let title: String
+    let detail: String
+}
+
+struct FeatureTourOverlayView: View {
+    let highlights: [FeatureTourHighlight]
+    let currentIndex: Int
+    let primaryTextColor: Color
+    let secondaryTextColor: Color
+    let cardFillColor: Color
+    let accentColor: Color
+    let scrimColor: Color
+    let titleFont: Font
+    let bodyFont: Font
+    let labelFont: Font
+    let nextAction: () -> Void
+    let skipAction: () -> Void
+
+    private var safeIndex: Int {
+        min(max(currentIndex, 0), max(highlights.count - 1, 0))
+    }
+
+    private var currentHighlight: FeatureTourHighlight? {
+        guard !highlights.isEmpty else { return nil }
+        return highlights[safeIndex]
+    }
+
+    private var isLastHighlight: Bool {
+        safeIndex >= highlights.count - 1
+    }
+
+    var body: some View {
+        ZStack {
+            scrimColor
+                .ignoresSafeArea()
+
+            if let currentHighlight {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(alignment: .top, spacing: 14) {
+                        Image(systemName: currentHighlight.icon)
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .frame(width: 52, height: 52)
+                            .background(accentColor)
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            Text(AppLocalization.text("talla_tour", fallback: "Talla tour"))
+                                .font(labelFont)
+                                .tracking(2.4)
+                                .textCase(.uppercase)
+                                .foregroundColor(accentColor)
+
+                            Text(currentHighlight.title)
+                                .font(titleFont)
+                                .foregroundColor(primaryTextColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    Text(currentHighlight.detail)
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 7) {
+                        ForEach(highlights.indices, id: \.self) { index in
+                            Capsule(style: .continuous)
+                                .fill(index == safeIndex ? accentColor : accentColor.opacity(0.18))
+                                .frame(width: index == safeIndex ? 24 : 7, height: 7)
+                                .animation(.easeInOut(duration: 0.18), value: safeIndex)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                    HStack(spacing: 12) {
+                        Button(action: skipAction) {
+                            Text(AppLocalization.text("skip", fallback: "Skip"))
+                                .font(bodyFont)
+                                .foregroundColor(secondaryTextColor)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 13)
+                                .background(accentColor.opacity(0.08))
+                                .clipShape(Capsule(style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: nextAction) {
+                            Text(isLastHighlight ? AppLocalization.text("done", fallback: "Done") : AppLocalization.text("next", fallback: "Next"))
+                                .font(labelFont)
+                                .tracking(1.8)
+                                .textCase(.uppercase)
+                                .foregroundColor(Color(hex: 0x0A0804))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 13)
+                                .background(accentColor)
+                                .clipShape(Capsule(style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: 420)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(accentColor.opacity(0.16), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .padding(.horizontal, 22)
+            }
+        }
+    }
+}
+
 struct SectionCardView<Content: View>: View {
     let backgroundColor: Color
     let strokeColor: Color

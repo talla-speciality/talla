@@ -29,7 +29,7 @@ struct CartDrawerView: View {
                         .padding(.top, 6)
 
                     HStack {
-                        Text(AppLocalization.text("your_cart", fallback: "YOUR CART"))
+                        Text(AppLocalization.text("your_cart", fallback: "YOUR BAG"))
                             .font(.system(size: 22, weight: .bold, design: .serif))
                             .tracking(2)
                             .foregroundColor(accentColor)
@@ -48,15 +48,16 @@ struct CartDrawerView: View {
                         ScrollView(showsIndicators: true) {
                             VStack(alignment: .leading, spacing: 18) {
                                 reviewContent
-
-                                Divider()
-                                    .overlay(accentColor.opacity(0.18))
-
-                                footerContent
                             }
-                            .padding(.bottom, max(geometry.safeAreaInsets.bottom, 14))
+                            .padding(.bottom, 16)
                         }
                         .frame(maxHeight: .infinity)
+
+                        Divider()
+                            .overlay(accentColor.opacity(0.18))
+
+                        footerContent
+                            .padding(.bottom, max(geometry.safeAreaInsets.bottom - 6, 0))
                     } else {
                         emptyState
                         Spacer(minLength: 0)

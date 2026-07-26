@@ -14,6 +14,68 @@ struct LoyaltyRewardsActionsView: View {
     let isRedeemingReward: Bool
     let redeemAction: (Int, String) -> Void
 
+    private struct RewardOption: Identifiable {
+        let id: String
+        let title: String
+        let detail: String
+        let points: Int
+        let reward: String
+    }
+
+    private var rewardOptions: [RewardOption] {
+        [
+            RewardOption(
+                id: "espresso-pour",
+                title: AppLocalization.text("reward_espresso_pour", fallback: "Espresso Pour"),
+                detail: AppLocalization.text("reward_espresso_pour_detail", fallback: "Complimentary espresso"),
+                points: 50,
+                reward: "Espresso pour"
+            ),
+            RewardOption(
+                id: "pastry-pairing",
+                title: AppLocalization.text("reward_pastry_pairing", fallback: "Pastry Pairing"),
+                detail: AppLocalization.text("reward_pastry_pairing_detail", fallback: "Pastry with coffee"),
+                points: 75,
+                reward: "Pastry pairing"
+            ),
+            RewardOption(
+                id: "signature-sip",
+                title: AppLocalization.text("reward_signature_sip", fallback: "Signature Sip"),
+                detail: AppLocalization.text("reward_signature_sip_detail", fallback: "One signature drink"),
+                points: 100,
+                reward: "Signature sip"
+            ),
+            RewardOption(
+                id: "majlis-hosting",
+                title: AppLocalization.text("reward_majlis_hosting", fallback: "Majlis Hosting"),
+                detail: AppLocalization.text("reward_majlis_hosting_detail", fallback: "Arabic coffee service"),
+                points: 120,
+                reward: "Majlis hosting reward"
+            ),
+            RewardOption(
+                id: "bag-credit",
+                title: AppLocalization.text("reward_bag_credit", fallback: "Bag Credit"),
+                detail: AppLocalization.text("reward_bag_credit_detail", fallback: "Coffee bag discount"),
+                points: 150,
+                reward: "Coffee bag credit"
+            ),
+            RewardOption(
+                id: "talla-box-treat",
+                title: AppLocalization.text("reward_talla_box_treat", fallback: "Talla Box Treat"),
+                detail: AppLocalization.text("reward_talla_box_treat_detail", fallback: "Gift box credit"),
+                points: 200,
+                reward: "Talla box treat"
+            ),
+            RewardOption(
+                id: "gold-reserve-gift",
+                title: AppLocalization.text("reward_gold_reserve_gift", fallback: "Gold Reserve Gift"),
+                detail: AppLocalization.text("reward_gold_reserve_gift_detail", fallback: "Exclusive Reserve gift"),
+                points: 250,
+                reward: "Gold reserve gift"
+            )
+        ]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("earn_beans", fallback: "Earn Beans"))
@@ -49,13 +111,9 @@ struct LoyaltyRewardsActionsView: View {
                 .foregroundColor(accentColor)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                redeemButton(title: AppLocalization.text("reward_majlis_hosting", fallback: "Majlis Hosting Reward"), points: 120, reward: "Majlis hosting reward")
-                redeemButton(title: AppLocalization.text("reward_espresso_pour", fallback: "Espresso Pour"), points: 50, reward: "Espresso pour")
-                redeemButton(title: AppLocalization.text("reward_pastry_pairing", fallback: "Pastry Pairing"), points: 75, reward: "Pastry pairing")
-                redeemButton(title: AppLocalization.text("reward_signature_sip", fallback: "Signature Sip"), points: 100, reward: "Signature sip")
-                redeemButton(title: AppLocalization.text("reward_bag_credit", fallback: "Bag Credit"), points: 150, reward: "Coffee bag credit")
-                redeemButton(title: AppLocalization.text("reward_talla_box_treat", fallback: "Talla Box Treat"), points: 200, reward: "Talla box treat")
-                redeemButton(title: AppLocalization.text("reward_gold_reserve_gift", fallback: "Gold Reserve Gift"), points: 250, reward: "Gold reserve gift")
+                ForEach(rewardOptions) { reward in
+                    redeemButton(reward)
+                }
             }
 
             Text(account.pointsBalance >= 50
@@ -67,27 +125,54 @@ struct LoyaltyRewardsActionsView: View {
         }
     }
 
-    private func redeemButton(title: String, points: Int, reward: String) -> some View {
-        Button {
-            redeemAction(points, reward)
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(2)
-                    .textCase(.uppercase)
+    private func redeemButton(_ reward: RewardOption) -> some View {
+        let isUnlocked = account.pointsBalance >= reward.points
+        let remaining = max(reward.points - account.pointsBalance, 0)
 
-                Text(String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), points))
-                    .font(Font.custom("AvenirNext-Regular", size: 13))
+        return Button {
+            redeemAction(reward.points, reward.reward)
+        } label: {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .top, spacing: 6) {
+                    if !isUnlocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+
+                    Text(reward.title)
+                        .font(Font.custom("AvenirNext-Bold", size: 11))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
+                }
+
+                Text(reward.detail)
+                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 2)
+
+                Text(isUnlocked
+                    ? String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), reward.points)
+                    : String(format: AppLocalization.text("beans_remaining_format", fallback: "%d Beans remaining"), remaining))
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(isUnlocked ? Color(hex: 0x0A0804) : accentColor)
             }
-            .foregroundColor(Color(hex: 0x0A0804))
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .foregroundColor(isUnlocked ? Color(hex: 0x0A0804) : primaryTextColor)
+            .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
-            .glassEffect(.regular.tint(accentColor).interactive(), in: .rect(cornerRadius: 16))
+            .background(isUnlocked ? accentColor : cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(accentColor.opacity(isUnlocked ? 0 : 0.24), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(isRedeemingReward || account.pointsBalance < points)
+        .disabled(isRedeemingReward || !isUnlocked)
     }
 }
 
@@ -216,7 +301,7 @@ struct LoyaltyTransactionsSectionView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
 
-                            Text(transaction.createdAt.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: ""))
+                            Text(formattedTransactionDate(transaction.createdAt))
                                 .font(Font.custom("AvenirNext-Regular", size: 12))
                                 .foregroundColor(tertiaryTextColor)
                         }
@@ -238,6 +323,36 @@ struct LoyaltyTransactionsSectionView: View {
                 }
             }
         }
+    }
+
+    private func formattedTransactionDate(_ value: String) -> String {
+        if let date = ISO8601DateFormatter().date(from: value) {
+            return displayTransactionDate(date)
+        }
+
+        let normalized = value
+            .replacingOccurrences(of: "T", with: " ")
+            .replacingOccurrences(of: "Z", with: "")
+
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = .current
+
+        for format in ["yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"] {
+            parser.dateFormat = format
+            if let date = parser.date(from: normalized) {
+                return displayTransactionDate(date)
+            }
+        }
+
+        return normalized
+    }
+
+    private func displayTransactionDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "d MMMM yyyy · h:mm a"
+        return formatter.string(from: date)
     }
 }
 
@@ -274,10 +389,6 @@ struct LoyaltyWalletCallToActionView: View {
 #endif
             }
 
-            Text("")
-                .font(Font.custom("AvenirNext-Regular", size: 12))
-                .foregroundColor(tertiaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

@@ -47,24 +47,24 @@ struct CustomerAccountSectionView: View {
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text(AppLocalization.text("customer_sign_in", fallback: "CUSTOMER SIGN IN"))
-                    .font(titleFont)
-                    .foregroundColor(primaryTextColor)
-
-                Text(accountAuthMode == .createAccount
-                    ? AppLocalization.text("account_create_copy", fallback: "Create one account for checkout, rewards, and saved details.")
-                    : accountAuthMode == .changePassword
-                        ? AppLocalization.text("account_change_password_copy", fallback: "Change your password without restoring a signed-in session first.")
-                        : AppLocalization.text("account_sign_in_copy", fallback: "Sign in once to access rewards, saved addresses, and order history."))
-                    .font(bodyFont)
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             if customerProfile != nil {
                 signedInContent
             } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(AppLocalization.text("customer_sign_in", fallback: "CUSTOMER SIGN IN"))
+                        .font(titleFont)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(accountAuthMode == .createAccount
+                        ? AppLocalization.text("account_create_copy", fallback: "Create one account for checkout, rewards, and saved details.")
+                        : accountAuthMode == .changePassword
+                            ? AppLocalization.text("account_change_password_copy", fallback: "Change your password without restoring a signed-in session first.")
+                            : AppLocalization.text("account_sign_in_copy", fallback: "Sign in once to access rewards, saved addresses, and order history."))
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 signInForm
             }
 

@@ -31,7 +31,9 @@ struct ShopSectionView: View {
     let selectQuickSearch: (String, String) -> Void
     let clearRecentSearches: () -> Void
     let retryLoad: () -> Void
+    let categorySelected: () -> Void
     @State private var isSearchExpanded = false
+    @State private var isSortDialogPresented = false
 
     private var usesArabicTypography: Bool {
         AppLocalization.currentLanguage.effectiveLanguageCode == "ar"
@@ -106,6 +108,19 @@ struct ShopSectionView: View {
                     }
                 }
             }
+        }
+        .confirmationDialog(
+            AppLocalization.text("sort_by", fallback: "Sort by"),
+            isPresented: $isSortDialogPresented,
+            titleVisibility: .visible
+        ) {
+            ForEach(ContentView.ShopSortMode.allCases) { mode in
+                Button(mode.title) {
+                    sortMode = mode
+                }
+            }
+
+            Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) { }
         }
     }
 
@@ -216,43 +231,29 @@ struct ShopSectionView: View {
     }
 
     private var shopSortSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.text("sort_by", fallback: "Sort by"))
-                .font(labelFont)
-                .tracking(localizedTracking(4))
-                .textCase(.uppercase)
-                .foregroundColor(accentColor)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(ContentView.ShopSortMode.allCases) { mode in
-                        sortButton(mode)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-
-    private func sortButton(_ mode: ContentView.ShopSortMode) -> some View {
-        let isSelected = sortMode == mode
-
-        return Button {
-            sortMode = mode
+        Button {
+            isSortDialogPresented = true
         } label: {
-            Text(mode.title)
-                .font(categoryLabelFont)
-                .tracking(localizedTracking(1.2))
-                .textCase(.uppercase)
-                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(isSelected ? accentColor : cardFillColor)
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(accentColor.opacity(isSelected ? 0 : 0.18), lineWidth: 1)
-                )
-                .clipShape(Capsule(style: .continuous))
+            HStack(spacing: 8) {
+                Text("\(AppLocalization.text("sort", fallback: "Sort")): \(sortMode.title)")
+                    .font(categoryLabelFont)
+                    .tracking(localizedTracking(1.1))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .foregroundColor(primaryTextColor)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(accentColor.opacity(0.18), lineWidth: 1)
+            )
+            .clipShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -303,12 +304,14 @@ struct ShopSectionView: View {
                 .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.top, 12)
+        .id("shop-catalogue")
     }
 
     private var resultsCountText: String {
         if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let key = filteredProducts.count == 1 ? "shop_product_count_one" : "shop_product_count_many"
-            let fallback = filteredProducts.count == 1 ? "%d product available" : "%d products available"
+            let key = filteredProducts.count == 1 ? "shop_catalog_product_count_one" : "shop_catalog_product_count_many"
+            let fallback = filteredProducts.count == 1 ? "%d product" : "%d products"
             return String(format: AppLocalization.text(key, fallback: fallback), filteredProducts.count)
         }
 
@@ -341,6 +344,7 @@ struct ShopSectionView: View {
 
         return Button {
             activeCategory = category.key
+            categorySelected()
         } label: {
             HStack(spacing: 7) {
                 categoryButtonIcon(for: category, isSelected: isSelected)
@@ -351,18 +355,24 @@ struct ShopSectionView: View {
                     .textCase(.uppercase)
                     .lineLimit(1)
                     .minimumScaleFactor(0.76)
-                    .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                    .foregroundColor(primaryTextColor)
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(accentColor)
+                }
             }
             .frame(width: 116, height: 42, alignment: .leading)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isSelected ? accentColor : cardFillColor)
+                    .fill(cardFillColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(isSelected ? 0 : 0.18), lineWidth: 1)
+                    .stroke(accentColor.opacity(isSelected ? 0.82 : 0.18), lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -378,7 +388,7 @@ struct ShopSectionView: View {
             }
         }
         .font(.system(size: 15, weight: .semibold))
-        .foregroundColor(isSelected ? Color(hex: 0x0A0804) : accentColor)
+        .foregroundColor(accentColor)
         .frame(width: 18, height: 18)
     }
 
