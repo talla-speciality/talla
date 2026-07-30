@@ -345,8 +345,62 @@ struct ContentView: View {
         let phone: String
         let line1: String
         let city: String
+        let countryCode: String?
         let notes: String?
         let isPreferred: Bool
+
+        var country: SupportedDeliveryCountry {
+            SupportedDeliveryCountry(code: countryCode) ?? .bahrain
+        }
+    }
+
+    enum SupportedDeliveryCountry: String, CaseIterable, Identifiable, Codable {
+        case oman = "OM"
+        case bahrain = "BH"
+        case qatar = "QA"
+        case kuwait = "KW"
+        case uae = "AE"
+        case saudiArabia = "SA"
+
+        var id: String { rawValue }
+
+        init?(code: String?) {
+            guard let code else { return nil }
+            self.init(rawValue: code.uppercased())
+        }
+
+        var name: String {
+            switch self {
+            case .oman: return AppLocalization.text("country_oman", fallback: "Oman")
+            case .bahrain: return AppLocalization.text("country_bahrain", fallback: "Bahrain")
+            case .qatar: return AppLocalization.text("country_qatar", fallback: "Qatar")
+            case .kuwait: return AppLocalization.text("country_kuwait", fallback: "Kuwait")
+            case .uae: return AppLocalization.text("country_uae", fallback: "UAE")
+            case .saudiArabia: return AppLocalization.text("country_saudi_arabia", fallback: "Saudi Arabia")
+            }
+        }
+
+        var flag: String {
+            switch self {
+            case .oman: return "OM"
+            case .bahrain: return "BH"
+            case .qatar: return "QA"
+            case .kuwait: return "KW"
+            case .uae: return "AE"
+            case .saudiArabia: return "SA"
+            }
+        }
+
+        var phonePrefix: String {
+            switch self {
+            case .oman: return "+968"
+            case .bahrain: return "+973"
+            case .qatar: return "+974"
+            case .kuwait: return "+965"
+            case .uae: return "+971"
+            case .saudiArabia: return "+966"
+            }
+        }
     }
 
     struct AlertInboxRecord: Codable, Identifiable {
@@ -576,6 +630,7 @@ struct ContentView: View {
     @State private var addressPhone = ""
     @State private var addressLine1 = ""
     @State private var addressCity = ""
+    @State private var addressCountry: SupportedDeliveryCountry = .bahrain
     @State private var addressNotes = ""
     @State private var isSavingAddress = false
     @State private var selectedVariantIDs: [String: String] = [:]
@@ -755,16 +810,16 @@ struct ContentView: View {
     private var backgroundGradientColors: [Color] {
         if isLightAppearance {
             return [
-                Color(hex: 0xF7F1E8),
-                Color(hex: 0xEFE4D5),
-                Color(hex: 0xE7D7C2)
+                Color(hex: 0xFAF7F1),
+                Color(hex: 0xF4EBDD),
+                Color(hex: 0xECE0D0)
             ]
         }
 
         return [
-            Color(hex: 0x090705),
-            Color(hex: 0x120D08),
-            Color(hex: 0x1B1410)
+            Color(hex: 0x080706),
+            Color(hex: 0x12100D),
+            Color(hex: 0x1A1511)
         ]
     }
 
@@ -781,19 +836,19 @@ struct ContentView: View {
     }
 
     private var cardFillColor: Color {
-        isLightAppearance ? Color(hex: 0xFFF9F2).opacity(0.9) : Color.white.opacity(0.04)
+        isLightAppearance ? Color(hex: 0xFFFBF6).opacity(0.96) : Color(hex: 0x1A1511).opacity(0.9)
     }
 
     private var elevatedSurfaceColor: Color {
-        isLightAppearance ? Color(hex: 0xFFF8EF) : Color(hex: 0x120D08)
+        isLightAppearance ? Color(hex: 0xFFFCF8) : Color(hex: 0x15110E)
     }
 
     private var headerOverlayColor: Color {
-        isLightAppearance ? Color.white.opacity(0.5) : Color.black.opacity(0.32)
+        isLightAppearance ? Color(hex: 0xFFFCF8).opacity(0.92) : Color(hex: 0x0F0C09).opacity(0.88)
     }
 
     private var footerOverlayColor: Color {
-        isLightAppearance ? Color.white.opacity(0.44) : Color.black.opacity(0.28)
+        isLightAppearance ? Color(hex: 0xFFFCF8).opacity(0.92) : Color(hex: 0x0F0C09).opacity(0.86)
     }
 
     private var scrimColor: Color {
@@ -1604,18 +1659,6 @@ struct ContentView: View {
             )
                 .ignoresSafeArea()
 
-            Circle()
-                .fill(Color(hex: 0xC8965A).opacity(0.12))
-                .blur(radius: 120)
-                .frame(width: 240, height: 240)
-                .offset(x: 140, y: -320)
-
-            Circle()
-                .fill(Color(hex: 0x8A5E30).opacity(0.12))
-                .blur(radius: 160)
-                .frame(width: 300, height: 300)
-                .offset(x: -120, y: 420)
-
             appTabView
 
             if cartOpen {
@@ -1891,8 +1934,8 @@ struct ContentView: View {
 
     private var tabBarBackgroundColor: Color {
         isLightAppearance
-            ? Color(hex: 0xFFFDF9).opacity(0.96)
-            : Color(hex: 0x17120E).opacity(0.96)
+            ? Color(hex: 0xFFFCF8).opacity(0.98)
+            : Color(hex: 0x100D0A).opacity(0.98)
     }
 
     private func topScrollPadding(for tab: Tab) -> CGFloat {
@@ -2137,6 +2180,10 @@ struct ContentView: View {
                         .frame(width: 40, height: 40)
                         .background(cardFillColor)
                         .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
+                        )
                 }
                 .menuStyle(.button)
             }
@@ -2144,13 +2191,13 @@ struct ContentView: View {
         .padding(.horizontal, 18)
         .padding(.top, 14)
         .padding(.bottom, 12)
-        .background(
-            LinearGradient(
-                colors: [headerOverlayColor, Color.clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        .background(headerOverlayColor)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                .frame(height: 1)
+        }
+        .shadow(color: Color.black.opacity(isLightAppearance ? 0.035 : 0.18), radius: 16, y: 8)
     }
 
     private var headerCartButton: some View {
@@ -2160,6 +2207,16 @@ struct ContentView: View {
             }
         } label: {
             ZStack(alignment: .topTrailing) {
+                if showingCartCelebration {
+                    Circle()
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.32 : 0.42), lineWidth: 2)
+                        .frame(width: 44, height: 44)
+                        .scaleEffect(1.42)
+                        .opacity(0.55)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
+
                 Image(systemName: cartCount > 0 ? "bag.fill" : "bag")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(cartCount > 0 ? Color(hex: 0x0A0804) : Color(hex: 0xC8965A))
@@ -2190,13 +2247,18 @@ struct ContentView: View {
                 }
             }
             .frame(width: 44, height: 44, alignment: .center)
-            .scaleEffect(showingCartCelebration ? 1.08 : 1)
-            .animation(.spring(response: 0.28, dampingFraction: 0.55), value: showingCartCelebration)
+            .scaleEffect(showingCartCelebration ? 1.16 : 1)
+            .rotationEffect(.degrees(showingCartCelebration ? -4 : 0))
+            .animation(.spring(response: 0.26, dampingFraction: 0.48), value: showingCartCelebration)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Open cart")
-        .accessibilityValue(cartCount > 0 ? "\(cartCount) items" : "Empty")
+        .accessibilityLabel(AppLocalization.text("open_bag", fallback: "Open bag"))
+        .accessibilityValue(
+            cartCount > 0
+                ? String(format: AppLocalization.text("items_in_bag", fallback: "%d items in bag"), cartCount)
+                : AppLocalization.text("empty_bag", fallback: "Empty bag")
+        )
     }
 
     private var homeView: some View {
@@ -2669,19 +2731,29 @@ struct ContentView: View {
                     .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.72 : 0.54))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
-                GeometryReader { proxy in
-                    let cardWidth = max(132, min(162, (proxy.size.width - 24) / 2.15))
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(products) { product in
-                                shelfProductCard(product, width: cardWidth)
-                            }
+                if !isCompact && products.count <= 3 {
+                    HStack(spacing: 12) {
+                        ForEach(products) { product in
+                            shelfProductCard(product, width: 150)
                         }
-                        .padding(.vertical, 2)
                     }
+                    .padding(.vertical, 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    GeometryReader { proxy in
+                        let cardWidth = max(132, min(162, (proxy.size.width - 24) / 2.15))
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(products) { product in
+                                    shelfProductCard(product, width: cardWidth)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                    .frame(height: 172)
                 }
-                .frame(height: 172)
             }
         }
     }
@@ -3858,9 +3930,24 @@ struct ContentView: View {
             } else if let loadingError, products.isEmpty {
                 errorSection(message: loadingError)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 12) {
-                        ForEach(Array(signatureRoastProducts.prefix(6))) { product in
+                let roasts = Array(signatureRoastProducts.prefix(6))
+
+                if isCompact {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: 12) {
+                            ForEach(roasts) { product in
+                                signatureRoastCard(product)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                } else {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: min(4, max(roasts.count, 1))),
+                        alignment: .leading,
+                        spacing: 12
+                    ) {
+                        ForEach(roasts) { product in
                             signatureRoastCard(product)
                         }
                     }
@@ -5016,7 +5103,7 @@ struct ContentView: View {
             quickActionTitleFont: labelFont(size: 11, weight: .bold),
             quickActionBodyFont: bodyFont(size: 13),
             isCustomerSignedIn: customerProfile != nil,
-            accountDisplayName: customerProfile?.displayName ?? AppLocalization.text("guest_account_name", fallback: "Buddy Specialty"),
+            accountDisplayName: customerProfile?.displayName ?? AppLocalization.text("guest_account_name", fallback: "Talla Speciality"),
             accountEmail: customerProfile?.email ?? savedCustomerEmail,
             membershipTier: loyaltyAccount?.tier ?? AppLocalization.text("bronze", fallback: "Bronze"),
             beansBalance: loyaltyAccount?.pointsBalance ?? 0,
@@ -5638,6 +5725,54 @@ struct ContentView: View {
         }
     }
 
+    private var deliveryCountrySelector: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("delivery_country", fallback: "Delivery country"))
+                .font(labelFont(size: 10, weight: .bold))
+                .tracking(1.5)
+                .textCase(.uppercase)
+                .foregroundColor(tertiaryTextColor)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(SupportedDeliveryCountry.allCases) { country in
+                        let isSelected = country == addressCountry
+
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                addressCountry = country
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(country.flag)
+                                    .font(labelFont(size: 10, weight: .bold))
+                                    .foregroundColor(isSelected ? Color(hex: 0x0A0804) : Color(hex: 0xC8965A))
+                                    .frame(width: 28, height: 28)
+                                    .background(isSelected ? Color(hex: 0xF7E4C2) : Color(hex: 0xC8965A).opacity(0.12))
+                                    .clipShape(Circle())
+
+                                Text(country.name)
+                                    .font(labelFont(size: 11, weight: .bold))
+                                    .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(height: 44)
+                            .background(isSelected ? Color(hex: 0xC8965A) : cardFillColor)
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color(hex: 0xC8965A).opacity(isSelected ? 0 : 0.18), lineWidth: 1)
+                            )
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
     private var addressesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Button {
@@ -5697,9 +5832,10 @@ struct ContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     HStack(spacing: 8) {
-                        Text("+")
-                            .font(bodyFont(size: 14))
+                        Text(addressCountry.phonePrefix)
+                            .font(labelFont(size: 12, weight: .bold))
                             .foregroundColor(Color(hex: 0xC8965A))
+                            .frame(minWidth: 42, alignment: .leading)
 
                         TextField(AppLocalization.text("phone", fallback: "Phone"), text: $addressPhone)
                             .keyboardType(.phonePad)
@@ -5719,6 +5855,8 @@ struct ContentView: View {
                         .padding(.vertical, 12)
                         .background(cardFillColor)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    deliveryCountrySelector
 
                     HStack(spacing: 10) {
                         TextField(AppLocalization.text("city", fallback: "City"), text: $addressCity)
@@ -5782,7 +5920,7 @@ struct ContentView: View {
                                 Text("\(address.fullName) • \(address.phone)")
                                     .font(bodyFont(size: 13))
                                     .foregroundColor(secondaryTextColor)
-                                Text("\(address.line1), \(address.city)")
+                                Text("\(address.line1), \(address.city), \(address.country.name)")
                                     .font(bodyFont(size: 13))
                                     .foregroundColor(secondaryTextColor)
                                 if let notes = address.notes, !notes.isEmpty {
@@ -8821,6 +8959,7 @@ struct ContentView: View {
                 phone: phone,
                 line1: line1,
                 city: city,
+                countryCode: addressCountry.rawValue,
                 notes: notes.isEmpty ? nil : notes
             )
             addressLabel = ""
@@ -8828,6 +8967,7 @@ struct ContentView: View {
             addressPhone = ""
             addressLine1 = ""
             addressCity = ""
+            addressCountry = .bahrain
             addressNotes = ""
             showToast(message: AppLocalization.text("address_saved_toast", fallback: "Address saved"))
         } catch {
@@ -9122,7 +9262,7 @@ struct ContentView: View {
         cartCelebrationID += 1
         delightFeedbackTrigger += 1
 
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+        withAnimation(.spring(response: 0.26, dampingFraction: 0.48)) {
             showingCartCelebration = true
         }
 
@@ -10039,7 +10179,8 @@ struct ContentView: View {
                 fullName: address.fullName,
                 phone: address.phone,
                 address1: address.line1,
-                city: address.city
+                city: address.city,
+                country: address.country.name
             )
         } : nil
 
@@ -10945,7 +11086,7 @@ private enum AccountService {
         return try await performAddressesRequest(request)
     }
 
-    static func saveAddress(email: String, label: String, fullName: String, phone: String, line1: String, city: String, notes: String?) async throws -> [ContentView.DeliveryAddress] {
+    static func saveAddress(email: String, label: String, fullName: String, phone: String, line1: String, city: String, countryCode: String, notes: String?) async throws -> [ContentView.DeliveryAddress] {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The address service is unavailable.")
         }
@@ -10956,7 +11097,8 @@ private enum AccountService {
             "fullName": fullName,
             "phone": phone,
             "line1": line1,
-            "city": city
+            "city": city,
+            "countryCode": countryCode
         ]
         if let notes {
             payload["notes"] = notes
@@ -11832,7 +11974,7 @@ private enum ShopifyStorefrontClient {
             let deliveryAddress: [String: Any] = [
                 "address1": checkoutAddress.address1,
                 "city": checkoutAddress.city,
-                "country": "Bahrain",
+                "country": checkoutAddress.country,
                 "firstName": firstName,
                 "lastName": lastName,
                 "phone": checkoutAddress.phone
@@ -12013,6 +12155,7 @@ private struct ShopifyCheckoutAddress {
     let phone: String
     let address1: String
     let city: String
+    let country: String
 }
 
 private struct ShopifyCartCreateResponse: Decodable {
