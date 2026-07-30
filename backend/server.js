@@ -3092,7 +3092,7 @@ function bhdFils(value) {
     return Number.isSafeInteger(fils) ? fils : null;
 }
 
-function safeConfiguredBenefitURL(value, name) {
+function safeConfiguredBenefitURL(value, name, requiredPath = "") {
     let url;
     try {
         url = new URL(String(value || ""));
@@ -3102,11 +3102,14 @@ function safeConfiguredBenefitURL(value, name) {
     if (url.protocol !== "https:" || url.username || url.password) {
         throw benefitPaymentError("BENEFIT_NOT_CONFIGURED", 503, `${name} must be a secure HTTPS URL.`);
     }
+    if (requiredPath && url.pathname !== requiredPath) {
+        throw benefitPaymentError("BENEFIT_NOT_CONFIGURED", 503, `${name} must use ${requiredPath}.`);
+    }
     return url;
 }
 
 function benefitResultURL(baseURL, resultToken = "") {
-    const url = safeConfiguredBenefitURL(baseURL, "BENEFIT result URL");
+    const url = safeConfiguredBenefitURL(baseURL, "BENEFIT result URL", "/api/payments/benefit/result");
     if (resultToken) {
         url.searchParams.set("payment", resultToken);
     }
@@ -7658,27 +7661,27 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
-        const authenticated = parseAuthenticatedCustomer(request, response);
-        if (!authenticated) {
-            return;
-        }
-        const customer = await resolveCustomerSession(authenticated, response);
-        if (!customer) {
-            return;
-        }
-
-        const orderID = normalizeBenefitIdentifier(body.orderID || body.orderId || body.invoiceId);
-        if (!orderID) {
-            sendJSON(response, 400, { error: "Provide a valid existing orderID." });
-            return;
-        }
-        if (!benefitConfigured()) {
-            console.error("BENEFIT payment creation is unavailable because required configuration is missing.");
-            sendJSON(response, 503, { error: "BENEFIT checkout is not configured." });
-            return;
-        }
-
         try {
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) {
+                return;
+            }
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) {
+                return;
+            }
+
+            const orderID = normalizeBenefitIdentifier(body.orderID || body.orderId || body.invoiceId);
+            if (!orderID) {
+                sendJSON(response, 400, { error: "Provide a valid existing orderID." });
+                return;
+            }
+            if (!benefitConfigured()) {
+                console.error("BENEFIT payment creation is unavailable because required configuration is missing.");
+                sendJSON(response, 503, { error: "BENEFIT checkout is not configured." });
+                return;
+            }
+
             const order = await findOrderByID(orderID);
             if (!order) {
                 throw benefitPaymentError("BENEFIT_ORDER_NOT_FOUND", 404, "Order not found.");
@@ -7696,7 +7699,11 @@ const server = http.createServer(async (request, response) => {
             }
 
             const endpointURL = safeConfiguredBenefitURL(benefitAPIEndpoint, "BENEFIT API endpoint");
-            const notificationURL = safeConfiguredBenefitURL(benefitNotificationURL, "BENEFIT notification URL").toString();
+            const notificationURL = safeConfiguredBenefitURL(
+                benefitNotificationURL,
+                "BENEFIT notification URL",
+                "/api/payments/benefit/response"
+            ).toString();
             const amount = (totalFils / 1000).toFixed(3);
             const trackID = `T${Date.now()}${crypto.randomBytes(10).toString("hex")}`;
             pendingTrackID = trackID;
