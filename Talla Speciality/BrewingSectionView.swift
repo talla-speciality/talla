@@ -885,15 +885,17 @@ struct BrewingSectionView: View {
                     selectBrewModeMethod(method, start: true)
                 } label: {
                     HStack(spacing: 6) {
-                        Text(AppLocalization.text("start_brewing", fallback: "Start Brewing"))
+                        Text(AppLocalization.text("brew_now", fallback: "Brew Now"))
                             .font(Font.custom("AvenirNext-Bold", size: 10))
                             .tracking(1.2)
                             .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
                         Image(systemName: "arrow.forward")
                             .font(.system(size: 10, weight: .bold))
                     }
                     .foregroundColor(Color(hex: 0x0A0804))
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(accentColor)
                     .clipShape(Capsule())

@@ -28,12 +28,12 @@ struct TallaWatchWidgetEntry: TimelineEntry {
     let savedCartCount: Int
 
     var progress: Double {
-        Double(points % 100) / 100
+        Double(points % 50) / 50
     }
 
     var beansToNextReward: Int {
-        let remainder = points % 100
-        return remainder == 0 && points > 0 ? 0 : 100 - remainder
+        let remainder = points % 50
+        return remainder == 0 && points > 0 ? 0 : 50 - remainder
     }
 }
 
@@ -43,7 +43,7 @@ struct TallaWatchWidgetProvider: TimelineProvider {
             date: Date(),
             points: 72,
             tier: "Reserve",
-            nextReward: "28 Beans to next reward",
+            nextReward: "28 Beans to your next reward",
             isSignedIn: true,
             favoriteCount: 3,
             recentCount: 5,
@@ -70,7 +70,7 @@ struct TallaWatchWidgetProvider: TimelineProvider {
             date: lastUpdated > 0 ? Date(timeIntervalSince1970: lastUpdated) : Date(),
             points: defaults.integer(forKey: TallaWatchWidgetSharedState.loyaltyPointsKey),
             tier: defaults.string(forKey: TallaWatchWidgetSharedState.loyaltyTierKey) ?? "Reserve",
-            nextReward: defaults.string(forKey: TallaWatchWidgetSharedState.loyaltyNextRewardKey) ?? "Open Talla on iPhone",
+            nextReward: defaults.string(forKey: TallaWatchWidgetSharedState.loyaltyNextRewardKey) ?? "Open Talla on your iPhone",
             isSignedIn: !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             favoriteCount: defaults.integer(forKey: TallaWatchWidgetSharedState.favoriteCountKey),
             recentCount: defaults.integer(forKey: TallaWatchWidgetSharedState.recentCountKey),
@@ -105,10 +105,10 @@ struct TallaWatchWidgetsEntryView: View {
     }
 
     private var circularComplication: some View {
-        Gauge(value: entry.progress) {
+        Gauge(value: entry.isSignedIn ? entry.progress : 0) {
             Image(systemName: "cup.and.saucer.fill")
         } currentValueLabel: {
-            Text("\(entry.points)")
+            Text(entry.isSignedIn ? "\(entry.points)" : "T")
                 .font(.system(size: 15, weight: .black, design: .serif))
                 .minimumScaleFactor(0.55)
         }
@@ -123,18 +123,18 @@ struct TallaWatchWidgetsEntryView: View {
                 Text("TALLA")
                     .font(.system(size: 11, weight: .black, design: .serif))
                 Spacer(minLength: 0)
-                Text(entry.tier)
+                Text(entry.isSignedIn ? entry.tier : "Connect")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             .foregroundStyle(accent)
 
-            Text(entry.isSignedIn ? "\(entry.points) Beans" : "Sync rewards")
+            Text(entry.isSignedIn ? "\(entry.points) Beans" : "Connect Talla")
                 .font(.system(size: 15, weight: .black))
                 .lineLimit(1)
 
-            Text(entry.isSignedIn ? rewardLine : "Open Talla on iPhone")
+            Text(entry.isSignedIn ? rewardLine : "Open on iPhone")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -142,23 +142,23 @@ struct TallaWatchWidgetsEntryView: View {
     }
 
     private var inlineComplication: some View {
-        Label(entry.isSignedIn ? "\(entry.points) Beans" : "Talla Rewards", systemImage: "cup.and.saucer.fill")
+        Label(entry.isSignedIn ? "\(entry.points) Beans" : "Connect Talla", systemImage: "cup.and.saucer.fill")
     }
 
     private var cornerComplication: some View {
-        Text("\(entry.points)")
+        Text(entry.isSignedIn ? "\(entry.points)" : "T")
             .font(.system(size: 12, weight: .black, design: .serif))
             .widgetCurvesContent()
             .widgetLabel {
-                Gauge(value: entry.progress) {
-                    Text("Beans")
+                Gauge(value: entry.isSignedIn ? entry.progress : 0) {
+                    Text(entry.isSignedIn ? "Beans" : "Open")
                 }
                 .tint(accent)
             }
     }
 
     private var rewardLine: String {
-        entry.beansToNextReward == 0 ? "Reward ready" : "\(entry.beansToNextReward) Beans to next 100"
+        entry.beansToNextReward == 0 ? "Reward ready" : "\(entry.beansToNextReward) Beans to your next reward"
     }
 }
 
@@ -169,7 +169,7 @@ struct Talla_Watch_Widgets: Widget {
         StaticConfiguration(kind: kind, provider: TallaWatchWidgetProvider()) { entry in
             TallaWatchWidgetsEntryView(entry: entry)
         }
-        .configurationDisplayName("Talla Rewards")
+        .configurationDisplayName("Talla Reserve")
         .description("Beans, rewards, and saved shelf counts for Apple Watch.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
     }
@@ -182,7 +182,7 @@ struct Talla_Watch_Widgets: Widget {
         date: .now,
         points: 72,
         tier: "Reserve",
-        nextReward: "28 Beans to next reward",
+        nextReward: "28 Beans to your next reward",
         isSignedIn: true,
         favoriteCount: 3,
         recentCount: 5,

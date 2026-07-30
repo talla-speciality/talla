@@ -118,7 +118,15 @@ struct AccountSectionView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
 
-                    Text(String(format: AppLocalization.text("member_tier_format", fallback: "%@ Member"), membershipTier))
+                    if !accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(accountEmail)
+                            .font(quickActionBodyFont)
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                    }
+
+                    Text(String(format: AppLocalization.text("membership_tier_format", fallback: "Membership: %@"), membershipTier))
                         .font(Font.custom("AvenirNext-Bold", size: 12))
                         .tracking(1.2)
                         .textCase(.uppercase)
@@ -149,6 +157,7 @@ struct AccountSectionView: View {
                 .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .id(ScrollTarget.loyalty)
     }
 
     private func accountSummaryMetric(value: String, label: String) -> some View {
@@ -282,22 +291,8 @@ struct AccountSectionView: View {
             .id(ScrollTarget.customer)
 
             accountAreaCard(
-                title: AppLocalization.text("shopping", fallback: "Shopping"),
+                title: AppLocalization.text("shopping_tools", fallback: "Shopping tools"),
                 rows: [
-                    accountNavigationRowData(
-                        detail: .orders,
-                        title: AppLocalization.text("orders", fallback: "Orders"),
-                        subtitle: orderCount == 0 ? AppLocalization.text("no_orders_short", fallback: "No orders") : "\(orderCount) saved",
-                        systemImage: "shippingbox.fill",
-                        action: openOrdersAction
-                    ),
-                    accountNavigationRowData(
-                        detail: .addresses,
-                        title: AppLocalization.text("delivery_addresses", fallback: "Delivery addresses"),
-                        subtitle: addressesCount == 0 ? AppLocalization.text("delivery_setup_empty", fallback: "Add address") : "\(addressesCount) saved",
-                        systemImage: "location.fill",
-                        action: openDeliveryAction
-                    ),
                     accountNavigationRowData(
                         detail: .savedCarts,
                         title: AppLocalization.text("saved_carts", fallback: "Saved bags"),
@@ -315,52 +310,8 @@ struct AccountSectionView: View {
             .id(ScrollTarget.library)
 
             accountAreaCard(
-                title: "Talla Reserve",
+                title: AppLocalization.text("brewing", fallback: "Brewing"),
                 rows: [
-                    accountNavigationRowData(
-                        detail: .beansBalance,
-                        title: AppLocalization.text("beans_balance", fallback: "Beans balance"),
-                        subtitle: "\(beansBalance) Beans",
-                        systemImage: "sparkles"
-                    ),
-                    accountNavigationRowData(
-                        detail: .rewardProgress,
-                        title: AppLocalization.text("reward_progress", fallback: "Reward progress"),
-                        subtitle: "\(beansUntilNextReward) until reward",
-                        systemImage: "chart.line.uptrend.xyaxis"
-                    ),
-                    accountNavigationRowData(
-                        detail: .redeemRewards,
-                        title: AppLocalization.text("redeem_rewards", fallback: "Redeem rewards"),
-                        subtitle: AppLocalization.text("use_your_beans", fallback: "Use your Beans"),
-                        systemImage: "gift.fill"
-                    ),
-                    accountNavigationRowData(
-                        detail: .appleWallet,
-                        title: AppLocalization.text("apple_wallet", fallback: "Apple Wallet"),
-                        subtitle: AppLocalization.text("wallet_pass", fallback: "Wallet pass"),
-                        systemImage: "wallet.pass.fill"
-                    )
-                ]
-            )
-            .id(ScrollTarget.loyalty)
-
-            accountAreaCard(
-                title: AppLocalization.text("saved_and_brewing", fallback: "Saved & Brewing"),
-                rows: [
-                    accountNavigationRowData(
-                        detail: .favourites,
-                        title: AppLocalization.text("favorites", fallback: "Favourites"),
-                        subtitle: "\(favoriteCount) picks",
-                        systemImage: "heart.fill",
-                        action: openSavedPicksAction
-                    ),
-                    accountNavigationRowData(
-                        detail: .recentlyViewed,
-                        title: AppLocalization.text("recently_viewed", fallback: "Recently viewed"),
-                        subtitle: AppLocalization.text("recent_discoveries", fallback: "Recent discoveries"),
-                        systemImage: "eye.fill"
-                    ),
                     accountNavigationRowData(
                         detail: nil,
                         title: AppLocalization.text("brew_archive", fallback: "Brew Archive"),
@@ -623,14 +574,20 @@ struct AccountSectionView: View {
                     ? AppLocalization.text("no_orders_short", fallback: "No orders")
                     : "\(orderCount) saved",
                 systemImage: "shippingbox.fill",
-                action: openOrdersAction
+                action: {
+                    openOrdersAction()
+                    presentedDetail = .orders
+                }
             )
 
             accountQuickChip(
                 title: AppLocalization.text("loyalty", fallback: "Rewards"),
                 detail: "\(beansBalance) Beans",
                 systemImage: "sparkles",
-                action: openRewardsAction
+                action: {
+                    openRewardsAction()
+                    presentedDetail = .beansBalance
+                }
             )
 
             accountQuickChip(
@@ -639,14 +596,20 @@ struct AccountSectionView: View {
                     ? AppLocalization.text("delivery_setup_empty", fallback: "Add address")
                     : "\(addressesCount) saved",
                 systemImage: "location.fill",
-                action: openDeliveryAction
+                action: {
+                    openDeliveryAction()
+                    presentedDetail = .addresses
+                }
             )
 
             accountQuickChip(
                 title: AppLocalization.text("saved", fallback: "Saved"),
                 detail: "\(favoriteCount) picks",
                 systemImage: "heart.fill",
-                action: openSavedPicksAction
+                action: {
+                    openSavedPicksAction()
+                    presentedDetail = .favourites
+                }
             )
         }
     }

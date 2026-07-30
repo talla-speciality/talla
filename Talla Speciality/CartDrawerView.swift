@@ -72,6 +72,7 @@ struct CartDrawerView: View {
                         .stroke(accentColor.opacity(0.16), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .shadow(color: Color.black.opacity(0.18), radius: 28, x: 0, y: -8)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 8)
             }

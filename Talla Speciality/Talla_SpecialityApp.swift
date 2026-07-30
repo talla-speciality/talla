@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 #if canImport(AppIntents)
 import AppIntents
 #endif
@@ -55,6 +58,10 @@ private final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotifica
 private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
     static let shared = TallaWatchPhoneBridge()
 
+#if canImport(ActivityKit)
+    private var watchBrewLiveActivity: Activity<TallaBrewActivityAttributes>?
+#endif
+
     private enum Key {
         static let appGroupID = "group.Talla-Speciality.Talla-Speciality"
         static let loyaltyEmail = "loyalty.email"
@@ -93,6 +100,13 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        if let brewActivityAction = message["brewActivity"] as? String {
+            var response = snapshot()
+            response["brewActivityStatus"] = handleBrewActivity(action: brewActivityAction, message: message)
+            replyHandler(response)
+            return
+        }
+
         if let destination = message["open"] as? String, !destination.isEmpty {
             UserDefaults.standard.set(destination, forKey: Key.shortcutDestination)
             replyHandler(snapshot())
@@ -116,6 +130,113 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
             "lastUpdated": defaults.double(forKey: Key.lastUpdated)
         ]
     }
+
+    private func handleBrewActivity(action: String, message: [String: Any]) -> String {
+#if canImport(ActivityKit)
+        guard #available(iOS 16.1, *) else { return "unavailable" }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return "disabled" }
+
+        switch action {
+        case "start":
+            return startWatchBrewLiveActivity(message: message)
+        case "update":
+            return updateWatchBrewLiveActivity(message: message, isPaused: message["isPaused"] as? Bool ?? false)
+        case "end":
+            return endWatchBrewLiveActivity(message: message)
+        default:
+            return "unknown"
+        }
+#else
+        return "unavailable"
+#endif
+    }
+
+#if canImport(ActivityKit)
+    @available(iOS 16.1, *)
+    private func startWatchBrewLiveActivity(message: [String: Any]) -> String {
+        if let watchBrewLiveActivity {
+            Task {
+                await watchBrewLiveActivity.end(nil, dismissalPolicy: .immediate)
+            }
+            self.watchBrewLiveActivity = nil
+        }
+
+        let attributes = TallaBrewActivityAttributes(
+            methodName: message["methodName"] as? String ?? "SOLO Dripper",
+            coffeeGrams: message["coffeeGrams"] as? Double ?? 20,
+            ratio: message["ratio"] as? Double ?? 16,
+            totalWaterGrams: message["totalWaterGrams"] as? Double ?? 320,
+            totalSeconds: message["totalSeconds"] as? Int ?? 210
+        )
+        let state = brewActivityState(from: message)
+        let content = ActivityContent(
+            state: state,
+            staleDate: Date().addingTimeInterval(TimeInterval(max(attributes.totalSeconds - state.elapsedSeconds + 60, 60))),
+            relevanceScore: 100
+        )
+
+        do {
+            watchBrewLiveActivity = try Activity<TallaBrewActivityAttributes>.request(
+                attributes: attributes,
+                content: content,
+                pushType: nil
+            )
+            return "started"
+        } catch {
+            watchBrewLiveActivity = nil
+            return "failed"
+        }
+    }
+
+    @available(iOS 16.1, *)
+    private func updateWatchBrewLiveActivity(message: [String: Any], isPaused: Bool) -> String {
+        guard let watchBrewLiveActivity else {
+            return startWatchBrewLiveActivity(message: message)
+        }
+
+        let state = brewActivityState(from: message, isPaused: isPaused)
+        let content = ActivityContent(
+            state: state,
+            staleDate: Date().addingTimeInterval(TimeInterval(max(watchBrewLiveActivity.attributes.totalSeconds - state.elapsedSeconds + 60, 60))),
+            relevanceScore: 100
+        )
+
+        Task {
+            await watchBrewLiveActivity.update(content)
+        }
+        return "updated"
+    }
+
+    @available(iOS 16.1, *)
+    private func endWatchBrewLiveActivity(message: [String: Any]) -> String {
+        guard let watchBrewLiveActivity else { return "inactive" }
+
+        let content = ActivityContent(
+            state: brewActivityState(from: message),
+            staleDate: nil,
+            relevanceScore: 100
+        )
+        self.watchBrewLiveActivity = nil
+
+        Task {
+            await watchBrewLiveActivity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(30)))
+        }
+        return "ended"
+    }
+
+    @available(iOS 16.1, *)
+    private func brewActivityState(from message: [String: Any], isPaused: Bool? = nil) -> TallaBrewActivityAttributes.ContentState {
+        let elapsedSeconds = message["elapsedSeconds"] as? Int ?? 0
+        return TallaBrewActivityAttributes.ContentState(
+            elapsedSeconds: elapsedSeconds,
+            timerStartDate: Date().addingTimeInterval(-Double(elapsedSeconds)),
+            currentStep: message["currentStep"] as? String ?? "Start brewing",
+            nextStep: message["nextStep"] as? String ?? "Your brew is ready. Enjoy it slowly.",
+            currentWaterGrams: message["currentWaterGrams"] as? Double ?? 0,
+            isPaused: isPaused ?? (message["isPaused"] as? Bool ?? false)
+        )
+    }
+#endif
 }
 #endif
 

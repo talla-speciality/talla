@@ -93,7 +93,6 @@ struct ShopSectionView: View {
             guidancePanel
             shopCategoriesSection
             shopSortSection
-            shopResultsSummary
 
             if isLoadingProducts && allProductsAreEmpty {
                 loadingSection
@@ -231,31 +230,75 @@ struct ShopSectionView: View {
     }
 
     private var shopSortSection: some View {
-        Button {
-            isSortDialogPresented = true
-        } label: {
-            HStack(spacing: 8) {
-                Text("\(AppLocalization.text("sort", fallback: "Sort")): \(sortMode.title)")
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(activeCategoryTitle)
                     .font(categoryLabelFont)
-                    .tracking(localizedTracking(1.1))
+                    .tracking(localizedTracking(1.2))
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.76)
 
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
+                Text(resultsCountText)
+                    .font(categoryBodyFont)
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(1)
             }
-            .foregroundColor(primaryTextColor)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardFillColor)
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(accentColor.opacity(0.18), lineWidth: 1)
-            )
-            .clipShape(Capsule(style: .continuous))
+
+            Spacer(minLength: 8)
+
+            if activeCategory != "all" || !searchQuery.isEmpty {
+                Button {
+                    activeCategory = "all"
+                    searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(accentColor)
+                        .frame(width: 30, height: 30)
+                        .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.14))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("clear", fallback: "Clear"))
+            }
+
+            Button {
+                isSortDialogPresented = true
+            } label: {
+                HStack(spacing: 7) {
+                    Text("\(AppLocalization.text("sort", fallback: "Sort")): \(sortMode.title)")
+                        .font(categoryLabelFont)
+                        .tracking(localizedTracking(1.0))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.74)
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundColor(primaryTextColor)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(cardFillColor)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                )
+                .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .id("shop-catalogue")
     }
 
     private var shopResultsSummary: some View {
