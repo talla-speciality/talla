@@ -91,6 +91,7 @@ const walletPassWWDRBase64 = config.walletPassWWDRBase64;
 const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
 const rateLimitBuckets = new Map();
+const eazyPaymentLocks = new Map();
 let opsAlertTimer = null;
 let appleSigningKeysCache = null;
 let appleSigningKeysFetchedAt = 0;
@@ -1390,15 +1391,36 @@ function normalizeEmail(email) {
     return String(email || "").trim().toLowerCase();
 }
 
-function readBody(request) {
+function requestBodyTooLargeError() {
+    const error = new Error("REQUEST_BODY_TOO_LARGE");
+    error.code = "REQUEST_BODY_TOO_LARGE";
+    return error;
+}
+
+function readBody(request, maxBytes = 1_048_576) {
     return new Promise((resolve, reject) => {
         let body = "";
+        let bodyBytes = 0;
+        let rejected = false;
 
         request.on("data", (chunk) => {
+            bodyBytes += Buffer.byteLength(chunk);
+            if (bodyBytes > maxBytes) {
+                if (!rejected) {
+                    rejected = true;
+                    reject(requestBodyTooLargeError());
+                }
+                return;
+            }
+
             body += chunk;
         });
 
         request.on("end", () => {
+            if (rejected) {
+                return;
+            }
+
             if (!body) {
                 resolve({});
                 return;
@@ -1415,15 +1437,31 @@ function readBody(request) {
     });
 }
 
-function readRawBody(request) {
+function readRawBody(request, maxBytes = 1_048_576) {
     return new Promise((resolve, reject) => {
         const chunks = [];
+        let bodyBytes = 0;
+        let rejected = false;
 
         request.on("data", (chunk) => {
-            chunks.push(Buffer.from(chunk));
+            const buffer = Buffer.from(chunk);
+            bodyBytes += buffer.length;
+            if (bodyBytes > maxBytes) {
+                if (!rejected) {
+                    rejected = true;
+                    reject(requestBodyTooLargeError());
+                }
+                return;
+            }
+
+            chunks.push(buffer);
         });
 
         request.on("end", () => {
+            if (rejected) {
+                return;
+            }
+
             resolve(Buffer.concat(chunks));
         });
 
@@ -2412,7 +2450,13 @@ function orderRowToRecord(row) {
         total: row.total,
         status: row.status,
         items: Array.isArray(row.items) ? row.items : [],
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        eazyGlobalTransactionsId: row.eazy_global_transaction_id || undefined,
+        eazyTransactionsId: row.eazy_transaction_id || undefined,
+        eazyPaymentMethod: row.eazy_payment_method || undefined,
+        eazyPaidAmount: row.eazy_paid_amount || undefined,
+        eazyPaidOn: row.eazy_paid_at instanceof Date ? row.eazy_paid_at.toISOString() : row.eazy_paid_at || undefined,
+        eazyConfirmedAt: row.eazy_confirmed_at instanceof Date ? row.eazy_confirmed_at.toISOString() : row.eazy_confirmed_at || undefined
     };
 }
 
@@ -2464,9 +2508,18 @@ async function orderPayloadWithRewardState(email, order) {
     const beansAwarded = pointsAwarded > 0
         ? await hasLoyaltyTransaction(email, loyaltyTransactionIDForOrder(order))
         : false;
+    const {
+        eazyGlobalTransactionsId,
+        eazyTransactionsId,
+        eazyPaymentMethod,
+        eazyPaidAmount,
+        eazyPaidOn,
+        eazyConfirmedAt,
+        ...publicOrder
+    } = order;
 
     return {
-        ...order,
+        ...publicOrder,
         beansAwarded,
         pointsAwarded: beansAwarded ? pointsAwarded : 0
     };
@@ -2692,7 +2745,9 @@ async function findOrderByID(orderID) {
 
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, email, title, total, status, items, created_at
+            `SELECT id, email, title, total, status, items, created_at,
+                    eazy_global_transaction_id, eazy_transaction_id,
+                    eazy_payment_method, eazy_paid_amount, eazy_paid_at, eazy_confirmed_at
              FROM orders
              WHERE id = $1
              LIMIT 1`,
@@ -2842,16 +2897,310 @@ function eazySecretHash(timestamp, currency, amount) {
 }
 
 function eazyResponsePayload(payload) {
-    if (payload?.data && typeof payload.data === "object") {
-        return payload.data;
+    if (Array.isArray(payload)) {
+        return eazyResponsePayload(payload[0]);
     }
 
-    return payload && typeof payload === "object" ? payload : {};
+    if (!payload || typeof payload !== "object") {
+        return {};
+    }
+
+    if (payload.data && typeof payload.data === "object") {
+        return eazyResponsePayload(payload.data);
+    }
+
+    if (payload.result && typeof payload.result === "object") {
+        return eazyResponsePayload(payload.result);
+    }
+
+    return payload;
 }
 
 function safeUpstreamMessage(payload) {
     const message = payload?.message || payload?.error || payload?.responseMessage || payload?.result?.message;
     return String(message || "No error message returned").slice(0, 300);
+}
+
+function eazyPaymentError(code, statusCode, message) {
+    const error = new Error(message);
+    error.code = code;
+    error.statusCode = statusCode;
+    return error;
+}
+
+function eazyPublicError(error) {
+    if (error?.code === "REQUEST_BODY_TOO_LARGE") {
+        return {
+            statusCode: 413,
+            message: "Request body is too large."
+        };
+    }
+
+    if (error?.statusCode && error.statusCode < 500) {
+        return {
+            statusCode: error.statusCode,
+            message: error.message
+        };
+    }
+
+    return {
+        statusCode: error?.statusCode || 500,
+        message: error?.code === "EAZY_NOT_CONFIGURED"
+            ? "EazyPay checkout is not configured."
+            : "Payment confirmation is temporarily unavailable."
+    };
+}
+
+function normalizeEazyIdentifier(value, maxLength = 200) {
+    const normalized = String(value || "").trim();
+    if (!normalized || normalized.length > maxLength || !/^[A-Za-z0-9][A-Za-z0-9._:/#-]*$/.test(normalized)) {
+        return "";
+    }
+
+    return normalized;
+}
+
+function timingSafeStringEqual(first, second) {
+    const firstBuffer = Buffer.from(String(first || ""), "utf8");
+    const secondBuffer = Buffer.from(String(second || ""), "utf8");
+    return firstBuffer.length === secondBuffer.length
+        && crypto.timingSafeEqual(firstBuffer, secondBuffer);
+}
+
+function createEazyQuerySecretHash(timestamp, appId = eazyAppID, secretKey = eazySecretKey) {
+    return crypto
+        .createHmac("sha256", secretKey)
+        .update(`${timestamp}${appId}`)
+        .digest("hex");
+}
+
+function normalizeEazyTransaction(payload) {
+    const result = eazyResponsePayload(payload);
+    const globalTransactionsId = normalizeEazyIdentifier(
+        result.globalTransactionsId
+        || result.globalTransactionId
+        || result.global_transactions_id
+        || result.global_transaction_id
+    );
+    const transactionsId = normalizeEazyIdentifier(
+        result.transactionsId
+        || result.transactionId
+        || result.transactionsID
+        || result.transaction_id
+    );
+    const invoiceId = normalizeEazyIdentifier(
+        result.invoiceId
+        || result.invoiceID
+        || result.orderID
+        || result.orderId
+        || result.invoice_id
+    );
+    const paidValue = result.isPaid ?? result.is_paid ?? 0;
+    const isPaid = paidValue === true || Number(paidValue) === 1 ? 1 : 0;
+
+    return {
+        globalTransactionsId,
+        transactionsId,
+        invoiceId,
+        currency: String(result.currency || result.currencyCode || "").trim().toUpperCase(),
+        amount: String(result.amount ?? result.amt ?? "").trim(),
+        isPaid,
+        paidOn: String(result.paidOn || result.paidAt || result.paid_on || "").trim() || null,
+        paymentMethod: String(result.paymentMethod || result.payment_method || "").trim(),
+        errorCode: String(result.errorCode ?? result.error_code ?? "").trim(),
+        errorMessage: String(result.errorMessage || result.error_message || result.message || "").trim().slice(0, 300)
+    };
+}
+
+function eazyQuerySucceeded(transaction) {
+    return !transaction.errorCode || /^0+$/.test(transaction.errorCode);
+}
+
+function extractEazyGlobalTransactionID(payload) {
+    const candidates = [
+        payload,
+        payload?.data,
+        payload?.payload,
+        payload?.transaction,
+        payload?.result
+    ];
+
+    for (const candidate of candidates) {
+        if (!candidate || typeof candidate !== "object") {
+            continue;
+        }
+
+        const identifier = normalizeEazyIdentifier(
+            candidate.globalTransactionsId
+            || candidate.globalTransactionId
+            || candidate.global_transactions_id
+            || candidate.global_transaction_id
+            || candidate.id
+        );
+        if (identifier) {
+            return identifier;
+        }
+    }
+
+    return "";
+}
+
+async function queryEazyTransaction(globalTransactionsId, options = {}) {
+    const normalizedID = normalizeEazyIdentifier(globalTransactionsId);
+    if (!normalizedID) {
+        throw eazyPaymentError("EAZY_INVALID_TRANSACTION_ID", 400, "A valid EazyPay transaction ID is required.");
+    }
+
+    const appId = options.appId ?? eazyAppID;
+    const secretKey = options.secretKey ?? eazySecretKey;
+    if (!appId || !secretKey) {
+        throw eazyPaymentError("EAZY_NOT_CONFIGURED", 503, "EazyPay checkout is not configured.");
+    }
+
+    const timestamp = String(options.timestamp ?? Date.now());
+    const secretHash = createEazyQuerySecretHash(timestamp, appId, secretKey);
+    const endpoint = `${String(options.apiBaseURL ?? eazyAPIBaseURL).replace(/\/+$/, "")}/merchant/checkout/query`;
+    const fetchImplementation = options.fetchImpl || fetch;
+    let upstreamResponse;
+
+    try {
+        upstreamResponse = await fetchImplementation(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json; charset=utf-8",
+                Timestamp: timestamp,
+                "Secret-Hash": secretHash
+            },
+            body: JSON.stringify({
+                appId,
+                globalTransactionsId: normalizedID
+            }),
+            signal: options.signal || AbortSignal.timeout(options.timeoutMs || 10_000)
+        });
+    } catch (error) {
+        throw eazyPaymentError("EAZY_QUERY_UNREACHABLE", 502, "Could not reach EazyPay.");
+    }
+
+    const responseText = await upstreamResponse.text();
+    if (responseText.length > 262_144) {
+        throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay returned an invalid response.");
+    }
+
+    let upstreamPayload = {};
+    if (responseText) {
+        try {
+            upstreamPayload = JSON.parse(responseText);
+        } catch (error) {
+            throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay returned an invalid response.");
+        }
+    }
+
+    if (!upstreamResponse.ok) {
+        const error = eazyPaymentError("EAZY_QUERY_FAILED", 502, "EazyPay could not confirm the transaction.");
+        error.upstreamStatus = upstreamResponse.status;
+        error.providerMessage = safeUpstreamMessage(upstreamPayload);
+        throw error;
+    }
+
+    const transaction = normalizeEazyTransaction(upstreamPayload);
+    if (!transaction.globalTransactionsId
+        || !timingSafeStringEqual(transaction.globalTransactionsId, normalizedID)
+        || !transaction.invoiceId) {
+        throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay returned an invalid transaction response.");
+    }
+
+    if (!eazyQuerySucceeded(transaction)) {
+        const error = eazyPaymentError("EAZY_QUERY_REJECTED", 502, "EazyPay rejected the transaction query.");
+        error.providerErrorCode = transaction.errorCode;
+        throw error;
+    }
+
+    return transaction;
+}
+
+function bhdFils(value) {
+    const normalized = typeof value === "number"
+        ? value.toFixed(3)
+        : String(value || "").trim();
+    const match = normalized.match(/^(\d+)(?:\.(\d{1,3}))?$/);
+    if (!match) {
+        return null;
+    }
+
+    const whole = Number(match[1]);
+    const fractional = Number((match[2] || "").padEnd(3, "0"));
+    if (!Number.isSafeInteger(whole) || !Number.isSafeInteger(fractional)) {
+        return null;
+    }
+
+    const fils = whole * 1000 + fractional;
+    return Number.isSafeInteger(fils) ? fils : null;
+}
+
+function verifyEazyTransactionAgainstOrder(transaction, order) {
+    if (!order) {
+        throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
+    }
+
+    if (!transaction.invoiceId || !timingSafeStringEqual(transaction.invoiceId, order.id)) {
+        throw eazyPaymentError("EAZY_INVOICE_MISMATCH", 409, "The EazyPay invoice does not match the local order.");
+    }
+
+    if (transaction.currency !== "BHD" || orderCurrency(order) !== "BHD") {
+        throw eazyPaymentError("EAZY_CURRENCY_MISMATCH", 409, "The EazyPay currency does not match the local order.");
+    }
+
+    const providerAmount = bhdFils(transaction.amount);
+    const storedAmount = bhdFils(numericOrderTotal(order));
+    if (providerAmount === null || storedAmount === null || providerAmount !== storedAmount) {
+        throw eazyPaymentError("EAZY_AMOUNT_MISMATCH", 409, "The EazyPay amount does not match the local order.");
+    }
+
+    if (order.eazyGlobalTransactionsId
+        && !timingSafeStringEqual(order.eazyGlobalTransactionsId, transaction.globalTransactionsId)) {
+        throw eazyPaymentError("EAZY_TRANSACTION_MISMATCH", 409, "The local order is linked to another EazyPay transaction.");
+    }
+
+    if (transaction.isPaid === 1 && !transaction.transactionsId) {
+        throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay did not return a paid transaction ID.");
+    }
+
+    if (order.eazyTransactionsId
+        && transaction.transactionsId
+        && !timingSafeStringEqual(order.eazyTransactionsId, transaction.transactionsId)) {
+        throw eazyPaymentError("EAZY_TRANSACTION_MISMATCH", 409, "The local order is linked to another paid transaction.");
+    }
+
+    return {
+        providerAmount,
+        storedAmount
+    };
+}
+
+async function withEazyPaymentLock(globalTransactionsId, operation) {
+    const existing = eazyPaymentLocks.get(globalTransactionsId);
+    if (existing) {
+        const result = await existing;
+        return {
+            ...result,
+            applied: false,
+            award: {
+                ...result.award,
+                awarded: false,
+                reason: "ALREADY_APPLIED"
+            }
+        };
+    }
+
+    const pending = Promise.resolve().then(operation);
+    eazyPaymentLocks.set(globalTransactionsId, pending);
+    try {
+        return await pending;
+    } finally {
+        if (eazyPaymentLocks.get(globalTransactionsId) === pending) {
+            eazyPaymentLocks.delete(globalTransactionsId);
+        }
+    }
 }
 
 async function upsertOrderRecord(order) {
@@ -2999,6 +3348,271 @@ async function awardOrderBeans(order) {
     }
 
     return { awarded: true, points };
+}
+
+function eazyPaidTimestamp(transaction) {
+    const parsed = transaction.paidOn ? new Date(transaction.paidOn) : null;
+    return parsed && Number.isFinite(parsed.getTime())
+        ? parsed.toISOString()
+        : new Date().toISOString();
+}
+
+async function awardOrderBeansWithClient(client, order) {
+    const points = orderBeansFor(order);
+    if (points <= 0) {
+        return { awarded: false, points: 0, reason: "NO_POINTS" };
+    }
+
+    const accountResult = await client.query(
+        `SELECT points_balance
+         FROM loyalty_accounts
+         WHERE email = $1
+         FOR UPDATE`,
+        [order.email]
+    );
+    if (accountResult.rowCount === 0) {
+        return { awarded: false, points, reason: "LOYALTY_ACCOUNT_NOT_FOUND" };
+    }
+
+    const transactionID = loyaltyTransactionIDForOrder(order);
+    const transactionResult = await client.query(
+        `INSERT INTO loyalty_transactions
+         (id, email, type, points, note, voucher_code, voucher_detail, voucher_expires_at, voucher_single_use, voucher_status, created_at)
+         VALUES ($1, $2, 'earn', $3, $4, NULL, NULL, NULL, NULL, NULL, $5)
+         ON CONFLICT (id) DO NOTHING
+         RETURNING id`,
+        [
+            transactionID,
+            order.email,
+            points,
+            `Completed order ${order.title} • ${points} Beans • ${order.total}`,
+            new Date().toISOString()
+        ]
+    );
+    if (transactionResult.rowCount === 0) {
+        return { awarded: false, points, reason: "ALREADY_AWARDED" };
+    }
+
+    const nextPointsBalance = Number(accountResult.rows[0].points_balance || 0) + points;
+    await client.query(
+        `UPDATE loyalty_accounts
+         SET points_balance = $2, tier = $3, next_reward = $4, perks = $5::jsonb
+         WHERE email = $1`,
+        [
+            order.email,
+            nextPointsBalance,
+            tierFor(nextPointsBalance),
+            nextRewardText(nextPointsBalance),
+            JSON.stringify(loyaltyPerksFor(nextPointsBalance))
+        ]
+    );
+
+    return { awarded: true, points };
+}
+
+async function applyConfirmedEazyPayment(order, transaction) {
+    if (transaction.isPaid !== 1) {
+        return {
+            applied: false,
+            order,
+            award: { awarded: false, points: 0, reason: "PAYMENT_NOT_CONFIRMED" }
+        };
+    }
+
+    if (database.isEnabled()) {
+        const client = await database.connect();
+        try {
+            await client.query("BEGIN");
+            const result = await client.query(
+                `SELECT id, email, title, total, status, items, created_at,
+                        eazy_global_transaction_id, eazy_transaction_id,
+                        eazy_payment_method, eazy_paid_amount, eazy_paid_at, eazy_confirmed_at
+                 FROM orders
+                 WHERE id = $1
+                 FOR UPDATE`,
+                [order.id]
+            );
+            if (result.rowCount === 0) {
+                throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
+            }
+
+            const lockedOrder = {
+                ...orderRowToRecord(result.rows[0]),
+                email: normalizeEmail(result.rows[0].email)
+            };
+            verifyEazyTransactionAgainstOrder(transaction, lockedOrder);
+            const alreadyApplied = Boolean(lockedOrder.eazyPaidOn);
+            let paidOrder = lockedOrder;
+
+            if (!alreadyApplied) {
+                const paidAt = eazyPaidTimestamp(transaction);
+                const confirmedAt = new Date().toISOString();
+                const updateResult = await client.query(
+                    `UPDATE orders
+                     SET status = CASE
+                            WHEN status IN ('Completed', 'Fulfilled', 'Delivered') THEN status
+                            ELSE 'Completed'
+                         END,
+                         eazy_global_transaction_id = $2,
+                         eazy_transaction_id = $3,
+                         eazy_payment_method = $4,
+                         eazy_paid_amount = $5,
+                         eazy_paid_at = $6,
+                         eazy_confirmed_at = $7
+                     WHERE id = $1
+                     RETURNING id, email, title, total, status, items, created_at,
+                               eazy_global_transaction_id, eazy_transaction_id,
+                               eazy_payment_method, eazy_paid_amount, eazy_paid_at, eazy_confirmed_at`,
+                    [
+                        order.id,
+                        transaction.globalTransactionsId,
+                        transaction.transactionsId,
+                        transaction.paymentMethod || null,
+                        Number(transaction.amount).toFixed(3),
+                        paidAt,
+                        confirmedAt
+                    ]
+                );
+                paidOrder = {
+                    ...orderRowToRecord(updateResult.rows[0]),
+                    email: normalizeEmail(updateResult.rows[0].email)
+                };
+            }
+
+            const award = await awardOrderBeansWithClient(client, paidOrder);
+            await client.query("COMMIT");
+            return {
+                applied: !alreadyApplied,
+                order: paidOrder,
+                award
+            };
+        } catch (error) {
+            await client.query("ROLLBACK");
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    const store = readJSON(ordersStorePath);
+    const orders = Array.isArray(store.orders[order.email]) ? store.orders[order.email] : [];
+    const index = orders.findIndex((entry) => entry.id === order.id);
+    if (index === -1) {
+        throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
+    }
+
+    const latestOrder = {
+        ...orders[index],
+        email: order.email
+    };
+    verifyEazyTransactionAgainstOrder(transaction, latestOrder);
+    const alreadyApplied = Boolean(latestOrder.eazyPaidOn);
+    if (!alreadyApplied) {
+        orders[index] = {
+            ...orders[index],
+            status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Completed",
+            eazyGlobalTransactionsId: transaction.globalTransactionsId,
+            eazyTransactionsId: transaction.transactionsId,
+            eazyPaymentMethod: transaction.paymentMethod,
+            eazyPaidAmount: Number(transaction.amount).toFixed(3),
+            eazyPaidOn: eazyPaidTimestamp(transaction),
+            eazyConfirmedAt: new Date().toISOString()
+        };
+        store.orders[order.email] = orders;
+        writeJSON(ordersStorePath, store);
+    }
+
+    const paidOrder = {
+        ...orders[index],
+        email: order.email
+    };
+    const award = await awardOrderBeans(paidOrder);
+    return {
+        applied: !alreadyApplied,
+        order: paidOrder,
+        award
+    };
+}
+
+async function confirmEazyTransaction(globalTransactionsId, options = {}) {
+    const transaction = await queryEazyTransaction(globalTransactionsId, options);
+    const order = await findOrderByID(transaction.invoiceId);
+    if (!order) {
+        throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
+    }
+
+    if (options.customerEmail
+        && !timingSafeStringEqual(normalizeEmail(order.email), normalizeEmail(options.customerEmail))) {
+        throw eazyPaymentError("EAZY_ORDER_FORBIDDEN", 403, "This payment does not belong to the authenticated customer.");
+    }
+
+    verifyEazyTransactionAgainstOrder(transaction, order);
+    if (transaction.isPaid !== 1) {
+        return {
+            transaction,
+            order,
+            applied: false,
+            award: { awarded: false, points: 0, reason: "PAYMENT_NOT_CONFIRMED" }
+        };
+    }
+
+    const application = await withEazyPaymentLock(
+        transaction.globalTransactionsId,
+        () => applyConfirmedEazyPayment(order, transaction)
+    );
+    return {
+        transaction,
+        ...application
+    };
+}
+
+function renderEazyReturnPage(state) {
+    const content = {
+        success: {
+            title: "Payment confirmed",
+            detail: "Your payment was confirmed securely. You can return to Talla and view your order.",
+            accent: "#23603f"
+        },
+        pending: {
+            title: "Payment pending",
+            detail: "We have not received a confirmed payment yet. Return to Talla and check your order again shortly.",
+            accent: "#8a5a13"
+        },
+        failure: {
+            title: "Payment not confirmed",
+            detail: "We could not confirm this payment. No order was marked paid. Please return to Talla and try again.",
+            accent: "#8b2f2f"
+        }
+    }[state] || null;
+    const safeContent = content || {
+        title: "Payment status unavailable",
+        detail: "Please return to Talla and check your order.",
+        accent: "#454545"
+    };
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHTML(safeContent.title)}</title>
+    <style>
+        :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        body { margin: 0; background: #f7f3ea; color: #231f1a; display: grid; min-height: 100vh; place-items: center; }
+        main { box-sizing: border-box; width: min(92vw, 28rem); padding: 2rem; border-radius: 1.25rem; background: #fffdf8; box-shadow: 0 1rem 3rem rgba(52, 39, 24, .12); text-align: center; }
+        h1 { color: ${safeContent.accent}; font-size: 1.65rem; margin: 0 0 .75rem; }
+        p { line-height: 1.55; margin: 0 0 1.5rem; }
+        a { display: inline-block; border-radius: 999px; padding: .8rem 1.2rem; background: #231f1a; color: white; font-weight: 650; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>${escapeHTML(safeContent.title)}</h1>
+        <p>${escapeHTML(safeContent.detail)}</p>
+        <a href="talla://checkout-return">Return to Talla</a>
+    </main>
+</body>
+</html>`;
 }
 
 async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
@@ -6997,13 +7611,14 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/payments/eazy/create") {
         let body;
         try {
-            body = await readBody(request);
+            body = await readBody(request, 32_768);
         } catch (error) {
-            sendJSON(response, 400, { error: "Invalid JSON body." });
+            const publicError = eazyPublicError(error);
+            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
             return;
         }
 
-        const orderID = String(body.invoiceId || body.orderID || body.orderId || "").trim();
+        const orderID = normalizeEazyIdentifier(body.invoiceId || body.orderID || body.orderId);
         const submittedAmount = Number(body.amount);
         if (!orderID || !Number.isFinite(submittedAmount) || submittedAmount <= 0) {
             sendJSON(response, 400, { error: "Provide an invoiceId or orderID and a positive amount." });
@@ -7107,9 +7722,9 @@ const server = http.createServer(async (request, response) => {
             }
 
             const result = eazyResponsePayload(upstreamPayload);
-            const globalTransactionsId = String(
+            const globalTransactionsId = normalizeEazyIdentifier(
                 result.globalTransactionsId || result.globalTransactionId || ""
-            ).trim();
+            );
             const paymentUrl = String(result.paymentUrl || result.paymentURL || "").trim();
 
             if (!globalTransactionsId || !paymentUrl) {
@@ -7127,17 +7742,120 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/payments/eazy/return") {
-        sendJSON(response, 501, { error: "TODO: Implement EazyPay browser return handling." });
+        const globalTransactionsId = normalizeEazyIdentifier(
+            url.searchParams.get("globalTransactionsId")
+            || url.searchParams.get("globalTransactionId")
+            || url.searchParams.get("id")
+        );
+        const htmlHeaders = {
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff"
+        };
+        if (!globalTransactionsId) {
+            console.warn("EazyPay return received without a valid transaction ID.");
+            sendHTML(response, 400, renderEazyReturnPage("failure"), htmlHeaders);
+            return;
+        }
+
+        try {
+            const result = await confirmEazyTransaction(globalTransactionsId);
+            const state = result.transaction.isPaid === 1 ? "success" : "pending";
+            console.info(
+                `EazyPay return checked transaction ${globalTransactionsId}: ${state}; order ${result.transaction.invoiceId}; applied=${result.applied}.`
+            );
+            sendHTML(response, 200, renderEazyReturnPage(state), htmlHeaders);
+        } catch (error) {
+            console.error(
+                `EazyPay return confirmation failed for transaction ${globalTransactionsId}:`,
+                error.code || "EAZY_CONFIRMATION_FAILED"
+            );
+            sendHTML(response, 200, renderEazyReturnPage("failure"), htmlHeaders);
+        }
         return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/payments/eazy/webhook") {
-        sendJSON(response, 501, { error: "TODO: Implement and verify EazyPay webhook handling." });
+        let body;
+        try {
+            body = await readBody(request, 32_768);
+        } catch (error) {
+            const publicError = eazyPublicError(error);
+            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: "Malformed EazyPay notification." });
+            return;
+        }
+
+        const globalTransactionsId = extractEazyGlobalTransactionID(body);
+        if (!globalTransactionsId) {
+            sendJSON(response, 400, { error: "Malformed EazyPay notification." });
+            return;
+        }
+
+        // TODO: Add webhook signature verification when EazyPay provides its webhook authentication specification.
+        try {
+            const result = await confirmEazyTransaction(globalTransactionsId);
+            console.info(
+                `EazyPay webhook checked transaction ${globalTransactionsId}: paid=${result.transaction.isPaid}; order ${result.transaction.invoiceId}; applied=${result.applied}.`
+            );
+            sendJSON(response, 200, {
+                received: true,
+                confirmed: result.transaction.isPaid === 1
+            });
+        } catch (error) {
+            console.error(
+                `EazyPay webhook query failed for transaction ${globalTransactionsId}:`,
+                error.code || "EAZY_CONFIRMATION_FAILED"
+            );
+            sendJSON(response, 200, {
+                received: true,
+                confirmed: false
+            });
+        }
         return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/payments/eazy/query") {
-        sendJSON(response, 501, { error: "TODO: Implement EazyPay transaction status queries." });
+        let body;
+        try {
+            body = await readBody(request, 16_384);
+        } catch (error) {
+            const publicError = eazyPublicError(error);
+            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
+            return;
+        }
+
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) {
+            return;
+        }
+
+        const globalTransactionsId = normalizeEazyIdentifier(body.globalTransactionsId || body.globalTransactionId);
+        if (!globalTransactionsId) {
+            sendJSON(response, 400, { error: "Provide a valid globalTransactionsId." });
+            return;
+        }
+
+        try {
+            const result = await confirmEazyTransaction(globalTransactionsId, {
+                customerEmail: customer.email
+            });
+            console.info(
+                `Authenticated EazyPay query checked transaction ${globalTransactionsId}: paid=${result.transaction.isPaid}; order ${result.transaction.invoiceId}; applied=${result.applied}.`
+            );
+            sendJSON(response, 200, result.transaction);
+        } catch (error) {
+            console.error(
+                `Authenticated EazyPay query failed for transaction ${globalTransactionsId}:`,
+                error.code || "EAZY_CONFIRMATION_FAILED"
+            );
+            const publicError = eazyPublicError(error);
+            sendJSON(response, publicError.statusCode, { error: publicError.message });
+        }
         return;
     }
 
@@ -7916,7 +8634,7 @@ const server = http.createServer(async (request, response) => {
     sendJSON(response, 404, { error: "Not found" });
 });
 
-(async () => {
+async function startServer() {
     if (!database.isEnabled()) {
         server.listen(port, host, () => {
             console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
@@ -7935,4 +8653,22 @@ const server = http.createServer(async (request, response) => {
         console.error("Failed to initialize Postgres storage.", error);
         process.exit(1);
     }
-})();
+}
+
+if (require.main === module) {
+    void startServer();
+}
+
+module.exports = {
+    applyConfirmedEazyPayment,
+    bhdFils,
+    confirmEazyTransaction,
+    createEazyQuerySecretHash,
+    extractEazyGlobalTransactionID,
+    normalizeEazyTransaction,
+    queryEazyTransaction,
+    renderEazyReturnPage,
+    server,
+    startServer,
+    verifyEazyTransactionAgainstOrder
+};
