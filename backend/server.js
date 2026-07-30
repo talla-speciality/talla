@@ -7981,7 +7981,10 @@ const server = http.createServer(async (request, response) => {
             };
 
             await upsertOrderRecord(pendingOrder);
-            sendJSON(response, 200, await ordersPayload(customer.email));
+            sendJSON(response, 200, {
+                orderID: pendingOrder.id,
+                orders: await ordersPayload(customer.email)
+            });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid checkout order." });
         }

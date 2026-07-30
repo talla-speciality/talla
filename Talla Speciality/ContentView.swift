@@ -6477,7 +6477,7 @@ struct ContentView: View {
                     openAccountSection(AccountSectionView.ScrollTarget.library)
                 } else {
                     Task {
-                        await beginCheckout(useDeliveryAddress: true)
+                        await beginCheckout()
                     }
                 }
             } label: {
@@ -6492,7 +6492,7 @@ struct ContentView: View {
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .tracking(1.2)
 
-                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely through Shopify, then return to Talla for order tracking and Beans."))
+                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely through BENEFIT, then return to Talla for order tracking and Beans."))
                         .font(bodyFont(size: 11))
                         .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
                 }
@@ -6586,7 +6586,7 @@ struct ContentView: View {
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(AppLocalization.text("payment_methods_detail", fallback: "Pay using Apple Pay or card through Shopify. Talla never stores your card details."))
+                    Text(AppLocalization.text("payment_methods_detail", fallback: "Pay through BENEFIT with BenefitPay, Apple Pay, or card. Talla never stores your card details."))
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -6594,6 +6594,11 @@ struct ContentView: View {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 8)], alignment: .leading, spacing: 8) {
+                paymentMethodChip(
+                    title: AppLocalization.text("benefit_pay", fallback: "BenefitPay"),
+                    systemImage: "checkmark.shield.fill"
+                )
+
                 paymentMethodChip(
                     title: AppLocalization.text("apple_pay", fallback: "Apple Pay"),
                     systemImage: "apple.logo"
@@ -10160,59 +10165,41 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func beginCheckout(useDeliveryAddress: Bool) async {
+    private func beginCheckout() async {
         guard !isCheckingOut else { return }
 
-        let lines = cartItems.compactMap { item -> ShopifyCheckoutLine? in
-            ShopifyCheckoutLine(merchandiseId: item.variant.id, quantity: item.quantity)
-        }
-
-        guard !lines.isEmpty else {
+        guard !cartItems.isEmpty else {
             checkoutError = AppLocalization.text("cart_no_purchasable_items", fallback: "Your bag has no purchasable items.")
             return
         }
 
-        let checkoutAddress = useDeliveryAddress ? preferredAddress.flatMap { address -> ShopifyCheckoutAddress? in
-            guard let profile = customerProfile else { return nil }
-            return ShopifyCheckoutAddress(
-                email: profile.email,
-                fullName: address.fullName,
-                phone: address.phone,
-                address1: address.line1,
-                city: address.city,
-                country: address.country.name
-            )
-        } : nil
+        guard let profile = customerProfile else {
+            checkoutError = AppLocalization.text("sign_in_before_checkout", fallback: "Sign in before checkout.")
+            return
+        }
 
         isCheckingOut = true
         checkoutError = nil
 
         do {
-            if let appliedVoucher, let profile = customerProfile {
+            if let appliedVoucher {
                 _ = try await AccountService.consumeVoucher(code: appliedVoucher.code, email: profile.email)
                 await loadAvailableVouchers(for: profile.email)
             }
 
-            if let profile = customerProfile {
-                let checkoutItems = cartItems.map { item in
-                    (name: item.product.name, quantity: item.quantity)
-                }
-                if let pendingOrders = try? await AccountService.recordCheckoutStarted(
-                    email: profile.email,
-                    items: checkoutItems,
-                    total: cartTotal
-                ) {
-                    orderHistory = pendingOrders
-                }
+            let checkoutItems = cartItems.map { item in
+                (name: item.product.name, quantity: item.quantity)
             }
-
-            let checkoutURL = try await ShopifyStorefrontClient.createCheckoutURL(
-                lines: lines,
-                customerEmail: customerProfile?.email,
-                checkoutAddress: checkoutAddress
+            let checkoutStart = try await AccountService.recordCheckoutStarted(
+                email: profile.email,
+                items: checkoutItems,
+                total: cartTotal
             )
+            orderHistory = checkoutStart.orders
+
+            let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
             cartOpen = false
-            checkoutSession = CheckoutSession(url: checkoutURL)
+            checkoutSession = CheckoutSession(url: paymentURL)
             appliedVoucher = nil
             voucherCodeInput = ""
             voucherError = nil
@@ -10651,6 +10638,11 @@ private enum AccountService {
         let expiresAt: String
     }
 
+    struct CheckoutStartResult {
+        let orderID: String
+        let orders: [ContentView.AccountOrder]
+    }
+
     private static var accessToken: String {
         UserDefaults.standard.string(forKey: sessionTokenKey) ?? ""
     }
@@ -10885,7 +10877,7 @@ private enum AccountService {
         return try await performTasteMemoryEnvelopeRequest(request)
     }
 
-    static func recordCheckoutStarted(email: String, items: [(name: String, quantity: Int)], total: Double) async throws -> [ContentView.AccountOrder] {
+    static func recordCheckoutStarted(email: String, items: [(name: String, quantity: Int)], total: Double) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
         }
@@ -10909,7 +10901,24 @@ private enum AccountService {
             "items": orderItems
         ])
 
-        return try await performOrdersRequest(request)
+        return try await performCheckoutStartRequest(request)
+    }
+
+    static func createBenefitPayment(orderID: String) async throws -> URL {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/api/payments/benefit/create"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "orderID": orderID
+        ])
+
+        return try await performBenefitPaymentRequest(request)
     }
 
     static func fetchStockAlerts(email: String) async throws -> [ContentView.StockAlertRecord] {
@@ -11296,6 +11305,44 @@ private enum AccountService {
         }
 
         throw ContentView.LoyaltyServiceError.operationFailed("The orders service could not complete your request.")
+    }
+
+    private static func performCheckoutStartRequest(_ request: URLRequest) async throws -> CheckoutStartResult {
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The orders service returned an invalid response.")
+        }
+
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            let decoded = try JSONDecoder().decode(CheckoutStartResponse.self, from: data)
+            return CheckoutStartResult(orderID: decoded.orderID, orders: decoded.orders)
+        }
+
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+
+        throw ContentView.LoyaltyServiceError.operationFailed("The orders service could not complete your request.")
+    }
+
+    private static func performBenefitPaymentRequest(_ request: URLRequest) async throws -> URL {
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
+        }
+
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            let decoded = try JSONDecoder().decode(BenefitPaymentResponse.self, from: data)
+            return decoded.paymentUrl
+        }
+
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+
+        throw ContentView.LoyaltyServiceError.operationFailed("The payment service could not complete your request.")
     }
 
     private static func performTasteMemoryRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
@@ -12296,6 +12343,16 @@ private struct AccountSessionResponse: Decodable {
 
 private struct TasteMemoryResponse: Decodable {
     let tasteMemory: [ContentView.TasteMemoryRecord]
+}
+
+private struct CheckoutStartResponse: Decodable {
+    let orderID: String
+    let orders: [ContentView.AccountOrder]
+}
+
+private struct BenefitPaymentResponse: Decodable {
+    let paymentUrl: URL
+    let trackId: String
 }
 
 private struct ServiceErrorResponse: Decodable {
