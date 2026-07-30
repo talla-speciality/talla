@@ -37,6 +37,10 @@ const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
 const appleSignInClientID = config.appleSignInClientID;
 const applePaySettlementProvider = config.applePaySettlementProvider;
+const eazyAppID = config.eazyAppID;
+const eazySecretKey = config.eazySecretKey;
+const eazyAPIBaseURL = config.eazyAPIBaseURL;
+const eazyPaymentMethods = config.eazyPaymentMethods;
 const apnsKeyID = config.apnsKeyID;
 const apnsTeamID = config.apnsTeamID;
 const apnsBundleID = config.apnsBundleID;
@@ -2825,6 +2829,29 @@ function numericOrderTotal(order) {
     const match = String(order.total || "").match(/-?\d+(?:\.\d+)?/);
     const parsed = match ? Number(match[0]) : 0;
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function orderCurrency(order) {
+    const match = String(order.total || "").trim().match(/^([A-Za-z]{3})\b/);
+    return match ? match[1].toUpperCase() : "BHD";
+}
+
+function eazySecretHash(timestamp, currency, amount) {
+    const value = `${timestamp}${currency}${amount}${eazyAppID}`;
+    return crypto.createHmac("sha256", eazySecretKey).update(value).digest("hex");
+}
+
+function eazyResponsePayload(payload) {
+    if (payload?.data && typeof payload.data === "object") {
+        return payload.data;
+    }
+
+    return payload && typeof payload === "object" ? payload : {};
+}
+
+function safeUpstreamMessage(payload) {
+    const message = payload?.message || payload?.error || payload?.responseMessage || payload?.result?.message;
+    return String(message || "No error message returned").slice(0, 300);
 }
 
 async function upsertOrderRecord(order) {
@@ -6964,6 +6991,153 @@ const server = http.createServer(async (request, response) => {
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
         }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/eazy/create") {
+        let body;
+        try {
+            body = await readBody(request);
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid JSON body." });
+            return;
+        }
+
+        const orderID = String(body.invoiceId || body.orderID || body.orderId || "").trim();
+        const submittedAmount = Number(body.amount);
+        if (!orderID || !Number.isFinite(submittedAmount) || submittedAmount <= 0) {
+            sendJSON(response, 400, { error: "Provide an invoiceId or orderID and a positive amount." });
+            return;
+        }
+
+        const requestedEmail = normalizeEmail(body.email);
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) {
+            return;
+        }
+
+        if (!eazyAppID || !eazySecretKey) {
+            console.error("EazyPay invoice creation is unavailable: required configuration is missing.");
+            sendJSON(response, 503, { error: "EazyPay checkout is not configured." });
+            return;
+        }
+
+        let order;
+        try {
+            order = await findOrderByID(orderID);
+        } catch (error) {
+            console.error(`EazyPay order lookup failed for ${orderID}:`, error.message);
+            sendJSON(response, 500, { error: "Could not verify the order for payment." });
+            return;
+        }
+
+        if (!order) {
+            sendJSON(response, 404, { error: "Order not found." });
+            return;
+        }
+
+        if (normalizeEmail(order.email) !== normalizeEmail(customer.email)) {
+            sendJSON(response, 403, { error: "This order does not belong to the authenticated customer." });
+            return;
+        }
+
+        const currency = "BHD";
+        if (orderCurrency(order) !== currency) {
+            sendJSON(response, 409, { error: "The stored order currency is not BHD." });
+            return;
+        }
+
+        const verifiedAmountNumber = numericOrderTotal(order);
+        if (!Number.isFinite(verifiedAmountNumber) || verifiedAmountNumber <= 0) {
+            sendJSON(response, 409, { error: "The stored order does not have a valid payable total." });
+            return;
+        }
+
+        const amount = verifiedAmountNumber.toFixed(3);
+        if (submittedAmount.toFixed(3) !== amount) {
+            sendJSON(response, 409, { error: "The submitted amount does not match the stored order total." });
+            return;
+        }
+
+        const timestamp = new Date().toISOString();
+        const secretHash = eazySecretHash(timestamp, currency, amount);
+        const endpoint = `${String(eazyAPIBaseURL).replace(/\/+$/, "")}/merchant/checkout/createInvoice`;
+
+        try {
+            const upstreamResponse = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Timestamp: timestamp,
+                    "Secret-Hash": secretHash
+                },
+                body: JSON.stringify({
+                    appId: eazyAppID,
+                    invoiceId: orderID,
+                    amount,
+                    currency,
+                    paymentMethod: eazyPaymentMethods
+                })
+            });
+
+            const responseText = await upstreamResponse.text();
+            let upstreamPayload = {};
+            if (responseText) {
+                try {
+                    upstreamPayload = JSON.parse(responseText);
+                } catch (error) {
+                    console.error(`EazyPay returned invalid JSON for order ${orderID} with status ${upstreamResponse.status}.`);
+                    sendJSON(response, 502, { error: "EazyPay returned an invalid response." });
+                    return;
+                }
+            }
+
+            if (!upstreamResponse.ok) {
+                console.error(
+                    `EazyPay invoice creation failed for order ${orderID} with status ${upstreamResponse.status}:`,
+                    safeUpstreamMessage(upstreamPayload)
+                );
+                sendJSON(response, 502, { error: "EazyPay could not create the payment invoice." });
+                return;
+            }
+
+            const result = eazyResponsePayload(upstreamPayload);
+            const globalTransactionsId = String(
+                result.globalTransactionsId || result.globalTransactionId || ""
+            ).trim();
+            const paymentUrl = String(result.paymentUrl || result.paymentURL || "").trim();
+
+            if (!globalTransactionsId || !paymentUrl) {
+                console.error(`EazyPay invoice response was incomplete for order ${orderID}.`);
+                sendJSON(response, 502, { error: "EazyPay returned an incomplete invoice response." });
+                return;
+            }
+
+            sendJSON(response, 200, { globalTransactionsId, paymentUrl });
+        } catch (error) {
+            console.error(`EazyPay invoice request failed for order ${orderID}:`, error.message);
+            sendJSON(response, 502, { error: "Could not reach EazyPay." });
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/payments/eazy/return") {
+        sendJSON(response, 501, { error: "TODO: Implement EazyPay browser return handling." });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/eazy/webhook") {
+        sendJSON(response, 501, { error: "TODO: Implement and verify EazyPay webhook handling." });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/eazy/query") {
+        sendJSON(response, 501, { error: "TODO: Implement EazyPay transaction status queries." });
         return;
     }
 
