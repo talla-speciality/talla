@@ -7856,14 +7856,36 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && url.pathname === "/api/payments/benefit/result") {
-        const payment = await findBenefitPaymentByResultToken(url.searchParams.get("payment"));
         const htmlHeaders = {
             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
             "Referrer-Policy": "no-referrer",
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "no-store"
         };
-        sendHTML(response, payment ? 200 : 404, renderBenefitResultPage(payment), htmlHeaders);
+        try {
+            const payment = await findBenefitPaymentByResultToken(url.searchParams.get("payment"));
+            sendHTML(response, payment ? 200 : 404, renderBenefitResultPage(payment), htmlHeaders);
+        } catch (error) {
+            console.error("BENEFIT result page failed:", error.code || error.message || "BENEFIT_RESULT_FAILED");
+            sendHTML(response, 200, renderBenefitResultPage(null), htmlHeaders);
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/") {
+        const htmlHeaders = {
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store"
+        };
+        try {
+            const payment = await findBenefitPaymentByResultToken(url.searchParams.get("payment"));
+            sendHTML(response, 200, renderBenefitResultPage(payment), htmlHeaders);
+        } catch (error) {
+            console.error("BENEFIT root return page failed:", error.code || error.message || "BENEFIT_ROOT_RETURN_FAILED");
+            sendHTML(response, 200, renderBenefitResultPage(null), htmlHeaders);
+        }
         return;
     }
 
