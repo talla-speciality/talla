@@ -65,10 +65,13 @@ The server reads configuration from environment variables:
 - `SHOPIFY_ADMIN_ACCESS_TOKEN`: custom app Admin API access token with product scopes
 - `SHOPIFY_ADMIN_API_VERSION`: Shopify Admin GraphQL version, defaults to `2025-10`
 - `SHOPIFY_ADMIN_PUBLICATION_ID`: optional publication ID used to publish newly created products to the storefront
-- `EAZY_APP_ID`: EazyPay merchant application ID
-- `EAZY_SECRET_KEY`: EazyPay signing secret; never expose it to clients
-- `EAZY_API_BASE_URL`: EazyPay API origin, defaults to `https://api.eazy.net`
-- `EAZY_PAYMENT_METHODS`: checkout methods, defaults to `BENEFITGATEWAY,CREDITCARD,APPLEPAY`
+- `BENEFIT_TRANPORTAL_ID`: BENEFIT merchant transportal ID
+- `BENEFIT_TRANPORTAL_PASSWORD`: BENEFIT merchant transportal password
+- `BENEFIT_RESOURCE_KEY`: BENEFIT AES resource key
+- `BENEFIT_API_ENDPOINT`: BENEFIT hosted-payment API endpoint
+- `BENEFIT_SUCCESS_URL`: public HTTPS result-page URL used after an approved payment
+- `BENEFIT_ERROR_URL`: public HTTPS result-page URL used after a failed payment
+- `BENEFIT_NOTIFICATION_URL`: public HTTPS notification URL ending in `/api/payments/benefit/response`
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
 - `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
@@ -126,16 +129,15 @@ Example response:
 }
 ```
 
-### EazyPay checkout
+### BENEFIT hosted checkout
 
 ```http
-POST /api/payments/eazy/create
-POST /api/payments/eazy/query
-GET  /api/payments/eazy/return
-POST /api/payments/eazy/webhook
+POST /api/payments/benefit/create
+POST /api/payments/benefit/response
+GET  /api/payments/benefit/result
 ```
 
-The create and query routes require an authenticated customer. Return and webhook requests are treated only as notifications; the backend confirms payment through EazyPay's Query Transaction API before updating an order.
+The create route requires an authenticated customer and an existing order ID. The backend derives the BHD amount from the stored order, encrypts the hosted-payment request, and returns the BENEFIT payment URL. The public response route validates the decrypted notification against the pending payment before applying payment effects idempotently. The result page reads backend state only.
 
 ### Customer session
 

@@ -8,6 +8,7 @@ const path = require("path");
 const { URL } = require("url");
 const config = require("./config");
 const database = require("./database");
+const benefitGateway = require("./benefit-gateway");
 
 const host = config.host;
 const port = config.port;
@@ -25,6 +26,7 @@ const homeSettingsStorePath = config.stores.homeSettings;
 const passportSettingsStorePath = config.stores.passportSettings;
 const tasteMemoryStorePath = config.stores.tasteMemory;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
+const benefitPaymentsStorePath = config.stores.benefitPayments;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -37,10 +39,13 @@ const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
 const appleSignInClientID = config.appleSignInClientID;
 const applePaySettlementProvider = config.applePaySettlementProvider;
-const eazyAppID = config.eazyAppID;
-const eazySecretKey = config.eazySecretKey;
-const eazyAPIBaseURL = config.eazyAPIBaseURL;
-const eazyPaymentMethods = config.eazyPaymentMethods;
+const benefitTranportalID = config.benefitTranportalID;
+const benefitTranportalPassword = config.benefitTranportalPassword;
+const benefitResourceKey = config.benefitResourceKey;
+const benefitAPIEndpoint = config.benefitAPIEndpoint;
+const benefitSuccessURL = config.benefitSuccessURL;
+const benefitErrorURL = config.benefitErrorURL;
+const benefitNotificationURL = config.benefitNotificationURL;
 const apnsKeyID = config.apnsKeyID;
 const apnsTeamID = config.apnsTeamID;
 const apnsBundleID = config.apnsBundleID;
@@ -91,7 +96,7 @@ const walletPassWWDRBase64 = config.walletPassWWDRBase64;
 const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
 const rateLimitBuckets = new Map();
-const eazyPaymentLocks = new Map();
+const benefitPaymentLocks = new Map();
 let opsAlertTimer = null;
 let appleSigningKeysCache = null;
 let appleSigningKeysFetchedAt = 0;
@@ -112,6 +117,7 @@ ensureStoreFile(homeSettingsStorePath, { homeSettings: defaultHomeSettings() });
 ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSettings() });
 ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
+ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
 
 function ensureStoreFile(filePath, fallback) {
     if (!fs.existsSync(dataDirectory)) {
@@ -2450,13 +2456,7 @@ function orderRowToRecord(row) {
         total: row.total,
         status: row.status,
         items: Array.isArray(row.items) ? row.items : [],
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
-        eazyGlobalTransactionsId: row.eazy_global_transaction_id || undefined,
-        eazyTransactionsId: row.eazy_transaction_id || undefined,
-        eazyPaymentMethod: row.eazy_payment_method || undefined,
-        eazyPaidAmount: row.eazy_paid_amount || undefined,
-        eazyPaidOn: row.eazy_paid_at instanceof Date ? row.eazy_paid_at.toISOString() : row.eazy_paid_at || undefined,
-        eazyConfirmedAt: row.eazy_confirmed_at instanceof Date ? row.eazy_confirmed_at.toISOString() : row.eazy_confirmed_at || undefined
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
     };
 }
 
@@ -2508,18 +2508,9 @@ async function orderPayloadWithRewardState(email, order) {
     const beansAwarded = pointsAwarded > 0
         ? await hasLoyaltyTransaction(email, loyaltyTransactionIDForOrder(order))
         : false;
-    const {
-        eazyGlobalTransactionsId,
-        eazyTransactionsId,
-        eazyPaymentMethod,
-        eazyPaidAmount,
-        eazyPaidOn,
-        eazyConfirmedAt,
-        ...publicOrder
-    } = order;
 
     return {
-        ...publicOrder,
+        ...order,
         beansAwarded,
         pointsAwarded: beansAwarded ? pointsAwarded : 0
     };
@@ -2745,9 +2736,7 @@ async function findOrderByID(orderID) {
 
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, email, title, total, status, items, created_at,
-                    eazy_global_transaction_id, eazy_transaction_id,
-                    eazy_payment_method, eazy_paid_amount, eazy_paid_at, eazy_confirmed_at
+            `SELECT id, email, title, total, status, items, created_at
              FROM orders
              WHERE id = $1
              LIMIT 1`,
@@ -2884,323 +2873,6 @@ function numericOrderTotal(order) {
     const match = String(order.total || "").match(/-?\d+(?:\.\d+)?/);
     const parsed = match ? Number(match[0]) : 0;
     return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function orderCurrency(order) {
-    const match = String(order.total || "").trim().match(/^([A-Za-z]{3})\b/);
-    return match ? match[1].toUpperCase() : "BHD";
-}
-
-function eazySecretHash(timestamp, currency, amount) {
-    const value = `${timestamp}${currency}${amount}${eazyAppID}`;
-    return crypto.createHmac("sha256", eazySecretKey).update(value).digest("hex");
-}
-
-function eazyResponsePayload(payload) {
-    if (Array.isArray(payload)) {
-        return eazyResponsePayload(payload[0]);
-    }
-
-    if (!payload || typeof payload !== "object") {
-        return {};
-    }
-
-    if (payload.data && typeof payload.data === "object") {
-        return eazyResponsePayload(payload.data);
-    }
-
-    if (payload.result && typeof payload.result === "object") {
-        return eazyResponsePayload(payload.result);
-    }
-
-    return payload;
-}
-
-function safeUpstreamMessage(payload) {
-    const message = payload?.message || payload?.error || payload?.responseMessage || payload?.result?.message;
-    return String(message || "No error message returned").slice(0, 300);
-}
-
-function eazyPaymentError(code, statusCode, message) {
-    const error = new Error(message);
-    error.code = code;
-    error.statusCode = statusCode;
-    return error;
-}
-
-function eazyPublicError(error) {
-    if (error?.code === "REQUEST_BODY_TOO_LARGE") {
-        return {
-            statusCode: 413,
-            message: "Request body is too large."
-        };
-    }
-
-    if (error?.statusCode && error.statusCode < 500) {
-        return {
-            statusCode: error.statusCode,
-            message: error.message
-        };
-    }
-
-    return {
-        statusCode: error?.statusCode || 500,
-        message: error?.code === "EAZY_NOT_CONFIGURED"
-            ? "EazyPay checkout is not configured."
-            : "Payment confirmation is temporarily unavailable."
-    };
-}
-
-function normalizeEazyIdentifier(value, maxLength = 200) {
-    const normalized = String(value || "").trim();
-    if (!normalized || normalized.length > maxLength || !/^[A-Za-z0-9][A-Za-z0-9._:/#-]*$/.test(normalized)) {
-        return "";
-    }
-
-    return normalized;
-}
-
-function timingSafeStringEqual(first, second) {
-    const firstBuffer = Buffer.from(String(first || ""), "utf8");
-    const secondBuffer = Buffer.from(String(second || ""), "utf8");
-    return firstBuffer.length === secondBuffer.length
-        && crypto.timingSafeEqual(firstBuffer, secondBuffer);
-}
-
-function createEazyQuerySecretHash(timestamp, appId = eazyAppID, secretKey = eazySecretKey) {
-    return crypto
-        .createHmac("sha256", secretKey)
-        .update(`${timestamp}${appId}`)
-        .digest("hex");
-}
-
-function normalizeEazyTransaction(payload) {
-    const result = eazyResponsePayload(payload);
-    const globalTransactionsId = normalizeEazyIdentifier(
-        result.globalTransactionsId
-        || result.globalTransactionId
-        || result.global_transactions_id
-        || result.global_transaction_id
-    );
-    const transactionsId = normalizeEazyIdentifier(
-        result.transactionsId
-        || result.transactionId
-        || result.transactionsID
-        || result.transaction_id
-    );
-    const invoiceId = normalizeEazyIdentifier(
-        result.invoiceId
-        || result.invoiceID
-        || result.orderID
-        || result.orderId
-        || result.invoice_id
-    );
-    const paidValue = result.isPaid ?? result.is_paid ?? 0;
-    const isPaid = paidValue === true || Number(paidValue) === 1 ? 1 : 0;
-
-    return {
-        globalTransactionsId,
-        transactionsId,
-        invoiceId,
-        currency: String(result.currency || result.currencyCode || "").trim().toUpperCase(),
-        amount: String(result.amount ?? result.amt ?? "").trim(),
-        isPaid,
-        paidOn: String(result.paidOn || result.paidAt || result.paid_on || "").trim() || null,
-        paymentMethod: String(result.paymentMethod || result.payment_method || "").trim(),
-        errorCode: String(result.errorCode ?? result.error_code ?? "").trim(),
-        errorMessage: String(result.errorMessage || result.error_message || result.message || "").trim().slice(0, 300)
-    };
-}
-
-function eazyQuerySucceeded(transaction) {
-    return !transaction.errorCode || /^0+$/.test(transaction.errorCode);
-}
-
-function extractEazyGlobalTransactionID(payload) {
-    const candidates = [
-        payload,
-        payload?.data,
-        payload?.payload,
-        payload?.transaction,
-        payload?.result
-    ];
-
-    for (const candidate of candidates) {
-        if (!candidate || typeof candidate !== "object") {
-            continue;
-        }
-
-        const identifier = normalizeEazyIdentifier(
-            candidate.globalTransactionsId
-            || candidate.globalTransactionId
-            || candidate.global_transactions_id
-            || candidate.global_transaction_id
-            || candidate.id
-        );
-        if (identifier) {
-            return identifier;
-        }
-    }
-
-    return "";
-}
-
-async function queryEazyTransaction(globalTransactionsId, options = {}) {
-    const normalizedID = normalizeEazyIdentifier(globalTransactionsId);
-    if (!normalizedID) {
-        throw eazyPaymentError("EAZY_INVALID_TRANSACTION_ID", 400, "A valid EazyPay transaction ID is required.");
-    }
-
-    const appId = options.appId ?? eazyAppID;
-    const secretKey = options.secretKey ?? eazySecretKey;
-    if (!appId || !secretKey) {
-        throw eazyPaymentError("EAZY_NOT_CONFIGURED", 503, "EazyPay checkout is not configured.");
-    }
-
-    const timestamp = String(options.timestamp ?? Date.now());
-    const secretHash = createEazyQuerySecretHash(timestamp, appId, secretKey);
-    const endpoint = `${String(options.apiBaseURL ?? eazyAPIBaseURL).replace(/\/+$/, "")}/merchant/checkout/query`;
-    const fetchImplementation = options.fetchImpl || fetch;
-    let upstreamResponse;
-
-    try {
-        upstreamResponse = await fetchImplementation(endpoint, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json; charset=utf-8",
-                Timestamp: timestamp,
-                "Secret-Hash": secretHash
-            },
-            body: JSON.stringify({
-                appId,
-                globalTransactionsId: normalizedID
-            }),
-            signal: options.signal || AbortSignal.timeout(options.timeoutMs || 10_000)
-        });
-    } catch (error) {
-        throw eazyPaymentError("EAZY_QUERY_UNREACHABLE", 502, "Could not reach EazyPay.");
-    }
-
-    const responseText = await upstreamResponse.text();
-    if (responseText.length > 262_144) {
-        throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay returned an invalid response.");
-    }
-
-    let upstreamPayload = {};
-    if (responseText) {
-        try {
-            upstreamPayload = JSON.parse(responseText);
-        } catch (error) {
-            throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay returned an invalid response.");
-        }
-    }
-
-    if (!upstreamResponse.ok) {
-        const error = eazyPaymentError("EAZY_QUERY_FAILED", 502, "EazyPay could not confirm the transaction.");
-        error.upstreamStatus = upstreamResponse.status;
-        error.providerMessage = safeUpstreamMessage(upstreamPayload);
-        throw error;
-    }
-
-    const transaction = normalizeEazyTransaction(upstreamPayload);
-    if (!transaction.globalTransactionsId
-        || !timingSafeStringEqual(transaction.globalTransactionsId, normalizedID)
-        || !transaction.invoiceId) {
-        throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay returned an invalid transaction response.");
-    }
-
-    if (!eazyQuerySucceeded(transaction)) {
-        const error = eazyPaymentError("EAZY_QUERY_REJECTED", 502, "EazyPay rejected the transaction query.");
-        error.providerErrorCode = transaction.errorCode;
-        throw error;
-    }
-
-    return transaction;
-}
-
-function bhdFils(value) {
-    const normalized = typeof value === "number"
-        ? value.toFixed(3)
-        : String(value || "").trim();
-    const match = normalized.match(/^(\d+)(?:\.(\d{1,3}))?$/);
-    if (!match) {
-        return null;
-    }
-
-    const whole = Number(match[1]);
-    const fractional = Number((match[2] || "").padEnd(3, "0"));
-    if (!Number.isSafeInteger(whole) || !Number.isSafeInteger(fractional)) {
-        return null;
-    }
-
-    const fils = whole * 1000 + fractional;
-    return Number.isSafeInteger(fils) ? fils : null;
-}
-
-function verifyEazyTransactionAgainstOrder(transaction, order) {
-    if (!order) {
-        throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
-    }
-
-    if (!transaction.invoiceId || !timingSafeStringEqual(transaction.invoiceId, order.id)) {
-        throw eazyPaymentError("EAZY_INVOICE_MISMATCH", 409, "The EazyPay invoice does not match the local order.");
-    }
-
-    if (transaction.currency !== "BHD" || orderCurrency(order) !== "BHD") {
-        throw eazyPaymentError("EAZY_CURRENCY_MISMATCH", 409, "The EazyPay currency does not match the local order.");
-    }
-
-    const providerAmount = bhdFils(transaction.amount);
-    const storedAmount = bhdFils(numericOrderTotal(order));
-    if (providerAmount === null || storedAmount === null || providerAmount !== storedAmount) {
-        throw eazyPaymentError("EAZY_AMOUNT_MISMATCH", 409, "The EazyPay amount does not match the local order.");
-    }
-
-    if (order.eazyGlobalTransactionsId
-        && !timingSafeStringEqual(order.eazyGlobalTransactionsId, transaction.globalTransactionsId)) {
-        throw eazyPaymentError("EAZY_TRANSACTION_MISMATCH", 409, "The local order is linked to another EazyPay transaction.");
-    }
-
-    if (transaction.isPaid === 1 && !transaction.transactionsId) {
-        throw eazyPaymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay did not return a paid transaction ID.");
-    }
-
-    if (order.eazyTransactionsId
-        && transaction.transactionsId
-        && !timingSafeStringEqual(order.eazyTransactionsId, transaction.transactionsId)) {
-        throw eazyPaymentError("EAZY_TRANSACTION_MISMATCH", 409, "The local order is linked to another paid transaction.");
-    }
-
-    return {
-        providerAmount,
-        storedAmount
-    };
-}
-
-async function withEazyPaymentLock(globalTransactionsId, operation) {
-    const existing = eazyPaymentLocks.get(globalTransactionsId);
-    if (existing) {
-        const result = await existing;
-        return {
-            ...result,
-            applied: false,
-            award: {
-                ...result.award,
-                awarded: false,
-                reason: "ALREADY_APPLIED"
-            }
-        };
-    }
-
-    const pending = Promise.resolve().then(operation);
-    eazyPaymentLocks.set(globalTransactionsId, pending);
-    try {
-        return await pending;
-    } finally {
-        if (eazyPaymentLocks.get(globalTransactionsId) === pending) {
-            eazyPaymentLocks.delete(globalTransactionsId);
-        }
-    }
 }
 
 async function upsertOrderRecord(order) {
@@ -3350,11 +3022,350 @@ async function awardOrderBeans(order) {
     return { awarded: true, points };
 }
 
-function eazyPaidTimestamp(transaction) {
-    const parsed = transaction.paidOn ? new Date(transaction.paidOn) : null;
-    return parsed && Number.isFinite(parsed.getTime())
-        ? parsed.toISOString()
-        : new Date().toISOString();
+function benefitPaymentError(code, statusCode, message) {
+    const error = new Error(message);
+    error.code = code;
+    error.statusCode = statusCode;
+    return error;
+}
+
+function benefitPublicError(error) {
+    if (error?.code === "REQUEST_BODY_TOO_LARGE") {
+        return { statusCode: 413, message: "Request body is too large." };
+    }
+    if (error?.statusCode && error.statusCode < 500) {
+        return { statusCode: error.statusCode, message: error.message };
+    }
+    return {
+        statusCode: error?.statusCode || 500,
+        message: error?.code === "BENEFIT_NOT_CONFIGURED"
+            ? "BENEFIT checkout is not configured."
+            : "BENEFIT checkout is temporarily unavailable."
+    };
+}
+
+function benefitConfigured() {
+    return Boolean(
+        benefitTranportalID
+        && benefitTranportalPassword
+        && benefitResourceKey
+        && benefitAPIEndpoint
+        && benefitSuccessURL
+        && benefitErrorURL
+        && benefitNotificationURL
+    );
+}
+
+function normalizeBenefitIdentifier(value, maxLength = 255) {
+    const normalized = String(value || "").trim();
+    if (!normalized
+        || normalized.length > maxLength
+        || !/^[A-Za-z0-9][A-Za-z0-9._:/#-]*$/.test(normalized)) {
+        return "";
+    }
+    return normalized;
+}
+
+function timingSafeStringEqual(first, second) {
+    const firstBuffer = Buffer.from(String(first || ""), "utf8");
+    const secondBuffer = Buffer.from(String(second || ""), "utf8");
+    return firstBuffer.length === secondBuffer.length
+        && crypto.timingSafeEqual(firstBuffer, secondBuffer);
+}
+
+function orderCurrency(order) {
+    const match = String(order.total || "").trim().match(/^([A-Za-z]{3})\b/);
+    return match ? match[1].toUpperCase() : "BHD";
+}
+
+function bhdFils(value) {
+    const normalized = typeof value === "number"
+        ? value.toFixed(3)
+        : String(value || "").trim();
+    const match = normalized.match(/^(\d+)(?:\.(\d{1,3}))?$/);
+    if (!match) {
+        return null;
+    }
+    const whole = Number(match[1]);
+    const fractional = Number((match[2] || "").padEnd(3, "0"));
+    const fils = whole * 1000 + fractional;
+    return Number.isSafeInteger(fils) ? fils : null;
+}
+
+function safeConfiguredBenefitURL(value, name) {
+    let url;
+    try {
+        url = new URL(String(value || ""));
+    } catch (error) {
+        throw benefitPaymentError("BENEFIT_NOT_CONFIGURED", 503, `${name} is not configured.`);
+    }
+    if (url.protocol !== "https:" || url.username || url.password) {
+        throw benefitPaymentError("BENEFIT_NOT_CONFIGURED", 503, `${name} must be a secure HTTPS URL.`);
+    }
+    return url;
+}
+
+function benefitResultURL(baseURL, resultToken = "") {
+    const url = safeConfiguredBenefitURL(baseURL, "BENEFIT result URL");
+    if (resultToken) {
+        url.searchParams.set("payment", resultToken);
+    }
+    return url.toString();
+}
+
+function benefitPaymentRowToRecord(row) {
+    return {
+        trackID: row.track_id,
+        orderID: row.order_id,
+        email: normalizeEmail(row.email),
+        amount: row.amount,
+        currency: row.currency,
+        status: row.status,
+        resultTokenHash: row.result_token_hash,
+        hostedPaymentURL: row.hosted_payment_url || null,
+        paymentID: row.payment_id || null,
+        transactionID: row.transaction_id || null,
+        referenceID: row.reference_id || null,
+        gatewayResult: row.gateway_result || null,
+        authCode: row.auth_code || null,
+        authResponseCode: row.auth_response_code || null,
+        errorCode: row.error_code || null,
+        errorText: row.error_text || null,
+        notificationHash: row.notification_hash || null,
+        notificationReceivedAt: row.notification_received_at instanceof Date
+            ? row.notification_received_at.toISOString()
+            : row.notification_received_at || null,
+        processedAt: row.processed_at instanceof Date ? row.processed_at.toISOString() : row.processed_at || null,
+        effectsAppliedAt: row.effects_applied_at instanceof Date
+            ? row.effects_applied_at.toISOString()
+            : row.effects_applied_at || null,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
+    };
+}
+
+async function createBenefitPendingPayment(payment) {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `INSERT INTO benefit_payments
+             (track_id, order_id, email, amount, currency, status, result_token_hash, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, 'Pending', $6, $7, $7)
+             RETURNING *`,
+            [
+                payment.trackID,
+                payment.orderID,
+                payment.email,
+                payment.amount,
+                payment.currency,
+                payment.resultTokenHash,
+                payment.createdAt
+            ]
+        );
+        return benefitPaymentRowToRecord(result.rows[0]);
+    }
+
+    const store = readJSON(benefitPaymentsStorePath);
+    store.payments = store.payments || {};
+    store.payments[payment.trackID] = {
+        ...payment,
+        status: "Pending",
+        updatedAt: payment.createdAt
+    };
+    writeJSON(benefitPaymentsStorePath, store);
+    return store.payments[payment.trackID];
+}
+
+async function findBenefitPaymentByTrackID(trackID) {
+    const normalizedTrackID = normalizeBenefitIdentifier(trackID);
+    if (!normalizedTrackID) {
+        return null;
+    }
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT *
+             FROM benefit_payments
+             WHERE track_id = $1
+             LIMIT 1`,
+            [normalizedTrackID]
+        );
+        return result.rowCount > 0 ? benefitPaymentRowToRecord(result.rows[0]) : null;
+    }
+    const store = readJSON(benefitPaymentsStorePath);
+    return store.payments?.[normalizedTrackID] || null;
+}
+
+async function findBenefitPaymentByResultToken(resultToken) {
+    const normalizedToken = normalizeBenefitIdentifier(resultToken, 200);
+    if (!normalizedToken) {
+        return null;
+    }
+    const tokenHash = sha256Hex(normalizedToken);
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT *
+             FROM benefit_payments
+             WHERE result_token_hash = $1
+             LIMIT 1`,
+            [tokenHash]
+        );
+        return result.rowCount > 0 ? benefitPaymentRowToRecord(result.rows[0]) : null;
+    }
+    const store = readJSON(benefitPaymentsStorePath);
+    return Object.values(store.payments || {}).find((payment) => (
+        timingSafeStringEqual(payment.resultTokenHash, tokenHash)
+    )) || null;
+}
+
+async function updateBenefitPaymentInitiation(trackID, hostedPaymentURL, status = "Initiated") {
+    const updatedAt = new Date().toISOString();
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `UPDATE benefit_payments
+             SET hosted_payment_url = $2, status = $3, updated_at = $4
+             WHERE track_id = $1
+             RETURNING *`,
+            [trackID, hostedPaymentURL || null, status, updatedAt]
+        );
+        return result.rowCount > 0 ? benefitPaymentRowToRecord(result.rows[0]) : null;
+    }
+    const store = readJSON(benefitPaymentsStorePath);
+    const payment = store.payments?.[trackID];
+    if (!payment) {
+        return null;
+    }
+    payment.hostedPaymentURL = hostedPaymentURL || null;
+    payment.status = status;
+    payment.updatedAt = updatedAt;
+    writeJSON(benefitPaymentsStorePath, store);
+    return payment;
+}
+
+function benefitNotificationStatus(notification) {
+    if (notification.errorCode || notification.errorText) {
+        return "GatewayError";
+    }
+    const statuses = {
+        "CAPTURED": "NotificationReceived",
+        "NOT CAPTURED": "Declined",
+        "CANCELED": "Canceled",
+        "DENIED BY RISK": "DeniedByRisk",
+        "HOST TIMEOUT": "HostTimeout"
+    };
+    return statuses[notification.result] || "NotificationReceived";
+}
+
+function verifyBenefitNotification(payment, order, notification) {
+    if (!payment || !order) {
+        throw benefitPaymentError("BENEFIT_PAYMENT_NOT_FOUND", 404, "BENEFIT payment was not found.");
+    }
+    if (!notification.trackID || !timingSafeStringEqual(notification.trackID, payment.trackID)) {
+        throw benefitPaymentError("BENEFIT_TRACK_MISMATCH", 409, "BENEFIT track ID does not match.");
+    }
+    if (!timingSafeStringEqual(payment.orderID, order.id)) {
+        throw benefitPaymentError("BENEFIT_ORDER_MISMATCH", 409, "BENEFIT order does not match.");
+    }
+    if (notification.orderID && !timingSafeStringEqual(notification.orderID, payment.orderID)) {
+        throw benefitPaymentError("BENEFIT_ORDER_MISMATCH", 409, "BENEFIT order does not match.");
+    }
+    if (notification.resultToken
+        && !timingSafeStringEqual(sha256Hex(notification.resultToken), payment.resultTokenHash)) {
+        throw benefitPaymentError("BENEFIT_RESULT_TOKEN_MISMATCH", 409, "BENEFIT result token does not match.");
+    }
+    if (orderCurrency(order) !== "BHD" || payment.currency !== "BHD") {
+        throw benefitPaymentError("BENEFIT_CURRENCY_MISMATCH", 409, "BENEFIT currency does not match.");
+    }
+    if (notification.currency && !["048", "BHD"].includes(notification.currency)) {
+        throw benefitPaymentError("BENEFIT_CURRENCY_MISMATCH", 409, "BENEFIT currency does not match.");
+    }
+    const expectedAmount = bhdFils(payment.amount);
+    const orderAmount = bhdFils(numericOrderTotal(order));
+    const receivedAmount = bhdFils(notification.amount);
+    if (expectedAmount === null
+        || orderAmount === null
+        || receivedAmount === null
+        || expectedAmount !== orderAmount
+        || receivedAmount !== expectedAmount) {
+        throw benefitPaymentError("BENEFIT_AMOUNT_MISMATCH", 409, "BENEFIT amount does not match.");
+    }
+    if (payment.paymentID
+        && notification.paymentID
+        && !timingSafeStringEqual(payment.paymentID, notification.paymentID)) {
+        throw benefitPaymentError("BENEFIT_PAYMENT_ID_MISMATCH", 409, "BENEFIT payment ID does not match.");
+    }
+    if (payment.transactionID
+        && notification.transactionID
+        && !timingSafeStringEqual(payment.transactionID, notification.transactionID)) {
+        throw benefitPaymentError("BENEFIT_TRANSACTION_ID_MISMATCH", 409, "BENEFIT transaction ID does not match.");
+    }
+    if (notification.result === "CAPTURED") {
+        if (!notification.resultToken
+            || !notification.paymentID
+            || !notification.transactionID
+            || notification.authResponseCode !== "00") {
+            throw benefitPaymentError("BENEFIT_CAPTURE_INVALID", 409, "BENEFIT capture response is incomplete.");
+        }
+    }
+    return true;
+}
+
+async function recordBenefitNotification(payment, notification, notificationHash) {
+    const notificationReceivedAt = new Date().toISOString();
+    const status = benefitNotificationStatus(notification);
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `UPDATE benefit_payments
+             SET status = CASE WHEN effects_applied_at IS NOT NULL THEN status ELSE $2 END,
+                 payment_id = COALESCE(payment_id, NULLIF($3, '')),
+                 transaction_id = COALESCE(transaction_id, NULLIF($4, '')),
+                 reference_id = COALESCE(NULLIF($5, ''), reference_id),
+                 gateway_result = NULLIF($6, ''),
+                 auth_code = NULLIF($7, ''),
+                 auth_response_code = NULLIF($8, ''),
+                 error_code = NULLIF($9, ''),
+                 error_text = NULLIF($10, ''),
+                 notification_hash = $11,
+                 notification_received_at = $12,
+                 updated_at = $12
+             WHERE track_id = $1
+             RETURNING *`,
+            [
+                payment.trackID,
+                status,
+                notification.paymentID,
+                notification.transactionID,
+                notification.referenceID,
+                notification.result,
+                notification.authCode,
+                notification.authResponseCode,
+                notification.errorCode,
+                notification.errorText,
+                notificationHash,
+                notificationReceivedAt
+            ]
+        );
+        return result.rowCount > 0 ? benefitPaymentRowToRecord(result.rows[0]) : null;
+    }
+    const store = readJSON(benefitPaymentsStorePath);
+    const stored = store.payments?.[payment.trackID];
+    if (!stored) {
+        return null;
+    }
+    Object.assign(stored, {
+        status: stored.effectsAppliedAt ? stored.status : status,
+        paymentID: stored.paymentID || notification.paymentID || null,
+        transactionID: stored.transactionID || notification.transactionID || null,
+        referenceID: notification.referenceID || stored.referenceID || null,
+        gatewayResult: notification.result || null,
+        authCode: notification.authCode || null,
+        authResponseCode: notification.authResponseCode || null,
+        errorCode: notification.errorCode || null,
+        errorText: notification.errorText || null,
+        notificationHash,
+        notificationReceivedAt,
+        updatedAt: notificationReceivedAt
+    });
+    writeJSON(benefitPaymentsStorePath, store);
+    return stored;
 }
 
 async function awardOrderBeansWithClient(client, order) {
@@ -3362,7 +3373,6 @@ async function awardOrderBeansWithClient(client, order) {
     if (points <= 0) {
         return { awarded: false, points: 0, reason: "NO_POINTS" };
     }
-
     const accountResult = await client.query(
         `SELECT points_balance
          FROM loyalty_accounts
@@ -3373,7 +3383,6 @@ async function awardOrderBeansWithClient(client, order) {
     if (accountResult.rowCount === 0) {
         return { awarded: false, points, reason: "LOYALTY_ACCOUNT_NOT_FOUND" };
     }
-
     const transactionID = loyaltyTransactionIDForOrder(order);
     const transactionResult = await client.query(
         `INSERT INTO loyalty_transactions
@@ -3392,7 +3401,6 @@ async function awardOrderBeansWithClient(client, order) {
     if (transactionResult.rowCount === 0) {
         return { awarded: false, points, reason: "ALREADY_AWARDED" };
     }
-
     const nextPointsBalance = Number(accountResult.rows[0].points_balance || 0) + points;
     await client.query(
         `UPDATE loyalty_accounts
@@ -3406,86 +3414,82 @@ async function awardOrderBeansWithClient(client, order) {
             JSON.stringify(loyaltyPerksFor(nextPointsBalance))
         ]
     );
-
     return { awarded: true, points };
 }
 
-async function applyConfirmedEazyPayment(order, transaction) {
-    if (transaction.isPaid !== 1) {
-        return {
-            applied: false,
-            order,
-            award: { awarded: false, points: 0, reason: "PAYMENT_NOT_CONFIRMED" }
-        };
-    }
+async function applyBenefitNotification(trackID, notification) {
+    const payment = await findBenefitPaymentByTrackID(trackID);
+    const order = payment ? await findOrderByID(payment.orderID) : null;
+    verifyBenefitNotification(payment, order, notification);
+    const isCaptured = notification.result === "CAPTURED";
+    const processedAt = new Date().toISOString();
 
     if (database.isEnabled()) {
         const client = await database.connect();
         try {
             await client.query("BEGIN");
-            const result = await client.query(
-                `SELECT id, email, title, total, status, items, created_at,
-                        eazy_global_transaction_id, eazy_transaction_id,
-                        eazy_payment_method, eazy_paid_amount, eazy_paid_at, eazy_confirmed_at
+            const paymentResult = await client.query(
+                `SELECT *
+                 FROM benefit_payments
+                 WHERE track_id = $1
+                 FOR UPDATE`,
+                [trackID]
+            );
+            if (paymentResult.rowCount === 0) {
+                throw benefitPaymentError("BENEFIT_PAYMENT_NOT_FOUND", 404, "BENEFIT payment was not found.");
+            }
+            const lockedPayment = benefitPaymentRowToRecord(paymentResult.rows[0]);
+            const orderResult = await client.query(
+                `SELECT id, email, title, total, status, items, created_at
                  FROM orders
                  WHERE id = $1
                  FOR UPDATE`,
-                [order.id]
+                [lockedPayment.orderID]
             );
-            if (result.rowCount === 0) {
-                throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
+            if (orderResult.rowCount === 0) {
+                throw benefitPaymentError("BENEFIT_ORDER_NOT_FOUND", 404, "BENEFIT order was not found.");
             }
-
             const lockedOrder = {
-                ...orderRowToRecord(result.rows[0]),
-                email: normalizeEmail(result.rows[0].email)
+                ...orderRowToRecord(orderResult.rows[0]),
+                email: normalizeEmail(orderResult.rows[0].email)
             };
-            verifyEazyTransactionAgainstOrder(transaction, lockedOrder);
-            const alreadyApplied = Boolean(lockedOrder.eazyPaidOn);
-            let paidOrder = lockedOrder;
+            verifyBenefitNotification(lockedPayment, lockedOrder, notification);
+            const alreadyApplied = Boolean(lockedPayment.effectsAppliedAt);
+            let award = { awarded: false, points: 0, reason: isCaptured ? "ALREADY_APPLIED" : "PAYMENT_NOT_CAPTURED" };
 
-            if (!alreadyApplied) {
-                const paidAt = eazyPaidTimestamp(transaction);
-                const confirmedAt = new Date().toISOString();
-                const updateResult = await client.query(
+            if (isCaptured && !alreadyApplied) {
+                const updatedOrderResult = await client.query(
                     `UPDATE orders
                      SET status = CASE
                             WHEN status IN ('Completed', 'Fulfilled', 'Delivered') THEN status
                             ELSE 'Completed'
-                         END,
-                         eazy_global_transaction_id = $2,
-                         eazy_transaction_id = $3,
-                         eazy_payment_method = $4,
-                         eazy_paid_amount = $5,
-                         eazy_paid_at = $6,
-                         eazy_confirmed_at = $7
+                         END
                      WHERE id = $1
-                     RETURNING id, email, title, total, status, items, created_at,
-                               eazy_global_transaction_id, eazy_transaction_id,
-                               eazy_payment_method, eazy_paid_amount, eazy_paid_at, eazy_confirmed_at`,
-                    [
-                        order.id,
-                        transaction.globalTransactionsId,
-                        transaction.transactionsId,
-                        transaction.paymentMethod || null,
-                        Number(transaction.amount).toFixed(3),
-                        paidAt,
-                        confirmedAt
-                    ]
+                     RETURNING id, email, title, total, status, items, created_at`,
+                    [lockedOrder.id]
                 );
-                paidOrder = {
-                    ...orderRowToRecord(updateResult.rows[0]),
-                    email: normalizeEmail(updateResult.rows[0].email)
+                const completedOrder = {
+                    ...orderRowToRecord(updatedOrderResult.rows[0]),
+                    email: normalizeEmail(updatedOrderResult.rows[0].email)
                 };
+                award = await awardOrderBeansWithClient(client, completedOrder);
+                await client.query(
+                    `UPDATE benefit_payments
+                     SET status = 'Captured', processed_at = $2, effects_applied_at = $2, updated_at = $2
+                     WHERE track_id = $1`,
+                    [trackID, processedAt]
+                );
+            } else if (!isCaptured) {
+                await client.query(
+                    `UPDATE benefit_payments
+                     SET status = $2, processed_at = $3, updated_at = $3
+                     WHERE track_id = $1`,
+                    [trackID, benefitNotificationStatus(notification), processedAt]
+                );
             }
 
-            const award = await awardOrderBeansWithClient(client, paidOrder);
             await client.query("COMMIT");
-            return {
-                applied: !alreadyApplied,
-                order: paidOrder,
-                award
-            };
+            return { applied: isCaptured && !alreadyApplied, award };
         } catch (error) {
             await client.query("ROLLBACK");
             throw error;
@@ -3494,125 +3498,160 @@ async function applyConfirmedEazyPayment(order, transaction) {
         }
     }
 
-    const store = readJSON(ordersStorePath);
-    const orders = Array.isArray(store.orders[order.email]) ? store.orders[order.email] : [];
-    const index = orders.findIndex((entry) => entry.id === order.id);
-    if (index === -1) {
-        throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
+    const store = readJSON(benefitPaymentsStorePath);
+    const storedPayment = store.payments?.[trackID];
+    if (!storedPayment) {
+        throw benefitPaymentError("BENEFIT_PAYMENT_NOT_FOUND", 404, "BENEFIT payment was not found.");
     }
-
-    const latestOrder = {
-        ...orders[index],
-        email: order.email
-    };
-    verifyEazyTransactionAgainstOrder(transaction, latestOrder);
-    const alreadyApplied = Boolean(latestOrder.eazyPaidOn);
-    if (!alreadyApplied) {
+    const alreadyApplied = Boolean(storedPayment.effectsAppliedAt);
+    let award = { awarded: false, points: 0, reason: isCaptured ? "ALREADY_APPLIED" : "PAYMENT_NOT_CAPTURED" };
+    if (isCaptured && !alreadyApplied) {
+        const ordersStore = readJSON(ordersStorePath);
+        const orders = Array.isArray(ordersStore.orders[payment.email]) ? ordersStore.orders[payment.email] : [];
+        const index = orders.findIndex((entry) => entry.id === payment.orderID);
+        if (index === -1) {
+            throw benefitPaymentError("BENEFIT_ORDER_NOT_FOUND", 404, "BENEFIT order was not found.");
+        }
         orders[index] = {
             ...orders[index],
-            status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Completed",
-            eazyGlobalTransactionsId: transaction.globalTransactionsId,
-            eazyTransactionsId: transaction.transactionsId,
-            eazyPaymentMethod: transaction.paymentMethod,
-            eazyPaidAmount: Number(transaction.amount).toFixed(3),
-            eazyPaidOn: eazyPaidTimestamp(transaction),
-            eazyConfirmedAt: new Date().toISOString()
+            status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Completed"
         };
-        store.orders[order.email] = orders;
-        writeJSON(ordersStorePath, store);
+        ordersStore.orders[payment.email] = orders;
+        writeJSON(ordersStorePath, ordersStore);
+        award = await awardOrderBeans({
+            ...orders[index],
+            email: payment.email
+        });
+        storedPayment.status = "Captured";
+        storedPayment.effectsAppliedAt = processedAt;
+    } else if (!isCaptured) {
+        storedPayment.status = benefitNotificationStatus(notification);
+    } else {
+        const repairedOrder = await findOrderByID(payment.orderID);
+        if (repairedOrder) {
+            award = await awardOrderBeans(repairedOrder);
+        }
     }
-
-    const paidOrder = {
-        ...orders[index],
-        email: order.email
-    };
-    const award = await awardOrderBeans(paidOrder);
-    return {
-        applied: !alreadyApplied,
-        order: paidOrder,
-        award
-    };
+    storedPayment.processedAt = processedAt;
+    storedPayment.updatedAt = processedAt;
+    writeJSON(benefitPaymentsStorePath, store);
+    return { applied: isCaptured && !alreadyApplied, award };
 }
 
-async function confirmEazyTransaction(globalTransactionsId, options = {}) {
-    const transaction = await queryEazyTransaction(globalTransactionsId, options);
-    const order = await findOrderByID(transaction.invoiceId);
-    if (!order) {
-        throw eazyPaymentError("EAZY_ORDER_NOT_FOUND", 404, "The EazyPay invoice does not match a local order.");
-    }
-
-    if (options.customerEmail
-        && !timingSafeStringEqual(normalizeEmail(order.email), normalizeEmail(options.customerEmail))) {
-        throw eazyPaymentError("EAZY_ORDER_FORBIDDEN", 403, "This payment does not belong to the authenticated customer.");
-    }
-
-    verifyEazyTransactionAgainstOrder(transaction, order);
-    if (transaction.isPaid !== 1) {
+async function withBenefitPaymentLock(trackID, operation) {
+    const existing = benefitPaymentLocks.get(trackID);
+    if (existing) {
+        const result = await existing;
         return {
-            transaction,
-            order,
+            ...result,
             applied: false,
-            award: { awarded: false, points: 0, reason: "PAYMENT_NOT_CONFIRMED" }
+            award: {
+                ...result.award,
+                awarded: false,
+                reason: "ALREADY_APPLIED"
+            }
         };
     }
-
-    const application = await withEazyPaymentLock(
-        transaction.globalTransactionsId,
-        () => applyConfirmedEazyPayment(order, transaction)
-    );
-    return {
-        transaction,
-        ...application
-    };
+    const pending = Promise.resolve().then(operation);
+    benefitPaymentLocks.set(trackID, pending);
+    try {
+        return await pending;
+    } finally {
+        if (benefitPaymentLocks.get(trackID) === pending) {
+            benefitPaymentLocks.delete(trackID);
+        }
+    }
 }
 
-function renderEazyReturnPage(state) {
+function benefitResultState(payment) {
+    if (payment?.status === "Captured" && payment.effectsAppliedAt) {
+        return "success";
+    }
+    if (["Declined", "Canceled", "DeniedByRisk", "GatewayError", "HostTimeout", "InitiationFailed"].includes(payment?.status)) {
+        return "failure";
+    }
+    return "pending";
+}
+
+function renderBenefitResultPage(payment) {
+    const state = benefitResultState(payment);
     const content = {
         success: {
             title: "Payment confirmed",
-            detail: "Your payment was confirmed securely. You can return to Talla and view your order.",
+            detail: "Your BENEFIT payment was confirmed. You can return to Talla and view your order.",
             accent: "#23603f"
         },
         pending: {
             title: "Payment pending",
-            detail: "We have not received a confirmed payment yet. Return to Talla and check your order again shortly.",
+            detail: "Your payment is still being confirmed. Return to Talla and check your order again shortly.",
             accent: "#8a5a13"
         },
         failure: {
-            title: "Payment not confirmed",
-            detail: "We could not confirm this payment. No order was marked paid. Please return to Talla and try again.",
+            title: "Payment not completed",
+            detail: "The payment was not completed. No order was marked paid.",
             accent: "#8b2f2f"
         }
-    }[state] || null;
-    const safeContent = content || {
-        title: "Payment status unavailable",
-        detail: "Please return to Talla and check your order.",
-        accent: "#454545"
-    };
-
+    }[state];
     return `<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${escapeHTML(safeContent.title)}</title>
+    <title>${escapeHTML(content.title)}</title>
     <style>
         :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         body { margin: 0; background: #f7f3ea; color: #231f1a; display: grid; min-height: 100vh; place-items: center; }
         main { box-sizing: border-box; width: min(92vw, 28rem); padding: 2rem; border-radius: 1.25rem; background: #fffdf8; box-shadow: 0 1rem 3rem rgba(52, 39, 24, .12); text-align: center; }
-        h1 { color: ${safeContent.accent}; font-size: 1.65rem; margin: 0 0 .75rem; }
+        h1 { color: ${content.accent}; font-size: 1.65rem; margin: 0 0 .75rem; }
         p { line-height: 1.55; margin: 0 0 1.5rem; }
         a { display: inline-block; border-radius: 999px; padding: .8rem 1.2rem; background: #231f1a; color: white; font-weight: 650; text-decoration: none; }
     </style>
 </head>
 <body>
     <main>
-        <h1>${escapeHTML(safeContent.title)}</h1>
-        <p>${escapeHTML(safeContent.detail)}</p>
+        <h1>${escapeHTML(content.title)}</h1>
+        <p>${escapeHTML(content.detail)}</p>
         <a href="talla://checkout-return">Return to Talla</a>
     </main>
 </body>
 </html>`;
+}
+
+function parseBenefitCallbackRequest(rawBody, contentType = "") {
+    const text = rawBody.toString("utf8");
+    if (!text) {
+        throw benefitPaymentError("BENEFIT_CALLBACK_EMPTY", 400, "BENEFIT callback is empty.");
+    }
+    if (String(contentType).toLowerCase().includes("application/json")) {
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw benefitPaymentError("BENEFIT_CALLBACK_INVALID", 400, "BENEFIT callback is invalid.");
+        }
+        return parsed;
+    }
+    return Object.fromEntries(new URLSearchParams(text).entries());
+}
+
+function sendBenefitRedirectAcknowledgement(response, redirectURL) {
+    response.writeHead(200, {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff"
+    });
+    response.end(`REDIRECT=${redirectURL}`);
+}
+
+function validateBenefitHostedPaymentURL(value) {
+    const hostedURL = safeConfiguredBenefitURL(value, "BENEFIT hosted payment URL");
+    const endpointURL = safeConfiguredBenefitURL(benefitAPIEndpoint, "BENEFIT API endpoint");
+    const matchesEndpointHost = hostedURL.hostname === endpointURL.hostname;
+    const isBenefitGatewayHost = hostedURL.hostname === "benefit-gateway.bh"
+        || hostedURL.hostname.endsWith(".benefit-gateway.bh");
+    if (!matchesEndpointHost && !isBenefitGatewayHost) {
+        throw benefitPaymentError("BENEFIT_INVALID_PAYMENT_URL", 502, "BENEFIT returned an invalid payment URL.");
+    }
+    return hostedURL.toString();
 }
 
 async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
@@ -7608,218 +7647,13 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "POST" && url.pathname === "/api/payments/eazy/create") {
+    if (request.method === "POST" && url.pathname === "/api/payments/benefit/create") {
         let body;
-        try {
-            body = await readBody(request, 32_768);
-        } catch (error) {
-            const publicError = eazyPublicError(error);
-            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
-            return;
-        }
-
-        const orderID = normalizeEazyIdentifier(body.invoiceId || body.orderID || body.orderId);
-        const submittedAmount = Number(body.amount);
-        if (!orderID || !Number.isFinite(submittedAmount) || submittedAmount <= 0) {
-            sendJSON(response, 400, { error: "Provide an invoiceId or orderID and a positive amount." });
-            return;
-        }
-
-        const requestedEmail = normalizeEmail(body.email);
-        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
-        if (!authenticated) {
-            return;
-        }
-
-        const customer = await resolveCustomerSession(authenticated, response);
-        if (!customer) {
-            return;
-        }
-
-        if (!eazyAppID || !eazySecretKey) {
-            console.error("EazyPay invoice creation is unavailable: required configuration is missing.");
-            sendJSON(response, 503, { error: "EazyPay checkout is not configured." });
-            return;
-        }
-
-        let order;
-        try {
-            order = await findOrderByID(orderID);
-        } catch (error) {
-            console.error(`EazyPay order lookup failed for ${orderID}:`, error.message);
-            sendJSON(response, 500, { error: "Could not verify the order for payment." });
-            return;
-        }
-
-        if (!order) {
-            sendJSON(response, 404, { error: "Order not found." });
-            return;
-        }
-
-        if (normalizeEmail(order.email) !== normalizeEmail(customer.email)) {
-            sendJSON(response, 403, { error: "This order does not belong to the authenticated customer." });
-            return;
-        }
-
-        const currency = "BHD";
-        if (orderCurrency(order) !== currency) {
-            sendJSON(response, 409, { error: "The stored order currency is not BHD." });
-            return;
-        }
-
-        const verifiedAmountNumber = numericOrderTotal(order);
-        if (!Number.isFinite(verifiedAmountNumber) || verifiedAmountNumber <= 0) {
-            sendJSON(response, 409, { error: "The stored order does not have a valid payable total." });
-            return;
-        }
-
-        const amount = verifiedAmountNumber.toFixed(3);
-        if (submittedAmount.toFixed(3) !== amount) {
-            sendJSON(response, 409, { error: "The submitted amount does not match the stored order total." });
-            return;
-        }
-
-        const timestamp = new Date().toISOString();
-        const secretHash = eazySecretHash(timestamp, currency, amount);
-        const endpoint = `${String(eazyAPIBaseURL).replace(/\/+$/, "")}/merchant/checkout/createInvoice`;
-
-        try {
-            const upstreamResponse = await fetch(endpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Timestamp: timestamp,
-                    "Secret-Hash": secretHash
-                },
-                body: JSON.stringify({
-                    appId: eazyAppID,
-                    invoiceId: orderID,
-                    amount,
-                    currency,
-                    paymentMethod: eazyPaymentMethods
-                })
-            });
-
-            const responseText = await upstreamResponse.text();
-            let upstreamPayload = {};
-            if (responseText) {
-                try {
-                    upstreamPayload = JSON.parse(responseText);
-                } catch (error) {
-                    console.error(`EazyPay returned invalid JSON for order ${orderID} with status ${upstreamResponse.status}.`);
-                    sendJSON(response, 502, { error: "EazyPay returned an invalid response." });
-                    return;
-                }
-            }
-
-            if (!upstreamResponse.ok) {
-                console.error(
-                    `EazyPay invoice creation failed for order ${orderID} with status ${upstreamResponse.status}:`,
-                    safeUpstreamMessage(upstreamPayload)
-                );
-                sendJSON(response, 502, { error: "EazyPay could not create the payment invoice." });
-                return;
-            }
-
-            const result = eazyResponsePayload(upstreamPayload);
-            const globalTransactionsId = normalizeEazyIdentifier(
-                result.globalTransactionsId || result.globalTransactionId || ""
-            );
-            const paymentUrl = String(result.paymentUrl || result.paymentURL || "").trim();
-
-            if (!globalTransactionsId || !paymentUrl) {
-                console.error(`EazyPay invoice response was incomplete for order ${orderID}.`);
-                sendJSON(response, 502, { error: "EazyPay returned an incomplete invoice response." });
-                return;
-            }
-
-            sendJSON(response, 200, { globalTransactionsId, paymentUrl });
-        } catch (error) {
-            console.error(`EazyPay invoice request failed for order ${orderID}:`, error.message);
-            sendJSON(response, 502, { error: "Could not reach EazyPay." });
-        }
-        return;
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/payments/eazy/return") {
-        const globalTransactionsId = normalizeEazyIdentifier(
-            url.searchParams.get("globalTransactionsId")
-            || url.searchParams.get("globalTransactionId")
-            || url.searchParams.get("id")
-        );
-        const htmlHeaders = {
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
-            "Referrer-Policy": "no-referrer",
-            "X-Content-Type-Options": "nosniff"
-        };
-        if (!globalTransactionsId) {
-            console.warn("EazyPay return received without a valid transaction ID.");
-            sendHTML(response, 400, renderEazyReturnPage("failure"), htmlHeaders);
-            return;
-        }
-
-        try {
-            const result = await confirmEazyTransaction(globalTransactionsId);
-            const state = result.transaction.isPaid === 1 ? "success" : "pending";
-            console.info(
-                `EazyPay return checked transaction ${globalTransactionsId}: ${state}; order ${result.transaction.invoiceId}; applied=${result.applied}.`
-            );
-            sendHTML(response, 200, renderEazyReturnPage(state), htmlHeaders);
-        } catch (error) {
-            console.error(
-                `EazyPay return confirmation failed for transaction ${globalTransactionsId}:`,
-                error.code || "EAZY_CONFIRMATION_FAILED"
-            );
-            sendHTML(response, 200, renderEazyReturnPage("failure"), htmlHeaders);
-        }
-        return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/payments/eazy/webhook") {
-        let body;
-        try {
-            body = await readBody(request, 32_768);
-        } catch (error) {
-            const publicError = eazyPublicError(error);
-            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: "Malformed EazyPay notification." });
-            return;
-        }
-
-        const globalTransactionsId = extractEazyGlobalTransactionID(body);
-        if (!globalTransactionsId) {
-            sendJSON(response, 400, { error: "Malformed EazyPay notification." });
-            return;
-        }
-
-        // TODO: Add webhook signature verification when EazyPay provides its webhook authentication specification.
-        try {
-            const result = await confirmEazyTransaction(globalTransactionsId);
-            console.info(
-                `EazyPay webhook checked transaction ${globalTransactionsId}: paid=${result.transaction.isPaid}; order ${result.transaction.invoiceId}; applied=${result.applied}.`
-            );
-            sendJSON(response, 200, {
-                received: true,
-                confirmed: result.transaction.isPaid === 1
-            });
-        } catch (error) {
-            console.error(
-                `EazyPay webhook query failed for transaction ${globalTransactionsId}:`,
-                error.code || "EAZY_CONFIRMATION_FAILED"
-            );
-            sendJSON(response, 200, {
-                received: true,
-                confirmed: false
-            });
-        }
-        return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/payments/eazy/query") {
-        let body;
+        let pendingTrackID = "";
         try {
             body = await readBody(request, 16_384);
         } catch (error) {
-            const publicError = eazyPublicError(error);
+            const publicError = benefitPublicError(error);
             sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
             return;
         }
@@ -7828,34 +7662,201 @@ const server = http.createServer(async (request, response) => {
         if (!authenticated) {
             return;
         }
-
         const customer = await resolveCustomerSession(authenticated, response);
         if (!customer) {
             return;
         }
 
-        const globalTransactionsId = normalizeEazyIdentifier(body.globalTransactionsId || body.globalTransactionId);
-        if (!globalTransactionsId) {
-            sendJSON(response, 400, { error: "Provide a valid globalTransactionsId." });
+        const orderID = normalizeBenefitIdentifier(body.orderID || body.orderId || body.invoiceId);
+        if (!orderID) {
+            sendJSON(response, 400, { error: "Provide a valid existing orderID." });
+            return;
+        }
+        if (!benefitConfigured()) {
+            console.error("BENEFIT payment creation is unavailable because required configuration is missing.");
+            sendJSON(response, 503, { error: "BENEFIT checkout is not configured." });
             return;
         }
 
         try {
-            const result = await confirmEazyTransaction(globalTransactionsId, {
-                customerEmail: customer.email
+            const order = await findOrderByID(orderID);
+            if (!order) {
+                throw benefitPaymentError("BENEFIT_ORDER_NOT_FOUND", 404, "Order not found.");
+            }
+            if (!timingSafeStringEqual(normalizeEmail(order.email), normalizeEmail(customer.email))) {
+                throw benefitPaymentError("BENEFIT_ORDER_FORBIDDEN", 403, "This order does not belong to the authenticated customer.");
+            }
+            if (orderCurrency(order) !== "BHD") {
+                throw benefitPaymentError("BENEFIT_CURRENCY_MISMATCH", 409, "The stored order currency is not BHD.");
+            }
+            const total = numericOrderTotal(order);
+            const totalFils = bhdFils(total);
+            if (totalFils === null || totalFils <= 0) {
+                throw benefitPaymentError("BENEFIT_AMOUNT_INVALID", 409, "The stored order does not have a valid payable total.");
+            }
+
+            const endpointURL = safeConfiguredBenefitURL(benefitAPIEndpoint, "BENEFIT API endpoint");
+            const notificationURL = safeConfiguredBenefitURL(benefitNotificationURL, "BENEFIT notification URL").toString();
+            const amount = (totalFils / 1000).toFixed(3);
+            const trackID = `T${Date.now()}${crypto.randomBytes(10).toString("hex")}`;
+            pendingTrackID = trackID;
+            const resultToken = crypto.randomBytes(24).toString("base64url");
+            const createdAt = new Date().toISOString();
+            await createBenefitPendingPayment({
+                trackID,
+                orderID,
+                email: customer.email,
+                amount,
+                currency: "BHD",
+                resultTokenHash: sha256Hex(resultToken),
+                createdAt
             });
-            console.info(
-                `Authenticated EazyPay query checked transaction ${globalTransactionsId}: paid=${result.transaction.isPaid}; order ${result.transaction.invoiceId}; applied=${result.applied}.`
+
+            const requestPlaintext = benefitGateway.buildBenefitRequestPlaintext({
+                amount,
+                tranportalID: benefitTranportalID,
+                tranportalPassword: benefitTranportalPassword,
+                resourceKey: benefitResourceKey,
+                trackID,
+                responseURL: notificationURL,
+                errorURL: notificationURL,
+                orderID,
+                resultToken
+            });
+            const encryptedTransactionData = benefitGateway.encryptBenefitPayload(
+                requestPlaintext,
+                benefitResourceKey
             );
-            sendJSON(response, 200, result.transaction);
+            const upstreamResponse = await fetch(endpointURL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    charset: "utf8"
+                },
+                body: benefitGateway.buildBenefitAPIRequestBody(
+                    benefitTranportalID,
+                    encryptedTransactionData
+                ),
+                signal: AbortSignal.timeout(15_000)
+            });
+            const responseText = await upstreamResponse.text();
+            if (responseText.length > 131_072) {
+                throw benefitPaymentError("BENEFIT_INVALID_RESPONSE", 502, "BENEFIT returned an invalid response.");
+            }
+            let upstreamPayload;
+            try {
+                upstreamPayload = JSON.parse(responseText);
+            } catch (error) {
+                throw benefitPaymentError("BENEFIT_INVALID_RESPONSE", 502, "BENEFIT returned an invalid response.");
+            }
+            const result = Array.isArray(upstreamPayload) ? upstreamPayload[0] : upstreamPayload;
+            if (!upstreamResponse.ok || String(result?.status || "") !== "1" || !result?.result) {
+                throw benefitPaymentError("BENEFIT_INITIATION_FAILED", 502, "BENEFIT could not create the hosted payment.");
+            }
+            const paymentURL = validateBenefitHostedPaymentURL(result.result);
+            await updateBenefitPaymentInitiation(trackID, paymentURL, "Initiated");
+            console.info(`BENEFIT payment initiated for order ${orderID} with track ${trackID}.`);
+            sendJSON(response, 200, {
+                paymentUrl: paymentURL,
+                trackId: trackID
+            });
         } catch (error) {
-            console.error(
-                `Authenticated EazyPay query failed for transaction ${globalTransactionsId}:`,
-                error.code || "EAZY_CONFIRMATION_FAILED"
-            );
-            const publicError = eazyPublicError(error);
+            if (pendingTrackID) {
+                try {
+                    await updateBenefitPaymentInitiation(pendingTrackID, null, "InitiationFailed");
+                } catch (storageError) {
+                    console.error(
+                        `BENEFIT initiation failure could not be recorded for track ${pendingTrackID}:`,
+                        storageError.code || "BENEFIT_STORAGE_FAILED"
+                    );
+                }
+            }
+            console.error("BENEFIT payment initiation failed:", error.code || "BENEFIT_INITIATION_FAILED");
+            const publicError = benefitPublicError(error);
             sendJSON(response, publicError.statusCode, { error: publicError.message });
         }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/benefit/response") {
+        let fallbackErrorURL;
+        try {
+            fallbackErrorURL = benefitResultURL(benefitErrorURL);
+        } catch (error) {
+            sendJSON(response, 503, { error: "BENEFIT callback is not configured." });
+            return;
+        }
+
+        let notification;
+        let payment;
+        try {
+            const rawBody = await readRawBody(request, 65_536);
+            const callback = parseBenefitCallbackRequest(rawBody, request.headers["content-type"]);
+            if (callback.trandata) {
+                const decrypted = benefitGateway.decryptBenefitPayload(callback.trandata, benefitResourceKey);
+                const record = benefitGateway.parseBenefitNotificationPlaintext(decrypted);
+                notification = benefitGateway.normalizeBenefitNotification(record);
+            } else {
+                notification = benefitGateway.normalizeBenefitNotification(callback);
+            }
+
+            notification.trackID = normalizeBenefitIdentifier(notification.trackID);
+            notification.resultToken = normalizeBenefitIdentifier(notification.resultToken, 200);
+            if (!notification.trackID) {
+                throw benefitPaymentError("BENEFIT_TRACK_MISSING", 400, "BENEFIT callback is missing a track ID.");
+            }
+            payment = await findBenefitPaymentByTrackID(notification.trackID);
+            const order = payment ? await findOrderByID(payment.orderID) : null;
+            verifyBenefitNotification(payment, order, notification);
+            const notificationHash = crypto.createHash("sha256").update(rawBody).digest("hex");
+            await recordBenefitNotification(payment, notification, notificationHash);
+
+            const isCaptured = notification.result === "CAPTURED"
+                && notification.authResponseCode === "00"
+                && !notification.errorCode;
+            const redirectURL = benefitResultURL(
+                isCaptured ? benefitSuccessURL : benefitErrorURL,
+                notification.resultToken
+            );
+            sendBenefitRedirectAcknowledgement(response, redirectURL);
+            console.info(
+                `BENEFIT notification recorded for track ${notification.trackID}: result=${notification.result || "ERROR"}.`
+            );
+            setImmediate(() => {
+                void withBenefitPaymentLock(
+                    notification.trackID,
+                    () => applyBenefitNotification(notification.trackID, notification)
+                ).then((result) => {
+                    console.info(
+                        `BENEFIT notification processed for track ${notification.trackID}: applied=${result.applied}.`
+                    );
+                }).catch((error) => {
+                    console.error(
+                        `BENEFIT notification processing failed for track ${notification.trackID}:`,
+                        error.code || "BENEFIT_PROCESSING_FAILED"
+                    );
+                });
+            });
+        } catch (error) {
+            console.error(
+                `BENEFIT notification rejected${notification?.trackID ? ` for track ${notification.trackID}` : ""}:`,
+                error.code || "BENEFIT_CALLBACK_INVALID"
+            );
+            sendBenefitRedirectAcknowledgement(response, fallbackErrorURL);
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/payments/benefit/result") {
+        const payment = await findBenefitPaymentByResultToken(url.searchParams.get("payment"));
+        const htmlHeaders = {
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store"
+        };
+        sendHTML(response, payment ? 200 : 404, renderBenefitResultPage(payment), htmlHeaders);
         return;
     }
 
@@ -8660,15 +8661,12 @@ if (require.main === module) {
 }
 
 module.exports = {
-    applyConfirmedEazyPayment,
+    applyBenefitNotification,
+    benefitResultState,
     bhdFils,
-    confirmEazyTransaction,
-    createEazyQuerySecretHash,
-    extractEazyGlobalTransactionID,
-    normalizeEazyTransaction,
-    queryEazyTransaction,
-    renderEazyReturnPage,
+    parseBenefitCallbackRequest,
+    renderBenefitResultPage,
     server,
     startServer,
-    verifyEazyTransactionAgainstOrder
+    verifyBenefitNotification
 };

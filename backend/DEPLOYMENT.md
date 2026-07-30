@@ -43,13 +43,16 @@ OPS_ALERT_5XX_THRESHOLD=5
 OPS_ALERT_429_THRESHOLD=20
 OPS_ALERT_COOLDOWN_MINUTES=30
 SHOPIFY_ADMIN_SHOP_DOMAIN=your-store.myshopify.com
-EAZY_APP_ID=your-eazy-app-id
-EAZY_SECRET_KEY=your-eazy-secret-key
-EAZY_API_BASE_URL=https://api.eazy.net
-EAZY_PAYMENT_METHODS=BENEFITGATEWAY,CREDITCARD,APPLEPAY
 SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_...
 SHOPIFY_ADMIN_API_VERSION=2025-10
 SHOPIFY_ADMIN_PUBLICATION_ID=gid://shopify/Publication/...
+BENEFIT_TRANPORTAL_ID=
+BENEFIT_TRANPORTAL_PASSWORD=
+BENEFIT_RESOURCE_KEY=
+BENEFIT_API_ENDPOINT=
+BENEFIT_SUCCESS_URL=https://your-api.example/api/payments/benefit/result
+BENEFIT_ERROR_URL=https://your-api.example/api/payments/benefit/result
+BENEFIT_NOTIFICATION_URL=https://your-api.example/api/payments/benefit/response
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
 WALLET_P12_BASE64=
@@ -75,6 +78,8 @@ Notes:
 - `OPS_ALERT_COOLDOWN_MINUTES` limits duplicate alerts for the same issue type
 - `SHOPIFY_ADMIN_SHOP_DOMAIN` and `SHOPIFY_ADMIN_ACCESS_TOKEN` enable live product control from `/admin`
 - `SHOPIFY_ADMIN_PUBLICATION_ID` is optional, but without it newly created products may not appear in the storefront-backed iOS app
+- All seven `BENEFIT_*` variables are required for hosted checkout; keep the merchant credentials and resource key in Render secrets
+- `BENEFIT_SUCCESS_URL` and `BENEFIT_ERROR_URL` should use `/api/payments/benefit/result`, while `BENEFIT_NOTIFICATION_URL` should use `/api/payments/benefit/response`
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 - `/admin` now includes an operations snapshot powered by `request_logs`
 

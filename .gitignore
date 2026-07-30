@@ -3,3 +3,6 @@ node_modules/
 package-lock.json
 package.json
 talla-speciality-app/
+keystore.bin
+keystore.pooh
+resource.cgn
