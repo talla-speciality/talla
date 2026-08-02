@@ -558,6 +558,7 @@ struct ContentView: View {
     @State private var cartSaveName = ""
     @State private var isCheckingOut = false
     @State private var checkoutError: String?
+    @StateObject private var paymentFlow = PaymentFlowModel()
     @State private var pendingCartRemovalID: String?
     @State private var isConfirmingEmptyBag = false
     @State private var checkoutSession: CheckoutSession?
@@ -716,7 +717,7 @@ struct ContentView: View {
 
     private var isApplePayAvailable: Bool {
 #if canImport(PassKit)
-        PKPaymentAuthorizationController.canMakePayments()
+        PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard, .amex])
 #else
         false
 #endif
@@ -1792,7 +1793,11 @@ struct ContentView: View {
             }
         }
 #endif
-        .sheet(item: $checkoutSession) { session in
+        .sheet(item: $checkoutSession, onDismiss: {
+            if paymentFlow.state == .awaitingCustomer {
+                paymentFlow.reset()
+            }
+        }) { session in
             CheckoutWebView(url: session.url)
         }
         .sheet(item: $articleSession) { session in
@@ -6503,7 +6508,7 @@ struct ContentView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(.plain)
-            .disabled(cartItems.isEmpty || isCheckingOut)
+            .disabled(cartItems.isEmpty || isCheckingOut || !paymentFlow.canStart)
         }
     }
 
@@ -6593,21 +6598,21 @@ struct ContentView: View {
                 }
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 8)], alignment: .leading, spacing: 8) {
-                paymentMethodChip(
-                    title: AppLocalization.text("benefit_pay", fallback: "BenefitPay"),
-                    systemImage: "checkmark.shield.fill"
-                )
+            PaymentMethodSelectorView(
+                selectedMethod: $paymentFlow.selectedMethod,
+                state: paymentFlow.state,
+                applePayAvailable: isApplePayAvailable,
+                gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
+                primaryColor: primaryTextColor,
+                secondaryColor: secondaryTextColor,
+                accentColor: Color(hex: 0xC8965A),
+                surfaceColor: elevatedSurfaceColor
+            )
 
-                paymentMethodChip(
-                    title: AppLocalization.text("apple_pay", fallback: "Apple Pay"),
-                    systemImage: "apple.logo"
-                )
-
-                paymentMethodChip(
-                    title: AppLocalization.text("credit_debit_cards", fallback: "Credit / Debit Cards"),
-                    systemImage: "creditcard.fill"
-                )
+            if let paymentError = paymentFlow.errorMessage {
+                Text(paymentError)
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(Color.red.opacity(0.85))
             }
         }
         .padding(14)
@@ -10166,14 +10171,16 @@ struct ContentView: View {
 
     @MainActor
     private func beginCheckout() async {
-        guard !isCheckingOut else { return }
+        guard !isCheckingOut, paymentFlow.begin() else { return }
 
         guard !cartItems.isEmpty else {
+            paymentFlow.transition(to: .failed)
             checkoutError = AppLocalization.text("cart_no_purchasable_items", fallback: "Your bag has no purchasable items.")
             return
         }
 
         guard let profile = customerProfile else {
+            paymentFlow.transition(to: .failed)
             checkoutError = AppLocalization.text("sign_in_before_checkout", fallback: "Sign in before checkout.")
             return
         }
@@ -10197,14 +10204,41 @@ struct ContentView: View {
             )
             orderHistory = checkoutStart.orders
 
-            let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
-            cartOpen = false
-            checkoutSession = CheckoutSession(url: paymentURL)
+            switch paymentFlow.selectedMethod {
+            case .benefit:
+                let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
+                paymentFlow.transition(to: .awaitingCustomer)
+                cartOpen = false
+                checkoutSession = CheckoutSession(url: paymentURL)
+            case .clickToPay:
+                let checkout = try await TallaPaymentService.createClickToPay(orderID: checkoutStart.orderID)
+                paymentFlow.transition(to: .awaitingCustomer)
+                cartOpen = false
+                checkoutSession = CheckoutSession(url: checkout.paymentUrl)
+            case .card:
+                guard MastercardSDKAvailability.isAvailable else {
+                    throw PaymentServiceError.gateway("Gateway.xcframework and uSDK.xcframework are required for card entry and 3-D Secure.")
+                }
+                _ = try await TallaPaymentService.createCardSession(orderID: checkoutStart.orderID)
+                paymentFlow.transition(to: .awaitingCustomer)
+                throw PaymentServiceError.gateway("The Mastercard SDK handoff must be connected after the official frameworks are added.")
+            case .applePay:
+                guard isApplePayAvailable else {
+                    throw PaymentServiceError.gateway("Apple Pay is unavailable on this device.")
+                }
+                guard MastercardSDKAvailability.isAvailable else {
+                    throw PaymentServiceError.gateway("Gateway.xcframework and uSDK.xcframework are required for Apple Pay gateway tokenization.")
+                }
+                _ = try await TallaPaymentService.createApplePaySession(orderID: checkoutStart.orderID)
+                paymentFlow.transition(to: .awaitingCustomer)
+                throw PaymentServiceError.gateway("The Mastercard Apple Pay SDK handoff must be connected after the official frameworks are added.")
+            }
             appliedVoucher = nil
             voucherCodeInput = ""
             voucherError = nil
             showToast(message: AppLocalization.text("checkout_opened_toast", fallback: "Checkout opened. Return to Talla after payment."))
         } catch {
+            paymentFlow.transition(to: .failed, error: error.localizedDescription)
             checkoutError = customerFacingServiceMessage(
                 for: error,
                 fallback: AppLocalization.text("checkout_start_failed", fallback: "Checkout could not be started right now. Your bag is still saved.")

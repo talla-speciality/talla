@@ -148,10 +148,20 @@ The create route requires an authenticated customer and an existing order ID. Th
 ```http
 POST /api/payments/card/session
 POST /api/payments/card/session/retrieve
+POST /api/payments/card/authentication/initiate
+POST /api/payments/card/authentication/complete
+POST /api/payments/card/order/retrieve
 POST /api/payments/card/complete
+POST /api/payments/apple-pay/session
+POST /payments/apple-pay/authorize
+POST /api/payments/click-to-pay/create
+GET  /api/payments/click-to-pay/launch
+GET  /api/payments/click-to-pay/return
 ```
 
-All card routes require an authenticated customer and enforce order ownership. The backend creates and updates a PCI-reducing Mastercard Gateway session using the stored BHD order amount; card details stay in the Mastercard mobile SDK session. The complete route verifies the session but intentionally returns `501` until the merchant-specific 3DS and PURCHASE operation sequence is confirmed.
+Authenticated MPGS routes enforce order ownership and derive BHD totals from backend order storage. Card payments use 3DS2 authentication followed by PAY and gateway-order retrieval. Apple Pay accepts only an SDK-created session ID, never a payment token. Click to Pay uses Hosted Checkout with `INITIATE_CHECKOUT` and verifies the gateway order after return. Confirmed effects are applied idempotently.
+
+`Gateway.xcframework` and `uSDK.xcframework` are required before the native card-entry, 3DS challenge, and Apple Pay SDK handoffs can be enabled in the iOS app. They are intentionally not vendored or imitated by this repository.
 
 ### Customer session
 

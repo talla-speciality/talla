@@ -74,7 +74,14 @@ function normalizeMpgsError(error) {
     };
 }
 
-async function mpgsRequest(configuration, method, endpoint, body, fetchImpl = globalThis.fetch) {
+async function mpgsRequest(
+    configuration,
+    method,
+    endpoint,
+    body,
+    fetchImpl = globalThis.fetch,
+    allowGatewayFailure = false
+) {
     if (typeof fetchImpl !== "function") {
         throw mpgsError("MPGS_FETCH_UNAVAILABLE", 502, "Card payment service is unavailable.");
     }
@@ -111,7 +118,7 @@ async function mpgsRequest(configuration, method, endpoint, body, fetchImpl = gl
             throw mpgsError("MPGS_RESPONSE_INVALID", 502, "Card payment service returned an invalid response.");
         }
     }
-    if (!response.ok || payload.result === "ERROR" || payload.result === "FAILURE") {
+    if (!response.ok || (!allowGatewayFailure && (payload.result === "ERROR" || payload.result === "FAILURE"))) {
         throw mpgsError("MPGS_UPSTREAM_REJECTED", 502, "Card payment service rejected the request.", {
             gatewayCause: String(payload.error?.cause || payload.result || "UNKNOWN").slice(0, 80),
             gatewaySupportCode: String(payload.error?.supportCode || "").slice(0, 100)
@@ -122,6 +129,10 @@ async function mpgsRequest(configuration, method, endpoint, body, fetchImpl = gl
 
 function validSessionID(value) {
     return /^[A-Za-z0-9_-]{31,80}$/.test(String(value || ""));
+}
+
+function validGatewayIdentifier(value, maxLength = 80) {
+    return new RegExp(`^[A-Za-z0-9_-]{1,${maxLength}}$`).test(String(value || ""));
 }
 
 function sessionResult(payload, requireUpdated = false) {
@@ -163,6 +174,131 @@ async function retrieveMpgsSession(configuration, sessionId, fetchImpl = globalT
     const endpoint = mpgsEndpoint(configuration, `/session/${encodeURIComponent(sessionId)}`);
     const payload = await mpgsRequest(configuration, "GET", endpoint, undefined, fetchImpl);
     return sessionResult(payload);
+}
+
+async function performMpgsTransaction(
+    configuration,
+    orderId,
+    transactionId,
+    fields,
+    fetchImpl = globalThis.fetch
+) {
+    if (!validGatewayIdentifier(orderId, 40) || !validGatewayIdentifier(transactionId, 40)) {
+        throw mpgsError("MPGS_TRANSACTION_ID_INVALID", 400, "Invalid gateway transaction identifier.");
+    }
+    const endpoint = mpgsEndpoint(
+        configuration,
+        `/order/${encodeURIComponent(orderId)}/transaction/${encodeURIComponent(transactionId)}`
+    );
+    return mpgsRequest(configuration, "PUT", endpoint, fields, fetchImpl, true);
+}
+
+async function initiateMpgsAuthentication(
+    configuration,
+    { orderId, transactionId, sessionId },
+    fetchImpl = globalThis.fetch
+) {
+    if (!validSessionID(sessionId)) {
+        throw mpgsError("MPGS_SESSION_ID_INVALID", 400, "Invalid card payment session ID.");
+    }
+    return performMpgsTransaction(configuration, orderId, transactionId, {
+        apiOperation: "INITIATE_AUTHENTICATION",
+        authentication: {
+            acceptVersions: "3DS2",
+            channel: "PAYER_APP",
+            purpose: "PAYMENT_TRANSACTION"
+        },
+        order: { currency: "BHD" },
+        session: { id: sessionId }
+    }, fetchImpl);
+}
+
+async function authenticateMpgsPayer(
+    configuration,
+    { orderId, transactionId, sessionId, amount },
+    fetchImpl = globalThis.fetch
+) {
+    if (!validSessionID(sessionId) || !/^\d+\.\d{3}$/.test(String(amount || ""))) {
+        throw mpgsError("MPGS_AUTHENTICATION_INVALID", 400, "Invalid payer authentication request.");
+    }
+    return performMpgsTransaction(configuration, orderId, transactionId, {
+        apiOperation: "AUTHENTICATE_PAYER",
+        authentication: {
+            acceptVersions: "3DS2",
+            channel: "PAYER_APP",
+            purpose: "PAYMENT_TRANSACTION"
+        },
+        order: { amount, currency: "BHD" },
+        session: { id: sessionId }
+    }, fetchImpl);
+}
+
+async function executeMpgsPurchase(
+    configuration,
+    { orderId, transactionId, authenticationTransactionId, sessionId, amount },
+    fetchImpl = globalThis.fetch
+) {
+    if (!validSessionID(sessionId) || !/^\d+\.\d{3}$/.test(String(amount || ""))) {
+        throw mpgsError("MPGS_PURCHASE_INVALID", 400, "Invalid purchase request.");
+    }
+    const authentication = validGatewayIdentifier(authenticationTransactionId, 40)
+        ? { transactionId: authenticationTransactionId }
+        : undefined;
+    return performMpgsTransaction(configuration, orderId, transactionId, {
+        apiOperation: "PAY",
+        ...(authentication ? { authentication } : {}),
+        order: { amount, currency: "BHD" },
+        session: { id: sessionId }
+    }, fetchImpl);
+}
+
+async function retrieveMpgsOrder(configuration, orderId, fetchImpl = globalThis.fetch) {
+    if (!validGatewayIdentifier(orderId, 40)) {
+        throw mpgsError("MPGS_ORDER_ID_INVALID", 400, "Invalid gateway order identifier.");
+    }
+    const endpoint = mpgsEndpoint(configuration, `/order/${encodeURIComponent(orderId)}`);
+    return mpgsRequest(configuration, "GET", endpoint, undefined, fetchImpl);
+}
+
+async function initiateMpgsCheckout(
+    configuration,
+    { orderId, amount, returnUrl, cancelUrl },
+    fetchImpl = globalThis.fetch
+) {
+    if (!validGatewayIdentifier(orderId, 40)
+        || !/^\d+\.\d{3}$/.test(String(amount || ""))
+        || !/^https:\/\//.test(String(returnUrl || ""))
+        || !/^https:\/\//.test(String(cancelUrl || ""))) {
+        throw mpgsError("MPGS_CHECKOUT_INVALID", 400, "Invalid hosted checkout request.");
+    }
+    const endpoint = mpgsEndpoint(configuration, "/session");
+    const payload = await mpgsRequest(configuration, "POST", endpoint, {
+        apiOperation: "INITIATE_CHECKOUT",
+        checkoutMode: "WEBSITE",
+        interaction: {
+            operation: "PURCHASE",
+            returnUrl,
+            cancelUrl,
+            merchant: { name: "Talla Speciality" }
+        },
+        order: { id: orderId, amount, currency: "BHD" }
+    }, fetchImpl);
+    return sessionResult(payload);
+}
+
+function normalizeMpgsAuthenticationOutcome(payload) {
+    const result = String(payload?.result || "UNKNOWN").toUpperCase();
+    const transactionStatus = String(
+        payload?.authentication?.["3ds2"]?.transactionStatus
+        || payload?.authentication?.transactionStatus
+        || "UNKNOWN"
+    ).toUpperCase();
+    const redirectHTML = String(payload?.authentication?.redirect?.html || "").slice(0, 131_072);
+    const successful = result === "SUCCESS" && ["Y", "A"].includes(transactionStatus);
+    const challengeRequired = result === "PENDING" && Boolean(redirectHTML);
+    const cancelled = ["CANCELLED", "CANCELED"].includes(result)
+        || String(payload?.response?.gatewayRecommendation || "").toUpperCase() === "CANCELLED";
+    return { result, transactionStatus, redirectHTML, successful, challengeRequired, cancelled };
 }
 
 function orderAmount(order) {
@@ -223,6 +359,8 @@ async function initializeMpgsPayment({
     order,
     customerEmail,
     existingPayment = null,
+    paymentMethod = "CARD",
+    resultTokenHash = null,
     persistPayment,
     fetchImpl = globalThis.fetch
 }) {
@@ -267,6 +405,8 @@ async function initializeMpgsPayment({
         amount,
         currency: "BHD",
         email,
+        paymentMethod: String(paymentMethod || "CARD").toUpperCase(),
+        resultTokenHash,
         status: "Pending",
         createdAt: timestamp,
         updatedAt: timestamp
@@ -281,12 +421,20 @@ async function initializeMpgsPayment({
 module.exports = {
     DEFAULT_API_VERSION,
     DEFAULT_BASE_URL,
+    authenticateMpgsPayer,
     createMpgsSession,
+    createMpgsIdentifiers,
+    executeMpgsPurchase,
     initializeMpgsPayment,
+    initiateMpgsAuthentication,
+    initiateMpgsCheckout,
     mpgsAuthorizationHeader,
     mpgsConfigurationIsValid,
+    normalizeMpgsAuthenticationOutcome,
     normalizeMpgsError,
     orderAmount,
+    performMpgsTransaction,
+    retrieveMpgsOrder,
     retrieveMpgsSession,
     updateMpgsSession,
     verifyMpgsOrderPayment

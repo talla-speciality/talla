@@ -299,3 +299,119 @@ test("duplicate session creation reuses the pending record without another gatew
     assert.equal(fetchCalled, false);
     assert.equal(persistCalled, false);
 });
+
+test("3DS initiation and payer authentication use API version 100 transaction operations", async () => {
+    const calls = [];
+    const fetchImpl = async (url, options) => {
+        calls.push({ url: String(url), options });
+        return jsonResponse({
+            result: "SUCCESS",
+            authentication: { "3ds2": { transactionStatus: "Y" } },
+            response: { gatewayRecommendation: "PROCEED" }
+        });
+    };
+    await mpgsGateway.initiateMpgsAuthentication(configuration, {
+        orderId: "TALLAORDER1",
+        transactionId: "AUTH1",
+        sessionId: sessionID
+    }, fetchImpl);
+    await mpgsGateway.authenticateMpgsPayer(configuration, {
+        orderId: "TALLAORDER1",
+        transactionId: "AUTH1",
+        sessionId: sessionID,
+        amount: "12.800"
+    }, fetchImpl);
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].url, /\/version\/100\/merchant\/TESTMERCHANT\/order\/TALLAORDER1\/transaction\/AUTH1$/);
+    assert.equal(JSON.parse(calls[0].options.body).apiOperation, "INITIATE_AUTHENTICATION");
+    assert.equal(JSON.parse(calls[1].options.body).apiOperation, "AUTHENTICATE_PAYER");
+    assert.equal(JSON.parse(calls[1].options.body).order.currency, "BHD");
+});
+
+test("3DS challenge, failure, and cancellation outcomes are explicit", () => {
+    const challenge = mpgsGateway.normalizeMpgsAuthenticationOutcome({
+        result: "PENDING",
+        authentication: { redirect: { html: "<form>challenge</form>" } }
+    });
+    assert.equal(challenge.challengeRequired, true);
+    assert.equal(challenge.successful, false);
+
+    const failure = mpgsGateway.normalizeMpgsAuthenticationOutcome({
+        result: "FAILURE",
+        authentication: { "3ds2": { transactionStatus: "N" } }
+    });
+    assert.equal(failure.successful, false);
+    assert.equal(failure.challengeRequired, false);
+
+    const cancellation = mpgsGateway.normalizeMpgsAuthenticationOutcome({
+        result: "CANCELLED",
+        response: { gatewayRecommendation: "CANCELLED" }
+    });
+    assert.equal(cancellation.cancelled, true);
+});
+
+test("card and Apple Pay PURCHASE use the stored session without payment tokens", async () => {
+    const calls = [];
+    const fetchImpl = async (url, options) => {
+        calls.push({ url: String(url), options });
+        return jsonResponse({ result: "SUCCESS", response: { gatewayCode: "APPROVED" } });
+    };
+    await mpgsGateway.executeMpgsPurchase(configuration, {
+        orderId: "TALLAORDER1",
+        transactionId: "PAY1",
+        authenticationTransactionId: "AUTH1",
+        sessionId: sessionID,
+        amount: "12.800"
+    }, fetchImpl);
+    await mpgsGateway.executeMpgsPurchase(configuration, {
+        orderId: "TALLAORDER2",
+        transactionId: "APAY1",
+        sessionId: sessionID,
+        amount: "12.800"
+    }, fetchImpl);
+    const cardBody = JSON.parse(calls[0].options.body);
+    const appleBody = JSON.parse(calls[1].options.body);
+    assert.equal(cardBody.apiOperation, "PAY");
+    assert.equal(cardBody.authentication.transactionId, "AUTH1");
+    assert.equal(appleBody.apiOperation, "PAY");
+    assert.equal(appleBody.authentication, undefined);
+    assert.doesNotMatch(JSON.stringify(calls), /paymentToken|cardNumber|cvv/i);
+});
+
+test("Click to Pay initiates Hosted Checkout with PURCHASE and backend BHD amount", async () => {
+    const calls = [];
+    await mpgsGateway.initiateMpgsCheckout(configuration, {
+        orderId: "TALLACLICK1",
+        amount: "12.800",
+        returnUrl: "https://merchant.test/api/payments/click-to-pay/return?payment=token",
+        cancelUrl: "https://merchant.test/api/payments/click-to-pay/return?payment=token&cancelled=1"
+    }, async (url, options) => {
+        calls.push({ url: String(url), options });
+        return jsonResponse({
+            result: "SUCCESS",
+            session: { id: sessionID, version: "0000000004", updateStatus: "SUCCESS" }
+        });
+    });
+    const body = JSON.parse(calls[0].options.body);
+    assert.equal(body.apiOperation, "INITIATE_CHECKOUT");
+    assert.equal(body.interaction.operation, "PURCHASE");
+    assert.equal(body.order.amount, "12.800");
+    assert.equal(body.order.currency, "BHD");
+});
+
+test("gateway timeout is normalized without leaking configuration", async () => {
+    const timeout = new Error("timed out");
+    timeout.name = "TimeoutError";
+    let caught;
+    try {
+        await mpgsGateway.retrieveMpgsOrder(configuration, "TALLAORDER1", async () => {
+            throw timeout;
+        });
+    } catch (error) {
+        caught = error;
+    }
+    assert.equal(caught.code, "MPGS_TIMEOUT");
+    const normalized = mpgsGateway.normalizeMpgsError(caught);
+    assert.equal(normalized.statusCode, 504);
+    assert.doesNotMatch(JSON.stringify(normalized), /super-secret-api-password|TESTMERCHANT/);
+});
