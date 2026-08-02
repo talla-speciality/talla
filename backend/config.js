@@ -50,6 +50,10 @@ module.exports = {
     benefitSuccessURL: process.env.BENEFIT_SUCCESS_URL || "",
     benefitErrorURL: process.env.BENEFIT_ERROR_URL || "",
     benefitNotificationURL: process.env.BENEFIT_NOTIFICATION_URL || "",
+    mpgsMerchantID: process.env.MPGS_MERCHANT_ID || "",
+    mpgsAPIPassword: process.env.MPGS_API_PASSWORD || "",
+    mpgsAPIVersion: process.env.MPGS_API_VERSION || "100",
+    mpgsBaseURL: process.env.MPGS_BASE_URL || "https://eazypay.gateway.mastercard.com",
     apnsKeyID: process.env.APNS_KEY_ID || "",
     apnsTeamID: process.env.APNS_TEAM_ID || "",
     apnsBundleID: process.env.APNS_BUNDLE_ID || process.env.APPLE_SIGN_IN_CLIENT_ID || "",
@@ -85,7 +89,8 @@ module.exports = {
         passportSettings: path.join(dataDirectory, "passportSettings.json"),
         tasteMemory: path.join(dataDirectory, "tasteMemory.json"),
         passwordResetTokens: path.join(dataDirectory, "passwordResetTokens.json"),
-        benefitPayments: path.join(dataDirectory, "benefitPayments.json")
+        benefitPayments: path.join(dataDirectory, "benefitPayments.json"),
+        cardPayments: path.join(dataDirectory, "cardPayments.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,

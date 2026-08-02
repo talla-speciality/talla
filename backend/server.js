@@ -9,6 +9,7 @@ const { URL } = require("url");
 const config = require("./config");
 const database = require("./database");
 const benefitGateway = require("./benefit-gateway");
+const mpgsGateway = require("./mpgs-gateway");
 
 const host = config.host;
 const port = config.port;
@@ -27,6 +28,7 @@ const passportSettingsStorePath = config.stores.passportSettings;
 const tasteMemoryStorePath = config.stores.tasteMemory;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
+const cardPaymentsStorePath = config.stores.cardPayments;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -46,6 +48,12 @@ const benefitAPIEndpoint = config.benefitAPIEndpoint;
 const benefitSuccessURL = config.benefitSuccessURL;
 const benefitErrorURL = config.benefitErrorURL;
 const benefitNotificationURL = config.benefitNotificationURL;
+const mpgsConfiguration = {
+    merchantId: config.mpgsMerchantID,
+    apiPassword: config.mpgsAPIPassword,
+    apiVersion: config.mpgsAPIVersion,
+    baseURL: config.mpgsBaseURL
+};
 const apnsKeyID = config.apnsKeyID;
 const apnsTeamID = config.apnsTeamID;
 const apnsBundleID = config.apnsBundleID;
@@ -97,6 +105,7 @@ const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
 const rateLimitBuckets = new Map();
 const benefitPaymentLocks = new Map();
+const cardPaymentLocks = new Map();
 let opsAlertTimer = null;
 let appleSigningKeysCache = null;
 let appleSigningKeysFetchedAt = 0;
@@ -118,6 +127,7 @@ ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSe
 ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
+ensureStoreFile(cardPaymentsStorePath, { payments: {} });
 
 function ensureStoreFile(filePath, fallback) {
     if (!fs.existsSync(dataDirectory)) {
@@ -3020,6 +3030,203 @@ async function awardOrderBeans(order) {
     }
 
     return { awarded: true, points };
+}
+
+function cardPaymentRowToRecord(row) {
+    return {
+        paymentID: row.payment_id,
+        localOrderID: row.local_order_id,
+        mpgsOrderID: row.mpgs_order_id,
+        sessionID: row.session_id,
+        sessionVersion: row.session_version,
+        amount: row.amount,
+        currency: row.currency,
+        email: normalizeEmail(row.email),
+        status: row.status,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
+    };
+}
+
+function normalizeCardPaymentIdentifier(value, maxLength = 255) {
+    const normalized = String(value || "").trim();
+    if (!normalized
+        || normalized.length > maxLength
+        || !/^[A-Za-z0-9][A-Za-z0-9._:#-]*$/.test(normalized)) {
+        return "";
+    }
+    return normalized;
+}
+
+async function findPendingCardPayment(localOrderID, email) {
+    const normalizedOrderID = String(localOrderID || "").trim();
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedOrderID || !normalizedEmail) {
+        return null;
+    }
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT *
+             FROM card_payments
+             WHERE local_order_id = $1 AND email = $2 AND status = 'Pending'
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [normalizedOrderID, normalizedEmail]
+        );
+        return result.rowCount > 0 ? cardPaymentRowToRecord(result.rows[0]) : null;
+    }
+    const store = readJSON(cardPaymentsStorePath);
+    return Object.values(store.payments || {})
+        .filter((payment) => (
+            payment.localOrderID === normalizedOrderID
+            && normalizeEmail(payment.email) === normalizedEmail
+            && payment.status === "Pending"
+        ))
+        .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())[0] || null;
+}
+
+async function findCardPayment(identifier, email) {
+    const normalizedIdentifier = String(identifier || "").trim();
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedIdentifier || normalizedIdentifier.length > 255 || !normalizedEmail) {
+        return null;
+    }
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT *
+             FROM card_payments
+             WHERE email = $1 AND (payment_id = $2 OR local_order_id = $2)
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [normalizedEmail, normalizedIdentifier]
+        );
+        return result.rowCount > 0 ? cardPaymentRowToRecord(result.rows[0]) : null;
+    }
+    const store = readJSON(cardPaymentsStorePath);
+    return Object.values(store.payments || {})
+        .filter((payment) => (
+            normalizeEmail(payment.email) === normalizedEmail
+            && (payment.paymentID === normalizedIdentifier || payment.localOrderID === normalizedIdentifier)
+        ))
+        .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())[0] || null;
+}
+
+async function persistCardPayment(payment) {
+    if (database.isEnabled()) {
+        try {
+            const result = await database.query(
+                `INSERT INTO card_payments
+                 (payment_id, local_order_id, mpgs_order_id, session_id, session_version,
+                  amount, currency, email, status, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+                 RETURNING *`,
+                [
+                    payment.paymentID,
+                    payment.localOrderID,
+                    payment.mpgsOrderID,
+                    payment.sessionID,
+                    payment.sessionVersion,
+                    payment.amount,
+                    payment.currency,
+                    payment.email,
+                    payment.status,
+                    payment.createdAt
+                ]
+            );
+            return cardPaymentRowToRecord(result.rows[0]);
+        } catch (error) {
+            if (error?.code === "23505") {
+                const existing = await findPendingCardPayment(payment.localOrderID, payment.email);
+                if (existing) {
+                    return existing;
+                }
+            }
+            throw error;
+        }
+    }
+    const store = readJSON(cardPaymentsStorePath);
+    store.payments = store.payments || {};
+    const existing = Object.values(store.payments).find((candidate) => (
+        candidate.localOrderID === payment.localOrderID
+        && normalizeEmail(candidate.email) === normalizeEmail(payment.email)
+        && candidate.status === "Pending"
+    ));
+    if (existing) {
+        return existing;
+    }
+    store.payments[payment.paymentID] = payment;
+    writeJSON(cardPaymentsStorePath, store);
+    return payment;
+}
+
+async function updateCardPaymentSessionVersion(paymentID, sessionVersion) {
+    const normalizedVersion = String(sessionVersion || "").trim();
+    if (!normalizedVersion) {
+        return;
+    }
+    const updatedAt = new Date().toISOString();
+    if (database.isEnabled()) {
+        await database.query(
+            `UPDATE card_payments
+             SET session_version = $2, updated_at = $3
+             WHERE payment_id = $1`,
+            [paymentID, normalizedVersion, updatedAt]
+        );
+        return;
+    }
+    const store = readJSON(cardPaymentsStorePath);
+    if (store.payments?.[paymentID]) {
+        store.payments[paymentID].sessionVersion = normalizedVersion;
+        store.payments[paymentID].updatedAt = updatedAt;
+        writeJSON(cardPaymentsStorePath, store);
+    }
+}
+
+async function withCardPaymentLock(key, operation) {
+    const existing = cardPaymentLocks.get(key);
+    if (existing) {
+        return existing;
+    }
+    const pending = Promise.resolve().then(operation);
+    cardPaymentLocks.set(key, pending);
+    try {
+        return await pending;
+    } finally {
+        if (cardPaymentLocks.get(key) === pending) {
+            cardPaymentLocks.delete(key);
+        }
+    }
+}
+
+function maskMpgsSessionID(sessionID) {
+    const value = String(sessionID || "");
+    return value.length > 8 ? `${value.slice(0, 4)}…${value.slice(-4)}` : "[masked]";
+}
+
+function mpgsSessionResponse(payment) {
+    return {
+        sessionId: payment.sessionID,
+        sessionVersion: payment.sessionVersion,
+        apiVersion: mpgsConfiguration.apiVersion,
+        merchantId: mpgsConfiguration.merchantId,
+        orderId: payment.mpgsOrderID,
+        amount: payment.amount,
+        currency: "BHD"
+    };
+}
+
+function sanitizedMpgsSessionStatus(payment, gatewaySession) {
+    return {
+        paymentSessionId: payment.paymentID,
+        localOrderId: payment.localOrderID,
+        orderId: payment.mpgsOrderID,
+        status: payment.status,
+        gatewayResult: String(gatewaySession.result || "UNKNOWN").slice(0, 30),
+        updateStatus: String(gatewaySession.session?.updateStatus || "UNKNOWN").slice(0, 30),
+        sessionVersion: String(gatewaySession.session?.version || payment.sessionVersion),
+        amount: payment.amount,
+        currency: "BHD"
+    };
 }
 
 function benefitPaymentError(code, statusCode, message) {
@@ -7646,6 +7853,144 @@ const server = http.createServer(async (request, response) => {
             });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/card/session") {
+        let body;
+        try {
+            body = await readBody(request, 16_384);
+        } catch (error) {
+            const publicError = mpgsGateway.normalizeMpgsError(error);
+            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
+            return;
+        }
+
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) {
+            return;
+        }
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) {
+            return;
+        }
+        const localOrderID = normalizeCardPaymentIdentifier(body.orderID || body.orderId || body.localOrderId);
+        if (!localOrderID) {
+            sendJSON(response, 400, { error: "Provide a valid existing orderID." });
+            return;
+        }
+
+        try {
+            const result = await withCardPaymentLock(`${customer.email}:${localOrderID}`, async () => {
+                const order = await findOrderByID(localOrderID);
+                const existingPayment = await findPendingCardPayment(localOrderID, customer.email);
+                return mpgsGateway.initializeMpgsPayment({
+                    configuration: mpgsConfiguration,
+                    order,
+                    customerEmail: customer.email,
+                    existingPayment,
+                    persistPayment: persistCardPayment
+                });
+            });
+            console.info(
+                `MPGS card session ${result.reused ? "reused" : "created"} for order ${localOrderID}: ${maskMpgsSessionID(result.payment.sessionID)}.`
+            );
+            sendJSON(response, 200, mpgsSessionResponse(result.payment));
+        } catch (error) {
+            console.error(`MPGS card session creation failed for order ${localOrderID}:`, error.code || "MPGS_SESSION_FAILED");
+            const publicError = mpgsGateway.normalizeMpgsError(error);
+            sendJSON(response, publicError.statusCode, { error: publicError.message });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/card/session/retrieve") {
+        let body;
+        try {
+            body = await readBody(request, 16_384);
+        } catch (error) {
+            const publicError = mpgsGateway.normalizeMpgsError(error);
+            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
+            return;
+        }
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) {
+            return;
+        }
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) {
+            return;
+        }
+        const identifier = normalizeCardPaymentIdentifier(
+            body.paymentSessionId || body.localOrderId || body.orderID || body.orderId
+        );
+        if (!identifier) {
+            sendJSON(response, 400, { error: "Provide a valid orderID or paymentSessionId." });
+            return;
+        }
+
+        try {
+            const payment = await findCardPayment(identifier, customer.email);
+            const order = payment ? await findOrderByID(payment.localOrderID) : null;
+            mpgsGateway.verifyMpgsOrderPayment(payment, order, customer.email);
+            const gatewaySession = await mpgsGateway.retrieveMpgsSession(mpgsConfiguration, payment.sessionID);
+            mpgsGateway.verifyMpgsOrderPayment(payment, order, customer.email, gatewaySession);
+            await updateCardPaymentSessionVersion(payment.paymentID, gatewaySession.session.version);
+            console.info(`MPGS card session retrieved: ${maskMpgsSessionID(payment.sessionID)}.`);
+            sendJSON(response, 200, sanitizedMpgsSessionStatus(payment, gatewaySession));
+        } catch (error) {
+            console.error("MPGS card session retrieval failed:", error.code || "MPGS_RETRIEVE_FAILED");
+            const publicError = mpgsGateway.normalizeMpgsError(error);
+            sendJSON(response, publicError.statusCode, { error: publicError.message });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/card/complete") {
+        let body;
+        try {
+            body = await readBody(request, 16_384);
+        } catch (error) {
+            const publicError = mpgsGateway.normalizeMpgsError(error);
+            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
+            return;
+        }
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) {
+            return;
+        }
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) {
+            return;
+        }
+        const localOrderID = normalizeCardPaymentIdentifier(body.localOrderId || body.orderID || body.orderId);
+        const sessionID = normalizeCardPaymentIdentifier(body.sessionId, 100);
+        if (!localOrderID || !sessionID) {
+            sendJSON(response, 400, { error: "Provide a valid orderID and sessionId." });
+            return;
+        }
+
+        try {
+            const payment = await findCardPayment(localOrderID, customer.email);
+            const order = payment ? await findOrderByID(payment.localOrderID) : null;
+            mpgsGateway.verifyMpgsOrderPayment(payment, order, customer.email);
+            if (!timingSafeStringEqual(sessionID, payment.sessionID)) {
+                sendJSON(response, 409, { error: "Card payment session does not match this order." });
+                return;
+            }
+            const gatewaySession = await mpgsGateway.retrieveMpgsSession(mpgsConfiguration, payment.sessionID);
+            mpgsGateway.verifyMpgsOrderPayment(payment, order, customer.email, gatewaySession);
+            await updateCardPaymentSessionVersion(payment.paymentID, gatewaySession.session.version);
+            console.info(`MPGS completion boundary verified session ${maskMpgsSessionID(payment.sessionID)}.`);
+            // TODO(MPGS): Add AUTHENTICATE/PURCHASE only after EazyPay confirms the merchant-specific operation sequence.
+            sendJSON(response, 501, {
+                error: "Final card payment execution is not enabled yet. No payment was charged."
+            });
+        } catch (error) {
+            console.error("MPGS completion verification failed:", error.code || "MPGS_COMPLETE_FAILED");
+            const publicError = mpgsGateway.normalizeMpgsError(error);
+            sendJSON(response, publicError.statusCode, { error: publicError.message });
         }
         return;
     }

@@ -53,6 +53,10 @@ BENEFIT_API_ENDPOINT=
 BENEFIT_SUCCESS_URL=https://your-api.example/api/payments/benefit/result
 BENEFIT_ERROR_URL=https://your-api.example/api/payments/benefit/result
 BENEFIT_NOTIFICATION_URL=https://your-api.example/api/payments/benefit/response
+MPGS_MERCHANT_ID=
+MPGS_API_PASSWORD=
+MPGS_API_VERSION=100
+MPGS_BASE_URL=https://eazypay.gateway.mastercard.com
 WALLET_PASS_TEMPLATE_DIRECTORY=/app/WalletPass/TallaLoyalty.pass
 WALLET_P12_PATH=/run/secrets/talla-wallet.p12
 WALLET_P12_BASE64=
@@ -80,6 +84,8 @@ Notes:
 - `SHOPIFY_ADMIN_PUBLICATION_ID` is optional, but without it newly created products may not appear in the storefront-backed iOS app
 - All seven `BENEFIT_*` variables are required for hosted checkout; keep the merchant credentials and resource key in Render secrets
 - `BENEFIT_SUCCESS_URL` and `BENEFIT_ERROR_URL` should use `/api/payments/benefit/result`, while `BENEFIT_NOTIFICATION_URL` should use `/api/payments/benefit/response`
+- `MPGS_MERCHANT_ID` and `MPGS_API_PASSWORD` are required for card sessions; keep the API password in Render secrets
+- `MPGS_API_VERSION` defaults to `100`, and `MPGS_BASE_URL` defaults to the EazyPay Mastercard Gateway host
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 - `/admin` now includes an operations snapshot powered by `request_logs`
 

@@ -72,6 +72,10 @@ The server reads configuration from environment variables:
 - `BENEFIT_SUCCESS_URL`: public HTTPS result-page URL used after an approved payment
 - `BENEFIT_ERROR_URL`: public HTTPS result-page URL used after a failed payment
 - `BENEFIT_NOTIFICATION_URL`: public HTTPS notification URL ending in `/api/payments/benefit/response`
+- `MPGS_MERCHANT_ID`: Mastercard Gateway merchant ID
+- `MPGS_API_PASSWORD`: Mastercard Gateway API password; never expose it to clients
+- `MPGS_API_VERSION`: Mastercard Gateway REST API version, defaults to `100`
+- `MPGS_BASE_URL`: Mastercard Gateway origin, defaults to `https://eazypay.gateway.mastercard.com`
 - `WALLET_PASS_TEMPLATE_DIRECTORY`: Wallet pass template directory
 - `WALLET_P12_PATH`: signing certificate path for Wallet passes
 - `WALLET_P12_BASE64`: base64-encoded `.p12` certificate content for hosted environments
@@ -138,6 +142,16 @@ GET  /api/payments/benefit/result
 ```
 
 The create route requires an authenticated customer and an existing order ID. The backend derives the BHD amount from the stored order, encrypts the hosted-payment request, and returns the BENEFIT payment URL. The public response route validates the decrypted notification against the pending payment before applying payment effects idempotently. The result page reads backend state only.
+
+### Mastercard Gateway card sessions
+
+```http
+POST /api/payments/card/session
+POST /api/payments/card/session/retrieve
+POST /api/payments/card/complete
+```
+
+All card routes require an authenticated customer and enforce order ownership. The backend creates and updates a PCI-reducing Mastercard Gateway session using the stored BHD order amount; card details stay in the Mastercard mobile SDK session. The complete route verifies the session but intentionally returns `501` until the merchant-specific 3DS and PURCHASE operation sequence is confirmed.
 
 ### Customer session
 
