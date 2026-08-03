@@ -162,7 +162,7 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
         }
 
         let attributes = TallaBrewActivityAttributes(
-            methodName: message["methodName"] as? String ?? "SOLO Dripper",
+            methodName: message["methodName"] as? String ?? "Solo Dripper",
             coffeeGrams: message["coffeeGrams"] as? Double ?? 20,
             ratio: message["ratio"] as? Double ?? 16,
             totalWaterGrams: message["totalWaterGrams"] as? Double ?? 320,

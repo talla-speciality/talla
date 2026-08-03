@@ -16,7 +16,7 @@ struct WatchBrewStep: Identifiable, Equatable {
 }
 
 struct WatchBrewRecipe {
-    let methodName = "SOLO Dripper"
+    let methodName = "Solo Dripper"
     let coffeeAmount = 20
     let ratio = 16
     let totalWater = 320

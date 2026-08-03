@@ -8903,6 +8903,32 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/api/payments/benefit/response") {
+        const htmlHeaders = {
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store"
+        };
+        try {
+            const resultToken = url.searchParams.get("payment") || url.searchParams.get("udf2");
+            const trackID = normalizeBenefitIdentifier(
+                url.searchParams.get("trackid")
+                || url.searchParams.get("trackId")
+                || url.searchParams.get("trackID")
+            );
+            let payment = await findBenefitPaymentByResultToken(resultToken);
+            if (!payment && trackID) {
+                payment = await findBenefitPaymentByTrackID(trackID);
+            }
+            sendHTML(response, 200, renderBenefitResultPage(payment), htmlHeaders);
+        } catch (error) {
+            console.error("BENEFIT browser return failed:", error.code || error.message || "BENEFIT_BROWSER_RETURN_FAILED");
+            sendHTML(response, 200, renderBenefitResultPage(null), htmlHeaders);
+        }
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/payments/benefit/result") {
         const htmlHeaders = {
             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",

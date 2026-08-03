@@ -327,6 +327,26 @@ test("result page uses backend state rather than claimed query status", async ()
     assert.doesNotMatch(response.body, /test-password|test-terminal/);
 });
 
+test("GET notification return renders stored state without processing payment", async () => {
+    resetStores();
+    const pendingResponse = await requestServer(
+        "GET",
+        `/api/payments/benefit/response?trackid=${trackID}`
+    );
+    assert.equal(pendingResponse.statusCode, 200);
+    assert.match(pendingResponse.body, /Payment pending/);
+
+    await postEncryptedNotification();
+    await waitForPaymentStatus("Captured");
+    const capturedResponse = await requestServer(
+        "GET",
+        `/api/payments/benefit/response?trackId=${trackID}`
+    );
+    assert.equal(capturedResponse.statusCode, 200);
+    assert.match(capturedResponse.body, /Payment confirmed/);
+    assert.doesNotMatch(capturedResponse.body, /PAYMENT123|TRANS123|test-password|test-terminal/);
+});
+
 test("verification rejects a result-token mismatch", () => {
     assert.throws(
         () => verifyBenefitNotification(

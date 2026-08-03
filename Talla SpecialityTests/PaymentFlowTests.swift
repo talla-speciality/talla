@@ -9,6 +9,9 @@ struct PaymentFlowTests {
     @Test func stateModelPreventsRepeatedStarts() {
         let model = PaymentFlowModel()
         #expect(model.state == .idle)
+        #expect(model.selectedMethod == nil)
+        #expect(!model.begin())
+        model.select(.benefit)
         #expect(model.begin())
         #expect(model.state == .creatingSession)
         #expect(!model.begin())
@@ -17,7 +20,7 @@ struct PaymentFlowTests {
     }
 
     @Test func cancellationAndRetryAreExplicit() {
-        let model = PaymentFlowModel()
+        let model = PaymentFlowModel(selectedMethod: .card)
         #expect(model.begin())
         model.cancel()
         #expect(model.state == .cancelled)
@@ -25,6 +28,19 @@ struct PaymentFlowTests {
         model.transition(to: .failed, error: "Declined")
         #expect(model.state == .failed)
         #expect(model.errorMessage == "Declined")
+    }
+
+    @Test func paymentMethodRequiresExplicitConfirmation() {
+        let model = PaymentFlowModel()
+        #expect(model.selectedMethod == nil)
+        #expect(!model.canStart)
+
+        model.select(.applePay)
+        #expect(model.selectedMethod == .applePay)
+        #expect(model.canStart)
+
+        model.select(.benefit)
+        #expect(model.selectedMethod == .benefit)
     }
 
     @Test func selectorContainsAllRequiredMethods() {
@@ -48,6 +64,11 @@ struct PaymentFlowTests {
     @Test func cardMessagingIncludesAmericanExpress() {
         #expect(TallaPaymentMethod.card.subtitle.contains("American Express"))
         #expect(TallaPaymentMethod.clickToPay.supportingText?.contains("American Express") == true)
+    }
+
+    @Test func sheetMessagingIsCompactAndSpecific() {
+        #expect(TallaPaymentMethod.benefit.sheetSubtitle == "For Bahrain-issued debit cards")
+        #expect(TallaPaymentMethod.clickToPay.sheetSubtitle == "Use supported saved cards for faster checkout")
     }
 
     @Test func actionCopyMatchesTheSelectedMethod() {

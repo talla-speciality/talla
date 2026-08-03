@@ -137,6 +137,19 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         }
     }
 
+    var sheetSubtitle: String {
+        switch self {
+        case .applePay:
+            return AppLocalization.text("payment_apple_pay_subtitle", fallback: "Fast and secure checkout")
+        case .benefit:
+            return AppLocalization.text("payment_benefit_sheet_subtitle", fallback: "For Bahrain-issued debit cards")
+        case .card:
+            return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_sheet_subtitle", fallback: "Use supported saved cards for faster checkout")
+        }
+    }
+
     var supportingText: String? {
         switch self {
         case .applePay:
@@ -205,11 +218,24 @@ enum TallaPaymentState: String, Equatable {
 
 @MainActor
 final class PaymentFlowModel: ObservableObject {
-    @Published var selectedMethod: TallaPaymentMethod = .benefit
+    @Published private(set) var selectedMethod: TallaPaymentMethod?
     @Published private(set) var state: TallaPaymentState = .idle
     @Published private(set) var errorMessage: String?
 
-    var canStart: Bool { !state.isBusy && state != .awaitingCustomer }
+    var canChangeMethod: Bool { !state.isBusy && state != .awaitingCustomer }
+    var canStart: Bool { selectedMethod != nil && canChangeMethod }
+
+    init(selectedMethod: TallaPaymentMethod? = nil) {
+        self.selectedMethod = selectedMethod
+    }
+
+    func select(_ method: TallaPaymentMethod) {
+        guard canChangeMethod else { return }
+        selectedMethod = method
+        if state == .failed || state == .cancelled {
+            transition(to: .idle)
+        }
+    }
 
     func transition(to nextState: TallaPaymentState, error: String? = nil) {
         guard nextState != state || error != errorMessage else { return }
@@ -364,14 +390,239 @@ struct PaymentMethodBadge: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(method == .benefit ? Color(red: 0.78, green: 0.1, blue: 0.18).opacity(0.1) : accentColor.opacity(0.09))
-            Image(systemName: method.systemImage)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(method == .benefit ? Color(red: 0.68, green: 0.08, blue: 0.14) : accentColor)
+                .fill(method == .benefit
+                    ? Color(red: 0.78, green: 0.1, blue: 0.18).opacity(0.1)
+                    : method == .card ? Color.white : accentColor.opacity(0.09))
+            if method == .applePay {
+                HStack(spacing: 1) {
+                    Image(systemName: "apple.logo")
+                        .font(.system(size: 15, weight: .medium))
+                    Text("Pay")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(.primary)
+            } else if method == .benefit {
+                Image("BenefitLogo")
+                    .resizable()
+                    .scaledToFill()
+            } else if method == .clickToPay {
+                Image("ClickToPayLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(5)
+            } else {
+                Image("CardBrandsLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(3)
+            }
         }
-        .frame(width: 38, height: 38)
+        .frame(width: method == .card ? 56 : 38, height: 38)
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .opacity(enabled ? 1 : 0.45)
         .accessibilityHidden(true)
+    }
+}
+
+struct CompactPaymentMethodRow: View {
+    let selectedMethod: TallaPaymentMethod?
+    let enabled: Bool
+    let primaryColor: Color
+    let secondaryColor: Color
+    let accentColor: Color
+    let surfaceColor: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(AppLocalization.text("payment_method", fallback: "Payment method"))
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+                    .foregroundStyle(accentColor)
+
+                HStack(spacing: 12) {
+                    if let selectedMethod {
+                        PaymentMethodBadge(method: selectedMethod, accentColor: accentColor, enabled: enabled)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(selectedMethod.title)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(primaryColor)
+                            Text(selectedMethod.sheetSubtitle)
+                                .font(.footnote)
+                                .foregroundStyle(secondaryColor)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Image(systemName: "wallet.bifold")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(accentColor)
+                            .frame(width: 38, height: 38)
+                            .background(accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        Text(AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(primaryColor)
+                    }
+
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.forward")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(secondaryColor)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(surfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(accentColor.opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(selectedMethod?.accessibilitySummary ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
+        .accessibilityHint(AppLocalization.text("payment_method_change_hint", fallback: "Opens payment method choices"))
+    }
+}
+
+struct PaymentMethodSelectionSheet: View {
+    let applePayAvailable: Bool
+    let gatewaySDKAvailable: Bool
+    let primaryColor: Color
+    let secondaryColor: Color
+    let accentColor: Color
+    let surfaceColor: Color
+    let onConfirm: (TallaPaymentMethod) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var draftMethod: TallaPaymentMethod?
+
+    init(
+        selectedMethod: TallaPaymentMethod?,
+        applePayAvailable: Bool,
+        gatewaySDKAvailable: Bool,
+        primaryColor: Color,
+        secondaryColor: Color,
+        accentColor: Color,
+        surfaceColor: Color,
+        onConfirm: @escaping (TallaPaymentMethod) -> Void
+    ) {
+        self.applePayAvailable = applePayAvailable
+        self.gatewaySDKAvailable = gatewaySDKAvailable
+        self.primaryColor = primaryColor
+        self.secondaryColor = secondaryColor
+        self.accentColor = accentColor
+        self.surfaceColor = surfaceColor
+        self.onConfirm = onConfirm
+        let visibleMethods = PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable)
+        _draftMethod = State(initialValue: selectedMethod.flatMap { visibleMethods.contains($0) ? $0 : nil })
+    }
+
+    private var methods: [TallaPaymentMethod] {
+        PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable)
+    }
+
+    private func isEnabled(_ method: TallaPaymentMethod) -> Bool {
+        method == .benefit || method == .clickToPay || gatewaySDKAvailable
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(methods) { method in
+                        let enabled = isEnabled(method)
+                        Button {
+                            guard enabled else { return }
+                            draftMethod = method
+                        } label: {
+                            HStack(spacing: 12) {
+                                PaymentMethodBadge(method: method, accentColor: accentColor, enabled: enabled)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 7) {
+                                        Text(method.title)
+                                            .font(.body.weight(.semibold))
+                                            .foregroundStyle(enabled ? primaryColor : secondaryColor)
+                                        if method == .applePay && applePayAvailable {
+                                            Text(AppLocalization.text("recommended", fallback: "Recommended"))
+                                                .font(.caption2.weight(.semibold))
+                                                .foregroundStyle(accentColor)
+                                        }
+                                    }
+                                    Text(method.sheetSubtitle)
+                                        .font(.footnote)
+                                        .foregroundStyle(secondaryColor)
+                                        .lineLimit(1)
+                                }
+                                Spacer(minLength: 8)
+                                if !enabled {
+                                    Text(AppLocalization.text("payment_unavailable", fallback: "Unavailable"))
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(secondaryColor)
+                                } else if draftMethod == method {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(accentColor)
+                                } else {
+                                    Circle()
+                                        .stroke(secondaryColor.opacity(0.42), lineWidth: 1)
+                                        .frame(width: 18, height: 18)
+                                }
+                            }
+                            .padding(.horizontal, 13)
+                            .frame(minHeight: 64)
+                            .background(draftMethod == method ? accentColor.opacity(0.075) : Color.clear)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .stroke(draftMethod == method ? accentColor.opacity(0.5) : accentColor.opacity(0.08), lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!enabled)
+                        .accessibilityLabel(method.accessibilitySummary)
+                        .accessibilityValue(draftMethod == method
+                            ? AppLocalization.text("selected", fallback: "Selected")
+                            : AppLocalization.text("not_selected", fallback: "Not selected"))
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+            }
+            .background(surfaceColor.ignoresSafeArea())
+            .navigationTitle(AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(AppLocalization.text("cancel", fallback: "Cancel")) { dismiss() }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button {
+                    guard let draftMethod else { return }
+                    onConfirm(draftMethod)
+                    dismiss()
+                } label: {
+                    Text(draftMethod.map {
+                        String(format: AppLocalization.text("use_payment_method", fallback: "Use %@"), $0.title)
+                    } ?? AppLocalization.text("choose_payment_method", fallback: "Choose a payment method"))
+                        .font(.headline)
+                        .foregroundStyle(Color(red: 0.08, green: 0.065, blue: 0.04))
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .background(accentColor, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(draftMethod == nil)
+                .opacity(draftMethod == nil ? 0.5 : 1)
+                .padding(.horizontal, 18)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+                .background(.ultraThinMaterial)
+            }
+        }
     }
 }
 
@@ -514,7 +765,7 @@ struct PaymentStatusView: View {
 }
 
 struct CheckoutActionBar: View {
-    let method: TallaPaymentMethod
+    let method: TallaPaymentMethod?
     let amountText: String
     let state: TallaPaymentState
     let enabled: Bool
@@ -548,7 +799,7 @@ struct CheckoutActionBar: View {
                         }
                         Text(state.isBusy
                             ? AppLocalization.text("payment_preparing", fallback: "Preparing secure checkout…")
-                            : method.actionTitle)
+                            : method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
                             .font(.headline)
                         Spacer()
                         Text(amountText)
@@ -562,7 +813,7 @@ struct CheckoutActionBar: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!enabled || state.isBusy)
-                .accessibilityLabel("\(method.actionTitle), \(amountText)")
+                .accessibilityLabel("\(method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay")), \(amountText)")
             }
 
             Text(AppLocalization.text("payment_terms_reassurance", fallback: "By continuing, you agree to the order total shown above. Talla never stores your card details."))

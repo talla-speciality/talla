@@ -559,6 +559,7 @@ struct ContentView: View {
     @State private var isCheckingOut = false
     @State private var checkoutError: String?
     @StateObject private var paymentFlow = PaymentFlowModel()
+    @State private var isPaymentMethodSheetPresented = false
     @State private var pendingCartRemovalID: String?
     @State private var isConfirmingEmptyBag = false
     @State private var checkoutSession: CheckoutSession?
@@ -1810,6 +1811,21 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isFavoriteShelfPresented) {
             favoriteShelfSheet
+        }
+        .sheet(isPresented: $isPaymentMethodSheetPresented) {
+            PaymentMethodSelectionSheet(
+                selectedMethod: paymentFlow.selectedMethod,
+                applePayAvailable: isApplePayAvailable,
+                gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
+                primaryColor: primaryTextColor,
+                secondaryColor: secondaryTextColor,
+                accentColor: Color(hex: 0xC8965A),
+                surfaceColor: elevatedSurfaceColor
+            ) { method in
+                paymentFlow.select(method)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isCoffeeConciergePresented) {
             coffeeConciergeSheet
@@ -4342,7 +4358,7 @@ struct ContentView: View {
                     Button {
                         openBrewing()
                     } label: {
-                        Text(AppLocalization.text("start_brewing", fallback: "Start Brewing"))
+                        Text(AppLocalization.text("start_brewing", fallback: "Start Brew"))
                             .font(labelFont(size: 9, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
                             .textCase(.uppercase)
@@ -6375,13 +6391,8 @@ struct ContentView: View {
 
     private var cartReviewContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            CheckoutHeader(
-                accentColor: Color(hex: 0xC8965A),
-                primaryColor: primaryTextColor,
-                secondaryColor: secondaryTextColor
-            )
-
             cartItemsListSection
+            cartPaymentMethodsSection
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(checkoutReadinessTitle)
@@ -6429,7 +6440,6 @@ struct ContentView: View {
 
             cartRewardsSection
             cartOrderSummarySection
-            cartPaymentMethodsSection
             cartSaveSection
             cartOrderingGuideSection
         }
@@ -6554,22 +6564,17 @@ struct ContentView: View {
     }
 
     private var cartPaymentMethodsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.text("payment_method", fallback: "Payment method"))
-                .font(.caption.weight(.semibold))
-                .textCase(.uppercase)
-                .foregroundStyle(Color(hex: 0xC8965A))
-
-            PaymentMethodSelectorView(
-                selectedMethod: $paymentFlow.selectedMethod,
-                state: paymentFlow.state,
-                applePayAvailable: isApplePayAvailable,
-                gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
+        VStack(spacing: 10) {
+            CompactPaymentMethodRow(
+                selectedMethod: paymentFlow.selectedMethod,
+                enabled: paymentFlow.canChangeMethod,
                 primaryColor: primaryTextColor,
                 secondaryColor: secondaryTextColor,
                 accentColor: Color(hex: 0xC8965A),
-                surfaceColor: elevatedSurfaceColor
-            )
+                surfaceColor: cardFillColor
+            ) {
+                isPaymentMethodSheetPresented = true
+            }
 
             PaymentStatusView(
                 state: paymentFlow.state,
@@ -6578,14 +6583,6 @@ struct ContentView: View {
                 secondaryColor: secondaryTextColor
             )
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func paymentMethodChip(title: String, systemImage: String) -> some View {
@@ -7558,25 +7555,7 @@ struct ContentView: View {
 
     private func productTasteSummary(for product: Product) -> String {
         let searchableText = normalizedSearchText(for: product)
-        let notes = [
-            ("berry", "Berries"),
-            ("berries", "Berries"),
-            ("floral", "Floral"),
-            ("jasmine", "Floral"),
-            ("chocolate", "Chocolate"),
-            ("cocoa", "Chocolate"),
-            ("caramel", "Caramel"),
-            ("citrus", "Citrus"),
-            ("orange", "Citrus"),
-            ("fruit", "Fruity"),
-            ("nut", "Nutty"),
-            ("honey", "Honey"),
-            ("vanilla", "Vanilla")
-        ]
-
-        let matchedNotes = orderedUniqueValues(
-            notes.compactMap { searchableText.contains($0.0) ? $0.1 : nil }
-        )
+        let matchedNotes = orderedUniqueValues(tasteNoteMatches(in: searchableText))
 
         if !matchedNotes.isEmpty {
             return matchedNotes.prefix(3).joined(separator: " - ")
@@ -7601,6 +7580,28 @@ struct ContentView: View {
             return product.categoryLabel.isEmpty
                 ? AppLocalization.text("product_card_summary_fallback", fallback: "Talla pick")
                 : product.categoryLabel
+        }
+    }
+
+    private func tasteNoteMatches(in searchableText: String) -> [String] {
+        let notes: [(keyword: String, note: String)] = [
+            (keyword: "berry", note: "Berries"),
+            (keyword: "berries", note: "Berries"),
+            (keyword: "floral", note: "Floral"),
+            (keyword: "jasmine", note: "Floral"),
+            (keyword: "chocolate", note: "Chocolate"),
+            (keyword: "cocoa", note: "Chocolate"),
+            (keyword: "caramel", note: "Caramel"),
+            (keyword: "citrus", note: "Citrus"),
+            (keyword: "orange", note: "Citrus"),
+            (keyword: "fruit", note: "Fruity"),
+            (keyword: "nut", note: "Nutty"),
+            (keyword: "honey", note: "Honey"),
+            (keyword: "vanilla", note: "Vanilla")
+        ]
+
+        return notes.compactMap { pair in
+            searchableText.contains(pair.keyword) ? pair.note : nil
         }
     }
 
@@ -10134,6 +10135,10 @@ struct ContentView: View {
 
     @MainActor
     private func beginCheckout() async {
+        guard let selectedPaymentMethod = paymentFlow.selectedMethod else {
+            isPaymentMethodSheetPresented = true
+            return
+        }
         guard !isCheckingOut, paymentFlow.begin() else { return }
 
         guard !cartItems.isEmpty else {
@@ -10167,7 +10172,7 @@ struct ContentView: View {
             )
             orderHistory = checkoutStart.orders
 
-            switch paymentFlow.selectedMethod.route {
+            switch selectedPaymentMethod.route {
             case .benefitHosted:
                 let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
@@ -12738,7 +12743,7 @@ private extension ContentView.BrewingMethod {
             return "3-4 min"
         }
 
-        return "3-5 min"
+        return "3–5 min"
     }
 
     private static func articleURL(blogHandle: String, articleHandle: String) -> URL? {
@@ -12788,6 +12793,37 @@ private extension Array where Element: Identifiable {
     }
 }
 
-#Preview {
-    ContentView()
+#Preview("Content Overview") {
+    VStack(alignment: .leading, spacing: 18) {
+        HStack(spacing: 12) {
+            Image(systemName: "cup.and.saucer.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Color(hex: 0x0A0804))
+                .frame(width: 42, height: 42)
+                .background(Color(hex: 0xC8965A))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Talla Speciality")
+                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .foregroundColor(Color(hex: 0xF6EFE2))
+
+                Text("Run the app to preview the full shop, account, checkout, and brewing flow.")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(Color(hex: 0xD7C7AD))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+
+        HStack(spacing: 8) {
+            Label("Shop", systemImage: "square.grid.2x2")
+            Label("Brew", systemImage: "drop.fill")
+            Label("Account", systemImage: "person.fill")
+        }
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundColor(Color(hex: 0xC8965A))
+    }
+    .padding(22)
+    .frame(width: 380, alignment: .leading)
+    .background(Color(hex: 0x17120C))
 }
