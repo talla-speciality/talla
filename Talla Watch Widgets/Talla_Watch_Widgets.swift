@@ -92,8 +92,14 @@ struct TallaWatchWidgetsEntryView: View {
                 circularComplication
             case .accessoryInline:
                 inlineComplication
+#if os(watchOS)
             case .accessoryCorner:
-                cornerComplication
+                if #available(watchOSApplicationExtension 9.0, *) {
+                    cornerComplication
+                } else {
+                    circularComplication
+                }
+#endif
             default:
                 rectangularComplication
             }
@@ -145,6 +151,8 @@ struct TallaWatchWidgetsEntryView: View {
         Label(entry.isSignedIn ? "\(entry.points) Beans" : "Connect Talla", systemImage: "cup.and.saucer.fill")
     }
 
+#if os(watchOS)
+    @available(watchOSApplicationExtension 9.0, *)
     private var cornerComplication: some View {
         Text(entry.isSignedIn ? "\(entry.points)" : "T")
             .font(.system(size: 12, weight: .black, design: .serif))
@@ -156,6 +164,7 @@ struct TallaWatchWidgetsEntryView: View {
                 .tint(accent)
             }
     }
+#endif
 
     private var rewardLine: String {
         entry.beansToNextReward == 0 ? "Reward ready" : "\(entry.beansToNextReward) Beans to your next reward"
@@ -165,13 +174,23 @@ struct TallaWatchWidgetsEntryView: View {
 struct Talla_Watch_Widgets: Widget {
     let kind = "com.talla.speciality.watch-rewards"
 
+    private var supportedWatchFamilies: [WidgetFamily] {
+        var families: [WidgetFamily] = [.accessoryCircular, .accessoryRectangular, .accessoryInline]
+#if os(watchOS)
+        if #available(watchOSApplicationExtension 9.0, *) {
+            families.append(.accessoryCorner)
+        }
+#endif
+        return families
+    }
+
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TallaWatchWidgetProvider()) { entry in
             TallaWatchWidgetsEntryView(entry: entry)
         }
         .configurationDisplayName("Talla Reserve")
         .description("Beans, rewards, and saved shelf counts for Apple Watch.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
+        .supportedFamilies(supportedWatchFamilies)
     }
 }
 

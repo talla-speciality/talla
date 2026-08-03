@@ -562,6 +562,7 @@ struct ContentView: View {
     @State private var pendingCartRemovalID: String?
     @State private var isConfirmingEmptyBag = false
     @State private var checkoutSession: CheckoutSession?
+    @State private var mastercardPaymentContext: MastercardPaymentContext?
     @State private var articleSession: CheckoutSession?
     @State private var selectedProduct: Product?
     @State private var isFavoriteShelfPresented = false
@@ -1793,13 +1794,14 @@ struct ContentView: View {
             }
         }
 #endif
-        .sheet(item: $checkoutSession, onDismiss: {
-            if paymentFlow.state == .awaitingCustomer {
-                paymentFlow.reset()
-            }
-        }) { session in
+        .sheet(item: $checkoutSession, onDismiss: resetPaymentFlowAfterCheckoutDismiss) { session in
             CheckoutWebView(url: session.url)
         }
+#if canImport(Gateway) && canImport(uSDK) && canImport(UIKit)
+        .sheet(item: $mastercardPaymentContext, onDismiss: resetPaymentFlowAfterMastercardDismiss) { context in
+            MastercardPaymentSheet(context: context, flow: paymentFlow)
+        }
+#endif
         .sheet(item: $articleSession) { session in
             CheckoutWebView(url: session.url)
         }
@@ -1841,6 +1843,23 @@ struct ContentView: View {
         .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
         .environment(\.layoutDirection, appLanguage.layoutDirection)
         .preferredColorScheme(appearanceMode.colorScheme)
+    }
+
+    private func resetPaymentFlowAfterCheckoutDismiss() {
+        if paymentFlow.state == .awaitingCustomer {
+            paymentFlow.reset()
+        }
+    }
+
+    private func resetPaymentFlowAfterMastercardDismiss() {
+        if paymentFlow.state == .succeeded {
+            cartItems.removeAll()
+            appliedVoucher = nil
+            voucherCodeInput = ""
+            voucherError = nil
+            showToast(message: AppLocalization.text("payment_complete", fallback: "Payment completed successfully."))
+        }
+        paymentFlow.reset()
     }
 
     @ViewBuilder
@@ -6356,6 +6375,12 @@ struct ContentView: View {
 
     private var cartReviewContent: some View {
         VStack(alignment: .leading, spacing: 18) {
+            CheckoutHeader(
+                accentColor: Color(hex: 0xC8965A),
+                primaryColor: primaryTextColor,
+                secondaryColor: secondaryTextColor
+            )
+
             cartItemsListSection
 
             VStack(alignment: .leading, spacing: 10) {
@@ -6453,20 +6478,6 @@ struct ContentView: View {
 
     private var cartFooterContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(AppLocalization.text("total", fallback: "Total"))
-                    .font(bodyFont(size: 13))
-                    .foregroundColor(secondaryTextColor)
-
-                Spacer()
-
-                Text(formattedBHD(cartTotal))
-                    .font(labelFont(size: 13, weight: .bold))
-                    .foregroundColor(primaryTextColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-
             if let checkoutError {
                 Text(checkoutError)
                     .font(bodyFont(size: 13))
@@ -6474,129 +6485,80 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Button {
-                checkoutError = nil
-                if preferredAddress == nil {
+            if preferredAddress == nil {
+                Button {
+                    checkoutError = nil
                     cartOpen = false
                     isDeliveryDetailsExpanded = true
                     openAccountSection(AccountSectionView.ScrollTarget.library)
-                } else {
+                } label: {
+                    HStack {
+                        Text(AppLocalization.text("add_address_to_continue", fallback: "Add address to continue"))
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
+                    }
+                    .foregroundStyle(Color(hex: 0x0A0804))
+                    .padding(.horizontal, 17)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(Color(hex: 0xC8965A), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("add_address_to_continue", fallback: "Add address to continue"))
+            } else {
+                CheckoutActionBar(
+                    method: paymentFlow.selectedMethod,
+                    amountText: formattedBHD(cartTotal),
+                    state: paymentFlow.state,
+                    enabled: !cartItems.isEmpty && !isCheckingOut && paymentFlow.canStart,
+                    applePayAvailable: isApplePayAvailable,
+                    accentColor: Color(hex: 0xC8965A)
+                ) {
+                    checkoutError = nil
                     Task {
                         await beginCheckout()
                     }
                 }
-            } label: {
-                VStack(spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text(isCheckingOut
-                            ? AppLocalization.text("opening_checkout", fallback: "OPENING CHECKOUT...")
-                            : preferredAddress == nil
-                                ? AppLocalization.text("add_address_to_continue", fallback: "ADD ADDRESS TO CONTINUE")
-                                : AppLocalization.text("continue_secure_checkout", fallback: "SECURE CHECKOUT"))
-                    }
-                    .font(.system(size: 16, weight: .bold, design: .serif))
-                    .tracking(1.2)
-
-                    Text(AppLocalization.text("secure_checkout_handoff", fallback: "Pay securely through BENEFIT, then return to Talla for order tracking and Beans."))
-                        .font(bodyFont(size: 11))
-                        .foregroundColor(Color(hex: 0x0A0804).opacity(0.82))
-                }
-                .foregroundColor(Color(hex: 0x0A0804))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color(hex: 0xC8965A))
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
-            .buttonStyle(.plain)
-            .disabled(cartItems.isEmpty || isCheckingOut || !paymentFlow.canStart)
         }
     }
 
     private var cartOrderSummarySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.text("order_summary", fallback: "Order Summary"))
-                .font(labelFont(size: 10, weight: .bold))
-                .tracking(1.8)
-                .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
-
-            VStack(alignment: .leading, spacing: 10) {
-                SummaryValueRow(
-                    title: AppLocalization.text("subtotal", fallback: "Subtotal"),
-                    value: formattedBHD(cartSubtotal),
-                    emphasized: false,
-                    regularFont: bodyFont(size: 13),
-                    emphasizedFont: labelFont(size: 11, weight: .bold),
-                    primaryTextColor: primaryTextColor,
-                    secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A)
-                )
-
-                SummaryValueRow(
-                    title: AppLocalization.text("delivery", fallback: "Delivery"),
-                    value: AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout"),
-                    emphasized: false,
-                    regularFont: bodyFont(size: 13),
-                    emphasizedFont: labelFont(size: 11, weight: .bold),
-                    primaryTextColor: primaryTextColor,
-                    secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A)
-                )
-
-                SummaryValueRow(
-                    title: AppLocalization.text("discount", fallback: "Discount"),
-                    value: cartDiscount > 0 ? "-\(formattedBHD(cartDiscount))" : AppLocalization.text("none_dash", fallback: "—"),
-                    emphasized: false,
-                    regularFont: bodyFont(size: 13),
-                    emphasizedFont: labelFont(size: 11, weight: .bold),
-                    primaryTextColor: primaryTextColor,
-                    secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A)
-                )
-
-                SummaryValueRow(
-                    title: AppLocalization.text("total", fallback: "Total"),
-                    value: formattedBHD(cartTotal),
-                    emphasized: true,
-                    regularFont: bodyFont(size: 13),
-                    emphasizedFont: labelFont(size: 11, weight: .bold),
-                    primaryTextColor: primaryTextColor,
-                    secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A)
-                )
+        let itemKey = cartCount == 1 ? "cart_item_count_singular" : "cart_item_count_plural"
+        let itemFallback = cartCount == 1 ? "%d item" : "%d items"
+        let thumbnail: AnyView = {
+            if let firstItem = cartItems.first {
+                return AnyView(ProductThumbnail(imageURL: firstItem.product.imageURL, size: 44, cornerRadius: 10))
             }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+            return AnyView(
+                Image(systemName: "bag.fill")
+                    .foregroundStyle(Color(hex: 0xC8965A))
+                    .frame(width: 44, height: 44)
+                    .background(Color(hex: 0xC8965A).opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+            )
+        }()
+        return CompactOrderSummary(
+            thumbnail: thumbnail,
+            itemCountText: String(format: AppLocalization.text(itemKey, fallback: itemFallback), cartCount),
+            rows: [
+                (AppLocalization.text("subtotal", fallback: "Subtotal"), formattedBHD(cartSubtotal), false),
+                (AppLocalization.text("delivery", fallback: "Delivery"), AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout"), false),
+                (AppLocalization.text("discount", fallback: "Discount"), cartDiscount > 0 ? "-\(formattedBHD(cartDiscount))" : AppLocalization.text("none_dash", fallback: "—"), false),
+                (AppLocalization.text("total", fallback: "Total"), formattedBHD(cartTotal), true)
+            ],
+            primaryColor: primaryTextColor,
+            secondaryColor: secondaryTextColor,
+            accentColor: Color(hex: 0xC8965A),
+            surfaceColor: cardFillColor
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var cartPaymentMethodsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
-                    .frame(width: 20, height: 20)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(AppLocalization.text("secure_payment", fallback: "Secure payment"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.8)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
-
-                    Text(AppLocalization.text("payment_methods_detail", fallback: "Pay through BENEFIT with BenefitPay, Apple Pay, or card. Talla never stores your card details."))
-                        .font(bodyFont(size: 12))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+            Text(AppLocalization.text("payment_method", fallback: "Payment method"))
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(Color(hex: 0xC8965A))
 
             PaymentMethodSelectorView(
                 selectedMethod: $paymentFlow.selectedMethod,
@@ -6609,11 +6571,12 @@ struct ContentView: View {
                 surfaceColor: elevatedSurfaceColor
             )
 
-            if let paymentError = paymentFlow.errorMessage {
-                Text(paymentError)
-                    .font(bodyFont(size: 12))
-                    .foregroundColor(Color.red.opacity(0.85))
-            }
+            PaymentStatusView(
+                state: paymentFlow.state,
+                accentColor: Color(hex: 0xC8965A),
+                primaryColor: primaryTextColor,
+                secondaryColor: secondaryTextColor
+            )
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -10204,34 +10167,44 @@ struct ContentView: View {
             )
             orderHistory = checkoutStart.orders
 
-            switch paymentFlow.selectedMethod {
-            case .benefit:
+            switch paymentFlow.selectedMethod.route {
+            case .benefitHosted:
                 let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
                 checkoutSession = CheckoutSession(url: paymentURL)
-            case .clickToPay:
+            case .clickToPayHosted:
                 let checkout = try await TallaPaymentService.createClickToPay(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
                 checkoutSession = CheckoutSession(url: checkout.paymentUrl)
-            case .card:
+            case .cardGateway:
                 guard MastercardSDKAvailability.isAvailable else {
                     throw PaymentServiceError.gateway("Gateway.xcframework and uSDK.xcframework are required for card entry and 3-D Secure.")
                 }
-                _ = try await TallaPaymentService.createCardSession(orderID: checkoutStart.orderID)
+                let session = try await TallaPaymentService.createCardSession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
-                throw PaymentServiceError.gateway("The Mastercard SDK handoff must be connected after the official frameworks are added.")
-            case .applePay:
+                cartOpen = false
+                mastercardPaymentContext = MastercardPaymentContext(
+                    localOrderID: checkoutStart.orderID,
+                    session: session,
+                    kind: .card
+                )
+            case .applePayGateway:
                 guard isApplePayAvailable else {
                     throw PaymentServiceError.gateway("Apple Pay is unavailable on this device.")
                 }
                 guard MastercardSDKAvailability.isAvailable else {
                     throw PaymentServiceError.gateway("Gateway.xcframework and uSDK.xcframework are required for Apple Pay gateway tokenization.")
                 }
-                _ = try await TallaPaymentService.createApplePaySession(orderID: checkoutStart.orderID)
+                let session = try await TallaPaymentService.createApplePaySession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
-                throw PaymentServiceError.gateway("The Mastercard Apple Pay SDK handoff must be connected after the official frameworks are added.")
+                cartOpen = false
+                mastercardPaymentContext = MastercardPaymentContext(
+                    localOrderID: checkoutStart.orderID,
+                    session: session,
+                    kind: .applePay
+                )
             }
             appliedVoucher = nil
             voucherCodeInput = ""

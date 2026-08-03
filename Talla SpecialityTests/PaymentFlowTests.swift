@@ -1,7 +1,10 @@
+import Foundation
+import SwiftUI
 import Testing
 @testable import Talla_Speciality
 
 @MainActor
+@Suite(.serialized)
 struct PaymentFlowTests {
     @Test func stateModelPreventsRepeatedStarts() {
         let model = PaymentFlowModel()
@@ -27,5 +30,57 @@ struct PaymentFlowTests {
     @Test func selectorContainsAllRequiredMethods() {
         #expect(Set(TallaPaymentMethod.allCases) == Set([.benefit, .card, .applePay, .clickToPay]))
         #expect(TallaPaymentService.applePayMerchantIdentifier == "merchant.talla.me")
+    }
+
+    @Test func paymentMethodsUseTheRequiredDisplayOrder() {
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: true) == [.applePay, .benefit, .card, .clickToPay])
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: false) == [.benefit, .card, .clickToPay])
+        #expect(!PaymentMethodSelectorView.visibleMethods(applePayAvailable: false).contains(.applePay))
+    }
+
+    @Test func everyPaymentMethodUsesItsExistingRoute() {
+        #expect(TallaPaymentMethod.benefit.route == .benefitHosted)
+        #expect(TallaPaymentMethod.card.route == .cardGateway)
+        #expect(TallaPaymentMethod.applePay.route == .applePayGateway)
+        #expect(TallaPaymentMethod.clickToPay.route == .clickToPayHosted)
+    }
+
+    @Test func cardMessagingIncludesAmericanExpress() {
+        #expect(TallaPaymentMethod.card.subtitle.contains("American Express"))
+        #expect(TallaPaymentMethod.clickToPay.supportingText?.contains("American Express") == true)
+    }
+
+    @Test func actionCopyMatchesTheSelectedMethod() {
+        #expect(TallaPaymentMethod.benefit.actionTitle == "Continue to BENEFIT")
+        #expect(TallaPaymentMethod.card.actionTitle == "Enter card details")
+        #expect(TallaPaymentMethod.clickToPay.actionTitle == "Continue with Click to Pay")
+    }
+
+    @Test func currencyUsesThreeDecimalBHDFormatting() {
+        #expect(CheckoutCurrencyFormatter.bhd(8.5) == "BHD 8.500")
+    }
+
+    @Test func accessibilitySummaryDescribesTheMethod() {
+        #expect(TallaPaymentMethod.benefit.accessibilitySummary.contains("Bahraini debit cards"))
+        #expect(TallaPaymentMethod.card.accessibilitySummary.contains("Visa"))
+    }
+
+    @Test func arabicCopyUsesRightToLeftLayout() {
+        let previousLanguage = UserDefaults.standard.string(forKey: "app.language")
+        defer { UserDefaults.standard.set(previousLanguage, forKey: "app.language") }
+        UserDefaults.standard.set(AppLanguage.arabic.rawValue, forKey: "app.language")
+        #expect(AppLocalization.currentLanguage.layoutDirection == .rightToLeft)
+        #expect(TallaPaymentMethod.benefit.title == "بنفت")
+        #expect(TallaPaymentMethod.card.actionTitle == "إدخال بيانات البطاقة")
+    }
+
+    @Test func successPresentationRequiresConfirmedState() {
+        let unconfirmedStates: [TallaPaymentState] = [
+            .idle, .creatingSession, .awaitingCustomer, .authenticating, .processing, .failed, .cancelled
+        ]
+        for state in unconfirmedStates {
+            #expect(!state.canPresentConfirmedSuccess)
+        }
+        #expect(TallaPaymentState.succeeded.canPresentConfirmedSuccess)
     }
 }

@@ -1,8 +1,100 @@
 import Foundation
 import SwiftUI
+import Combine
 #if canImport(PassKit)
 import PassKit
 #endif
+
+#if DEBUG
+private struct PaymentExperiencePreview: View {
+    @State private var selectedMethod: TallaPaymentMethod
+    let applePayAvailable: Bool
+    let state: TallaPaymentState
+
+    init(
+        selectedMethod: TallaPaymentMethod = .benefit,
+        applePayAvailable: Bool = true,
+        state: TallaPaymentState = .idle
+    ) {
+        _selectedMethod = State(initialValue: selectedMethod)
+        self.applePayAvailable = applePayAvailable
+        self.state = state
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                CheckoutHeader(
+                    accentColor: Color(red: 0.78, green: 0.58, blue: 0.35),
+                    primaryColor: .primary,
+                    secondaryColor: .secondary
+                )
+                PaymentMethodSelectorView(
+                    selectedMethod: $selectedMethod,
+                    state: state,
+                    applePayAvailable: applePayAvailable,
+                    gatewaySDKAvailable: true,
+                    primaryColor: .primary,
+                    secondaryColor: .secondary,
+                    accentColor: Color(red: 0.78, green: 0.58, blue: 0.35),
+                    surfaceColor: Color.primary.opacity(0.025)
+                )
+                PaymentStatusView(
+                    state: state,
+                    accentColor: Color(red: 0.78, green: 0.58, blue: 0.35),
+                    primaryColor: .primary,
+                    secondaryColor: .secondary
+                )
+                CheckoutActionBar(
+                    method: selectedMethod,
+                    amountText: "BHD 8.500",
+                    state: state,
+                    enabled: true,
+                    applePayAvailable: applePayAvailable,
+                    accentColor: Color(red: 0.78, green: 0.58, blue: 0.35),
+                    action: {}
+                )
+            }
+            .padding(20)
+        }
+        .background(Color(red: 0.98, green: 0.965, blue: 0.935))
+    }
+}
+
+#Preview("Apple Pay Available") { PaymentExperiencePreview(selectedMethod: .applePay) }
+#Preview("Apple Pay Unavailable") { PaymentExperiencePreview(applePayAvailable: false) }
+#Preview("BENEFIT Selected") { PaymentExperiencePreview(selectedMethod: .benefit) }
+#Preview("Card Selected") { PaymentExperiencePreview(selectedMethod: .card) }
+#Preview("Click to Pay Selected") { PaymentExperiencePreview(selectedMethod: .clickToPay) }
+#Preview("Loading") { PaymentExperiencePreview(selectedMethod: .card, state: .creatingSession) }
+#Preview("Success") { PaymentExperiencePreview(selectedMethod: .card, state: .succeeded) }
+#Preview("Failure") { PaymentExperiencePreview(selectedMethod: .card, state: .failed) }
+#Preview("Arabic RTL") {
+    PaymentExperiencePreview(selectedMethod: .benefit)
+        .environment(\.locale, Locale(identifier: "ar"))
+        .environment(\.layoutDirection, .rightToLeft)
+}
+#Preview("Dark Mode") {
+    PaymentExperiencePreview(selectedMethod: .card)
+        .preferredColorScheme(.dark)
+}
+#Preview("Large Dynamic Type") {
+    PaymentExperiencePreview(selectedMethod: .benefit)
+        .environment(\.dynamicTypeSize, .accessibility3)
+}
+#endif
+#if canImport(Gateway) && canImport(uSDK) && canImport(UIKit)
+import Gateway
+import uSDK
+import UIKit
+#endif
+
+enum TallaPaymentRoute: String, Equatable {
+    case benefitHosted
+    case cardGateway
+    case applePayGateway
+    case clickToPayHosted
+}
 
 enum TallaPaymentMethod: String, CaseIterable, Identifiable {
     case benefit
@@ -12,12 +104,75 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var route: TallaPaymentRoute {
+        switch self {
+        case .benefit: return .benefitHosted
+        case .card: return .cardGateway
+        case .applePay: return .applePayGateway
+        case .clickToPay: return .clickToPayHosted
+        }
+    }
+
+    var accessibilitySummary: String { "\(title), \(subtitle)" }
+
     var title: String {
         switch self {
-        case .benefit: return "BENEFIT"
-        case .card: return "Credit or Debit Card"
+        case .benefit: return AppLocalization.text("payment_benefit_title", fallback: "BENEFIT")
+        case .card: return AppLocalization.text("payment_card_title", fallback: "Credit or Debit Card")
         case .applePay: return "Apple Pay"
         case .clickToPay: return "Click to Pay"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .applePay:
+            return AppLocalization.text("payment_apple_pay_subtitle", fallback: "Fast and secure checkout")
+        case .benefit:
+            return AppLocalization.text("payment_benefit_subtitle", fallback: "For Bahraini debit cards")
+        case .card:
+            return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_subtitle", fallback: "Use your saved cards for a faster checkout")
+        }
+    }
+
+    var supportingText: String? {
+        switch self {
+        case .applePay:
+            return nil
+        case .benefit:
+            return AppLocalization.text("payment_benefit_supporting", fallback: "Use your Bahrain-issued debit card and PIN.")
+        case .card:
+            return AppLocalization.text("payment_card_supporting", fallback: "For Bahrain-issued credit cards and cards issued outside Bahrain.")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_supporting", fallback: "Available with supported Visa, Mastercard and American Express cards.")
+        }
+    }
+
+    var guidance: String {
+        switch self {
+        case .applePay:
+            return AppLocalization.text("payment_apple_pay_guidance", fallback: "Pay using a card stored in Apple Wallet.")
+        case .benefit:
+            return AppLocalization.text("payment_benefit_guidance", fallback: "Choose this for a Bahrain-issued debit card.")
+        case .card:
+            return AppLocalization.text("payment_card_guidance", fallback: "Choose this for Visa, Mastercard or American Express credit/debit cards.")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_guidance", fallback: "Choose this to access eligible cards already saved with Click to Pay.")
+        }
+    }
+
+    var actionTitle: String {
+        switch self {
+        case .applePay:
+            return AppLocalization.text("payment_complete_action", fallback: "Complete payment")
+        case .benefit:
+            return AppLocalization.text("payment_benefit_action", fallback: "Continue to BENEFIT")
+        case .card:
+            return AppLocalization.text("payment_card_action", fallback: "Enter card details")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_action", fallback: "Continue with Click to Pay")
         }
     }
 
@@ -25,7 +180,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         switch self {
         case .benefit: return "checkmark.shield.fill"
         case .card: return "creditcard.fill"
-        case .applePay: return "apple.logo"
+        case .applePay: return "wallet.pass.fill"
         case .clickToPay: return "cursorarrow.click.2"
         }
     }
@@ -44,6 +199,8 @@ enum TallaPaymentState: String, Equatable {
     var isBusy: Bool {
         [.creatingSession, .authenticating, .processing].contains(self)
     }
+
+    var canPresentConfirmedSuccess: Bool { self == .succeeded }
 }
 
 @MainActor
@@ -96,50 +253,361 @@ struct PaymentMethodSelectorView: View {
     let accentColor: Color
     let surfaceColor: Color
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var methods: [TallaPaymentMethod] {
-        TallaPaymentMethod.allCases.filter { method in
-            method != .applePay || applePayAvailable
-        }
+        Self.visibleMethods(applePayAvailable: applePayAvailable)
+    }
+
+    static func visibleMethods(applePayAvailable: Bool) -> [TallaPaymentMethod] {
+        applePayAvailable
+            ? [.applePay, .benefit, .card, .clickToPay]
+            : [.benefit, .card, .clickToPay]
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
             ForEach(methods) { method in
                 let enabled = method == .benefit
                     || method == .clickToPay
                     || gatewaySDKAvailable
                 Button {
                     guard enabled, !state.isBusy else { return }
-                    selectedMethod = method
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: method.systemImage)
-                            .frame(width: 22)
-                        Text(method.title)
-                            .font(.system(size: 13, weight: .semibold))
-                        Spacer()
-                        if !enabled {
-                            Text("SDK REQUIRED")
-                                .font(.system(size: 9, weight: .bold))
-                                .tracking(1)
-                        } else if selectedMethod == method {
-                            Image(systemName: "checkmark.circle.fill")
+                    if reduceMotion {
+                        selectedMethod = method
+                    } else {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            selectedMethod = method
                         }
                     }
-                    .foregroundStyle(enabled ? primaryColor : secondaryColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 11)
-                    .background(selectedMethod == method ? accentColor.opacity(0.14) : surfaceColor)
+                } label: {
+                    HStack(alignment: .top, spacing: 12) {
+                        PaymentMethodBadge(method: method, accentColor: accentColor, enabled: enabled)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 7) {
+                                Text(method.title)
+                                    .font(.system(.body, design: .rounded, weight: .semibold))
+                                    .foregroundStyle(enabled ? primaryColor : secondaryColor)
+                                if method == .applePay && applePayAvailable {
+                                    Text(AppLocalization.text("recommended", fallback: "Recommended"))
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(accentColor)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(accentColor.opacity(0.1), in: Capsule())
+                                }
+                            }
+                            Text(method.subtitle)
+                                .font(.footnote)
+                                .foregroundStyle(secondaryColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let supportingText = method.supportingText {
+                                Text(supportingText)
+                                    .font(.caption)
+                                    .foregroundStyle(secondaryColor.opacity(0.86))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        Spacer()
+                        if !enabled {
+                            Text(AppLocalization.text("payment_unavailable", fallback: "Unavailable"))
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(secondaryColor)
+                        } else if selectedMethod == method {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(accentColor)
+                                .transition(.scale.combined(with: .opacity))
+                        } else {
+                            Circle()
+                                .stroke(secondaryColor.opacity(0.45), lineWidth: 1)
+                                .frame(width: 18, height: 18)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 13)
+                    .frame(minHeight: 64)
+                    .background(selectedMethod == method ? accentColor.opacity(0.075) : surfaceColor)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(selectedMethod == method ? accentColor.opacity(0.7) : accentColor.opacity(0.14))
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(selectedMethod == method ? accentColor.opacity(0.55) : accentColor.opacity(0.1))
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(
+                        color: selectedMethod == method ? Color.black.opacity(0.045) : .clear,
+                        radius: 8,
+                        y: 3
+                    )
                 }
                 .buttonStyle(.plain)
                 .disabled(!enabled || state.isBusy)
+                .padding(.vertical, 4)
+                .accessibilityLabel(method.accessibilitySummary)
+                .accessibilityHint(method.guidance)
+                .accessibilityValue(selectedMethod == method
+                    ? AppLocalization.text("selected", fallback: "Selected")
+                    : AppLocalization.text("not_selected", fallback: "Not selected"))
+            }
+
+            SecurityReassurance(text: selectedMethod.guidance, accentColor: accentColor, textColor: secondaryColor)
+                .padding(.top, 8)
+        }
+    }
+}
+
+struct PaymentMethodBadge: View {
+    let method: TallaPaymentMethod
+    let accentColor: Color
+    let enabled: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(method == .benefit ? Color(red: 0.78, green: 0.1, blue: 0.18).opacity(0.1) : accentColor.opacity(0.09))
+            Image(systemName: method.systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(method == .benefit ? Color(red: 0.68, green: 0.08, blue: 0.14) : accentColor)
+        }
+        .frame(width: 38, height: 38)
+        .opacity(enabled ? 1 : 0.45)
+        .accessibilityHidden(true)
+    }
+}
+
+struct CheckoutHeader: View {
+    let accentColor: Color
+    let primaryColor: Color
+    let secondaryColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
+                .font(.system(.title2, design: .serif, weight: .semibold))
+                .foregroundStyle(primaryColor)
+            SecurityReassurance(
+                text: AppLocalization.text("payment_encrypted_secure", fallback: "Your payment is encrypted and processed securely."),
+                accentColor: accentColor,
+                textColor: secondaryColor
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct SecurityReassurance: View {
+    let text: String
+    let accentColor: Color
+    let textColor: Color
+
+    var body: some View {
+        Label {
+            Text(text)
+                .font(.footnote)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "lock.shield.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(accentColor)
+        }
+        .foregroundStyle(textColor)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct CompactOrderSummary: View {
+    let thumbnail: AnyView
+    let itemCountText: String
+    let rows: [(title: String, value: String, emphasized: Bool)]
+    let primaryColor: Color
+    let secondaryColor: Color
+    let accentColor: Color
+    let surfaceColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 11) {
+                thumbnail
+                    .frame(width: 44, height: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(AppLocalization.text("order_summary", fallback: "Order Summary"))
+                        .font(.caption.weight(.semibold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(accentColor)
+                    Text(itemCountText)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(primaryColor)
+                }
+                Spacer()
+            }
+            Divider().overlay(accentColor.opacity(0.12))
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .firstTextBaseline) {
+                    Text(row.title)
+                        .font(row.emphasized ? .subheadline.weight(.semibold) : .footnote)
+                        .foregroundStyle(row.emphasized ? primaryColor : secondaryColor)
+                    Spacer()
+                    Text(row.value)
+                        .font(row.emphasized ? .headline : .footnote.weight(.medium))
+                        .foregroundStyle(row.emphasized ? primaryColor : secondaryColor)
+                        .monospacedDigit()
+                }
             }
         }
+        .padding(14)
+        .background(surfaceColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(accentColor.opacity(0.12), lineWidth: 1)
+        )
+    }
+}
+
+struct PaymentStatusView: View {
+    let state: TallaPaymentState
+    let accentColor: Color
+    let primaryColor: Color
+    let secondaryColor: Color
+
+    private var copy: (icon: String, title: String, detail: String) {
+        switch state {
+        case .creatingSession:
+            return ("lock.rotation", AppLocalization.text("payment_preparing", fallback: "Preparing secure checkout…"), "")
+        case .authenticating:
+            return ("checkmark.shield", AppLocalization.text("payment_verifying", fallback: "Verifying your payment…"), "")
+        case .processing:
+            return ("hourglass", AppLocalization.text("payment_processing", fallback: "Completing your order…"), "")
+        case .succeeded:
+            return ("checkmark.circle.fill", AppLocalization.text("payment_complete_title", fallback: "Payment complete"), AppLocalization.text("payment_complete_detail", fallback: "Your Talla order is confirmed."))
+        case .cancelled:
+            return ("xmark.circle", AppLocalization.text("payment_cancelled_title", fallback: "Payment cancelled"), AppLocalization.text("payment_cancelled_detail", fallback: "No charge was made."))
+        case .failed:
+            return ("exclamationmark.circle", AppLocalization.text("payment_failed_title", fallback: "We couldn’t complete the payment."), AppLocalization.text("payment_failed_detail", fallback: "Please check your details or try another payment method."))
+        case .idle, .awaitingCustomer:
+            return ("lock.shield", "", "")
+        }
+    }
+
+    var body: some View {
+        if state != .idle && state != .awaitingCustomer {
+            HStack(spacing: 12) {
+                if state.isBusy {
+                    ProgressView().tint(accentColor)
+                } else {
+                    Image(systemName: copy.icon)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(state == .succeeded ? Color.green : accentColor)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(copy.title).font(.subheadline.weight(.semibold)).foregroundStyle(primaryColor)
+                    if !copy.detail.isEmpty {
+                        Text(copy.detail).font(.caption).foregroundStyle(secondaryColor)
+                    }
+                }
+                Spacer()
+            }
+            .padding(12)
+            .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+struct CheckoutActionBar: View {
+    let method: TallaPaymentMethod
+    let amountText: String
+    let state: TallaPaymentState
+    let enabled: Bool
+    let applePayAvailable: Bool
+    let accentColor: Color
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 9) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(AppLocalization.text("total", fallback: "Total"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(amountText)
+                    .font(.headline)
+                    .monospacedDigit()
+            }
+
+            if method == .applePay && applePayAvailable {
+                TallaApplePayButton(action: action)
+                    .frame(height: 50)
+                    .allowsHitTesting(enabled && !state.isBusy)
+                    .opacity(enabled && !state.isBusy ? 1 : 0.5)
+                    .accessibilityLabel("Apple Pay, \(amountText)")
+            } else {
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        if state.isBusy {
+                            ProgressView().tint(Color.black.opacity(0.75))
+                        }
+                        Text(state.isBusy
+                            ? AppLocalization.text("payment_preparing", fallback: "Preparing secure checkout…")
+                            : method.actionTitle)
+                            .font(.headline)
+                        Spacer()
+                        Text(amountText)
+                            .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(Color(red: 0.08, green: 0.065, blue: 0.04))
+                    .padding(.horizontal, 17)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(accentColor, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(!enabled || state.isBusy)
+                .accessibilityLabel("\(method.actionTitle), \(amountText)")
+            }
+
+            Text(AppLocalization.text("payment_terms_reassurance", fallback: "By continuing, you agree to the order total shown above. Talla never stores your card details."))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+#if canImport(PassKit) && canImport(UIKit)
+private struct TallaApplePayButton: UIViewRepresentable {
+    let action: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+    func makeUIView(context: Context) -> PKPaymentButton {
+        let button = PKPaymentButton(paymentButtonType: .checkout, paymentButtonStyle: .automatic)
+        button.cornerRadius = 13
+        button.addTarget(context.coordinator, action: #selector(Coordinator.performAction), for: .touchUpInside)
+        return button
+    }
+
+    func updateUIView(_ uiView: PKPaymentButton, context: Context) {
+        context.coordinator.action = action
+    }
+
+    final class Coordinator: NSObject {
+        var action: () -> Void
+        init(action: @escaping () -> Void) { self.action = action }
+        @objc func performAction() { action() }
+    }
+}
+#else
+private struct TallaApplePayButton: View {
+    let action: () -> Void
+    var body: some View { EmptyView() }
+}
+#endif
+
+enum CheckoutCurrencyFormatter {
+    static func bhd(_ amount: Decimal) -> String {
+        let number = NSDecimalNumber(decimal: amount)
+        return String(format: "BHD %.3f", number.doubleValue)
     }
 }
 
@@ -167,6 +635,11 @@ enum TallaPaymentService {
         let duplicate: Bool
     }
 
+    struct AuthenticationRegistration: Decodable {
+        let authenticationTransactionId: String
+        let sdkManaged: Bool
+    }
+
     static let applePayMerchantIdentifier = "merchant.talla.me"
     private static let accessTokenKey = "local.customerAccessToken"
 
@@ -186,6 +659,22 @@ enum TallaPaymentService {
         try await postData(
             path: "/api/payments/card/authentication/initiate",
             payload: ["orderID": orderID, "sessionId": sessionID]
+        )
+    }
+
+    static func registerSDKAuthentication(
+        orderID: String,
+        sessionID: String,
+        transactionID: String
+    ) async throws -> AuthenticationRegistration {
+        try await post(
+            path: "/api/payments/card/authentication/initiate",
+            payload: [
+                "orderID": orderID,
+                "sessionId": sessionID,
+                "transactionId": transactionID,
+                "sdkManaged": true
+            ]
         )
     }
 
@@ -258,3 +747,479 @@ enum PaymentServiceError: LocalizedError {
         }
     }
 }
+
+enum MastercardPaymentKind {
+    case card
+    case applePay
+}
+
+struct MastercardPaymentContext: Identifiable {
+    let localOrderID: String
+    let session: TallaPaymentService.Session
+    let kind: MastercardPaymentKind
+
+    var id: String { session.sessionId }
+}
+
+#if canImport(Gateway) && canImport(uSDK) && canImport(UIKit)
+@MainActor
+enum MastercardSDKClient {
+    private static let gatewayRegion = GatewayRegion.other(
+        id: "eazypay",
+        name: "EazyPay",
+        baseURL: "https://eazypay.gateway.mastercard.com"
+    )
+
+    static func configure(for session: TallaPaymentService.Session) {
+        Gateway.loggingEnabled = false
+        GatewaySDK.shared.initialize(
+            merchantId: session.merchantId,
+            region: gatewayRegion,
+            locale: Locale.current.identifier
+        )
+    }
+
+    static func updateCardSession(
+        _ session: TallaPaymentService.Session,
+        name: String,
+        number: String,
+        expiryMonth: String,
+        expiryYear: String,
+        securityCode: String
+    ) async throws {
+        var request = GatewayMap()
+        request.set(.string(name), at: "sourceOfFunds.provided.card.nameOnCard")
+        request.set(.string(number), at: "sourceOfFunds.provided.card.number")
+        request.set(.string(securityCode), at: "sourceOfFunds.provided.card.securityCode")
+        request.set(.string(expiryMonth), at: "sourceOfFunds.provided.card.expiry.month")
+        request.set(.string(expiryYear), at: "sourceOfFunds.provided.card.expiry.year")
+        try await update(session, request: request)
+    }
+
+    static func updateApplePaySession(
+        _ session: TallaPaymentService.Session,
+        paymentData: Data
+    ) async throws {
+        guard let paymentToken = String(data: paymentData, encoding: .utf8), !paymentToken.isEmpty else {
+            throw PaymentServiceError.gateway("Apple Pay returned an invalid payment token.")
+        }
+        var request = GatewayMap()
+        request.set(.string(paymentToken), at: "sourceOfFunds.provided.card.devicePayment.paymentToken")
+        request.set(.string("APPLE_PAY"), at: "order.walletProvider")
+        try await update(session, request: request)
+    }
+
+    private static func update(
+        _ session: TallaPaymentService.Session,
+        request: GatewayMap
+    ) async throws {
+        configure(for: session)
+        let response = try await withCheckedThrowingContinuation { continuation in
+            GatewayAPI.shared.updateSession(
+                session.sessionId,
+                apiVersion: session.apiVersion,
+                payload: request
+            ) { result in
+                continuation.resume(with: result)
+            }
+        }
+        if response.get("result").stringValue?.uppercased() == "ERROR" {
+            throw PaymentServiceError.gateway("The gateway could not securely store the payment details.")
+        }
+    }
+
+    static func authenticate(
+        context: MastercardPaymentContext,
+        navigationController: UINavigationController
+    ) async throws -> AuthenticationResponse {
+        configure(for: context.session)
+        let proposedID = "AUTH\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        let registration = try await TallaPaymentService.registerSDKAuthentication(
+            orderID: context.localOrderID,
+            sessionID: context.session.sessionId,
+            transactionID: proposedID
+        )
+        let request = AuthenticationRequest(
+            navController: navigationController,
+            apiVersion: context.session.apiVersion,
+            sessionId: context.session.sessionId,
+            orderId: context.session.orderId,
+            transactionId: registration.authenticationTransactionId
+        )
+        return await AuthenticationHandler.shared.authenticate(request)
+    }
+}
+
+struct MastercardPaymentSheet: View {
+    let context: MastercardPaymentContext
+    @ObservedObject var flow: PaymentFlowModel
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var cardholderName = ""
+    @State private var cardNumber = ""
+    @State private var expiryMonth = ""
+    @State private var expiryYear = ""
+    @State private var securityCode = ""
+    @State private var validationMessage: String?
+    @State private var authenticationContext: MastercardPaymentContext?
+    @State private var applePayCoordinator: TallaApplePayCoordinator?
+    @State private var hasStartedApplePay = false
+
+    private var isCardInputValid: Bool {
+        let digits = cardNumber.filter(\.isNumber)
+        let month = Int(expiryMonth) ?? 0
+        let year = expiryYear.filter(\.isNumber)
+        let code = securityCode.filter(\.isNumber)
+        return !cardholderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (12 ... 19).contains(digits.count)
+            && (1 ... 12).contains(month)
+            && (year.count == 2 || year.count == 4)
+            && (3 ... 4).contains(code.count)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch context.kind {
+                case .card:
+                    cardForm
+                case .applePay:
+                    applePayProgress
+                }
+            }
+            .navigationTitle(context.kind == .card ? "Card Payment" : "Apple Pay")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        flow.cancel()
+                        dismiss()
+                    }
+                    .disabled(flow.state.isBusy)
+                }
+            }
+        }
+        .interactiveDismissDisabled(flow.state.isBusy)
+        .fullScreenCover(item: $authenticationContext) { authenticationContext in
+            MastercardAuthenticationView(context: authenticationContext) { result in
+                self.authenticationContext = nil
+                handleAuthentication(result)
+            }
+            .ignoresSafeArea()
+        }
+        .onAppear {
+            guard context.kind == .applePay, !hasStartedApplePay else { return }
+            hasStartedApplePay = true
+            startApplePay()
+        }
+    }
+
+    private var cardForm: some View {
+        Form {
+            Section("Card details") {
+                TextField("Name on card", text: $cardholderName)
+                    .textContentType(.name)
+                    .textInputAutocapitalization(.words)
+                TextField("Card number", text: $cardNumber)
+                    .keyboardType(.numberPad)
+                    .textContentType(.creditCardNumber)
+                HStack {
+                    TextField("MM", text: $expiryMonth)
+                        .keyboardType(.numberPad)
+                    TextField("YY", text: $expiryYear)
+                        .keyboardType(.numberPad)
+                    SecureField("CVV", text: $securityCode)
+                        .keyboardType(.numberPad)
+                }
+            }
+            Section {
+                Button {
+                    submitCard()
+                } label: {
+                    HStack {
+                        Spacer()
+                        if flow.state.isBusy {
+                            ProgressView()
+                        } else {
+                            Text("Pay \(context.session.amount) BHD")
+                                .fontWeight(.semibold)
+                        }
+                        Spacer()
+                    }
+                }
+                .disabled(!isCardInputValid || flow.state.isBusy)
+            } footer: {
+                Text("Card details go directly to Mastercard Gateway and are never sent to Talla's backend.")
+            }
+            if let message = validationMessage ?? flow.errorMessage {
+                Section {
+                    Text(message)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
+    private var applePayProgress: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "apple.logo")
+                .font(.system(size: 48, weight: .semibold))
+            ProgressView()
+            Text("Preparing secure Apple Pay…")
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding()
+    }
+
+    private func submitCard() {
+        guard isCardInputValid, !flow.state.isBusy else { return }
+        validationMessage = nil
+        flow.transition(to: .processing)
+        let normalizedNumber = cardNumber.filter(\.isNumber)
+        let normalizedMonth = String(format: "%02d", Int(expiryMonth) ?? 0)
+        let normalizedYear = String(expiryYear.filter(\.isNumber).suffix(2))
+        let normalizedCode = securityCode.filter(\.isNumber)
+        Task {
+            do {
+                try await MastercardSDKClient.updateCardSession(
+                    context.session,
+                    name: cardholderName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    number: normalizedNumber,
+                    expiryMonth: normalizedMonth,
+                    expiryYear: normalizedYear,
+                    securityCode: normalizedCode
+                )
+                cardNumber = ""
+                securityCode = ""
+                flow.transition(to: .authenticating)
+                authenticationContext = context
+            } catch {
+                fail(error)
+            }
+        }
+    }
+
+    private func handleAuthentication(_ result: Result<AuthenticationResponse, Error>) {
+        switch result {
+        case .success(let response) where response.recommendation == .proceed:
+            flow.transition(to: .processing)
+            Task {
+                do {
+                    _ = try await TallaPaymentService.completeCard(
+                        orderID: context.localOrderID,
+                        sessionID: context.session.sessionId
+                    )
+                    succeed()
+                } catch {
+                    fail(error)
+                }
+            }
+        case .success(let response):
+            if let error = response.error {
+                fail(error)
+            } else {
+                fail(PaymentServiceError.gateway("Card authentication was not approved."))
+            }
+        case .failure(let error):
+            if let authenticationError = error as? AuthenticationError,
+               authenticationError == .challengeCancelledByUser {
+                flow.cancel()
+                dismiss()
+            } else {
+                fail(error)
+            }
+        }
+    }
+
+    private func startApplePay() {
+        flow.transition(to: .awaitingCustomer)
+        let coordinator = TallaApplePayCoordinator(context: context) { result in
+            applePayCoordinator = nil
+            switch result {
+            case .success:
+                succeed()
+            case .failure(let error):
+                if let paymentError = error as? TallaApplePayError, paymentError == .cancelled {
+                    flow.cancel()
+                    dismiss()
+                } else {
+                    fail(error)
+                }
+            }
+        }
+        applePayCoordinator = coordinator
+        coordinator.start()
+    }
+
+    private func succeed() {
+        flow.transition(to: .succeeded)
+        dismiss()
+    }
+
+    private func fail(_ error: Error) {
+        validationMessage = error.localizedDescription
+        flow.transition(to: .failed, error: error.localizedDescription)
+    }
+}
+
+private struct MastercardAuthenticationView: UIViewControllerRepresentable {
+    let context: MastercardPaymentContext
+    let completion: (Result<AuthenticationResponse, Error>) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(context: context, completion: completion)
+    }
+
+    func makeUIViewController(context: Context) -> UINavigationController {
+        let viewController = UIViewController()
+        viewController.view.backgroundColor = .systemBackground
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.startAnimating()
+        viewController.view.addSubview(indicator)
+        NSLayoutConstraint.activate([
+            indicator.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
+            indicator.centerYAnchor.constraint(equalTo: viewController.view.centerYAnchor)
+        ])
+        let navigationController = UINavigationController(rootViewController: viewController)
+        DispatchQueue.main.async {
+            context.coordinator.start(using: navigationController)
+        }
+        return navigationController
+    }
+
+    func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {}
+
+    final class Coordinator {
+        private let context: MastercardPaymentContext
+        private let completion: (Result<AuthenticationResponse, Error>) -> Void
+        private var started = false
+
+        init(
+            context: MastercardPaymentContext,
+            completion: @escaping (Result<AuthenticationResponse, Error>) -> Void
+        ) {
+            self.context = context
+            self.completion = completion
+        }
+
+        @MainActor
+        func start(using navigationController: UINavigationController) {
+            guard !started else { return }
+            started = true
+            Task {
+                do {
+                    let response = try await MastercardSDKClient.authenticate(
+                        context: context,
+                        navigationController: navigationController
+                    )
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+}
+
+private enum TallaApplePayError: LocalizedError, Equatable {
+    case unavailable
+    case cancelled
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable: return "Apple Pay is unavailable on this device."
+        case .cancelled: return "Apple Pay was cancelled."
+        }
+    }
+}
+
+@MainActor
+private final class TallaApplePayCoordinator: NSObject, PKPaymentAuthorizationControllerDelegate {
+    private let context: MastercardPaymentContext
+    private let completion: (Result<Void, Error>) -> Void
+    private var authorizationController: PKPaymentAuthorizationController?
+    private var completed = false
+    private var hasFinished = false
+
+    init(context: MastercardPaymentContext, completion: @escaping (Result<Void, Error>) -> Void) {
+        self.context = context
+        self.completion = completion
+    }
+
+    func start() {
+        guard PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard]) else {
+            finish(.failure(TallaApplePayError.unavailable))
+            return
+        }
+        let request = PKPaymentRequest()
+        request.merchantIdentifier = TallaPaymentService.applePayMerchantIdentifier
+        request.countryCode = "BH"
+        request.currencyCode = "BHD"
+        request.supportedNetworks = [.visa, .masterCard]
+        request.merchantCapabilities = [.threeDSecure, .credit, .debit]
+        request.paymentSummaryItems = [
+            PKPaymentSummaryItem(
+                label: "Talla Speciality",
+                amount: NSDecimalNumber(string: context.session.amount),
+                type: .final
+            )
+        ]
+        let controller = PKPaymentAuthorizationController(paymentRequest: request)
+        controller.delegate = self
+        authorizationController = controller
+        controller.present { [weak self] presented in
+            guard !presented else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.finish(.failure(TallaApplePayError.unavailable))
+            }
+        }
+    }
+
+    func paymentAuthorizationController(
+        _ controller: PKPaymentAuthorizationController,
+        didAuthorizePayment payment: PKPayment,
+        handler: @escaping (PKPaymentAuthorizationResult) -> Void
+    ) {
+        Task {
+            do {
+                try await MastercardSDKClient.updateApplePaySession(
+                    context.session,
+                    paymentData: payment.token.paymentData
+                )
+                _ = try await TallaPaymentService.completeApplePay(
+                    orderID: context.localOrderID,
+                    sessionID: context.session.sessionId
+                )
+                completed = true
+                handler(PKPaymentAuthorizationResult(status: .success, errors: nil))
+            } catch {
+                handler(PKPaymentAuthorizationResult(status: .failure, errors: [error]))
+                finish(.failure(error))
+            }
+        }
+    }
+
+    func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
+        controller.dismiss { [weak self] in
+            DispatchQueue.main.async { [weak self] in
+                guard let coordinator = self else { return }
+                if coordinator.completed {
+                    coordinator.finish(.success(()))
+                } else {
+                    coordinator.finish(.failure(TallaApplePayError.cancelled))
+                }
+            }
+        }
+    }
+
+    private func finish(_ result: Result<Void, Error>) {
+        guard !hasFinished else { return }
+        hasFinished = true
+        authorizationController = nil
+        completion(result)
+    }
+}
+#endif

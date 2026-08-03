@@ -18,6 +18,8 @@ const {
     verifyMpgsAuthenticationForPurchase
 } = require("../server");
 
+const mpgsGateway = require("../mpgs-gateway");
+
 const email = "mpgs.customer@example.com";
 const localOrderID = "checkout_mpgs_lifecycle";
 const paymentID = "cardpay_lifecycle";
@@ -190,4 +192,29 @@ test("amount and currency mismatches are rejected", () => {
         ),
         (error) => error.code === "MPGS_CURRENCY_MISMATCH"
     );
+});
+
+test("Apple Pay PURCHASE identifies the wallet provider", async () => {
+    let requestBody;
+    const fetchImpl = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return new Response(JSON.stringify({ result: "SUCCESS" }), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+        });
+    };
+    await mpgsGateway.executeMpgsPurchase({
+        merchantId: "TESTMERCHANT",
+        apiPassword: "test-password-never-log",
+        apiVersion: "100",
+        baseUrl: "https://eazypay.gateway.mastercard.com"
+    }, {
+        orderId: "TALLAORDER1",
+        transactionId: "APAY1",
+        sessionId: sessionID,
+        amount: "12.800",
+        walletProvider: "APPLE_PAY"
+    }, fetchImpl);
+    assert.equal(requestBody.order.walletProvider, "APPLE_PAY");
+    assert.equal(requestBody.order.currency, "BHD");
 });

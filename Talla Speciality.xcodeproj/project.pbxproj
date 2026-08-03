@@ -17,6 +17,10 @@
 		E09687D93007968C001FBDAD /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E08588512FD959E3003B3E9D /* WidgetKit.framework */; };
 		E09687DA3007968C001FBDAD /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E08588532FD959E3003B3E9D /* SwiftUI.framework */; };
 		E09687E73007968E001FBDAD /* Talla Watch WidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E09687D83007968C001FBDAD /* Talla Watch WidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA10000130A0000000000001 /* Gateway.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA10000530A0000000000005 /* Gateway.xcframework */; };
+		FA10000230A0000000000002 /* uSDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA10000630A0000000000006 /* uSDK.xcframework */; };
+		FA10000330A0000000000003 /* Gateway.xcframework in Embed Mastercard Frameworks */ = {isa = PBXBuildFile; fileRef = FA10000530A0000000000005 /* Gateway.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FA10000430A0000000000004 /* uSDK.xcframework in Embed Mastercard Frameworks */ = {isa = PBXBuildFile; fileRef = FA10000630A0000000000006 /* uSDK.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,6 +109,18 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA10000730A0000000000007 /* Embed Mastercard Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				FA10000330A0000000000003 /* Gateway.xcframework in Embed Mastercard Frameworks */,
+				FA10000430A0000000000004 /* uSDK.xcframework in Embed Mastercard Frameworks */,
+			);
+			name = "Embed Mastercard Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -122,6 +138,8 @@
 		E09687B53006F5AA001FBDAD /* Talla Watch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Talla Watch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E09687BF3006F5AA001FBDAD /* Talla Watch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Talla Watch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E09687D83007968C001FBDAD /* Talla Watch WidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Talla Watch WidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA10000530A0000000000005 /* Gateway.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/Mastercard/Gateway.xcframework; sourceTree = "<group>"; };
+		FA10000630A0000000000006 /* uSDK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/Mastercard/uSDK.xcframework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -214,6 +232,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA10000130A0000000000001 /* Gateway.xcframework in Frameworks */,
+				FA10000230A0000000000002 /* uSDK.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,6 +287,8 @@
 		E08588502FD959E3003B3E9D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FA10000530A0000000000005 /* Gateway.xcframework */,
+				FA10000630A0000000000006 /* uSDK.xcframework */,
 				E08588512FD959E3003B3E9D /* WidgetKit.framework */,
 				E08588532FD959E3003B3E9D /* SwiftUI.framework */,
 			);
@@ -339,6 +361,7 @@
 			buildPhases = (
 				E08D10A52F66FF140092272C /* Sources */,
 				E08D10A62F66FF140092272C /* Frameworks */,
+				FA10000730A0000000000007 /* Embed Mastercard Frameworks */,
 				E08D10A72F66FF140092272C /* Resources */,
 				E085886A2FD959E5003B3E9D /* Embed Foundation Extensions */,
 				E09687CD3006F5AA001FBDAD /* Embed Watch Content */,

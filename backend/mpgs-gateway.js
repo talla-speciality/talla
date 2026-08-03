@@ -235,7 +235,7 @@ async function authenticateMpgsPayer(
 
 async function executeMpgsPurchase(
     configuration,
-    { orderId, transactionId, authenticationTransactionId, sessionId, amount },
+    { orderId, transactionId, authenticationTransactionId, sessionId, amount, walletProvider },
     fetchImpl = globalThis.fetch
 ) {
     if (!validSessionID(sessionId) || !/^\d+\.\d{3}$/.test(String(amount || ""))) {
@@ -247,7 +247,11 @@ async function executeMpgsPurchase(
     return performMpgsTransaction(configuration, orderId, transactionId, {
         apiOperation: "PAY",
         ...(authentication ? { authentication } : {}),
-        order: { amount, currency: "BHD" },
+        order: {
+            amount,
+            currency: "BHD",
+            ...(walletProvider ? { walletProvider } : {})
+        },
         session: { id: sessionId }
     }, fetchImpl);
 }

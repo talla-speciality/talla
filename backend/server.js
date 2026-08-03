@@ -8195,7 +8195,8 @@ const server = http.createServer(async (request, response) => {
                 orderId: payment.mpgsOrderID,
                 transactionId: purchaseTransactionID,
                 sessionId: payment.sessionID,
-                amount: payment.amount
+                amount: payment.amount,
+                walletProvider: "APPLE_PAY"
             });
             const gatewayOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, payment.mpgsOrderID);
             const applied = await applyConfirmedMpgsPayment(payment.paymentID, gatewayOrder);
@@ -8334,6 +8335,28 @@ const server = http.createServer(async (request, response) => {
             mpgsGateway.verifyMpgsOrderPayment(payment, order, customer.email);
             if (payment.paymentMethod !== "CARD" || !timingSafeStringEqual(sessionID, payment.sessionID)) {
                 throw benefitPaymentError("MPGS_SESSION_MISMATCH", 409, "Card payment session does not match.");
+            }
+            if (body.sdkManaged === true) {
+                const requestedTransactionID = normalizeCardPaymentIdentifier(body.transactionId, 40);
+                if (!requestedTransactionID) {
+                    sendJSON(response, 400, { error: "Provide a valid SDK authentication transactionId." });
+                    return;
+                }
+                const transactionID = payment.authenticationTransactionID || requestedTransactionID;
+                if (payment.authenticationTransactionID
+                    && !timingSafeStringEqual(payment.authenticationTransactionID, requestedTransactionID)) {
+                    console.info(`MPGS SDK authentication reused for order ${localOrderID}.`);
+                }
+                await updateCardPaymentLifecycle(payment.paymentID, {
+                    authenticationTransactionID: transactionID,
+                    status: "Authenticating",
+                    lastGatewayResponseAt: new Date().toISOString()
+                });
+                sendJSON(response, 200, {
+                    authenticationTransactionId: transactionID,
+                    sdkManaged: true
+                });
+                return;
             }
             const transactionID = payment.authenticationTransactionID || createMpgsTransactionID("AUTH");
             const gatewayResponse = await mpgsGateway.initiateMpgsAuthentication(mpgsConfiguration, {
