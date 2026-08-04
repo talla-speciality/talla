@@ -4199,7 +4199,14 @@ async function findBenefitPaymentForBrowserReturn(url) {
             if (!parameters.has(key)) parameters.set(key, value);
         }
     }
-    const resultToken = parameters.get("payment") || parameters.get("udf2");
+    const rawReturnURL = `${decodedPathname}${url.search || ""}`.replace(/&amp;/gi, "&");
+    const embeddedTokenMatch = rawReturnURL.match(
+        /(?:^|[?&/])(?:payment|udf2)(?:=|%3D)([A-Za-z0-9_-]{16,255})/i
+    );
+    const resultToken = parameters.get("payment")
+        || parameters.get("udf2")
+        || embeddedTokenMatch?.[1]
+        || "";
     const trackID = normalizeBenefitIdentifier(
         parameters.get("trackid")
         || parameters.get("trackId")
@@ -9770,6 +9777,26 @@ const server = http.createServer(async (request, response) => {
 
         sendJSON(response, 200, await activeVouchersFor(customer.email));
         return;
+    }
+
+    if (request.method === "GET") {
+        try {
+            const payment = await findBenefitPaymentForBrowserReturn(url);
+            if (payment) {
+                sendHTML(
+                    response,
+                    200,
+                    renderBenefitResultPage(payment),
+                    benefitResultPageHeaders()
+                );
+                return;
+            }
+        } catch (error) {
+            console.error(
+                "BENEFIT fallback return lookup failed:",
+                error.code || error.message || "BENEFIT_FALLBACK_RETURN_FAILED"
+            );
+        }
     }
 
     sendJSON(response, 404, { error: "Not found" });
