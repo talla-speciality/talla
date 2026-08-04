@@ -2112,11 +2112,45 @@ struct ContentView: View {
         let rawDestination = url.host?.isEmpty == false ? url.host : url.pathComponents.dropFirst().first
         let destination = rawDestination?.lowercased() ?? ""
         let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let pathTokens = url.pathComponents.dropFirst().map { $0.lowercased() }
+
+        if isPaymentReturnDestination(destination: destination, pathTokens: pathTokens) {
+            handlePaymentReturn()
+            return
+        }
+
         let searchQuery = queryItems.first(where: { $0.name == "q" || $0.name == "search" })?.value ?? ""
 
         shortcutSearchQuery = searchQuery
         shortcutDestination = destination
         handleShortcutDestination()
+    }
+
+    private func isPaymentReturnDestination(destination: String, pathTokens: [String]) -> Bool {
+        if destination == "checkout-return" || destination == "payment-return" {
+            return true
+        }
+
+        guard destination == "checkout" || destination == "payment" else {
+            return false
+        }
+
+        return pathTokens.contains("return") || pathTokens.contains("complete")
+    }
+
+    private func handlePaymentReturn() {
+        checkoutSession = nil
+        openAccountSection(AccountSectionView.ScrollTarget.customer)
+        paymentFlow.transition(to: .processing)
+        showToast(message: AppLocalization.text("payment_processing", fallback: "Completing your order…"))
+
+        Task {
+            await loadOrderHistory()
+            if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                await loadLoyaltyAccount()
+            }
+            paymentFlow.reset()
+        }
     }
 
     private func homeSettingText(_ value: String?, localizationKey: String, fallback: String) -> String {
@@ -10177,7 +10211,7 @@ struct ContentView: View {
                 let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                checkoutSession = CheckoutSession(url: paymentURL)
+                openURL(paymentURL)
             case .clickToPayHosted:
                 let checkout = try await TallaPaymentService.createClickToPay(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)

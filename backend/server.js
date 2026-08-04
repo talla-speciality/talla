@@ -3638,6 +3638,29 @@ function benefitResultURL(baseURL, resultToken = "") {
     return url.toString();
 }
 
+function normalizedBenefitPathname(pathname) {
+    let normalized = String(pathname || "");
+    try {
+        normalized = decodeURIComponent(normalized);
+    } catch {
+    }
+    normalized = normalized.replace(/[\u200B-\u200D\uFEFF]/g, "");
+    return normalized.length > 1 ? normalized.replace(/\/+$/, "") : normalized;
+}
+
+function benefitPathMatches(pathname, expectedPath) {
+    return normalizedBenefitPathname(pathname) === expectedPath;
+}
+
+function isBenefitBrowserReturnPath(pathname) {
+    return [
+        "/api/payments/benefit/result",
+        "/api/payments/benefit/response",
+        "/api/payments/benefit/return",
+        "/api/payments/benefit/callback"
+    ].includes(normalizedBenefitPathname(pathname));
+}
+
 function benefitPaymentRowToRecord(row) {
     return {
         trackID: row.track_id,
@@ -4140,6 +4163,31 @@ function renderBenefitResultPage(payment) {
     </main>
 </body>
 </html>`;
+}
+
+function benefitResultPageHeaders() {
+    return {
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        Pragma: "no-cache",
+        Expires: "0"
+    };
+}
+
+async function findBenefitPaymentForBrowserReturn(url) {
+    const resultToken = url.searchParams.get("payment") || url.searchParams.get("udf2");
+    const trackID = normalizeBenefitIdentifier(
+        url.searchParams.get("trackid")
+        || url.searchParams.get("trackId")
+        || url.searchParams.get("trackID")
+    );
+    let payment = await findBenefitPaymentByResultToken(resultToken);
+    if (!payment && trackID) {
+        payment = await findBenefitPaymentByTrackID(trackID);
+    }
+    return payment;
 }
 
 function parseBenefitCallbackRequest(rawBody, contentType = "") {
@@ -8698,7 +8746,7 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "POST" && url.pathname === "/api/payments/benefit/create") {
+    if (request.method === "POST" && benefitPathMatches(url.pathname, "/api/payments/benefit/create")) {
         let body;
         let pendingTrackID = "";
         try {
@@ -8834,7 +8882,7 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "POST" && url.pathname === "/api/payments/benefit/response") {
+    if (request.method === "POST" && benefitPathMatches(url.pathname, "/api/payments/benefit/response")) {
         let fallbackErrorURL;
         try {
             fallbackErrorURL = benefitResultURL(benefitErrorURL);
@@ -8903,24 +8951,10 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "GET" && url.pathname === "/api/payments/benefit/response") {
-        const htmlHeaders = {
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
-            "Referrer-Policy": "no-referrer",
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "no-store"
-        };
+    if (request.method === "GET" && isBenefitBrowserReturnPath(url.pathname)) {
+        const htmlHeaders = benefitResultPageHeaders();
         try {
-            const resultToken = url.searchParams.get("payment") || url.searchParams.get("udf2");
-            const trackID = normalizeBenefitIdentifier(
-                url.searchParams.get("trackid")
-                || url.searchParams.get("trackId")
-                || url.searchParams.get("trackID")
-            );
-            let payment = await findBenefitPaymentByResultToken(resultToken);
-            if (!payment && trackID) {
-                payment = await findBenefitPaymentByTrackID(trackID);
-            }
+            const payment = await findBenefitPaymentForBrowserReturn(url);
             sendHTML(response, 200, renderBenefitResultPage(payment), htmlHeaders);
         } catch (error) {
             console.error("BENEFIT browser return failed:", error.code || error.message || "BENEFIT_BROWSER_RETURN_FAILED");
@@ -8929,32 +8963,10 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "GET" && url.pathname === "/api/payments/benefit/result") {
-        const htmlHeaders = {
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
-            "Referrer-Policy": "no-referrer",
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "no-store"
-        };
-        try {
-            const payment = await findBenefitPaymentByResultToken(url.searchParams.get("payment"));
-            sendHTML(response, payment ? 200 : 404, renderBenefitResultPage(payment), htmlHeaders);
-        } catch (error) {
-            console.error("BENEFIT result page failed:", error.code || error.message || "BENEFIT_RESULT_FAILED");
-            sendHTML(response, 200, renderBenefitResultPage(null), htmlHeaders);
-        }
-        return;
-    }
-
     if (request.method === "GET" && url.pathname === "/") {
-        const htmlHeaders = {
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
-            "Referrer-Policy": "no-referrer",
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "no-store"
-        };
+        const htmlHeaders = benefitResultPageHeaders();
         try {
-            const payment = await findBenefitPaymentByResultToken(url.searchParams.get("payment"));
+            const payment = await findBenefitPaymentForBrowserReturn(url);
             sendHTML(response, 200, renderBenefitResultPage(payment), htmlHeaders);
         } catch (error) {
             console.error("BENEFIT root return page failed:", error.code || error.message || "BENEFIT_ROOT_RETURN_FAILED");

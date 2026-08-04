@@ -347,6 +347,26 @@ test("GET notification return renders stored state without processing payment", 
     assert.doesNotMatch(capturedResponse.body, /PAYMENT123|TRANS123|test-password|test-terminal/);
 });
 
+test("Safari return path variants never fall through to JSON Not found", async () => {
+    resetStores();
+    await postEncryptedNotification();
+    await waitForPaymentStatus("Captured");
+
+    const paths = [
+        `/api/payments/benefit/result/?payment=${resultToken}`,
+        `/api/payments/benefit/response/%E2%80%8B?trackid=${trackID}`,
+        `/api/payments/benefit/return?payment=${resultToken}`,
+        `/api/payments/benefit/callback?trackID=${trackID}`
+    ];
+    for (const path of paths) {
+        const response = await requestServer("GET", path);
+        assert.equal(response.statusCode, 200);
+        assert.match(response.body, /Payment confirmed/);
+        assert.doesNotMatch(response.body, /"error":"Not found"/);
+        assert.match(response.headers["cache-control"], /no-store/);
+    }
+});
+
 test("verification rejects a result-token mismatch", () => {
     assert.throws(
         () => verifyBenefitNotification(
