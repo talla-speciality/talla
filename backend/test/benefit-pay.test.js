@@ -356,7 +356,9 @@ test("Safari return path variants never fall through to JSON Not found", async (
         `/api/payments/benefit/result/?payment=${resultToken}`,
         `/api/payments/benefit/response/%E2%80%8B?trackid=${trackID}`,
         `/api/payments/benefit/return?payment=${resultToken}`,
-        `/api/payments/benefit/callback?trackID=${trackID}`
+        `/api/payments/benefit/callback?trackID=${trackID}`,
+        `/api/payments/benefit/result%3Fpayment=${resultToken}`,
+        `/api-payments-benefit-result?payment=${resultToken}`
     ];
     for (const path of paths) {
         const response = await requestServer("GET", path);

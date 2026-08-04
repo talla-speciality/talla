@@ -3645,6 +3645,7 @@ function normalizedBenefitPathname(pathname) {
     } catch {
     }
     normalized = normalized.replace(/[\u200B-\u200D\uFEFF]/g, "");
+    normalized = normalized.split(/[?#]/, 1)[0];
     return normalized.length > 1 ? normalized.replace(/\/+$/, "") : normalized;
 }
 
@@ -3653,12 +3654,18 @@ function benefitPathMatches(pathname, expectedPath) {
 }
 
 function isBenefitBrowserReturnPath(pathname) {
-    return [
+    const normalized = normalizedBenefitPathname(pathname);
+    if ([
         "/api/payments/benefit/result",
         "/api/payments/benefit/response",
         "/api/payments/benefit/return",
         "/api/payments/benefit/callback"
-    ].includes(normalizedBenefitPathname(pathname));
+    ].includes(normalized)) {
+        return true;
+    }
+    const compact = normalized.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return compact.startsWith("apipaymentsbenefit")
+        && ["result", "response", "return", "callback"].some((name) => compact.includes(name));
 }
 
 function benefitPaymentRowToRecord(row) {
@@ -4177,11 +4184,26 @@ function benefitResultPageHeaders() {
 }
 
 async function findBenefitPaymentForBrowserReturn(url) {
-    const resultToken = url.searchParams.get("payment") || url.searchParams.get("udf2");
+    const parameters = new URLSearchParams(url.searchParams);
+    let decodedPathname = String(url.pathname || "");
+    try {
+        decodedPathname = decodeURIComponent(decodedPathname);
+    } catch {
+    }
+    const embeddedQueryIndex = decodedPathname.indexOf("?");
+    if (embeddedQueryIndex >= 0) {
+        const embeddedParameters = new URLSearchParams(
+            decodedPathname.slice(embeddedQueryIndex + 1).replace(/&amp;/gi, "&")
+        );
+        for (const [key, value] of embeddedParameters) {
+            if (!parameters.has(key)) parameters.set(key, value);
+        }
+    }
+    const resultToken = parameters.get("payment") || parameters.get("udf2");
     const trackID = normalizeBenefitIdentifier(
-        url.searchParams.get("trackid")
-        || url.searchParams.get("trackId")
-        || url.searchParams.get("trackID")
+        parameters.get("trackid")
+        || parameters.get("trackId")
+        || parameters.get("trackID")
     );
     let payment = await findBenefitPaymentByResultToken(resultToken);
     if (!payment && trackID) {
