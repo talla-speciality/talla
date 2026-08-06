@@ -3059,6 +3059,7 @@ function cardPaymentRowToRecord(row) {
         gatewayResult: row.gateway_result || null,
         gatewayTransactionResult: row.gateway_transaction_result || null,
         resultTokenHash: row.result_token_hash || null,
+        successIndicatorHash: row.success_indicator_hash || null,
         status: row.status,
         completedAt: row.completed_at instanceof Date ? row.completed_at.toISOString() : row.completed_at || null,
         effectsAppliedAt: row.effects_applied_at instanceof Date
@@ -3141,8 +3142,9 @@ async function persistCardPayment(payment) {
             const result = await database.query(
                 `INSERT INTO card_payments
                  (payment_id, local_order_id, mpgs_order_id, session_id, session_version,
-                  amount, currency, email, payment_method, result_token_hash, status, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
+                  amount, currency, email, payment_method, result_token_hash, success_indicator_hash,
+                  status, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
                  RETURNING *`,
                 [
                     payment.paymentID,
@@ -3155,6 +3157,7 @@ async function persistCardPayment(payment) {
                     payment.email,
                     payment.paymentMethod || "CARD",
                     payment.resultTokenHash || null,
+                    payment.successIndicatorHash || null,
                     payment.status,
                     payment.createdAt
                 ]
@@ -3538,18 +3541,26 @@ function renderClickToPayLaunch(payment, resultToken) {
     <title>Opening Click to Pay</title>
     <style>body{font-family:-apple-system,sans-serif;background:#f7f3ea;color:#231f1a;display:grid;min-height:100vh;place-items:center;margin:0}main{text-align:center;padding:2rem}p{line-height:1.5}</style>
     <script>
-    function paymentComplete(){ window.location.replace(${JSON.stringify(returnURL)}); }
     function paymentError(){ window.location.replace(${JSON.stringify(errorURL)}); }
     function paymentCancelled(){ window.location.replace(${JSON.stringify(cancelURL)}); }
     function paymentTimeout(){ window.location.replace(${JSON.stringify(timeoutURL)}); }
     </script>
-    <script src="${escapeHTML(checkoutScript)}" data-complete="paymentComplete" data-error="paymentError" data-cancel="paymentCancelled" data-timeout="paymentTimeout"></script>
+    <script src="${escapeHTML(checkoutScript)}" data-complete="${escapeHTML(returnURL)}" data-error="paymentError" data-cancel="paymentCancelled" data-timeout="paymentTimeout"></script>
 </head>
 <body><main><h1>Opening secure checkout</h1><p>Please wait while Mastercard Click to Pay opens.</p></main>
 <script>
 Checkout.configure({session:{id:${JSON.stringify(payment.sessionID)}}});
 Checkout.showPaymentPage();
 </script></body></html>`;
+}
+
+function mpgsResultIndicatorMatches(payment, resultIndicator) {
+    const normalizedIndicator = String(resultIndicator || "").trim();
+    const expectedHash = String(payment?.successIndicatorHash || "").trim();
+    if (!expectedHash || !/^[\x21-\x7E]{16,128}$/.test(normalizedIndicator)) {
+        return false;
+    }
+    return timingSafeStringEqual(expectedHash, sha256Hex(normalizedIndicator));
 }
 
 function renderMpgsResultPage(state) {
@@ -8795,6 +8806,7 @@ const server = http.createServer(async (request, response) => {
                     email: customer.email,
                     paymentMethod: "CLICK_TO_PAY",
                     resultTokenHash: sha256Hex(resultToken),
+                    successIndicatorHash: sha256Hex(String(gatewaySession.successIndicator || "")),
                     gatewayResult: String(gatewaySession.result || "SUCCESS"),
                     status: "Pending",
                     createdAt: timestamp,
@@ -8841,10 +8853,24 @@ const server = http.createServer(async (request, response) => {
         const resultToken = normalizeCardPaymentIdentifier(url.searchParams.get("payment"), 200);
         const cancelled = url.searchParams.get("cancelled") === "1";
         const errored = url.searchParams.get("error") === "1";
+        const timedOut = url.searchParams.get("timeout") === "1";
+        const resultIndicator = url.searchParams.get("resultIndicator")
+            || url.searchParams.get("resultindicator");
+        const returnedSessionVersion = String(url.searchParams.get("sessionVersion") || "").trim();
         let state = cancelled ? "cancelled" : errored ? "failure" : "pending";
         try {
             const payment = await findCardPaymentByResultToken(resultToken);
             if (!payment || payment.paymentMethod !== "CLICK_TO_PAY") {
+                state = "failure";
+            } else if (cancelled || errored || timedOut) {
+                await updateCardPaymentLifecycle(payment.paymentID, {
+                    status: cancelled ? "Cancelled" : errored ? "Failed" : "Pending",
+                    lastGatewayResponseAt: new Date().toISOString(),
+                    sessionVersion: returnedSessionVersion || null
+                });
+                state = cancelled ? "cancelled" : errored ? "failure" : "pending";
+            } else if (!mpgsResultIndicatorMatches(payment, resultIndicator)) {
+                console.warn("MPGS Click to Pay result indicator did not match.");
                 state = "failure";
             } else {
                 const order = await findOrderByID(payment.localOrderID);
@@ -8864,7 +8890,11 @@ const server = http.createServer(async (request, response) => {
                 }
             }
         } catch (error) {
-            console.error("MPGS Click to Pay verification failed:", error.code || "MPGS_CLICK_VERIFY_FAILED");
+            console.error(
+                "MPGS Click to Pay verification failed:",
+                error.code || "MPGS_CLICK_VERIFY_FAILED",
+                mpgsGateway.mpgsErrorLogDetails(error)
+            );
             state = cancelled ? "cancelled" : errored ? "failure" : "pending";
         }
         sendHTML(response, 200, renderMpgsResultPage(state), {
@@ -10082,6 +10112,7 @@ module.exports = {
     createBenefitPayReferenceID,
     normalizeBenefitPayMPQRText,
     parseBenefitCallbackRequest,
+    mpgsResultIndicatorMatches,
     renderClickToPayLaunch,
     renderBenefitResultPage,
     renderMpgsResultPage,

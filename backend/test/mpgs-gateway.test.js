@@ -468,6 +468,7 @@ test("Click to Pay initiates Hosted Checkout with PURCHASE and backend BHD amoun
         calls.push({ url: String(url), options });
         return jsonResponse({
             result: "SUCCESS",
+            successIndicator: "abcdefghijklmnop12345678",
             session: { id: sessionID, version: "0000000004", updateStatus: "SUCCESS" }
         });
     });

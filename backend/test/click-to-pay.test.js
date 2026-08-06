@@ -12,7 +12,12 @@ process.env.MPGS_API_VERSION = "100";
 process.env.MPGS_BASE_URL = "https://eazypay.gateway.mastercard.com";
 delete process.env.DATABASE_URL;
 
-const { renderClickToPayLaunch, renderMpgsResultPage } = require("../server");
+const crypto = require("node:crypto");
+const {
+    mpgsResultIndicatorMatches,
+    renderClickToPayLaunch,
+    renderMpgsResultPage
+} = require("../server");
 
 test("Click to Pay launch follows the Mastercard Hosted Checkout SDK pattern", () => {
     const html = renderClickToPayLaunch({
@@ -20,7 +25,7 @@ test("Click to Pay launch follows the Mastercard Hosted Checkout SDK pattern", (
     }, "opaque-result-token");
 
     assert.match(html, /\/static\/checkout\/checkout\.min\.js/);
-    assert.match(html, /data-complete="paymentComplete"/);
+    assert.match(html, /data-complete="https:\/\/merchant\.test\/api\/payments\/click-to-pay\/return\?payment=opaque-result-token"/);
     assert.match(html, /data-error="paymentError"/);
     assert.match(html, /data-cancel="paymentCancelled"/);
     assert.match(html, /data-timeout="paymentTimeout"/);
@@ -28,7 +33,19 @@ test("Click to Pay launch follows the Mastercard Hosted Checkout SDK pattern", (
     assert.match(html, /Checkout\.showPaymentPage\(\)/);
     assert.match(html, /Content-Security-Policy/);
     assert.doesNotMatch(html, /interaction:\{returnUrl/);
+    assert.doesNotMatch(html, /function paymentComplete/);
     assert.doesNotMatch(html, /test-password-never-log/);
+});
+
+test("Click to Pay verifies Mastercard's opaque result indicator", () => {
+    const resultIndicator = "abcdefghijklmnop12345678";
+    const payment = {
+        successIndicatorHash: crypto.createHash("sha256").update(resultIndicator).digest("hex")
+    };
+
+    assert.equal(mpgsResultIndicatorMatches(payment, resultIndicator), true);
+    assert.equal(mpgsResultIndicatorMatches(payment, "different-indicator-value"), false);
+    assert.equal(mpgsResultIndicatorMatches(payment, ""), false);
 });
 
 test("verified Click to Pay result pages return an explicit app status", () => {

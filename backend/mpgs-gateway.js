@@ -360,7 +360,11 @@ async function initiateMpgsCheckout(
         },
         order: { id: orderId, amount, currency: "BHD" }
     }, fetchImpl);
-    return sessionResult(payload);
+    sessionResult(payload);
+    if (!/^[\x21-\x7E]{16,128}$/.test(String(payload.successIndicator || ""))) {
+        throw mpgsError("MPGS_CHECKOUT_SESSION_INVALID", 502, "Card checkout session is invalid.");
+    }
+    return payload;
 }
 
 function normalizeMpgsAuthenticationOutcome(payload) {
