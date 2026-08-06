@@ -27,6 +27,8 @@ delete process.env.DATABASE_URL;
 const benefitGateway = require("../benefit-gateway");
 const {
     createBenefitPayCheckStatusSignature,
+    createBenefitPayReferenceID,
+    normalizeBenefitPayMPQRText,
     renderBenefitResultPage,
     server,
     verifyBenefitNotification
@@ -65,6 +67,17 @@ test("BenefitPay check-status signature matches the documented KEYVAL HMAC vecto
         }),
         "l8fB6TaPtQRlTpPnbkv160AE1S3WLrE1en+B/KvFJIU="
     );
+});
+
+test("BenefitPay MPQR fields stay within the gateway limits", () => {
+    const referenceID = createBenefitPayReferenceID();
+    assert.match(referenceID, /^BP[A-Z0-9]+$/);
+    assert.ok(referenceID.length <= 25);
+    assert.equal(
+        normalizeBenefitPayMPQRText("TALLA SPECIALITY BY CHEF AHMED", 25),
+        "TALLA SPECIALITY BY CHEF"
+    );
+    assert.equal(normalizeBenefitPayMPQRText("  Manama  ", 15), "Manama");
 });
 
 function resetStores(options = {}) {

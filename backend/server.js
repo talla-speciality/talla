@@ -3653,6 +3653,17 @@ function normalizeBenefitIdentifier(value, maxLength = 255) {
     return normalized;
 }
 
+function normalizeBenefitPayMPQRText(value, maxLength) {
+    return Array.from(String(value || "").trim().replace(/\s+/g, " "))
+        .slice(0, maxLength)
+        .join("")
+        .trimEnd();
+}
+
+function createBenefitPayReferenceID() {
+    return `BP${Date.now().toString(36).toUpperCase()}${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+}
+
 function timingSafeStringEqual(first, second) {
     const firstBuffer = Buffer.from(String(first || ""), "utf8");
     const secondBuffer = Buffer.from(String(second || ""), "utf8");
@@ -8876,7 +8887,7 @@ const server = http.createServer(async (request, response) => {
                 throw benefitPaymentError("BENEFITPAY_AMOUNT_INVALID", 409, "The stored order does not have a valid payable total.");
             }
             const amount = (totalFils / 1000).toFixed(3);
-            const referenceID = `BP${Date.now()}${crypto.randomBytes(8).toString("hex")}`;
+            const referenceID = createBenefitPayReferenceID();
             const paymentToken = crypto.randomBytes(24).toString("base64url");
             await createBenefitPendingPayment({
                 trackID: referenceID,
@@ -8891,8 +8902,8 @@ const server = http.createServer(async (request, response) => {
             sendJSON(response, 200, {
                 appId: benefitPayConfiguration.appID,
                 merchantId: benefitPayConfiguration.merchantID,
-                merchantName: benefitPayConfiguration.merchantName,
-                merchantCity: benefitPayConfiguration.merchantCity,
+                merchantName: normalizeBenefitPayMPQRText(benefitPayConfiguration.merchantName, 25),
+                merchantCity: normalizeBenefitPayMPQRText(benefitPayConfiguration.merchantCity, 15),
                 merchantCategoryCode: benefitPayConfiguration.merchantCategoryCode,
                 countryCode: benefitPayConfiguration.countryCode,
                 currencyCode: "048",
@@ -10043,6 +10054,8 @@ module.exports = {
     benefitResultState,
     bhdFils,
     createBenefitPayCheckStatusSignature,
+    createBenefitPayReferenceID,
+    normalizeBenefitPayMPQRText,
     parseBenefitCallbackRequest,
     renderBenefitResultPage,
     server,
