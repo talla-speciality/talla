@@ -417,8 +417,12 @@ struct PaymentMethodBadge: View {
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                 }
                 .foregroundStyle(.primary)
-            } else if method == .benefit || method == .benefitPay {
+            } else if method == .benefit {
                 Image("BenefitLogo")
+                    .resizable()
+                    .scaledToFill()
+            } else if method == .benefitPay {
+                Image("BenefitPayLogo")
                     .resizable()
                     .scaledToFill()
             } else if method == .clickToPay {

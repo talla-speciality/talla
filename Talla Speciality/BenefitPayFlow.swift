@@ -112,7 +112,7 @@ struct BenefitPayCheckoutSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 22) {
-                Image("BenefitLogo")
+                Image("BenefitPayLogo")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 72, height: 72)
