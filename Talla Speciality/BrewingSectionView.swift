@@ -54,15 +54,18 @@ private struct CoffeeBagCameraPicker: UIViewControllerRepresentable {
 #endif
 
 #if canImport(ActivityKit)
-struct TallaBrewActivityAttributes: ActivityAttributes {
-    struct ContentState: Codable, Hashable {
-        let elapsedSeconds: Int
-        let timerStartDate: Date
-        let currentStep: String
-        let nextStep: String
-        let currentWaterGrams: Double
-        let isPaused: Bool
-    }
+    struct TallaBrewActivityAttributes: ActivityAttributes {
+        struct ContentState: Codable, Hashable {
+            let elapsedSeconds: Int
+            let timerStartDate: Date
+            let currentStep: String
+            let nextStep: String
+            let currentWaterGrams: Double
+            let isPaused: Bool
+            let stepTimes: [Int]
+            let stepTitles: [String]
+            let stepWaterTargets: [Double]
+        }
 
     let methodName: String
     let coffeeGrams: Double
@@ -135,6 +138,15 @@ struct BrewingSectionView: View {
         let systemImage: String
     }
 
+    private struct BrewingMethodChoice: Identifiable, Hashable {
+        let id: String
+        let title: String
+        let category: String
+        let estimatedTime: String
+        let description: String
+        let systemImage: String
+    }
+
     private struct RecipeGenerationStage: Identifiable {
         let id: Int
         let title: String
@@ -185,6 +197,9 @@ struct BrewingSectionView: View {
         static let profileExperienceKey = "talla.brewing.profileExperience.v1"
         static let profileBrewerKey = "talla.brewing.profileBrewer.v1"
         static let profileTasteKey = "talla.brewing.profileTaste.v1"
+        static let lastMethodKey = "talla.brewing.lastMethod.v1"
+        static let lastBrewTimestampKey = "talla.brewing.lastBrewTimestamp.v1"
+        static let favoriteMethodsKey = "talla.brewing.favoriteMethods.v1"
     }
 
     let isCompact: Bool
@@ -224,6 +239,9 @@ struct BrewingSectionView: View {
     @AppStorage(BrewSessionStorage.profileExperienceKey) private var storedBrewProfileExperience = "basics"
     @AppStorage(BrewSessionStorage.profileBrewerKey) private var storedBrewProfileBrewer = "v60"
     @AppStorage(BrewSessionStorage.profileTasteKey) private var storedBrewProfileTaste = "balanced"
+    @AppStorage(BrewSessionStorage.lastMethodKey) private var storedLastBrewMethodID = ""
+    @AppStorage(BrewSessionStorage.lastBrewTimestampKey) private var storedLastBrewTimestamp = 0.0
+    @AppStorage(BrewSessionStorage.favoriteMethodsKey) private var storedFavoriteBrewMethodIDs = "v60,solo,kalita"
     @State private var isBrewModeRunning = false
     @State private var brewModeElapsedSeconds = 0
     @State private var brewModeRunID = UUID()
@@ -270,6 +288,10 @@ struct BrewingSectionView: View {
     @State private var recipeBrewControlMode = "Manual"
     @State private var brewerSearchText = ""
     @State private var isToolsMenuPresented = false
+    @State private var isMethodSelectionPresented = false
+    @State private var methodSearchText = ""
+    @State private var methodCategoryFilter = "All"
+    @State private var selectedMethodChoiceID = ""
     @State private var coffeeBagReviewMessage: String?
     @State private var recipeGenerationStageIndex = 0
     @State private var recipeGenerationProgress = 0.0
@@ -325,6 +347,11 @@ struct BrewingSectionView: View {
         .sheet(isPresented: $isToolsMenuPresented) {
             brewingToolsMenu
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $isMethodSelectionPresented) {
+            brewingMethodSelectionView
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .onChange(of: isFocusedBrewPresented) { _, _ in
             updateBrewIdleTimerState()
@@ -478,38 +505,7 @@ struct BrewingSectionView: View {
 
     private var brewingMinimalHomeContent: some View {
         VStack(alignment: .leading, spacing: 30) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(AppLocalization.text("talla_brewing", fallback: "Talla Brewing"))
-                    .font(brewEyebrowFont)
-                    .tracking(2.4)
-                    .textCase(.uppercase)
-                    .foregroundColor(brewAccentColor)
-
-                VStack(spacing: 0) {
-                    brewingLinkedRow(
-                        title: AppLocalization.text("your_next_brew", fallback: "Your next brew"),
-                        detail: "\(brewProfileBrewerName) · \(brewProfileTasteName)\n\(AppLocalization.text("recipe_tuned_for_setup", fallback: "Recipe tuned for your setup."))",
-                        value: nil
-                    ) {
-                        applyRecommendedProfileForBrewProfile()
-                    }
-                    brewDivider
-                    brewingLinkedRow(
-                        title: AppLocalization.text("create_new_recipe", fallback: "Create a new recipe"),
-                        detail: AppLocalization.text("create_new_recipe_detail", fallback: "Scan or enter a coffee and build a recipe around it."),
-                        value: nil
-                    ) {
-                        prepareNewRecipeJourney(startsWithScan: false)
-                        activeDashboardDestination = .createRecipe
-                    }
-                }
-                .background(brewSurfaceColor)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(brewBorderColor, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
+            primaryBrewEntrySection
 
             if isBrewModeRunning || brewModeElapsedSeconds > 0 {
                 VStack(alignment: .leading, spacing: 10) {
@@ -532,7 +528,96 @@ struct BrewingSectionView: View {
 
             brewingMinimalRecentRecipes
             brewingMinimalShortcuts
+            exploreBrewingGuidesSection
         }
+    }
+
+    private var primaryBrewEntrySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            brewSectionLabel(
+                hasPreviousBrew
+                ? AppLocalization.text("brew_again", fallback: "Brew Again")
+                : AppLocalization.text("start_a_brew", fallback: "Start a Brew")
+            )
+
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(hasPreviousBrew ? AppLocalization.text("brew_again", fallback: "Brew Again") : AppLocalization.text("start_a_brew", fallback: "Start a Brew"))
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .accessibilityAddTraits(.isHeader)
+
+                    Text(primaryBrewEntryDescription)
+                        .font(brewReadingFont)
+                        .foregroundColor(brewSecondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if hasPreviousBrew {
+                    VStack(spacing: 0) {
+                        brewingFactRow(title: AppLocalization.text("method", fallback: "Method"), value: lastBrewMethodChoice.title)
+                        brewDivider.padding(.leading, 0)
+                        brewingFactRow(title: AppLocalization.text("coffee_dose", fallback: "Coffee dose"), value: "\(formattedRatioValue(validCoffeeAmount)) g")
+                        brewDivider.padding(.leading, 0)
+                        brewingFactRow(title: AppLocalization.text("ratio", fallback: "Ratio"), value: "1:\(formattedRatioValue(validRatioValue))")
+                        brewDivider.padding(.leading, 0)
+                        brewingFactRow(title: AppLocalization.text("last_used", fallback: "Last used"), value: formattedLastBrewDate)
+                    }
+                    .padding(.vertical, 2)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        if hasPreviousBrew {
+                            beginBrewSetup(with: lastBrewMethodChoice, rememberSelection: false)
+                        } else {
+                            openMethodSelection()
+                        }
+                    } label: {
+                        Text(hasPreviousBrew ? AppLocalization.text("brew_again", fallback: "Brew Again") : AppLocalization.text("choose_method", fallback: "Choose Method"))
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(brewingColorScheme == .dark ? brewPrimaryTextColor : .white)
+                    .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    if hasPreviousBrew {
+                        Button {
+                            openMethodSelection()
+                        } label: {
+                            Text(AppLocalization.text("choose_another_method", fallback: "Choose Another Method"))
+                                .font(.system(size: 15, weight: .semibold))
+                                .frame(maxWidth: .infinity, minHeight: 46)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(brewPrimaryTextColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(brewBorderColor, lineWidth: 1)
+                        )
+                    }
+                }
+            }
+            .padding(18)
+            .background(brewSurfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(brewBorderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private var primaryBrewEntryDescription: String {
+        if hasPreviousBrew {
+            return "\(lastBrewMethodChoice.title) · \(formattedRatioValue(validCoffeeAmount)) g · 1:\(formattedRatioValue(validRatioValue))"
+        }
+
+        return AppLocalization.text(
+            "start_brew_description",
+            fallback: "Choose your brewing method, add your coffee, and build a recipe around it."
+        )
     }
 
     private var brewingMinimalRecentRecipes: some View {
@@ -628,6 +713,283 @@ struct BrewingSectionView: View {
         }
     }
 
+    private var brewingMethodSelectionView: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(AppLocalization.text("choose_brewing_method", fallback: "Choose a Brewing Method"))
+                            .font(.system(size: 28, weight: .semibold, design: .serif))
+                            .foregroundColor(brewPrimaryTextColor)
+                            .accessibilityAddTraits(.isHeader)
+
+                        HStack(spacing: 10) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(brewSecondaryTextColor)
+                                .accessibilityHidden(true)
+                            TextField(AppLocalization.text("search_methods", fallback: "Search methods"), text: $methodSearchText)
+                                .textInputAutocapitalization(.words)
+                                .disableAutocorrection(true)
+                                .font(.system(size: 16))
+                                .submitLabel(.search)
+                        }
+                        .frame(minHeight: 46)
+                        .padding(.horizontal, 14)
+                        .background(brewSurfaceColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(brewBorderColor, lineWidth: 1)
+                        )
+                    }
+
+                    methodCategorySelector
+
+                    if methodSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        methodChoiceSection(
+                            title: AppLocalization.text("recent_methods", fallback: "Recent Methods"),
+                            methods: recentMethodChoices
+                        )
+                        methodChoiceSection(
+                            title: AppLocalization.text("favourites", fallback: "Favourites"),
+                            methods: favoriteMethodChoices
+                        )
+                    }
+
+                    methodChoiceSection(
+                        title: AppLocalization.text("popular_methods", fallback: "Popular Methods"),
+                        methods: filteredMethodChoices
+                    )
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 24)
+                .padding(.bottom, selectedMethodChoice == nil ? 28 : 112)
+                .frame(maxWidth: brewColumnMaxWidth, alignment: .leading)
+            }
+            .background(brewBackgroundColor.ignoresSafeArea())
+            .safeAreaInset(edge: .bottom) {
+                if let selectedMethodChoice {
+                    VStack(spacing: 0) {
+                        brewDivider.padding(.leading, 0)
+                        Button {
+                            beginBrewSetup(with: selectedMethodChoice)
+                        } label: {
+                            Text(String(format: AppLocalization.text("continue_with_method", fallback: "Continue with %@"), selectedMethodChoice.title))
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(maxWidth: .infinity, minHeight: 50)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(brewingColorScheme == .dark ? brewPrimaryTextColor : .white)
+                        .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 14)
+                        .background(brewBackgroundColor)
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(AppLocalization.text("close", fallback: "Close")) {
+                        isMethodSelectionPresented = false
+                    }
+                    .foregroundColor(brewPrimaryTextColor)
+                }
+            }
+        }
+    }
+
+    private var methodCategorySelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(methodCategoryFilters, id: \.self) { category in
+                    Button {
+                        methodCategoryFilter = category
+                    } label: {
+                        Text(category)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(methodCategoryFilter == category ? brewAccentColor : brewSecondaryTextColor)
+                            .frame(minHeight: 44)
+                            .padding(.horizontal, 14)
+                            .overlay(alignment: .bottom) {
+                                Rectangle()
+                                    .fill(methodCategoryFilter == category ? brewAccentColor : brewBorderColor.opacity(0.45))
+                                    .frame(height: methodCategoryFilter == category ? 2 : 1)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(methodCategoryFilter == category ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func methodChoiceSection(title: String, methods: [BrewingMethodChoice]) -> some View {
+        Group {
+            if !methods.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    brewSectionLabel(title)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(methods.enumerated()), id: \.element.id) { index, method in
+                            if index > 0 {
+                                brewDivider
+                            }
+                            brewingMethodRow(method)
+                        }
+                    }
+                    .background(brewSurfaceColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(brewBorderColor, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func brewingMethodRow(_ method: BrewingMethodChoice) -> some View {
+        let isSelected = selectedMethodChoiceID == method.id
+
+        return Button {
+            selectedMethodChoiceID = method.id
+        } label: {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: method.systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(brewAccentColor)
+                    .frame(width: 34, height: 34)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(method.title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text("\(method.category) · \(method.estimatedTime)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(brewSecondaryTextColor)
+
+                    Text(method.description)
+                        .font(.system(size: 13))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: isSelected ? "checkmark" : "chevron.forward")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(isSelected ? brewAccentColor : brewSecondaryTextColor)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 76)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? brewAccentColor : Color.clear, lineWidth: 1)
+                    .padding(4)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var exploreBrewingGuidesSection: some View {
+        Group {
+            if !displayedMethods.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    brewSectionLabel(AppLocalization.text("explore_brewing_guides", fallback: "Explore Brewing Guides"))
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(displayedMethods.prefix(5).enumerated()), id: \.element.id) { index, method in
+                            if index > 0 {
+                                brewDivider
+                            }
+                            brewingGuideEntryRow(method)
+                        }
+                    }
+                    .background(brewSurfaceColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(brewBorderColor, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func brewingGuideEntryRow(_ method: ContentView.BrewingMethod) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                selectedBrewModeMethodID = method.id
+                activeCategory = method.categories.first ?? activeCategory
+            } label: {
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(method.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(brewPrimaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(method.summary)
+                            .font(.system(size: 14))
+                            .foregroundColor(brewSecondaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(AppLocalization.text("read_guide", fallback: "Read Guide"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(brewAccentColor)
+
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 60)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                beginBrewSetup(with: methodChoice(from: method))
+            } label: {
+                Text(AppLocalization.text("use_this_method", fallback: "Use This Method"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .stroke(brewBorderColor, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func brewingFactRow(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(title)
+                .font(brewEyebrowFont)
+                .foregroundColor(brewSecondaryTextColor)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(brewPrimaryTextColor)
+                .multilineTextAlignment(.trailing)
+        }
+        .frame(minHeight: 36)
+    }
+
     private var brewDivider: some View {
         Rectangle()
             .fill(brewBorderColor)
@@ -697,6 +1059,160 @@ struct BrewingSectionView: View {
 
     private var formattedBrewElapsedTime: String {
         formattedTimerTime(brewModeElapsedSeconds)
+    }
+
+    private var hasPreviousBrew: Bool {
+        storedLastBrewTimestamp > 0 || !storedLastBrewMethodID.isEmpty || !brewHistoryItems.isEmpty
+    }
+
+    private var formattedLastBrewDate: String {
+        guard storedLastBrewTimestamp > 0 else {
+            return AppLocalization.text("recently", fallback: "Recently")
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: Date(timeIntervalSince1970: storedLastBrewTimestamp))
+    }
+
+    private var methodCategoryFilters: [String] {
+        [
+            AppLocalization.text("all", fallback: "All"),
+            AppLocalization.text("pour_over", fallback: "Pour Over"),
+            AppLocalization.text("immersion", fallback: "Immersion"),
+            AppLocalization.text("traditional", fallback: "Traditional"),
+            AppLocalization.text("espresso", fallback: "Espresso"),
+            AppLocalization.text("cold_brew", fallback: "Cold Brew")
+        ]
+    }
+
+    private var popularMethodChoices: [BrewingMethodChoice] {
+        [
+            BrewingMethodChoice(id: "v60", title: "V60", category: AppLocalization.text("pour_over", fallback: "Pour Over"), estimatedTime: "3–4 min", description: AppLocalization.text("v60_method_description", fallback: "Clear, precise cups with controlled pouring."), systemImage: "triangle"),
+            BrewingMethodChoice(id: "solo", title: "SOLO Dripper", category: AppLocalization.text("pour_over", fallback: "Pour Over"), estimatedTime: "3–4 min", description: AppLocalization.text("solo_method_description", fallback: "Balanced filter brews with a steady, forgiving flow."), systemImage: "trapezoid.and.line.vertical"),
+            BrewingMethodChoice(id: "kalita", title: "Kalita Wave", category: AppLocalization.text("pour_over", fallback: "Pour Over"), estimatedTime: "3–4 min", description: AppLocalization.text("kalita_method_description", fallback: "Sweet, even cups from a flat-bottom brewer."), systemImage: "line.3.horizontal.decrease"),
+            BrewingMethodChoice(id: "chemex", title: "Chemex", category: AppLocalization.text("pour_over", fallback: "Pour Over"), estimatedTime: "4–6 min", description: AppLocalization.text("chemex_method_description", fallback: "Clean texture and clarity for larger brews."), systemImage: "hourglass"),
+            BrewingMethodChoice(id: "aeropress", title: "AeroPress", category: AppLocalization.text("immersion", fallback: "Immersion"), estimatedTime: "2–3 min", description: AppLocalization.text("aeropress_method_description", fallback: "Fast, flexible brewing with gentle pressure."), systemImage: "capsule.portrait"),
+            BrewingMethodChoice(id: "french-press", title: "French Press", category: AppLocalization.text("immersion", fallback: "Immersion"), estimatedTime: "4–5 min", description: AppLocalization.text("french_press_method_description", fallback: "Full body and a rounded, comforting cup."), systemImage: "cylinder"),
+            BrewingMethodChoice(id: "arabic", title: "Arabic Coffee", category: AppLocalization.text("traditional", fallback: "Traditional"), estimatedTime: "8–12 min", description: AppLocalization.text("arabic_method_description", fallback: "Aromatic traditional brewing with gentle heat."), systemImage: "flame.fill"),
+            BrewingMethodChoice(id: "cold", title: "Cold Brew", category: AppLocalization.text("cold_brew", fallback: "Cold Brew"), estimatedTime: "12–18 hr", description: AppLocalization.text("cold_brew_method_description", fallback: "Slow extraction for a smooth, low-acidity cup."), systemImage: "snowflake"),
+            BrewingMethodChoice(id: "espresso", title: "Espresso", category: AppLocalization.text("espresso", fallback: "Espresso"), estimatedTime: "25–35 sec", description: AppLocalization.text("espresso_method_description", fallback: "Concentrated, pressure-brewed coffee with intensity."), systemImage: "cup.and.saucer.fill")
+        ]
+    }
+
+    private var favoriteMethodChoices: [BrewingMethodChoice] {
+        let ids = storedFavoriteBrewMethodIDs
+            .split(separator: ",")
+            .map(String.init)
+        let favourites = ids.compactMap { methodChoice(for: $0) }
+        return Array(favourites.prefix(3))
+    }
+
+    private var recentMethodChoices: [BrewingMethodChoice] {
+        var ids: [String] = []
+        if !storedLastBrewMethodID.isEmpty {
+            ids.append(storedLastBrewMethodID)
+        }
+        ids.append(storedBrewProfileBrewer)
+        ids.append(createRecipeBrewer)
+
+        var seen = Set<String>()
+        return ids.compactMap { id in
+            guard seen.insert(id).inserted else { return nil }
+            return methodChoice(for: id)
+        }
+        .prefix(3)
+        .map { $0 }
+    }
+
+    private var filteredMethodChoices: [BrewingMethodChoice] {
+        let search = methodSearchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let allCategory = AppLocalization.text("all", fallback: "All")
+
+        return popularMethodChoices.filter { method in
+            let matchesCategory = methodCategoryFilter == allCategory || method.category == methodCategoryFilter
+            let matchesSearch = search.isEmpty
+                || method.title.lowercased().contains(search)
+                || method.category.lowercased().contains(search)
+                || method.description.lowercased().contains(search)
+            return matchesCategory && matchesSearch
+        }
+    }
+
+    private var selectedMethodChoice: BrewingMethodChoice? {
+        methodChoice(for: selectedMethodChoiceID)
+    }
+
+    private var lastBrewMethodChoice: BrewingMethodChoice {
+        methodChoice(for: storedLastBrewMethodID)
+            ?? methodChoice(for: storedBrewProfileBrewer)
+            ?? popularMethodChoices[0]
+    }
+
+    private func methodChoice(for id: String) -> BrewingMethodChoice? {
+        popularMethodChoices.first { $0.id == id }
+    }
+
+    private func methodChoice(from method: ContentView.BrewingMethod) -> BrewingMethodChoice {
+        if let exact = methodChoice(for: method.id) {
+            return exact
+        }
+
+        let source = ([method.id, method.name, method.summary, method.detail] + method.categories)
+            .joined(separator: " ")
+            .lowercased()
+
+        return popularMethodChoices.first { choice in
+            source.contains(choice.id) || source.contains(choice.title.lowercased())
+        } ?? BrewingMethodChoice(
+            id: method.id,
+            title: method.name,
+            category: method.categories.first ?? AppLocalization.text("all", fallback: "All"),
+            estimatedTime: method.brewTime,
+            description: method.summary,
+            systemImage: "cup.and.saucer"
+        )
+    }
+
+    private func openMethodSelection() {
+        selectedMethodChoiceID = storedLastBrewMethodID.isEmpty ? storedBrewProfileBrewer : storedLastBrewMethodID
+        if methodChoice(for: selectedMethodChoiceID) == nil {
+            selectedMethodChoiceID = "v60"
+        }
+        methodSearchText = ""
+        methodCategoryFilter = AppLocalization.text("all", fallback: "All")
+        isMethodSelectionPresented = true
+    }
+
+    private func beginBrewSetup(with method: BrewingMethodChoice, rememberSelection: Bool = true) {
+        createRecipeBrewer = method.id
+        storedBrewProfileBrewer = method.id
+        selectedBrewModeMethodID = matchingDisplayedMethodID(for: method)
+        storedLastBrewMethodID = method.id
+        if rememberSelection || storedLastBrewTimestamp == 0 {
+            storedLastBrewTimestamp = Date().timeIntervalSince1970
+        }
+
+        prepareNewRecipeJourney(startsWithScan: false)
+        createRecipeStep = .equipment
+        isMethodSelectionPresented = false
+
+        DispatchQueue.main.async {
+            activeDashboardDestination = .createRecipe
+        }
+    }
+
+    private func matchingDisplayedMethodID(for method: BrewingMethodChoice) -> String? {
+        let target = method.title.lowercased()
+        let id = method.id.lowercased()
+
+        return displayedMethods.first { displayedMethod in
+            let source = ([displayedMethod.id, displayedMethod.name, displayedMethod.summary, displayedMethod.detail] + displayedMethod.categories)
+                .joined(separator: " ")
+                .lowercased()
+            return source.contains(id) || source.contains(target) || target.contains(displayedMethod.name.lowercased())
+        }?.id
     }
 
     private func continueRecipeDetail(_ latest: (title: String, detail: String, coffeeGrams: Double?, ratio: Double?)?) -> String {
@@ -2764,6 +3280,32 @@ struct BrewingSectionView: View {
         VStack(alignment: .leading, spacing: 18) {
             createRecipeStepTitle(AppLocalization.text("dial_in_the_brew", fallback: "Dial in the brew"))
 
+            VStack(spacing: 0) {
+                brewingFactRow(title: AppLocalization.text("selected_method", fallback: "Selected method"), value: brewProfileBrewerName)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                brewDivider.padding(.leading, 0)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(AppLocalization.text("coffee", fallback: "Coffee"))
+                        .font(brewEyebrowFont)
+                        .foregroundColor(brewSecondaryTextColor)
+                    TextField(AppLocalization.text("coffee_name_placeholder", fallback: "Coffee name"), text: $coffeeName)
+                        .textInputAutocapitalization(.words)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .submitLabel(.next)
+                        .frame(minHeight: 44)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+            }
+            .background(brewSurfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(brewBorderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
             VStack(spacing: 12) {
                 creamGoldSegmentedControl(
                     title: AppLocalization.text("taste_goal", fallback: "Taste goal"),
@@ -3268,7 +3810,7 @@ struct BrewingSectionView: View {
     private func moveCreateRecipeForward() {
         createRecipeValidationMessage = nil
 
-        if createRecipeStep == .coffeeDetails && coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if (createRecipeStep == .coffeeDetails || createRecipeStep == .equipment) && coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             createRecipeValidationMessage = AppLocalization.text("coffee_name_needed_friendly", fallback: "Give this coffee a name so Talla can save the recipe clearly.")
             return
         }
@@ -6515,12 +7057,7 @@ struct BrewingSectionView: View {
 
     private func skipBrewModeStep() {
         guard let nextBrewModeStep else {
-            brewModeElapsedSeconds = brewModeTotalSeconds
-            isBrewModeRunning = false
-            brewModeHapticTrigger += 1
-            updateBrewLiveActivity(isPaused: false)
-            endBrewLiveActivity(after: 30)
-            sendBrewWatchUpdate(action: "end", isPaused: false, allowBackgroundTransfer: true)
+            completeBrewModeSession()
             return
         }
 
@@ -6560,10 +7097,7 @@ struct BrewingSectionView: View {
         guard isBrewModeRunning else { return }
 
         if brewModeElapsedSeconds >= brewModeTotalSeconds {
-            isBrewModeRunning = false
-            brewModeHapticTrigger += 1
-            updateBrewLiveActivity(isPaused: false)
-            sendBrewWatchUpdate(action: "update", isPaused: false)
+            completeBrewModeSession()
             return
         }
 
@@ -6588,11 +7122,23 @@ struct BrewingSectionView: View {
         sendBrewWatchUpdate(action: "update", isPaused: false)
 
         if brewModeElapsedSeconds >= brewModeTotalSeconds {
-            isBrewModeRunning = false
-            brewStepHaptic(strong: true, completion: true)
-            endBrewLiveActivity(after: 30)
-            sendBrewWatchUpdate(action: "end", isPaused: false, allowBackgroundTransfer: true)
+            completeBrewModeSession()
         }
+    }
+
+    private func completeBrewModeSession(dismissLiveActivityAfter seconds: Double = 8) {
+        brewModeElapsedSeconds = brewModeTotalSeconds
+        brewModeRunID = UUID()
+        isBrewModeRunning = false
+        brewModeBackgroundDate = nil
+        lastCueStepIndex = currentBrewModeStepIndex
+        lastPrePourCueStepID = nil
+        brewStepHaptic(strong: true, completion: true)
+        persistActiveBrewSession()
+        updateBrewLiveActivity(isPaused: true)
+        sendBrewWatchUpdate(action: "end", isPaused: true, allowBackgroundTransfer: true)
+        endBrewLiveActivity(after: seconds)
+        setBrewIdleTimerDisabled(false)
     }
 
     private func requestEndFocusedBrew() {
@@ -6642,10 +7188,7 @@ struct BrewingSectionView: View {
             updateBrewLiveActivity(isPaused: false)
             sendBrewWatchUpdate(action: "update", isPaused: false)
             if brewModeElapsedSeconds >= brewModeTotalSeconds {
-                isBrewModeRunning = false
-                brewStepHaptic(strong: true, completion: true)
-                endBrewLiveActivity(after: 30)
-                sendBrewWatchUpdate(action: "end", isPaused: false, allowBackgroundTransfer: true)
+                completeBrewModeSession()
             }
         @unknown default:
             break
@@ -6763,7 +7306,10 @@ struct BrewingSectionView: View {
             "currentStep": currentBrewModeStep.title,
             "nextStep": nextBrewModeStep?.title ?? AppLocalization.text("brew_ready_message", fallback: "Your brew is ready. Enjoy it slowly."),
             "currentWaterGrams": currentWaterTarget,
-            "isPaused": isPaused
+            "isPaused": isPaused,
+            "stepTimes": brewModeSteps.map(\.time),
+            "stepTitles": brewModeSteps.map(\.title),
+            "stepWaterTargets": brewModeSteps.map { $0.waterTarget ?? -1 }
         ]
 
         if WCSession.default.isReachable {
@@ -6790,7 +7336,7 @@ struct BrewingSectionView: View {
             )
             let content = ActivityContent(
                 state: brewLiveActivityState(isPaused: false),
-                staleDate: Date().addingTimeInterval(TimeInterval(max(brewModeTotalSeconds - brewModeElapsedSeconds + 60, 60))),
+                staleDate: Date().addingTimeInterval(TimeInterval(max(brewModeTotalSeconds - brewModeElapsedSeconds, 1))),
                 relevanceScore: 100
             )
 
@@ -6815,7 +7361,7 @@ struct BrewingSectionView: View {
 
         let content = ActivityContent(
             state: brewLiveActivityState(isPaused: isPaused),
-            staleDate: Date().addingTimeInterval(TimeInterval(max(brewModeTotalSeconds - brewModeElapsedSeconds + 60, 60))),
+            staleDate: Date().addingTimeInterval(TimeInterval(max(brewModeTotalSeconds - brewModeElapsedSeconds, 1))),
             relevanceScore: 100
         )
 
@@ -6830,7 +7376,7 @@ struct BrewingSectionView: View {
         guard #available(iOS 16.1, *), let brewLiveActivity else { return }
 
         let finalContent = ActivityContent(
-            state: brewLiveActivityState(isPaused: false),
+            state: brewLiveActivityState(isPaused: true),
             staleDate: nil,
             relevanceScore: 100
         )
@@ -6855,7 +7401,10 @@ struct BrewingSectionView: View {
             currentStep: currentBrewModeStep.title,
             nextStep: nextBrewModeStep?.title ?? AppLocalization.text("brew_ready_message", fallback: "Your brew is ready. Enjoy it slowly."),
             currentWaterGrams: currentWaterTarget,
-            isPaused: isPaused
+            isPaused: isPaused,
+            stepTimes: brewModeSteps.map(\.time),
+            stepTitles: brewModeSteps.map(\.title),
+            stepWaterTargets: brewModeSteps.map { $0.waterTarget ?? -1 }
         )
     }
 #endif

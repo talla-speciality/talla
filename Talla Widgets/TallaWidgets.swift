@@ -442,6 +442,9 @@ struct TallaBrewActivityAttributes: ActivityAttributes {
         let nextStep: String
         let currentWaterGrams: Double
         let isPaused: Bool
+        let stepTimes: [Int]
+        let stepTitles: [String]
+        let stepWaterTargets: [Double]
     }
 
     let methodName: String
@@ -488,6 +491,47 @@ private enum TallaBrewActivityStyle {
 }
 
 @available(iOS 16.1, *)
+private struct TallaBrewActivitySnapshot {
+    let elapsedSeconds: Int
+    let currentStep: String
+    let nextStep: String
+    let currentWaterGrams: Double
+}
+
+@available(iOS 16.1, *)
+private func tallaBrewActivitySnapshot(for context: ActivityViewContext<TallaBrewActivityAttributes>) -> TallaBrewActivitySnapshot {
+    let elapsed = context.state.isPaused
+        ? context.state.elapsedSeconds
+        : min(
+            context.attributes.totalSeconds,
+            max(context.state.elapsedSeconds, Int(Date().timeIntervalSince(context.state.timerStartDate)))
+        )
+
+    guard !context.state.stepTimes.isEmpty, context.state.stepTimes.count == context.state.stepTitles.count else {
+        return TallaBrewActivitySnapshot(
+            elapsedSeconds: elapsed,
+            currentStep: elapsed >= context.attributes.totalSeconds ? "Brew complete" : context.state.currentStep,
+            nextStep: elapsed >= context.attributes.totalSeconds ? "Ready to taste" : context.state.nextStep,
+            currentWaterGrams: context.state.currentWaterGrams
+        )
+    }
+
+    let currentIndex = context.state.stepTimes.lastIndex { elapsed >= $0 } ?? 0
+    let nextIndex = context.state.stepTimes.firstIndex { elapsed < $0 }
+    let waterTargets = context.state.stepWaterTargets
+    let water = waterTargets
+        .prefix(min(currentIndex + 1, waterTargets.count))
+        .last { $0 >= 0 } ?? context.state.currentWaterGrams
+
+    return TallaBrewActivitySnapshot(
+        elapsedSeconds: elapsed,
+        currentStep: elapsed >= context.attributes.totalSeconds ? "Brew complete" : context.state.stepTitles[currentIndex],
+        nextStep: nextIndex.map { context.state.stepTitles[$0] } ?? "Ready to taste",
+        currentWaterGrams: water
+    )
+}
+
+@available(iOS 16.1, *)
 struct TallaBrewLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TallaBrewActivityAttributes.self) { context in
@@ -508,20 +552,22 @@ struct TallaBrewLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
+                    let snapshot = tallaBrewActivitySnapshot(for: context)
                     VStack(alignment: .trailing, spacing: 3) {
                         TallaBrewActivityTimer(context: context, font: .caption.weight(.black))
-                        Text("\(Int(context.state.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g")
+                        Text("\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
+                    let snapshot = tallaBrewActivitySnapshot(for: context)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(context.state.currentStep)
+                        Text(snapshot.currentStep)
                             .font(.headline.weight(.bold))
                             .lineLimit(1)
-                        Text("Next: \(context.state.nextStep)")
+                        Text("Next: \(snapshot.nextStep)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -547,6 +593,8 @@ private struct TallaBrewLockScreenView: View {
     let context: ActivityViewContext<TallaBrewActivityAttributes>
 
     var body: some View {
+        let snapshot = tallaBrewActivitySnapshot(for: context)
+
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "drop.fill")
@@ -576,14 +624,14 @@ private struct TallaBrewLockScreenView: View {
             }
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(context.state.currentStep)
+                Text(snapshot.currentStep)
                     .font(.system(size: 24, weight: .heavy))
                     .foregroundStyle(TallaBrewActivityStyle.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
 
                 HStack(spacing: 8) {
-                    Text("\(Int(context.state.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
+                    Text("\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(TallaBrewActivityStyle.secondaryText)
                         .lineLimit(1)
@@ -592,7 +640,7 @@ private struct TallaBrewLockScreenView: View {
                         .fill(TallaBrewActivityStyle.secondaryText.opacity(0.35))
                         .frame(width: 4, height: 4)
 
-                    Text("Next: \(context.state.nextStep)")
+                    Text("Next: \(snapshot.nextStep)")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(TallaBrewActivityStyle.secondaryText)
                         .lineLimit(1)

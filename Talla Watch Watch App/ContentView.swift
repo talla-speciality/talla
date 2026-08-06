@@ -228,7 +228,10 @@ final class TallaWatchStore: NSObject {
             "currentStep": currentStep.title,
             "nextStep": nextStep?.title ?? "Your brew is ready. Enjoy it slowly.",
             "currentWaterGrams": Double(currentWaterGrams),
-            "isPaused": isPaused
+            "isPaused": isPaused,
+            "stepTimes": recipe.steps.map(\.time),
+            "stepTitles": recipe.steps.map(\.title),
+            "stepWaterTargets": recipe.steps.map { Double($0.waterTarget ?? -1) }
         ]
 
         session.sendMessage(payload, replyHandler: { [weak self] reply in

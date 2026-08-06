@@ -171,7 +171,7 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
         let state = brewActivityState(from: message)
         let content = ActivityContent(
             state: state,
-            staleDate: Date().addingTimeInterval(TimeInterval(max(attributes.totalSeconds - state.elapsedSeconds + 60, 60))),
+            staleDate: Date().addingTimeInterval(TimeInterval(max(attributes.totalSeconds - state.elapsedSeconds, 1))),
             relevanceScore: 100
         )
 
@@ -197,7 +197,7 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
         let state = brewActivityState(from: message, isPaused: isPaused)
         let content = ActivityContent(
             state: state,
-            staleDate: Date().addingTimeInterval(TimeInterval(max(watchBrewLiveActivity.attributes.totalSeconds - state.elapsedSeconds + 60, 60))),
+            staleDate: Date().addingTimeInterval(TimeInterval(max(watchBrewLiveActivity.attributes.totalSeconds - state.elapsedSeconds, 1))),
             relevanceScore: 100
         )
 
@@ -219,7 +219,7 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
         self.watchBrewLiveActivity = nil
 
         Task {
-            await watchBrewLiveActivity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(30)))
+            await watchBrewLiveActivity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(8)))
         }
         return "ended"
     }
@@ -233,7 +233,10 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
             currentStep: message["currentStep"] as? String ?? "Start brewing",
             nextStep: message["nextStep"] as? String ?? "Your brew is ready. Enjoy it slowly.",
             currentWaterGrams: message["currentWaterGrams"] as? Double ?? 0,
-            isPaused: isPaused ?? (message["isPaused"] as? Bool ?? false)
+            isPaused: isPaused ?? (message["isPaused"] as? Bool ?? false),
+            stepTimes: message["stepTimes"] as? [Int] ?? [],
+            stepTitles: message["stepTitles"] as? [String] ?? [],
+            stepWaterTargets: message["stepWaterTargets"] as? [Double] ?? []
         )
     }
 #endif
