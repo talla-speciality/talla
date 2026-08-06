@@ -433,7 +433,10 @@ test("PAY rejection exposes only sanitized gateway diagnostics", () => {
             result: "ERROR",
             error: {
                 cause: "INVALID_REQUEST\nignored",
-                supportCode: "abc-123"
+                supportCode: "abc-123",
+                field: "sourceOfFunds.provided.card.number",
+                validationType: "INVALID",
+                explanation: "Invalid account 5123456789012345\ncheck request"
             },
             response: { gatewayCode: "DECLINED" }
         }),
@@ -442,8 +445,11 @@ test("PAY rejection exposes only sanitized gateway diagnostics", () => {
             assert.equal(error.gatewayCause, "INVALID_REQUEST ignored");
             assert.equal(
                 mpgsGateway.mpgsErrorLogDetails(error),
-                "cause=INVALID_REQUEST ignored gatewayCode=DECLINED supportCode=abc-123"
+                "cause=INVALID_REQUEST ignored gatewayCode=DECLINED supportCode=abc-123 "
+                    + "field=sourceOfFunds.provided.card.number validationType=INVALID "
+                    + "explanation=Invalid account REDACTED check request"
             );
+            assert.doesNotMatch(mpgsGateway.mpgsErrorLogDetails(error), /5123456789012345/);
             return true;
         }
     );

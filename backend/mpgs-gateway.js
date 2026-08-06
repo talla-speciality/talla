@@ -85,6 +85,7 @@ function sanitizedGatewayDetail(value, maxLength = 100) {
     return String(value || "")
         .replace(/[\r\n\t]+/g, " ")
         .replace(/[^A-Za-z0-9 ._:#-]/g, "")
+        .replace(/\b\d{6,19}\b/g, "REDACTED")
         .trim()
         .slice(0, maxLength);
 }
@@ -93,7 +94,10 @@ function mpgsErrorLogDetails(error) {
     const details = [
         ["cause", error?.gatewayCause],
         ["gatewayCode", error?.gatewayCode],
-        ["supportCode", error?.gatewaySupportCode]
+        ["supportCode", error?.gatewaySupportCode],
+        ["field", error?.gatewayField],
+        ["validationType", error?.gatewayValidationType],
+        ["explanation", error?.gatewayExplanation]
     ].map(([label, value]) => {
         const sanitized = sanitizedGatewayDetail(value);
         return sanitized ? `${label}=${sanitized}` : "";
@@ -111,7 +115,10 @@ function assertMpgsPaymentAccepted(payload) {
         gatewayCode: sanitizedGatewayDetail(
             payload?.response?.gatewayCode || payload?.response?.acquirerCode
         ),
-        gatewaySupportCode: sanitizedGatewayDetail(payload?.error?.supportCode)
+        gatewaySupportCode: sanitizedGatewayDetail(payload?.error?.supportCode),
+        gatewayField: sanitizedGatewayDetail(payload?.error?.field),
+        gatewayValidationType: sanitizedGatewayDetail(payload?.error?.validationType),
+        gatewayExplanation: sanitizedGatewayDetail(payload?.error?.explanation, 180)
     };
     if (result === "FAILURE") {
         throw mpgsError("MPGS_PAYMENT_NOT_APPROVED", 402, "Card payment was not approved.", details);
@@ -183,7 +190,10 @@ async function mpgsRequest(
             gatewayCode: sanitizedGatewayDetail(
                 payload.response?.gatewayCode || payload.response?.acquirerCode
             ),
-            gatewaySupportCode: sanitizedGatewayDetail(payload.error?.supportCode)
+            gatewaySupportCode: sanitizedGatewayDetail(payload.error?.supportCode),
+            gatewayField: sanitizedGatewayDetail(payload.error?.field),
+            gatewayValidationType: sanitizedGatewayDetail(payload.error?.validationType),
+            gatewayExplanation: sanitizedGatewayDetail(payload.error?.explanation, 180)
         });
     }
     return payload;
