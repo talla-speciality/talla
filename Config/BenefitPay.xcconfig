@@ -1,0 +1,2 @@
+BENEFITPAY_SDK_SECRET_KEY =
+#include? "BenefitPaySecrets.xcconfig"

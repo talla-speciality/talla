@@ -563,6 +563,7 @@ struct ContentView: View {
     @State private var pendingCartRemovalID: String?
     @State private var isConfirmingEmptyBag = false
     @State private var checkoutSession: CheckoutSession?
+    @State private var benefitPaySession: BenefitPaySession?
     @State private var mastercardPaymentContext: MastercardPaymentContext?
     @State private var articleSession: CheckoutSession?
     @State private var selectedProduct: Product?
@@ -1798,6 +1799,12 @@ struct ContentView: View {
         .sheet(item: $checkoutSession, onDismiss: resetPaymentFlowAfterCheckoutDismiss) { session in
             CheckoutWebView(url: session.url)
         }
+        .sheet(item: $benefitPaySession) { session in
+            BenefitPayCheckoutSheet(session: session) {
+                benefitPaySession = nil
+                paymentFlow.cancel()
+            }
+        }
 #if canImport(Gateway) && canImport(uSDK) && canImport(UIKit)
         .sheet(item: $mastercardPaymentContext, onDismiss: resetPaymentFlowAfterMastercardDismiss) { context in
             MastercardPaymentSheet(context: context, flow: paymentFlow)
@@ -2107,6 +2114,10 @@ struct ContentView: View {
     }
 
     private func handleDeepLink(_ url: URL) {
+        if url.scheme?.lowercased() == BenefitPaySDKConfiguration.callbackScheme {
+            handleBenefitPayReturn(url)
+            return
+        }
         guard url.scheme?.lowercased() == "talla" else { return }
 
         let rawDestination = url.host?.isEmpty == false ? url.host : url.pathComponents.dropFirst().first
@@ -2150,6 +2161,40 @@ struct ContentView: View {
                 await loadLoyaltyAccount()
             }
             paymentFlow.reset()
+        }
+    }
+
+    private func handleBenefitPayReturn(_ url: URL) {
+        guard let session = benefitPaySession,
+              BenefitPayCallbackParser.referenceID(from: url) == session.referenceId else {
+            benefitPaySession = nil
+            paymentFlow.transition(to: .failed, error: "BenefitPay returned an invalid payment reference.")
+            return
+        }
+        benefitPaySession = nil
+        paymentFlow.transition(to: .processing)
+        showToast(message: AppLocalization.text("payment_processing", fallback: "Completing your order…"))
+        Task {
+            do {
+                let confirmation = try await BenefitPayService.confirm(session: session)
+                guard confirmation.status == "succeeded" else {
+                    paymentFlow.transition(to: .failed, error: "BenefitPay did not confirm this payment.")
+                    return
+                }
+                cartItems.removeAll()
+                appliedVoucher = nil
+                voucherCodeInput = ""
+                voucherError = nil
+                paymentFlow.transition(to: .succeeded)
+                await loadOrderHistory()
+                if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    await loadLoyaltyAccount()
+                }
+                showToast(message: AppLocalization.text("payment_complete", fallback: "Payment completed successfully."))
+            } catch {
+                paymentFlow.transition(to: .failed, error: error.localizedDescription)
+                showToast(message: AppLocalization.text("payment_failed_title", fallback: "We couldn’t complete the payment."))
+            }
         }
     }
 
@@ -10211,7 +10256,15 @@ struct ContentView: View {
                 let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                openURL(paymentURL)
+                checkoutSession = CheckoutSession(url: paymentURL)
+            case .benefitPaySDK:
+                guard BenefitPaySDKConfiguration.isAvailable else {
+                    throw PaymentServiceError.gateway("BenefitPay is not configured in this build.")
+                }
+                let session = try await BenefitPayService.createSession(orderID: checkoutStart.orderID)
+                paymentFlow.transition(to: .awaitingCustomer)
+                cartOpen = false
+                benefitPaySession = session
             case .clickToPayHosted:
                 let checkout = try await TallaPaymentService.createClickToPay(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)

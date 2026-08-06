@@ -48,6 +48,16 @@ const benefitAPIEndpoint = config.benefitAPIEndpoint;
 const benefitSuccessURL = config.benefitSuccessURL;
 const benefitErrorURL = config.benefitErrorURL;
 const benefitNotificationURL = config.benefitNotificationURL;
+const benefitPayConfiguration = {
+    appID: config.benefitPayAppID,
+    merchantID: config.benefitPayMerchantID,
+    secretKey: config.benefitPaySecretKey,
+    checkStatusURL: config.benefitPayCheckStatusURL,
+    merchantName: config.benefitPayMerchantName,
+    merchantCity: config.benefitPayMerchantCity,
+    merchantCategoryCode: config.benefitPayMerchantCategoryCode,
+    countryCode: config.benefitPayCountryCode
+};
 const mpgsConfiguration = {
     merchantId: config.mpgsMerchantID,
     apiPassword: config.mpgsAPIPassword,
@@ -3576,6 +3586,61 @@ function benefitConfigured() {
         && benefitErrorURL
         && benefitNotificationURL
     );
+}
+
+function benefitPayConfigured() {
+    return Object.values(benefitPayConfiguration).every((value) => String(value || "").trim());
+}
+
+function createBenefitPayCheckStatusSignature(parameters) {
+    const valueToSign = Object.entries(parameters)
+        .sort(([firstKey, firstValue], [secondKey, secondValue]) => {
+            const keyComparison = firstKey.localeCompare(secondKey);
+            return keyComparison || String(firstValue).localeCompare(String(secondValue));
+        })
+        .map(([key, value]) => `${key}="${String(value)}"`)
+        .join(",");
+    return crypto
+        .createHmac("sha256", benefitPayConfiguration.secretKey)
+        .update(valueToSign, "utf8")
+        .digest("base64");
+}
+
+async function queryBenefitPayTransaction(referenceID) {
+    const body = {
+        merchant_id: benefitPayConfiguration.merchantID,
+        reference_id: referenceID
+    };
+    const endpoint = safeConfiguredBenefitURL(
+        benefitPayConfiguration.checkStatusURL,
+        "BenefitPay check-status URL"
+    );
+    const upstreamResponse = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            Accept: "application/json",
+            "X-CLIENT-ID": benefitPayConfiguration.appID,
+            "X-FOO-Signature": createBenefitPayCheckStatusSignature(body),
+            "X-FOO-Signature-Type": "KEYVAL"
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000)
+    });
+    const responseText = await upstreamResponse.text();
+    if (responseText.length > 131_072) {
+        throw benefitPaymentError("BENEFITPAY_RESPONSE_INVALID", 502, "BenefitPay returned an invalid response.");
+    }
+    let payload;
+    try {
+        payload = JSON.parse(responseText);
+    } catch {
+        throw benefitPaymentError("BENEFITPAY_RESPONSE_INVALID", 502, "BenefitPay returned an invalid response.");
+    }
+    if (!upstreamResponse.ok || payload?.meta?.status !== "OK" || !payload?.response) {
+        throw benefitPaymentError("BENEFITPAY_QUERY_FAILED", 502, "BenefitPay could not confirm the transaction.");
+    }
+    return payload.response;
 }
 
 function normalizeBenefitIdentifier(value, maxLength = 255) {
@@ -8775,6 +8840,151 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/payments/benefitpay/session") {
+        let body;
+        try {
+            body = await readBody(request, 16_384);
+        } catch (error) {
+            sendJSON(response, error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400, { error: "Invalid request." });
+            return;
+        }
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const orderID = normalizeBenefitIdentifier(body.orderID || body.orderId);
+        if (!orderID) {
+            sendJSON(response, 400, { error: "Provide a valid existing orderID." });
+            return;
+        }
+        try {
+            if (!benefitPayConfigured()) {
+                throw benefitPaymentError("BENEFITPAY_NOT_CONFIGURED", 503, "BenefitPay is not configured.");
+            }
+            const order = await findOrderByID(orderID);
+            if (!order) {
+                throw benefitPaymentError("BENEFITPAY_ORDER_NOT_FOUND", 404, "Order not found.");
+            }
+            if (!timingSafeStringEqual(normalizeEmail(order.email), normalizeEmail(customer.email))) {
+                throw benefitPaymentError("BENEFITPAY_ORDER_FORBIDDEN", 403, "This order does not belong to the authenticated customer.");
+            }
+            if (orderCurrency(order) !== "BHD") {
+                throw benefitPaymentError("BENEFITPAY_CURRENCY_MISMATCH", 409, "The stored order currency is not BHD.");
+            }
+            const totalFils = bhdFils(numericOrderTotal(order));
+            if (totalFils === null || totalFils <= 0) {
+                throw benefitPaymentError("BENEFITPAY_AMOUNT_INVALID", 409, "The stored order does not have a valid payable total.");
+            }
+            const amount = (totalFils / 1000).toFixed(3);
+            const referenceID = `BP${Date.now()}${crypto.randomBytes(8).toString("hex")}`;
+            const paymentToken = crypto.randomBytes(24).toString("base64url");
+            await createBenefitPendingPayment({
+                trackID: referenceID,
+                orderID,
+                email: customer.email,
+                amount,
+                currency: "BHD",
+                resultTokenHash: sha256Hex(paymentToken),
+                createdAt: new Date().toISOString()
+            });
+            console.info(`BenefitPay SDK session prepared for order ${orderID}.`);
+            sendJSON(response, 200, {
+                appId: benefitPayConfiguration.appID,
+                merchantId: benefitPayConfiguration.merchantID,
+                merchantName: benefitPayConfiguration.merchantName,
+                merchantCity: benefitPayConfiguration.merchantCity,
+                merchantCategoryCode: benefitPayConfiguration.merchantCategoryCode,
+                countryCode: benefitPayConfiguration.countryCode,
+                currencyCode: "048",
+                amount,
+                referenceId: referenceID,
+                callbackTag: "tallabenefitpay",
+                paymentToken,
+                orderId: orderID
+            });
+        } catch (error) {
+            console.error("BenefitPay SDK session creation failed:", error.code || "BENEFITPAY_SESSION_FAILED");
+            const publicError = benefitPublicError(error);
+            sendJSON(response, publicError.statusCode, { error: publicError.message });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/benefitpay/confirm") {
+        let body;
+        try {
+            body = await readBody(request, 16_384);
+        } catch (error) {
+            sendJSON(response, error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400, { error: "Invalid request." });
+            return;
+        }
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const orderID = normalizeBenefitIdentifier(body.orderID || body.orderId);
+        const referenceID = normalizeBenefitIdentifier(body.referenceID || body.referenceId);
+        const paymentToken = normalizeBenefitIdentifier(body.paymentToken, 255);
+        if (!orderID || !referenceID || !paymentToken) {
+            sendJSON(response, 400, { error: "Provide a valid BenefitPay payment reference." });
+            return;
+        }
+        try {
+            if (!benefitPayConfigured()) {
+                throw benefitPaymentError("BENEFITPAY_NOT_CONFIGURED", 503, "BenefitPay is not configured.");
+            }
+            const payment = await findBenefitPaymentByTrackID(referenceID);
+            const order = payment ? await findOrderByID(payment.orderID) : null;
+            if (!payment || !order || !timingSafeStringEqual(payment.orderID, orderID)) {
+                throw benefitPaymentError("BENEFITPAY_PAYMENT_NOT_FOUND", 404, "BenefitPay payment was not found.");
+            }
+            if (!timingSafeStringEqual(normalizeEmail(payment.email), normalizeEmail(customer.email))) {
+                throw benefitPaymentError("BENEFITPAY_ORDER_FORBIDDEN", 403, "This order does not belong to the authenticated customer.");
+            }
+            if (!timingSafeStringEqual(sha256Hex(paymentToken), payment.resultTokenHash)) {
+                throw benefitPaymentError("BENEFITPAY_TOKEN_MISMATCH", 409, "BenefitPay payment reference does not match.");
+            }
+            const transaction = await queryBenefitPayTransaction(referenceID);
+            const isPaid = String(transaction.status || "").toLowerCase() === "success";
+            const notification = {
+                trackID: referenceID,
+                orderID,
+                resultToken: paymentToken,
+                amount: String(transaction.amount || ""),
+                currency: String(transaction.currency || "").toUpperCase(),
+                result: isPaid ? "CAPTURED" : "NOT CAPTURED",
+                paymentID: String(transaction.transaction_receipt || transaction.reference_number || ""),
+                transactionID: String(transaction.reference_number || transaction.transaction_receipt || ""),
+                referenceID: String(transaction.reference_number || ""),
+                authCode: String(transaction.authorization_code || ""),
+                authResponseCode: isPaid ? "00" : "",
+                errorCode: String(transaction.error_code || ""),
+                errorText: String(transaction.error_description || "")
+            };
+            verifyBenefitNotification(payment, order, notification);
+            await recordBenefitNotification(
+                payment,
+                notification,
+                sha256Hex(JSON.stringify({ referenceID, status: notification.result }))
+            );
+            const result = await withBenefitPaymentLock(
+                referenceID,
+                () => applyBenefitNotification(referenceID, notification)
+            );
+            console.info(`BenefitPay transaction confirmed for order ${orderID}: applied=${result.applied}.`);
+            sendJSON(response, 200, {
+                status: isPaid ? "succeeded" : "failed",
+                orderId: orderID,
+                duplicate: isPaid && !result.applied
+            });
+        } catch (error) {
+            console.error("BenefitPay transaction confirmation failed:", error.code || "BENEFITPAY_CONFIRM_FAILED");
+            const publicError = benefitPublicError(error);
+            sendJSON(response, publicError.statusCode, { error: publicError.message });
+        }
+        return;
+    }
+
     if (request.method === "POST" && benefitPathMatches(url.pathname, "/api/payments/benefit/create")) {
         let body;
         let pendingTrackID = "";
@@ -9832,6 +10042,7 @@ module.exports = {
     applyBenefitNotification,
     benefitResultState,
     bhdFils,
+    createBenefitPayCheckStatusSignature,
     parseBenefitCallbackRequest,
     renderBenefitResultPage,
     server,

@@ -6,3 +6,4 @@ talla-speciality-app/
 keystore.bin
 keystore.pooh
 resource.cgn
+Config/BenefitPaySecrets.xcconfig

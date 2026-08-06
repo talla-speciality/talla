@@ -16,10 +16,26 @@
 				<string>talla</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>None</string>
+			<key>CFBundleURLName</key>
+			<string>com.talla.speciality.benefitpay</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tallabenefitpay</string>
+			</array>
+		</dict>
 	</array>
+	<key>BenefitPaySDKSecretKey</key>
+	<string>$(BENEFITPAY_SDK_SECRET_KEY)</string>
 	<key>INIntentsSupported</key>
 	<array>
 		<string>Intent</string>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>benefitinapp</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

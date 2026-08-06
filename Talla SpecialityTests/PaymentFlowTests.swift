@@ -44,18 +44,19 @@ struct PaymentFlowTests {
     }
 
     @Test func selectorContainsAllRequiredMethods() {
-        #expect(Set(TallaPaymentMethod.allCases) == Set([.benefit, .card, .applePay, .clickToPay]))
+        #expect(Set(TallaPaymentMethod.allCases) == Set([.benefitPay, .benefit, .card, .applePay, .clickToPay]))
         #expect(TallaPaymentService.applePayMerchantIdentifier == "merchant.talla.me")
     }
 
     @Test func paymentMethodsUseTheRequiredDisplayOrder() {
-        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: true) == [.applePay, .benefit, .card, .clickToPay])
-        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: false) == [.benefit, .card, .clickToPay])
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: true) == [.applePay, .benefitPay, .benefit, .card, .clickToPay])
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: false) == [.benefitPay, .benefit, .card, .clickToPay])
         #expect(!PaymentMethodSelectorView.visibleMethods(applePayAvailable: false).contains(.applePay))
     }
 
     @Test func everyPaymentMethodUsesItsExistingRoute() {
         #expect(TallaPaymentMethod.benefit.route == .benefitHosted)
+        #expect(TallaPaymentMethod.benefitPay.route == .benefitPaySDK)
         #expect(TallaPaymentMethod.card.route == .cardGateway)
         #expect(TallaPaymentMethod.applePay.route == .applePayGateway)
         #expect(TallaPaymentMethod.clickToPay.route == .clickToPayHosted)

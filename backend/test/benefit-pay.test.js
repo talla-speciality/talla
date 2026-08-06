@@ -15,10 +15,18 @@ process.env.BENEFIT_API_ENDPOINT = "https://benefit.test/payment/API/hosted.htm"
 process.env.BENEFIT_SUCCESS_URL = "https://merchant.test/api/payments/benefit/result";
 process.env.BENEFIT_ERROR_URL = "https://merchant.test/api/payments/benefit/result";
 process.env.BENEFIT_NOTIFICATION_URL = "https://merchant.test/api/payments/benefit/response";
+process.env.BENEFITPAY_APP_ID = "app-test";
+process.env.BENEFITPAY_MERCHANT_ID = "merchant-test";
+process.env.BENEFITPAY_SECRET_KEY = "benefitpay-test-secret";
+process.env.BENEFITPAY_CHECK_STATUS_URL = "https://api.test-benefitpay.bh/web/v1/merchant/transaction/check-status";
+process.env.BENEFITPAY_MERCHANT_NAME = "Talla Test";
+process.env.BENEFITPAY_MERCHANT_CITY = "Manama";
+process.env.BENEFITPAY_MCC = "5814";
 delete process.env.DATABASE_URL;
 
 const benefitGateway = require("../benefit-gateway");
 const {
+    createBenefitPayCheckStatusSignature,
     renderBenefitResultPage,
     server,
     verifyBenefitNotification
@@ -48,6 +56,16 @@ test.after(async () => {
 function sha256(value) {
     return require("node:crypto").createHash("sha256").update(value).digest("hex");
 }
+
+test("BenefitPay check-status signature matches the documented KEYVAL HMAC vector", () => {
+    assert.equal(
+        createBenefitPayCheckStatusSignature({
+            reference_id: "BP123",
+            merchant_id: "merchant-test"
+        }),
+        "l8fB6TaPtQRlTpPnbkv160AE1S3WLrE1en+B/KvFJIU="
+    );
+});
 
 function resetStores(options = {}) {
     const storedOrderID = options.orderID || orderID;
