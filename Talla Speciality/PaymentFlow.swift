@@ -1037,7 +1037,7 @@ enum MastercardSDKClient {
     private static let gatewayRegion = GatewayRegion.other(
         id: "eazypay",
         name: "EazyPay",
-        baseURL: "https://eazypay.gateway.mastercard.com"
+        baseURL: "eazypay.gateway.mastercard.com"
     )
 
     static func configure(for session: TallaPaymentService.Session) {

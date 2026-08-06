@@ -8306,7 +8306,10 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "POST" && url.pathname === "/payments/apple-pay/authorize") {
+    if (request.method === "POST" && [
+        "/api/payments/apple-pay/authorize",
+        "/payments/apple-pay/authorize"
+    ].includes(url.pathname)) {
         let body;
         let paymentForFailure = null;
         try {
