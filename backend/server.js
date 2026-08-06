@@ -8347,13 +8347,14 @@ const server = http.createServer(async (request, response) => {
             }
             const purchaseTransactionID = payment.purchaseTransactionID || createMpgsTransactionID("APAY");
             await updateCardPaymentLifecycle(payment.paymentID, { purchaseTransactionID, status: "Processing" });
-            await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
+            const purchaseResponse = await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
                 orderId: payment.mpgsOrderID,
                 transactionId: purchaseTransactionID,
                 sessionId: payment.sessionID,
                 amount: payment.amount,
                 walletProvider: "APPLE_PAY"
             });
+            mpgsGateway.assertMpgsPaymentAccepted(purchaseResponse);
             const gatewayOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, payment.mpgsOrderID);
             const applied = await applyConfirmedMpgsPayment(payment.paymentID, gatewayOrder);
             console.info(`MPGS Apple Pay confirmed for order ${localOrderID}: applied=${applied.applied}.`);
@@ -8366,7 +8367,11 @@ const server = http.createServer(async (request, response) => {
                     console.error("MPGS Apple Pay decline could not be recorded:", storageError.code || "MPGS_STORAGE_FAILED");
                 }
             }
-            console.error("MPGS Apple Pay completion failed:", error.code || "MPGS_APPLE_PAY_FAILED");
+            console.error(
+                "MPGS Apple Pay completion failed:",
+                error.code || "MPGS_APPLE_PAY_FAILED",
+                mpgsGateway.mpgsErrorLogDetails(error)
+            );
             const publicError = mpgsGateway.normalizeMpgsError(error);
             sendJSON(response, publicError.statusCode, { error: publicError.message });
         }
@@ -8692,13 +8697,14 @@ const server = http.createServer(async (request, response) => {
                 purchaseTransactionID,
                 status: "Processing"
             });
-            await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
+            const purchaseResponse = await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
                 orderId: payment.mpgsOrderID,
                 transactionId: purchaseTransactionID,
                 authenticationTransactionId: payment.authenticationTransactionID,
                 sessionId: payment.sessionID,
                 amount: payment.amount
             });
+            mpgsGateway.assertMpgsPaymentAccepted(purchaseResponse);
             const gatewayOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, payment.mpgsOrderID);
             const applied = await applyConfirmedMpgsPayment(payment.paymentID, gatewayOrder);
             console.info(`MPGS card payment confirmed for order ${localOrderID}: applied=${applied.applied}.`);
@@ -8715,7 +8721,11 @@ const server = http.createServer(async (request, response) => {
                     console.error("MPGS card decline could not be recorded:", storageError.code || "MPGS_STORAGE_FAILED");
                 }
             }
-            console.error("MPGS completion verification failed:", error.code || "MPGS_COMPLETE_FAILED");
+            console.error(
+                "MPGS completion verification failed:",
+                error.code || "MPGS_COMPLETE_FAILED",
+                mpgsGateway.mpgsErrorLogDetails(error)
+            );
             const publicError = mpgsGateway.normalizeMpgsError(error);
             sendJSON(response, publicError.statusCode, { error: publicError.message });
         }

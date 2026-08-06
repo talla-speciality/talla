@@ -378,6 +378,28 @@ test("card and Apple Pay PURCHASE use the stored session without payment tokens"
     assert.doesNotMatch(JSON.stringify(calls), /paymentToken|cardNumber|cvv/i);
 });
 
+test("PAY rejection exposes only sanitized gateway diagnostics", () => {
+    assert.throws(
+        () => mpgsGateway.assertMpgsPaymentAccepted({
+            result: "ERROR",
+            error: {
+                cause: "INVALID_REQUEST\nignored",
+                supportCode: "abc-123"
+            },
+            response: { gatewayCode: "DECLINED" }
+        }),
+        (error) => {
+            assert.equal(error.code, "MPGS_UPSTREAM_REJECTED");
+            assert.equal(error.gatewayCause, "INVALID_REQUEST ignored");
+            assert.equal(
+                mpgsGateway.mpgsErrorLogDetails(error),
+                "cause=INVALID_REQUEST ignored gatewayCode=DECLINED supportCode=abc-123"
+            );
+            return true;
+        }
+    );
+});
+
 test("Click to Pay initiates Hosted Checkout with PURCHASE and backend BHD amount", async () => {
     const calls = [];
     await mpgsGateway.initiateMpgsCheckout(configuration, {

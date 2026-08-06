@@ -74,6 +74,49 @@ function normalizeMpgsError(error) {
     };
 }
 
+function sanitizedGatewayDetail(value, maxLength = 100) {
+    return String(value || "")
+        .replace(/[\r\n\t]+/g, " ")
+        .replace(/[^A-Za-z0-9 ._:#-]/g, "")
+        .trim()
+        .slice(0, maxLength);
+}
+
+function mpgsErrorLogDetails(error) {
+    const details = [
+        ["cause", error?.gatewayCause],
+        ["gatewayCode", error?.gatewayCode],
+        ["supportCode", error?.gatewaySupportCode]
+    ].map(([label, value]) => {
+        const sanitized = sanitizedGatewayDetail(value);
+        return sanitized ? `${label}=${sanitized}` : "";
+    }).filter(Boolean);
+    return details.length > 0 ? details.join(" ") : "details=unavailable";
+}
+
+function assertMpgsPaymentAccepted(payload) {
+    const result = sanitizedGatewayDetail(payload?.result || "UNKNOWN", 30).toUpperCase();
+    if (result === "SUCCESS") {
+        return payload;
+    }
+    const details = {
+        gatewayCause: sanitizedGatewayDetail(payload?.error?.cause || result),
+        gatewayCode: sanitizedGatewayDetail(
+            payload?.response?.gatewayCode || payload?.response?.acquirerCode
+        ),
+        gatewaySupportCode: sanitizedGatewayDetail(payload?.error?.supportCode)
+    };
+    if (result === "FAILURE") {
+        throw mpgsError("MPGS_PAYMENT_NOT_APPROVED", 402, "Card payment was not approved.", details);
+    }
+    throw mpgsError(
+        "MPGS_UPSTREAM_REJECTED",
+        502,
+        "Card payment service rejected the request.",
+        details
+    );
+}
+
 async function mpgsRequest(
     configuration,
     method,
@@ -120,8 +163,11 @@ async function mpgsRequest(
     }
     if (!response.ok || (!allowGatewayFailure && (payload.result === "ERROR" || payload.result === "FAILURE"))) {
         throw mpgsError("MPGS_UPSTREAM_REJECTED", 502, "Card payment service rejected the request.", {
-            gatewayCause: String(payload.error?.cause || payload.result || "UNKNOWN").slice(0, 80),
-            gatewaySupportCode: String(payload.error?.supportCode || "").slice(0, 100)
+            gatewayCause: sanitizedGatewayDetail(payload.error?.cause || payload.result || "UNKNOWN", 80),
+            gatewayCode: sanitizedGatewayDetail(
+                payload.response?.gatewayCode || payload.response?.acquirerCode
+            ),
+            gatewaySupportCode: sanitizedGatewayDetail(payload.error?.supportCode)
         });
     }
     return payload;
@@ -426,6 +472,7 @@ module.exports = {
     DEFAULT_API_VERSION,
     DEFAULT_BASE_URL,
     authenticateMpgsPayer,
+    assertMpgsPaymentAccepted,
     createMpgsSession,
     createMpgsIdentifiers,
     executeMpgsPurchase,
@@ -434,6 +481,7 @@ module.exports = {
     initiateMpgsCheckout,
     mpgsAuthorizationHeader,
     mpgsConfigurationIsValid,
+    mpgsErrorLogDetails,
     normalizeMpgsAuthenticationOutcome,
     normalizeMpgsError,
     orderAmount,
