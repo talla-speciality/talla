@@ -324,7 +324,8 @@ async function executeMpgsPurchase(
             currency: "BHD",
             ...(walletProvider ? { walletProvider } : {})
         },
-        session: { id: sessionId }
+        session: { id: sessionId },
+        sourceOfFunds: { type: "CARD" }
     }, fetchImpl);
 }
 

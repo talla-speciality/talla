@@ -422,8 +422,10 @@ test("card and Apple Pay PURCHASE use the stored session without payment tokens"
     const appleBody = JSON.parse(calls[1].options.body);
     assert.equal(cardBody.apiOperation, "PAY");
     assert.equal(cardBody.authentication.transactionId, "AUTH1");
+    assert.equal(cardBody.sourceOfFunds.type, "CARD");
     assert.equal(appleBody.apiOperation, "PAY");
     assert.equal(appleBody.authentication, undefined);
+    assert.equal(appleBody.sourceOfFunds.type, "CARD");
     assert.doesNotMatch(JSON.stringify(calls), /paymentToken|cardNumber|cvv/i);
 });
 
