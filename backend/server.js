@@ -3526,6 +3526,9 @@ function renderClickToPayLaunch(payment, resultToken) {
     const gatewayOrigin = new URL(mpgsConfiguration.baseURL).origin;
     const checkoutScript = `${gatewayOrigin}/static/checkout/checkout.min.js`;
     const returnURL = publicPaymentURL("/api/payments/click-to-pay/return", resultToken);
+    const errorURL = publicPaymentURL("/api/payments/click-to-pay/return", resultToken, { error: 1 });
+    const cancelURL = publicPaymentURL("/api/payments/click-to-pay/return", resultToken, { cancelled: 1 });
+    const timeoutURL = publicPaymentURL("/api/payments/click-to-pay/return", resultToken, { timeout: 1 });
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -3534,13 +3537,17 @@ function renderClickToPayLaunch(payment, resultToken) {
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' ${escapeHTML(gatewayOrigin)}; style-src 'unsafe-inline'; connect-src ${escapeHTML(gatewayOrigin)}; frame-src ${escapeHTML(gatewayOrigin)}; form-action ${escapeHTML(gatewayOrigin)}; base-uri 'none'">
     <title>Opening Click to Pay</title>
     <style>body{font-family:-apple-system,sans-serif;background:#f7f3ea;color:#231f1a;display:grid;min-height:100vh;place-items:center;margin:0}main{text-align:center;padding:2rem}p{line-height:1.5}</style>
-    <script src="${escapeHTML(checkoutScript)}" data-error="paymentError" data-cancel="paymentCancelled"></script>
+    <script>
+    function paymentComplete(){ window.location.replace(${JSON.stringify(returnURL)}); }
+    function paymentError(){ window.location.replace(${JSON.stringify(errorURL)}); }
+    function paymentCancelled(){ window.location.replace(${JSON.stringify(cancelURL)}); }
+    function paymentTimeout(){ window.location.replace(${JSON.stringify(timeoutURL)}); }
+    </script>
+    <script src="${escapeHTML(checkoutScript)}" data-complete="paymentComplete" data-error="paymentError" data-cancel="paymentCancelled" data-timeout="paymentTimeout"></script>
 </head>
 <body><main><h1>Opening secure checkout</h1><p>Please wait while Mastercard Click to Pay opens.</p></main>
 <script>
-function paymentError(){ window.location.replace(${JSON.stringify(publicPaymentURL("/api/payments/click-to-pay/return", resultToken, { error: 1 }))}); }
-function paymentCancelled(){ window.location.replace(${JSON.stringify(publicPaymentURL("/api/payments/click-to-pay/return", resultToken, { cancelled: 1 }))}); }
-Checkout.configure({session:{id:${JSON.stringify(payment.sessionID)}},interaction:{returnUrl:${JSON.stringify(returnURL)}}});
+Checkout.configure({session:{id:${JSON.stringify(payment.sessionID)}}});
 Checkout.showPaymentPage();
 </script></body></html>`;
 }
@@ -3552,7 +3559,10 @@ function renderMpgsResultPage(state) {
         failure: ["Payment not completed", "The payment could not be confirmed. No order was marked paid."],
         pending: ["Payment pending", "The gateway has not confirmed payment yet. Check your order again shortly."]
     }[state] || ["Payment pending", "The payment is still being checked."];
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHTML(content[0])}</title><style>body{font-family:-apple-system,sans-serif;background:#f7f3ea;color:#231f1a;display:grid;min-height:100vh;place-items:center;margin:0}main{background:#fffdf8;border-radius:20px;padding:2rem;width:min(84vw,28rem);text-align:center}a{display:inline-block;background:#231f1a;color:white;padding:.8rem 1.2rem;border-radius:999px;text-decoration:none}</style></head><body><main><h1>${escapeHTML(content[0])}</h1><p>${escapeHTML(content[1])}</p><a href="talla://checkout-return">Return to Talla</a></main></body></html>`;
+    const appStatus = state === "success"
+        ? "success"
+        : state === "cancelled" ? "cancelled" : state === "failure" ? "failed" : "pending";
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHTML(content[0])}</title><style>body{font-family:-apple-system,sans-serif;background:#f7f3ea;color:#231f1a;display:grid;min-height:100vh;place-items:center;margin:0}main{background:#fffdf8;border-radius:20px;padding:2rem;width:min(84vw,28rem);text-align:center}a{display:inline-block;background:#231f1a;color:white;padding:.8rem 1.2rem;border-radius:999px;text-decoration:none}</style></head><body><main><h1>${escapeHTML(content[0])}</h1><p>${escapeHTML(content[1])}</p><a href="talla://checkout-return?status=${appStatus}">Return to Talla</a></main></body></html>`;
 }
 
 function benefitPaymentError(code, statusCode, message) {
@@ -8830,7 +8840,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/payments/click-to-pay/return") {
         const resultToken = normalizeCardPaymentIdentifier(url.searchParams.get("payment"), 200);
         const cancelled = url.searchParams.get("cancelled") === "1";
-        let state = cancelled ? "cancelled" : "pending";
+        const errored = url.searchParams.get("error") === "1";
+        let state = cancelled ? "cancelled" : errored ? "failure" : "pending";
         try {
             const payment = await findCardPaymentByResultToken(resultToken);
             if (!payment || payment.paymentMethod !== "CLICK_TO_PAY") {
@@ -8846,7 +8857,7 @@ const server = http.createServer(async (request, response) => {
                 } catch (error) {
                     if (error.code !== "MPGS_PAYMENT_NOT_APPROVED") throw error;
                     await updateCardPaymentLifecycle(payment.paymentID, {
-                        status: cancelled ? "Cancelled" : "Pending",
+                        status: cancelled ? "Cancelled" : errored ? "Failed" : "Pending",
                         gatewayResult: String(gatewayOrder.result || "UNKNOWN"),
                         lastGatewayResponseAt: new Date().toISOString()
                     });
@@ -8854,7 +8865,7 @@ const server = http.createServer(async (request, response) => {
             }
         } catch (error) {
             console.error("MPGS Click to Pay verification failed:", error.code || "MPGS_CLICK_VERIFY_FAILED");
-            state = cancelled ? "cancelled" : "pending";
+            state = cancelled ? "cancelled" : errored ? "failure" : "pending";
         }
         sendHTML(response, 200, renderMpgsResultPage(state), {
             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
@@ -10071,7 +10082,9 @@ module.exports = {
     createBenefitPayReferenceID,
     normalizeBenefitPayMPQRText,
     parseBenefitCallbackRequest,
+    renderClickToPayLaunch,
     renderBenefitResultPage,
+    renderMpgsResultPage,
     server,
     startServer,
     verifyConfirmedMpgsOrder,
