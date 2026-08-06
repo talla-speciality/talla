@@ -61,6 +61,7 @@ const benefitPayConfiguration = {
 const mpgsConfiguration = {
     merchantId: config.mpgsMerchantID,
     apiPassword: config.mpgsAPIPassword,
+    secondaryApiPassword: config.mpgsAPISecondaryPassword,
     apiVersion: config.mpgsAPIVersion,
     baseURL: config.mpgsBaseURL
 };

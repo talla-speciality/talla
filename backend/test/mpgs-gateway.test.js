@@ -11,6 +11,7 @@ const configuration = {
     apiVersion: "100",
     baseURL: "https://eazypay.gateway.mastercard.com"
 };
+const secondaryAPIPassword = "secondary-secret-api-password";
 const sessionID = "SESSION1234567890123456789012345";
 const customerEmail = "card.customer@example.com";
 
@@ -182,6 +183,53 @@ test("Mastercard create-session failure is normalized without credentials", asyn
     assert.doesNotMatch(JSON.stringify(normalized), /super-secret-api-password/);
 });
 
+test("authentication failure retries once with the secondary API password", async () => {
+    const calls = [];
+    const fallbackConfiguration = { ...configuration, secondaryApiPassword: secondaryAPIPassword };
+    const payload = await mpgsGateway.createMpgsSession(fallbackConfiguration, async (url, options) => {
+        calls.push({ url: String(url), options });
+        if (calls.length === 1) {
+            return jsonResponse({ result: "ERROR", error: { cause: "AUTHENTICATION_FAILED" } }, 401);
+        }
+        return jsonResponse({
+            result: "SUCCESS",
+            session: { id: sessionID, version: "0000000001", updateStatus: "NO_UPDATE" }
+        });
+    });
+
+    assert.equal(payload.session.id, sessionID);
+    assert.equal(calls.length, 2);
+    assert.notEqual(calls[0].options.headers.Authorization, calls[1].options.headers.Authorization);
+    assert.equal(
+        calls[0].options.headers.Authorization,
+        mpgsGateway.mpgsAuthorizationHeader(fallbackConfiguration, configuration.apiPassword)
+    );
+    assert.equal(
+        calls[1].options.headers.Authorization,
+        mpgsGateway.mpgsAuthorizationHeader(fallbackConfiguration, secondaryAPIPassword)
+    );
+    assert.doesNotMatch(JSON.stringify(payload), /secret-api-password/);
+});
+
+test("secondary API password is not tried for non-authentication failures", async () => {
+    const fallbackConfiguration = { ...configuration, secondaryApiPassword: secondaryAPIPassword };
+    for (const response of [
+        jsonResponse({ result: "ERROR", error: { cause: "INVALID_REQUEST" } }, 400),
+        jsonResponse({ result: "FAILURE", response: { gatewayCode: "DECLINED" } }, 200),
+        jsonResponse({ result: "ERROR", error: { cause: "SERVER_BUSY" } }, 500)
+    ]) {
+        let calls = 0;
+        await assert.rejects(
+            mpgsGateway.createMpgsSession(fallbackConfiguration, async () => {
+                calls += 1;
+                return response;
+            }),
+            (error) => error.code === "MPGS_UPSTREAM_REJECTED"
+        );
+        assert.equal(calls, 1);
+    }
+});
+
 test("Mastercard update-session failure does not persist a pending payment", async () => {
     let requestCount = 0;
     let persisted = false;
@@ -228,6 +276,7 @@ test("API password appears only in the outbound authorization header", async () 
     assert.doesNotMatch(JSON.stringify(calls.map(({ url, options }) => ({ url, body: options.body }))), /super-secret-api-password/);
     const serverSource = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
     assert.doesNotMatch(serverSource, /console\.[a-z]+\([^\n]*(?:mpgsAPIPassword|mpgsConfiguration\.apiPassword)/i);
+    assert.doesNotMatch(serverSource, /console\.[a-z]+\([^\n]*(?:mpgsAPISecondaryPassword|secondaryApiPassword)/i);
 });
 
 test("retrieve session uses GET and returns the current gateway version", async () => {

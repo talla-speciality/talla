@@ -17,6 +17,7 @@ function normalizedConfiguration(configuration = {}) {
     return {
         merchantId: String(configuration.merchantId || "").trim(),
         apiPassword: String(configuration.apiPassword || ""),
+        secondaryApiPassword: String(configuration.secondaryApiPassword || ""),
         apiVersion: String(configuration.apiVersion || DEFAULT_API_VERSION).trim(),
         baseURL: String(configuration.baseURL || DEFAULT_BASE_URL).trim()
     };
@@ -37,12 +38,18 @@ function mpgsConfigurationIsValid(configuration = {}) {
     }
 }
 
-function mpgsAuthorizationHeader(configuration = {}) {
+function mpgsAuthorizationHeader(configuration = {}, apiPasswordOverride) {
     const normalized = normalizedConfiguration(configuration);
     if (!mpgsConfigurationIsValid(normalized)) {
         throw mpgsError("MPGS_NOT_CONFIGURED", 503, "Card payments are not configured.");
     }
-    return `Basic ${Buffer.from(`merchant.${normalized.merchantId}:${normalized.apiPassword}`, "utf8").toString("base64")}`;
+    const apiPassword = apiPasswordOverride === undefined
+        ? normalized.apiPassword
+        : String(apiPasswordOverride || "");
+    if (!apiPassword) {
+        throw mpgsError("MPGS_NOT_CONFIGURED", 503, "Card payments are not configured.");
+    }
+    return `Basic ${Buffer.from(`merchant.${normalized.merchantId}:${apiPassword}`, "utf8").toString("base64")}`;
 }
 
 function mpgsEndpoint(configuration, suffix = "") {
@@ -128,18 +135,27 @@ async function mpgsRequest(
     if (typeof fetchImpl !== "function") {
         throw mpgsError("MPGS_FETCH_UNAVAILABLE", 502, "Card payment service is unavailable.");
     }
+    const normalized = normalizedConfiguration(configuration);
+    const requestBody = body === undefined ? undefined : JSON.stringify(body);
+    const performRequest = (apiPassword) => fetchImpl(endpoint, {
+        method,
+        headers: {
+            Authorization: mpgsAuthorizationHeader(configuration, apiPassword),
+            Accept: "application/json",
+            "Content-Type": "application/json; charset=utf-8"
+        },
+        ...(requestBody === undefined ? {} : { body: requestBody }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
     let response;
     try {
-        response = await fetchImpl(endpoint, {
-            method,
-            headers: {
-                Authorization: mpgsAuthorizationHeader(configuration),
-                Accept: "application/json",
-                "Content-Type": "application/json; charset=utf-8"
-            },
-            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-        });
+        response = await performRequest(normalized.apiPassword);
+        const canRetryAuthentication = (response.status === 401 || response.status === 403)
+            && normalized.secondaryApiPassword
+            && normalized.secondaryApiPassword !== normalized.apiPassword;
+        if (canRetryAuthentication) {
+            response = await performRequest(normalized.secondaryApiPassword);
+        }
     } catch (error) {
         const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
         throw mpgsError(

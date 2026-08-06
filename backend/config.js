@@ -60,6 +60,7 @@ module.exports = {
     benefitPayCountryCode: process.env.BENEFITPAY_COUNTRY_CODE || "BH",
     mpgsMerchantID: process.env.MPGS_MERCHANT_ID || "",
     mpgsAPIPassword: process.env.MPGS_API_PASSWORD || "",
+    mpgsAPISecondaryPassword: process.env.MPGS_API_PASSWORD_SECONDARY || "",
     mpgsAPIVersion: process.env.MPGS_API_VERSION || "100",
     mpgsBaseURL: process.env.MPGS_BASE_URL || "https://eazypay.gateway.mastercard.com",
     apnsKeyID: process.env.APNS_KEY_ID || "",
