@@ -2086,7 +2086,7 @@ struct ContentView: View {
     }
 
     private func bottomScrollPadding(for tab: Tab) -> CGFloat {
-        tab == .account ? 104 : 76
+        tab == .account ? 56 : 28
     }
 
     private func dismissKeyboard() {
@@ -6530,23 +6530,32 @@ struct ContentView: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 3) {
-            Text("TALLA")
-                .font(displayFont(size: 22))
-                .tracking(3)
-                .foregroundColor(Color(hex: 0xC8965A))
+        VStack(spacing: 7) {
+            Text("Talla Speciality")
+                .font(.custom("Georgia", size: isCompact ? 19 : 21, relativeTo: .title3))
+                .tracking(1.1)
+                .foregroundColor(Color(hex: 0xB98243))
+                .lineLimit(1)
 
-            Text(AppLocalization.text("made_with_love_bahrain", fallback: "Made with love in Bahrain 🇧🇭"))
-                .font(.system(size: 10, weight: .medium))
-                .tracking(2)
-                .textCase(.uppercase)
-                .foregroundColor(tertiaryTextColor)
+            HStack(spacing: 7) {
+                Text("🇧🇭")
+                    .font(.system(size: 12))
+                    .accessibilityHidden(true)
+
+                Text(AppLocalization.text("made_in_bahrain", fallback: "Made in Bahrain"))
+                    .font(labelFont(size: 8, weight: .semibold))
+                    .tracking(1.3)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xA67236))
+            }
+            .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, 10)
+        .background(Color.white)
         .overlay(
             Rectangle()
-                .fill(Color(hex: 0xC8965A).opacity(0.1))
+                .fill(Color(hex: 0xC8965A).opacity(0.12))
                 .frame(height: 1),
             alignment: .top
         )
@@ -10385,12 +10394,10 @@ struct ContentView: View {
         checkoutError = nil
 
         do {
-            if selectedPaymentMethod.route == .eazyPayShopify {
+            if selectedPaymentMethod.route == .shopifyCashOnDelivery {
                 guard appliedVoucher == nil else {
                     throw LoyaltyServiceError.operationFailed("Remove the Talla voucher before using Shopify Checkout so the verified totals stay identical.")
                 }
-                let paymentID = "TL-\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
-                _ = try await AccountService.createEazyShopifyPaymentSession(tallaPaymentID: paymentID)
                 let lines = cartItems.map { ShopifyCheckoutLine(merchandiseId: $0.variant.id, quantity: $0.quantity) }
                 let checkoutAddress = preferredAddress.map { address in
                     ShopifyCheckoutAddress(
@@ -10405,15 +10412,12 @@ struct ContentView: View {
                 let checkoutURL = try await ShopifyStorefrontClient.createCheckoutURL(
                     lines: lines,
                     customerEmail: profile.email,
-                    checkoutAddress: checkoutAddress,
-                    tallaPaymentID: paymentID
+                    checkoutAddress: checkoutAddress
                 )
-                activeEazyShopifyPaymentID = paymentID
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                eazyShopifyBrowserKind = .shopifyEazy
-                checkoutSession = CheckoutSession(url: checkoutURL, kind: .shopifyEazy)
-                showToast(message: "Choose Pay with EazyPay in Shopify Checkout, then return to Talla.")
+                checkoutSession = CheckoutSession(url: checkoutURL)
+                showToast(message: "Choose Cash on Delivery in Shopify Checkout to place your order.")
                 isCheckingOut = false
                 return
             }
@@ -10451,11 +10455,6 @@ struct ContentView: View {
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
                 benefitPaySession = session
-            case .clickToPayHosted:
-                let checkout = try await TallaPaymentService.createClickToPay(orderID: checkoutStart.orderID)
-                paymentFlow.transition(to: .awaitingCustomer)
-                cartOpen = false
-                checkoutSession = CheckoutSession(url: checkout.paymentUrl)
             case .cardGateway:
                 guard MastercardSDKAvailability.isAvailable else {
                     throw PaymentServiceError.gateway("Gateway.xcframework and uSDK.xcframework are required for card entry and 3-D Secure.")
@@ -10483,7 +10482,7 @@ struct ContentView: View {
                     session: session,
                     kind: .applePay
                 )
-            case .eazyPayShopify:
+            case .shopifyCashOnDelivery:
                 break
             }
             appliedVoucher = nil

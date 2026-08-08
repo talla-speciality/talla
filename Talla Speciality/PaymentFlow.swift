@@ -65,7 +65,7 @@ private struct PaymentExperiencePreview: View {
 #Preview("Apple Pay Unavailable") { PaymentExperiencePreview(applePayAvailable: false) }
 #Preview("BENEFIT Selected") { PaymentExperiencePreview(selectedMethod: .benefit) }
 #Preview("Card Selected") { PaymentExperiencePreview(selectedMethod: .card) }
-#Preview("Click to Pay Selected") { PaymentExperiencePreview(selectedMethod: .clickToPay) }
+#Preview("Cash on Delivery Selected") { PaymentExperiencePreview(selectedMethod: .cashOnDelivery) }
 #Preview("Loading") { PaymentExperiencePreview(selectedMethod: .card, state: .creatingSession) }
 #Preview("Success") { PaymentExperiencePreview(selectedMethod: .card, state: .succeeded) }
 #Preview("Failure") { PaymentExperiencePreview(selectedMethod: .card, state: .failed) }
@@ -94,8 +94,7 @@ enum TallaPaymentRoute: String, Equatable {
     case benefitPaySDK
     case cardGateway
     case applePayGateway
-    case clickToPayHosted
-    case eazyPayShopify
+    case shopifyCashOnDelivery
 }
 
 enum TallaPaymentMethod: String, CaseIterable, Identifiable {
@@ -103,8 +102,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
     case benefitPay
     case card
     case applePay
-    case clickToPay
-    case eazyPay
+    case cashOnDelivery
 
     var id: String { rawValue }
 
@@ -114,8 +112,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefitPay: return .benefitPaySDK
         case .card: return .cardGateway
         case .applePay: return .applePayGateway
-        case .clickToPay: return .clickToPayHosted
-        case .eazyPay: return .eazyPayShopify
+        case .cashOnDelivery: return .shopifyCashOnDelivery
         }
     }
 
@@ -127,8 +124,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefitPay: return "BenefitPay"
         case .card: return AppLocalization.text("payment_card_title", fallback: "Credit or Debit Card")
         case .applePay: return "Apple Pay"
-        case .clickToPay: return "Click to Pay"
-        case .eazyPay: return "Pay with EazyPay"
+        case .cashOnDelivery:
+            return AppLocalization.text("payment_cash_on_delivery_title", fallback: "Cash on Delivery")
         }
     }
 
@@ -142,10 +139,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Pay securely using the BenefitPay app"
         case .card:
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
-        case .clickToPay:
-            return AppLocalization.text("payment_click_to_pay_subtitle", fallback: "Use your saved cards for a faster checkout")
-        case .eazyPay:
-            return "Complete your order through Shopify Checkout"
+        case .cashOnDelivery:
+            return AppLocalization.text("payment_cash_on_delivery_subtitle", fallback: "Pay when your order arrives")
         }
     }
 
@@ -159,10 +154,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Use cards saved in your BenefitPay wallet"
         case .card:
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
-        case .clickToPay:
-            return AppLocalization.text("payment_click_to_pay_sheet_subtitle", fallback: "Use supported saved cards for faster checkout")
-        case .eazyPay:
-            return "Shopify Checkout with secure EazyPay payment"
+        case .cashOnDelivery:
+            return AppLocalization.text("payment_cash_on_delivery_sheet_subtitle", fallback: "Complete your order through Shopify Checkout")
         }
     }
 
@@ -176,10 +169,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Requires the BenefitPay app on this device."
         case .card:
             return AppLocalization.text("payment_card_supporting", fallback: "For Bahrain-issued credit cards and cards issued outside Bahrain.")
-        case .clickToPay:
-            return AppLocalization.text("payment_click_to_pay_supporting", fallback: "Available with supported Visa, Mastercard and American Express cards.")
-        case .eazyPay:
-            return "Choose Pay with EazyPay inside Shopify Checkout."
+        case .cashOnDelivery:
+            return AppLocalization.text("payment_cash_on_delivery_supporting", fallback: "Available where cash collection is supported.")
         }
     }
 
@@ -193,10 +184,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Choose this to approve payment inside BenefitPay."
         case .card:
             return AppLocalization.text("payment_card_guidance", fallback: "Choose this for Visa, Mastercard or American Express credit/debit cards.")
-        case .clickToPay:
-            return AppLocalization.text("payment_click_to_pay_guidance", fallback: "Choose this to access eligible cards already saved with Click to Pay.")
-        case .eazyPay:
-            return "Creates a pending Shopify order, then opens EazyPay securely."
+        case .cashOnDelivery:
+            return AppLocalization.text("payment_cash_on_delivery_guidance", fallback: "Choose Cash on Delivery in Shopify Checkout before placing your order.")
         }
     }
 
@@ -210,10 +199,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Continue with BenefitPay"
         case .card:
             return AppLocalization.text("payment_card_action", fallback: "Enter card details")
-        case .clickToPay:
-            return AppLocalization.text("payment_click_to_pay_action", fallback: "Continue with Click to Pay")
-        case .eazyPay:
-            return "Continue to Shopify"
+        case .cashOnDelivery:
+            return AppLocalization.text("payment_cash_on_delivery_action", fallback: "Continue to Shopify")
         }
     }
 
@@ -223,8 +210,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefitPay: return "iphone.and.arrow.forward"
         case .card: return "creditcard.fill"
         case .applePay: return "wallet.pass.fill"
-        case .clickToPay: return "cursorarrow.click.2"
-        case .eazyPay: return "cart.badge.plus"
+        case .cashOnDelivery: return "banknote.fill"
         }
     }
 }
@@ -317,8 +303,8 @@ struct PaymentMethodSelectorView: View {
 
     static func visibleMethods(applePayAvailable: Bool) -> [TallaPaymentMethod] {
         applePayAvailable
-            ? [.applePay, .benefitPay, .benefit, .card, .clickToPay]
-            : [.benefitPay, .benefit, .card, .clickToPay]
+            ? [.applePay, .benefitPay, .benefit, .card, .cashOnDelivery]
+            : [.benefitPay, .benefit, .card, .cashOnDelivery]
     }
 
     var body: some View {
@@ -326,8 +312,7 @@ struct PaymentMethodSelectorView: View {
             ForEach(methods) { method in
                 let enabled = method == .benefit
                     || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
-                    || method == .clickToPay
-                    || method == .eazyPay
+                    || method == .cashOnDelivery
                     || gatewaySDKAvailable
                 Button {
                     guard enabled, !state.isBusy else { return }
@@ -441,13 +426,8 @@ struct PaymentMethodBadge: View {
                 Image("BenefitPayLogo")
                     .resizable()
                     .scaledToFill()
-            } else if method == .clickToPay {
-                Image("ClickToPayLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .padding(5)
-            } else if method == .eazyPay {
-                Image(systemName: "cart.badge.plus")
+            } else if method == .cashOnDelivery {
+                Image(systemName: "banknote.fill")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(accentColor)
             } else {
@@ -567,8 +547,7 @@ struct PaymentMethodSelectionSheet: View {
     private func isEnabled(_ method: TallaPaymentMethod) -> Bool {
         method == .benefit
             || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
-            || method == .clickToPay
-            || method == .eazyPay
+            || method == .cashOnDelivery
             || gatewaySDKAvailable
     }
 
