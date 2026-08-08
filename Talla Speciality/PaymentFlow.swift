@@ -200,7 +200,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .card:
             return AppLocalization.text("payment_card_action", fallback: "Enter card details")
         case .cashOnDelivery:
-            return AppLocalization.text("payment_cash_on_delivery_action", fallback: "Continue to Shopify")
+            return AppLocalization.text("payment_cash_on_delivery_action", fallback: "Continue with Cash on Delivery")
         }
     }
 

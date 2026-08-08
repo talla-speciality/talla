@@ -84,7 +84,7 @@ enum AppLocalization {
         "payment_cash_on_delivery_guidance": ["ar": "اختر الدفع عند الاستلام في صفحة دفع Shopify قبل تأكيد طلبك."],
         "payment_benefit_action": ["ar": "متابعة إلى بنفت"],
         "payment_card_action": ["ar": "إدخال بيانات البطاقة"],
-        "payment_cash_on_delivery_action": ["ar": "المتابعة إلى Shopify"],
+        "payment_cash_on_delivery_action": ["ar": "المتابعة بالدفع عند الاستلام"],
         "payment_complete_action": ["ar": "إتمام الدفع"],
         "payment_preparing": ["ar": "جارٍ تجهيز الدفع الآمن…"],
         "payment_verifying": ["ar": "جارٍ التحقق من عملية الدفع…"],
