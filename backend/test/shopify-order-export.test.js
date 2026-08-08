@@ -22,6 +22,13 @@ let orderCreateCalls = 0;
 let lastCreateVariables = null;
 
 test.before(() => {
+    fs.writeFileSync(path.join(dataDirectory, "addresses.json"), JSON.stringify({
+        addresses: {
+            "customer@example.com": [
+                { id: "address_1", phone: "+973 3900 1234", isPreferred: true }
+            ]
+        }
+    }));
     fs.writeFileSync(path.join(dataDirectory, "orders.json"), JSON.stringify({
         orders: {
             "customer@example.com": [
@@ -78,6 +85,7 @@ test("completed app orders are exported once without payment-provider details", 
     assert.deepEqual(lastCreateVariables.options, { inventoryBehaviour: "BYPASS", sendReceipt: false });
     assert.equal(lastCreateVariables.order.financialStatus, "PENDING");
     assert.equal(lastCreateVariables.order.currency, "BHD");
+    assert.equal(lastCreateVariables.order.phone, "+973 3900 1234");
     assert.deepEqual(lastCreateVariables.order.lineItems, [
         { variantId: "gid://shopify/ProductVariant/111", quantity: 2 }
     ]);

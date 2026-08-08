@@ -171,7 +171,7 @@ Do not use `127.0.0.1`, `localhost`, or a private LAN IP for production users.
 
 ## Shopify app-order mirroring
 
-After a Talla payment is confirmed and the local order becomes completed, the backend creates one matching Shopify order. It sends only the customer email, Shopify variant IDs, quantities, currency, and a generic Talla app tag/note. Payment gateway names, credentials, transaction IDs, and payment payloads are not sent.
+After a Talla payment is confirmed and the local order becomes completed, the backend creates one matching Shopify order. It sends only the customer email, preferred delivery phone number, Shopify variant IDs, quantities, currency, and a generic Talla app tag/note. Payment gateway names, credentials, transaction IDs, and payment payloads are not sent.
 
 The existing Shopify Admin token must include `write_orders`. Mirrored orders are intentionally created as `PENDING`, with receipts disabled and inventory behavior set to `BYPASS`, because Shopify is receiving an administrative copy rather than confirming or processing the payment.
 

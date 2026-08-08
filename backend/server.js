@@ -721,7 +721,21 @@ async function withShopifyOrderExportLock(localOrderID, operation) {
     }
 }
 
-function shopifyOrderCreateInput(order) {
+function normalizeShopifyOrderPhone(value) {
+    const phone = String(value || "").trim();
+    if (!phone || phone.length > 32 || !/^\+?[0-9 ()-]{6,32}$/.test(phone)) return "";
+    return phone;
+}
+
+async function customerPhoneForShopifyOrder(order) {
+    const storedPhone = normalizeShopifyOrderPhone(order?.customerPhone || order?.phone);
+    if (storedPhone) return storedPhone;
+    const addresses = await addressesFor(order?.email);
+    const preferredAddress = addresses.find((address) => address.isPreferred) || addresses[0];
+    return normalizeShopifyOrderPhone(preferredAddress?.phone);
+}
+
+function shopifyOrderCreateInput(order, customerPhone = "") {
     const lineItems = (Array.isArray(order.items) ? order.items : []).map((item) => {
         const variantID = String(item.variantId || item.variantID || "").trim();
         if (!variantID.startsWith("gid://shopify/ProductVariant/")) return null;
@@ -733,8 +747,10 @@ function shopifyOrderCreateInput(order) {
     if (lineItems.length === 0 || lineItems.some((item) => !item)) {
         throw new Error("SHOPIFY_ORDER_VARIANTS_MISSING");
     }
+    const phone = normalizeShopifyOrderPhone(customerPhone);
     return {
         email: normalizeEmail(order.email),
+        ...(phone ? { phone } : {}),
         currency: "BHD",
         financialStatus: "PENDING",
         lineItems,
@@ -765,6 +781,7 @@ async function exportCompletedOrderToShopify(localOrderID) {
         if (!order || !completedOrderStatuses().has(order.status)) return existing;
         const exportTag = shopifyOrderExportTag(normalizedID);
         try {
+            const customerPhone = await customerPhoneForShopifyOrder(order);
             let shopifyOrder = await findShopifyOrderByExportTag(exportTag);
             if (!shopifyOrder) {
                 const data = await shopifyAdminGraphQLRequest(
@@ -775,7 +792,7 @@ async function exportCompletedOrderToShopify(localOrderID) {
                         }
                     }`,
                     {
-                        order: shopifyOrderCreateInput(order),
+                        order: shopifyOrderCreateInput(order, customerPhone),
                         options: { inventoryBehaviour: "BYPASS", sendReceipt: false }
                     }
                 );
