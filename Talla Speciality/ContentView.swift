@@ -12390,6 +12390,34 @@ private enum ShopifyStorefrontClient {
             input["buyerIdentity"] = buyerIdentity
         }
 
+        let firstResponse = try await createCart(input: input)
+        if let checkoutURL = firstResponse.data?.cartCreate.cart?.checkoutUrl {
+            return checkoutURL
+        }
+
+        if input.removeValue(forKey: "buyerIdentity") != nil {
+            let fallbackResponse = try await createCart(input: input)
+            if let checkoutURL = fallbackResponse.data?.cartCreate.cart?.checkoutUrl {
+                return checkoutURL
+            }
+            if let userError = fallbackResponse.data?.cartCreate.userErrors.first {
+                throw ShopifyError.api(userError.message)
+            }
+            if let error = fallbackResponse.errors?.first {
+                throw ShopifyError.api(error.message)
+            }
+        }
+
+        if let userError = firstResponse.data?.cartCreate.userErrors.first {
+            throw ShopifyError.api(userError.message)
+        }
+        if let error = firstResponse.errors?.first {
+            throw ShopifyError.api(error.message)
+        }
+        throw ShopifyError.invalidResponse
+    }
+
+    private static func createCart(input: [String: Any]) async throws -> ShopifyCartCreateResponse {
         let body = ShopifyGraphQLRequest(
             query: """
             mutation CreateCart($input: CartInput) {
@@ -12407,22 +12435,7 @@ private enum ShopifyStorefrontClient {
                 "input": input
             ]
         )
-
-        let decoded: ShopifyCartCreateResponse = try await performRequest(body)
-
-        if let errors = decoded.errors, let first = errors.first {
-            throw ShopifyError.api(first.message)
-        }
-
-        if let userError = decoded.data?.cartCreate.userErrors.first {
-            throw ShopifyError.api(userError.message)
-        }
-
-        guard let checkoutURL = decoded.data?.cartCreate.cart?.checkoutUrl else {
-            throw ShopifyError.invalidResponse
-        }
-
-        return checkoutURL
+        return try await performRequest(body)
     }
 
     private static func performRequest<Response: Decodable>(_ body: ShopifyGraphQLRequest) async throws -> Response {

@@ -796,6 +796,31 @@ async function findShopifyOrderByExportTag(exportTag) {
     return data.orders?.nodes?.[0] || null;
 }
 
+async function createShopifyAppOrder(orderInput) {
+    const mutation = `mutation CreateTallaAppOrder($order: OrderCreateOrderInput!, $options: OrderCreateOptionsInput) {
+        orderCreate(order: $order, options: $options) {
+            order { id name displayFinancialStatus }
+            userErrors { field message }
+        }
+    }`;
+    const variablesFor = (order) => ({
+        order,
+        options: { inventoryBehaviour: "BYPASS", sendReceipt: false }
+    });
+    let input = orderInput;
+    let data = await shopifyAdminGraphQLRequest(mutation, variablesFor(input));
+    const phoneRejected = input.phone && data.orderCreate?.userErrors?.some((error) => (
+        /phone/i.test(String(error.field || "")) || /phone is invalid/i.test(String(error.message || ""))
+    ));
+    if (phoneRejected) {
+        input = { ...input };
+        delete input.phone;
+        data = await shopifyAdminGraphQLRequest(mutation, variablesFor(input));
+    }
+    assertShopifyUserErrors(data.orderCreate?.userErrors);
+    return data.orderCreate?.order || null;
+}
+
 async function exportCompletedOrderToShopify(localOrderID) {
     const normalizedID = String(localOrderID || "").trim();
     if (!normalizedID || normalizedID.startsWith("shopify_") || !shopifyAdminConfigured()) return null;
@@ -809,20 +834,7 @@ async function exportCompletedOrderToShopify(localOrderID) {
             const customerPhone = await customerPhoneForShopifyOrder(order);
             let shopifyOrder = await findShopifyOrderByExportTag(exportTag);
             if (!shopifyOrder) {
-                const data = await shopifyAdminGraphQLRequest(
-                    `mutation CreateTallaAppOrder($order: OrderCreateOrderInput!, $options: OrderCreateOptionsInput) {
-                        orderCreate(order: $order, options: $options) {
-                            order { id name displayFinancialStatus }
-                            userErrors { field message }
-                        }
-                    }`,
-                    {
-                        order: shopifyOrderCreateInput(order, customerPhone),
-                        options: { inventoryBehaviour: "BYPASS", sendReceipt: false }
-                    }
-                );
-                assertShopifyUserErrors(data.orderCreate?.userErrors);
-                shopifyOrder = data.orderCreate?.order;
+                shopifyOrder = await createShopifyAppOrder(shopifyOrderCreateInput(order, customerPhone));
             }
             if (!shopifyOrder?.id) throw new Error("SHOPIFY_ORDER_CREATE_INVALID_RESPONSE");
             const synced = await persistShopifyOrderExport({

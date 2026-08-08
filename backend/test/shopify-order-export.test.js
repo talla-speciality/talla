@@ -18,6 +18,7 @@ const {
 
 const completedOrderID = "checkout_1786200000000";
 const pendingOrderID = "checkout_1786200000001";
+const rejectedPhoneOrderID = "checkout_1786200000002";
 let orderCreateCalls = 0;
 let lastCreateVariables = null;
 
@@ -51,6 +52,16 @@ test.before(() => {
                         { name: "Coffee", quantity: 1, variantId: "gid://shopify/ProductVariant/111" }
                     ],
                     createdAt: "2026-08-08T10:01:00.000Z"
+                },
+                {
+                    id: rejectedPhoneOrderID,
+                    title: "Talla app checkout",
+                    total: "BHD 4.200",
+                    status: "Completed",
+                    items: [
+                        { name: "Coffee", quantity: 1, variantId: "gid://shopify/ProductVariant/111" }
+                    ],
+                    createdAt: "2026-08-08T10:02:00.000Z"
                 }
             ]
         }
@@ -66,6 +77,12 @@ test.before(() => {
         if (request.query.includes("CreateTallaAppOrder")) {
             orderCreateCalls += 1;
             lastCreateVariables = request.variables;
+            if (request.variables.order.sourceIdentifier === rejectedPhoneOrderID && request.variables.order.phone) {
+                return new Response(JSON.stringify({ data: { orderCreate: {
+                    order: null,
+                    userErrors: [{ field: ["order", "phone"], message: "Phone is invalid" }]
+                } } }), { status: 200 });
+            }
             return new Response(JSON.stringify({ data: { orderCreate: {
                 order: { id: "gid://shopify/Order/9001", name: "#9001", displayFinancialStatus: "PENDING" },
                 userErrors: []
@@ -129,4 +146,12 @@ test("invalid customer phone never blocks Shopify order creation", () => {
     }, "not-a-phone");
 
     assert.equal(input.phone, undefined);
+});
+
+test("Shopify phone rejection retries the order without phone", async () => {
+    const exported = await exportCompletedOrderToShopify(rejectedPhoneOrderID);
+
+    assert.equal(exported.status, "Synced");
+    assert.equal(orderCreateCalls, 3);
+    assert.equal(lastCreateVariables.order.phone, undefined);
 });
