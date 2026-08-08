@@ -6532,7 +6532,7 @@ struct ContentView: View {
     private var footer: some View {
         VStack(spacing: 7) {
             Text("Talla Speciality")
-                .font(.custom("Georgia", size: isCompact ? 19 : 21, relativeTo: .title3))
+                .font(.custom("ChalkboardSE-Bold", size: isCompact ? 27 : 30, relativeTo: .title2))
                 .tracking(1.1)
                 .foregroundColor(Color(hex: 0xB98243))
                 .lineLimit(1)
@@ -6543,7 +6543,7 @@ struct ContentView: View {
                     .accessibilityHidden(true)
 
                 Text(AppLocalization.text("made_in_bahrain", fallback: "Made in Bahrain"))
-                    .font(labelFont(size: 8, weight: .semibold))
+                    .font(.custom("ChalkboardSE-Regular", size: 10, relativeTo: .caption))
                     .tracking(1.3)
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0xA67236))
