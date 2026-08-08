@@ -1,7 +1,15 @@
 {
   "colors" : [
     {
-      "filename" : "talla flag white.PNG",
+      "color" : {
+        "color-space" : "srgb",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0.353",
+          "green" : "0.588",
+          "red" : "0.784"
+        }
+      },
       "idiom" : "universal"
     }
   ],
