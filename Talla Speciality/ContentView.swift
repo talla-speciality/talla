@@ -6830,7 +6830,7 @@ struct ContentView: View {
     }
 
     private var cartItemsListSection: some View {
-        ForEach(cartItems) { item in
+        ForEach($cartItems) { $item in
             HStack(alignment: .center, spacing: 10) {
                 ProductThumbnail(imageURL: item.product.imageURL, size: 44, cornerRadius: 8)
 
@@ -6858,11 +6858,17 @@ struct ContentView: View {
 
                 HStack(spacing: 0) {
                     Button {
-                        decrementCartItem(id: item.id)
+                        if item.quantity > 1 {
+                            item.quantity -= 1
+                            checkoutError = nil
+                        } else {
+                            requestRemoveFromCart(id: item.id)
+                        }
                     } label: {
                         Image(systemName: "minus")
                             .font(.system(size: 10, weight: .bold))
                             .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(AppLocalization.text("decrease_quantity", fallback: "Decrease quantity"))
@@ -6874,11 +6880,13 @@ struct ContentView: View {
                         .accessibilityLabel("\(AppLocalization.text("quantity", fallback: "Quantity")) \(item.quantity)")
 
                     Button {
-                        incrementCartItem(id: item.id)
+                        item.quantity += 1
+                        checkoutError = nil
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 10, weight: .bold))
                             .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(AppLocalization.text("increase_quantity", fallback: "Increase quantity"))
@@ -9492,27 +9500,6 @@ struct ContentView: View {
         } else {
             removeFromCart(id: id)
         }
-    }
-
-    private func incrementCartItem(id: String) {
-        guard let index = cartItems.firstIndex(where: { $0.id == id }) else { return }
-        updateCartItemQuantity(at: index, quantity: cartItems[index].quantity + 1)
-        checkoutError = nil
-    }
-
-    private func decrementCartItem(id: String) {
-        guard let index = cartItems.firstIndex(where: { $0.id == id }) else { return }
-
-        if cartItems[index].quantity > 1 {
-            updateCartItemQuantity(at: index, quantity: cartItems[index].quantity - 1)
-        } else if cartItems.count == 1 {
-            pendingCartRemovalID = id
-            isConfirmingEmptyBag = true
-        } else {
-            cartItems.remove(at: index)
-        }
-
-        checkoutError = nil
     }
 
     private func updateCartItemQuantity(at index: Int, quantity: Int) {
