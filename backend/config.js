@@ -63,6 +63,10 @@ module.exports = {
     mpgsAPISecondaryPassword: process.env.MPGS_API_PASSWORD_SECONDARY || "",
     mpgsAPIVersion: process.env.MPGS_API_VERSION || "100",
     mpgsBaseURL: process.env.MPGS_BASE_URL || "https://eazypay.gateway.mastercard.com",
+    eazyAppID: process.env.EAZY_APP_ID || "",
+    eazySecretKey: process.env.EAZY_SECRET_KEY || "",
+    eazyAPIBaseURL: process.env.EAZY_API_BASE_URL || "https://api.eazy.net",
+    eazyPaymentMethods: process.env.EAZY_PAYMENT_METHODS || "BENEFITGATEWAY,CREDITCARD,APPLEPAY",
     apnsKeyID: process.env.APNS_KEY_ID || "",
     apnsTeamID: process.env.APNS_TEAM_ID || "",
     apnsBundleID: process.env.APNS_BUNDLE_ID || process.env.APPLE_SIGN_IN_CLIENT_ID || "",
@@ -99,7 +103,9 @@ module.exports = {
         tasteMemory: path.join(dataDirectory, "tasteMemory.json"),
         passwordResetTokens: path.join(dataDirectory, "passwordResetTokens.json"),
         benefitPayments: path.join(dataDirectory, "benefitPayments.json"),
-        cardPayments: path.join(dataDirectory, "cardPayments.json")
+        cardPayments: path.join(dataDirectory, "cardPayments.json"),
+        shopifyEazyPayments: path.join(dataDirectory, "shopifyEazyPayments.json"),
+        shopifyOrderExports: path.join(dataDirectory, "shopifyOrderExports.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,

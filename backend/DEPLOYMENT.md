@@ -46,6 +46,11 @@ SHOPIFY_ADMIN_SHOP_DOMAIN=your-store.myshopify.com
 SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_...
 SHOPIFY_ADMIN_API_VERSION=2025-10
 SHOPIFY_ADMIN_PUBLICATION_ID=gid://shopify/Publication/...
+SHOPIFY_WEBHOOK_SECRET=replace-with-shopify-webhook-secret
+EAZY_APP_ID=
+EAZY_SECRET_KEY=
+EAZY_API_BASE_URL=https://api.eazy.net
+EAZY_PAYMENT_METHODS=BENEFITGATEWAY,CREDITCARD,APPLEPAY
 BENEFIT_TRANPORTAL_ID=
 BENEFIT_TRANPORTAL_PASSWORD=
 BENEFIT_RESOURCE_KEY=
@@ -82,12 +87,50 @@ Notes:
 - `OPS_ALERT_COOLDOWN_MINUTES` limits duplicate alerts for the same issue type
 - `SHOPIFY_ADMIN_SHOP_DOMAIN` and `SHOPIFY_ADMIN_ACCESS_TOKEN` enable live product control from `/admin`
 - `SHOPIFY_ADMIN_PUBLICATION_ID` is optional, but without it newly created products may not appear in the storefront-backed iOS app
+- `SHOPIFY_WEBHOOK_SECRET` verifies Shopify `orders/create` webhooks before any order or payment state is stored
+- `EAZY_APP_ID` and `EAZY_SECRET_KEY` are required for EazyPay invoice creation and Query API verification; keep both in Render secrets
+- `EAZY_API_BASE_URL` defaults to `https://api.eazy.net`; use an EazyPay-provided sandbox URL during UAT
+- `EAZY_PAYMENT_METHODS` defaults to `BENEFITGATEWAY,CREDITCARD,APPLEPAY`
 - All seven `BENEFIT_*` variables are required for hosted checkout; keep the merchant credentials and resource key in Render secrets
 - `BENEFIT_SUCCESS_URL` and `BENEFIT_ERROR_URL` should use `/api/payments/benefit/result`, while `BENEFIT_NOTIFICATION_URL` should use `/api/payments/benefit/response`
 - `MPGS_MERCHANT_ID` and `MPGS_API_PASSWORD` are required for card sessions; keep the API password in Render secrets
 - `MPGS_API_VERSION` defaults to `100`, and `MPGS_BASE_URL` defaults to the EazyPay Mastercard Gateway host
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
 - `/admin` now includes an operations snapshot powered by `request_logs`
+
+## EazyPay manual-payment setup
+
+The EazyPay flow keeps Shopify as the source of truth for the order total. The iOS app creates a Shopify cart with an opaque `talla_payment_id`, then the customer selects the exact manual payment method name `Pay with EazyPay` in Shopify Checkout.
+
+Configure Shopify:
+
+1. In **Settings → Payments → Manual payment methods**, add a custom method named exactly `Pay with EazyPay`.
+2. Configure an `orders/create` webhook to `https://talla-backend.onrender.com/webhooks/shopify/orders-create`.
+3. Set the same webhook signing secret as `SHOPIFY_WEBHOOK_SECRET` in Render.
+4. Give the Admin API custom app `write_orders` access and permission to mark orders paid.
+
+Configure EazyPay:
+
+1. Set the four `EAZY_*` variables above in Render.
+2. Configure EazyPay notifications to `https://talla-backend.onrender.com/webhooks/eazypay`.
+3. Ask EazyPay for its webhook signature or authentication specification before production launch. The backend currently treats notifications only as triggers and independently verifies payment using EazyPay's Query API.
+
+Runtime flow:
+
+1. The authenticated app registers a `talla_payment_id` with `POST /api/payments/eazy/shopify/session`.
+2. Shopify sends the signed order webhook containing that ID and its trusted BHD total.
+3. The backend creates one EazyPay invoice and stores the hosted payment URL.
+4. The app polls `GET /api/payments/eazy/shopify/status?tallaPaymentId=...` and opens that URL.
+5. An EazyPay notification triggers Query API verification; the redirect or notification status is never accepted as proof of payment.
+6. After invoice, currency, and amount checks pass, the backend calls Shopify Admin GraphQL `orderMarkAsPaid` and applies local fulfilment and loyalty effects idempotently.
+
+Before production, confirm with EazyPay:
+
+- the official webhook signature header and canonical signing payload
+- the UAT and production API base URLs and credentials
+- whether `createInvoice` is idempotent when the same `invoiceId` is retried
+- the exact webhook transaction-ID field names and content types
+- supported return/cancel URL fields and merchant metadata
 
 ## Build and run locally with Docker
 
@@ -125,6 +168,12 @@ https://api.tallaspeciality.com
 ```
 
 Do not use `127.0.0.1`, `localhost`, or a private LAN IP for production users.
+
+## Shopify app-order mirroring
+
+After a Talla payment is confirmed and the local order becomes completed, the backend creates one matching Shopify order. It sends only the customer email, Shopify variant IDs, quantities, currency, and a generic Talla app tag/note. Payment gateway names, credentials, transaction IDs, and payment payloads are not sent.
+
+The existing Shopify Admin token must include `write_orders`. Mirrored orders are intentionally created as `PENDING`, with receipts disabled and inventory behavior set to `BYPASS`, because Shopify is receiving an administrative copy rather than confirming or processing the payment.
 
 ## Backups and restore
 

@@ -65,6 +65,11 @@ The server reads configuration from environment variables:
 - `SHOPIFY_ADMIN_ACCESS_TOKEN`: custom app Admin API access token with product scopes
 - `SHOPIFY_ADMIN_API_VERSION`: Shopify Admin GraphQL version, defaults to `2025-10`
 - `SHOPIFY_ADMIN_PUBLICATION_ID`: optional publication ID used to publish newly created products to the storefront
+- `SHOPIFY_WEBHOOK_SECRET`: secret used to verify Shopify webhook HMAC signatures
+- `EAZY_APP_ID`: EazyPay checkout application ID
+- `EAZY_SECRET_KEY`: EazyPay HMAC secret; never expose it to a client or logs
+- `EAZY_API_BASE_URL`: EazyPay API origin, defaults to `https://api.eazy.net`
+- `EAZY_PAYMENT_METHODS`: comma-separated hosted methods, defaults to `BENEFITGATEWAY,CREDITCARD,APPLEPAY`
 - `BENEFIT_TRANPORTAL_ID`: BENEFIT merchant transportal ID
 - `BENEFIT_TRANPORTAL_PASSWORD`: BENEFIT merchant transportal password
 - `BENEFIT_RESOURCE_KEY`: BENEFIT AES resource key
@@ -142,6 +147,17 @@ GET  /api/payments/benefit/result
 ```
 
 The create route requires an authenticated customer and an existing order ID. The backend derives the BHD amount from the stored order, encrypts the hosted-payment request, and returns the BENEFIT payment URL. The public response route validates the decrypted notification against the pending payment before applying payment effects idempotently. The result page reads backend state only.
+
+### EazyPay through Shopify manual payment
+
+```http
+POST /api/payments/eazy/shopify/session
+GET  /api/payments/eazy/shopify/status?tallaPaymentId=TL-...
+POST /webhooks/shopify/orders-create
+POST /webhooks/eazypay
+```
+
+The app registers an opaque payment ID, attaches it to a Shopify Storefront cart, and asks the customer to select the exact Shopify manual method `Pay with EazyPay`. The signed Shopify order webhook supplies the trusted BHD total. EazyPay notifications are notification-only: the backend confirms the transaction with EazyPay's Query API, checks invoice, amount, and currency, then marks the Shopify order paid through Admin GraphQL. Repeated webhooks and polling requests reuse durable payment state so Shopify marking, fulfilment, and loyalty effects run only once.
 
 ### Mastercard Gateway card sessions
 
@@ -273,6 +289,9 @@ Content-Type: application/json
 - Customer password reset links are hosted at `/password-reset` and require Resend plus a verified sender address.
 - For Wallet pass signing on hosted platforms like Render, use `WALLET_P12_BASE64`, `WALLET_P12_PASSWORD`, and `WALLET_WWDR_BASE64`.
 - Shopify-backed product control requires a custom app token with `read_products` and `write_products`.
+- Completed orders placed in the Talla iOS app are mirrored to Shopify once, using Shopify variant IDs and quantities only. The export does not include EazyPay, BENEFIT, MPGS, transaction IDs, or other payment-provider details.
+- Mirrored app orders use Shopify financial status `PENDING`, do not send a receipt, and bypass Shopify inventory adjustment. The payment provider remains the source of payment confirmation in Talla.
+- App-order mirroring requires the Shopify custom app token to include `write_orders` and to be an offline Admin API access token.
 - Newly created products stay out of the storefront until they are published. Set `SHOPIFY_ADMIN_PUBLICATION_ID` if you want products created from `/admin` to appear in the iOS app automatically.
 - This is still a transitional backend, not a final production architecture.
 - Before going live, replace the single shared admin credential with a proper multi-user admin model and put the service behind HTTPS.

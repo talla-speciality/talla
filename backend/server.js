@@ -10,6 +10,7 @@ const config = require("./config");
 const database = require("./database");
 const benefitGateway = require("./benefit-gateway");
 const mpgsGateway = require("./mpgs-gateway");
+const eazyPay = require("./eazypay");
 
 const host = config.host;
 const port = config.port;
@@ -29,6 +30,8 @@ const tasteMemoryStorePath = config.stores.tasteMemory;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
 const cardPaymentsStorePath = config.stores.cardPayments;
+const shopifyEazyPaymentsStorePath = config.stores.shopifyEazyPayments;
+const shopifyOrderExportsStorePath = config.stores.shopifyOrderExports;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -64,6 +67,12 @@ const mpgsConfiguration = {
     secondaryApiPassword: config.mpgsAPISecondaryPassword,
     apiVersion: config.mpgsAPIVersion,
     baseURL: config.mpgsBaseURL
+};
+const eazyConfiguration = {
+    appId: config.eazyAppID,
+    secretKey: config.eazySecretKey,
+    apiBaseURL: config.eazyAPIBaseURL,
+    paymentMethods: config.eazyPaymentMethods
 };
 const apnsKeyID = config.apnsKeyID;
 const apnsTeamID = config.apnsTeamID;
@@ -117,6 +126,8 @@ const adminSessions = new Map();
 const rateLimitBuckets = new Map();
 const benefitPaymentLocks = new Map();
 const cardPaymentLocks = new Map();
+const shopifyEazyPaymentLocks = new Map();
+const shopifyOrderExportLocks = new Map();
 let opsAlertTimer = null;
 let appleSigningKeysCache = null;
 let appleSigningKeysFetchedAt = 0;
@@ -139,6 +150,8 @@ ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
 ensureStoreFile(cardPaymentsStorePath, { payments: {} });
+ensureStoreFile(shopifyEazyPaymentsStorePath, { payments: {} });
+ensureStoreFile(shopifyOrderExportsStorePath, { exports: {} });
 
 function ensureStoreFile(filePath, fallback) {
     if (!fs.existsSync(dataDirectory)) {
@@ -597,7 +610,8 @@ async function shopifyAdminGraphQLRequest(query, variables = {}) {
             "Content-Type": "application/json",
             "X-Shopify-Access-Token": shopifyAdminAccessToken
         },
-        body: JSON.stringify({ query, variables })
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(10_000)
     });
 
     const payload = await response.json().catch(() => ({}));
@@ -623,6 +637,181 @@ function assertShopifyUserErrors(errors) {
         .join(" ");
 
     throw new Error(message || "Shopify product update failed.");
+}
+
+function shopifyOrderExportTag(localOrderID) {
+    return `talla-app-${crypto.createHash("sha256").update(String(localOrderID || "")).digest("hex").slice(0, 20)}`;
+}
+
+function shopifyOrderExportRowToRecord(row) {
+    return {
+        localOrderID: row.local_order_id,
+        email: normalizeEmail(row.email),
+        shopifyOrderGID: row.shopify_order_gid || null,
+        shopifyOrderName: row.shopify_order_name || null,
+        exportTag: row.export_tag,
+        status: row.status,
+        failureCode: row.failure_code || null,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
+    };
+}
+
+async function findShopifyOrderExport(localOrderID) {
+    const normalizedID = String(localOrderID || "").trim();
+    if (!normalizedID) return null;
+    if (database.isEnabled()) {
+        const result = await database.query(
+            "SELECT * FROM shopify_order_exports WHERE local_order_id = $1 LIMIT 1",
+            [normalizedID]
+        );
+        return result.rowCount > 0 ? shopifyOrderExportRowToRecord(result.rows[0]) : null;
+    }
+    return readJSON(shopifyOrderExportsStorePath).exports?.[normalizedID] || null;
+}
+
+async function persistShopifyOrderExport(record) {
+    const timestamp = new Date().toISOString();
+    const normalized = {
+        localOrderID: String(record.localOrderID || "").trim(),
+        email: normalizeEmail(record.email),
+        shopifyOrderGID: record.shopifyOrderGID || null,
+        shopifyOrderName: record.shopifyOrderName || null,
+        exportTag: record.exportTag || shopifyOrderExportTag(record.localOrderID),
+        status: record.status || "Pending",
+        failureCode: record.failureCode || null,
+        createdAt: record.createdAt || timestamp,
+        updatedAt: timestamp
+    };
+    if (!normalized.localOrderID || !normalized.email) throw new Error("INVALID_SHOPIFY_ORDER_EXPORT");
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `INSERT INTO shopify_order_exports
+             (local_order_id, email, shopify_order_gid, shopify_order_name, export_tag, status, failure_code, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (local_order_id) DO UPDATE SET
+                shopify_order_gid = EXCLUDED.shopify_order_gid,
+                shopify_order_name = EXCLUDED.shopify_order_name,
+                status = EXCLUDED.status,
+                failure_code = EXCLUDED.failure_code,
+                updated_at = EXCLUDED.updated_at
+             RETURNING *`,
+            [normalized.localOrderID, normalized.email, normalized.shopifyOrderGID, normalized.shopifyOrderName,
+                normalized.exportTag, normalized.status, normalized.failureCode, normalized.createdAt, normalized.updatedAt]
+        );
+        return shopifyOrderExportRowToRecord(result.rows[0]);
+    }
+    const store = readJSON(shopifyOrderExportsStorePath);
+    store.exports = store.exports || {};
+    store.exports[normalized.localOrderID] = normalized;
+    writeJSON(shopifyOrderExportsStorePath, store);
+    return normalized;
+}
+
+async function withShopifyOrderExportLock(localOrderID, operation) {
+    const key = String(localOrderID || "").trim();
+    const existing = shopifyOrderExportLocks.get(key);
+    if (existing) return existing;
+    const pending = Promise.resolve().then(operation);
+    shopifyOrderExportLocks.set(key, pending);
+    try {
+        return await pending;
+    } finally {
+        if (shopifyOrderExportLocks.get(key) === pending) shopifyOrderExportLocks.delete(key);
+    }
+}
+
+function shopifyOrderCreateInput(order) {
+    const lineItems = (Array.isArray(order.items) ? order.items : []).map((item) => {
+        const variantID = String(item.variantId || item.variantID || "").trim();
+        if (!variantID.startsWith("gid://shopify/ProductVariant/")) return null;
+        return {
+            variantId: variantID,
+            quantity: Math.max(1, Math.round(Number(item.quantity || 1)))
+        };
+    });
+    if (lineItems.length === 0 || lineItems.some((item) => !item)) {
+        throw new Error("SHOPIFY_ORDER_VARIANTS_MISSING");
+    }
+    return {
+        email: normalizeEmail(order.email),
+        currency: "BHD",
+        financialStatus: "PENDING",
+        lineItems,
+        processedAt: order.createdAt || new Date().toISOString(),
+        sourceIdentifier: String(order.id),
+        tags: ["Talla iOS", shopifyOrderExportTag(order.id)],
+        note: "Order placed in the Talla app."
+    };
+}
+
+async function findShopifyOrderByExportTag(exportTag) {
+    const data = await shopifyAdminGraphQLRequest(
+        `query TallaExportedOrder($query: String!) {
+            orders(first: 1, query: $query) { nodes { id name displayFinancialStatus } }
+        }`,
+        { query: `tag:${exportTag}` }
+    );
+    return data.orders?.nodes?.[0] || null;
+}
+
+async function exportCompletedOrderToShopify(localOrderID) {
+    const normalizedID = String(localOrderID || "").trim();
+    if (!normalizedID || normalizedID.startsWith("shopify_") || !shopifyAdminConfigured()) return null;
+    return withShopifyOrderExportLock(normalizedID, async () => {
+        const existing = await findShopifyOrderExport(normalizedID);
+        if (existing?.status === "Synced" && existing.shopifyOrderGID) return existing;
+        const order = await findOrderByID(normalizedID);
+        if (!order || !completedOrderStatuses().has(order.status)) return existing;
+        const exportTag = shopifyOrderExportTag(normalizedID);
+        try {
+            let shopifyOrder = await findShopifyOrderByExportTag(exportTag);
+            if (!shopifyOrder) {
+                const data = await shopifyAdminGraphQLRequest(
+                    `mutation CreateTallaAppOrder($order: OrderCreateOrderInput!, $options: OrderCreateOptionsInput) {
+                        orderCreate(order: $order, options: $options) {
+                            order { id name displayFinancialStatus }
+                            userErrors { field message }
+                        }
+                    }`,
+                    {
+                        order: shopifyOrderCreateInput(order),
+                        options: { inventoryBehaviour: "BYPASS", sendReceipt: false }
+                    }
+                );
+                assertShopifyUserErrors(data.orderCreate?.userErrors);
+                shopifyOrder = data.orderCreate?.order;
+            }
+            if (!shopifyOrder?.id) throw new Error("SHOPIFY_ORDER_CREATE_INVALID_RESPONSE");
+            const synced = await persistShopifyOrderExport({
+                localOrderID: normalizedID,
+                email: order.email,
+                shopifyOrderGID: shopifyOrder.id,
+                shopifyOrderName: shopifyOrder.name,
+                exportTag,
+                status: "Synced"
+            });
+            console.info(`[SHOPIFY_APP_ORDER_SYNCED] localOrder=${normalizedID} shopifyOrder=${shopifyOrder.name || shopifyOrder.id}`);
+            return synced;
+        } catch (error) {
+            await persistShopifyOrderExport({
+                localOrderID: normalizedID,
+                email: order.email,
+                exportTag,
+                status: "Failed",
+                failureCode: String(error.message || "SHOPIFY_ORDER_EXPORT_FAILED").slice(0, 120)
+            });
+            console.error(`[SHOPIFY_APP_ORDER_FAILED] localOrder=${normalizedID} code=${String(error.message || "SHOPIFY_ORDER_EXPORT_FAILED").slice(0, 120)}`);
+            throw error;
+        }
+    });
+}
+
+function queueShopifyOrderExport(localOrderID) {
+    if (!shopifyAdminConfigured()) return;
+    setImmediate(() => {
+        void exportCompletedOrderToShopify(localOrderID).catch(() => {});
+    });
 }
 
 function shopifyAdminProductPayload(node) {
@@ -3412,6 +3601,7 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
                 [paymentID, String(gatewayOrder.result || "SUCCESS"), String(transaction.result || "SUCCESS"), completedAt]
             );
             await client.query("COMMIT");
+            queueShopifyOrderExport(lockedOrder.id);
             return { applied: true, payment: { ...lockedPayment, status: "Captured", effectsAppliedAt: completedAt } };
         } catch (error) {
             await client.query("ROLLBACK");
@@ -3456,6 +3646,7 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
             updatedAt: completedAt
         });
         writeJSON(cardPaymentsStorePath, store);
+        queueShopifyOrderExport(storedPayment.localOrderID);
         return { applied: true, payment: storedPayment };
     });
 }
@@ -4142,6 +4333,7 @@ async function applyBenefitNotification(trackID, notification) {
             }
 
             await client.query("COMMIT");
+            if (isCaptured) queueShopifyOrderExport(lockedOrder.id);
             return { applied: isCaptured && !alreadyApplied, award };
         } catch (error) {
             await client.query("ROLLBACK");
@@ -4188,6 +4380,7 @@ async function applyBenefitNotification(trackID, notification) {
     storedPayment.processedAt = processedAt;
     storedPayment.updatedAt = processedAt;
     writeJSON(benefitPaymentsStorePath, store);
+    if (isCaptured) queueShopifyOrderExport(payment.orderID);
     return { applied: isCaptured && !alreadyApplied, award };
 }
 
@@ -4354,15 +4547,343 @@ function validateBenefitHostedPaymentURL(value) {
     return hostedURL.toString();
 }
 
+function normalizeTallaPaymentID(value) {
+    const normalized = String(value || "").trim().toUpperCase();
+    return /^TL-[A-Z0-9]{12,40}$/.test(normalized) ? normalized : "";
+}
+
+function shopifyEazyPaymentRowToRecord(row) {
+    if (!row) return null;
+    return {
+        tallaPaymentId: row.talla_payment_id,
+        email: normalizeEmail(row.email),
+        shopifyOrderId: row.shopify_order_id || null,
+        shopifyOrderGid: row.shopify_order_gid || null,
+        shopifyOrderName: row.shopify_order_name || null,
+        amount: row.amount || null,
+        currency: row.currency || null,
+        paymentGateway: row.payment_gateway || null,
+        orderItems: Array.isArray(row.order_items) ? row.order_items : [],
+        eazyInvoiceId: row.eazy_invoice_id || null,
+        eazyGlobalTransactionId: row.eazy_global_transaction_id || null,
+        eazyTransactionId: row.eazy_transaction_id || null,
+        eazyPaymentUrl: row.eazy_payment_url || null,
+        eazyPaymentMethod: row.eazy_payment_method || null,
+        status: row.status,
+        failureCode: row.failure_code || null,
+        failureMessage: row.failure_message || null,
+        createdAt: new Date(row.created_at).toISOString(),
+        updatedAt: new Date(row.updated_at).toISOString(),
+        eazyConfirmedAt: row.eazy_confirmed_at ? new Date(row.eazy_confirmed_at).toISOString() : null,
+        paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null,
+        effectsAppliedAt: row.effects_applied_at ? new Date(row.effects_applied_at).toISOString() : null
+    };
+}
+
+async function findShopifyEazyPayment(tallaPaymentId) {
+    const normalizedID = normalizeTallaPaymentID(tallaPaymentId);
+    if (!normalizedID) return null;
+    if (database.isEnabled()) {
+        const result = await database.query(
+            "SELECT * FROM shopify_eazy_payments WHERE talla_payment_id = $1 LIMIT 1",
+            [normalizedID]
+        );
+        return shopifyEazyPaymentRowToRecord(result.rows[0]);
+    }
+    return readJSON(shopifyEazyPaymentsStorePath).payments?.[normalizedID] || null;
+}
+
+async function findShopifyEazyPaymentByGlobalTransactionID(globalTransactionId) {
+    const normalizedID = eazyPay.normalizeIdentifier(globalTransactionId);
+    if (!normalizedID) return null;
+    if (database.isEnabled()) {
+        const result = await database.query(
+            "SELECT * FROM shopify_eazy_payments WHERE eazy_global_transaction_id = $1 LIMIT 1",
+            [normalizedID]
+        );
+        return shopifyEazyPaymentRowToRecord(result.rows[0]);
+    }
+    return Object.values(readJSON(shopifyEazyPaymentsStorePath).payments || {})
+        .find((payment) => payment.eazyGlobalTransactionId === normalizedID) || null;
+}
+
+async function persistShopifyEazyPayment(payment) {
+    const now = new Date().toISOString();
+    const record = {
+        tallaPaymentId: normalizeTallaPaymentID(payment.tallaPaymentId),
+        email: normalizeEmail(payment.email),
+        shopifyOrderId: payment.shopifyOrderId || null,
+        shopifyOrderGid: payment.shopifyOrderGid || null,
+        shopifyOrderName: payment.shopifyOrderName || null,
+        amount: payment.amount || null,
+        currency: payment.currency || null,
+        paymentGateway: payment.paymentGateway || null,
+        orderItems: Array.isArray(payment.orderItems) ? payment.orderItems : [],
+        eazyInvoiceId: payment.eazyInvoiceId || null,
+        eazyGlobalTransactionId: payment.eazyGlobalTransactionId || null,
+        eazyTransactionId: payment.eazyTransactionId || null,
+        eazyPaymentUrl: payment.eazyPaymentUrl || null,
+        eazyPaymentMethod: payment.eazyPaymentMethod || null,
+        status: payment.status || "CREATED",
+        failureCode: payment.failureCode || null,
+        failureMessage: payment.failureMessage || null,
+        createdAt: payment.createdAt || now,
+        updatedAt: now,
+        eazyConfirmedAt: payment.eazyConfirmedAt || null,
+        paidAt: payment.paidAt || null,
+        effectsAppliedAt: payment.effectsAppliedAt || null
+    };
+    if (!record.tallaPaymentId || !record.email) {
+        throw new Error("INVALID_SHOPIFY_EAZY_PAYMENT");
+    }
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `INSERT INTO shopify_eazy_payments
+             (talla_payment_id, email, shopify_order_id, shopify_order_gid, shopify_order_name,
+              amount, currency, payment_gateway, order_items, eazy_invoice_id,
+              eazy_global_transaction_id, eazy_transaction_id, eazy_payment_url,
+              eazy_payment_method, status, failure_code, failure_message, created_at, updated_at,
+              eazy_confirmed_at, paid_at, effects_applied_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+             ON CONFLICT (talla_payment_id) DO UPDATE SET
+              email = EXCLUDED.email, shopify_order_id = EXCLUDED.shopify_order_id,
+              shopify_order_gid = EXCLUDED.shopify_order_gid, shopify_order_name = EXCLUDED.shopify_order_name,
+              amount = EXCLUDED.amount, currency = EXCLUDED.currency, payment_gateway = EXCLUDED.payment_gateway,
+              order_items = EXCLUDED.order_items, eazy_invoice_id = EXCLUDED.eazy_invoice_id,
+              eazy_global_transaction_id = EXCLUDED.eazy_global_transaction_id,
+              eazy_transaction_id = EXCLUDED.eazy_transaction_id, eazy_payment_url = EXCLUDED.eazy_payment_url,
+              eazy_payment_method = EXCLUDED.eazy_payment_method, status = EXCLUDED.status,
+              failure_code = EXCLUDED.failure_code, failure_message = EXCLUDED.failure_message,
+              updated_at = EXCLUDED.updated_at, eazy_confirmed_at = EXCLUDED.eazy_confirmed_at,
+              paid_at = EXCLUDED.paid_at, effects_applied_at = EXCLUDED.effects_applied_at
+             RETURNING *`,
+            [record.tallaPaymentId, record.email, record.shopifyOrderId, record.shopifyOrderGid,
+                record.shopifyOrderName, record.amount, record.currency, record.paymentGateway,
+                JSON.stringify(record.orderItems), record.eazyInvoiceId, record.eazyGlobalTransactionId,
+                record.eazyTransactionId, record.eazyPaymentUrl, record.eazyPaymentMethod, record.status,
+                record.failureCode, record.failureMessage, record.createdAt, record.updatedAt,
+                record.eazyConfirmedAt, record.paidAt, record.effectsAppliedAt]
+        );
+        return shopifyEazyPaymentRowToRecord(result.rows[0]);
+    }
+    const store = readJSON(shopifyEazyPaymentsStorePath);
+    store.payments ||= {};
+    store.payments[record.tallaPaymentId] = record;
+    writeJSON(shopifyEazyPaymentsStorePath, store);
+    return record;
+}
+
+async function withShopifyEazyPaymentLock(tallaPaymentId, operation) {
+    const key = normalizeTallaPaymentID(tallaPaymentId);
+    const existing = shopifyEazyPaymentLocks.get(key);
+    if (existing) return existing;
+    const pending = Promise.resolve().then(operation);
+    shopifyEazyPaymentLocks.set(key, pending);
+    try {
+        return await pending;
+    } finally {
+        if (shopifyEazyPaymentLocks.get(key) === pending) shopifyEazyPaymentLocks.delete(key);
+    }
+}
+
+function shopifyOrderTallaPaymentID(shopifyOrder) {
+    const attributes = Array.isArray(shopifyOrder.note_attributes) ? shopifyOrder.note_attributes : [];
+    const attribute = attributes.find((entry) => String(entry?.name || entry?.key || "").toLowerCase() === "talla_payment_id");
+    return normalizeTallaPaymentID(attribute?.value);
+}
+
+function shopifyOrderPaymentGateways(shopifyOrder) {
+    const values = [shopifyOrder.gateway, ...(Array.isArray(shopifyOrder.payment_gateway_names) ? shopifyOrder.payment_gateway_names : [])];
+    return values.map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+function isEazyPayManualShopifyOrder(shopifyOrder) {
+    return shopifyOrderPaymentGateways(shopifyOrder).some((gateway) => gateway.toLowerCase() === "pay with eazypay");
+}
+
+async function prepareShopifyEazyOrder(shopifyOrder) {
+    if (!isEazyPayManualShopifyOrder(shopifyOrder)) return null;
+    const tallaPaymentId = shopifyOrderTallaPaymentID(shopifyOrder);
+    if (!tallaPaymentId) {
+        console.warn(`[SHOPIFY_ORDER_CREATED] missing talla_payment_id order=${String(shopifyOrder.name || shopifyOrder.id || "unknown")}`);
+        return null;
+    }
+    return withShopifyEazyPaymentLock(tallaPaymentId, async () => {
+        const existing = await findShopifyEazyPayment(tallaPaymentId);
+        const email = normalizeEmail(shopifyOrder.email || shopifyOrder.contact_email || shopifyOrder.customer?.email || existing?.email);
+        if (!email) return null;
+        if (existing && existing.email !== email) {
+            console.error(`[SHOPIFY_ORDER_CREATED] ownership mismatch payment=${tallaPaymentId}`);
+            return null;
+        }
+        const amountNumber = Number(shopifyOrder.current_total_price || shopifyOrder.total_price);
+        const currency = String(shopifyOrder.currency || "").trim().toUpperCase();
+        const cancelled = Boolean(shopifyOrder.cancelled_at || shopifyOrder.cancel_reason);
+        const payment = await persistShopifyEazyPayment({
+            ...(existing || {}),
+            tallaPaymentId,
+            email,
+            shopifyOrderId: String(shopifyOrder.id || ""),
+            shopifyOrderGid: String(shopifyOrder.admin_graphql_api_id || (shopifyOrder.id ? `gid://shopify/Order/${shopifyOrder.id}` : "")),
+            shopifyOrderName: String(shopifyOrder.name || shopifyOrder.order_number || ""),
+            amount: Number.isFinite(amountNumber) && amountNumber > 0 ? amountNumber.toFixed(3) : null,
+            currency,
+            paymentGateway: "Pay with EazyPay",
+            orderItems: Array.isArray(shopifyOrder.line_items) ? shopifyOrder.line_items.map((item) => ({ name: String(item.name || item.title || "Item"), quantity: Number(item.quantity || 1) })) : [],
+            status: existing?.status === "PAID" ? "PAID" : (cancelled ? "CANCELLED" : (existing?.eazyPaymentUrl ? existing.status : "WAITING_FOR_EAZYPAY"))
+        });
+        console.info(`[SHOPIFY_ORDER_CREATED] order=${payment.shopifyOrderName || payment.shopifyOrderId} payment=${tallaPaymentId} status=${payment.status}`);
+        return payment;
+    });
+}
+
+async function ensureShopifyEazyInvoice(tallaPaymentId, options = {}) {
+    return withShopifyEazyPaymentLock(tallaPaymentId, async () => {
+        const payment = await findShopifyEazyPayment(tallaPaymentId);
+        if (!payment) throw eazyPay.paymentError("EAZY_PAYMENT_NOT_FOUND", 404, "Payment was not found.");
+        if (payment.eazyPaymentUrl || payment.status === "PAID" || payment.status === "CANCELLED") return payment;
+        if (!payment.shopifyOrderId || !payment.amount || payment.currency !== "BHD") return payment;
+        try {
+            const invoice = await eazyPay.createInvoice({ invoiceId: payment.tallaPaymentId, amount: payment.amount, currency: payment.currency }, eazyConfiguration, options);
+            const updated = await persistShopifyEazyPayment({
+                ...payment,
+                eazyInvoiceId: invoice.invoiceId,
+                eazyGlobalTransactionId: invoice.globalTransactionsId,
+                eazyPaymentUrl: invoice.paymentUrl,
+                status: "PAYMENT_PENDING",
+                failureCode: null,
+                failureMessage: null
+            });
+            console.info(`[EAZYPAY_INVOICE_CREATED] order=${updated.shopifyOrderName || updated.shopifyOrderId} payment=${updated.tallaPaymentId} transaction=${updated.eazyGlobalTransactionId}`);
+            return updated;
+        } catch (error) {
+            await persistShopifyEazyPayment({ ...payment, status: "FAILED", failureCode: error.code || "EAZY_CREATE_FAILED", failureMessage: "Payment setup is temporarily unavailable." });
+            console.error(`[PAYMENT_FAILED] payment=${payment.tallaPaymentId} stage=invoice code=${error.code || "EAZY_CREATE_FAILED"}`);
+            throw error;
+        }
+    });
+}
+
+function verifyEazyTransactionForShopifyPayment(transaction, payment) {
+    if (!payment || transaction.invoiceId !== payment.tallaPaymentId) throw eazyPay.paymentError("EAZY_INVOICE_MISMATCH", 409, "EazyPay invoice mismatch.");
+    if (transaction.currency !== "BHD" || payment.currency !== "BHD") throw eazyPay.paymentError("EAZY_CURRENCY_MISMATCH", 409, "EazyPay currency mismatch.");
+    const expected = bhdFils(payment.amount);
+    const received = bhdFils(transaction.amount);
+    if (expected === null || received === null || expected !== received) throw eazyPay.paymentError("EAZY_AMOUNT_MISMATCH", 409, "EazyPay amount mismatch.");
+    if (payment.eazyGlobalTransactionId && payment.eazyGlobalTransactionId !== transaction.globalTransactionsId) throw eazyPay.paymentError("EAZY_TRANSACTION_MISMATCH", 409, "EazyPay transaction mismatch.");
+    if (transaction.isPaid === 1 && !transaction.transactionsId) throw eazyPay.paymentError("EAZY_QUERY_INVALID_RESPONSE", 502, "EazyPay returned an invalid paid transaction.");
+    return true;
+}
+
+async function markShopifyOrderAsPaid(payment) {
+    const orderGid = payment.shopifyOrderGid || (payment.shopifyOrderId ? `gid://shopify/Order/${payment.shopifyOrderId}` : "");
+    if (!orderGid) throw new Error("SHOPIFY_ORDER_ID_MISSING");
+    const data = await shopifyAdminGraphQLRequest(
+        `mutation OrderMarkAsPaid($input: OrderMarkAsPaidInput!) {
+            orderMarkAsPaid(input: $input) {
+                order { id name displayFinancialStatus }
+                userErrors { field message }
+            }
+        }`,
+        { input: { id: orderGid } }
+    );
+    const payload = data.orderMarkAsPaid || {};
+    assertShopifyUserErrors(payload.userErrors);
+    const status = String(payload.order?.displayFinancialStatus || "").toUpperCase();
+    if (!payload.order?.id || !["PAID", "PARTIALLY_PAID"].includes(status)) throw new Error("SHOPIFY_MARK_PAID_UNCONFIRMED");
+    return payload.order;
+}
+
+async function applyShopifyEazyLocalEffects(payment) {
+    if (payment.effectsAppliedAt) return payment;
+    const syntheticOrder = {
+        id: payment.shopifyOrderId,
+        admin_graphql_api_id: payment.shopifyOrderGid,
+        name: payment.shopifyOrderName,
+        email: payment.email,
+        total_price: payment.amount,
+        currency: payment.currency,
+        financial_status: "paid",
+        line_items: payment.orderItems,
+        created_at: payment.createdAt
+    };
+    await processShopifyOrderWebhook(syntheticOrder, "orders/paid");
+    return persistShopifyEazyPayment({ ...payment, effectsAppliedAt: new Date().toISOString() });
+}
+
+async function finalizeVerifiedShopifyEazyPayment(payment, transaction) {
+    verifyEazyTransactionForShopifyPayment(transaction, payment);
+    if (transaction.isPaid !== 1) return payment;
+    const confirmedAt = transaction.paidOn || new Date().toISOString();
+    let current = await persistShopifyEazyPayment({
+        ...payment,
+        eazyTransactionId: transaction.transactionsId,
+        eazyPaymentMethod: transaction.paymentMethod,
+        eazyConfirmedAt: confirmedAt,
+        status: "SHOPIFY_MARK_PENDING",
+        failureCode: null,
+        failureMessage: null
+    });
+    console.info(`[EAZYPAY_PAYMENT_VERIFIED] order=${current.shopifyOrderName || current.shopifyOrderId} payment=${current.tallaPaymentId} transaction=${current.eazyTransactionId}`);
+    try {
+        const shopifyOrder = await markShopifyOrderAsPaid(current);
+        current = await persistShopifyEazyPayment({ ...current, status: "PAID", paidAt: confirmedAt, failureCode: null, failureMessage: null });
+        current = await applyShopifyEazyLocalEffects(current);
+        console.info(`[SHOPIFY_MARK_PAID] order=${shopifyOrder.name || current.shopifyOrderName} payment=${current.tallaPaymentId}`);
+        console.info(`[PAYMENT_COMPLETED] order=${current.shopifyOrderName || current.shopifyOrderId} payment=${current.tallaPaymentId}`);
+        return current;
+    } catch (error) {
+        current = await persistShopifyEazyPayment({ ...current, status: "SHOPIFY_MARK_PENDING", failureCode: "SHOPIFY_MARK_PAID_FAILED", failureMessage: "Payment is confirmed and Shopify synchronization is pending." });
+        console.error(`[PAYMENT_FAILED] payment=${current.tallaPaymentId} stage=shopify_mark_paid code=${error.message || "SHOPIFY_MARK_PAID_FAILED"}`);
+        return current;
+    }
+}
+
+async function confirmShopifyEazyPayment(tallaPaymentId, options = {}) {
+    return withShopifyEazyPaymentLock(tallaPaymentId, async () => {
+        let payment = await findShopifyEazyPayment(tallaPaymentId);
+        if (!payment) throw eazyPay.paymentError("EAZY_PAYMENT_NOT_FOUND", 404, "Payment was not found.");
+        if (payment.status === "PAID") return payment;
+        if (payment.status === "SHOPIFY_MARK_PENDING" && payment.eazyConfirmedAt) {
+            try {
+                const shopifyOrder = await markShopifyOrderAsPaid(payment);
+                payment = await persistShopifyEazyPayment({ ...payment, status: "PAID", paidAt: payment.eazyConfirmedAt, failureCode: null, failureMessage: null });
+                payment = await applyShopifyEazyLocalEffects(payment);
+                console.info(`[SHOPIFY_MARK_PAID] order=${shopifyOrder.name || payment.shopifyOrderName} payment=${payment.tallaPaymentId}`);
+            } catch (error) {
+                console.error(`[PAYMENT_FAILED] payment=${payment.tallaPaymentId} stage=shopify_retry code=${error.message || "SHOPIFY_MARK_PAID_FAILED"}`);
+            }
+            return payment;
+        }
+        if (!payment.eazyGlobalTransactionId) return payment;
+        const transaction = await eazyPay.queryTransaction(payment.eazyGlobalTransactionId, eazyConfiguration, options);
+        return finalizeVerifiedShopifyEazyPayment(payment, transaction);
+    });
+}
+
+function publicShopifyEazyPayment(payment) {
+    return {
+        success: true,
+        tallaPaymentId: payment.tallaPaymentId,
+        shopifyOrderName: payment.shopifyOrderName,
+        status: payment.status,
+        paymentUrl: payment.eazyPaymentUrl,
+        paid: payment.status === "PAID",
+        pending: ["CREATED", "WAITING_FOR_EAZYPAY", "PAYMENT_PENDING", "SHOPIFY_MARK_PENDING"].includes(payment.status),
+        message: payment.failureMessage || null
+    };
+}
+
 async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
+    const eazyPayment = await prepareShopifyEazyOrder(shopifyOrder);
     const order = shopifyOrderRecord(shopifyOrder, topic);
     if (!order.email) {
-        return { recorded: false, awarded: false, reason: "ORDER_EMAIL_MISSING" };
+        return { recorded: false, awarded: false, reason: "ORDER_EMAIL_MISSING", eazyTallaPaymentId: eazyPayment?.tallaPaymentId || null };
     }
 
     const recordedOrder = await upsertOrderRecord(order);
     if (!recordedOrder) {
-        return { recorded: false, awarded: false, reason: "CUSTOMER_ACCOUNT_NOT_FOUND", email: order.email };
+        return { recorded: false, awarded: false, reason: "CUSTOMER_ACCOUNT_NOT_FOUND", email: order.email, eazyTallaPaymentId: eazyPayment?.tallaPaymentId || null };
     }
 
     const award = await awardOrderBeans(order);
@@ -4370,7 +4891,8 @@ async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
     return {
         recorded: true,
         order: rewardAwareOrder,
-        award
+        award,
+        eazyTallaPaymentId: eazyPayment?.tallaPaymentId || null
     };
 }
 
@@ -4491,6 +5013,7 @@ async function updateOrderStatusAndAward(email, orderID, status) {
 
     if (completedOrderStatuses().has(updatedOrder.status)) {
         await awardOrderBeans(orderWithEmail);
+        queueShopifyOrderExport(orderID);
     }
 
     return {
@@ -6556,9 +7079,9 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "POST" && url.pathname === "/shopify/webhooks/orders") {
+    if (request.method === "POST" && ["/shopify/webhooks/orders", "/webhooks/shopify/orders-create"].includes(url.pathname)) {
         try {
-            const rawBody = await readRawBody(request);
+            const rawBody = await readRawBody(request, 262_144);
             if (!verifyShopifyWebhook(rawBody, request.headers["x-shopify-hmac-sha256"])) {
                 sendJSON(response, 401, { error: "Invalid Shopify webhook signature." });
                 return;
@@ -6568,8 +7091,114 @@ const server = http.createServer(async (request, response) => {
             const topic = request.headers["x-shopify-topic"] || "";
             const result = await processShopifyOrderWebhook(shopifyOrder, topic);
             sendJSON(response, 200, result);
+            if (result.eazyTallaPaymentId) {
+                void ensureShopifyEazyInvoice(result.eazyTallaPaymentId).catch((error) => {
+                    console.error(`[PAYMENT_FAILED] payment=${result.eazyTallaPaymentId} stage=invoice_background code=${error.code || error.message || "EAZY_CREATE_FAILED"}`);
+                });
+            }
         } catch (error) {
-            sendJSON(response, 400, { error: error.message || "Invalid Shopify webhook payload." });
+            const statusCode = error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400;
+            sendJSON(response, statusCode, { error: statusCode === 413 ? "Shopify webhook payload is too large." : "Invalid Shopify webhook payload." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/payments/eazy/shopify/session") {
+        try {
+            const body = await readBody(request, 16_384);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const tallaPaymentId = normalizeTallaPaymentID(body.tallaPaymentId);
+            if (!tallaPaymentId) {
+                sendJSON(response, 400, { error: "A valid Talla payment ID is required." });
+                return;
+            }
+            const payment = await withShopifyEazyPaymentLock(tallaPaymentId, async () => {
+                const existing = await findShopifyEazyPayment(tallaPaymentId);
+                if (existing && existing.email !== normalizeEmail(customer.email)) {
+                    throw eazyPay.paymentError("PAYMENT_OWNERSHIP_MISMATCH", 403, "This payment does not belong to the authenticated customer.");
+                }
+                return existing || persistShopifyEazyPayment({
+                    tallaPaymentId,
+                    email: customer.email,
+                    status: "CREATED",
+                    createdAt: new Date().toISOString()
+                });
+            });
+            sendJSON(response, 201, publicShopifyEazyPayment(payment));
+        } catch (error) {
+            const statusCode = error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : (error.statusCode || 400);
+            sendJSON(response, statusCode, { error: statusCode >= 500 ? "Payment setup is temporarily unavailable." : (error.message || "Invalid payment session request.") });
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/payments/eazy/shopify/status") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const tallaPaymentId = normalizeTallaPaymentID(url.searchParams.get("tallaPaymentId"));
+        if (!tallaPaymentId) {
+            sendJSON(response, 400, { error: "A valid Talla payment ID is required." });
+            return;
+        }
+        let payment = await findShopifyEazyPayment(tallaPaymentId);
+        if (!payment) {
+            sendJSON(response, 404, { error: "Payment was not found." });
+            return;
+        }
+        if (payment.email !== normalizeEmail(customer.email)) {
+            sendJSON(response, 403, { error: "This payment does not belong to the authenticated customer." });
+            return;
+        }
+        try {
+            if (!payment.eazyPaymentUrl && payment.shopifyOrderId && !["PAID", "CANCELLED"].includes(payment.status)) {
+                payment = await ensureShopifyEazyInvoice(tallaPaymentId);
+            }
+            if (payment.eazyGlobalTransactionId && !["PAID", "CANCELLED"].includes(payment.status)) {
+                payment = await confirmShopifyEazyPayment(tallaPaymentId);
+            }
+        } catch (error) {
+            console.error(`[PAYMENT_FAILED] payment=${tallaPaymentId} stage=status_refresh code=${error.code || error.message || "PAYMENT_REFRESH_FAILED"}`);
+            payment = await findShopifyEazyPayment(tallaPaymentId);
+        }
+        sendJSON(response, 200, publicShopifyEazyPayment(payment));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/webhooks/eazypay") {
+        try {
+            const rawBody = await readRawBody(request, 65_536);
+            const text = rawBody.toString("utf8");
+            let payload;
+            if (String(request.headers["content-type"] || "").toLowerCase().includes("application/json")) {
+                payload = JSON.parse(text);
+            } else {
+                payload = Object.fromEntries(new URLSearchParams(text).entries());
+            }
+            const globalTransactionId = eazyPay.extractGlobalTransactionID(payload);
+            if (!globalTransactionId) {
+                sendJSON(response, 400, { error: "A valid EazyPay transaction ID is required." });
+                return;
+            }
+            const payment = await findShopifyEazyPaymentByGlobalTransactionID(globalTransactionId);
+            if (!payment) {
+                sendJSON(response, 400, { error: "Unknown EazyPay transaction." });
+                return;
+            }
+            console.info(`[EAZYPAY_WEBHOOK_RECEIVED] payment=${payment.tallaPaymentId} transaction=${globalTransactionId}`);
+            sendJSON(response, 200, { received: true });
+            // TODO: Add EazyPay webhook signature verification when EazyPay supplies its header and signing specification.
+            // The notification is never trusted as payment proof; confirmation always uses EazyPay's Query API below.
+            void confirmShopifyEazyPayment(payment.tallaPaymentId).catch((error) => {
+                console.error(`[PAYMENT_FAILED] payment=${payment.tallaPaymentId} stage=eazypay_query code=${error.code || error.message || "EAZY_QUERY_FAILED"}`);
+            });
+        } catch (error) {
+            const statusCode = error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400;
+            sendJSON(response, statusCode, { error: statusCode === 413 ? "EazyPay webhook payload is too large." : "Malformed EazyPay webhook." });
         }
         return;
     }
@@ -9304,7 +9933,11 @@ const server = http.createServer(async (request, response) => {
             console.warn(`Shopify order sync skipped for ${customer.email}:`, error.message);
         }
 
-        sendJSON(response, 200, await ordersPayload(customer.email));
+        const customerOrders = await ordersPayload(customer.email);
+        customerOrders
+            .filter((order) => completedOrderStatuses().has(order.status))
+            .forEach((order) => queueShopifyOrderExport(order.id));
+        sendJSON(response, 200, customerOrders);
         return;
     }
 
@@ -9376,10 +10009,14 @@ const server = http.createServer(async (request, response) => {
 
             const submittedItems = Array.isArray(body.items) ? body.items : [];
             const items = submittedItems
-                .map((item) => ({
-                    name: String(item.name || "Item").trim() || "Item",
-                    quantity: Math.max(1, Math.round(Number(item.quantity || 1)))
-                }))
+                .map((item) => {
+                    const variantID = String(item.variantId || item.variantID || "").trim();
+                    return {
+                        name: String(item.name || "Item").trim() || "Item",
+                        quantity: Math.max(1, Math.round(Number(item.quantity || 1))),
+                        ...(variantID.startsWith("gid://shopify/ProductVariant/") ? { variantId: variantID } : {})
+                    };
+                })
                 .slice(0, 30);
 
             if (items.length === 0) {
@@ -10110,6 +10747,15 @@ module.exports = {
     bhdFils,
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
+    confirmShopifyEazyPayment,
+    ensureShopifyEazyInvoice,
+    exportCompletedOrderToShopify,
+    findShopifyOrderExport,
+    findShopifyEazyPayment,
+    isEazyPayManualShopifyOrder,
+    normalizeTallaPaymentID,
+    prepareShopifyEazyOrder,
+    publicShopifyEazyPayment,
     normalizeBenefitPayMPQRText,
     parseBenefitCallbackRequest,
     mpgsResultIndicatorMatches,
@@ -10118,7 +10764,9 @@ module.exports = {
     renderMpgsResultPage,
     server,
     startServer,
+    shopifyOrderCreateInput,
     verifyConfirmedMpgsOrder,
+    verifyEazyTransactionForShopifyPayment,
     verifyMpgsAuthenticationForPurchase,
     verifyBenefitNotification
 };

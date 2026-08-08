@@ -200,6 +200,13 @@ struct ContentView: View {
     }
 
     struct BrewingMethod: Identifiable, Hashable {
+        struct PublishedRecipe: Hashable {
+            let coffeeGrams: Double?
+            let ratio: Double?
+            let waterGrams: Double?
+            let iceGrams: Double?
+        }
+
         let id: String
         let name: String
         let summary: String
@@ -209,6 +216,7 @@ struct ContentView: View {
         let categories: [String]
         let difficulty: String
         let brewTime: String
+        let publishedRecipe: PublishedRecipe?
     }
 
     struct ShopCategory: Identifiable, Hashable {
@@ -228,8 +236,20 @@ struct ContentView: View {
     }
 
     private struct CheckoutSession: Identifiable {
+        enum Kind: Equatable {
+            case standard
+            case shopifyEazy
+            case eazyHosted
+        }
+
         let id = UUID()
         let url: URL
+        let kind: Kind
+
+        init(url: URL, kind: Kind = .standard) {
+            self.url = url
+            self.kind = kind
+        }
     }
 
     struct LoyaltyAccount: Codable {
@@ -563,6 +583,7 @@ struct ContentView: View {
     @State private var pendingCartRemovalID: String?
     @State private var isConfirmingEmptyBag = false
     @State private var checkoutSession: CheckoutSession?
+    @State private var eazyShopifyBrowserKind: CheckoutSession.Kind?
     @State private var benefitPaySession: BenefitPaySession?
     @State private var mastercardPaymentContext: MastercardPaymentContext?
     @State private var articleSession: CheckoutSession?
@@ -580,6 +601,7 @@ struct ContentView: View {
     @AppStorage("app.hasAskedInitialNotificationPermission") private var hasAskedInitialNotificationPermission = false
     @AppStorage("app.reviewLaunchCount") private var reviewLaunchCount = 0
     @AppStorage("app.reviewLastPromptAt") private var reviewLastPromptAt = 0.0
+    @AppStorage("payment.activeEazyShopifyID") private var activeEazyShopifyPaymentID = ""
     @AppStorage("app.reviewPromptedVersion") private var reviewPromptedVersion = ""
     @AppStorage("local.customerEmail") private var savedCustomerEmail = ""
     @AppStorage("local.customerAccessToken") private var savedCustomerAccessToken = ""
@@ -1390,7 +1412,8 @@ struct ContentView: View {
                     articleURL: nil,
                     categories: ["Pour Over", "Filter"],
                     difficulty: "Intermediate",
-                    brewTime: "3-4 min"
+                    brewTime: "3-4 min",
+                    publishedRecipe: nil
                 ),
                 BrewingMethod(
                     id: "fallback-french-press",
@@ -1401,7 +1424,8 @@ struct ContentView: View {
                     articleURL: nil,
                     categories: ["Immersion"],
                     difficulty: "Easy",
-                    brewTime: "4 min"
+                    brewTime: "4 min",
+                    publishedRecipe: nil
                 ),
                 BrewingMethod(
                     id: "fallback-chemex",
@@ -1412,7 +1436,8 @@ struct ContentView: View {
                     articleURL: nil,
                     categories: ["Pour Over", "Filter"],
                     difficulty: "Intermediate",
-                    brewTime: "4-5 min"
+                    brewTime: "4-5 min",
+                    publishedRecipe: nil
                 ),
                 BrewingMethod(
                     id: "fallback-arabic-coffee",
@@ -1423,7 +1448,8 @@ struct ContentView: View {
                     articleURL: nil,
                     categories: ["Traditional"],
                     difficulty: "Intermediate",
-                    brewTime: "8 min"
+                    brewTime: "8 min",
+                    publishedRecipe: nil
                 ),
                 BrewingMethod(
                     id: "fallback-cold-brew",
@@ -1434,7 +1460,8 @@ struct ContentView: View {
                     articleURL: nil,
                     categories: ["Cold Brew"],
                     difficulty: "Easy",
-                    brewTime: "12 hr"
+                    brewTime: "12 hr",
+                    publishedRecipe: nil
                 )
             ]
         } else {
@@ -1754,6 +1781,9 @@ struct ContentView: View {
                 await syncRemotePushTokenIfPossible()
                 if customerProfile != nil {
                     await loadOrderHistory()
+                    if !activeEazyShopifyPaymentID.isEmpty, checkoutSession == nil {
+                        await refreshActiveEazyShopifyPayment(openHostedCheckout: false)
+                    }
                     if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         await loadLoyaltyAccount()
                     }
@@ -1799,7 +1829,7 @@ struct ContentView: View {
         .sheet(item: $checkoutSession, onDismiss: resetPaymentFlowAfterCheckoutDismiss) { session in
             CheckoutWebView(url: session.url)
         }
-        .sheet(item: $benefitPaySession) { session in
+        .sheet(item: $benefitPaySession, onDismiss: resetPaymentFlowAfterBenefitPayDismiss) { session in
             BenefitPayCheckoutSheet(session: session) {
                 benefitPaySession = nil
                 paymentFlow.cancel()
@@ -1869,8 +1899,74 @@ struct ContentView: View {
     }
 
     private func resetPaymentFlowAfterCheckoutDismiss() {
+        if let eazyShopifyBrowserKind {
+            self.eazyShopifyBrowserKind = nil
+            paymentFlow.transition(to: .processing)
+            Task {
+                await waitForEazyShopifyProgress(openHostedCheckout: eazyShopifyBrowserKind == .shopifyEazy)
+            }
+            return
+        }
         if paymentFlow.state == .awaitingCustomer {
             paymentFlow.reset()
+        }
+    }
+
+    @MainActor
+    private func waitForEazyShopifyProgress(openHostedCheckout: Bool) async {
+        for attempt in 0 ..< 20 {
+            let completed = await refreshActiveEazyShopifyPayment(openHostedCheckout: openHostedCheckout)
+            if completed || checkoutSession != nil { return }
+            if attempt < 19 {
+                try? await Task.sleep(for: .seconds(1.5))
+            }
+        }
+        paymentFlow.transition(to: .processing)
+        showToast(message: AppLocalization.text("payment_verifying", fallback: "Payment is still being verified. You can safely return later."))
+    }
+
+    @MainActor
+    @discardableResult
+    private func refreshActiveEazyShopifyPayment(openHostedCheckout: Bool) async -> Bool {
+        let paymentID = activeEazyShopifyPaymentID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !paymentID.isEmpty else { return true }
+        do {
+            let status = try await AccountService.fetchEazyShopifyPaymentStatus(tallaPaymentID: paymentID)
+            if status.paid || status.status == "PAID" {
+                activeEazyShopifyPaymentID = ""
+                cartItems.removeAll()
+                appliedVoucher = nil
+                voucherCodeInput = ""
+                voucherError = nil
+                paymentFlow.transition(to: .succeeded)
+                await loadOrderHistory()
+                showToast(message: status.shopifyOrderName.map { "Payment successful · \($0)" } ?? "Payment successful")
+                return true
+            }
+            if ["FAILED", "CANCELLED"].contains(status.status) {
+                paymentFlow.transition(to: status.status == "CANCELLED" ? .cancelled : .failed, error: status.message)
+                return true
+            }
+            if openHostedCheckout, let paymentURL = status.paymentUrl {
+                paymentFlow.transition(to: .awaitingCustomer)
+                eazyShopifyBrowserKind = .eazyHosted
+                checkoutSession = CheckoutSession(url: paymentURL, kind: .eazyHosted)
+                return true
+            }
+            paymentFlow.transition(to: .processing)
+            return false
+        } catch {
+            checkoutError = customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("payment_verification_unavailable", fallback: "Payment verification is temporarily unavailable.")
+            )
+            return false
+        }
+    }
+
+    private func resetPaymentFlowAfterBenefitPayDismiss() {
+        if paymentFlow.state == .awaitingCustomer {
+            paymentFlow.cancel()
         }
     }
 
@@ -2126,7 +2222,7 @@ struct ContentView: View {
         let pathTokens = url.pathComponents.dropFirst().map { $0.lowercased() }
 
         if isPaymentReturnDestination(destination: destination, pathTokens: pathTokens) {
-            handlePaymentReturn()
+            handlePaymentReturn(queryItems: queryItems)
             return
         }
 
@@ -2149,18 +2245,52 @@ struct ContentView: View {
         return pathTokens.contains("return") || pathTokens.contains("complete")
     }
 
-    private func handlePaymentReturn() {
+    private func handlePaymentReturn(queryItems: [URLQueryItem]) {
+        if !activeEazyShopifyPaymentID.isEmpty {
+            checkoutSession = nil
+            paymentFlow.transition(to: .processing)
+            Task {
+                await waitForEazyShopifyProgress(openHostedCheckout: false)
+            }
+            return
+        }
+        let status = queryItems.first {
+            ["status", "result", "paymentStatus"].contains($0.name)
+        }?.value?.lowercased().replacingOccurrences(of: " ", with: "_") ?? ""
+        let message = queryItems.first {
+            ["message", "error", "reason"].contains($0.name)
+        }?.value
+
         checkoutSession = nil
         openAccountSection(AccountSectionView.ScrollTarget.customer)
-        paymentFlow.transition(to: .processing)
-        showToast(message: AppLocalization.text("payment_processing", fallback: "Completing your order…"))
+
+        switch status {
+        case "success", "succeeded", "paid", "captured", "approved":
+            cartItems.removeAll()
+            appliedVoucher = nil
+            voucherCodeInput = ""
+            voucherError = nil
+            paymentFlow.transition(to: .succeeded)
+            showToast(message: AppLocalization.text("payment_complete", fallback: "Payment completed successfully."))
+        case "cancelled", "canceled", "cancel":
+            paymentFlow.transition(to: .cancelled)
+            showToast(message: AppLocalization.text("payment_cancelled_title", fallback: "Payment cancelled"))
+        case "failed", "failure", "declined", "error", "not_captured":
+            paymentFlow.transition(
+                to: .failed,
+                error: message ?? AppLocalization.text("payment_failed_detail", fallback: "Please check your details or try another payment method.")
+            )
+            showToast(message: AppLocalization.text("payment_failed_title", fallback: "We couldn’t complete the payment."))
+        default:
+            paymentFlow.transition(to: .processing)
+            showToast(message: AppLocalization.text("payment_processing", fallback: "Completing your order…"))
+        }
 
         Task {
             await loadOrderHistory()
             if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 await loadLoyaltyAccount()
             }
-            paymentFlow.reset()
         }
     }
 
@@ -4828,6 +4958,7 @@ struct ContentView: View {
     private var brewingView: some View {
         BrewingSectionView(
             isCompact: isCompact,
+            isCustomerSignedIn: customerProfile != nil,
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,
@@ -9111,6 +9242,17 @@ struct ContentView: View {
         return message
     }
 
+    private func isExpiredCustomerSessionError(_ error: Error) -> Bool {
+        let message = error.localizedDescription
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        return message.contains("sign in again")
+            || message.contains("invalid customer token")
+            || message.contains("customer authorization required")
+            || message.contains("customer access token")
+    }
+
     private var normalizedAccountEmail: String {
         accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
@@ -9300,7 +9442,7 @@ struct ContentView: View {
         let cartItemID = cartItemIdentifier(productID: product.id, variantID: variant.id)
 
         if let index = cartItems.firstIndex(where: { $0.id == cartItemID }) {
-            cartItems[index].quantity += 1
+            updateCartItemQuantity(at: index, quantity: cartItems[index].quantity + 1)
         } else {
             cartItems.append(CartItem(id: cartItemID, product: product, variant: variant, quantity: 1))
         }
@@ -9345,7 +9487,7 @@ struct ContentView: View {
 
     private func incrementCartItem(id: String) {
         guard let index = cartItems.firstIndex(where: { $0.id == id }) else { return }
-        cartItems[index].quantity += 1
+        updateCartItemQuantity(at: index, quantity: cartItems[index].quantity + 1)
         checkoutError = nil
     }
 
@@ -9353,7 +9495,7 @@ struct ContentView: View {
         guard let index = cartItems.firstIndex(where: { $0.id == id }) else { return }
 
         if cartItems[index].quantity > 1 {
-            cartItems[index].quantity -= 1
+            updateCartItemQuantity(at: index, quantity: cartItems[index].quantity - 1)
         } else if cartItems.count == 1 {
             pendingCartRemovalID = id
             isConfirmingEmptyBag = true
@@ -9362,6 +9504,13 @@ struct ContentView: View {
         }
 
         checkoutError = nil
+    }
+
+    private func updateCartItemQuantity(at index: Int, quantity: Int) {
+        guard cartItems.indices.contains(index) else { return }
+        var updatedItem = cartItems[index]
+        updatedItem.quantity = max(quantity, 1)
+        cartItems[index] = updatedItem
     }
 
     private func cartItemIdentifier(productID: String, variantID: String) -> String {
@@ -10026,7 +10175,7 @@ struct ContentView: View {
             guard let variant = selectedVariant(for: product) else { continue }
             let cartItemID = cartItemIdentifier(productID: product.id, variantID: variant.id)
             if let index = cartItems.firstIndex(where: { $0.id == cartItemID }) {
-                cartItems[index].quantity += quantity
+                updateCartItemQuantity(at: index, quantity: cartItems[index].quantity + quantity)
             } else {
                 cartItems.append(CartItem(id: cartItemID, product: product, variant: variant, quantity: quantity))
             }
@@ -10236,13 +10385,50 @@ struct ContentView: View {
         checkoutError = nil
 
         do {
+            if selectedPaymentMethod.route == .eazyPayShopify {
+                guard appliedVoucher == nil else {
+                    throw LoyaltyServiceError.operationFailed("Remove the Talla voucher before using Shopify Checkout so the verified totals stay identical.")
+                }
+                let paymentID = "TL-\(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20))"
+                _ = try await AccountService.createEazyShopifyPaymentSession(tallaPaymentID: paymentID)
+                let lines = cartItems.map { ShopifyCheckoutLine(merchandiseId: $0.variant.id, quantity: $0.quantity) }
+                let checkoutAddress = preferredAddress.map { address in
+                    ShopifyCheckoutAddress(
+                        email: profile.email,
+                        fullName: address.fullName,
+                        phone: address.phone,
+                        address1: address.line1,
+                        city: address.city,
+                        country: address.country.rawValue
+                    )
+                }
+                let checkoutURL = try await ShopifyStorefrontClient.createCheckoutURL(
+                    lines: lines,
+                    customerEmail: profile.email,
+                    checkoutAddress: checkoutAddress,
+                    tallaPaymentID: paymentID
+                )
+                activeEazyShopifyPaymentID = paymentID
+                paymentFlow.transition(to: .awaitingCustomer)
+                cartOpen = false
+                eazyShopifyBrowserKind = .shopifyEazy
+                checkoutSession = CheckoutSession(url: checkoutURL, kind: .shopifyEazy)
+                showToast(message: "Choose Pay with EazyPay in Shopify Checkout, then return to Talla.")
+                isCheckingOut = false
+                return
+            }
+
             if let appliedVoucher {
                 _ = try await AccountService.consumeVoucher(code: appliedVoucher.code, email: profile.email)
                 await loadAvailableVouchers(for: profile.email)
             }
 
             let checkoutItems = cartItems.map { item in
-                (name: item.product.name, quantity: item.quantity)
+                (
+                    name: item.product.name,
+                    quantity: item.quantity,
+                    variantID: item.variant.id
+                )
             }
             let checkoutStart = try await AccountService.recordCheckoutStarted(
                 email: profile.email,
@@ -10297,6 +10483,8 @@ struct ContentView: View {
                     session: session,
                     kind: .applePay
                 )
+            case .eazyPayShopify:
+                break
             }
             appliedVoucher = nil
             voucherCodeInput = ""
@@ -10304,10 +10492,18 @@ struct ContentView: View {
             showToast(message: AppLocalization.text("checkout_opened_toast", fallback: "Checkout opened. Return to Talla after payment."))
         } catch {
             paymentFlow.transition(to: .failed, error: error.localizedDescription)
-            checkoutError = customerFacingServiceMessage(
-                for: error,
-                fallback: AppLocalization.text("checkout_start_failed", fallback: "Checkout could not be started right now. Your bag is still saved.")
-            )
+            if isExpiredCustomerSessionError(error) {
+                signOutCustomer(clearError: false)
+                checkoutError = AppLocalization.text(
+                    "checkout_session_expired",
+                    fallback: "Your session expired. Sign in again to continue checkout."
+                )
+            } else {
+                checkoutError = customerFacingServiceMessage(
+                    for: error,
+                    fallback: AppLocalization.text("checkout_start_failed", fallback: "Checkout could not be started right now. Your bag is still saved.")
+                )
+            }
         }
 
         isCheckingOut = false
@@ -10976,7 +11172,11 @@ private enum AccountService {
         return try await performTasteMemoryEnvelopeRequest(request)
     }
 
-    static func recordCheckoutStarted(email: String, items: [(name: String, quantity: Int)], total: Double) async throws -> CheckoutStartResult {
+    static func recordCheckoutStarted(
+        email: String,
+        items: [(name: String, quantity: Int, variantID: String)],
+        total: Double
+    ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
         }
@@ -10984,7 +11184,8 @@ private enum AccountService {
         let orderItems = items.map { item in
             [
                 "name": item.name,
-                "quantity": item.quantity
+                "quantity": item.quantity,
+                "variantId": item.variantID
             ] as [String: Any]
         }
 
@@ -11018,6 +11219,37 @@ private enum AccountService {
         ])
 
         return try await performBenefitPaymentRequest(request)
+    }
+
+    static func createEazyShopifyPaymentSession(tallaPaymentID: String) async throws -> EazyShopifyPaymentResponse {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
+        }
+        var request = URLRequest(url: baseURL.appending(path: "/api/payments/eazy/shopify/session"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["tallaPaymentId": tallaPaymentID])
+        return try await performEazyShopifyPaymentRequest(request)
+    }
+
+    static func fetchEazyShopifyPaymentStatus(tallaPaymentID: String) async throws -> EazyShopifyPaymentResponse {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
+        }
+        var components = URLComponents(url: baseURL.appending(path: "/api/payments/eazy/shopify/status"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "tallaPaymentId", value: tallaPaymentID)]
+        guard let url = components?.url else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment status URL is invalid.")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
+        return try await performEazyShopifyPaymentRequest(request)
     }
 
     static func fetchStockAlerts(email: String) async throws -> [ContentView.StockAlertRecord] {
@@ -11444,6 +11676,20 @@ private enum AccountService {
         throw ContentView.LoyaltyServiceError.operationFailed("The payment service could not complete your request.")
     }
 
+    private static func performEazyShopifyPaymentRequest(_ request: URLRequest) async throws -> EazyShopifyPaymentResponse {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
+        }
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            return try JSONDecoder().decode(EazyShopifyPaymentResponse.self, from: data)
+        }
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+        throw ContentView.LoyaltyServiceError.operationFailed("The payment service could not complete your request.")
+    }
+
     private static func performTasteMemoryRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -11817,7 +12063,7 @@ private enum ShopifyStorefrontClient {
                           handle
                           title
                           excerpt
-                          content(truncateAt: 180)
+                          content
                           tags
                           onlineStoreUrl
                           blog {
@@ -11879,7 +12125,7 @@ private enum ShopifyStorefrontClient {
                         handle
                         title
                         excerpt
-                        content(truncateAt: 180)
+                          content
                         tags
                         onlineStoreUrl
                         blog {
@@ -12094,7 +12340,12 @@ private enum ShopifyStorefrontClient {
         return payload
     }
 
-    static func createCheckoutURL(lines: [ShopifyCheckoutLine], customerEmail: String? = nil, checkoutAddress: ShopifyCheckoutAddress? = nil) async throws -> URL {
+    static func createCheckoutURL(
+        lines: [ShopifyCheckoutLine],
+        customerEmail: String? = nil,
+        checkoutAddress: ShopifyCheckoutAddress? = nil,
+        tallaPaymentID: String? = nil
+    ) async throws -> URL {
         let lineInputs = lines.map { line in
             [
                 "merchandiseId": line.merchandiseId,
@@ -12105,6 +12356,9 @@ private enum ShopifyStorefrontClient {
         var input: [String: Any] = [
             "lines": lineInputs
         ]
+        if let tallaPaymentID = tallaPaymentID?.trimmingCharacters(in: .whitespacesAndNewlines), !tallaPaymentID.isEmpty {
+            input["attributes"] = [["key": "talla_payment_id", "value": tallaPaymentID]]
+        }
         var buyerIdentity: [String: Any] = [:]
 
         if let customerEmail = customerEmail?.trimmingCharacters(in: .whitespacesAndNewlines), !customerEmail.isEmpty {
@@ -12454,6 +12708,16 @@ private struct BenefitPaymentResponse: Decodable {
     let trackId: String
 }
 
+private struct EazyShopifyPaymentResponse: Decodable {
+    let tallaPaymentId: String
+    let shopifyOrderName: String?
+    let status: String
+    let paymentUrl: URL?
+    let paid: Bool
+    let pending: Bool
+    let message: String?
+}
+
 private struct ServiceErrorResponse: Decodable {
     let error: String
 }
@@ -12737,8 +13001,37 @@ private extension ContentView.BrewingMethod {
             articleURL: article.onlineStoreUrl ?? Self.articleURL(blogHandle: article.blog.handle, articleHandle: article.handle),
             categories: Self.categories(title: article.title, tags: article.tags),
             difficulty: Self.difficulty(title: article.title, tags: article.tags),
-            brewTime: Self.brewTime(title: article.title, tags: article.tags)
+            brewTime: Self.brewTime(title: article.title, tags: article.tags),
+            publishedRecipe: Self.publishedRecipe(from: article.content)
         )
+    }
+
+    private static func publishedRecipe(from content: String) -> PublishedRecipe? {
+        let coffee = firstNumber(in: content, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*g\s+(?:[A-Za-z-]+\s+){0,3}coffee"#)
+        let ratio = firstNumber(in: content, pattern: #"Brew\s*Ratio\s*:\s*1\s*:\s*([0-9]+(?:\.[0-9]+)?)"#)
+        let water = firstNumber(in: content, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\s+(?:[A-Za-z-]+\s+){0,3}water"#)
+        let ice = firstNumber(in: content, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*g\s+ice"#)
+
+        guard coffee != nil || ratio != nil || water != nil || ice != nil else {
+            return nil
+        }
+
+        return PublishedRecipe(coffeeGrams: coffee, ratio: ratio, waterGrams: water, iceGrams: ice)
+    }
+
+    private static func firstNumber(in text: String, pattern: String) -> Double? {
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = expression.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let numberRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+
+        return Double(text[numberRange])
     }
 
     private static func symbol(title: String, tags: [String]) -> String {

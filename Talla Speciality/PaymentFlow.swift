@@ -95,6 +95,7 @@ enum TallaPaymentRoute: String, Equatable {
     case cardGateway
     case applePayGateway
     case clickToPayHosted
+    case eazyPayShopify
 }
 
 enum TallaPaymentMethod: String, CaseIterable, Identifiable {
@@ -103,6 +104,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
     case card
     case applePay
     case clickToPay
+    case eazyPay
 
     var id: String { rawValue }
 
@@ -113,6 +115,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .card: return .cardGateway
         case .applePay: return .applePayGateway
         case .clickToPay: return .clickToPayHosted
+        case .eazyPay: return .eazyPayShopify
         }
     }
 
@@ -125,6 +128,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .card: return AppLocalization.text("payment_card_title", fallback: "Credit or Debit Card")
         case .applePay: return "Apple Pay"
         case .clickToPay: return "Click to Pay"
+        case .eazyPay: return "Pay with EazyPay"
         }
     }
 
@@ -140,6 +144,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
         case .clickToPay:
             return AppLocalization.text("payment_click_to_pay_subtitle", fallback: "Use your saved cards for a faster checkout")
+        case .eazyPay:
+            return "Complete your order through Shopify Checkout"
         }
     }
 
@@ -155,6 +161,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
         case .clickToPay:
             return AppLocalization.text("payment_click_to_pay_sheet_subtitle", fallback: "Use supported saved cards for faster checkout")
+        case .eazyPay:
+            return "Shopify Checkout with secure EazyPay payment"
         }
     }
 
@@ -170,6 +178,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return AppLocalization.text("payment_card_supporting", fallback: "For Bahrain-issued credit cards and cards issued outside Bahrain.")
         case .clickToPay:
             return AppLocalization.text("payment_click_to_pay_supporting", fallback: "Available with supported Visa, Mastercard and American Express cards.")
+        case .eazyPay:
+            return "Choose Pay with EazyPay inside Shopify Checkout."
         }
     }
 
@@ -185,6 +195,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return AppLocalization.text("payment_card_guidance", fallback: "Choose this for Visa, Mastercard or American Express credit/debit cards.")
         case .clickToPay:
             return AppLocalization.text("payment_click_to_pay_guidance", fallback: "Choose this to access eligible cards already saved with Click to Pay.")
+        case .eazyPay:
+            return "Creates a pending Shopify order, then opens EazyPay securely."
         }
     }
 
@@ -200,6 +212,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return AppLocalization.text("payment_card_action", fallback: "Enter card details")
         case .clickToPay:
             return AppLocalization.text("payment_click_to_pay_action", fallback: "Continue with Click to Pay")
+        case .eazyPay:
+            return "Continue to Shopify"
         }
     }
 
@@ -210,6 +224,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .card: return "creditcard.fill"
         case .applePay: return "wallet.pass.fill"
         case .clickToPay: return "cursorarrow.click.2"
+        case .eazyPay: return "cart.badge.plus"
         }
     }
 }
@@ -312,6 +327,7 @@ struct PaymentMethodSelectorView: View {
                 let enabled = method == .benefit
                     || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
                     || method == .clickToPay
+                    || method == .eazyPay
                     || gatewaySDKAvailable
                 Button {
                     guard enabled, !state.isBusy else { return }
@@ -430,6 +446,10 @@ struct PaymentMethodBadge: View {
                     .resizable()
                     .scaledToFit()
                     .padding(5)
+            } else if method == .eazyPay {
+                Image(systemName: "cart.badge.plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(accentColor)
             } else {
                 Image("CardBrandsLogo")
                     .resizable()
@@ -548,6 +568,7 @@ struct PaymentMethodSelectionSheet: View {
         method == .benefit
             || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
             || method == .clickToPay
+            || method == .eazyPay
             || gatewaySDKAvailable
     }
 

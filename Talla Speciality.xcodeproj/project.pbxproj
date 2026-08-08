@@ -154,7 +154,7 @@
 		FA10000530A0000000000005 /* Vendor/Mastercard/Gateway.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/Mastercard/Gateway.xcframework; sourceTree = "<group>"; };
 		FA10000630A0000000000006 /* Vendor/Mastercard/uSDK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/Mastercard/uSDK.xcframework; sourceTree = "<group>"; };
 		FB20000330B0000000000003 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/BenefitPay/BenefitInAppSDK.xcframework; sourceTree = "<group>"; };
-		FC30000130C0000000000001 /* BenefitPay.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/BenefitPay.xcconfig; sourceTree = "<group>"; };
+		FC30000130C0000000000001 /* Config/BenefitPay.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/BenefitPay.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -315,7 +315,7 @@
 		E08D10A02F66FF140092272C = {
 			isa = PBXGroup;
 			children = (
-				FC30000130C0000000000001 /* BenefitPay.xcconfig */,
+				FC30000130C0000000000001 /* Config/BenefitPay.xcconfig */,
 				E06853D1300593D700D7DBC3 /* Talla WidgetsExtension.entitlements */,
 				E08D10AB2F66FF140092272C /* Talla Speciality */,
 				E08D10BD2F66FF170092272C /* Talla SpecialityTests */,
@@ -842,7 +842,7 @@
 		};
 		E08D10CE2F66FF170092272C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FC30000130C0000000000001 /* BenefitPay.xcconfig */;
+			baseConfigurationReference = FC30000130C0000000000001 /* Config/BenefitPay.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -900,7 +900,7 @@
 		};
 		E08D10CF2F66FF170092272C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FC30000130C0000000000001 /* BenefitPay.xcconfig */;
+			baseConfigurationReference = FC30000130C0000000000001 /* Config/BenefitPay.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
