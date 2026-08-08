@@ -475,6 +475,7 @@ test("Click to Pay initiates Hosted Checkout with PURCHASE and backend BHD amoun
     const body = JSON.parse(calls[0].options.body);
     assert.equal(body.apiOperation, "INITIATE_CHECKOUT");
     assert.equal(body.interaction.operation, "PURCHASE");
+    assert.equal(body.interaction.displayControl.paymentMethod.clickToPay.displayMode, "ACCORDION");
     assert.equal(body.order.amount, "12.800");
     assert.equal(body.order.currency, "BHD");
 });

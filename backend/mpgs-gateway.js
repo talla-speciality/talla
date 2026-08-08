@@ -356,7 +356,12 @@ async function initiateMpgsCheckout(
             operation: "PURCHASE",
             returnUrl,
             cancelUrl,
-            merchant: { name: "Talla Speciality" }
+            merchant: { name: "Talla Speciality" },
+            displayControl: {
+                paymentMethod: {
+                    clickToPay: { displayMode: "ACCORDION" }
+                }
+            }
         },
         order: { id: orderId, amount, currency: "BHD" }
     }, fetchImpl);
