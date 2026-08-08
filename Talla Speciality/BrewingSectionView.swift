@@ -7373,6 +7373,14 @@ struct BrewingSectionView: View {
     }
 
     private func startBrewModeSession() {
+        if activeDashboardDestination != nil {
+            activeDashboardDestination = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                startBrewModeSession()
+            }
+            return
+        }
+
         if brewModeElapsedSeconds == 0 {
             resetAfterBrewFeedbackState()
         }
@@ -7475,7 +7483,9 @@ struct BrewingSectionView: View {
         switch phase {
         case .background, .inactive:
             if isBrewModeRunning {
-                brewModeBackgroundDate = Date()
+                if brewModeBackgroundDate == nil {
+                    brewModeBackgroundDate = Date()
+                }
                 persistActiveBrewSession()
                 updateBrewLiveActivity(isPaused: false)
                 sendBrewWatchUpdate(action: "update", isPaused: false, allowBackgroundTransfer: true)
@@ -7654,7 +7664,7 @@ struct BrewingSectionView: View {
 
     private func startOrUpdateBrewLiveActivity() {
 #if canImport(ActivityKit)
-        guard #available(iOS 16.1, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard shouldUseBrewLiveActivity, #available(iOS 16.1, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         if brewLiveActivity == nil {
             let attributes = TallaBrewActivityAttributes(
@@ -7687,7 +7697,7 @@ struct BrewingSectionView: View {
 
     private func updateBrewLiveActivity(isPaused: Bool) {
 #if canImport(ActivityKit)
-        guard #available(iOS 16.1, *), let brewLiveActivity else { return }
+        guard shouldUseBrewLiveActivity, #available(iOS 16.1, *), let brewLiveActivity else { return }
 
         let content = ActivityContent(
             state: brewLiveActivityState(isPaused: isPaused),
@@ -7703,7 +7713,7 @@ struct BrewingSectionView: View {
 
     private func endBrewLiveActivity(after seconds: Double = 0) {
 #if canImport(ActivityKit)
-        guard #available(iOS 16.1, *), let brewLiveActivity else { return }
+        guard shouldUseBrewLiveActivity, #available(iOS 16.1, *), let brewLiveActivity else { return }
 
         let finalContent = ActivityContent(
             state: brewLiveActivityState(isPaused: true),
@@ -7723,6 +7733,14 @@ struct BrewingSectionView: View {
     }
 
 #if canImport(ActivityKit)
+    private var shouldUseBrewLiveActivity: Bool {
+#if canImport(UIKit)
+        UIDevice.current.userInterfaceIdiom == .phone
+#else
+        false
+#endif
+    }
+
     @available(iOS 16.1, *)
     private func brewLiveActivityState(isPaused: Bool) -> TallaBrewActivityAttributes.ContentState {
         TallaBrewActivityAttributes.ContentState(

@@ -499,12 +499,12 @@ private struct TallaBrewActivitySnapshot {
 }
 
 @available(iOS 16.1, *)
-private func tallaBrewActivitySnapshot(for context: ActivityViewContext<TallaBrewActivityAttributes>) -> TallaBrewActivitySnapshot {
+private func tallaBrewActivitySnapshot(for context: ActivityViewContext<TallaBrewActivityAttributes>, at date: Date = Date()) -> TallaBrewActivitySnapshot {
     let elapsed = context.state.isPaused
         ? context.state.elapsedSeconds
         : min(
             context.attributes.totalSeconds,
-            max(context.state.elapsedSeconds, Int(Date().timeIntervalSince(context.state.timerStartDate)))
+            max(context.state.elapsedSeconds, Int(date.timeIntervalSince(context.state.timerStartDate)))
         )
 
     guard !context.state.stepTimes.isEmpty, context.state.stepTimes.count == context.state.stepTitles.count else {
@@ -552,26 +552,30 @@ struct TallaBrewLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    let snapshot = tallaBrewActivitySnapshot(for: context)
-                    VStack(alignment: .trailing, spacing: 3) {
-                        TallaBrewActivityTimer(context: context, font: .caption.weight(.black))
-                        Text("\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                    TimelineView(.periodic(from: context.state.timerStartDate, by: 1)) { timeline in
+                        let snapshot = tallaBrewActivitySnapshot(for: context, at: timeline.date)
+                        VStack(alignment: .trailing, spacing: 3) {
+                            TallaBrewActivityTimer(context: context, font: .caption.weight(.black))
+                            Text("\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    let snapshot = tallaBrewActivitySnapshot(for: context)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(snapshot.currentStep)
-                            .font(.headline.weight(.bold))
-                            .lineLimit(1)
-                        Text("Next: \(snapshot.nextStep)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        TallaBrewActivityProgress(context: context)
+                    TimelineView(.periodic(from: context.state.timerStartDate, by: 1)) { timeline in
+                        let snapshot = tallaBrewActivitySnapshot(for: context, at: timeline.date)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(snapshot.currentStep)
+                                .font(.headline.weight(.bold))
+                                .lineLimit(1)
+                            Text("Next: \(snapshot.nextStep)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            TallaBrewActivityProgress(context: context, currentDate: timeline.date)
+                        }
                     }
                 }
             } compactLeading: {
@@ -593,62 +597,64 @@ private struct TallaBrewLockScreenView: View {
     let context: ActivityViewContext<TallaBrewActivityAttributes>
 
     var body: some View {
-        let snapshot = tallaBrewActivitySnapshot(for: context)
+        TimelineView(.periodic(from: context.state.timerStartDate, by: 1)) { timeline in
+            let snapshot = tallaBrewActivitySnapshot(for: context, at: timeline.date)
 
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "drop.fill")
-                    .font(.system(size: 15, weight: .black))
-                    .foregroundStyle(TallaBrewActivityStyle.iconForeground)
-                    .frame(width: 34, height: 34)
-                    .background(TallaBrewActivityStyle.accent, in: Circle())
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "drop.fill")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(TallaBrewActivityStyle.iconForeground)
+                        .frame(width: 34, height: 34)
+                        .background(TallaBrewActivityStyle.accent, in: Circle())
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Guided Brew")
-                        .font(.system(size: 11, weight: .black))
-                        .tracking(1.4)
-                        .textCase(.uppercase)
-                        .foregroundStyle(TallaBrewActivityStyle.accent)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Guided Brew")
+                            .font(.system(size: 11, weight: .black))
+                            .tracking(1.4)
+                            .textCase(.uppercase)
+                            .foregroundStyle(TallaBrewActivityStyle.accent)
 
-                    Text(context.attributes.methodName)
-                        .font(.system(size: 19, weight: .heavy))
+                        Text(context.attributes.methodName)
+                            .font(.system(size: 19, weight: .heavy))
+                            .foregroundStyle(TallaBrewActivityStyle.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    TallaBrewActivityTimer(context: context, font: .system(size: 24, weight: .heavy))
+                        .foregroundStyle(TallaBrewActivityStyle.primaryText)
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(snapshot.currentStep)
+                        .font(.system(size: 24, weight: .heavy))
                         .foregroundStyle(TallaBrewActivityStyle.primaryText)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.78)
+                        .minimumScaleFactor(0.82)
+
+                    HStack(spacing: 8) {
+                        Text("\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(TallaBrewActivityStyle.secondaryText)
+                            .lineLimit(1)
+
+                        Circle()
+                            .fill(TallaBrewActivityStyle.secondaryText.opacity(0.35))
+                            .frame(width: 4, height: 4)
+
+                        Text("Next: \(snapshot.nextStep)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(TallaBrewActivityStyle.secondaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                    }
                 }
 
-                Spacer(minLength: 8)
-
-                TallaBrewActivityTimer(context: context, font: .system(size: 24, weight: .heavy))
-                    .foregroundStyle(TallaBrewActivityStyle.primaryText)
+                TallaBrewActivityProgress(context: context, currentDate: timeline.date)
             }
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(snapshot.currentStep)
-                    .font(.system(size: 24, weight: .heavy))
-                    .foregroundStyle(TallaBrewActivityStyle.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-
-                HStack(spacing: 8) {
-                    Text("\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(TallaBrewActivityStyle.secondaryText)
-                        .lineLimit(1)
-
-                    Circle()
-                        .fill(TallaBrewActivityStyle.secondaryText.opacity(0.35))
-                        .frame(width: 4, height: 4)
-
-                    Text("Next: \(snapshot.nextStep)")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(TallaBrewActivityStyle.secondaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-                }
-            }
-
-            TallaBrewActivityProgress(context: context)
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 18)
@@ -687,11 +693,12 @@ private struct TallaBrewActivityTimer: View {
 @available(iOS 16.1, *)
 private struct TallaBrewActivityProgress: View {
     let context: ActivityViewContext<TallaBrewActivityAttributes>
+    var currentDate = Date()
 
     private var progress: Double {
         let elapsed = context.state.isPaused
             ? context.state.elapsedSeconds
-            : max(context.state.elapsedSeconds, Int(Date().timeIntervalSince(context.state.timerStartDate)))
+            : max(context.state.elapsedSeconds, Int(currentDate.timeIntervalSince(context.state.timerStartDate)))
         return min(max(Double(elapsed) / Double(max(context.attributes.totalSeconds, 1)), 0), 1)
     }
 
