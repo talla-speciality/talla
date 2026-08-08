@@ -85,7 +85,7 @@ test("completed app orders are exported once without payment-provider details", 
     assert.deepEqual(lastCreateVariables.options, { inventoryBehaviour: "BYPASS", sendReceipt: false });
     assert.equal(lastCreateVariables.order.financialStatus, "PENDING");
     assert.equal(lastCreateVariables.order.currency, "BHD");
-    assert.equal(lastCreateVariables.order.phone, "+973 3900 1234");
+    assert.equal(lastCreateVariables.order.phone, "+97339001234");
     assert.deepEqual(lastCreateVariables.order.lineItems, [
         { variantId: "gid://shopify/ProductVariant/111", quantity: 2 }
     ]);
@@ -99,14 +99,34 @@ test("pending and Shopify-originated orders are not exported", async () => {
     assert.equal(orderCreateCalls, 1);
 });
 
-test("Shopify order payload rejects app orders without variant identifiers", () => {
-    assert.throws(
-        () => shopifyOrderCreateInput({
-            id: "checkout_invalid",
-            email: "customer@example.com",
-            status: "Completed",
-            items: [{ name: "Coffee", quantity: 1 }]
-        }),
-        /SHOPIFY_ORDER_VARIANTS_MISSING/
-    );
+test("historical app orders without variant identifiers retain their backend total", () => {
+    const input = shopifyOrderCreateInput({
+        id: "checkout_historical",
+        email: "customer@example.com",
+        status: "Completed",
+        total: "BHD 6.400",
+        items: [{ name: "Coffee", quantity: 2 }]
+    });
+
+    assert.deepEqual(input.lineItems, [{
+        title: "Talla app order — Coffee ×2",
+        quantity: 1,
+        requiresShipping: true,
+        taxable: false,
+        priceSet: {
+            shopMoney: { amount: "6.400", currencyCode: "BHD" }
+        }
+    }]);
+    assert.match(input.note, /Historical item details: Coffee ×2/);
+});
+
+test("invalid customer phone never blocks Shopify order creation", () => {
+    const input = shopifyOrderCreateInput({
+        id: "checkout_phone_fallback",
+        email: "customer@example.com",
+        status: "Completed",
+        items: [{ name: "Coffee", quantity: 1, variantId: "gid://shopify/ProductVariant/111" }]
+    }, "not-a-phone");
+
+    assert.equal(input.phone, undefined);
 });

@@ -724,7 +724,14 @@ async function withShopifyOrderExportLock(localOrderID, operation) {
 function normalizeShopifyOrderPhone(value) {
     const phone = String(value || "").trim();
     if (!phone || phone.length > 32 || !/^\+?[0-9 ()-]{6,32}$/.test(phone)) return "";
-    return phone;
+    let digits = phone.replace(/\D/g, "");
+    if (phone.startsWith("00")) digits = digits.slice(2);
+    if (!phone.startsWith("+") && !phone.startsWith("00")) {
+        if (digits.length === 8) digits = `973${digits}`;
+        else if (!digits.startsWith("973")) return "";
+    }
+    const normalized = `+${digits}`;
+    return /^\+[1-9]\d{7,14}$/.test(normalized) ? normalized : "";
 }
 
 async function customerPhoneForShopifyOrder(order) {
@@ -736,7 +743,8 @@ async function customerPhoneForShopifyOrder(order) {
 }
 
 function shopifyOrderCreateInput(order, customerPhone = "") {
-    const lineItems = (Array.isArray(order.items) ? order.items : []).map((item) => {
+    const orderItems = Array.isArray(order.items) ? order.items : [];
+    const lineItems = orderItems.map((item) => {
         const variantID = String(item.variantId || item.variantID || "").trim();
         if (!variantID.startsWith("gid://shopify/ProductVariant/")) return null;
         return {
@@ -744,8 +752,23 @@ function shopifyOrderCreateInput(order, customerPhone = "") {
             quantity: Math.max(1, Math.round(Number(item.quantity || 1)))
         };
     });
-    if (lineItems.length === 0 || lineItems.some((item) => !item)) {
-        throw new Error("SHOPIFY_ORDER_VARIANTS_MISSING");
+    const itemSummary = orderItems.map((item) => (
+        `${String(item.name || "Item").trim() || "Item"} ×${Math.max(1, Math.round(Number(item.quantity || 1)))}`
+    )).join(", ");
+    const usesHistoricalFallback = lineItems.length === 0 || lineItems.some((item) => !item);
+    if (usesHistoricalFallback) {
+        lineItems.splice(0, lineItems.length, {
+            title: (`Talla app order — ${itemSummary || "Order items"}`).slice(0, 255),
+            quantity: 1,
+            requiresShipping: true,
+            taxable: false,
+            priceSet: {
+                shopMoney: {
+                    amount: numericOrderTotal(order).toFixed(3),
+                    currencyCode: "BHD"
+                }
+            }
+        });
     }
     const phone = normalizeShopifyOrderPhone(customerPhone);
     return {
@@ -757,7 +780,9 @@ function shopifyOrderCreateInput(order, customerPhone = "") {
         processedAt: order.createdAt || new Date().toISOString(),
         sourceIdentifier: String(order.id),
         tags: ["Talla iOS", shopifyOrderExportTag(order.id)],
-        note: "Order placed in the Talla app."
+        note: usesHistoricalFallback
+            ? `Order placed in the Talla app. Historical item details: ${itemSummary || "Unavailable"}.`
+            : "Order placed in the Talla app."
     };
 }
 
