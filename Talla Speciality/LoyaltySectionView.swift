@@ -24,6 +24,7 @@ struct LoyaltySectionView: View {
     let loyaltyPerks: [String]
     let rewardProgress: (current: Int, target: Int, remaining: Int, fraction: Double)?
     let tierProgress: (label: String, current: Int, target: Int, remaining: Int, fraction: Double)?
+    let stampProductImageURL: URL?
     let checkRewardsAction: () -> Void
     let signOutAction: () -> Void
     let expiringRewardsSection: AnyView
@@ -97,7 +98,7 @@ struct LoyaltySectionView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            reserveProgressBar
+            stampProgressCard
 
             HStack(spacing: 10) {
                 Button {
@@ -133,7 +134,7 @@ struct LoyaltySectionView: View {
             return AppLocalization.text("next_reward", fallback: "Next reward")
         }
 
-        if rewardProgress.remaining == 0 {
+        if rewardProgress.fraction >= 0.999 {
             return AppLocalization.text("reward_ready", fallback: "Reward ready")
         }
 
@@ -143,33 +144,137 @@ struct LoyaltySectionView: View {
         )
     }
 
-    private var reserveProgressBar: some View {
-        let fraction = rewardProgress?.fraction ?? 0
+    private var stampProgressCard: some View {
+        let filledCount = min(max(Int(floor((rewardProgress?.fraction ?? 0) * 5)), 0), 5)
+        let rewardIsReady = (rewardProgress?.fraction ?? 0) >= 0.999
+        let stampsLeft = max(5 - filledCount, 0)
 
-        return VStack(alignment: .leading, spacing: 6) {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(accentColor.opacity(0.12))
-
-                    Capsule()
-                        .fill(accentColor)
-                        .frame(width: max(geometry.size.width * fraction, 10))
-                        .animation(.spring(response: 0.48, dampingFraction: 0.78), value: fraction)
+        return VStack(spacing: 13) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+                ForEach(0..<5, id: \.self) { index in
+                    productStamp(isEarned: index < filledCount)
                 }
+
+                rewardStamp(isReady: rewardIsReady)
             }
-            .frame(height: 9)
 
-            if let rewardProgress {
-                HStack {
-                    Text(String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), rewardProgress.current))
-                    Spacer()
-                    Text(String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), rewardProgress.target))
-                }
-                .font(Font.custom("AvenirNext-Regular", size: 11))
-                .foregroundColor(tertiaryTextColor)
+            HStack(spacing: 12) {
+                stampMetric(
+                    label: AppLocalization.text("stamps_left", fallback: "Stamps left"),
+                    value: rewardIsReady ? "0" : "\(stampsLeft)"
+                )
+
+                Divider()
+                    .frame(height: 30)
+                    .overlay(accentColor.opacity(0.18))
+
+                stampMetric(
+                    label: AppLocalization.text("available_reward", fallback: "Available reward"),
+                    value: rewardIsReady
+                        ? AppLocalization.text("ready", fallback: "Ready")
+                        : AppLocalization.text("keep_collecting", fallback: "Keep collecting")
+                )
             }
         }
+        .padding(12)
+        .background(accentColor.opacity(isLightAppearance ? 0.07 : 0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            rewardIsReady
+                ? AppLocalization.text("reward_ready", fallback: "Reward ready")
+                : "\(stampsLeft) " + AppLocalization.text("stamps_left", fallback: "stamps left")
+        )
+    }
+
+    private func productStamp(isEarned: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFillColor.opacity(isEarned ? 1 : 0.42))
+
+            if let stampProductImageURL {
+                AsyncImage(url: stampProductImageURL) { phase in
+                    if case let .success(image) = phase {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        coffeeBeanFallback
+                    }
+                }
+            } else {
+                coffeeBeanFallback
+            }
+        }
+        .frame(height: isCompact ? 62 : 70)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .saturation(isEarned ? 1 : 0)
+        .opacity(isEarned ? 1 : 0.24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(accentColor.opacity(isEarned ? 0.38 : 0.12), lineWidth: 1)
+        )
+        .overlay(alignment: .topTrailing) {
+            if isEarned {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(cardFillColor, accentColor)
+                    .padding(5)
+            }
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isEarned)
+    }
+
+    private func rewardStamp(isReady: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(isReady ? accentColor : cardFillColor.opacity(0.5))
+
+            VStack(spacing: 5) {
+                Image(systemName: isReady ? "gift.fill" : "gift")
+                    .font(.system(size: 22, weight: .semibold))
+
+                Text(AppLocalization.text("reward", fallback: "Reward"))
+                    .font(Font.custom("AvenirNext-Bold", size: 8))
+                    .tracking(1)
+                    .textCase(.uppercase)
+            }
+            .foregroundColor(isReady ? Color(hex: 0x0A0804) : tertiaryTextColor)
+        }
+        .frame(height: isCompact ? 62 : 70)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(accentColor.opacity(isReady ? 0.65 : 0.16), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var coffeeBeanFallback: some View {
+        ZStack {
+            accentColor.opacity(0.10)
+
+            Image(systemName: "leaf.fill")
+                .font(.system(size: 23, weight: .semibold))
+                .rotationEffect(.degrees(38))
+                .foregroundColor(accentColor)
+        }
+    }
+
+    private func stampMetric(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(Font.custom("AvenirNext-Bold", size: 8))
+                .tracking(1.1)
+                .textCase(.uppercase)
+                .foregroundColor(tertiaryTextColor)
+
+            Text(value)
+                .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                .foregroundColor(primaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var rewardsCatalogScreen: some View {

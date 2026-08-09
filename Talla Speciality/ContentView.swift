@@ -3956,6 +3956,7 @@ struct ContentView: View {
             loyaltyPerks: loyaltyPerks,
             rewardProgress: loyaltyAccount.map { rewardProgress(for: $0.pointsBalance) },
             tierProgress: loyaltyAccount.map { tierProgress(for: $0.pointsBalance) },
+            stampProductImageURL: loyaltyStampProductImageURL,
             checkRewardsAction: {
                 Task {
                     await loadLoyaltyAccount()
@@ -3982,6 +3983,13 @@ struct ContentView: View {
         )
         .padding(.horizontal, 18)
         .padding(.bottom, 8)
+    }
+
+    private var loyaltyStampProductImageURL: URL? {
+        products.first {
+            ($0.categoryKey == "coffee-beans" || $0.categoryKey == "arabic-coffee-beans")
+                && $0.imageURL != nil
+        }?.imageURL ?? products.first(where: { $0.imageURL != nil })?.imageURL
     }
 
     private var customerAccountSection: some View {
