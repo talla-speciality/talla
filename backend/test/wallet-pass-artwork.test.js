@@ -15,19 +15,19 @@ const artworkDirectory = path.join(__dirname, "..", "assets", "wallet");
 const emptyBottlePath = path.join(artworkDirectory, "al-jahra-empty.png");
 const fullBottlePath = path.join(artworkDirectory, "al-jahra-full.png");
 
-test("wallet stamp state fills one bottle per ten Beans", () => {
+test("wallet stamp state fills one of six bottles per fifty Beans", () => {
     assert.deepEqual(walletStampState(0), {
         filledCount: 0,
-        stampsLeft: 5,
+        stampsLeft: 6,
         rewardReady: false
     });
-    assert.equal(walletStampState(29).filledCount, 2);
-    assert.deepEqual(walletStampState(50), {
-        filledCount: 5,
+    assert.equal(walletStampState(149).filledCount, 2);
+    assert.deepEqual(walletStampState(300), {
+        filledCount: 6,
         stampsLeft: 0,
         rewardReady: true
     });
-    assert.equal(walletStampState(51).filledCount, 0);
+    assert.equal(walletStampState(301).filledCount, 0);
 });
 
 test("wallet strip renders correct Retina dimensions and changes with progress", async () => {
@@ -46,7 +46,7 @@ test("wallet strip renders correct Retina dimensions and changes with progress",
         await renderWalletStampStrip({
             emptyBottlePath,
             fullBottlePath,
-            filledCount: 5,
+            filledCount: 6,
             outputPath: fullOutput,
             scale: 2
         });

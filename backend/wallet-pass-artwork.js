@@ -1,8 +1,8 @@
 const path = require("path");
 const sharp = require("sharp");
 
-const STAMP_COUNT = 5;
-const POINTS_PER_STAMP = 10;
+const STAMP_COUNT = 6;
+const POINTS_PER_STAMP = 50;
 const REWARD_THRESHOLD = STAMP_COUNT * POINTS_PER_STAMP;
 
 function walletStampState(pointsBalance) {
@@ -41,16 +41,17 @@ async function renderWalletStampStrip({
 }) {
     const width = 375 * scale;
     const height = 144 * scale;
-    const slotWidth = 92 * scale;
-    const slotHeight = 62 * scale;
+    const slotWidth = 64 * scale;
+    const slotHeight = 60 * scale;
     const topY = 5 * scale;
-    const bottomY = 76 * scale;
+    const bottomY = 77 * scale;
     const positions = [
-        { left: 38 * scale, top: topY },
-        { left: 142 * scale, top: topY },
-        { left: 246 * scale, top: topY },
-        { left: 90 * scale, top: bottomY },
-        { left: 194 * scale, top: bottomY }
+        { left: 144 * scale, top: topY },
+        { left: 222 * scale, top: topY },
+        { left: 300 * scale, top: topY },
+        { left: 144 * scale, top: bottomY },
+        { left: 222 * scale, top: bottomY },
+        { left: 300 * scale, top: bottomY }
     ];
     const safeFilledCount = Math.min(Math.max(Number(filledCount) || 0, 0), STAMP_COUNT);
     const [emptyBottle, fullBottle] = await Promise.all([

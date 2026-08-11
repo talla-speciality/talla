@@ -5165,13 +5165,8 @@ async function generateWalletPass(email) {
     passJSON.storeCard.auxiliaryFields = [
         {
             key: "stamps_left",
-            label: "STAMPS LEFT",
+            label: "BOTTLES LEFT",
             value: stampState.stampsLeft
-        },
-        {
-            key: "available_reward",
-            label: "AVAILABLE REWARD",
-            value: stampState.rewardReady ? "Ready" : "Keep collecting"
         }
     ];
     passJSON.storeCard.backFields = [
