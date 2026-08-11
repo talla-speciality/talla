@@ -5,7 +5,7 @@
   "teamIdentifier": "TAG9WXY85M",
   "organizationName": "Talla Speciality",
   "description": "The Talla Club by Talla Speciality",
-  "logoText": "TALLA",
+  "logoText": "The Talla Club",
   "foregroundColor": "rgb(46, 32, 18)",
   "backgroundColor": "rgb(241, 234, 223)",
   "labelColor": "rgb(166, 114, 52)",
@@ -31,7 +31,12 @@
         "value": "Talla Guest"
       }
     ],
-    "auxiliaryFields": [],
+    "auxiliaryFields": [
+      {
+        "key": "bottle_reward",
+        "value": "1 bottle = 1 free drink"
+      }
+    ],
     "backFields": [
       {
         "key": "support",

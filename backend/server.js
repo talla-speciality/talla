@@ -5175,7 +5175,12 @@ async function generateWalletPass(email) {
         artworkDirectory: walletPassArtworkDirectory,
         pointsBalance: loyaltyAccount.pointsBalance
     });
-    passJSON.storeCard.auxiliaryFields = [];
+    passJSON.storeCard.auxiliaryFields = [
+        {
+            key: "bottle_reward",
+            value: "1 bottle = 1 free drink"
+        }
+    ];
     passJSON.storeCard.backFields = [
         {
             key: "email",
