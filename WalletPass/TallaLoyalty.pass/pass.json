@@ -45,9 +45,14 @@
     ],
     "auxiliaryFields": [
       {
-        "key": "reward",
-        "label": "NEXT POUR",
-        "value": "Collect Beans in store and online"
+        "key": "stamps_left",
+        "label": "STAMPS LEFT",
+        "value": 5
+      },
+      {
+        "key": "available_reward",
+        "label": "AVAILABLE REWARD",
+        "value": "Keep collecting"
       }
     ],
     "backFields": [

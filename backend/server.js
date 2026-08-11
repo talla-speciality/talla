@@ -11,6 +11,7 @@ const database = require("./database");
 const benefitGateway = require("./benefit-gateway");
 const mpgsGateway = require("./mpgs-gateway");
 const eazyPay = require("./eazypay");
+const { writeWalletStampStrips } = require("./wallet-pass-artwork");
 
 const host = config.host;
 const port = config.port;
@@ -116,6 +117,7 @@ const approvedProductTypes = new Set([
 ]);
 const managedProductBadgeTags = ["NEW", "LIMITED", "STAFF PICK", "BESTSELLER"];
 const walletPassTemplateDirectory = config.walletPassTemplateDirectory;
+const walletPassArtworkDirectory = path.join(__dirname, "assets", "wallet");
 const walletPassCertificatePath = config.walletPassCertificatePath;
 const walletPassCertificateBase64 = config.walletPassCertificateBase64;
 const walletPassCertificatePassword = config.walletPassCertificatePassword;
@@ -5155,7 +5157,23 @@ async function generateWalletPass(email) {
     passJSON.storeCard.primaryFields[0].value = loyaltyAccount.pointsBalance;
     passJSON.storeCard.secondaryFields[0].value = memberName || account.email;
     passJSON.storeCard.secondaryFields[1].value = loyaltyAccount.tier;
-    passJSON.storeCard.auxiliaryFields[0].value = loyaltyAccount.nextReward;
+    const stampState = await writeWalletStampStrips({
+        passDirectory,
+        artworkDirectory: walletPassArtworkDirectory,
+        pointsBalance: loyaltyAccount.pointsBalance
+    });
+    passJSON.storeCard.auxiliaryFields = [
+        {
+            key: "stamps_left",
+            label: "STAMPS LEFT",
+            value: stampState.stampsLeft
+        },
+        {
+            key: "available_reward",
+            label: "AVAILABLE REWARD",
+            value: stampState.rewardReady ? "Ready" : "Keep collecting"
+        }
+    ];
     passJSON.storeCard.backFields = [
         {
             key: "email",
@@ -5166,6 +5184,11 @@ async function generateWalletPass(email) {
             key: "member_id",
             label: "ROASTERY ID",
             value: loyaltyAccount.memberID
+        },
+        {
+            key: "next_reward",
+            label: "NEXT REWARD",
+            value: loyaltyAccount.nextReward
         },
         {
             key: "support",
