@@ -581,6 +581,7 @@ enum AppLocalization {
         ,"apple_wallet_unavailable": ["ar": "Apple Wallet غير متوفر على هذا الجهاز"]
         ,"sign_in_before_wallet_pass": ["ar": "سجّل الدخول قبل إضافة بطاقتك إلى Wallet"]
         ,"wallet_pass_already_added": ["ar": "بطاقة الولاء موجودة بالفعل في Apple Wallet"]
+        ,"wallet_pass_updated": ["ar": "تم تحديث بطاقة نادي تالا في Apple Wallet"]
         ,"daily_surprise_title": ["ar": "اختيار اليوم"]
         ,"daily_surprise_detail": ["ar": "لست متأكداً ماذا تختار؟ دع Talla يفاجئك."]
         ,"surprise_me": ["ar": "فاجئني"]

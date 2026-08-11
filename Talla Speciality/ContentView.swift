@@ -9024,9 +9024,11 @@ struct ContentView: View {
 
         do {
             let pass = try await AccountService.fetchWalletPass(email: email)
-            let isPassInWallet = await Task.detached(priority: .userInitiated) {
-                PKPassLibrary().containsPass(pass)
-            }.value
+            let library = PKPassLibrary()
+            let isPassInWallet = library.containsPass(pass)
+            if isPassInWallet {
+                _ = library.replacePass(with: pass)
+            }
             isLoyaltyPassInWallet = isPassInWallet
         } catch {
             isLoyaltyPassInWallet = false
@@ -9389,6 +9391,7 @@ struct ContentView: View {
             savedLoyaltyEmail = trimmedEmail
             syncWidgetSharedState(reload: true)
             await loadAvailableVouchers(for: trimmedEmail)
+            await refreshWalletPassPresence()
             showToast(message: AppLocalization.text("rewards_loaded_toast", fallback: "Rewards loaded"))
         } catch {
             loyaltyAccount = nil
@@ -9421,6 +9424,7 @@ struct ContentView: View {
             } else {
                 showToast(message: String(format: AppLocalization.text("reward_redeemed", fallback: "%@ redeemed"), reward))
             }
+            await refreshWalletPassPresence()
         } catch {
             loyaltyError = customerFacingServiceMessage(
                 for: error,
@@ -10522,8 +10526,9 @@ struct ContentView: View {
             let pass = try await AccountService.fetchWalletPass(email: email)
             let library = PKPassLibrary()
             if library.containsPass(pass) {
+                _ = library.replacePass(with: pass)
                 isLoyaltyPassInWallet = true
-                showToast(message: AppLocalization.text("wallet_pass_already_added", fallback: "Loyalty card is already in Apple Wallet"))
+                showToast(message: AppLocalization.text("wallet_pass_updated", fallback: "The Talla Club card was updated in Apple Wallet"))
             } else {
                 loyaltyWalletPass = WalletPassItem(pass: pass)
             }
