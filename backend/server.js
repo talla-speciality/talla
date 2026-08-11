@@ -1909,7 +1909,7 @@ function defaultLoyaltyPerks() {
 }
 
 function loyaltyPerksFor(pointsBalance) {
-    if (pointsBalance >= 500) {
+    if (pointsBalance >= 300) {
         return [
             "Everything in Silver",
             "Priority access to limited roast drops",
@@ -1917,7 +1917,7 @@ function loyaltyPerksFor(pointsBalance) {
         ];
     }
 
-    if (pointsBalance >= 250) {
+    if (pointsBalance >= 150) {
         return [
             "Collect Beans across coffees, beans, and accessories",
             "Early access to seasonal offers and member-only extras",
@@ -5688,8 +5688,8 @@ function memberIDFor(email) {
 }
 
 function tierFor(pointsBalance) {
-    if (pointsBalance >= 250) return "Gold";
-    if (pointsBalance >= 125) return "Silver";
+    if (pointsBalance >= 300) return "Gold";
+    if (pointsBalance >= 150) return "Silver";
     return "Bronze";
 }
 
@@ -11342,6 +11342,7 @@ module.exports = {
     findShopifyOrderExport,
     findShopifyEazyPayment,
     isEazyPayManualShopifyOrder,
+    loyaltyPerksFor,
     normalizeTallaPaymentID,
     prepareShopifyEazyOrder,
     publicShopifyEazyPayment,
@@ -11353,6 +11354,7 @@ module.exports = {
     renderMpgsResultPage,
     server,
     startServer,
+    tierFor,
     shopifyOrderCreateInput,
     verifyConfirmedMpgsOrder,
     verifyEazyTransactionForShopifyPayment,
