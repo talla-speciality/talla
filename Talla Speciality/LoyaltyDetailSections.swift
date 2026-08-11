@@ -26,10 +26,10 @@ struct LoyaltyRewardsActionsView: View {
         [
             RewardOption(
                 id: "espresso-pour",
-                title: AppLocalization.text("reward_espresso_pour", fallback: "Espresso Pour"),
-                detail: AppLocalization.text("reward_espresso_pour_detail", fallback: "Complimentary espresso"),
+                title: AppLocalization.text("reward_espresso_pour", fallback: "Drink of Your Choice"),
+                detail: AppLocalization.text("reward_espresso_pour_detail", fallback: "Choose any eligible drink"),
                 points: 50,
-                reward: "Espresso pour"
+                reward: "Free Drink"
             ),
             RewardOption(
                 id: "pastry-pairing",

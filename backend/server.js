@@ -5081,6 +5081,7 @@ async function updateOrderStatusAndAward(email, orderID, status) {
 function rewardDetailsFor(reward) {
     const normalized = String(reward || "").trim().toLowerCase();
     const catalog = {
+        "free drink": { detail: "One eligible drink of your choice, up to BHD 2.500", expiresInDays: 30 },
         "espresso pour": { detail: "Complimentary espresso or batch brew", expiresInDays: 30 },
         "pastry pairing": { detail: "One pastry on the house", expiresInDays: 21 },
         "signature sip": { detail: "One signature drink on the house", expiresInDays: 30 },
@@ -5154,21 +5155,15 @@ async function generateWalletPass(email) {
     passJSON.serialNumber = serialNumber;
     passJSON.barcode.message = loyaltyAccount.memberID;
     passJSON.barcode.altText = loyaltyAccount.memberID;
-    passJSON.storeCard.primaryFields[0].value = loyaltyAccount.pointsBalance;
+    passJSON.storeCard.primaryFields = [];
     passJSON.storeCard.secondaryFields[0].value = memberName || account.email;
     passJSON.storeCard.secondaryFields[1].value = loyaltyAccount.tier;
-    const stampState = await writeWalletStampStrips({
+    await writeWalletStampStrips({
         passDirectory,
         artworkDirectory: walletPassArtworkDirectory,
         pointsBalance: loyaltyAccount.pointsBalance
     });
-    passJSON.storeCard.auxiliaryFields = [
-        {
-            key: "stamps_left",
-            label: "BOTTLES LEFT",
-            value: stampState.stampsLeft
-        }
-    ];
+    passJSON.storeCard.auxiliaryFields = [];
     passJSON.storeCard.backFields = [
         {
             key: "email",

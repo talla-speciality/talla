@@ -98,7 +98,7 @@ struct LoyaltySectionView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            stampProgressCard
+            stampProgressCard(pointsBalance: account.pointsBalance)
 
             HStack(spacing: 10) {
                 Button {
@@ -144,36 +144,33 @@ struct LoyaltySectionView: View {
         )
     }
 
-    private var stampProgressCard: some View {
-        let filledCount = min(max(Int(floor((rewardProgress?.fraction ?? 0) * 5)), 0), 5)
-        let rewardIsReady = (rewardProgress?.fraction ?? 0) >= 0.999
-        let stampsLeft = max(5 - filledCount, 0)
+    private func stampProgressCard(pointsBalance: Int) -> some View {
+        let cyclePoints = max(pointsBalance, 0) % 300
+        let currentPoints = cyclePoints == 0 && pointsBalance > 0 ? 300 : cyclePoints
+        let filledCount = min(max(currentPoints / 50, 0), 6)
+        let bottlesLeft = max(6 - filledCount, 0)
 
         return VStack(spacing: 13) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-                ForEach(0..<5, id: \.self) { index in
+                ForEach(0..<6, id: \.self) { index in
                     productStamp(isEarned: index < filledCount)
                 }
-
-                rewardStamp(isReady: rewardIsReady)
             }
 
-            HStack(spacing: 12) {
-                stampMetric(
-                    label: AppLocalization.text("stamps_left", fallback: "Stamps left"),
-                    value: rewardIsReady ? "0" : "\(stampsLeft)"
-                )
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(accentColor)
 
-                Divider()
-                    .frame(height: 30)
-                    .overlay(accentColor.opacity(0.18))
+                Text(AppLocalization.text("loyalty_bottle_value", fallback: "Every 50 Beans fills one bottle and unlocks a drink of your choice."))
+                    .font(Font.custom("AvenirNext-Medium", size: 12))
+                    .foregroundColor(secondaryTextColor)
 
-                stampMetric(
-                    label: AppLocalization.text("available_reward", fallback: "Available reward"),
-                    value: rewardIsReady
-                        ? AppLocalization.text("ready", fallback: "Ready")
-                        : AppLocalization.text("keep_collecting", fallback: "Keep collecting")
-                )
+                Spacer(minLength: 8)
+
+                Text(String(format: AppLocalization.text("loyalty_bottles_left", fallback: "%d left"), bottlesLeft))
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(primaryTextColor)
             }
         }
         .padding(12)
@@ -181,9 +178,10 @@ struct LoyaltySectionView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            rewardIsReady
-                ? AppLocalization.text("reward_ready", fallback: "Reward ready")
-                : "\(stampsLeft) " + AppLocalization.text("stamps_left", fallback: "stamps left")
+            String(
+                format: AppLocalization.text("loyalty_bottle_progress_accessibility", fallback: "%d of 6 bottles filled. Every filled bottle unlocks a drink of your choice."),
+                filledCount
+            )
         )
     }
 
@@ -225,30 +223,6 @@ struct LoyaltySectionView: View {
         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isEarned)
     }
 
-    private func rewardStamp(isReady: Bool) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isReady ? accentColor : cardFillColor.opacity(0.5))
-
-            VStack(spacing: 5) {
-                Image(systemName: isReady ? "gift.fill" : "gift")
-                    .font(.system(size: 22, weight: .semibold))
-
-                Text(AppLocalization.text("reward", fallback: "Reward"))
-                    .font(Font.custom("AvenirNext-Bold", size: 8))
-                    .tracking(1)
-                    .textCase(.uppercase)
-            }
-            .foregroundColor(isReady ? Color(hex: 0x0A0804) : tertiaryTextColor)
-        }
-        .frame(height: isCompact ? 62 : 70)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(accentColor.opacity(isReady ? 0.65 : 0.16), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
     private var coffeeBeanFallback: some View {
         ZStack {
             accentColor.opacity(0.10)
@@ -258,23 +232,6 @@ struct LoyaltySectionView: View {
                 .rotationEffect(.degrees(38))
                 .foregroundColor(accentColor)
         }
-    }
-
-    private func stampMetric(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(Font.custom("AvenirNext-Bold", size: 8))
-                .tracking(1.1)
-                .textCase(.uppercase)
-                .foregroundColor(tertiaryTextColor)
-
-            Text(value)
-                .font(Font.custom("AvenirNext-DemiBold", size: 12))
-                .foregroundColor(primaryTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var rewardsCatalogScreen: some View {

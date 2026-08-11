@@ -24,13 +24,7 @@
         "value": "Talla Reserve"
       }
     ],
-    "primaryFields": [
-      {
-        "key": "points",
-        "label": "BEANS",
-        "value": 0
-      }
-    ],
+    "primaryFields": [],
     "secondaryFields": [
       {
         "key": "member",
@@ -43,13 +37,7 @@
         "value": "Bronze"
       }
     ],
-    "auxiliaryFields": [
-      {
-        "key": "stamps_left",
-        "label": "BOTTLES LEFT",
-        "value": 6
-      }
-    ],
+    "auxiliaryFields": [],
     "backFields": [
       {
         "key": "support",

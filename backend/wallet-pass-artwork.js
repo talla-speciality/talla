@@ -41,17 +41,17 @@ async function renderWalletStampStrip({
 }) {
     const width = 375 * scale;
     const height = 144 * scale;
-    const slotWidth = 64 * scale;
+    const slotWidth = 72 * scale;
     const slotHeight = 60 * scale;
     const topY = 5 * scale;
     const bottomY = 77 * scale;
     const positions = [
-        { left: 144 * scale, top: topY },
-        { left: 222 * scale, top: topY },
-        { left: 300 * scale, top: topY },
-        { left: 144 * scale, top: bottomY },
-        { left: 222 * scale, top: bottomY },
-        { left: 300 * scale, top: bottomY }
+        { left: 48 * scale, top: topY },
+        { left: 151 * scale, top: topY },
+        { left: 254 * scale, top: topY },
+        { left: 48 * scale, top: bottomY },
+        { left: 151 * scale, top: bottomY },
+        { left: 254 * scale, top: bottomY }
     ];
     const safeFilledCount = Math.min(Math.max(Number(filledCount) || 0, 0), STAMP_COUNT);
     const [emptyBottle, fullBottle] = await Promise.all([
