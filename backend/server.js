@@ -33,6 +33,7 @@ const benefitPaymentsStorePath = config.stores.benefitPayments;
 const cardPaymentsStorePath = config.stores.cardPayments;
 const shopifyEazyPaymentsStorePath = config.stores.shopifyEazyPayments;
 const shopifyOrderExportsStorePath = config.stores.shopifyOrderExports;
+const walletPassesStorePath = config.stores.walletPasses;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -123,6 +124,7 @@ const walletPassCertificateBase64 = config.walletPassCertificateBase64;
 const walletPassCertificatePassword = config.walletPassCertificatePassword;
 const walletPassWWDRPath = config.walletPassWWDRPath;
 const walletPassWWDRBase64 = config.walletPassWWDRBase64;
+const walletPassWebServiceURL = config.walletPassWebServiceURL;
 const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
 const rateLimitBuckets = new Map();
@@ -136,6 +138,8 @@ let appleSigningKeysFetchedAt = 0;
 let apnsBearerTokenCache = "";
 let apnsBearerTokenExpiresAt = 0;
 let apnsPrivateKeyCache = null;
+let walletPushCredentialsCache = null;
+const walletPassUpdateTimers = new Map();
 
 ensureStoreFile(loyaltyStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
@@ -143,6 +147,7 @@ ensureStoreFile(ordersStorePath, { orders: {} });
 ensureStoreFile(vouchersStorePath, { vouchers: {} });
 ensureStoreFile(alertsStorePath, { alerts: {} });
 ensureStoreFile(pushDevicesStorePath, { devices: [] });
+ensureStoreFile(walletPassesStorePath, { passes: {}, devices: {}, registrations: [] });
 ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
 ensureStoreFile(campaignSettingsStorePath, { campaignSettings: defaultCampaignSettings() });
@@ -2623,6 +2628,7 @@ async function updateLoyaltyAccount(email, mutate) {
         account.nextReward = nextRewardText(account.pointsBalance);
         account.perks = loyaltyPerksFor(account.pointsBalance);
         writeJSON(loyaltyStorePath, store);
+        queueWalletPassUpdate(email);
         return account;
     }
 
@@ -2673,19 +2679,45 @@ async function updateLoyaltyAccount(email, mutate) {
         }
     }
 
-    return {
+    const updatedAccount = {
         ...working,
         transactions: await getLoyaltyTransactions(email)
     };
+    queueWalletPassUpdate(email);
+    return updatedAccount;
 }
 
 async function ensureWalletPassRecord(email, memberID, passTypeIdentifier) {
     if (!database.isEnabled()) {
-        return `${memberID}-${Date.now()}`;
+        const store = readJSON(walletPassesStorePath);
+        store.passes = store.passes || {};
+        const existing = Object.values(store.passes).find((pass) => normalizeEmail(pass.email) === email);
+        const timestamp = Date.now();
+        if (existing) {
+            existing.serialNumber = existing.serialNumber || Object.keys(store.passes).find((key) => store.passes[key] === existing);
+            existing.passTypeIdentifier = passTypeIdentifier;
+            existing.authenticationToken = existing.authenticationToken || crypto.randomBytes(32).toString("hex");
+            existing.updateTag = Number(existing.updateTag || timestamp);
+            existing.lastGeneratedAt = new Date(timestamp).toISOString();
+            writeJSON(walletPassesStorePath, store);
+            return existing;
+        }
+
+        const record = {
+            email,
+            serialNumber: `${memberID}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
+            passTypeIdentifier,
+            authenticationToken: crypto.randomBytes(32).toString("hex"),
+            updateTag: timestamp,
+            lastGeneratedAt: new Date(timestamp).toISOString()
+        };
+        store.passes[record.serialNumber] = record;
+        writeJSON(walletPassesStorePath, store);
+        return record;
     }
 
     const existing = await database.query(
-        `SELECT serial_number
+        `SELECT email, serial_number, pass_type_identifier, authentication_token, update_tag, last_generated_at
          FROM wallet_passes
          WHERE email = $1`,
         [email]
@@ -2693,26 +2725,378 @@ async function ensureWalletPassRecord(email, memberID, passTypeIdentifier) {
 
     const timestamp = new Date().toISOString();
     if (existing.rowCount > 0) {
-        const serialNumber = existing.rows[0].serial_number;
+        const row = existing.rows[0];
+        const authenticationToken = row.authentication_token || crypto.randomBytes(32).toString("hex");
         await database.query(
             `UPDATE wallet_passes
              SET pass_type_identifier = $2,
-                 last_generated_at = $3,
-                 updated_at = $3
+                 authentication_token = $3,
+                 last_generated_at = $4
              WHERE email = $1`,
-            [email, passTypeIdentifier, timestamp]
+            [email, passTypeIdentifier, authenticationToken, timestamp]
         );
-        return serialNumber;
+        return {
+            email,
+            serialNumber: row.serial_number,
+            passTypeIdentifier,
+            authenticationToken,
+            updateTag: Number(row.update_tag || 0),
+            lastGeneratedAt: timestamp
+        };
     }
 
     const serialNumber = `${memberID}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+    const authenticationToken = crypto.randomBytes(32).toString("hex");
+    const updateTag = Date.now();
     await database.query(
         `INSERT INTO wallet_passes
-         (email, serial_number, pass_type_identifier, last_generated_at, updated_at)
-         VALUES ($1, $2, $3, $4, $4)`,
-        [email, serialNumber, passTypeIdentifier, timestamp]
+         (email, serial_number, pass_type_identifier, authentication_token, update_tag, last_generated_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+        [email, serialNumber, passTypeIdentifier, authenticationToken, updateTag, timestamp]
     );
-    return serialNumber;
+    return { email, serialNumber, passTypeIdentifier, authenticationToken, updateTag, lastGeneratedAt: timestamp };
+}
+
+function validWalletIdentifier(value, maxLength = 160) {
+    const normalized = String(value || "").trim();
+    return normalized.length > 0
+        && normalized.length <= maxLength
+        && /^[A-Za-z0-9._-]+$/.test(normalized);
+}
+
+function walletAuthorizationToken(request) {
+    const authorization = String(request.headers.authorization || "");
+    return authorization.startsWith("ApplePass ") ? authorization.slice("ApplePass ".length) : "";
+}
+
+function secureStringEqual(first, second) {
+    const firstBuffer = Buffer.from(String(first || ""));
+    const secondBuffer = Buffer.from(String(second || ""));
+    return firstBuffer.length === secondBuffer.length
+        && firstBuffer.length > 0
+        && crypto.timingSafeEqual(firstBuffer, secondBuffer);
+}
+
+async function walletPassRecordBySerial(passTypeIdentifier, serialNumber) {
+    if (!database.isEnabled()) {
+        const store = readJSON(walletPassesStorePath);
+        const record = store.passes?.[serialNumber];
+        return record?.passTypeIdentifier === passTypeIdentifier ? record : null;
+    }
+
+    const result = await database.query(
+        `SELECT email, serial_number, pass_type_identifier, authentication_token, update_tag, last_generated_at
+         FROM wallet_passes
+         WHERE pass_type_identifier = $1 AND serial_number = $2`,
+        [passTypeIdentifier, serialNumber]
+    );
+    if (result.rowCount === 0) {
+        return null;
+    }
+
+    const row = result.rows[0];
+    return {
+        email: normalizeEmail(row.email),
+        serialNumber: row.serial_number,
+        passTypeIdentifier: row.pass_type_identifier,
+        authenticationToken: row.authentication_token,
+        updateTag: Number(row.update_tag || 0),
+        lastGeneratedAt: row.last_generated_at instanceof Date
+            ? row.last_generated_at.toISOString()
+            : row.last_generated_at
+    };
+}
+
+async function registerWalletPassDevice({ deviceLibraryIdentifier, pushToken, serialNumber }) {
+    const timestamp = new Date().toISOString();
+    if (!database.isEnabled()) {
+        const store = readJSON(walletPassesStorePath);
+        store.devices = store.devices || {};
+        store.registrations = Array.isArray(store.registrations) ? store.registrations : [];
+        const alreadyRegistered = store.registrations.some((registration) => (
+            registration.deviceLibraryIdentifier === deviceLibraryIdentifier
+                && registration.serialNumber === serialNumber
+        ));
+        store.devices[deviceLibraryIdentifier] = { pushToken, updatedAt: timestamp };
+        if (!alreadyRegistered) {
+            store.registrations.push({ deviceLibraryIdentifier, serialNumber, createdAt: timestamp });
+        }
+        writeJSON(walletPassesStorePath, store);
+        return !alreadyRegistered;
+    }
+
+    await database.query(
+        `INSERT INTO wallet_pass_devices (device_library_identifier, push_token, updated_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (device_library_identifier)
+         DO UPDATE SET push_token = EXCLUDED.push_token, updated_at = EXCLUDED.updated_at`,
+        [deviceLibraryIdentifier, pushToken, timestamp]
+    );
+    const result = await database.query(
+        `INSERT INTO wallet_pass_registrations (device_library_identifier, serial_number, created_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [deviceLibraryIdentifier, serialNumber, timestamp]
+    );
+    return result.rowCount > 0;
+}
+
+async function unregisterWalletPassDevice(deviceLibraryIdentifier, serialNumber) {
+    if (!database.isEnabled()) {
+        const store = readJSON(walletPassesStorePath);
+        store.registrations = (store.registrations || []).filter((registration) => !(
+            registration.deviceLibraryIdentifier === deviceLibraryIdentifier
+                && registration.serialNumber === serialNumber
+        ));
+        const hasOtherRegistrations = store.registrations.some((registration) => (
+            registration.deviceLibraryIdentifier === deviceLibraryIdentifier
+        ));
+        if (!hasOtherRegistrations && store.devices) {
+            delete store.devices[deviceLibraryIdentifier];
+        }
+        writeJSON(walletPassesStorePath, store);
+        return;
+    }
+
+    await database.query(
+        `DELETE FROM wallet_pass_registrations
+         WHERE device_library_identifier = $1 AND serial_number = $2`,
+        [deviceLibraryIdentifier, serialNumber]
+    );
+    await database.query(
+        `DELETE FROM wallet_pass_devices d
+         WHERE d.device_library_identifier = $1
+           AND NOT EXISTS (
+               SELECT 1 FROM wallet_pass_registrations r
+               WHERE r.device_library_identifier = d.device_library_identifier
+           )`,
+        [deviceLibraryIdentifier]
+    );
+}
+
+async function updatedWalletPassesForDevice(deviceLibraryIdentifier, passTypeIdentifier, previousUpdateTag) {
+    const parsedPrevious = Number(previousUpdateTag || 0);
+    const previous = Number.isFinite(parsedPrevious) && parsedPrevious >= 0 ? parsedPrevious : 0;
+    if (!database.isEnabled()) {
+        const store = readJSON(walletPassesStorePath);
+        const serialNumbers = (store.registrations || [])
+            .filter((registration) => registration.deviceLibraryIdentifier === deviceLibraryIdentifier)
+            .map((registration) => store.passes?.[registration.serialNumber])
+            .filter((pass) => pass?.passTypeIdentifier === passTypeIdentifier && Number(pass.updateTag || 0) > previous)
+            .map((pass) => pass.serialNumber);
+        const lastUpdated = serialNumbers.reduce(
+            (latest, serialNumber) => Math.max(latest, Number(store.passes[serialNumber].updateTag || 0)),
+            previous
+        );
+        return { serialNumbers, lastUpdated };
+    }
+
+    const result = await database.query(
+        `SELECT p.serial_number, p.update_tag
+         FROM wallet_pass_registrations r
+         JOIN wallet_passes p ON p.serial_number = r.serial_number
+         WHERE r.device_library_identifier = $1
+           AND p.pass_type_identifier = $2
+           AND p.update_tag > $3
+         ORDER BY p.update_tag ASC`,
+        [deviceLibraryIdentifier, passTypeIdentifier, previous]
+    );
+    return {
+        serialNumbers: result.rows.map((row) => row.serial_number),
+        lastUpdated: result.rows.reduce((latest, row) => Math.max(latest, Number(row.update_tag || 0)), previous)
+    };
+}
+
+async function walletPushDevicesForSerial(serialNumber) {
+    if (!database.isEnabled()) {
+        const store = readJSON(walletPassesStorePath);
+        return (store.registrations || [])
+            .filter((registration) => registration.serialNumber === serialNumber)
+            .map((registration) => ({
+                deviceLibraryIdentifier: registration.deviceLibraryIdentifier,
+                pushToken: store.devices?.[registration.deviceLibraryIdentifier]?.pushToken || ""
+            }))
+            .filter((device) => device.pushToken);
+    }
+
+    const result = await database.query(
+        `SELECT d.device_library_identifier, d.push_token
+         FROM wallet_pass_registrations r
+         JOIN wallet_pass_devices d ON d.device_library_identifier = r.device_library_identifier
+         WHERE r.serial_number = $1`,
+        [serialNumber]
+    );
+    return result.rows.map((row) => ({
+        deviceLibraryIdentifier: row.device_library_identifier,
+        pushToken: row.push_token
+    }));
+}
+
+async function removeWalletPushDevice(deviceLibraryIdentifier) {
+    if (!database.isEnabled()) {
+        const store = readJSON(walletPassesStorePath);
+        if (store.devices) {
+            delete store.devices[deviceLibraryIdentifier];
+        }
+        store.registrations = (store.registrations || []).filter((registration) => (
+            registration.deviceLibraryIdentifier !== deviceLibraryIdentifier
+        ));
+        writeJSON(walletPassesStorePath, store);
+        return;
+    }
+    await database.query(
+        `DELETE FROM wallet_pass_devices WHERE device_library_identifier = $1`,
+        [deviceLibraryIdentifier]
+    );
+}
+
+function walletPushTLSCredentials() {
+    if (walletPushCredentialsCache) {
+        return walletPushCredentialsCache;
+    }
+    ensurePassSigningFiles();
+    const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "talla-wallet-push-"));
+    try {
+        const certificatePath = walletPassCertificateBase64
+            ? path.join(tempDirectory, "wallet-pass.p12")
+            : walletPassCertificatePath;
+        if (walletPassCertificateBase64) {
+            writeDecodedSecret(certificatePath, walletPassCertificateBase64);
+        }
+        const certPath = path.join(tempDirectory, "cert.pem");
+        const keyPath = path.join(tempDirectory, "key.pem");
+        const passwordArgument = `pass:${walletPassCertificatePassword}`;
+        execFileSync("/usr/bin/openssl", ["pkcs12", "-legacy", "-in", certificatePath, "-clcerts", "-nokeys", "-out", certPath, "-passin", passwordArgument]);
+        execFileSync("/usr/bin/openssl", ["pkcs12", "-legacy", "-in", certificatePath, "-nocerts", "-nodes", "-out", keyPath, "-passin", passwordArgument]);
+        walletPushCredentialsCache = {
+            cert: fs.readFileSync(certPath),
+            key: fs.readFileSync(keyPath)
+        };
+        return walletPushCredentialsCache;
+    } finally {
+        fs.rmSync(tempDirectory, { recursive: true, force: true });
+    }
+}
+
+async function sendWalletPassPush(device, passTypeIdentifier) {
+    const pushToken = normalizeDeviceToken(device.pushToken);
+    if (!pushToken) {
+        return false;
+    }
+    let credentials;
+    try {
+        credentials = walletPushTLSCredentials();
+    } catch (error) {
+        console.error("Wallet pass push certificate is unavailable.");
+        return false;
+    }
+
+    return new Promise((resolve) => {
+        let settled = false;
+        const finish = (value) => {
+            if (!settled) {
+                settled = true;
+                resolve(value);
+            }
+        };
+        const client = http2.connect("https://api.push.apple.com", credentials);
+        client.on("error", () => {
+            client.close();
+            finish(false);
+        });
+        const pushRequest = client.request({
+            ":method": "POST",
+            ":path": `/3/device/${pushToken}`,
+            "apns-topic": passTypeIdentifier,
+            "apns-push-type": "background",
+            "apns-priority": "5"
+        });
+        let statusCode = 0;
+        let responseBody = "";
+        pushRequest.setEncoding("utf8");
+        pushRequest.on("response", (headers) => {
+            statusCode = Number(headers[http2.constants.HTTP2_HEADER_STATUS] || 0);
+        });
+        pushRequest.on("data", (chunk) => {
+            responseBody += chunk;
+        });
+        pushRequest.on("end", async () => {
+            client.close();
+            if (statusCode === 200) {
+                finish(true);
+                return;
+            }
+            try {
+                const reason = responseBody ? JSON.parse(responseBody).reason : "";
+                if (["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(reason)) {
+                    await removeWalletPushDevice(device.deviceLibraryIdentifier);
+                }
+            } catch (error) {
+                // Ignore malformed APNs error bodies.
+            }
+            finish(false);
+        });
+        pushRequest.on("error", () => {
+            client.close();
+            finish(false);
+        });
+        pushRequest.end("{}");
+    });
+}
+
+async function markWalletPassUpdatedAndNotify(email) {
+    let record;
+    const updateTag = Date.now();
+    if (!database.isEnabled()) {
+        const store = readJSON(walletPassesStorePath);
+        record = Object.values(store.passes || {}).find((pass) => normalizeEmail(pass.email) === email);
+        if (!record) {
+            return;
+        }
+        record.updateTag = Math.max(updateTag, Number(record.updateTag || 0) + 1);
+        writeJSON(walletPassesStorePath, store);
+    } else {
+        const result = await database.query(
+            `UPDATE wallet_passes
+             SET update_tag = GREATEST($2, update_tag + 1), updated_at = NOW()
+             WHERE email = $1
+             RETURNING email, serial_number, pass_type_identifier, authentication_token, update_tag`,
+            [email, updateTag]
+        );
+        if (result.rowCount === 0) {
+            return;
+        }
+        const row = result.rows[0];
+        record = {
+            email: normalizeEmail(row.email),
+            serialNumber: row.serial_number,
+            passTypeIdentifier: row.pass_type_identifier,
+            authenticationToken: row.authentication_token,
+            updateTag: Number(row.update_tag)
+        };
+    }
+
+    const devices = await walletPushDevicesForSerial(record.serialNumber);
+    await Promise.all(devices.map((device) => sendWalletPassPush(device, record.passTypeIdentifier)));
+}
+
+function queueWalletPassUpdate(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+        return;
+    }
+    const existingTimer = walletPassUpdateTimers.get(normalizedEmail);
+    if (existingTimer) {
+        clearTimeout(existingTimer);
+    }
+    const timer = setTimeout(() => {
+        walletPassUpdateTimers.delete(normalizedEmail);
+        void markWalletPassUpdatedAndNotify(normalizedEmail).catch((error) => {
+            console.error("Wallet pass update notification failed:", error.code || error.message || "WALLET_PUSH_FAILED");
+        });
+    }, 250);
+    timer.unref?.();
+    walletPassUpdateTimers.set(normalizedEmail, timer);
 }
 
 function orderRowToRecord(row) {
@@ -5146,13 +5530,15 @@ async function generateWalletPass(email) {
     const passJSONPath = path.join(passDirectory, "pass.json");
     const passJSON = JSON.parse(fs.readFileSync(passJSONPath, "utf8"));
     const memberName = `${account.firstName} ${account.lastName}`.trim();
-    const serialNumber = await ensureWalletPassRecord(
+    const walletPassRecord = await ensureWalletPassRecord(
         email,
         loyaltyAccount.memberID,
         passJSON.passTypeIdentifier || null
     );
 
-    passJSON.serialNumber = serialNumber;
+    passJSON.serialNumber = walletPassRecord.serialNumber;
+    passJSON.webServiceURL = walletPassWebServiceURL;
+    passJSON.authenticationToken = walletPassRecord.authenticationToken;
     passJSON.barcode.message = loyaltyAccount.memberID;
     delete passJSON.barcode.altText;
     passJSON.storeCard.headerFields = [
@@ -7116,6 +7502,125 @@ const server = http.createServer(async (request, response) => {
     }
 
     const url = new URL(request.url, `http://${host}:${port}`);
+
+    const walletPathParts = url.pathname.split("/").filter(Boolean);
+    if (walletPathParts[0] === "wallet" && walletPathParts[1] === "v1") {
+        try {
+            if (request.method === "POST"
+                && walletPathParts[2] === "devices"
+                && walletPathParts[4] === "registrations"
+                && walletPathParts.length === 7) {
+                const [, , , deviceLibraryIdentifier, , passTypeIdentifier, serialNumber] = walletPathParts;
+                if (![deviceLibraryIdentifier, passTypeIdentifier, serialNumber].every((value) => validWalletIdentifier(value))) {
+                    response.writeHead(400).end();
+                    return;
+                }
+                const passRecord = await walletPassRecordBySerial(passTypeIdentifier, serialNumber);
+                if (!passRecord || !secureStringEqual(walletAuthorizationToken(request), passRecord.authenticationToken)) {
+                    response.writeHead(401).end();
+                    return;
+                }
+                const body = await readBody(request, 16_384);
+                const pushToken = normalizeDeviceToken(body.pushToken);
+                if (!pushToken) {
+                    response.writeHead(400).end();
+                    return;
+                }
+                const created = await registerWalletPassDevice({
+                    deviceLibraryIdentifier,
+                    pushToken,
+                    serialNumber
+                });
+                response.writeHead(created ? 201 : 200).end();
+                return;
+            }
+
+            if (request.method === "DELETE"
+                && walletPathParts[2] === "devices"
+                && walletPathParts[4] === "registrations"
+                && walletPathParts.length === 7) {
+                const [, , , deviceLibraryIdentifier, , passTypeIdentifier, serialNumber] = walletPathParts;
+                if (![deviceLibraryIdentifier, passTypeIdentifier, serialNumber].every((value) => validWalletIdentifier(value))) {
+                    response.writeHead(400).end();
+                    return;
+                }
+                const passRecord = await walletPassRecordBySerial(passTypeIdentifier, serialNumber);
+                if (!passRecord || !secureStringEqual(walletAuthorizationToken(request), passRecord.authenticationToken)) {
+                    response.writeHead(401).end();
+                    return;
+                }
+                await unregisterWalletPassDevice(deviceLibraryIdentifier, serialNumber);
+                response.writeHead(200).end();
+                return;
+            }
+
+            if (request.method === "GET"
+                && walletPathParts[2] === "devices"
+                && walletPathParts[4] === "registrations"
+                && walletPathParts.length === 6) {
+                const [, , , deviceLibraryIdentifier, , passTypeIdentifier] = walletPathParts;
+                if (![deviceLibraryIdentifier, passTypeIdentifier].every((value) => validWalletIdentifier(value))) {
+                    response.writeHead(400).end();
+                    return;
+                }
+                const updated = await updatedWalletPassesForDevice(
+                    deviceLibraryIdentifier,
+                    passTypeIdentifier,
+                    url.searchParams.get("passesUpdatedSince")
+                );
+                if (updated.serialNumbers.length === 0) {
+                    response.writeHead(204).end();
+                    return;
+                }
+                sendJSON(response, 200, {
+                    serialNumbers: updated.serialNumbers,
+                    lastUpdated: String(updated.lastUpdated)
+                }, { "Cache-Control": "no-store" });
+                return;
+            }
+
+            if (request.method === "GET"
+                && walletPathParts[2] === "passes"
+                && walletPathParts.length === 5) {
+                const [, , , passTypeIdentifier, serialNumber] = walletPathParts;
+                if (![passTypeIdentifier, serialNumber].every((value) => validWalletIdentifier(value))) {
+                    response.writeHead(400).end();
+                    return;
+                }
+                const passRecord = await walletPassRecordBySerial(passTypeIdentifier, serialNumber);
+                if (!passRecord || !secureStringEqual(walletAuthorizationToken(request), passRecord.authenticationToken)) {
+                    response.writeHead(401).end();
+                    return;
+                }
+                const generatedPass = await generateWalletPass(passRecord.email);
+                response.writeHead(200, {
+                    "Content-Type": "application/vnd.apple.pkpass",
+                    "Content-Length": fs.statSync(generatedPass.path).size,
+                    "Last-Modified": new Date().toUTCString(),
+                    "Cache-Control": "no-store"
+                });
+                const stream = fs.createReadStream(generatedPass.path);
+                stream.on("close", () => generatedPass.cleanup());
+                stream.on("error", () => generatedPass.cleanup());
+                stream.pipe(response);
+                return;
+            }
+
+            if (request.method === "POST" && walletPathParts[2] === "log" && walletPathParts.length === 3) {
+                const body = await readBody(request, 32_768);
+                const logCount = Array.isArray(body.logs) ? Math.min(body.logs.length, 50) : 0;
+                if (logCount > 0) {
+                    console.warn(`Apple Wallet reported ${logCount} pass update log entr${logCount === 1 ? "y" : "ies"}.`);
+                }
+                response.writeHead(200).end();
+                return;
+            }
+        } catch (error) {
+            console.error("Apple Wallet web service request failed:", error.code || error.message || "WALLET_SERVICE_FAILED");
+            response.writeHead(error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 500).end();
+            return;
+        }
+    }
 
     if (request.method === "GET" && url.pathname === "/health") {
         sendJSON(response, 200, {

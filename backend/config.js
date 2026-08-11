@@ -26,10 +26,11 @@ const dataDirectory = toAbsolutePath(process.env.DATA_DIRECTORY) || path.join(__
 const walletPassTemplateDirectory = toAbsolutePath(process.env.WALLET_PASS_TEMPLATE_DIRECTORY)
     || path.join(__dirname, "..", "WalletPass", "TallaLoyalty.pass");
 const adminDirectory = path.join(__dirname, "admin");
+const appURL = process.env.APP_URL || `http://localhost:${port}`;
 module.exports = {
     host,
     port,
-    appURL: process.env.APP_URL || `http://localhost:${port}`,
+    appURL,
     dataDirectory,
     adminDirectory,
     adminUsername: process.env.ADMIN_USERNAME || "",
@@ -105,7 +106,8 @@ module.exports = {
         benefitPayments: path.join(dataDirectory, "benefitPayments.json"),
         cardPayments: path.join(dataDirectory, "cardPayments.json"),
         shopifyEazyPayments: path.join(dataDirectory, "shopifyEazyPayments.json"),
-        shopifyOrderExports: path.join(dataDirectory, "shopifyOrderExports.json")
+        shopifyOrderExports: path.join(dataDirectory, "shopifyOrderExports.json"),
+        walletPasses: path.join(dataDirectory, "walletPasses.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,
@@ -113,5 +115,6 @@ module.exports = {
     walletPassCertificateBase64: process.env.WALLET_P12_BASE64 || "",
     walletPassCertificatePassword: process.env.WALLET_P12_PASSWORD || "",
     walletPassWWDRPath: toAbsolutePath(process.env.WALLET_WWDR_PATH),
-    walletPassWWDRBase64: process.env.WALLET_WWDR_BASE64 || ""
+    walletPassWWDRBase64: process.env.WALLET_WWDR_BASE64 || "",
+    walletPassWebServiceURL: process.env.WALLET_WEB_SERVICE_URL || `${appURL.replace(/\/$/, "")}/wallet`
 };
