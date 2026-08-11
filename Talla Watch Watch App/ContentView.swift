@@ -432,7 +432,7 @@ struct ContentView: View {
                 .frame(width: 66, height: 66)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Talla Reserve")
+                    Text("The Talla Club")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(accent)
                     Text("\(store.snapshot.points) Beans")

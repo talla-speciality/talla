@@ -3692,7 +3692,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Talla Reserve")
+                            Text("The Talla Club")
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(2.2)
                                 .textCase(.uppercase)
@@ -7076,7 +7076,7 @@ struct ContentView: View {
                                     }
                                 }
 
-                                Text(AppLocalization.text("active_vouchers_empty", fallback: "Redeem Beans in Talla Reserve to unlock one."))
+                                Text(AppLocalization.text("active_vouchers_empty", fallback: "Redeem Beans in The Talla Club to unlock one."))
                                     .font(bodyFont(size: 12))
                                     .foregroundColor(secondaryTextColor)
                                     .fixedSize(horizontal: false, vertical: true)

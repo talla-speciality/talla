@@ -4,7 +4,7 @@
   "serialNumber": "TALLA-LOYALTY-001",
   "teamIdentifier": "TAG9WXY85M",
   "organizationName": "Talla Speciality",
-  "description": "Talla Speciality Talla Reserve",
+  "description": "The Talla Club by Talla Speciality",
   "logoText": "TALLA",
   "foregroundColor": "rgb(46, 32, 18)",
   "backgroundColor": "rgb(241, 234, 223)",
@@ -13,15 +13,14 @@
   "barcode": {
     "format": "PKBarcodeFormatQR",
     "message": "TALLA-LOYALTY-001",
-    "messageEncoding": "iso-8859-1",
-    "altText": "TALLA-LOYALTY-001"
+    "messageEncoding": "iso-8859-1"
   },
   "storeCard": {
     "headerFields": [
       {
-        "key": "membership",
-        "label": "MEMBERSHIP",
-        "value": "Talla Reserve"
+        "key": "tier",
+        "label": "STATUS",
+        "value": "Bronze"
       }
     ],
     "primaryFields": [],
@@ -30,11 +29,6 @@
         "key": "member",
         "label": "MEMBER",
         "value": "Talla Guest"
-      },
-      {
-        "key": "tier",
-        "label": "STATUS",
-        "value": "Bronze"
       }
     ],
     "auxiliaryFields": [],

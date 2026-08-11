@@ -5154,10 +5154,22 @@ async function generateWalletPass(email) {
 
     passJSON.serialNumber = serialNumber;
     passJSON.barcode.message = loyaltyAccount.memberID;
-    passJSON.barcode.altText = loyaltyAccount.memberID;
+    delete passJSON.barcode.altText;
+    passJSON.storeCard.headerFields = [
+        {
+            key: "tier",
+            label: "STATUS",
+            value: loyaltyAccount.tier
+        }
+    ];
     passJSON.storeCard.primaryFields = [];
-    passJSON.storeCard.secondaryFields[0].value = memberName || account.email;
-    passJSON.storeCard.secondaryFields[1].value = loyaltyAccount.tier;
+    passJSON.storeCard.secondaryFields = [
+        {
+            key: "member",
+            label: "MEMBER",
+            value: memberName || account.email
+        }
+    ];
     await writeWalletStampStrips({
         passDirectory,
         artworkDirectory: walletPassArtworkDirectory,

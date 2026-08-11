@@ -188,7 +188,7 @@ struct Talla_Watch_Widgets: Widget {
         StaticConfiguration(kind: kind, provider: TallaWatchWidgetProvider()) { entry in
             TallaWatchWidgetsEntryView(entry: entry)
         }
-        .configurationDisplayName("Talla Reserve")
+        .configurationDisplayName("The Talla Club")
         .description("Beans, rewards, and saved shelf counts for Apple Watch.")
         .supportedFamilies(supportedWatchFamilies)
     }
