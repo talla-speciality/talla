@@ -405,12 +405,12 @@ struct ContentView: View {
 
         var flag: String {
             switch self {
-            case .oman: return "OM"
-            case .bahrain: return "BH"
-            case .qatar: return "QA"
-            case .kuwait: return "KW"
-            case .uae: return "AE"
-            case .saudiArabia: return "SA"
+            case .oman: return "🇴🇲"
+            case .bahrain: return "🇧🇭"
+            case .qatar: return "🇶🇦"
+            case .kuwait: return "🇰🇼"
+            case .uae: return "🇦🇪"
+            case .saudiArabia: return "🇸🇦"
             }
         }
 
@@ -663,6 +663,7 @@ struct ContentView: View {
     @State private var addressCountry: SupportedDeliveryCountry = .bahrain
     @State private var addressNotes = ""
     @State private var isSavingAddress = false
+    @State private var isAccountOnboardingPresented = false
     @State private var selectedVariantIDs: [String: String] = [:]
     @State private var remoteSignatureRoastProductIDs: [String] = []
     @State private var remoteHomeSettings: HomeSettings?
@@ -1886,6 +1887,10 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isCoffeeConciergePresented) {
             coffeeConciergeSheet
+        }
+        .fullScreenCover(isPresented: $isAccountOnboardingPresented) {
+            accountOnboardingView
+                .interactiveDismissDisabled(true)
         }
         .alert(AppLocalization.text("empty_bag_confirmation_title", fallback: "Empty bag?"), isPresented: $isConfirmingEmptyBag) {
             Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) {
@@ -5531,32 +5536,9 @@ struct ContentView: View {
             isBrewingSectionExpanded: $isBrewingSectionExpanded,
             isSupportSectionExpanded: $isSupportSectionExpanded,
             openOrdersAction: {
-                openAccountSection(AccountSectionView.ScrollTarget.customer)
                 Task {
                     await loadOrderHistory()
                 }
-                showToast(message: AppLocalization.text("orders_opened", fallback: "Orders opened"))
-            },
-            openRewardsAction: {
-                openAccountSection(AccountSectionView.ScrollTarget.loyalty)
-                showToast(message: AppLocalization.text("rewards_opened", fallback: "Rewards opened"))
-            },
-            openDeliveryAction: {
-                isDeliveryDetailsExpanded = true
-                openAccountSection(AccountSectionView.ScrollTarget.library)
-                showToast(message: AppLocalization.text("delivery_opened", fallback: "Delivery opened"))
-            },
-            openSavedPicksAction: {
-                openAccountSection(AccountSectionView.ScrollTarget.shopping)
-                showToast(message: AppLocalization.text("saved_opened", fallback: "Saved picks opened"))
-            },
-            openBrewArchiveAction: {
-                openBrewing()
-                showToast(message: AppLocalization.text("brewing_archive_opened", fallback: "Brewing archive opened"))
-            },
-            openSupportAction: {
-                openAccountSection(AccountSectionView.ScrollTarget.support)
-                showToast(message: AppLocalization.text("support_opened", fallback: "Support opened"))
             },
             signOutAction: {
                 signOutCustomer()
@@ -6178,6 +6160,138 @@ struct ContentView: View {
                 .padding(.vertical, 2)
             }
         }
+    }
+
+    private var accountOnboardingView: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(AppLocalization.text("complete_your_profile", fallback: "COMPLETE YOUR PROFILE"))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(2.4)
+                            .foregroundColor(Color(hex: 0xC8965A))
+
+                        Text(AppLocalization.text("where_should_we_deliver", fallback: "Where should we deliver?"))
+                            .font(displayFont(size: isCompact ? 32 : 38))
+                            .foregroundColor(primaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(AppLocalization.text("profile_onboarding_detail", fallback: "Add your phone number and preferred address once. Talla will use them automatically for faster checkout."))
+                            .font(bodyFont(size: 15))
+                            .foregroundColor(secondaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        onboardingTextField(
+                            AppLocalization.text("full_name", fallback: "Full name"),
+                            text: $addressFullName,
+                            capitalization: .words
+                        )
+
+                        HStack(spacing: 10) {
+                            Text(addressCountry.phonePrefix)
+                                .font(labelFont(size: 12, weight: .bold))
+                                .foregroundColor(Color(hex: 0xC8965A))
+
+                            TextField(AppLocalization.text("phone_number", fallback: "Phone number"), text: $addressPhone)
+                                .keyboardType(.phonePad)
+                                .font(bodyFont(size: 15))
+                                .foregroundColor(primaryTextColor)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 52)
+                        .background(cardFillColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+
+                        onboardingTextField(
+                            AppLocalization.text("address_line", fallback: "Building, road and block"),
+                            text: $addressLine1,
+                            capitalization: .words
+                        )
+
+                        onboardingTextField(
+                            AppLocalization.text("city", fallback: "City / area"),
+                            text: $addressCity,
+                            capitalization: .words
+                        )
+
+                        deliveryCountrySelector
+
+                        onboardingTextField(
+                            AppLocalization.text("delivery_notes_optional", fallback: "Delivery notes (optional)"),
+                            text: $addressNotes,
+                            capitalization: .sentences
+                        )
+                    }
+
+                    Button {
+                        Task {
+                            await saveAddress(closeOnboarding: true)
+                        }
+                    } label: {
+                        HStack(spacing: 9) {
+                            if isSavingAddress {
+                                ProgressView()
+                                    .tint(Color(hex: 0x0A0804))
+                            }
+                            Text(isSavingAddress
+                                ? AppLocalization.text("saving", fallback: "Saving...")
+                                : AppLocalization.text("save_and_continue", fallback: "Save & Continue"))
+                                .font(labelFont(size: 11, weight: .bold))
+                                .tracking(1.8)
+                                .textCase(.uppercase)
+                        }
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color(hex: 0xC8965A))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSavingAddress)
+
+                    Button {
+                        isAccountOnboardingPresented = false
+                        signOutCustomer()
+                    } label: {
+                        Text(AppLocalization.text("sign_out", fallback: "Sign out"))
+                            .font(bodyFont(size: 13))
+                            .foregroundColor(secondaryTextColor)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(maxWidth: 620, alignment: .leading)
+                .padding(.horizontal, 22)
+                .padding(.top, 34)
+                .padding(.bottom, 44)
+            }
+            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+        }
+    }
+
+    private func onboardingTextField(
+        _ title: String,
+        text: Binding<String>,
+        capitalization: TextInputAutocapitalization
+    ) -> some View {
+        TextField(title, text: text)
+            .textInputAutocapitalization(capitalization)
+            .font(bodyFont(size: 15))
+            .foregroundColor(primaryTextColor)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 52)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
     }
 
     private var addressesSection: some View {
@@ -8918,8 +9032,7 @@ struct ContentView: View {
         }
 
         isDeliveryDetailsExpanded = true
-        openAccountSection(AccountSectionView.ScrollTarget.library)
-        showToast(message: AppLocalization.text("account_created_add_address_toast", fallback: "Account created. Add delivery details next."))
+        isAccountOnboardingPresented = true
     }
 
     @MainActor
@@ -9020,6 +9133,7 @@ struct ContentView: View {
         savedCustomerEmail = ""
         savedCustomerAccessToken = ""
         customerProfile = nil
+        isAccountOnboardingPresented = false
         accountAuthMode = .signIn
         accountFirstName = ""
         accountLastName = ""
@@ -9033,6 +9147,14 @@ struct ContentView: View {
         confirmNewPasswordInput = ""
         orderHistory = []
         ordersError = nil
+        addresses = []
+        addressLabel = ""
+        addressFullName = ""
+        addressPhone = ""
+        addressLine1 = ""
+        addressCity = ""
+        addressCountry = .bahrain
+        addressNotes = ""
         backendStockAlerts = []
         availableVouchers = []
         appliedVoucher = nil
@@ -9246,7 +9368,26 @@ struct ContentView: View {
         guard let profile = customerProfile else { return }
         if let loaded = try? await AccountService.fetchAddresses(email: profile.email) {
             addresses = loaded
+            if loaded.isEmpty {
+                prepareAccountOnboarding(for: profile)
+            }
         }
+    }
+
+    @MainActor
+    private func prepareAccountOnboarding(for profile: ShopifyCustomerProfile) {
+        if addressLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            addressLabel = AppLocalization.text("home_address_label", fallback: "Home")
+        }
+
+        if addressFullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            addressFullName = [profile.firstName, profile.lastName]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+
+        isAccountOnboardingPresented = true
     }
 
     @MainActor
@@ -9278,7 +9419,7 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func saveAddress() async {
+    private func saveAddress(closeOnboarding: Bool = false) async {
         guard let profile = customerProfile else { return }
         let label = addressLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         let fullName = addressFullName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -9313,6 +9454,9 @@ struct ContentView: View {
             addressCity = ""
             addressCountry = .bahrain
             addressNotes = ""
+            if closeOnboarding {
+                isAccountOnboardingPresented = false
+            }
             showToast(message: AppLocalization.text("address_saved_toast", fallback: "Address saved"))
         } catch {
             showToast(message: customerFacingServiceMessage(
@@ -9325,7 +9469,18 @@ struct ContentView: View {
     private func normalizedPhoneNumber(_ rawValue: String) -> String {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        return trimmed.hasPrefix("+") ? trimmed : "+\(trimmed)"
+        let compact = trimmed
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+
+        if compact.hasPrefix("+") {
+            return compact
+        }
+
+        let localNumber = compact.drop(while: { $0 == "0" })
+        return "\(addressCountry.phonePrefix)\(localNumber)"
     }
 
     @MainActor

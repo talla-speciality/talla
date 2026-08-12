@@ -19,6 +19,7 @@ struct AccountSectionView: View {
         case recentlyViewed
         case savedRecipes
         case journalEntries
+        case brewArchive
         case support
 
         var id: String { rawValue }
@@ -69,11 +70,6 @@ struct AccountSectionView: View {
     @Binding var isBrewingSectionExpanded: Bool
     @Binding var isSupportSectionExpanded: Bool
     let openOrdersAction: () -> Void
-    let openRewardsAction: () -> Void
-    let openDeliveryAction: () -> Void
-    let openSavedPicksAction: () -> Void
-    let openBrewArchiveAction: () -> Void
-    let openSupportAction: () -> Void
     let signOutAction: () -> Void
     let customerAccountSection: AnyView
     let personalDetailsSection: AnyView
@@ -190,7 +186,11 @@ struct AccountSectionView: View {
                     title: latestOrderTitle,
                     detail: latestOrderDetail,
                     systemImage: "shippingbox.fill",
-                    action: openOrdersAction
+                    action: {
+                        presentedDetail = .orders
+                        isCustomerSectionExpanded = true
+                        openOrdersAction()
+                    }
                 )
             }
 
@@ -200,7 +200,10 @@ struct AccountSectionView: View {
                     title: recentlySavedTitle,
                     detail: recentlySavedDetail,
                     systemImage: "heart.fill",
-                    action: openSavedPicksAction
+                    action: {
+                        presentedDetail = .favourites
+                        isShoppingSectionExpanded = true
+                    }
                 )
             }
         }
@@ -283,8 +286,7 @@ struct AccountSectionView: View {
                         detail: .support,
                         title: AppLocalization.text("support", fallback: "Support"),
                         subtitle: AppLocalization.text("settings_help_summary", fallback: "Language, notifications, support"),
-                        systemImage: "gearshape.fill",
-                        action: openSupportAction
+                        systemImage: "gearshape.fill"
                     )
                 ]
             )
@@ -313,11 +315,10 @@ struct AccountSectionView: View {
                 title: AppLocalization.text("brewing", fallback: "Brewing"),
                 rows: [
                     accountNavigationRowData(
-                        detail: nil,
+                        detail: .brewArchive,
                         title: AppLocalization.text("brew_archive", fallback: "Brew Archive"),
                         subtitle: brewArchiveSubtitle,
-                        systemImage: "book.closed.fill",
-                        action: openBrewArchiveAction
+                        systemImage: "book.closed.fill"
                     )
                 ]
             )
@@ -514,6 +515,8 @@ struct AccountSectionView: View {
             return AppLocalization.text("saved_recipes", fallback: "Saved recipes")
         case .journalEntries:
             return AppLocalization.text("journal_entries", fallback: "Journal entries")
+        case .brewArchive:
+            return AppLocalization.text("brew_archive", fallback: "Brew Archive")
         case .support:
             return AppLocalization.text("settings_and_help", fallback: "Settings & Help")
         }
@@ -544,6 +547,14 @@ struct AccountSectionView: View {
             savedRecipesSection
         case .journalEntries:
             journalSection
+        case .brewArchive:
+            VStack(alignment: .leading, spacing: 28) {
+                savedRecipesSection
+                Rectangle()
+                    .fill(accentColor.opacity(isLightAppearance ? 0.12 : 0.08))
+                    .frame(height: 1)
+                journalSection
+            }
         case .support:
             supportSection
         }
@@ -559,7 +570,7 @@ struct AccountSectionView: View {
             isLoyaltySectionExpanded = true
         case .favourites, .recentlyViewed:
             isShoppingSectionExpanded = true
-        case .savedRecipes, .journalEntries:
+        case .savedRecipes, .journalEntries, .brewArchive:
             isBrewingSectionExpanded = true
         case .support:
             isSupportSectionExpanded = true
@@ -575,8 +586,9 @@ struct AccountSectionView: View {
                     : "\(orderCount) saved",
                 systemImage: "shippingbox.fill",
                 action: {
-                    openOrdersAction()
                     presentedDetail = .orders
+                    isCustomerSectionExpanded = true
+                    openOrdersAction()
                 }
             )
 
@@ -585,8 +597,8 @@ struct AccountSectionView: View {
                 detail: "\(beansBalance) Beans",
                 systemImage: "sparkles",
                 action: {
-                    openRewardsAction()
                     presentedDetail = .beansBalance
+                    isLoyaltySectionExpanded = true
                 }
             )
 
@@ -597,8 +609,8 @@ struct AccountSectionView: View {
                     : "\(addressesCount) saved",
                 systemImage: "location.fill",
                 action: {
-                    openDeliveryAction()
                     presentedDetail = .addresses
+                    isLibrarySectionExpanded = true
                 }
             )
 
@@ -607,8 +619,8 @@ struct AccountSectionView: View {
                 detail: "\(favoriteCount) picks",
                 systemImage: "heart.fill",
                 action: {
-                    openSavedPicksAction()
                     presentedDetail = .favourites
+                    isShoppingSectionExpanded = true
                 }
             )
         }
