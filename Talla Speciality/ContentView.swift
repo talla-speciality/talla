@@ -592,6 +592,7 @@ struct ContentView: View {
     @State private var articleSession: CheckoutSession?
     @State private var selectedProduct: Product?
     @State private var isFavoriteShelfPresented = false
+    @State private var isHomeShelfExpanded = false
     @State private var voucherCodeInput = ""
     @State private var appliedVoucher: VoucherRecord?
     @State private var isApplyingVoucher = false
@@ -2534,9 +2535,9 @@ struct ContentView: View {
             heroSection
             homeQuickDrinks
             homeSurprisePick
-            homeFavoritesShelf
             featuredProducts
             tallaPassportSection
+            homeFavoritesShelf
             homeRecentlyViewedShelf
         }
     }
@@ -2549,7 +2550,7 @@ struct ContentView: View {
                 productSkeletonGrid(count: isCompact ? 2 : 4)
             }
             .padding(.horizontal, 18)
-            .padding(.bottom, 18)
+            .padding(.bottom, 14)
         } else if !quickDrinkProducts.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
                 quickDrinksHeader
@@ -2564,7 +2565,7 @@ struct ContentView: View {
                 }
             }
             .padding(.horizontal, 18)
-            .padding(.bottom, 18)
+            .padding(.bottom, 14)
         }
     }
 
@@ -2671,7 +2672,7 @@ struct ContentView: View {
     }
 
     private var homeSurprisePick: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             surprisePickHeader
 
             if isSurprisePickExpanded {
@@ -2679,7 +2680,7 @@ struct ContentView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(isSurprisePickExpanded ? 16 : 12)
+        .padding(isSurprisePickExpanded ? 14 : 10)
         .background(
             LinearGradient(
                 colors: isLightAppearance
@@ -2695,7 +2696,7 @@ struct ContentView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 18)
-        .padding(.bottom, 16)
+        .padding(.bottom, 12)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isSurprisePickExpanded)
     }
 
@@ -2711,23 +2712,24 @@ struct ContentView: View {
                     .renderingMode(.template)
                     .scaledToFit()
                     .foregroundColor(Color(hex: 0x0A0804))
-                    .padding(10)
-                    .frame(width: isSurprisePickExpanded ? 42 : 36, height: isSurprisePickExpanded ? 42 : 36)
+                    .padding(isSurprisePickExpanded ? 10 : 8)
+                    .frame(width: isSurprisePickExpanded ? 40 : 32, height: isSurprisePickExpanded ? 40 : 32)
                     .background(Color(hex: 0xC8965A))
                     .clipShape(Circle())
 
-                VStack(alignment: .leading, spacing: isSurprisePickExpanded ? 4 : 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(AppLocalization.text("daily_surprise_title", fallback: "Today's Hot Pick"))
                         .font(labelFont(size: isSurprisePickExpanded ? 10 : 9, weight: .bold))
                         .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 2)
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0xC8965A))
 
-                    Text(AppLocalization.text("daily_surprise_detail", fallback: "Not sure what to choose? Let Talla decide."))
-                        .font(bodyFont(size: isSurprisePickExpanded ? 13 : 12))
-                        .foregroundColor(secondaryTextColor)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if isSurprisePickExpanded {
+                        Text(AppLocalization.text("daily_surprise_detail", fallback: "Not sure what to choose? Let Talla decide."))
+                            .font(bodyFont(size: 12))
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer(minLength: 8)
@@ -3035,78 +3037,104 @@ struct ContentView: View {
 
     @ViewBuilder
     private var homeFavoritesShelf: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(AppLocalization.text("favorites_shelf", fallback: "Your shelf"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
-                        .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+        if !favoriteProducts.isEmpty || !reorderPrompts.isEmpty {
+            let shelfItemCount = favoriteProducts.count + reorderPrompts.count
 
-                    Text(AppLocalization.text("shelf_functional_detail", fallback: "Your favourites, previous orders, and recent discoveries."))
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 10) {
+                    Button {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                            isHomeShelfExpanded.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(AppLocalization.text("favorites_shelf", fallback: "Your Shelf"))
+                                    .font(labelFont(size: 10, weight: .bold))
+                                    .tracking(2.2)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(Color(hex: 0xC8965A))
+
+                                Text(String(format: AppLocalization.text("shelf_ready_count", fallback: "%d items ready"), shelfItemCount))
+                                    .font(bodyFont(size: 12))
+                                    .foregroundColor(secondaryTextColor)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            Image(systemName: isHomeShelfExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(primaryTextColor)
+                                .frame(width: 30, height: 30)
+                                .background(cardFillColor)
+                                .clipShape(Circle())
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("favorites_shelf", fallback: "Your Shelf"))
+                    .accessibilityValue(isHomeShelfExpanded ? "Expanded" : "Collapsed")
+
+                    Button {
+                        isFavoriteShelfPresented = true
+                    } label: {
+                        Image(systemName: "books.vertical.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .frame(width: 38, height: 38)
+                            .background(Color(hex: 0xC8965A))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("open_favorites_shelf", fallback: "Open favorites shelf"))
                 }
 
-                Spacer(minLength: 12)
+                if isHomeShelfExpanded {
+                    Group {
+                        if !reorderPrompts.isEmpty {
+                            personalizedShelfSection(
+                                title: AppLocalization.text("order_again_home", fallback: "Order Again"),
+                                detail: AppLocalization.text("order_again_detail", fallback: "Products you previously purchased."),
+                                systemImage: "clock.arrow.circlepath"
+                            ) {
+                                VStack(spacing: 10) {
+                                    ForEach(reorderPrompts.prefix(3), id: \.product.id) { prompt in
+                                        reorderPromptCard(prompt)
+                                    }
 
-                Button {
-                    isFavoriteShelfPresented = true
-                } label: {
-                    Image(systemName: "books.vertical.fill")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .frame(width: 38, height: 38)
-                        .background(Color(hex: 0xC8965A))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppLocalization.text("open_favorites_shelf", fallback: "Open favorites shelf"))
-            }
-
-            if customerProfile == nil {
-                signedOutShelfPrompt
-            }
-
-            if !reorderPrompts.isEmpty {
-                personalizedShelfSection(
-                    title: AppLocalization.text("order_again_home", fallback: "Order Again"),
-                    detail: AppLocalization.text("order_again_detail", fallback: "Products you previously purchased."),
-                    systemImage: "clock.arrow.circlepath"
-                ) {
-                    VStack(spacing: 10) {
-                        ForEach(reorderPrompts.prefix(3), id: \.product.id) { prompt in
-                            reorderPromptCard(prompt)
+                                    if let recommendation = orderBasedRecommendation {
+                                        orderRecommendationCard(source: recommendation.source, recommended: recommendation.recommended)
+                                    }
+                                }
+                            }
                         }
 
-                        if let recommendation = orderBasedRecommendation {
-                            orderRecommendationCard(source: recommendation.source, recommended: recommendation.recommended)
+                        if reorderPrompts.isEmpty && !favoriteProducts.isEmpty {
+                            personalizedProductShelfSection(
+                                title: AppLocalization.text("favorites_stand", fallback: "Favorites"),
+                                detail: AppLocalization.text("favorites_shelf_stand_detail", fallback: "Products you saved for later."),
+                                systemImage: "heart.fill",
+                                products: Array(favoriteProducts.prefix(4)),
+                                emptyMessage: ""
+                            )
                         }
                     }
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-
-            if customerProfile != nil && reorderPrompts.isEmpty && recentlyViewedUnboughtProducts.isEmpty {
-                actionEmptyState(
-                    message: AppLocalization.text("your_shelf_empty", fallback: "Your shelf will fill with reorders and recently viewed products. Saved favourites stay inside the shelf button."),
-                    actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
-                    systemImage: "books.vertical.fill"
-                ) {
-                    openShop()
-                }
-            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 14)
+            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isHomeShelfExpanded)
         }
-        .padding(.horizontal, 18)
-        .padding(.bottom, 18)
     }
 
     @ViewBuilder
     private var homeRecentlyViewedShelf: some View {
-        recentlyViewedShelfSection
-            .padding(.horizontal, 18)
-            .padding(.bottom, 20)
+        if !recentlyViewedUnboughtProducts.isEmpty {
+            recentlyViewedShelfSection
+                .padding(.horizontal, 18)
+                .padding(.bottom, 14)
+        }
     }
 
     @ViewBuilder
@@ -3119,39 +3147,28 @@ struct ContentView: View {
         ) {
             let products = Array(recentlyViewedUnboughtProducts.prefix(6))
 
-            if products.isEmpty {
-                Text(AppLocalization.text("home_recently_viewed_empty", fallback: "Open products in the shop and they will appear here."))
-                    .font(bodyFont(size: 12))
-                    .foregroundColor(tertiaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.72 : 0.54))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            } else {
-                if !isCompact && products.count <= 3 {
-                    HStack(spacing: 12) {
-                        ForEach(products) { product in
-                            shelfProductCard(product, width: 150)
-                        }
+            if !isCompact && products.count <= 3 {
+                HStack(spacing: 12) {
+                    ForEach(products) { product in
+                        shelfProductCard(product, width: 150)
                     }
-                    .padding(.vertical, 2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    GeometryReader { proxy in
-                        let cardWidth = max(132, min(162, (proxy.size.width - 24) / 2.15))
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(products) { product in
-                                    shelfProductCard(product, width: cardWidth)
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                    .frame(height: 172)
                 }
+                .padding(.vertical, 2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                GeometryReader { proxy in
+                    let cardWidth = max(132, min(162, (proxy.size.width - 24) / 2.15))
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(products) { product in
+                                shelfProductCard(product, width: cardWidth)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+                .frame(height: 172)
             }
         }
     }
@@ -3586,11 +3603,11 @@ struct ContentView: View {
     }
 
     private var tallaPassportSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .center, spacing: 10) {
                 passportLogoIcon
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(AppLocalization.text("talla_passport", fallback: "Talla Passport"))
                             .font(labelFont(size: 10, weight: .bold))
@@ -3603,11 +3620,13 @@ struct ContentView: View {
                             .foregroundColor(secondaryTextColor)
                     }
 
-                    Text(coffeePassportOrigins.map(\.title).joined(separator: " · "))
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
+                    Text(isCoffeePassportComplete
+                        ? AppLocalization.text("talla_passport_complete_short", fallback: "Passport complete. Your reward is ready.")
+                        : AppLocalization.text("talla_passport_reward_hint_short", fallback: "Complete your passport to unlock a reward."))
+                        .font(bodyFont(size: 11))
+                        .foregroundColor(isCoffeePassportComplete ? Color(hex: 0x6F8B55) : secondaryTextColor)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                        .minimumScaleFactor(0.76)
                 }
 
                 Spacer(minLength: 0)
@@ -3624,20 +3643,7 @@ struct ContentView: View {
                         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: stampedCoffeePassportOriginKeys.count)
                 }
             }
-            .frame(height: 10)
-
-            Text(String(format: AppLocalization.text("passport_completed_count", fallback: "%d of %d completed"), stampedCoffeePassportOriginKeys.count, coffeePassportOrigins.count))
-                .font(labelFont(size: 9, weight: .bold))
-                .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
-                .textCase(.uppercase)
-                .foregroundColor(tertiaryTextColor)
-
-            Text(isCoffeePassportComplete
-                ? AppLocalization.text("talla_passport_complete_short", fallback: "Passport complete. Your reward is ready in Rewards.")
-                : AppLocalization.text("talla_passport_reward_hint_short", fallback: "Complete your passport to unlock a reward."))
-                .font(bodyFont(size: 12))
-                .foregroundColor(isCoffeePassportComplete ? Color(hex: 0x6F8B55) : secondaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
+            .frame(height: 7)
 
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
@@ -3666,7 +3672,7 @@ struct ContentView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(14)
+        .padding(12)
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -3674,7 +3680,7 @@ struct ContentView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 18)
-        .padding(.bottom, 20)
+        .padding(.bottom, 14)
     }
 
     private var passportLogoIcon: some View {
@@ -4302,7 +4308,7 @@ struct ContentView: View {
     }
 
     private var featuredProducts: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .lastTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(AppLocalization.text("roastery_selection", fallback: "Roastery Selection"))
@@ -4335,7 +4341,7 @@ struct ContentView: View {
             } else if let loadingError, products.isEmpty {
                 errorSection(message: loadingError)
             } else {
-                let roasts = Array(signatureRoastProducts.prefix(6))
+                let roasts = Array(signatureRoastProducts.prefix(4))
 
                 if isCompact {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -4362,7 +4368,7 @@ struct ContentView: View {
         }
         .padding(.horizontal, 18)
         .padding(.top, 4)
-        .padding(.bottom, 28)
+        .padding(.bottom, 20)
     }
 
     private var collections: some View {
@@ -4436,7 +4442,7 @@ struct ContentView: View {
             cardFillColor: cardFillColor,
             accentColor: Color(hex: 0xC8965A),
             isLightAppearance: isLightAppearance,
-            titleFont: displayFont(size: 32),
+            titleFont: displayFont(size: 28),
             sectionTitleFont: displayFont(size: 22),
             bodyFont: bodyFont(size: 15),
             labelFont: labelFont(size: 10, weight: .semibold),
@@ -4471,7 +4477,8 @@ struct ContentView: View {
             }
         )
         .padding(.horizontal, 18)
-        .padding(.vertical, 28)
+        .padding(.top, 18)
+        .padding(.bottom, 22)
     }
 
     private var recentSearchQueries: [String] {
@@ -6680,9 +6687,9 @@ struct ContentView: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 5) {
             Text("Talla Speciality")
-                .font(.custom("Didot", size: isCompact ? 22 : 25, relativeTo: .title2))
+                .font(.custom("Didot", size: isCompact ? 20 : 23, relativeTo: .title2))
                 .tracking(0.8)
                 .foregroundColor(Color(hex: 0xB98243))
                 .lineLimit(1)
@@ -6701,7 +6708,7 @@ struct ContentView: View {
             .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 7)
         .background(Color.white)
         .overlay(
             Rectangle()
@@ -7527,15 +7534,13 @@ struct ContentView: View {
 
     private func productCard(product: Product, showDescription: Bool) -> some View {
         let tasteSummary = productTasteSummary(for: product)
-        let brewRecommendation = productBrewRecommendation(for: product)
-        let metadataChips = productMetadataChips(for: product)
-        let cardMinimumHeight: CGFloat = showDescription ? (isCompact ? 468 : 488) : (isCompact ? 396 : 416)
+        let cardMinimumHeight: CGFloat = showDescription ? (isCompact ? 340 : 360) : (isCompact ? 396 : 416)
         let shouldShowAlertButton = !product.isAvailableForSale || isAlertEnabled(product)
 
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: showDescription ? 8 : 10) {
             ZStack(alignment: .topTrailing) {
                 ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 10)
-                    .frame(height: isCompact ? 176 : 184)
+                    .frame(height: showDescription ? (isCompact ? 138 : 152) : (isCompact ? 176 : 184))
 
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(productBadges(for: product), id: \.self) { badge in
@@ -7607,53 +7612,41 @@ struct ContentView: View {
                     .frame(height: 13, alignment: .leading)
 
                 Text(product.name)
-                    .font(titleFont(size: isCompact ? 18 : 20))
+                    .font(titleFont(size: showDescription ? (isCompact ? 16 : 18) : (isCompact ? 18 : 20)))
                     .foregroundColor(primaryTextColor)
                     .lineLimit(2)
                     .lineSpacing(1)
                     .minimumScaleFactor(0.78)
-                    .frame(height: 48, alignment: .topLeading)
+                    .frame(height: showDescription ? 40 : 48, alignment: .topLeading)
 
                 if showDescription {
                     Text(tasteSummary)
-                        .font(labelFont(size: isCompact ? 12 : 13, weight: .bold))
-                        .foregroundColor(primaryTextColor)
+                        .font(bodyFont(size: isCompact ? 11 : 12))
+                        .foregroundColor(secondaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
-                        .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
-
-                    Label(brewRecommendation, systemImage: "drop.fill")
-                        .font(bodyFont(size: isCompact ? 13 : 14))
-                        .foregroundColor(secondaryTextColor)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-                        .frame(maxWidth: .infinity, minHeight: isCompact ? 34 : 38, alignment: .leading)
-
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 74 : 84), spacing: 6)], spacing: 6) {
-                        ForEach(metadataChips.indices, id: \.self) { index in
-                            productMetadataChip(icon: metadataChips[index].icon, title: metadataChips[index].title)
-                        }
-                    }
-                    .frame(height: isCompact ? 72 : 76, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, minHeight: 16, alignment: .leading)
                 }
             }
 
             Spacer(minLength: 0)
 
-            if product.hasVariantChoices, let variant = selectedVariant(for: product) {
-                Text("\(AppLocalization.text("selected_variant", fallback: "Variant:")) \(variant.title)")
-                    .font(bodyFont(size: 12))
-                    .foregroundColor(secondaryTextColor)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .minimumScaleFactor(0.82)
-                    .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
-            } else {
-                Text(" ")
-                    .font(bodyFont(size: 12))
-                    .lineLimit(1)
-                    .frame(height: 20)
-                    .accessibilityHidden(true)
+            if !showDescription {
+                if product.hasVariantChoices, let variant = selectedVariant(for: product) {
+                    Text("\(AppLocalization.text("selected_variant", fallback: "Variant:")) \(variant.title)")
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .minimumScaleFactor(0.82)
+                        .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
+                } else {
+                    Text(" ")
+                        .font(bodyFont(size: 12))
+                        .lineLimit(1)
+                        .frame(height: 20)
+                        .accessibilityHidden(true)
+                }
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -7697,9 +7690,9 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
             }
-            .frame(maxWidth: .infinity, minHeight: 74, alignment: .bottom)
+            .frame(maxWidth: .infinity, minHeight: showDescription ? 68 : 74, alignment: .bottom)
         }
-        .padding(14)
+        .padding(showDescription ? 10 : 14)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(cardFillColor)

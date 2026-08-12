@@ -617,6 +617,7 @@ enum AppLocalization {
         ,"favorites_shelf_stand_detail": ["ar": "رف خاص للقهوة والمنتجات التي حفظتها بالقلب."]
         ,"favorites_stand": ["ar": "رف المفضلة"]
         ,"favorites_count": ["ar": "%d اختيارات محفوظة"]
+        ,"shelf_ready_count": ["ar": "%d عناصر جاهزة"]
         ,"category_all": ["ar": "الكل"]
         ,"category_summer_drinks": ["ar": "مشروبات الصيف"]
         ,"category_coffee_beans": ["ar": "حبوب القهوة"]

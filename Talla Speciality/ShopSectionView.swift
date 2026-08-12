@@ -32,8 +32,8 @@ struct ShopSectionView: View {
     let clearRecentSearches: () -> Void
     let retryLoad: () -> Void
     let categorySelected: () -> Void
-    @State private var isSearchExpanded = false
     @State private var isSortDialogPresented = false
+    @FocusState private var isSearchFocused: Bool
 
     private var usesArabicTypography: Bool {
         AppLocalization.currentLanguage.effectiveLanguageCode == "ar"
@@ -44,53 +44,29 @@ struct ShopSectionView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(AppLocalization.text("shop_eyebrow", fallback: "What are you craving?"))
-                        .font(labelFont)
-                        .tracking(localizedTracking(4))
-                        .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(AppLocalization.text("shop_eyebrow", fallback: "What are you craving?"))
+                    .font(labelFont)
+                    .tracking(localizedTracking(3))
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
 
-                    Text(AppLocalization.text("shop_heading", fallback: "Pick your Talla run"))
-                        .font(titleFont)
-                        .tracking(localizedTracking(1))
-                        .foregroundColor(primaryTextColor)
-
-                    Text(AppLocalization.text("shop_intro", fallback: "Start with cold summer drinks, grab cups for the road, add CRMB treats, or restock your favorite beans."))
-                        .font(bodyFont)
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-
-                Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        isSearchExpanded.toggle()
-                    }
-                } label: {
-                    Image(systemName: isSearchExpanded ? "xmark" : "magnifyingglass")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .frame(width: 44, height: 44)
-                        .background(accentColor)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppLocalization.text("search", fallback: "Search"))
+                Text(AppLocalization.text("shop_heading", fallback: "Pick your Talla run"))
+                    .font(titleFont)
+                    .tracking(localizedTracking(0.6))
+                    .foregroundColor(primaryTextColor)
             }
 
-            if isSearchExpanded || !searchQuery.isEmpty {
+            shopSearchField
+
+            if isSearchFocused || !searchQuery.isEmpty {
                 VStack(alignment: .leading, spacing: 14) {
-                    shopSearchField
                     shopSearchSuggestions
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            guidancePanel
             shopCategoriesSection
             shopSortSection
 
@@ -101,13 +77,26 @@ struct ShopSectionView: View {
             } else if filteredProducts.isEmpty {
                 emptySection
             } else {
+                let discoveryBreakIndex = min(4, filteredProducts.count)
+
                 LazyVGrid(columns: gridColumns, spacing: 16) {
-                    ForEach(filteredProducts) { product in
+                    ForEach(Array(filteredProducts.prefix(discoveryBreakIndex))) { product in
                         renderProductCard(product, true)
+                    }
+                }
+
+                guidancePanel
+
+                if filteredProducts.count > discoveryBreakIndex {
+                    LazyVGrid(columns: gridColumns, spacing: 16) {
+                        ForEach(Array(filteredProducts.dropFirst(discoveryBreakIndex))) { product in
+                            renderProductCard(product, true)
+                        }
                     }
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
         .confirmationDialog(
             AppLocalization.text("sort_by", fallback: "Sort by"),
             isPresented: $isSortDialogPresented,
@@ -132,11 +121,13 @@ struct ShopSectionView: View {
             TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search summer drinks, cups, CRMB..."), text: $searchQuery)
                 .font(bodyFont)
                 .foregroundColor(primaryTextColor)
+                .focused($isSearchFocused)
                 .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
                 .submitLabel(.search)
                 .onSubmit {
                     submitSearch(searchQuery)
+                    isSearchFocused = false
                 }
 
             if !searchQuery.isEmpty {
@@ -152,7 +143,7 @@ struct ShopSectionView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 13)
+        .padding(.vertical, 11)
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -364,7 +355,7 @@ struct ShopSectionView: View {
     }
 
     private var shopCategoriesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(AppLocalization.text("categories", fallback: "CATEGORIES"))
                 .font(labelFont)
                 .tracking(localizedTracking(4))
@@ -372,7 +363,7 @@ struct ShopSectionView: View {
                 .foregroundColor(accentColor)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: 7) {
                     ForEach(availableCategories) { category in
                         shopCategoryButton(category)
                     }
@@ -406,9 +397,8 @@ struct ShopSectionView: View {
                         .foregroundColor(accentColor)
                 }
             }
-            .frame(width: 116, height: 42, alignment: .leading)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .frame(height: 38, alignment: .leading)
+            .padding(.horizontal, 11)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(cardFillColor)
