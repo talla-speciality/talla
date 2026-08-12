@@ -209,7 +209,9 @@ struct LoyaltySectionView: View {
                     if case let .success(image) = phase {
                         image
                             .resizable()
-                            .scaledToFill()
+                            .scaledToFit()
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
                     } else {
                         coffeeBeanFallback
                     }
