@@ -4360,7 +4360,7 @@ struct ContentView: View {
 
     private var coffeeQuizPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(Color(hex: 0x0A0804))
@@ -4368,13 +4368,12 @@ struct ContentView: View {
                     .background(Color(hex: 0xC8965A))
                     .clipShape(Circle())
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(AppLocalization.text("coffee_quiz_title", fallback: "Find Your Talla"))
-                        .font(labelFont(size: 10, weight: .bold))
-                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.6)
-                        .textCase(.uppercase)
-                        .foregroundColor(primaryTextColor)
-                }
+                Text(AppLocalization.text("coffee_quiz_title", fallback: "Find Your Talla"))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.6)
+                    .textCase(.uppercase)
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(1)
 
                 Spacer(minLength: 8)
 
