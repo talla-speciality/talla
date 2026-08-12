@@ -44,13 +44,13 @@ struct PaymentFlowTests {
     }
 
     @Test func selectorContainsAllRequiredMethods() {
-        #expect(Set(TallaPaymentMethod.allCases) == Set([.benefitPay, .benefit, .card, .applePay, .clickToPay]))
+        #expect(Set(TallaPaymentMethod.allCases) == Set([.benefitPay, .benefit, .card, .applePay, .cashOnDelivery]))
         #expect(TallaPaymentService.applePayMerchantIdentifier == "merchant.talla.me")
     }
 
     @Test func paymentMethodsUseTheRequiredDisplayOrder() {
-        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: true) == [.applePay, .benefitPay, .benefit, .card, .clickToPay])
-        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: false) == [.benefitPay, .benefit, .card, .clickToPay])
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: true) == [.applePay, .benefitPay, .benefit, .card, .cashOnDelivery])
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: false) == [.benefitPay, .benefit, .card, .cashOnDelivery])
         #expect(!PaymentMethodSelectorView.visibleMethods(applePayAvailable: false).contains(.applePay))
     }
 
@@ -59,23 +59,23 @@ struct PaymentFlowTests {
         #expect(TallaPaymentMethod.benefitPay.route == .benefitPaySDK)
         #expect(TallaPaymentMethod.card.route == .cardGateway)
         #expect(TallaPaymentMethod.applePay.route == .applePayGateway)
-        #expect(TallaPaymentMethod.clickToPay.route == .clickToPayHosted)
+        #expect(TallaPaymentMethod.cashOnDelivery.route == .shopifyCashOnDelivery)
     }
 
     @Test func cardMessagingIncludesAmericanExpress() {
         #expect(TallaPaymentMethod.card.subtitle.contains("American Express"))
-        #expect(TallaPaymentMethod.clickToPay.supportingText?.contains("American Express") == true)
+        #expect(TallaPaymentMethod.cashOnDelivery.supportingText?.contains("cash") == true)
     }
 
     @Test func sheetMessagingIsCompactAndSpecific() {
         #expect(TallaPaymentMethod.benefit.sheetSubtitle == "For Bahrain-issued debit cards")
-        #expect(TallaPaymentMethod.clickToPay.sheetSubtitle == "Use supported saved cards for faster checkout")
+        #expect(TallaPaymentMethod.cashOnDelivery.sheetSubtitle == "Complete your order through Shopify Checkout")
     }
 
     @Test func actionCopyMatchesTheSelectedMethod() {
         #expect(TallaPaymentMethod.benefit.actionTitle == "Continue to BENEFIT")
         #expect(TallaPaymentMethod.card.actionTitle == "Enter card details")
-        #expect(TallaPaymentMethod.clickToPay.actionTitle == "Continue with Click to Pay")
+        #expect(TallaPaymentMethod.cashOnDelivery.actionTitle == "Continue with Cash on Delivery")
     }
 
     @Test func currencyUsesThreeDecimalBHDFormatting() {
