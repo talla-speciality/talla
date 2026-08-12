@@ -61,7 +61,7 @@ struct TallaQuickActionsProvider: TimelineProvider {
             savedCartCount: 1,
             languageCode: "en",
             loyaltyPoints: 72,
-            loyaltyTier: "Reserve",
+            loyaltyTier: "Bronze",
             loyaltyNextReward: "28 Beans to next reward"
         )
     }
@@ -84,7 +84,7 @@ struct TallaQuickActionsProvider: TimelineProvider {
         let savedCartCount = defaults.integer(forKey: TallaWidgetSharedState.savedCartCountKey)
         let languageCode = defaults.string(forKey: TallaWidgetSharedState.languageKey) == "ar" ? "ar" : "en"
         let loyaltyPoints = defaults.integer(forKey: TallaWidgetSharedState.loyaltyPointsKey)
-        let loyaltyTier = defaults.string(forKey: TallaWidgetSharedState.loyaltyTierKey) ?? "Reserve"
+        let loyaltyTier = defaults.string(forKey: TallaWidgetSharedState.loyaltyTierKey) ?? "Bronze"
         let loyaltyNextReward = defaults.string(forKey: TallaWidgetSharedState.loyaltyNextRewardKey) ?? "Check rewards in app"
         let isArabic = languageCode == "ar"
         let beansText = loyaltyEmail.isEmpty

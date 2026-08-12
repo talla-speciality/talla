@@ -73,7 +73,7 @@ struct WatchBrewRecipe {
 struct TallaWatchSnapshot {
     var email: String = ""
     var points: Int = 0
-    var tier: String = "Reserve"
+    var tier: String = "Bronze"
     var nextReward: String = "Open Talla on iPhone to check rewards"
     var memberID: String = ""
     var favoriteCount: Int = 0
@@ -259,7 +259,7 @@ final class TallaWatchStore: NSObject {
         snapshot = TallaWatchSnapshot(
             email: payload["email"] as? String ?? "",
             points: payload["points"] as? Int ?? 0,
-            tier: payload["tier"] as? String ?? "Reserve",
+            tier: payload["tier"] as? String ?? "Bronze",
             nextReward: payload["nextReward"] as? String ?? "Open Talla on iPhone to check rewards",
             memberID: payload["memberID"] as? String ?? "",
             favoriteCount: payload["favoriteCount"] as? Int ?? 0,

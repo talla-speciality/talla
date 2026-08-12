@@ -500,7 +500,7 @@ struct AccountSectionView: View {
         case .alerts:
             return AppLocalization.text("back_in_stock_alerts", fallback: "Back-in-stock alerts")
         case .beansBalance:
-            return AppLocalization.text("beans_balance", fallback: "Beans balance")
+            return AppLocalization.text("the_talla_club", fallback: "The Talla Club")
         case .rewardProgress:
             return AppLocalization.text("reward_progress", fallback: "Reward progress")
         case .redeemRewards:

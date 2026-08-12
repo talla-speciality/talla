@@ -33,13 +33,7 @@ struct LoyaltySectionView: View {
     let walletCallToAction: AnyView
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(AppLocalization.text("loyalty", fallback: "Loyalty"))
-                .font(labelFont)
-                .tracking(4)
-                .textCase(.uppercase)
-                .foregroundColor(accentColor)
-
+        VStack(alignment: .leading, spacing: 16) {
             if isCustomerSignedIn {
                 rewardsConnectedCard
             } else {
@@ -51,36 +45,40 @@ struct LoyaltySectionView: View {
             }
 
             if let loyaltyAccount {
-                compactReserveCard(account: loyaltyAccount)
+                compactClubCard(account: loyaltyAccount)
 
-                expiringRewardsSection
-                transactionsSection
+                VStack(alignment: .leading, spacing: 20) {
+                    expiringRewardsSection
+
+                    Rectangle()
+                        .fill(accentColor.opacity(isLightAppearance ? 0.12 : 0.08))
+                        .frame(height: 1)
+
+                    transactionsSection
+                }
+                .padding(18)
+                .background(cardFillColor)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
         }
         .sheet(isPresented: $isRewardsCatalogPresented) {
             rewardsCatalogScreen
         }
-        .padding(22)
-        .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.82 : 0.26))
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(accentColor.opacity(0.16), lineWidth: 1)
-        )
-        .glassEffect(
-            .regular.tint(Color(hex: 0x8A5E30).opacity(0.18)),
-            in: .rect(cornerRadius: 28)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 
-    private func compactReserveCard(account: ContentView.LoyaltyAccount) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
+    private func compactClubCard(account: ContentView.LoyaltyAccount) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), account.pointsBalance))
-                        .font(Font.custom("CormorantGaramond-SemiBold", size: isCompact ? 34 : 40))
-                        .foregroundColor(primaryTextColor)
-                        .lineLimit(1)
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Text("\(account.pointsBalance)")
+                            .font(Font.custom("CormorantGaramond-SemiBold", size: isCompact ? 52 : 60))
+                            .foregroundColor(primaryTextColor)
+
+                        Text(AppLocalization.text("beans", fallback: "Beans"))
+                            .font(Font.custom("AvenirNext-DemiBold", size: 15))
+                            .foregroundColor(primaryTextColor.opacity(0.78))
+                    }
 
                     Text(account.tier)
                         .font(Font.custom("AvenirNext-Bold", size: 11))
@@ -91,16 +89,22 @@ struct LoyaltySectionView: View {
 
                 Spacer(minLength: 10)
 
-                Text(nextRewardLabel)
-                    .font(Font.custom("AvenirNext-DemiBold", size: 12))
-                    .foregroundColor(secondaryTextColor)
-                    .multilineTextAlignment(.trailing)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text("\(rewardProgress?.remaining ?? 0)")
+                        .font(Font.custom("CormorantGaramond-SemiBold", size: 30))
+                        .foregroundColor(accentColor)
+
+                    Text(AppLocalization.text("until_reward", fallback: "until reward"))
+                        .font(Font.custom("AvenirNext-Bold", size: 9))
+                        .tracking(1.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(secondaryTextColor)
+                }
             }
 
             stampProgressCard(pointsBalance: account.pointsBalance)
 
-            HStack(spacing: 10) {
+            VStack(spacing: 10) {
                 Button {
                     isRewardsCatalogPresented = true
                 } label: {
@@ -110,23 +114,33 @@ struct LoyaltySectionView: View {
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 14)
                         .background(accentColor)
                         .clipShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
 
                 walletCallToAction
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 48)
             }
         }
-        .padding(16)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [
+                    accentColor.opacity(isLightAppearance ? 0.13 : 0.18),
+                    cardFillColor,
+                    cardFillColor
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.20 : 0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private var nextRewardLabel: String {
@@ -150,14 +164,14 @@ struct LoyaltySectionView: View {
         let filledCount = min(max(currentPoints / 50, 0), 6)
         let bottlesLeft = max(6 - filledCount, 0)
 
-        return VStack(spacing: 13) {
+        return VStack(spacing: 14) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
                 ForEach(0..<6, id: \.self) { index in
                     productStamp(isEarned: index < filledCount)
                 }
             }
 
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "info.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(accentColor)
@@ -168,14 +182,14 @@ struct LoyaltySectionView: View {
 
                 Spacer(minLength: 8)
 
-                Text(String(format: AppLocalization.text("loyalty_bottles_left", fallback: "%d left"), bottlesLeft))
+                Text(filledCount == 6
+                    ? AppLocalization.text("complete", fallback: "Complete")
+                    : String(format: AppLocalization.text("loyalty_bottles_left", fallback: "%d left"), bottlesLeft))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .foregroundColor(primaryTextColor)
             }
         }
-        .padding(12)
-        .background(accentColor.opacity(isLightAppearance ? 0.07 : 0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.top, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             String(
@@ -204,7 +218,7 @@ struct LoyaltySectionView: View {
                 coffeeBeanFallback
             }
         }
-        .frame(height: isCompact ? 62 : 70)
+        .frame(height: isCompact ? 58 : 68)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .saturation(isEarned ? 1 : 0)
         .opacity(isEarned ? 1 : 0.24)
@@ -329,7 +343,7 @@ struct LoyaltySectionView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(accentColor)
-                .frame(width: 36, height: 36)
+                .frame(width: 32, height: 32)
                 .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
                 .clipShape(Circle())
 
@@ -361,13 +375,14 @@ struct LoyaltySectionView: View {
             .buttonStyle(.plain)
             .disabled(isLoadingLoyalty || savedLoyaltyEmail.isEmpty)
         }
-        .padding(14)
-        .background(cardFillColor)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func loyaltyBenefit(title: String, detail: String) -> some View {

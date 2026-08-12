@@ -124,7 +124,7 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
             "savedCartCount": defaults.integer(forKey: Key.savedCartCount),
             "language": defaults.string(forKey: Key.language) ?? "en",
             "points": defaults.integer(forKey: Key.loyaltyPoints),
-            "tier": defaults.string(forKey: Key.loyaltyTier) ?? "Reserve",
+            "tier": defaults.string(forKey: Key.loyaltyTier) ?? "Bronze",
             "nextReward": defaults.string(forKey: Key.loyaltyNextReward) ?? "Check rewards in app",
             "memberID": defaults.string(forKey: Key.loyaltyMemberID) ?? "",
             "lastUpdated": defaults.double(forKey: Key.lastUpdated)

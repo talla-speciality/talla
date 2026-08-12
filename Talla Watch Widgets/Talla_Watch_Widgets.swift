@@ -42,7 +42,7 @@ struct TallaWatchWidgetProvider: TimelineProvider {
         TallaWatchWidgetEntry(
             date: Date(),
             points: 72,
-            tier: "Reserve",
+            tier: "Bronze",
             nextReward: "28 Beans to your next reward",
             isSignedIn: true,
             favoriteCount: 3,
@@ -69,7 +69,7 @@ struct TallaWatchWidgetProvider: TimelineProvider {
         return TallaWatchWidgetEntry(
             date: lastUpdated > 0 ? Date(timeIntervalSince1970: lastUpdated) : Date(),
             points: defaults.integer(forKey: TallaWatchWidgetSharedState.loyaltyPointsKey),
-            tier: defaults.string(forKey: TallaWatchWidgetSharedState.loyaltyTierKey) ?? "Reserve",
+            tier: defaults.string(forKey: TallaWatchWidgetSharedState.loyaltyTierKey) ?? "Bronze",
             nextReward: defaults.string(forKey: TallaWatchWidgetSharedState.loyaltyNextRewardKey) ?? "Open Talla on your iPhone",
             isSignedIn: !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             favoriteCount: defaults.integer(forKey: TallaWatchWidgetSharedState.favoriteCountKey),
@@ -200,7 +200,7 @@ struct Talla_Watch_Widgets: Widget {
     TallaWatchWidgetEntry(
         date: .now,
         points: 72,
-        tier: "Reserve",
+        tier: "Bronze",
         nextReward: "28 Beans to your next reward",
         isSignedIn: true,
         favoriteCount: 3,

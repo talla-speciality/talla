@@ -5482,7 +5482,7 @@ function rewardDetailsFor(reward) {
         "eid majlis reward": { detail: "Limited Eid reward for coffee, sweets, or gift boxes", expiresInDays: 14 },
         "coffee bag credit": { detail: "BHD 4.000 off one coffee bag", expiresInDays: 30 },
         "talla box treat": { detail: "Curated reward on a Talla Box", expiresInDays: 45 },
-        "gold reserve gift": { detail: "Premium Gold-tier gift reward", expiresInDays: 60 }
+        "gold club gift": { detail: "Premium Gold-tier Talla Club gift", expiresInDays: 60 }
     };
 
     return catalog[normalized] || { detail: reward || "Reward voucher", expiresInDays: 30 };

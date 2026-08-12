@@ -67,11 +67,11 @@ struct LoyaltyRewardsActionsView: View {
                 reward: "Talla box treat"
             ),
             RewardOption(
-                id: "gold-reserve-gift",
-                title: AppLocalization.text("reward_gold_reserve_gift", fallback: "Gold Reserve Gift"),
-                detail: AppLocalization.text("reward_gold_reserve_gift_detail", fallback: "Exclusive Reserve gift"),
+                id: "gold-club-gift",
+                title: AppLocalization.text("reward_gold_club_gift", fallback: "Gold Club Gift"),
+                detail: AppLocalization.text("reward_gold_club_gift_detail", fallback: "Exclusive Talla Club gift"),
                 points: 250,
-                reward: "Gold reserve gift"
+                reward: "Gold club gift"
             )
         ]
     }

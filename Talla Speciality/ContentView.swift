@@ -583,6 +583,7 @@ struct ContentView: View {
     @State private var checkoutError: String?
     @StateObject private var paymentFlow = PaymentFlowModel()
     @State private var isPaymentMethodSheetPresented = false
+    @State private var isCartRewardsPresented = false
     @State private var pendingCartRemovalID: String?
     @State private var isConfirmingEmptyBag = false
     @State private var checkoutSession: CheckoutSession?
@@ -1884,6 +1885,11 @@ struct ContentView: View {
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isCartRewardsPresented) {
+            cartRewardsSheet
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isCoffeeConciergePresented) {
             coffeeConciergeSheet
@@ -4141,8 +4147,6 @@ struct ContentView: View {
             }),
             walletCallToAction: AnyView(walletCallToAction)
         )
-        .padding(.horizontal, 18)
-        .padding(.bottom, 8)
     }
 
     private var loyaltyStampProductImageURL: URL? {
@@ -4150,6 +4154,36 @@ struct ContentView: View {
             ($0.categoryKey == "coffee-beans" || $0.categoryKey == "arabic-coffee-beans")
                 && $0.imageURL != nil
         }?.imageURL ?? products.first(where: { $0.imageURL != nil })?.imageURL
+    }
+
+    private var cartRewardsSheet: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                loyaltySection
+                    .padding(.horizontal, 18)
+                    .padding(.top, 20)
+                    .padding(.bottom, 28)
+            }
+            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .navigationTitle(AppLocalization.text("the_talla_club", fallback: "The Talla Club"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isCartRewardsPresented = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                            .frame(width: 32, height: 32)
+                            .background(cardFillColor)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+                }
+            }
+        }
     }
 
     private var customerAccountSection: some View {
@@ -6801,28 +6835,40 @@ struct ContentView: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 5) {
-            Text("Talla Speciality")
-                .font(.custom("Didot", size: isCompact ? 20 : 23, relativeTo: .title2))
-                .tracking(0.8)
-                .foregroundColor(Color(hex: 0xB98243))
-                .lineLimit(1)
+        VStack(spacing: 7) {
+            HStack(spacing: 13) {
+                Rectangle()
+                    .fill(Color(hex: 0xC8965A).opacity(0.22))
+                    .frame(height: 1)
+
+                Text("TALLA SPECIALITY")
+                    .font(.custom("AvenirNext-Medium", size: isCompact ? 17 : 20, relativeTo: .title3))
+                    .tracking(isCompact ? 2.0 : 2.5)
+                    .foregroundColor(Color(hex: 0xB98243))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+
+                Rectangle()
+                    .fill(Color(hex: 0xC8965A).opacity(0.22))
+                    .frame(height: 1)
+            }
 
             HStack(spacing: 7) {
                 Text("🇧🇭")
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                     .accessibilityHidden(true)
 
                 Text(AppLocalization.text("made_in_bahrain", fallback: "Made in Bahrain"))
-                    .font(.custom("AvenirNext-Medium", size: 9, relativeTo: .caption))
-                    .tracking(1.3)
+                    .font(.custom("AvenirNext-Medium", size: 10, relativeTo: .caption))
+                    .tracking(1.5)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xA67236))
+                    .foregroundColor(Color(hex: 0xA67236).opacity(0.88))
             }
             .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
         .background(Color.white)
         .overlay(
             Rectangle()
@@ -7345,8 +7391,10 @@ struct ContentView: View {
                                     .fixedSize(horizontal: false, vertical: true)
 
                                 Button {
-                                    cartOpen = false
-                                    openAccountSection(AccountSectionView.ScrollTarget.loyalty)
+                                    isCartRewardsPresented = true
+                                    Task {
+                                        await loadLoyaltyAccount()
+                                    }
                                 } label: {
                                     Label(AppLocalization.text("view_rewards", fallback: "View Rewards"), systemImage: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
                                         .font(labelFont(size: 10, weight: .bold))
@@ -10844,7 +10892,7 @@ struct ContentView: View {
         defaults.set(savedCarts.count, forKey: TallaWidgetSharedState.savedCartCountKey)
         defaults.set(appLanguage.effectiveLanguageCode, forKey: TallaWidgetSharedState.languageKey)
         defaults.set(loyaltyAccount?.pointsBalance ?? 0, forKey: TallaWidgetSharedState.loyaltyPointsKey)
-        defaults.set(loyaltyAccount?.tier ?? "Reserve", forKey: TallaWidgetSharedState.loyaltyTierKey)
+        defaults.set(loyaltyAccount?.tier ?? "Bronze", forKey: TallaWidgetSharedState.loyaltyTierKey)
         defaults.set(loyaltyAccount?.nextReward ?? "Check rewards in app", forKey: TallaWidgetSharedState.loyaltyNextRewardKey)
         defaults.set(loyaltyAccount?.memberID ?? "", forKey: TallaWidgetSharedState.loyaltyMemberIDKey)
         defaults.set(Date().timeIntervalSince1970, forKey: TallaWidgetSharedState.lastUpdatedKey)
