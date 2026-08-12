@@ -2150,20 +2150,7 @@ struct BrewingSectionView: View {
         VStack(alignment: .leading, spacing: 22) {
             createRecipeProgressHeader
 
-            Group {
-                switch createRecipeStep {
-                case .experience, .brewer, .tasteGoal:
-                    createRecipeCoffeeDetailsStep
-                case .coffeeDetails:
-                    createRecipeCoffeeDetailsStep
-                case .equipment:
-                    createRecipeEquipmentStep
-                case .generating:
-                    recipeGenerationLoadingScreen
-                case .recipeDetail:
-                    generatedRecipeDetailScreen
-                }
-            }
+            createRecipeStepContent
 
             if let createRecipeValidationMessage, createRecipeStep != .generating {
                 Text(createRecipeValidationMessage)
@@ -2205,6 +2192,22 @@ struct BrewingSectionView: View {
             .ignoresSafeArea()
         }
 #endif
+    }
+
+    /// Keeps the recipe flow's large, conditional SwiftUI view types behind a
+    /// stable runtime boundary. Without this erasure, resolving the nested
+    /// generic type can exhaust the main-thread stack on device.
+    private var createRecipeStepContent: AnyView {
+        switch createRecipeStep {
+        case .experience, .brewer, .tasteGoal, .coffeeDetails:
+            AnyView(createRecipeCoffeeDetailsStep)
+        case .equipment:
+            AnyView(createRecipeEquipmentStep)
+        case .generating:
+            AnyView(recipeGenerationLoadingScreen)
+        case .recipeDetail:
+            AnyView(generatedRecipeDetailScreen)
+        }
     }
 
     private var createRecipeProgressHeader: some View {
