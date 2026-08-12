@@ -153,6 +153,7 @@ struct ContentView: View {
 
     struct HomeSettings: Decodable {
         let signatureRoastProductIDs: [String]
+        let quickDrinkProductIDs: [String]
         let funPickProductID: String?
         let heroEyebrow: String?
         let heroTitle: String?
@@ -163,6 +164,7 @@ struct ContentView: View {
 
         private enum CodingKeys: String, CodingKey {
             case signatureRoastProductIDs
+            case quickDrinkProductIDs
             case funPickProductID
             case heroEyebrow
             case heroTitle
@@ -175,6 +177,7 @@ struct ContentView: View {
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             signatureRoastProductIDs = try container.decodeIfPresent([String].self, forKey: .signatureRoastProductIDs) ?? []
+            quickDrinkProductIDs = try container.decodeIfPresent([String].self, forKey: .quickDrinkProductIDs) ?? []
             funPickProductID = try container.decodeIfPresent(String.self, forKey: .funPickProductID)
             heroEyebrow = try container.decodeIfPresent(String.self, forKey: .heroEyebrow)
             heroTitle = try container.decodeIfPresent(String.self, forKey: .heroTitle)
@@ -806,10 +809,18 @@ struct ContentView: View {
     }
 
     private var quickDrinkProducts: [Product] {
-        products.filter { product in
+        let eligibleProducts = products.filter { product in
             (product.categoryKey == "ready-made-drinks" || product.categoryKey == "summer-drinks")
                 && product.isAvailableForSale
                 && selectedVariant(for: product)?.isAvailableForSale == true
+        }
+
+        guard let selectedProductIDs = remoteHomeSettings?.quickDrinkProductIDs else {
+            return Array(eligibleProducts.prefix(6))
+        }
+
+        return selectedProductIDs.compactMap { productID in
+            eligibleProducts.first { $0.id == productID }
         }
     }
 

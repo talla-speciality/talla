@@ -661,6 +661,8 @@
                 </select>
                 <div class="subcopy" style="margin-bottom: 14px;">Choose up to four Shopify products to feature in the app Home signature roasts shelf. The order follows the product list order shown here.</div>
                 <div id="signature-roasts" class="empty">Loading signature roasts...</div>
+                <div class="subcopy" style="margin: 20px 0 14px;"><strong>Talla Express</strong><br>Choose up to six drinks for the one-tap Home shelf. Only products categorized as Drinks or Summer Drinks are available here.</div>
+                <div id="talla-express-drinks" class="empty">Loading Talla Express drinks...</div>
                 <div class="toolbar-row" style="padding: 14px 0 0;">
                     <button id="save-signature-roasts" class="secondary">Save Home Controls</button>
                     <div id="signature-roasts-status" class="muted">Select products after the Shopify list loads.</div>
@@ -819,7 +821,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [] }, passportSettings: null };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -844,6 +846,7 @@
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
         const signatureRoastsEl = document.getElementById("signature-roasts");
+        const tallaExpressDrinksEl = document.getElementById("talla-express-drinks");
         const signatureRoastsStatusEl = document.getElementById("signature-roasts-status");
         const saveSignatureRoastsButton = document.getElementById("save-signature-roasts");
         const homeHeroEyebrowInput = document.getElementById("home-hero-eyebrow");
@@ -1285,6 +1288,7 @@
 
         function renderSignatureRoasts() {
             const selectedIDs = new Set(state.signatureRoasts?.signatureRoastProductIDs || []);
+            const selectedDrinkIDs = new Set(state.signatureRoasts?.quickDrinkProductIDs || []);
             const products = state.products || [];
             const selectedCount = selectedIDs.size;
             homeHeroEyebrowInput.value = state.signatureRoasts?.heroEyebrow || "";
@@ -1301,6 +1305,10 @@
                     ? "Load Shopify products to choose signature roasts."
                     : "Shopify product control is unavailable.";
                 signatureRoastsStatusEl.textContent = "Select up to four products after the Shopify list loads.";
+                tallaExpressDrinksEl.className = "empty";
+                tallaExpressDrinksEl.textContent = state.productControlAvailable
+                    ? "Load Shopify products to choose Talla Express drinks."
+                    : "Shopify product control is unavailable.";
                 return;
             }
 
@@ -1317,7 +1325,28 @@
                     </label>
                 `;
             }).join("");
-            signatureRoastsStatusEl.textContent = `${selectedCount}/4 selected. Save to update the app Home screen.`;
+
+            const drinkProducts = products.filter((product) => ["drinks", "summer drinks"].includes(String(product.productType || "").trim().toLowerCase()));
+            if (drinkProducts.length) {
+                tallaExpressDrinksEl.className = "list";
+                tallaExpressDrinksEl.innerHTML = drinkProducts.map((product) => {
+                    const isSelected = selectedDrinkIDs.has(product.id);
+                    return `
+                        <label class="list-item" style="display:flex;align-items:flex-start;gap:12px;">
+                            <input class="talla-express-input" type="checkbox" value="${escapeHTML(product.id)}" ${isSelected ? "checked" : ""}>
+                            <span>
+                                <strong>${escapeHTML(product.title)}</strong>
+                                <span class="muted">${escapeHTML(product.productType)} • ${escapeHTML(product.status || "Unknown")}${product.availableForSale ? " • In stock" : " • Sold out"}</span>
+                            </span>
+                        </label>
+                    `;
+                }).join("");
+            } else {
+                tallaExpressDrinksEl.className = "empty";
+                tallaExpressDrinksEl.textContent = "No products are categorized as Drinks or Summer Drinks yet.";
+            }
+
+            signatureRoastsStatusEl.textContent = `${selectedCount}/4 signature roasts • ${selectedDrinkIDs.size}/6 Talla Express drinks selected.`;
         }
 
         async function loadSignatureRoasts() {
@@ -1333,6 +1362,9 @@
             const selectedProductIDs = Array.from(signatureRoastsEl.querySelectorAll(".signature-roast-input:checked"))
                 .map((input) => input.value)
                 .slice(0, 4);
+            const selectedDrinkProductIDs = Array.from(tallaExpressDrinksEl.querySelectorAll(".talla-express-input:checked"))
+                .map((input) => input.value)
+                .slice(0, 6);
 
             setButtonBusy(saveSignatureRoastsButton, true, "Save Home Controls", "Saving...");
             signatureRoastsStatusEl.textContent = "Saving Home controls...";
@@ -1342,6 +1374,7 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         signatureRoastProductIDs: selectedProductIDs,
+                        quickDrinkProductIDs: selectedDrinkProductIDs,
                         funPickProductID: homeFunPickInput.value,
                         heroEyebrow: homeHeroEyebrowInput.value,
                         heroTitle: homeHeroTitleInput.value,
@@ -2205,7 +2238,7 @@
             state.analytics = null;
             state.recentAdminActions = [];
             state.eidCampaign = null;
-            state.signatureRoasts = { signatureRoastProductIDs: [] };
+            state.signatureRoasts = { signatureRoastProductIDs: [], quickDrinkProductIDs: [] };
             state.passportSettings = null;
             state.productControlAvailable = true;
             adminDashboardEl.className = "empty";
@@ -2220,6 +2253,8 @@
             eidOfferEndsAtInput.value = "";
             signatureRoastsEl.className = "empty";
             signatureRoastsEl.innerHTML = "Sign in to manage Home signature roasts.";
+            tallaExpressDrinksEl.className = "empty";
+            tallaExpressDrinksEl.innerHTML = "Sign in to manage Talla Express drinks.";
             signatureRoastsStatusEl.textContent = "";
             passportOriginsEl.className = "empty";
             passportOriginsEl.innerHTML = "Sign in to manage Talla Passport.";
@@ -2853,6 +2888,21 @@
             }
 
             signatureRoastsStatusEl.textContent = `${selectedInputs.length}/4 selected. Save to update the app Home screen.`;
+        });
+        tallaExpressDrinksEl.addEventListener("change", (event) => {
+            if (!event.target.classList.contains("talla-express-input")) {
+                return;
+            }
+
+            const selectedInputs = Array.from(tallaExpressDrinksEl.querySelectorAll(".talla-express-input:checked"));
+            if (selectedInputs.length > 6) {
+                event.target.checked = false;
+                setStatus("Choose up to six Talla Express drinks.", "error");
+                return;
+            }
+
+            const selectedRoasts = signatureRoastsEl.querySelectorAll(".signature-roast-input:checked").length;
+            signatureRoastsStatusEl.textContent = `${selectedRoasts}/4 signature roasts • ${selectedInputs.length}/6 Talla Express drinks selected.`;
         });
         customerDirectoryEl.addEventListener("click", (event) => {
             const item = event.target.closest(".directory-item");

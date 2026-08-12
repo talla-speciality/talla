@@ -202,6 +202,7 @@ function normalizeCampaignSettings(value = {}) {
 function defaultHomeSettings() {
     return {
         signatureRoastProductIDs: [],
+        quickDrinkProductIDs: [],
         funPickProductID: "",
         heroEyebrow: "",
         heroTitle: "",
@@ -215,23 +216,32 @@ function defaultHomeSettings() {
 
 function normalizeHomeSettings(value = {}) {
     const fallback = defaultHomeSettings();
-    const seen = new Set();
+    const normalizeProductIDs = (productIDs, limit) => {
+        const seen = new Set();
+        return Array.isArray(productIDs)
+            ? productIDs
+                .map((productID) => String(productID || "").trim())
+                .filter((productID) => {
+                    if (!productID || seen.has(productID)) {
+                        return false;
+                    }
+                    seen.add(productID);
+                    return true;
+                })
+                .slice(0, limit)
+            : [];
+    };
     const signatureRoastProductIDs = Array.isArray(value.signatureRoastProductIDs)
-        ? value.signatureRoastProductIDs
-            .map((productID) => String(productID || "").trim())
-            .filter((productID) => {
-                if (!productID || seen.has(productID)) {
-                    return false;
-                }
-                seen.add(productID);
-                return true;
-            })
-            .slice(0, 4)
+        ? normalizeProductIDs(value.signatureRoastProductIDs, 4)
         : fallback.signatureRoastProductIDs;
+    const quickDrinkProductIDs = Array.isArray(value.quickDrinkProductIDs)
+        ? normalizeProductIDs(value.quickDrinkProductIDs, 6)
+        : fallback.quickDrinkProductIDs;
     const trimText = (text, maxLength) => String(text || "").trim().slice(0, maxLength);
 
     return {
         signatureRoastProductIDs,
+        quickDrinkProductIDs,
         funPickProductID: trimText(value.funPickProductID, 180),
         heroEyebrow: trimText(value.heroEyebrow, 40),
         heroTitle: trimText(value.heroTitle, 80),
@@ -8177,9 +8187,30 @@ const server = http.createServer(async (request, response) => {
                     sendJSON(response, 400, { error: "Choose up to four signature roasts." });
                     return;
                 }
+                if (Array.isArray(body.quickDrinkProductIDs) && body.quickDrinkProductIDs.length > 6) {
+                    sendJSON(response, 400, { error: "Choose up to six Talla Express drinks." });
+                    return;
+                }
+
+                const quickDrinkProductIDs = Array.isArray(body.quickDrinkProductIDs)
+                    ? body.quickDrinkProductIDs.map((productID) => String(productID || "").trim()).filter(Boolean)
+                    : [];
+                if (quickDrinkProductIDs.length > 0) {
+                    const adminProducts = await listShopifyAdminProducts(250);
+                    const drinkProductIDs = new Set(
+                        adminProducts
+                            .filter((product) => ["drinks", "summer drinks"].includes(String(product.productType || "").trim().toLowerCase()))
+                            .map((product) => product.id)
+                    );
+                    if (quickDrinkProductIDs.some((productID) => !drinkProductIDs.has(productID))) {
+                        sendJSON(response, 400, { error: "Talla Express can only include products categorized as Drinks or Summer Drinks." });
+                        return;
+                    }
+                }
 
                 const settings = normalizeHomeSettings({
                     signatureRoastProductIDs: body.signatureRoastProductIDs,
+                    quickDrinkProductIDs,
                     funPickProductID: body.funPickProductID,
                     heroEyebrow: body.heroEyebrow,
                     heroTitle: body.heroTitle,
@@ -8195,7 +8226,7 @@ const server = http.createServer(async (request, response) => {
                     adminUser: admin.username,
                     action: "signature_roasts_updated",
                     targetEmail: null,
-                    detail: "Updated Home signature roasts",
+                    detail: "Updated Home controls and Talla Express drinks",
                     metadata: savedSettings
                 });
 
