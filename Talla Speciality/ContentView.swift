@@ -8064,11 +8064,6 @@ struct ContentView: View {
                     .font(displayFont(size: 24))
                     .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? Color(hex: 0xC8965A) : tertiaryTextColor)
 
-                Text(product.desc)
-                    .font(bodyFont(size: 15))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-
                 if product.hasVariantChoices {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(AppLocalization.text("variants", fallback: "VARIANTS"))

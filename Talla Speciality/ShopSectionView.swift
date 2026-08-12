@@ -103,7 +103,7 @@ struct ShopSectionView: View {
             } else {
                 LazyVGrid(columns: gridColumns, spacing: 16) {
                     ForEach(filteredProducts) { product in
-                        renderProductCard(product, true)
+                        renderProductCard(product, false)
                     }
                 }
             }
