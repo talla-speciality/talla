@@ -2,41 +2,103 @@ import SwiftUI
 
 struct ProfileManagementSectionView: View {
     let primaryTextColor: Color
+    let secondaryTextColor: Color
     let accentColor: Color
     let cardFillColor: Color
     let isLightAppearance: Bool
     @Binding var firstName: String
     @Binding var lastName: String
     let isSaving: Bool
-    let saveAction: () -> Void
+    let saveAction: () async -> Bool
+    @State private var isEditingName = false
+
+    private var hasSavedName: Bool {
+        !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var savedFullName: String {
+        [firstName, lastName]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.text("profile", fallback: "Profile"))
-                .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(2)
-                .textCase(.uppercase)
-                .foregroundColor(accentColor)
-
-            HStack(spacing: 10) {
-                styledTextField(AppLocalization.text("first_name", fallback: "First name"), text: $firstName)
-                styledTextField(AppLocalization.text("last_name", fallback: "Last name"), text: $lastName)
-            }
-
-            Button(action: saveAction) {
-                Text(isSaving
-                    ? AppLocalization.text("saving", fallback: "SAVING...")
-                    : AppLocalization.text("save_profile", fallback: "SAVE PROFILE"))
+            HStack(alignment: .center, spacing: 12) {
+                Text(hasSavedName
+                    ? AppLocalization.text("profile", fallback: "Profile")
+                    : AppLocalization.text("complete_profile", fallback: "Complete Profile"))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(2)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x0A0804))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .glassEffect(.regular.tint(accentColor).interactive(), in: .capsule)
+                    .foregroundColor(accentColor)
+
+                Spacer(minLength: 8)
+
+                if hasSavedName && !isEditingName {
+                    Button {
+                        isEditingName = true
+                    } label: {
+                        Label(AppLocalization.text("edit_name", fallback: "Edit Name"), systemImage: "pencil")
+                            .font(Font.custom("AvenirNext-DemiBold", size: 10))
+                            .foregroundColor(accentColor)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(isSaving || firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            if isEditingName || !hasSavedName {
+                HStack(spacing: 10) {
+                    styledTextField(AppLocalization.text("first_name", fallback: "First name"), text: $firstName)
+                    styledTextField(AppLocalization.text("last_name", fallback: "Last name"), text: $lastName)
+                }
+
+                Button {
+                    Task {
+                        if await saveAction() {
+                            isEditingName = false
+                        }
+                    }
+                } label: {
+                    Text(isSaving
+                        ? AppLocalization.text("saving", fallback: "SAVING...")
+                        : AppLocalization.text("save_profile", fallback: "SAVE PROFILE"))
+                        .font(Font.custom("AvenirNext-Bold", size: 11))
+                        .tracking(2)
+                        .textCase(.uppercase)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .glassEffect(.regular.tint(accentColor).interactive(), in: .capsule)
+                }
+                .buttonStyle(.plain)
+                .disabled(isSaving || firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } else {
+                HStack(spacing: 10) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(accentColor)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(savedFullName)
+                            .font(Font.custom("AvenirNext-DemiBold", size: 16))
+                            .foregroundColor(primaryTextColor)
+
+                        Text(AppLocalization.text("name_saved_detail", fallback: "Saved to your account and used automatically when you sign in."))
+                            .font(Font.custom("AvenirNext-Regular", size: 12))
+                            .foregroundColor(secondaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .onAppear {
+            if !hasSavedName {
+                isEditingName = true
+            }
         }
     }
 

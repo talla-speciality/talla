@@ -805,6 +805,14 @@ struct ContentView: View {
         return Array((preferredProducts + fallbackProducts).prefix(4))
     }
 
+    private var quickDrinkProducts: [Product] {
+        products.filter { product in
+            (product.categoryKey == "ready-made-drinks" || product.categoryKey == "summer-drinks")
+                && product.isAvailableForSale
+                && selectedVariant(for: product)?.isAvailableForSale == true
+        }
+    }
+
     private var surprisePickProducts: [Product] {
         products.filter { product in
             product.isAvailableForSale && selectedVariant(for: product)?.isAvailableForSale == true
@@ -2513,11 +2521,141 @@ struct ContentView: View {
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
+            homeQuickDrinks
             homeSurprisePick
             homeFavoritesShelf
             featuredProducts
             tallaPassportSection
             homeRecentlyViewedShelf
+        }
+    }
+
+    @ViewBuilder
+    private var homeQuickDrinks: some View {
+        if isLoadingProducts && products.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                quickDrinksHeader
+                productSkeletonGrid(count: isCompact ? 2 : 4)
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 18)
+        } else if !quickDrinkProducts.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                quickDrinksHeader
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(Array(quickDrinkProducts.prefix(6))) { product in
+                            quickDrinkCard(product)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 18)
+        }
+    }
+
+    private var quickDrinksHeader: some View {
+        HStack(alignment: .lastTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(
+                    AppLocalization.text("talla_express", fallback: "Talla Express"),
+                    systemImage: "bolt.fill"
+                )
+                .font(labelFont(size: 9, weight: .bold))
+                .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.8)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0xC8965A))
+
+                Text(AppLocalization.text("quick_drinks_title", fallback: "Drinks, one tap away"))
+                    .font(titleFont(size: isCompact ? 21 : 23))
+                    .foregroundColor(primaryTextColor)
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                openDrinksSection()
+            } label: {
+                Text(AppLocalization.text("see_all", fallback: "See All"))
+                    .font(labelFont(size: 9, weight: .bold))
+                    .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0xC8965A))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func quickDrinkCard(_ product: Product) -> some View {
+        let cardWidth: CGFloat = isCompact ? 154 : 170
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Button {
+                recordRecentlyViewed(product)
+                selectedProduct = product
+            } label: {
+                ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 14)
+                    .frame(width: cardWidth - 20, height: isCompact ? 106 : 118)
+            }
+            .buttonStyle(.plain)
+
+            Text(customerFacingProductName(for: product))
+                .font(titleFont(size: isCompact ? 15 : 16))
+                .foregroundColor(primaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+                .frame(height: 38, alignment: .topLeading)
+
+            Text(product.price)
+                .font(labelFont(size: 10, weight: .bold))
+                .foregroundColor(Color(hex: 0xC8965A))
+                .lineLimit(1)
+
+            Button {
+                quickBuyDrink(product)
+            } label: {
+                Label(
+                    product.hasVariantChoices
+                        ? AppLocalization.text("choose", fallback: "Choose")
+                        : AppLocalization.text("buy_now", fallback: "Buy Now"),
+                    systemImage: product.hasVariantChoices ? "slider.horizontal.3" : "bolt.fill"
+                )
+                .font(labelFont(size: 9, weight: .bold))
+                .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
+                .textCase(.uppercase)
+                .foregroundColor(Color(hex: 0x0A0804))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(Color(hex: 0xC8965A))
+                .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(10)
+        .frame(width: cardWidth, alignment: .topLeading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.09), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func quickBuyDrink(_ product: Product) {
+        if product.hasVariantChoices {
+            recordRecentlyViewed(product)
+            selectedProduct = product
+            return
+        }
+
+        addToCart(product: product)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            cartOpen = true
         }
     }
 
@@ -4097,6 +4235,7 @@ struct ContentView: View {
     private var profileManagementSection: some View {
         ProfileManagementSectionView(
             primaryTextColor: primaryTextColor,
+            secondaryTextColor: secondaryTextColor,
             accentColor: Color(hex: 0xC8965A),
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
@@ -4104,9 +4243,7 @@ struct ContentView: View {
             lastName: $profileLastName,
             isSaving: isSavingProfile,
             saveAction: {
-                Task {
-                    await saveProfile()
-                }
+                await saveProfile()
             }
         )
     }
@@ -8938,14 +9075,14 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func saveProfile() async {
-        guard let profile = customerProfile else { return }
+    private func saveProfile() async -> Bool {
+        guard let profile = customerProfile else { return false }
         let firstName = profileFirstName.trimmingCharacters(in: .whitespacesAndNewlines)
         let lastName = profileLastName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !firstName.isEmpty, !lastName.isEmpty else {
             customerAuthError = AppLocalization.text("enter_full_name_before_saving", fallback: "Enter both first and last name before saving.")
-            return
+            return false
         }
 
         isSavingProfile = true
@@ -8957,11 +9094,14 @@ struct ContentView: View {
             profileFirstName = updated.firstName ?? ""
             profileLastName = updated.lastName ?? ""
             showToast(message: AppLocalization.text("profile_updated_toast", fallback: "Profile updated"))
+            isSavingProfile = false
+            return true
         } catch {
             customerAuthError = friendlyCustomerAuthMessage(for: error)
         }
 
         isSavingProfile = false
+        return false
     }
 
     @MainActor
