@@ -402,6 +402,26 @@ test("Safari return path variants never fall through to JSON Not found", async (
     }
 });
 
+test("in-app browser POST return renders the backend-confirmed result", async () => {
+    resetStores();
+    await postEncryptedNotification({
+        result: "NOT CAPTURED",
+        authRespCode: "54"
+    });
+    await waitForPaymentStatus("Declined");
+
+    const response = await requestServer(
+        "POST",
+        "/api/payments/benefit/result",
+        new URLSearchParams({ payment: resultToken }).toString()
+    );
+
+    assert.equal(response.statusCode, 200);
+    assert.match(response.headers["content-type"], /^text\/html/);
+    assert.match(response.body, /Payment not completed/);
+    assert.doesNotMatch(response.body, /"error":"Not found"/);
+});
+
 test("verification rejects a result-token mismatch", () => {
     assert.throws(
         () => verifyBenefitNotification(

@@ -10505,10 +10505,26 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    if (request.method === "GET" && isBenefitBrowserReturnPath(url.pathname)) {
+    const isBenefitBrowserResultRequest = request.method === "GET"
+        ? isBenefitBrowserReturnPath(url.pathname)
+        : request.method === "POST"
+            && isBenefitBrowserReturnPath(url.pathname)
+            && !benefitPathMatches(url.pathname, "/api/payments/benefit/response");
+    if (isBenefitBrowserResultRequest) {
         const htmlHeaders = benefitResultPageHeaders();
         try {
-            const payment = await findBenefitPaymentForBrowserReturn(url);
+            let returnURL = url;
+            if (request.method === "POST") {
+                const rawBody = await readRawBody(request, 16_384);
+                const formParameters = new URLSearchParams(rawBody.toString("utf8"));
+                returnURL = new URL(url);
+                for (const [key, value] of formParameters) {
+                    if (!returnURL.searchParams.has(key)) {
+                        returnURL.searchParams.set(key, value);
+                    }
+                }
+            }
+            const payment = await findBenefitPaymentForBrowserReturn(returnURL);
             sendHTML(response, 200, renderBenefitResultPage(payment), htmlHeaders);
         } catch (error) {
             console.error("BENEFIT browser return failed:", error.code || error.message || "BENEFIT_BROWSER_RETURN_FAILED");
