@@ -117,13 +117,9 @@ final class BookooScaleDriver: NSObject, @preconcurrency CBCentralManagerDelegat
         rssi RSSI: NSNumber
     ) {
         let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-        let name = advertisedName ?? peripheral.name ?? "BOOKOO Scale"
-        let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
-        let normalizedName = name.lowercased()
-        let isBookoo = normalizedName.contains("bookoo")
-            || normalizedName.contains("themis")
-            || advertisedServices.contains(Self.serviceUUID)
-        guard isBookoo else { return }
+        guard let rawName = advertisedName ?? peripheral.name else { return }
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.isBookooScaleName(name) else { return }
 
         let id = peripheral.identifier.uuidString
         peripheralsByID[id] = peripheral
@@ -272,9 +268,24 @@ final class BookooScaleDriver: NSObject, @preconcurrency CBCentralManagerDelegat
     }
 
     private func modelName(for name: String) -> String {
-        let normalized = name.lowercased()
-        if normalized.contains("ultra") { return "BOOKOO Themis Ultra" }
-        if normalized.contains("mini") { return "BOOKOO Themis Mini" }
+        let normalized = Self.normalizedDeviceName(name)
+        if normalized.contains("ultra") || normalized.hasPrefix("bookoo_sc_u_") {
+            return "BOOKOO Themis Ultra"
+        }
+        if normalized.contains("mini") || normalized.hasPrefix("bookoo_sc_") {
+            return "BOOKOO Themis Mini"
+        }
         return "BOOKOO Scale"
+    }
+
+    private static func isBookooScaleName(_ name: String) -> Bool {
+        normalizedDeviceName(name).hasPrefix("bookoo_sc_")
+    }
+
+    private static func normalizedDeviceName(_ name: String) -> String {
+        name.lowercased()
+            .replacingOccurrences(of: "-", with: "_")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: "_")
     }
 }

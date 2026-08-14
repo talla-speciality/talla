@@ -260,6 +260,7 @@ struct BrewingSectionView: View {
     @State private var isEndBrewConfirmationPresented = false
     @State private var isBrewRestartConfirmationPresented = false
     @State private var isScalePickerPresented = false
+    @State private var isHomeScalePickerPresented = false
     @State private var selectedGuideProfileID = "balanced-filter"
     @State private var activeSmartRecipeID: String?
     @State private var expandedGuideProfileID: String?
@@ -370,6 +371,13 @@ struct BrewingSectionView: View {
             savedEquipmentEditor
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isHomeScalePickerPresented) {
+            bluetoothScalePicker {
+                isHomeScalePickerPresented = false
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .onChange(of: isFocusedBrewPresented) { _, _ in
             updateBrewIdleTimerState()
@@ -550,6 +558,7 @@ struct BrewingSectionView: View {
                 }
             }
 
+            brewScaleConnectionSection
             primaryBrewEntrySection
             brewingMinimalRecentRecipes
             brewingLibrarySection
@@ -625,6 +634,56 @@ struct BrewingSectionView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
+    }
+
+    private var brewScaleConnectionSection: some View {
+        Button {
+            isHomeScalePickerPresented = true
+        } label: {
+            HStack(spacing: 13) {
+                Image(systemName: scaleManager.isConnected ? "scalemass.fill" : "scalemass")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewSecondaryTextColor)
+                    .frame(width: 38, height: 38)
+                    .background(brewAccentColor.opacity(scaleManager.isConnected ? 0.14 : 0.08))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(scaleManager.connectedScaleName ?? "Add a Bluetooth scale")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .lineLimit(1)
+
+                    Text(scaleManager.isConnected
+                         ? "Connected · live weight and flow are ready"
+                         : "Optional · connect now or brew without one")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(scaleManager.isConnected ? "Manage" : "Add Scale")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(brewAccentColor)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(brewAccentColor)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(brewSurfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.38) : brewBorderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(scaleManager.isConnected ? "Manage connected Bluetooth scale" : "Add a Bluetooth scale")
+        .accessibilityHint("Optional. Guided brewing also works without a scale.")
     }
 
     private var primaryBrewEntryDescription: String {
@@ -5047,9 +5106,11 @@ struct BrewingSectionView: View {
         .sensoryFeedback(.selection, trigger: brewModeHapticTrigger)
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isScalePickerPresented) {
-            bluetoothScalePicker
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+            bluetoothScalePicker {
+                isScalePickerPresented = false
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -5364,7 +5425,7 @@ struct BrewingSectionView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var bluetoothScalePicker: some View {
+    private func bluetoothScalePicker(onDone: @escaping () -> Void) -> some View {
         NavigationStack {
             List {
                 Section {
@@ -5443,7 +5504,7 @@ struct BrewingSectionView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
-                        isScalePickerPresented = false
+                        onDone()
                     }
                 }
             }
