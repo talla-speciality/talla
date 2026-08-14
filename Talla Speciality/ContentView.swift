@@ -13520,38 +13520,3 @@ private extension Array where Element: Identifiable {
         }
     }
 }
-
-#Preview("Content Overview") {
-    VStack(alignment: .leading, spacing: 18) {
-        HStack(spacing: 12) {
-            Image(systemName: "cup.and.saucer.fill")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(Color(hex: 0x0A0804))
-                .frame(width: 42, height: 42)
-                .background(Color(hex: 0xC8965A))
-                .clipShape(Circle())
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Talla Speciality")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
-                    .foregroundColor(Color(hex: 0xF6EFE2))
-
-                Text("Run the app to preview the full shop, account, checkout, and brewing flow.")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(Color(hex: 0xD7C7AD))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-
-        HStack(spacing: 8) {
-            Label("Shop", systemImage: "square.grid.2x2")
-            Label("Brew", systemImage: "drop.fill")
-            Label("Account", systemImage: "person.fill")
-        }
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundColor(Color(hex: 0xC8965A))
-    }
-    .padding(22)
-    .frame(width: 380, alignment: .leading)
-    .background(Color(hex: 0x17120C))
-}

@@ -23,6 +23,7 @@
 		FA10000430A0000000000004 /* Vendor/Mastercard/uSDK.xcframework in Embed Mastercard Frameworks */ = {isa = PBXBuildFile; fileRef = FA10000630A0000000000006 /* Vendor/Mastercard/uSDK.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FB20000130B0000000000001 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB20000330B0000000000003 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework */; };
 		FB20000230B0000000000002 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework in Embed BenefitPay Framework */ = {isa = PBXBuildFile; fileRef = FB20000330B0000000000003 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FD40000130D0000000000001 /* Vendor/Acaia/AcaiaSDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD40000330D0000000000003 /* Vendor/Acaia/AcaiaSDK.xcframework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -155,6 +156,7 @@
 		FA10000630A0000000000006 /* Vendor/Mastercard/uSDK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/Mastercard/uSDK.xcframework; sourceTree = "<group>"; };
 		FB20000330B0000000000003 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/BenefitPay/BenefitInAppSDK.xcframework; sourceTree = "<group>"; };
 		FC30000130C0000000000001 /* Config/BenefitPay.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/BenefitPay.xcconfig; sourceTree = "<group>"; };
+		FD40000330D0000000000003 /* Vendor/Acaia/AcaiaSDK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/Acaia/AcaiaSDK.xcframework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -247,6 +249,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD40000130D0000000000001 /* Vendor/Acaia/AcaiaSDK.xcframework in Frameworks */,
 				FB20000130B0000000000001 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework in Frameworks */,
 				FA10000130A0000000000001 /* Vendor/Mastercard/Gateway.xcframework in Frameworks */,
 				FA10000230A0000000000002 /* Vendor/Mastercard/uSDK.xcframework in Frameworks */,
@@ -303,6 +306,7 @@
 		E08588502FD959E3003B3E9D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FD40000330D0000000000003 /* Vendor/Acaia/AcaiaSDK.xcframework */,
 				FB20000330B0000000000003 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework */,
 				FA10000530A0000000000005 /* Vendor/Mastercard/Gateway.xcframework */,
 				FA10000630A0000000000006 /* Vendor/Mastercard/uSDK.xcframework */,

@@ -238,6 +238,7 @@ struct BrewingSectionView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var brewingColorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var scaleManager = CoffeeScaleManager()
     @AppStorage(BrewSessionStorage.profileCompletedKey) private var isBrewProfileComplete = false
     @AppStorage(BrewSessionStorage.profileExperienceKey) private var storedBrewProfileExperience = "basics"
     @AppStorage(BrewSessionStorage.profileBrewerKey) private var storedBrewProfileBrewer = "v60"
@@ -258,6 +259,7 @@ struct BrewingSectionView: View {
     @State private var isFocusedBrewPresented = false
     @State private var isEndBrewConfirmationPresented = false
     @State private var isBrewRestartConfirmationPresented = false
+    @State private var isScalePickerPresented = false
     @State private var selectedGuideProfileID = "balanced-filter"
     @State private var activeSmartRecipeID: String?
     @State private var expandedGuideProfileID: String?
@@ -5044,6 +5046,11 @@ struct BrewingSectionView: View {
         }
         .sensoryFeedback(.selection, trigger: brewModeHapticTrigger)
         .toolbar(.hidden, for: .tabBar)
+        .sheet(isPresented: $isScalePickerPresented) {
+            bluetoothScalePicker
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private var focusedLiveBrewView: some View {
@@ -5107,6 +5114,27 @@ struct BrewingSectionView: View {
 
             Spacer(minLength: 0)
 
+            Button {
+                if scaleManager.isConnected {
+                    scaleManager.tare()
+                } else {
+                    isScalePickerPresented = true
+                }
+            } label: {
+                Image(systemName: scaleManager.isConnected ? "scalemass.fill" : "scalemass")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewPrimaryTextColor)
+                    .frame(width: 44, height: 44)
+                    .background(brewSurfaceColor)
+                    .overlay(
+                        Circle()
+                            .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.65) : brewBorderColor, lineWidth: 1)
+                    )
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(scaleManager.isConnected ? "Tare connected scale" : "Connect Bluetooth scale")
+
             Text(String(format: AppLocalization.text("step_count_format", fallback: "Step %1$d of %2$d"), currentBrewModeStepIndex + 1, brewModeSteps.count))
                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
                 .foregroundColor(brewSecondaryTextColor)
@@ -5153,6 +5181,8 @@ struct BrewingSectionView: View {
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            focusedScaleSetupCard
 
             Button {
                 startBrewModeSession()
@@ -5205,6 +5235,10 @@ struct BrewingSectionView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if scaleManager.isConnected {
+                focusedScaleLiveCard
+            }
+
             focusedBrewMetricRows
             focusedNextStepPreview
         }
@@ -5231,6 +5265,196 @@ struct BrewingSectionView: View {
             Rectangle()
                 .fill(brewBorderColor)
                 .frame(height: 1)
+        }
+    }
+
+    private var focusedScaleSetupCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: scaleManager.isConnected ? "checkmark.circle.fill" : "scalemass")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewSecondaryTextColor)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(scaleManager.connectedScaleName ?? "Bluetooth Scale")
+                    .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                    .foregroundColor(brewPrimaryTextColor)
+
+                Text(scaleManager.isConnected ? "Connected · live weight ready" : "Connect for live weight and flow")
+                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                    .foregroundColor(brewSecondaryTextColor)
+            }
+
+            Spacer(minLength: 8)
+
+            if scaleManager.isConnected {
+                Button("Tare") {
+                    scaleManager.tare()
+                    brewStepHaptic(strong: false)
+                }
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(brewAccentColor)
+            } else {
+                Button("Connect") {
+                    isScalePickerPresented = true
+                }
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(brewAccentColor)
+            }
+        }
+        .padding(14)
+        .background(brewSurfaceColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(brewBorderColor, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var focusedScaleLiveCard: some View {
+        HStack(spacing: 0) {
+            scaleLiveMetric(
+                title: "Live weight",
+                value: String(format: "%.1f g", scaleManager.weightGrams)
+            )
+
+            Rectangle()
+                .fill(brewBorderColor)
+                .frame(width: 1, height: 42)
+
+            scaleLiveMetric(
+                title: "To target",
+                value: String(format: "%.1f g", max(currentWaterTarget - scaleManager.weightGrams, 0))
+            )
+
+            Rectangle()
+                .fill(brewBorderColor)
+                .frame(width: 1, height: 42)
+
+            scaleLiveMetric(
+                title: "Flow",
+                value: String(format: "%.1f g/s", scaleManager.flowRateGramsPerSecond)
+            )
+        }
+        .padding(.vertical, 12)
+        .background(brewSurfaceColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(brewAccentColor.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func scaleLiveMetric(title: String, value: String) -> some View {
+        VStack(alignment: .center, spacing: 4) {
+            Text(title)
+                .font(Font.custom("AvenirNext-DemiBold", size: 9))
+                .textCase(.uppercase)
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            Text(value)
+                .font(Font.custom("AvenirNext-DemiBold", size: 15))
+                .monospacedDigit()
+                .foregroundColor(brewPrimaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var bluetoothScalePicker: some View {
+        NavigationStack {
+            List {
+                Section {
+                    switch scaleManager.connectionState {
+                    case .connected(let name):
+                        Label("Connected to \(name)", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(brewAccentColor)
+
+                        Button("Tare scale") {
+                            scaleManager.tare()
+                        }
+
+                        Button("Disconnect", role: .destructive) {
+                            scaleManager.disconnect()
+                        }
+
+                    case .scanning:
+                        HStack(spacing: 12) {
+                            ProgressView()
+                            Text("Looking for nearby Acaia, BOOKOO, GINA, HIROIA, and MANTABREW scales…")
+                        }
+
+                    case .connecting(let name):
+                        HStack(spacing: 12) {
+                            ProgressView()
+                            Text("Connecting to \(name)…")
+                        }
+
+                    case .failed(let message):
+                        Label(message, systemImage: "exclamationmark.triangle")
+                            .foregroundColor(.secondary)
+
+                        Button("Scan again") {
+                            scaleManager.scan()
+                        }
+
+                    case .disconnected:
+                        if scaleManager.discoveredScales.isEmpty {
+                            Text("Turn on your Acaia, BOOKOO, GINA, HIROIA, or MANTABREW scale, then scan.")
+                                .foregroundColor(.secondary)
+                            Button("Scan for Scale") {
+                                scaleManager.scan()
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Acaia · BOOKOO · GOAT STORY · HIROIA · MANTABREW")
+                }
+
+                if !scaleManager.discoveredScales.isEmpty && !scaleManager.isConnected {
+                    Section("Nearby scales") {
+                        ForEach(scaleManager.discoveredScales) { scale in
+                            Button {
+                                scaleManager.connect(to: scale.id)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(scale.name)
+                                            .foregroundColor(.primary)
+                                        Text(scale.modelName)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Bluetooth Scale")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        isScalePickerPresented = false
+                    }
+                }
+            }
+            .task {
+                if !scaleManager.isConnected {
+                    scaleManager.scan()
+                }
+            }
+            .onDisappear {
+                scaleManager.stopScanning()
+            }
         }
     }
 
@@ -7386,6 +7610,7 @@ struct BrewingSectionView: View {
         if isBrewModeRunning {
             brewModeRunID = UUID()
             isBrewModeRunning = false
+            scaleManager.pauseTimer()
             updateBrewLiveActivity(isPaused: true)
             sendBrewWatchUpdate(action: "update", isPaused: true, allowBackgroundTransfer: true)
             brewModeHapticTrigger += 1
@@ -7414,6 +7639,7 @@ struct BrewingSectionView: View {
     }
 
     private func restartBrewMode() {
+        scaleManager.stopTimer()
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
@@ -7464,6 +7690,7 @@ struct BrewingSectionView: View {
         isBrewModeRunning = true
         isFocusedBrewPresented = true
         brewModeBackgroundDate = nil
+        scaleManager.startTimer()
         brewStepHaptic(strong: false)
         startOrUpdateBrewLiveActivity()
         sendBrewWatchUpdate(action: "start", isPaused: false, allowBackgroundTransfer: true)
@@ -7516,6 +7743,7 @@ struct BrewingSectionView: View {
         brewModeRunID = UUID()
         isBrewModeRunning = false
         brewModeBackgroundDate = nil
+        scaleManager.pauseTimer()
         lastCueStepIndex = currentBrewModeStepIndex
         lastPrePourCueStepID = nil
         brewStepHaptic(strong: true, completion: true)
@@ -7543,6 +7771,7 @@ struct BrewingSectionView: View {
         brewModeBackgroundDate = nil
         restoredBrewTotalSeconds = nil
         isFocusedBrewPresented = false
+        scaleManager.stopTimer()
         endBrewLiveActivity()
         sendBrewWatchUpdate(action: "end", isPaused: false, allowBackgroundTransfer: true)
         clearPersistedBrewSession()
