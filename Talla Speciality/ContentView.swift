@@ -878,6 +878,10 @@ struct ContentView: View {
         isLightAppearance ? Color(hex: 0x20150D) : Color(hex: 0xF5EDE0)
     }
 
+    private var readableBrandGoldColor: Color {
+        isLightAppearance ? Color(hex: 0x7A4F25) : Color(hex: 0xD7A76C)
+    }
+
     private var secondaryTextColor: Color {
         primaryTextColor.opacity(isLightAppearance ? 0.72 : 0.72)
     }
@@ -2514,7 +2518,7 @@ struct ContentView: View {
                                     .font(labelFont(size: 10, weight: .bold))
                                     .tracking(1.5)
                                     .textCase(.uppercase)
-                                    .foregroundColor(Color(hex: 0xC8965A))
+                                    .foregroundColor(readableBrandGoldColor)
 
                                 Text(customerFirstName(for: customerProfile))
                                     .font(displayFont(size: isCompact ? 25 : 26))
@@ -2549,7 +2553,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "wave.3.right.circle.fill")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
                             .frame(width: 40, height: 40)
                             .background(cardFillColor)
                             .clipShape(Circle())
@@ -2596,7 +2600,7 @@ struct ContentView: View {
                 } label: {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                         .frame(width: 40, height: 40)
                         .background(cardFillColor)
                         .clipShape(Circle())
@@ -2730,7 +2734,7 @@ struct ContentView: View {
                 .font(labelFont(size: 9, weight: .bold))
                 .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.8)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
 
                 Text(AppLocalization.text("quick_drinks_title", fallback: "Drinks, one tap away"))
                     .font(titleFont(size: isCompact ? 21 : 23))
@@ -2746,7 +2750,7 @@ struct ContentView: View {
                     .font(labelFont(size: 9, weight: .bold))
                     .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
             }
             .buttonStyle(.plain)
         }
@@ -2774,7 +2778,7 @@ struct ContentView: View {
 
             Text(product.price)
                 .font(labelFont(size: 10, weight: .bold))
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
                 .lineLimit(1)
 
             Button {
@@ -2873,7 +2877,7 @@ struct ContentView: View {
                         .font(labelFont(size: isSurprisePickExpanded ? 10 : 9, weight: .bold))
                         .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 2)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     if isSurprisePickExpanded {
                         Text(AppLocalization.text("daily_surprise_detail", fallback: "Not sure what to choose? Let Talla decide."))
@@ -3002,7 +3006,7 @@ struct ContentView: View {
                             .font(labelFont(size: 9, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         Text(AppLocalization.text("limited_daily_reward", fallback: "Limited daily reward inside"))
                             .font(labelFont(size: 8, weight: .bold))
@@ -3086,7 +3090,7 @@ struct ContentView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: systemImage)
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
                 .frame(width: 24, height: 24)
                 .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
                 .clipShape(Circle())
@@ -3096,7 +3100,7 @@ struct ContentView: View {
                     .font(labelFont(size: 9, weight: .bold))
                     .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
 
                 Text(detail)
                     .font(bodyFont(size: 13))
@@ -3204,7 +3208,7 @@ struct ContentView: View {
                                     .font(labelFont(size: 10, weight: .bold))
                                     .tracking(2.2)
                                     .textCase(.uppercase)
-                                    .foregroundColor(Color(hex: 0xC8965A))
+                                    .foregroundColor(readableBrandGoldColor)
 
                                 Text(String(format: AppLocalization.text("shelf_ready_count", fallback: "%d items ready"), shelfItemCount))
                                     .font(bodyFont(size: 12))
@@ -3360,7 +3364,7 @@ struct ContentView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .frame(width: 30, height: 30)
                     .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
@@ -3375,7 +3379,7 @@ struct ContentView: View {
             HStack(alignment: .top, spacing: 9) {
                 Image(systemName: systemImage)
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .frame(width: 28, height: 28)
                     .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
@@ -3440,7 +3444,7 @@ struct ContentView: View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "person.crop.circle.badge.plus")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
                 .frame(width: 34, height: 34)
                 .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
                 .clipShape(Circle())
@@ -3488,7 +3492,7 @@ struct ContentView: View {
 
                 Text(product.price)
                     .font(labelFont(size: 10, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
             }
             .padding(12)
             .frame(width: width, alignment: .topLeading)
@@ -3545,7 +3549,7 @@ struct ContentView: View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "sparkles")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
                 .frame(width: 34, height: 34)
                 .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
                 .clipShape(Circle())
@@ -3662,7 +3666,7 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(2.2)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Text(String(format: AppLocalization.text("favorites_count", fallback: "%d saved picks"), favoriteProducts.count))
                         .font(bodyFont(size: 13))
@@ -3727,7 +3731,7 @@ struct ContentView: View {
                         .font(labelFont(size: 9, weight: .bold))
                         .tracking(2)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Text(product.name)
                         .font(titleFont(size: 18))
@@ -3764,7 +3768,7 @@ struct ContentView: View {
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(2.2)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         Text("\(stampedCoffeePassportOriginKeys.count) / \(coffeePassportOrigins.count) \(AppLocalization.text("passport_origins", fallback: "origins"))")
                             .font(labelFont(size: 10, weight: .bold))
@@ -3810,7 +3814,7 @@ struct ContentView: View {
                 .font(labelFont(size: 10, weight: .bold))
                 .tracking(1.2)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
             }
             .buttonStyle(.plain)
 
@@ -3916,7 +3920,7 @@ struct ContentView: View {
                 .font(labelFont(size: 10, weight: .bold))
                 .tracking(2.2)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
 
             LazyVGrid(columns: homeQuickActionColumns, spacing: 10) {
                 ActionTileView(
@@ -4002,7 +4006,7 @@ struct ContentView: View {
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(2.2)
                                 .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0xC8965A))
+                                .foregroundColor(readableBrandGoldColor)
 
                             Text(expiringVouchers.isEmpty ? loyaltyAccount.nextReward : String(format: AppLocalization.text("rewards_active_count", fallback: "%d rewards active"), expiringVouchers.count))
                                 .font(titleFont(size: 20))
@@ -4094,7 +4098,7 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(3)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Text(AppLocalization.text("coffee_daily_rituals", fallback: "Coffee for daily rituals"))
                         .font(bodyFont(size: 12))
@@ -4498,7 +4502,7 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .semibold))
                         .tracking(3)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Text(AppLocalization.text("signature_roasts", fallback: "Signature Roasts"))
                         .font(displayFont(size: 24))
@@ -4514,7 +4518,7 @@ struct ContentView: View {
                     Label(AppLocalization.text("browse_shop", fallback: "Browse Shop"), systemImage: "arrow.right")
                         .font(labelFont(size: 11, weight: .bold))
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                 }
                 .buttonStyle(.plain)
             }
@@ -4561,7 +4565,7 @@ struct ContentView: View {
                     .font(labelFont(size: 10, weight: .semibold))
                     .tracking(4)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
 
                 Text(AppLocalization.text("from_the_roastery", fallback: "FROM THE ROASTERY"))
                     .font(displayFont(size: 28))
@@ -4808,7 +4812,7 @@ struct ContentView: View {
                 .font(labelFont(size: 9, weight: .bold))
                 .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
                 ForEach(options.indices, id: \.self) { index in
@@ -4849,7 +4853,7 @@ struct ContentView: View {
                     .font(labelFont(size: 9, weight: .bold))
                     .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.3)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
 
                 Text(product.name)
                     .font(titleFont(size: 20))
@@ -5166,7 +5170,7 @@ struct ContentView: View {
                             .font(labelFont(size: 9, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         Spacer(minLength: 0)
                     }
@@ -5222,7 +5226,7 @@ struct ContentView: View {
 #else
         Image(systemName: "photo.fill")
             .font(.system(size: 18, weight: .semibold))
-            .foregroundColor(Color(hex: 0xC8965A))
+            .foregroundColor(readableBrandGoldColor)
             .frame(width: 42, height: 42)
             .background(cardFillColor)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -5369,7 +5373,7 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(2.2)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Text(AppLocalization.text("brew_timer_detail", fallback: "Start a focused timer for the brew you are making now."))
                         .font(bodyFont(size: 13))
@@ -5409,7 +5413,7 @@ struct ContentView: View {
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(1.2)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
                 .lineLimit(2)
                 .minimumScaleFactor(0.82)
                 .contentTransition(.opacity)
@@ -5466,7 +5470,7 @@ struct ContentView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "book.pages.fill")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .frame(width: 38, height: 38)
                     .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
@@ -5476,7 +5480,7 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(2.2)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Text(AppLocalization.text("coffee_journal_detail", fallback: "Save what worked: method, rating, and a note for your next cup."))
                         .font(bodyFont(size: 13))
@@ -5508,7 +5512,7 @@ struct ContentView: View {
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(1.1)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -5524,7 +5528,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: rating <= journalRating ? "star.fill" : "star")
                             .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
                             .frame(width: 36, height: 36)
                     }
                     .buttonStyle(.plain)
@@ -5565,7 +5569,7 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(1.8)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     ForEach(brewJournalEntries.prefix(3)) { entry in
                         HStack(alignment: .top, spacing: 12) {
@@ -5578,7 +5582,7 @@ struct ContentView: View {
                                     .font(labelFont(size: 10, weight: .bold))
                                     .tracking(1.2)
                                     .textCase(.uppercase)
-                                    .foregroundColor(Color(hex: 0xC8965A))
+                                    .foregroundColor(readableBrandGoldColor)
 
                                 if let detail = brewJournalDetailLine(for: entry) {
                                     Text(detail)
@@ -5747,7 +5751,7 @@ struct ContentView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "globe")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .frame(width: 34, height: 34)
                     .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
@@ -6118,7 +6122,7 @@ struct ContentView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: systemImage)
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .frame(width: 34, height: 34)
                     .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
@@ -6236,7 +6240,7 @@ struct ContentView: View {
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.6)
                                 .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0xC8965A))
+                                .foregroundColor(readableBrandGoldColor)
 
                             ForEach(alertInbox.prefix(2)) { update in
                                 VStack(alignment: .leading, spacing: 6) {
@@ -6275,7 +6279,7 @@ struct ContentView: View {
                                     .font(labelFont(size: 10, weight: .bold))
                                     .tracking(1.6)
                                     .textCase(.uppercase)
-                                    .foregroundColor(Color(hex: 0xC8965A))
+                                    .foregroundColor(readableBrandGoldColor)
                             }
 
                             Spacer(minLength: 0)
@@ -6364,7 +6368,7 @@ struct ContentView: View {
                         Text(AppLocalization.text("complete_your_profile", fallback: "COMPLETE YOUR PROFILE"))
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(2.4)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         Text(AppLocalization.text("where_should_we_deliver", fallback: "Where should we deliver?"))
                             .font(displayFont(size: isCompact ? 32 : 38))
@@ -6387,7 +6391,7 @@ struct ContentView: View {
                         HStack(spacing: 10) {
                             Text(addressCountry.phonePrefix)
                                 .font(labelFont(size: 12, weight: .bold))
-                                .foregroundColor(Color(hex: 0xC8965A))
+                                .foregroundColor(readableBrandGoldColor)
 
                             TextField(AppLocalization.text("phone_number", fallback: "Phone number"), text: $addressPhone)
                                 .keyboardType(.phonePad)
@@ -6516,7 +6520,7 @@ struct ContentView: View {
 
                     Image(systemName: isDeliveryDetailsExpanded ? "minus.circle.fill" : "plus.circle.fill")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                 }
             }
             .buttonStyle(.plain)
@@ -6549,7 +6553,7 @@ struct ContentView: View {
                     HStack(spacing: 8) {
                         Text(addressCountry.phonePrefix)
                             .font(labelFont(size: 12, weight: .bold))
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
                             .frame(minWidth: 42, alignment: .leading)
 
                         TextField(AppLocalization.text("phone", fallback: "Phone"), text: $addressPhone)
@@ -6648,7 +6652,7 @@ struct ContentView: View {
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(1.6)
                                         .textCase(.uppercase)
-                                        .foregroundColor(Color(hex: 0xC8965A))
+                                        .foregroundColor(readableBrandGoldColor)
                                 }
                             }
 
@@ -6715,7 +6719,7 @@ struct ContentView: View {
                                     .font(labelFont(size: 10, weight: .bold))
                                     .tracking(1.4)
                                     .textCase(.uppercase)
-                                    .foregroundColor(Color(hex: 0xC8965A))
+                                    .foregroundColor(readableBrandGoldColor)
                             }
 
                             Spacer(minLength: 0)
@@ -6883,7 +6887,7 @@ struct ContentView: View {
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(1.4)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4)
             }
@@ -7004,7 +7008,7 @@ struct ContentView: View {
                 Text("Talla Speciality")
                     .font(.custom("Georgia", size: isCompact ? 20 : 23, relativeTo: .title2))
                     .tracking(isCompact ? 0.8 : 1.1)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
 
@@ -7095,7 +7099,7 @@ struct ContentView: View {
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(1.4)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
 
                 Text(checkoutReadinessSummary)
                     .font(bodyFont(size: 14))
@@ -7120,7 +7124,7 @@ struct ContentView: View {
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(1.3)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
                     }
                     .buttonStyle(.plain)
                 }
@@ -7153,13 +7157,13 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(1.6)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Spacer()
 
                     Image(systemName: isCheckoutNoteExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                 }
             }
             .buttonStyle(.plain)
@@ -7328,7 +7332,7 @@ struct ContentView: View {
 
                     Text(item.variant.price)
                         .font(.system(size: 10, weight: .light))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                 }
 
                 Spacer()
@@ -7368,7 +7372,7 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(AppLocalization.text("increase_quantity", fallback: "Increase quantity"))
                 }
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
                 .background(cardFillColor)
                 .overlay(
                     Capsule()
@@ -7406,7 +7410,7 @@ struct ContentView: View {
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(2)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
 
             Text(AppLocalization.text("rewards_voucher_detail", fallback: "Apply a reward before opening checkout, or continue without one."))
                 .font(bodyFont(size: 12))
@@ -7423,13 +7427,13 @@ struct ContentView: View {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(1.4)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
 
                     Spacer()
 
                     Image(systemName: isVoucherCodeEntryExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                 }
                 .padding(14)
                 .background(cardFillColor)
@@ -7483,7 +7487,7 @@ struct ContentView: View {
                         Text(appliedVoucher.code)
                             .font(labelFont(size: 11, weight: .bold))
                             .tracking(1.2)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         Spacer()
 
@@ -7527,7 +7531,7 @@ struct ContentView: View {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "ticket")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Color(hex: 0xC8965A))
+                                .foregroundColor(readableBrandGoldColor)
                                 .frame(width: 20, height: 20)
 
                             VStack(alignment: .leading, spacing: 8) {
@@ -7560,7 +7564,7 @@ struct ContentView: View {
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(1.3)
                                         .textCase(.uppercase)
-                                        .foregroundColor(Color(hex: 0xC8965A))
+                                        .foregroundColor(readableBrandGoldColor)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -7578,7 +7582,7 @@ struct ContentView: View {
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(1.6)
                                 .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0xC8965A))
+                                .foregroundColor(readableBrandGoldColor)
 
                             Spacer()
 
@@ -7601,7 +7605,7 @@ struct ContentView: View {
                                         Text(voucher.code)
                                             .font(labelFont(size: 10, weight: .bold))
                                             .tracking(1.2)
-                                            .foregroundColor(Color(hex: 0xC8965A))
+                                            .foregroundColor(readableBrandGoldColor)
 
                                         Spacer()
 
@@ -7652,7 +7656,7 @@ struct ContentView: View {
 
                     Image(systemName: isCartSaveEntryExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                 }
                 .padding(14)
                 .background(cardFillColor)
@@ -8045,7 +8049,7 @@ struct ContentView: View {
                     .font(labelFont(size: 8, weight: .bold))
                     .tracking(1)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.76)
 
@@ -8387,7 +8391,7 @@ struct ContentView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .foregroundColor(Color(hex: 0xC8965A))
+        .foregroundColor(readableBrandGoldColor)
         .padding(.horizontal, 8)
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -8494,7 +8498,7 @@ struct ContentView: View {
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(2)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         Text(product.name)
                             .font(titleFont(size: 28))
@@ -8527,7 +8531,7 @@ struct ContentView: View {
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(2)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         ForEach(product.variants) { variant in
                             Button {
@@ -8541,7 +8545,7 @@ struct ContentView: View {
                                         Text(variant.price)
                                             .font(labelFont(size: 10, weight: .bold))
                                             .tracking(1.4)
-                                            .foregroundColor(Color(hex: 0xC8965A))
+                                            .foregroundColor(readableBrandGoldColor)
                                     }
 
                                     Spacer()
@@ -8683,7 +8687,7 @@ struct ContentView: View {
                             .font(labelFont(size: 10, weight: .bold))
                             .tracking(2.4)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0xC8965A))
+                            .foregroundColor(readableBrandGoldColor)
 
                         Text(name)
                             .font(titleFont(size: 22))
@@ -8694,7 +8698,7 @@ struct ContentView: View {
 
                     Image(systemName: systemImage)
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xC8965A))
+                        .foregroundColor(readableBrandGoldColor)
                 }
 
                 Text(desc)
@@ -8857,7 +8861,7 @@ struct ContentView: View {
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(2)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
 
             Text(detail)
                 .font(bodyFont(size: 13))
@@ -8899,7 +8903,7 @@ struct ContentView: View {
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(2)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(readableBrandGoldColor)
 
                 Spacer()
 
@@ -8986,7 +8990,7 @@ struct ContentView: View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(.system(size: 16))
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
 
             Text(text)
                 .font(.system(size: 11, weight: .medium))
@@ -9029,7 +9033,7 @@ struct ContentView: View {
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(1.8)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0xC8965A))
+                .foregroundColor(readableBrandGoldColor)
             }
             .buttonStyle(.plain)
         }
