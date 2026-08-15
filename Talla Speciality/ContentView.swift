@@ -6838,18 +6838,18 @@ struct ContentView: View {
         VStack(spacing: 7) {
             HStack(spacing: 13) {
                 Rectangle()
-                    .fill(Color(hex: 0xC8965A).opacity(0.22))
+                    .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.22 : 0.34))
                     .frame(height: 1)
 
-                Text("TALLA SPECIALITY")
-                    .font(.custom("AvenirNext-Medium", size: isCompact ? 17 : 20, relativeTo: .title3))
-                    .tracking(isCompact ? 2.0 : 2.5)
-                    .foregroundColor(Color(hex: 0xB98243))
+                Text("Talla Speciality")
+                    .font(.custom("Georgia", size: isCompact ? 20 : 23, relativeTo: .title2))
+                    .tracking(isCompact ? 0.8 : 1.1)
+                    .foregroundColor(Color(hex: 0xC8965A))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
 
                 Rectangle()
-                    .fill(Color(hex: 0xC8965A).opacity(0.22))
+                    .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.22 : 0.34))
                     .frame(height: 1)
             }
 
@@ -6862,17 +6862,17 @@ struct ContentView: View {
                     .font(.custom("AvenirNext-Medium", size: 10, relativeTo: .caption))
                     .tracking(1.5)
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xA67236).opacity(0.88))
+                    .foregroundColor(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.88 : 0.96))
             }
             .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background(Color.white)
+        .background(elevatedSurfaceColor)
         .overlay(
             Rectangle()
-                .fill(Color(hex: 0xC8965A).opacity(0.12))
+                .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.24))
                 .frame(height: 1),
             alignment: .top
         )
