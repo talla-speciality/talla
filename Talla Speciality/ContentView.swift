@@ -902,10 +902,6 @@ struct ContentView: View {
         isLightAppearance ? Color(hex: 0xFFFCF8).opacity(0.92) : Color(hex: 0x0F0C09).opacity(0.88)
     }
 
-    private var footerOverlayColor: Color {
-        isLightAppearance ? Color(hex: 0xFFFCF8).opacity(0.92) : Color(hex: 0x0F0C09).opacity(0.86)
-    }
-
     private var scrimColor: Color {
         isLightAppearance ? Color.black.opacity(0.22) : Color.black.opacity(0.6)
     }
@@ -2096,7 +2092,6 @@ struct ContentView: View {
                             .frame(height: 0)
                             .id("tab-top")
                         content
-                        footer
                         Color.clear
                             .frame(height: bottomScrollPadding(for: tab))
                     }
@@ -6996,50 +6991,6 @@ struct ContentView: View {
                 .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private var footer: some View {
-        VStack(spacing: 7) {
-            HStack(spacing: 13) {
-                Rectangle()
-                    .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.22 : 0.34))
-                    .frame(height: 1)
-
-                Text("Talla Speciality")
-                    .font(.custom("Georgia", size: isCompact ? 20 : 23, relativeTo: .title2))
-                    .tracking(isCompact ? 0.8 : 1.1)
-                    .foregroundColor(readableBrandGoldColor)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-
-                Rectangle()
-                    .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.22 : 0.34))
-                    .frame(height: 1)
-            }
-
-            HStack(spacing: 7) {
-                Text("🇧🇭")
-                    .font(.system(size: 13))
-                    .accessibilityHidden(true)
-
-                Text(AppLocalization.text("made_in_bahrain", fallback: "Made in Bahrain"))
-                    .font(.custom("AvenirNext-Medium", size: 10, relativeTo: .caption))
-                    .tracking(1.5)
-                    .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.88 : 0.96))
-            }
-            .accessibilityElement(children: .combine)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .background(elevatedSurfaceColor)
-        .overlay(
-            Rectangle()
-                .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.24))
-                .frame(height: 1),
-            alignment: .top
-        )
     }
 
     private var cartDrawer: some View {
