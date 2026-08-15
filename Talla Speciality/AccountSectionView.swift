@@ -248,7 +248,7 @@ struct AccountSectionView: View {
 
                 Spacer(minLength: 8)
 
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.forward")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(tertiaryTextColor)
             }
@@ -418,7 +418,7 @@ struct AccountSectionView: View {
 
                 Spacer(minLength: 8)
 
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.forward")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(tertiaryTextColor)
             }

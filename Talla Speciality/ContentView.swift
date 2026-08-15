@@ -3602,7 +3602,7 @@ struct ContentView: View {
 
                 Spacer(minLength: 8)
 
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.forward")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(tertiaryTextColor)
             }
@@ -5764,7 +5764,7 @@ struct ContentView: View {
                         .minimumScaleFactor(0.82)
                 }
 
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.forward")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(tertiaryTextColor)
             }
@@ -6718,7 +6718,7 @@ struct ContentView: View {
             } label: {
                 HStack(spacing: 8) {
                     Text(viewAllTitle)
-                    Image(systemName: "arrow.right")
+                    Image(systemName: "arrow.forward")
                 }
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(1.4)
@@ -7639,14 +7639,14 @@ struct ContentView: View {
 
     private var emptySection: some View {
         VStack(spacing: 12) {
-            Text("No products match this category right now.")
+            Text(AppLocalization.text("no_products", fallback: "No products match this category right now."))
                 .font(.system(size: 15, weight: .medium, design: .serif))
                 .foregroundColor(secondaryTextColor)
 
             Button {
                 activeCategory = "all"
             } label: {
-                Text("Show All Products")
+                Text(AppLocalization.text("show_all_products", fallback: "Show All Products"))
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(3)
                     .textCase(.uppercase)
@@ -7664,7 +7664,7 @@ struct ContentView: View {
 
     private func errorSection(message: String) -> some View {
         VStack(spacing: 14) {
-            Text("We couldn’t load the shop.")
+            Text(AppLocalization.text("shop_load_failed", fallback: "We couldn’t load the shop."))
                 .font(.system(size: 16, weight: .semibold, design: .serif))
                 .foregroundColor(primaryTextColor)
 
@@ -7678,7 +7678,7 @@ struct ContentView: View {
                     await loadProducts(force: true)
                 }
             } label: {
-                Text("Retry")
+                Text(AppLocalization.text("retry", fallback: "Retry"))
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(3)
                     .textCase(.uppercase)

@@ -96,6 +96,16 @@ enum AppLocalization {
         "payment_failed_title": ["ar": "تعذر إكمال عملية الدفع."],
         "payment_failed_detail": ["ar": "تحقق من بياناتك أو جرّب طريقة دفع أخرى."],
         "payment_terms_reassurance": ["ar": "بالمتابعة، أنت توافق على إجمالي الطلب الموضح أعلاه. لا تحفظ Talla بيانات بطاقتك."],
+        "pay_with_benefitpay": ["ar": "الدفع عبر BenefitPay"],
+        "benefitpay_amount_format": ["ar": "%@ د.ب"],
+        "benefitpay_continue_detail": ["ar": "تابع في تطبيق BenefitPay. تتحقق Talla من العملية مع BenefitPay قبل إكمال طلبك."],
+        "card_payment": ["ar": "الدفع بالبطاقة"],
+        "card_details": ["ar": "بيانات البطاقة"],
+        "name_on_card": ["ar": "الاسم على البطاقة"],
+        "card_number": ["ar": "رقم البطاقة"],
+        "pay_amount_bhd_format": ["ar": "ادفع %@ د.ب"],
+        "card_security_detail": ["ar": "تنتقل بيانات البطاقة مباشرة إلى بوابة Mastercard ولا تُرسل إلى خادم Talla."],
+        "preparing_secure_apple_pay": ["ar": "جارٍ تجهيز Apple Pay الآمن…"],
         "payment_unavailable": ["ar": "غير متاح"],
         "recommended": ["ar": "مقترح"],
         "selected": ["ar": "محدد"],
@@ -829,6 +839,28 @@ enum AppLocalization {
         ,"recently_viewed_home_detail": ["ar": "منتجات استكشفتها ولم تشترها."]
         ,"refresh": ["ar": "تحديث"]
         ,"refreshing": ["ar": "جارٍ التحديث..."]
+        ,"bluetooth_scale": ["ar": "ميزان Bluetooth"]
+        ,"nearby_scales": ["ar": "الموازين القريبة"]
+        ,"brew_companion": ["ar": "مساعد التحضير"]
+        ,"live_measurements_less_guesswork": ["ar": "قياسات مباشرة، وتخمين أقل"]
+        ,"scale_connect_detail": ["ar": "اتصل مرة واحدة لمتابعة الوزن ومعدل التدفق والتصفير السريع أثناء كل تحضير موجه."]
+        ,"connected_ready_next_brew": ["ar": "متصل وجاهز لتحضيرك التالي"]
+        ,"weight": ["ar": "الوزن"]
+        ,"flow_rate": ["ar": "معدل التدفق"]
+        ,"tare": ["ar": "تصفير"]
+        ,"disconnect": ["ar": "قطع الاتصال"]
+        ,"looking_for_scales": ["ar": "جارٍ البحث عن موازين"]
+        ,"keep_scale_awake": ["ar": "أبقِ الميزان قيد التشغيل وقريباً من هذا الـ iPhone."]
+        ,"connecting_to_format": ["ar": "جارٍ الاتصال بـ %@"]
+        ,"connection_takes_moment": ["ar": "يستغرق هذا عادةً لحظات قليلة."]
+        ,"no_scales_found": ["ar": "لم يتم العثور على موازين"]
+        ,"connection_issue": ["ar": "مشكلة في الاتصال"]
+        ,"scan_again": ["ar": "البحث مجدداً"]
+        ,"scale_ready_when_you_are": ["ar": "جاهز عندما تكون جاهزاً"]
+        ,"scale_turn_on_detail": ["ar": "شغّل الميزان، ثم ابحث عن الأجهزة القريبة."]
+        ,"scan_for_scales": ["ar": "البحث عن موازين"]
+        ,"connect_to_scale_accessibility_format": ["ar": "الاتصال بـ %@، %@"]
+        ,"scale_optional_detail": ["ar": "الميزان اختياري. يمكنك إغلاق هذه الصفحة ومتابعة المؤقت الموجه في أي وقت."]
         ,"remove_alert": ["ar": "إزالة التنبيه"]
         ,"reorder": ["ar": "إعادة الطلب"]
         ,"reset_timer": ["ar": "إعادة ضبط المؤقت"]

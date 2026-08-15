@@ -618,7 +618,7 @@ struct BrewingSectionView: View {
                     } label: {
                         HStack(spacing: 7) {
                             Text(AppLocalization.text("choose_another_method", fallback: "Choose Another Method"))
-                            Image(systemName: "arrow.right")
+                            Image(systemName: "arrow.forward")
                                 .font(.system(size: 11, weight: .semibold))
                         }
                         .font(.system(size: 14, weight: .semibold))
@@ -686,7 +686,7 @@ struct BrewingSectionView: View {
 
                     Spacer(minLength: 6)
 
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.forward")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(brewAccentColor)
                         .frame(width: 32, height: 32)
@@ -5463,7 +5463,7 @@ struct BrewingSectionView: View {
                         if !scaleManager.discoveredScales.isEmpty && !scaleManager.isConnected {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
-                                    Text("Nearby scales")
+                                    Text(AppLocalization.text("nearby_scales", fallback: "Nearby scales"))
                                         .font(.system(size: 14, weight: .semibold))
                                         .foregroundColor(brewPrimaryTextColor)
 
@@ -5472,7 +5472,7 @@ struct BrewingSectionView: View {
                                     Button {
                                         scaleManager.scan()
                                     } label: {
-                                        Label("Refresh", systemImage: "arrow.clockwise")
+                                        Label(AppLocalization.text("refresh", fallback: "Refresh"), systemImage: "arrow.clockwise")
                                             .font(.system(size: 11, weight: .semibold))
                                             .foregroundColor(brewAccentColor)
                                     }
@@ -5493,11 +5493,11 @@ struct BrewingSectionView: View {
                     .padding(.bottom, 32)
                 }
             }
-            .navigationTitle("Bluetooth scale")
+            .navigationTitle(AppLocalization.text("bluetooth_scale", fallback: "Bluetooth scale"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button(AppLocalization.text("done", fallback: "Done")) {
                         onDone()
                     }
                 }
@@ -5534,19 +5534,19 @@ struct BrewingSectionView: View {
                 .frame(width: 58, height: 58)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("BREW COMPANION")
+                    Text(AppLocalization.text("brew_companion", fallback: "Brew companion"))
                         .font(brewEyebrowFont)
                         .tracking(1.8)
                         .foregroundColor(brewAccentColor)
 
-                    Text("Live measurements, less guesswork")
+                    Text(AppLocalization.text("live_measurements_less_guesswork", fallback: "Live measurements, less guesswork"))
                         .font(Font.custom("Georgia-Bold", size: 21))
                         .foregroundColor(brewPrimaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            Text("Connect once for live weight, flow rate and quick tare throughout every guided brew.")
+            Text(AppLocalization.text("scale_connect_detail", fallback: "Connect once for live weight, flow rate and quick tare throughout every guided brew."))
                 .font(.system(size: 13, weight: .regular))
                 .foregroundColor(brewSecondaryTextColor)
                 .lineSpacing(2)
@@ -5579,13 +5579,13 @@ struct BrewingSectionView: View {
                 scalePickerStatusCard(
                     icon: "checkmark.circle.fill",
                     title: name,
-                    detail: "Connected and ready for your next brew",
+                    detail: AppLocalization.text("connected_ready_next_brew", fallback: "Connected and ready for your next brew"),
                     tint: brewAccentColor
                 )
 
                 HStack(spacing: 0) {
                     scalePickerLiveMetric(
-                        label: "Weight",
+                        label: AppLocalization.text("weight", fallback: "Weight"),
                         value: String(format: "%.1f", scaleManager.weightGrams),
                         unit: "g"
                     )
@@ -5595,7 +5595,7 @@ struct BrewingSectionView: View {
                         .frame(width: 1, height: 38)
 
                     scalePickerLiveMetric(
-                        label: "Flow rate",
+                        label: AppLocalization.text("flow_rate", fallback: "Flow rate"),
                         value: String(format: "%.1f", scaleManager.flowRateGramsPerSecond),
                         unit: "g/s"
                     )
@@ -5612,7 +5612,7 @@ struct BrewingSectionView: View {
                     Button {
                         scaleManager.tare()
                     } label: {
-                        Label("Tare", systemImage: "arrow.counterclockwise")
+                        Label(AppLocalization.text("tare", fallback: "Tare"), systemImage: "arrow.counterclockwise")
                             .frame(maxWidth: .infinity, minHeight: 42)
                     }
                     .buttonStyle(.plain)
@@ -5628,7 +5628,7 @@ struct BrewingSectionView: View {
                     Button(role: .destructive) {
                         scaleManager.disconnect()
                     } label: {
-                        Text("Disconnect")
+                        Text(AppLocalization.text("disconnect", fallback: "Disconnect"))
                             .frame(maxWidth: .infinity, minHeight: 42)
                     }
                     .buttonStyle(.plain)
@@ -5642,8 +5642,8 @@ struct BrewingSectionView: View {
         case .scanning:
             scalePickerStatusCard(
                 icon: "dot.radiowaves.left.and.right",
-                title: "Looking for scales",
-                detail: "Keep your scale awake and close to this iPhone.",
+                title: AppLocalization.text("looking_for_scales", fallback: "Looking for scales"),
+                detail: AppLocalization.text("keep_scale_awake", fallback: "Keep your scale awake and close to this iPhone."),
                 tint: brewAccentColor,
                 showsProgress: true
             )
@@ -5651,8 +5651,8 @@ struct BrewingSectionView: View {
         case .connecting(let name):
             scalePickerStatusCard(
                 icon: "link",
-                title: "Connecting to \(name)",
-                detail: "This usually takes only a moment.",
+                title: String(format: AppLocalization.text("connecting_to_format", fallback: "Connecting to %@"), name),
+                detail: AppLocalization.text("connection_takes_moment", fallback: "This usually takes only a moment."),
                 tint: brewAccentColor,
                 showsProgress: true
             )
@@ -5661,11 +5661,13 @@ struct BrewingSectionView: View {
             VStack(spacing: 12) {
                 scalePickerStatusCard(
                     icon: "exclamationmark.triangle.fill",
-                    title: message.hasPrefix("No supported scale") ? "No scales found" : "Connection issue",
+                    title: message.hasPrefix("No supported scale")
+                        ? AppLocalization.text("no_scales_found", fallback: "No scales found")
+                        : AppLocalization.text("connection_issue", fallback: "Connection issue"),
                     detail: message,
                     tint: Color.orange
                 )
-                scalePickerScanButton(title: "Scan again")
+                scalePickerScanButton(title: AppLocalization.text("scan_again", fallback: "Scan again"))
             }
 
         case .disconnected:
@@ -5673,11 +5675,11 @@ struct BrewingSectionView: View {
                 VStack(spacing: 12) {
                     scalePickerStatusCard(
                         icon: "power",
-                        title: "Ready when you are",
-                        detail: "Turn on your scale, then scan for nearby devices.",
+                        title: AppLocalization.text("scale_ready_when_you_are", fallback: "Ready when you are"),
+                        detail: AppLocalization.text("scale_turn_on_detail", fallback: "Turn on your scale, then scan for nearby devices."),
                         tint: brewSecondaryTextColor
                     )
-                    scalePickerScanButton(title: "Scan for scales")
+                    scalePickerScanButton(title: AppLocalization.text("scan_for_scales", fallback: "Scan for scales"))
                 }
             }
         }
@@ -5797,7 +5799,7 @@ struct BrewingSectionView: View {
 
                 Spacer(minLength: 8)
 
-                Image(systemName: "arrow.right")
+                Image(systemName: "arrow.forward")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(brewAccentColor)
                     .frame(width: 30, height: 30)
@@ -5814,7 +5816,11 @@ struct BrewingSectionView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Connect to \(scale.name), \(scale.modelName)")
+        .accessibilityLabel(String(
+            format: AppLocalization.text("connect_to_scale_accessibility_format", fallback: "Connect to %@, %@"),
+            scale.name,
+            scale.modelName
+        ))
     }
 
     private var scaleBrandLogoAssets: [String] {
@@ -5852,7 +5858,7 @@ struct BrewingSectionView: View {
                 .foregroundColor(brewAccentColor)
                 .padding(.top, 1)
 
-            Text("A scale is optional. You can close this sheet and continue with the guided timer at any time.")
+            Text(AppLocalization.text("scale_optional_detail", fallback: "A scale is optional. You can close this sheet and continue with the guided timer at any time."))
                 .font(.system(size: 11, weight: .regular))
                 .foregroundColor(brewSecondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)

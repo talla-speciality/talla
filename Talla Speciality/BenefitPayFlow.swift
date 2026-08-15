@@ -119,11 +119,11 @@ struct BenefitPayCheckoutSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 VStack(spacing: 7) {
-                    Text("Pay with BenefitPay")
+                    Text(AppLocalization.text("pay_with_benefitpay", fallback: "Pay with BenefitPay"))
                         .font(.title2.weight(.semibold))
-                    Text("BHD \(session.amount)")
+                    Text(String(format: AppLocalization.text("benefitpay_amount_format", fallback: "BHD %@"), session.amount))
                         .font(.title3.monospacedDigit().weight(.medium))
-                    Text("Continue in the BenefitPay app. Talla verifies the transaction with BenefitPay before completing your order.")
+                    Text(AppLocalization.text("benefitpay_continue_detail", fallback: "Continue in the BenefitPay app. Talla verifies the transaction with BenefitPay before completing your order."))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -140,7 +140,7 @@ struct BenefitPayCheckoutSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    Button(AppLocalization.text("cancel", fallback: "Cancel"), action: onCancel)
                 }
             }
         }

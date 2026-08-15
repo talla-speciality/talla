@@ -1161,11 +1161,13 @@ struct MastercardPaymentSheet: View {
                     applePayProgress
                 }
             }
-            .navigationTitle(context.kind == .card ? "Card Payment" : "Apple Pay")
+            .navigationTitle(context.kind == .card
+                ? AppLocalization.text("card_payment", fallback: "Card Payment")
+                : AppLocalization.text("apple_pay", fallback: "Apple Pay"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(AppLocalization.text("cancel", fallback: "Cancel")) {
                         flow.cancel()
                         dismiss()
                     }
@@ -1190,11 +1192,11 @@ struct MastercardPaymentSheet: View {
 
     private var cardForm: some View {
         Form {
-            Section("Card details") {
-                TextField("Name on card", text: $cardholderName)
+            Section(AppLocalization.text("card_details", fallback: "Card details")) {
+                TextField(AppLocalization.text("name_on_card", fallback: "Name on card"), text: $cardholderName)
                     .textContentType(.name)
                     .textInputAutocapitalization(.words)
-                TextField("Card number", text: $cardNumber)
+                TextField(AppLocalization.text("card_number", fallback: "Card number"), text: $cardNumber)
                     .keyboardType(.numberPad)
                     .textContentType(.creditCardNumber)
                 HStack {
@@ -1215,7 +1217,7 @@ struct MastercardPaymentSheet: View {
                         if flow.state.isBusy {
                             ProgressView()
                         } else {
-                            Text("Pay \(context.session.amount) BHD")
+                            Text(String(format: AppLocalization.text("pay_amount_bhd_format", fallback: "Pay %@ BHD"), context.session.amount))
                                 .fontWeight(.semibold)
                         }
                         Spacer()
@@ -1223,7 +1225,7 @@ struct MastercardPaymentSheet: View {
                 }
                 .disabled(!isCardInputValid || flow.state.isBusy)
             } footer: {
-                Text("Card details go directly to Mastercard Gateway and are never sent to Talla's backend.")
+                Text(AppLocalization.text("card_security_detail", fallback: "Card details go directly to Mastercard Gateway and are never sent to Talla's backend."))
             }
             if let message = validationMessage ?? flow.errorMessage {
                 Section {
@@ -1240,7 +1242,7 @@ struct MastercardPaymentSheet: View {
             Image(systemName: "apple.logo")
                 .font(.system(size: 48, weight: .semibold))
             ProgressView()
-            Text("Preparing secure Apple Pay…")
+            Text(AppLocalization.text("preparing_secure_apple_pay", fallback: "Preparing secure Apple Pay…"))
                 .foregroundStyle(.secondary)
             Spacer()
         }
