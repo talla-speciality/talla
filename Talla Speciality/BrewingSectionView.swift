@@ -261,6 +261,8 @@ struct BrewingSectionView: View {
     @State private var isBrewRestartConfirmationPresented = false
     @State private var isScalePickerPresented = false
     @State private var isHomeScalePickerPresented = false
+    @State private var isScaleTareConfirmed = false
+    @State private var scaleTareFeedbackID = UUID()
     @State private var selectedGuideProfileID = "balanced-filter"
     @State private var activeSmartRecipeID: String?
     @State private var expandedGuideProfileID: String?
@@ -5203,24 +5205,39 @@ struct BrewingSectionView: View {
 
             Button {
                 if scaleManager.isConnected {
-                    scaleManager.tare()
+                    tareConnectedScale()
                 } else {
                     isScalePickerPresented = true
                 }
             } label: {
-                Image(systemName: scaleManager.isConnected ? "scalemass.fill" : "scalemass")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewPrimaryTextColor)
-                    .frame(width: 44, height: 44)
-                    .background(brewSurfaceColor)
-                    .overlay(
-                        Circle()
-                            .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.65) : brewBorderColor, lineWidth: 1)
+                ViewThatFits(in: .horizontal) {
+                    Label(
+                        scaleManager.isConnected
+                            ? AppLocalization.text("tare", fallback: "Tare")
+                            : AppLocalization.text("scale", fallback: "Scale"),
+                        systemImage: scaleManager.isConnected ? "arrow.counterclockwise" : "scalemass"
                     )
-                    .clipShape(Circle())
+                    .padding(.horizontal, 12)
+
+                    Image(systemName: scaleManager.isConnected ? "arrow.counterclockwise" : "scalemass")
+                        .frame(width: 44)
+                }
+                .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewPrimaryTextColor)
+                .frame(minHeight: 44)
+                .background(brewSurfaceColor)
+                .overlay(
+                    Capsule()
+                        .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.65) : brewBorderColor, lineWidth: 1)
+                )
+                .clipShape(Capsule())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(scaleManager.isConnected ? "Tare connected scale" : "Connect Bluetooth scale")
+            .accessibilityLabel(
+                scaleManager.isConnected
+                    ? AppLocalization.text("tare_connected_scale", fallback: "Tare connected scale")
+                    : AppLocalization.text("connect_bluetooth_scale", fallback: "Connect Bluetooth scale")
+            )
 
             Text(String(format: AppLocalization.text("step_count_format", fallback: "Step %1$d of %2$d"), currentBrewModeStepIndex + 1, brewModeSteps.count))
                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
@@ -5272,9 +5289,17 @@ struct BrewingSectionView: View {
             focusedScaleSetupCard
 
             Button {
+                if scaleManager.isConnected {
+                    tareConnectedScale(showConfirmation: false)
+                }
                 startBrewModeSession()
             } label: {
-                Text(AppLocalization.text("ready", fallback: "Ready"))
+                Label(
+                    scaleManager.isConnected
+                        ? AppLocalization.text("tare_and_start", fallback: "Tare & Start")
+                        : AppLocalization.text("ready", fallback: "Ready"),
+                    systemImage: scaleManager.isConnected ? "arrow.counterclockwise" : "play.fill"
+                )
                     .font(Font.custom("AvenirNext-DemiBold", size: 14))
                     .foregroundColor(Color(hex: 0x1C1A17))
                     .frame(maxWidth: .infinity)
@@ -5377,8 +5402,7 @@ struct BrewingSectionView: View {
 
             if scaleManager.isConnected {
                 Button(AppLocalization.text("tare", fallback: "Tare")) {
-                    scaleManager.tare()
-                    brewStepHaptic(strong: false)
+                    tareConnectedScale()
                 }
                 .font(Font.custom("AvenirNext-DemiBold", size: 13))
                 .foregroundColor(brewAccentColor)
@@ -5400,37 +5424,119 @@ struct BrewingSectionView: View {
     }
 
     private var focusedScaleLiveCard: some View {
-        HStack(spacing: 0) {
-            scaleLiveMetric(
-                title: "Live weight",
-                value: String(format: "%.1f g", scaleManager.weightGrams)
-            )
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(brewAccentColor.opacity(0.14))
+
+                    Image(systemName: isScaleTareConfirmed ? "checkmark" : "scalemass.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(brewAccentColor)
+                }
+                .frame(width: 34, height: 34)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(scaleManager.connectedScaleName ?? AppLocalization.text("bluetooth_scale", fallback: "Bluetooth Scale"))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .lineLimit(1)
+
+                    Text(
+                        isScaleTareConfirmed
+                            ? AppLocalization.text("scale_zeroed", fallback: "Zeroed and ready")
+                            : AppLocalization.text("scale_connected_live", fallback: "Connected · live weight ready")
+                    )
+                    .font(Font.custom("AvenirNext-Regular", size: 10))
+                    .foregroundColor(isScaleTareConfirmed ? brewAccentColor : brewSecondaryTextColor)
+                    .contentTransition(.opacity)
+                }
+
+                Spacer(minLength: 8)
+
+                Button {
+                    tareConnectedScale()
+                } label: {
+                    Label(
+                        isScaleTareConfirmed
+                            ? AppLocalization.text("zeroed", fallback: "Zeroed")
+                            : AppLocalization.text("tare", fallback: "Tare"),
+                        systemImage: isScaleTareConfirmed ? "checkmark" : "arrow.counterclockwise"
+                    )
+                    .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                    .foregroundColor(Color(hex: 0x1C1A17))
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 36)
+                    .background(brewAccentColor)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("tare_connected_scale", fallback: "Tare connected scale"))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
 
             Rectangle()
                 .fill(brewBorderColor)
-                .frame(width: 1, height: 42)
+                .frame(height: 1)
 
-            scaleLiveMetric(
-                title: "To target",
-                value: String(format: "%.1f g", max(currentWaterTarget - scaleManager.weightGrams, 0))
-            )
+            HStack(spacing: 0) {
+                scaleLiveMetric(
+                    title: AppLocalization.text("live_weight", fallback: "Live weight"),
+                    value: String(format: "%.1f g", scaleManager.weightGrams)
+                )
 
-            Rectangle()
-                .fill(brewBorderColor)
-                .frame(width: 1, height: 42)
+                Rectangle()
+                    .fill(brewBorderColor)
+                    .frame(width: 1, height: 42)
 
-            scaleLiveMetric(
-                title: "Flow",
-                value: String(format: "%.1f g/s", scaleManager.flowRateGramsPerSecond)
-            )
+                scaleLiveMetric(
+                    title: AppLocalization.text("to_target", fallback: "To target"),
+                    value: String(format: "%.1f g", max(currentWaterTarget - scaleManager.weightGrams, 0))
+                )
+
+                Rectangle()
+                    .fill(brewBorderColor)
+                    .frame(width: 1, height: 42)
+
+                scaleLiveMetric(
+                    title: AppLocalization.text("flow", fallback: "Flow"),
+                    value: String(format: "%.1f g/s", scaleManager.flowRateGramsPerSecond)
+                )
+            }
+            .padding(.vertical, 12)
         }
-        .padding(.vertical, 12)
         .background(brewSurfaceColor)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(brewAccentColor.opacity(0.35), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func tareConnectedScale(showConfirmation: Bool = true) {
+        guard scaleManager.isConnected else {
+            isScalePickerPresented = true
+            return
+        }
+
+        scaleManager.tare()
+        brewStepHaptic(strong: false)
+
+        guard showConfirmation else { return }
+        let feedbackID = UUID()
+        scaleTareFeedbackID = feedbackID
+        withAnimation(.easeOut(duration: 0.18)) {
+            isScaleTareConfirmed = true
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1_200))
+            guard scaleTareFeedbackID == feedbackID else { return }
+            withAnimation(.easeOut(duration: 0.18)) {
+                isScaleTareConfirmed = false
+            }
+        }
     }
 
     private func scaleLiveMetric(title: String, value: String) -> some View {
