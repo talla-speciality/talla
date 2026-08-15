@@ -43,6 +43,9 @@ module.exports = {
     resendAPIKey: process.env.RESEND_API_KEY || "",
     emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "",
     appleSignInClientID: process.env.APPLE_SIGN_IN_CLIENT_ID || "Talla-Speciality.Talla-Speciality",
+    appAttestAppID: process.env.APP_ATTEST_APP_ID || "TAG9WXY85M.Talla-Speciality.Talla-Speciality",
+    appAttestEnforce: process.env.APP_ATTEST_ENFORCE === "true",
+    appAttestAllowDevelopment: process.env.APP_ATTEST_ALLOW_DEVELOPMENT !== "false",
     applePaySettlementProvider: process.env.APPLE_PAY_SETTLEMENT_PROVIDER || "",
     benefitTranportalID: process.env.BENEFIT_TRANPORTAL_ID || "",
     benefitTranportalPassword: process.env.BENEFIT_TRANPORTAL_PASSWORD || "",
@@ -107,7 +110,8 @@ module.exports = {
         cardPayments: path.join(dataDirectory, "cardPayments.json"),
         shopifyEazyPayments: path.join(dataDirectory, "shopifyEazyPayments.json"),
         shopifyOrderExports: path.join(dataDirectory, "shopifyOrderExports.json"),
-        walletPasses: path.join(dataDirectory, "walletPasses.json")
+        walletPasses: path.join(dataDirectory, "walletPasses.json"),
+        appAttest: path.join(dataDirectory, "appAttest.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,

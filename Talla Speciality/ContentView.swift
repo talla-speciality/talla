@@ -131,6 +131,7 @@ struct ContentView: View {
         }
 
         let id: String
+        let handle: String
         let variantID: String?
         let variants: [Variant]
         let name: String
@@ -547,6 +548,7 @@ struct ContentView: View {
     @State private var quizFlavor = "fruity"
     @State private var quizAdventure = "curious"
     @State private var products: [Product] = []
+    @State private var pendingUniversalLinkProductHandle = ""
     @State private var cartItems: [CartItem] = []
     @State private var cartOpen = false
     @State private var toastMessage: String?
@@ -696,6 +698,7 @@ struct ContentView: View {
     @State private var tabScrollTarget: Tab?
     @State private var shopCatalogueScrollRequest = 0
     @State private var didRecordReviewLaunch = false
+    @State private var nfcScanner = TallaNFCScanner()
 
     private let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
@@ -1841,6 +1844,9 @@ struct ContentView: View {
         .onChange(of: shortcutDestination) { _, _ in
             handleShortcutDestination()
         }
+        .onChange(of: products.count) { _, _ in
+            resolvePendingUniversalLinkProduct()
+        }
 #if canImport(PhotosUI)
         .onChange(of: conciergeImageSelection) { _, newSelection in
             Task {
@@ -2185,6 +2191,8 @@ struct ContentView: View {
         shortcutSearchQuery = ""
 
         switch destination {
+        case "home":
+            openTab(.home)
         case "shop":
             openShop(searchQuery: searchQuery)
         case "concierge":
@@ -2245,12 +2253,18 @@ struct ContentView: View {
             handleBenefitPayReturn(url)
             return
         }
-        guard url.scheme?.lowercased() == "talla" else { return }
 
-        let rawDestination = url.host?.isEmpty == false ? url.host : url.pathComponents.dropFirst().first
-        let destination = rawDestination?.lowercased() ?? ""
+        let scheme = url.scheme?.lowercased() ?? ""
+        let isCustomLink = scheme == "talla"
+        let isUniversalLink = ["http", "https"].contains(scheme) && isTallaUniversalLinkHost(url.host)
+        guard isCustomLink || isUniversalLink else { return }
+
         let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let pathTokens = url.pathComponents.dropFirst().map { $0.lowercased() }
+        let rawDestination = isCustomLink
+            ? (url.host?.isEmpty == false ? url.host : pathTokens.first)
+            : universalLinkDestination(pathTokens: pathTokens)
+        let destination = rawDestination?.lowercased() ?? ""
 
         if isPaymentReturnDestination(destination: destination, pathTokens: pathTokens) {
             handlePaymentReturn(queryItems: queryItems)
@@ -2259,9 +2273,93 @@ struct ContentView: View {
 
         let searchQuery = queryItems.first(where: { $0.name == "q" || $0.name == "search" })?.value ?? ""
 
+        if isUniversalLink, pathTokens.first == "products", let handle = pathTokens.dropFirst().first {
+            pendingUniversalLinkProductHandle = handle
+            openShop(searchQuery: handle.replacingOccurrences(of: "-", with: " "))
+            resolvePendingUniversalLinkProduct()
+            return
+        }
+
+        if isUniversalLink, pathTokens.first == "collections", let handle = pathTokens.dropFirst().first {
+            openShop(category: appCategoryKey(forCollectionHandle: handle), searchQuery: searchQuery)
+            return
+        }
+
+        let supportedDestinations: Set<String> = [
+            "home", "shop", "concierge", "brewing", "shelf", "favorites",
+            "rewards", "orders", "order-history", "checkout-return"
+        ]
+        if isUniversalLink, !supportedDestinations.contains(destination) {
+            openURL(url)
+            return
+        }
+
         shortcutSearchQuery = searchQuery
         shortcutDestination = destination
         handleShortcutDestination()
+    }
+
+    private func isTallaUniversalLinkHost(_ host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        return host == "talla.me" || host == "www.talla.me"
+    }
+
+    private func universalLinkDestination(pathTokens: [String]) -> String {
+        guard let first = pathTokens.first else { return "home" }
+
+        if first == "app" {
+            return pathTokens.dropFirst().first ?? "home"
+        }
+
+        if first == "pages", pathTokens.dropFirst().first == "loyalty-program" {
+            return "rewards"
+        }
+
+        if first == "blogs", pathTokens.contains("brewing-methods") {
+            return "brewing"
+        }
+
+        if first == "account", pathTokens.contains("orders") {
+            return "orders"
+        }
+
+        if first == "search" {
+            return "shop"
+        }
+
+        return first
+    }
+
+    private func appCategoryKey(forCollectionHandle handle: String) -> String {
+        switch handle {
+        case "coffee-beans":
+            return "coffee-beans"
+        case "arabic-coffee", "arabic-coffee-beans", "northern-coffee":
+            return "arabic-coffee-beans"
+        case "cups", "drinkware":
+            return "cups"
+        case "equipment", "coffee-equipment":
+            return "equipment"
+        case "gifts", "talla-boxes":
+            return "gifts"
+        case "ready-made-drinks", "drinks":
+            return "ready-made-drinks"
+        case "desserts", "crmb":
+            return "desserts"
+        default:
+            return "all"
+        }
+    }
+
+    private func resolvePendingUniversalLinkProduct() {
+        guard !pendingUniversalLinkProductHandle.isEmpty,
+              let product = products.first(where: { $0.handle.caseInsensitiveCompare(pendingUniversalLinkProductHandle) == .orderedSame }) else {
+            return
+        }
+
+        pendingUniversalLinkProductHandle = ""
+        shopSearchQuery = ""
+        selectedProduct = product
     }
 
     private func isPaymentReturnDestination(destination: String, pathTokens: [String]) -> Bool {
@@ -2420,6 +2518,28 @@ struct ContentView: View {
 
                 if !showLaunchSplash && shouldShowHeaderCartButton {
                     headerCartButton
+                }
+
+                if !showLaunchSplash && nfcScanner.isAvailable {
+                    Button {
+                        nfcScanner.beginScanning(
+                            onScan: handleDeepLink,
+                            onError: { showToast(message: $0) }
+                        )
+                    } label: {
+                        Image(systemName: "wave.3.right.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(Color(hex: 0xC8965A))
+                            .frame(width: 40, height: 40)
+                            .background(cardFillColor)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("scan_talla_tag", fallback: "Scan Talla tag"))
                 }
 
                 Menu {
@@ -11224,7 +11344,7 @@ private enum HomeSettingsService {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The home settings service returned an invalid response.")
         }
@@ -11245,7 +11365,7 @@ private enum HomeSettingsService {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The passport settings service returned an invalid response.")
         }
@@ -11880,7 +12000,7 @@ private enum AccountService {
         request.httpMethod = "GET"
         try authorize(&request)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The wallet service returned an invalid response.")
@@ -11904,7 +12024,7 @@ private enum AccountService {
 #endif
 
     private static func performCustomerSessionRequest(_ request: URLRequest) async throws -> CustomerSession {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service returned an invalid response.")
@@ -11932,7 +12052,7 @@ private enum AccountService {
     }
 
     private static func performProfileRequest(_ request: URLRequest) async throws -> ContentView.ShopifyCustomerProfile {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service returned an invalid response.")
@@ -11956,7 +12076,7 @@ private enum AccountService {
     }
 
     private static func performOrdersRequest(_ request: URLRequest) async throws -> [ContentView.AccountOrder] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service returned an invalid response.")
@@ -11974,7 +12094,7 @@ private enum AccountService {
     }
 
     private static func performCheckoutStartRequest(_ request: URLRequest) async throws -> CheckoutStartResult {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service returned an invalid response.")
@@ -11993,7 +12113,7 @@ private enum AccountService {
     }
 
     private static func performBenefitPaymentRequest(_ request: URLRequest) async throws -> URL {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
@@ -12012,7 +12132,7 @@ private enum AccountService {
     }
 
     private static func performEazyShopifyPaymentRequest(_ request: URLRequest) async throws -> EazyShopifyPaymentResponse {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
         }
@@ -12026,7 +12146,7 @@ private enum AccountService {
     }
 
     private static func performTasteMemoryRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service returned an invalid response.")
@@ -12044,7 +12164,7 @@ private enum AccountService {
     }
 
     private static func performTasteMemoryEnvelopeRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service returned an invalid response.")
@@ -12062,7 +12182,7 @@ private enum AccountService {
     }
 
     private static func performVouchersRequest(_ request: URLRequest) async throws -> [ContentView.VoucherRecord] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The voucher service returned an invalid response.")
@@ -12080,7 +12200,7 @@ private enum AccountService {
     }
 
     private static func performStockAlertsRequest(_ request: URLRequest) async throws -> [ContentView.StockAlertRecord] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The alerts service returned an invalid response.")
@@ -12098,7 +12218,7 @@ private enum AccountService {
     }
 
     private static func performStockAlertRequest(_ request: URLRequest) async throws -> ContentView.StockAlertRecord {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The alerts service returned an invalid response.")
@@ -12116,7 +12236,7 @@ private enum AccountService {
     }
 
     private static func performAlertInboxRequest(_ request: URLRequest) async throws -> [ContentView.AlertInboxRecord] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The alerts inbox returned an invalid response.")
@@ -12134,7 +12254,7 @@ private enum AccountService {
     }
 
     private static func performAddressesRequest(_ request: URLRequest) async throws -> [ContentView.DeliveryAddress] {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The address service returned an invalid response.")
@@ -12152,7 +12272,7 @@ private enum AccountService {
     }
 
     private static func performVoucherRequest(_ request: URLRequest) async throws -> ContentView.VoucherRecord {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The voucher service returned an invalid response.")
@@ -12170,7 +12290,7 @@ private enum AccountService {
     }
 
     private static func performEmptyRequest(_ request: URLRequest) async throws -> Bool {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service returned an invalid response.")
@@ -12250,7 +12370,7 @@ private enum LoyaltyService {
     }
 
     private static func performLoyaltyRequest(_ request: URLRequest) async throws -> ContentView.LoyaltyAccount {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service returned an invalid response.")
@@ -12628,6 +12748,7 @@ private enum ShopifyStorefrontClient {
                 edges {
                   node {
                     id
+                    handle
                     title
                     description
                     tags
@@ -12781,7 +12902,7 @@ private enum ShopifyStorefrontClient {
         request.setValue(ShopifyConfiguration.storefrontToken, forHTTPHeaderField: "X-Shopify-Storefront-Access-Token")
         request.httpBody = try JSONSerialization.data(withJSONObject: body.dictionary, options: [])
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
             throw ShopifyError.invalidResponse
@@ -12841,6 +12962,7 @@ private struct ShopifyProductsResponse: Decodable {
 
 private struct ShopifyProductNode: Decodable {
     let id: String
+    let handle: String
     let title: String
     let description: String
     let tags: [String]
@@ -13306,6 +13428,7 @@ private extension ContentView.Product {
 
         self.init(
             id: shopifyNode.id,
+            handle: shopifyNode.handle,
             variantID: defaultVariant?.id,
             variants: variants,
             name: shopifyNode.title,

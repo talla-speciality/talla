@@ -1,0 +1,25 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TAG9WXY85M.Talla-Speciality.Talla-Speciality",
+        "paths": [
+          "NOT /admin/*",
+          "NOT /*/amazon_payments/callback",
+          "NOT /*/checkouts/*/express/callback",
+          "NOT /checkouts/*/*",
+          "NOT /checkouts/*/*/*",
+          "NOT /checkouts/*/*/*/*",
+          "/*"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": []
+  },
+  "appclips": {
+    "apps": []
+  }
+}

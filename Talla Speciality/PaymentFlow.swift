@@ -991,7 +991,7 @@ enum TallaPaymentService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await TallaSecureSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PaymentServiceError.unavailable
         }

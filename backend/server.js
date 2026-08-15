@@ -11,6 +11,7 @@ const database = require("./database");
 const benefitGateway = require("./benefit-gateway");
 const mpgsGateway = require("./mpgs-gateway");
 const eazyPay = require("./eazypay");
+const appAttest = require("./app-attest");
 const { writeWalletStampStrips } = require("./wallet-pass-artwork");
 
 const host = config.host;
@@ -34,6 +35,7 @@ const cardPaymentsStorePath = config.stores.cardPayments;
 const shopifyEazyPaymentsStorePath = config.stores.shopifyEazyPayments;
 const shopifyOrderExportsStorePath = config.stores.shopifyOrderExports;
 const walletPassesStorePath = config.stores.walletPasses;
+const appAttestStorePath = config.stores.appAttest;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -159,6 +161,7 @@ ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
 ensureStoreFile(cardPaymentsStorePath, { payments: {} });
 ensureStoreFile(shopifyEazyPaymentsStorePath, { payments: {} });
 ensureStoreFile(shopifyOrderExportsStorePath, { exports: {} });
+ensureStoreFile(appAttestStorePath, { keys: {} });
 
 function ensureStoreFile(filePath, fallback) {
     if (!fs.existsSync(dataDirectory)) {
@@ -7512,6 +7515,41 @@ const server = http.createServer(async (request, response) => {
     }
 
     const url = new URL(request.url, `http://${host}:${port}`);
+
+    if (request.method === "GET" && url.pathname === "/app-attest/challenge") {
+        try {
+            const challenge = appAttest.issueChallenge({
+                purpose: url.searchParams.get("purpose") || "assertion",
+                method: url.searchParams.get("method") || "POST",
+                path: url.searchParams.get("path") || ""
+            });
+            sendJSON(response, 200, { challenge });
+        } catch (error) {
+            sendJSON(response, 400, { error: error.message || "Unable to issue challenge" });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/app-attest/register") {
+        try {
+            const body = await readBody(request, 1_000_000);
+            if (!body.keyId || !body.challenge || !body.attestationObject) {
+                sendJSON(response, 400, { error: "Missing App Attest registration fields" });
+                return;
+            }
+            await appAttest.register(body);
+            sendJSON(response, 201, { registered: true });
+        } catch (error) {
+            sendJSON(response, 401, { error: error.message || "App attestation failed" });
+        }
+        return;
+    }
+
+    const appAttestResult = await appAttest.verifyRequest(request, url.pathname);
+    if (!appAttestResult.allowed) {
+        sendJSON(response, 401, { error: appAttestResult.error || "App Attest verification failed" });
+        return;
+    }
 
     const walletPathParts = url.pathname.split("/").filter(Boolean);
     if (walletPathParts[0] === "wallet" && walletPathParts[1] === "v1") {

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NFCReaderUsageDescription</key>
+	<string>Scan Talla tags on coffee bags and brewing cards to open the matching product or guide.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Talla Speciality connects to supported Acaia, BOOKOO, GOAT STORY GINA, HIROIA, and MANTABREW scales to show live weight and flow during guided brews.</string>
 	<key>BackendBaseURL</key>
