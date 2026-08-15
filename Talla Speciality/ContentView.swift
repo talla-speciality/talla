@@ -1214,11 +1214,11 @@ struct ContentView: View {
 #if canImport(UserNotifications)
         switch UNAuthorizationStatus(rawValue: notificationAuthorizationStatus) {
         case .authorized, .provisional, .ephemeral:
-            return AppLocalization.text("alerts_notifications_enabled_detail", fallback: "Notifications are enabled for brew timers, pickup updates, watched products, and important account activity.")
+            return AppLocalization.text("alerts_notifications_enabled_detail", fallback: "Notifications are enabled for brew timers, pickup updates, availability alerts, and important account activity.")
         case .denied:
             return AppLocalization.text("alerts_notifications_denied_detail", fallback: "Notifications are off. Open Settings to restore brew-timer, pickup, and product alerts.")
         default:
-            return AppLocalization.text("alerts_notifications_disabled_detail", fallback: "Enable notifications to receive reminders for watched products and important account updates.")
+            return AppLocalization.text("alerts_notifications_disabled_detail", fallback: "Enable notifications to receive availability alerts and important account updates.")
         }
 #else
         return AppLocalization.text("alerts_notifications_unavailable_detail", fallback: "Notifications are unavailable on this device.")
@@ -6217,7 +6217,7 @@ struct ContentView: View {
 
             if alertProducts.isEmpty {
                 actionEmptyState(
-                    message: AppLocalization.text("alerts_empty", fallback: "Tap the bell on sold-out or watched items to know when they return."),
+                    message: AppLocalization.text("alerts_empty", fallback: "Tap Notify when available on a sold-out product and Talla will let you know when it returns."),
                     actionTitle: AppLocalization.text("browse_products", fallback: "Browse Products"),
                     systemImage: "bell.fill"
                 ) {
@@ -6225,7 +6225,7 @@ struct ContentView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(AppLocalization.text("alerts_detail", fallback: "Track upcoming drops and get back to the coffees you do not want to miss."))
+                    Text(AppLocalization.text("alerts_detail", fallback: "Talla checks real availability changes and notifies you when a saved product returns."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -7903,7 +7903,7 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel(isAlertEnabled(product)
                             ? AppLocalization.text("remove_alert", fallback: "Remove alert")
-                            : AppLocalization.text("notify_me", fallback: "Notify me"))
+                            : AppLocalization.text("notify_when_available", fallback: "Notify when available"))
                     }
 
                     if let tag = product.tag {
@@ -8615,26 +8615,33 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
 
-                        Button {
-                            Task {
-                                await toggleAlert(product: product)
-                            }
-                        } label: {
-                            Label(isAlertEnabled(product) ? "Watching" : "Watch", systemImage: isAlertEnabled(product) ? "bell.fill" : "bell")
-                                .font(labelFont(size: 10, weight: .bold))
-                                .tracking(1.4)
-                                .textCase(.uppercase)
-                                .foregroundColor(primaryTextColor)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(cardFillColor)
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                        if !product.isAvailableForSale || isAlertEnabled(product) {
+                            Button {
+                                Task {
+                                    await toggleAlert(product: product)
+                                }
+                            } label: {
+                                Label(
+                                    isAlertEnabled(product)
+                                        ? AppLocalization.text("notification_on", fallback: "Notification On")
+                                        : AppLocalization.text("notify_when_available", fallback: "Notify When Available"),
+                                    systemImage: isAlertEnabled(product) ? "bell.fill" : "bell"
                                 )
-                                .clipShape(Capsule())
+                                    .font(labelFont(size: 10, weight: .bold))
+                                    .tracking(1.4)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(primaryTextColor)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(cardFillColor)
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                                    )
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
 
                     Button {
@@ -9616,7 +9623,7 @@ struct ContentView: View {
                 productName: $0.name,
                 tag: $0.tag,
                 isAvailableForSale: $0.isAvailableForSale,
-                status: $0.isAvailableForSale ? "Roast watch" : "Waiting for restock",
+                status: $0.isAvailableForSale ? "Available now" : "Waiting for availability",
                 updatedAt: ISO8601DateFormatter().string(from: Date())
             )
         }
@@ -10474,7 +10481,6 @@ struct ContentView: View {
                 try? await AccountService.removeStockAlert(email: email, productID: product.id)
                 backendStockAlerts.removeAll { $0.productID == product.id }
             }
-            await ProductAlertNotificationService.removeReminder(for: product.id)
             showToast(message: AppLocalization.text("removed_from_alerts", fallback: "Removed from alerts"))
         } else {
             updatedAlerts.insert(product.id)
@@ -10485,7 +10491,7 @@ struct ContentView: View {
                     productName: product.name,
                     tag: product.tag,
                     isAvailableForSale: product.isAvailableForSale,
-                    status: product.isAvailableForSale ? "Roast watch" : "Waiting for restock",
+                    status: product.isAvailableForSale ? "Available now" : "Waiting for availability",
                     updatedAt: ISO8601DateFormatter().string(from: Date())
                 )
                 if let stored = try? await AccountService.watchStockAlert(email: email, alert: record) {
@@ -10495,12 +10501,7 @@ struct ContentView: View {
             }
             let granted = await requestNotificationAccessIfNeeded()
             if granted {
-                await ProductAlertNotificationService.scheduleReminder(
-                    for: product.id,
-                    title: notificationTitle(for: product),
-                    body: notificationBody(for: product)
-                )
-                showToast(message: AppLocalization.text("alert_notification_scheduled", fallback: "Alert saved. Notification reminder scheduled."))
+                showToast(message: AppLocalization.text("availability_notification_enabled", fallback: "We’ll notify you when this product is available."))
             } else {
                 showToast(message: AppLocalization.text("added_to_alerts_notifications_off", fallback: "Alert saved. Notifications are not enabled."))
             }
@@ -10519,34 +10520,17 @@ struct ContentView: View {
 
     private func productAlertLabel(for product: Product) -> String {
         if !product.isAvailableForSale {
-            return AppLocalization.text("alert_label_back_in_stock", fallback: "Back in stock watch")
+            return AppLocalization.text("waiting_for_availability", fallback: "Waiting for availability")
         }
-
-        if let tag = product.tag, !tag.isEmpty {
-            return String(format: AppLocalization.text("alert_label_tag_watch", fallback: "%@ watch"), tag)
-        }
-
-        return AppLocalization.text("alert_label_new_roast", fallback: "New roast watch")
+        return AppLocalization.text("available_now", fallback: "Available now")
     }
 
     private func stockAlertLabel(for product: Product) -> String {
-        backendStockAlertLookup[product.id]?.status ?? productAlertLabel(for: product)
-    }
-
-    private func notificationTitle(for product: Product) -> String {
-        if !product.isAvailableForSale {
-            return String(format: AppLocalization.text("notification_title_watchlist", fallback: "%@ watchlist reminder"), product.name)
+        guard let status = backendStockAlertLookup[product.id]?.status,
+              !status.localizedCaseInsensitiveContains("watch") else {
+            return productAlertLabel(for: product)
         }
-
-        return String(format: AppLocalization.text("notification_title_roast", fallback: "%@ roast reminder"), product.name)
-    }
-
-    private func notificationBody(for product: Product) -> String {
-        if !product.isAvailableForSale {
-            return String(format: AppLocalization.text("notification_body_unavailable", fallback: "You asked to hear about %@. Check Talla for availability updates."), product.name)
-        }
-
-        return String(format: AppLocalization.text("notification_body_available", fallback: "Still thinking about %@? Your watched roast is waiting in the app."), product.name)
+        return status
     }
 
     @MainActor
@@ -11366,32 +11350,6 @@ private enum ProductAlertNotificationService {
         }
     }
 
-    static func scheduleReminder(for productID: String, title: String, body: String) async {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-
-        let request = UNNotificationRequest(
-            identifier: reminderIdentifier(for: productID),
-            content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 86_400, repeats: false)
-        )
-
-        do {
-            try await center.add(request)
-        } catch {
-            return
-        }
-    }
-
-    static func removeReminder(for productID: String) async {
-        center.removePendingNotificationRequests(withIdentifiers: [reminderIdentifier(for: productID)])
-    }
-
-    private static func reminderIdentifier(for productID: String) -> String {
-        "product-alert-\(productID)"
-    }
 }
 
 private enum BrewTimerNotificationService {

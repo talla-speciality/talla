@@ -1,7 +1,25 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { remotePushPayload } = require("../server");
+const { remotePushPayload, stockAlertStatusFor } = require("../server");
+
+test("availability alerts describe the real product state without watch terminology", () => {
+    assert.equal(
+        stockAlertStatusFor({ isAvailableForSale: false }, null),
+        "Waiting for availability"
+    );
+    assert.equal(
+        stockAlertStatusFor(
+            { isAvailableForSale: true },
+            { isAvailableForSale: false }
+        ),
+        "Back in stock"
+    );
+    assert.equal(
+        stockAlertStatusFor({ isAvailableForSale: true }, null),
+        "Available now"
+    );
+});
 
 test("urgent order updates use the time-sensitive interruption level", () => {
     const payload = remotePushPayload({

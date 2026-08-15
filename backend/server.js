@@ -6012,18 +6012,14 @@ async function revokeVoucherRecord(code) {
 
 function stockAlertStatusFor(record, previousRecord) {
     if (!record.isAvailableForSale) {
-        return "Waiting for restock";
+        return "Waiting for availability";
     }
 
     if (previousRecord && previousRecord.isAvailableForSale === false && record.isAvailableForSale === true) {
         return "Back in stock";
     }
 
-    if (record.tag) {
-        return `${record.tag} watch`;
-    }
-
-    return "Roast watch";
+    return "Available now";
 }
 
 function stockAlertRowToRecord(row) {
@@ -11455,6 +11451,7 @@ module.exports = {
     renderMpgsResultPage,
     remotePushPayload,
     server,
+    stockAlertStatusFor,
     startServer,
     tierFor,
     shopifyOrderCreateInput,

@@ -231,8 +231,6 @@ enum AppLocalization {
         "creating_account": ["ar": "جارٍ إنشاء الحساب..."],
         "updating_password": ["ar": "جارٍ تحديث كلمة المرور..."],
         "signing_in": ["ar": "جارٍ تسجيل الدخول..."],
-        "watching": ["ar": "قيد المتابعة"],
-        "watch": ["ar": "متابعة"],
         "view_details": ["ar": "عرض التفاصيل"],
         "choose_options": ["ar": "اختر الخيارات"],
         "add_to_bag": ["ar": "أضف إلى السلة"],
@@ -428,8 +426,8 @@ enum AppLocalization {
         ,"recommendations_empty": ["ar": "ستظهر التوصيات هنا بعد تحميل المنتجات."]
         ,"recommendations_detail": ["ar": "مختارة من القهوة والأدوات والفئات التي تعود إليها باستمرار."]
         ,"alerts": ["ar": "التنبيهات"]
-        ,"alerts_empty": ["ar": "اضغط الجرس على أي منتج لإبقائه في قائمة المتابعة عند عودته أو عند نزول تحميص جديد."]
-        ,"alerts_detail": ["ar": "تابع الإصدارات القادمة وارجع إلى أنواع القهوة التي لا تريد أن تفوتك."]
+        ,"alerts_empty": ["ar": "اضغط «نبّهني عند التوفر» على المنتج غير المتوفر وسنخبرك عند عودته."]
+        ,"alerts_detail": ["ar": "تتحقق Talla من تغيّر التوفر الفعلي وتنبهك عند عودة المنتج المحفوظ."]
         ,"recent_alert_updates": ["ar": "آخر تحديثات التنبيهات"]
         ,"enable": ["ar": "تفعيل"]
         ,"delivery_details": ["ar": "تفاصيل التوصيل"]
@@ -577,19 +575,11 @@ enum AppLocalization {
         ,"notifications_enabled": ["ar": "تم تفعيل الإشعارات"]
         ,"notifications_not_enabled": ["ar": "لم يتم تفعيل الإشعارات"]
         ,"alerts_notifications_enabled_detail": ["ar": "الإشعارات مفعّلة لمؤقتات التحضير وتحديثات الاستلام وتنبيهات المنتجات ونشاط الحساب المهم."]
-        ,"alerts_notifications_disabled_detail": ["ar": "فعّل الإشعارات لاستلام تذكيرات المنتجات المتابعة وتحديثات الحساب المهمة."]
+        ,"alerts_notifications_disabled_detail": ["ar": "فعّل الإشعارات لاستلام تنبيهات التوفر وتحديثات الحساب المهمة."]
         ,"alerts_notifications_denied_detail": ["ar": "الإشعارات متوقفة. افتح الإعدادات لاستعادة تنبيهات المؤقت والاستلام والمنتجات."]
         ,"alerts_notifications_unavailable_detail": ["ar": "الإشعارات غير متاحة على هذا الجهاز."]
         ,"enable_notifications": ["ar": "تفعيل"]
         ,"open_settings": ["ar": "فتح الإعدادات"]
-        ,"alert_label_back_in_stock": ["ar": "تنبيه عودة التوفر"]
-        ,"alert_label_tag_watch": ["ar": "تنبيه %@"]
-        ,"alert_label_new_roast": ["ar": "تنبيه تحميصة جديدة"]
-        ,"notification_title_watchlist": ["ar": "تذكير متابعة %@"]
-        ,"notification_title_roast": ["ar": "تذكير تحميصة %@"]
-        ,"notification_body_unavailable": ["ar": "طلبت تنبيهاً عن %@. تحقق من Talla لمعرفة تحديثات التوفر."]
-        ,"notification_body_available": ["ar": "ما زلت تفكر في %@؟ التحميصة التي تتابعها بانتظارك في التطبيق."]
-        ,"alert_notification_scheduled": ["ar": "تم حفظ التنبيه وجدولة تذكير بالإشعار."]
         ,"added_to_alerts_notifications_off": ["ar": "تم حفظ التنبيه. الإشعارات غير مفعّلة."]
         ,"customer_push_title": ["ar": "إشعارات العملاء"]
         ,"customer_push_detail": ["ar": "تستخدم إشعارات العملاء رموز أجهزة APNs المحفوظة. يمكن للخادم إرسال الحملات إلى كل جهاز منح إذن الإشعارات."]
@@ -796,6 +786,10 @@ enum AppLocalization {
         ,"notifications": ["ar": "الإشعارات"]
         ,"notify_me": ["ar": "نبّهني"]
         ,"notify_when_available": ["ar": "نبّهني عند التوفر"]
+        ,"notification_on": ["ar": "التنبيه مفعّل"]
+        ,"availability_notification_enabled": ["ar": "سننبهك عندما يتوفر هذا المنتج."]
+        ,"waiting_for_availability": ["ar": "بانتظار التوفر"]
+        ,"available_now": ["ar": "متوفر الآن"]
         ,"off": ["ar": "إيقاف"]
         ,"on": ["ar": "تشغيل"]
         ,"one_journal_entry": ["ar": "ملاحظة واحدة في المجلة"]
