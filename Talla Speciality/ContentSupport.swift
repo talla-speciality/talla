@@ -82,6 +82,8 @@ enum AppLocalization {
         "payment_cash_on_delivery_sheet_subtitle": ["ar": "أكمل طلبك عبر صفحة دفع Shopify"],
         "payment_cash_on_delivery_supporting": ["ar": "متاح عندما تكون خدمة تحصيل النقد مدعومة."],
         "payment_cash_on_delivery_guidance": ["ar": "اختر الدفع عند الاستلام في صفحة دفع Shopify قبل تأكيد طلبك."],
+        "cash_on_delivery_remove_voucher": ["ar": "أزل قسيمة Talla قبل استخدام دفع Shopify حتى تبقى المبالغ المتحققة متطابقة."],
+        "cash_on_delivery_shopify_prompt": ["ar": "اختر الدفع عند الاستلام في صفحة Shopify لإتمام طلبك."],
         "payment_benefit_action": ["ar": "متابعة إلى بنفت"],
         "payment_card_action": ["ar": "إدخال بيانات البطاقة"],
         "payment_cash_on_delivery_action": ["ar": "المتابعة بالدفع عند الاستلام"],
@@ -97,6 +99,8 @@ enum AppLocalization {
         "payment_failed_detail": ["ar": "تحقق من بياناتك أو جرّب طريقة دفع أخرى."],
         "payment_terms_reassurance": ["ar": "بالمتابعة، أنت توافق على إجمالي الطلب الموضح أعلاه. لا تحفظ Talla بيانات بطاقتك."],
         "pay_with_benefitpay": ["ar": "الدفع عبر BenefitPay"],
+        "benefitpay": ["ar": "BenefitPay"],
+        "benefitpay_sdk_unavailable": ["ar": "BenefitPay غير متاح على هذا الجهاز."],
         "benefitpay_amount_format": ["ar": "%@ د.ب"],
         "benefitpay_continue_detail": ["ar": "تابع في تطبيق BenefitPay. تتحقق Talla من العملية مع BenefitPay قبل إكمال طلبك."],
         "card_payment": ["ar": "الدفع بالبطاقة"],
@@ -572,11 +576,12 @@ enum AppLocalization {
         ,"added_to_alerts": ["ar": "تمت الإضافة إلى التنبيهات"]
         ,"notifications_enabled": ["ar": "تم تفعيل الإشعارات"]
         ,"notifications_not_enabled": ["ar": "لم يتم تفعيل الإشعارات"]
-        ,"alerts_notifications_enabled_detail": ["ar": "تنبيهات المنتجات وتحديثات الحساب مفعّلة."]
+        ,"alerts_notifications_enabled_detail": ["ar": "الإشعارات مفعّلة لمؤقتات التحضير وتحديثات الاستلام وتنبيهات المنتجات ونشاط الحساب المهم."]
         ,"alerts_notifications_disabled_detail": ["ar": "فعّل الإشعارات لاستلام تذكيرات المنتجات المتابعة وتحديثات الحساب المهمة."]
-        ,"alerts_notifications_denied_detail": ["ar": "الإشعارات متوقفة. فعّلها من الإعدادات لاستلام تنبيهات المنتجات."]
+        ,"alerts_notifications_denied_detail": ["ar": "الإشعارات متوقفة. افتح الإعدادات لاستعادة تنبيهات المؤقت والاستلام والمنتجات."]
         ,"alerts_notifications_unavailable_detail": ["ar": "الإشعارات غير متاحة على هذا الجهاز."]
         ,"enable_notifications": ["ar": "تفعيل"]
+        ,"open_settings": ["ar": "فتح الإعدادات"]
         ,"alert_label_back_in_stock": ["ar": "تنبيه عودة التوفر"]
         ,"alert_label_tag_watch": ["ar": "تنبيه %@"]
         ,"alert_label_new_roast": ["ar": "تنبيه تحميصة جديدة"]
@@ -803,6 +808,7 @@ enum AppLocalization {
         ,"order_status_received": ["ar": "تم استلام الطلب"]
         ,"pickup_ready_title": ["ar": "جاهز للاستلام من Talla"]
         ,"pickup_address": ["ar": "فيلا 336، طريق 1307، الرفاع 913"]
+        ,"pickup_ready_now": ["ar": "الاستلام متاح الآن"]
         ,"open_directions": ["ar": "فتح الاتجاهات"]
         ,"order_step_on_the_way": ["ar": "في الطريق"]
         ,"order_step_packed": ["ar": "تم التغليف"]
@@ -846,6 +852,15 @@ enum AppLocalization {
         ,"refresh": ["ar": "تحديث"]
         ,"refreshing": ["ar": "جارٍ التحديث..."]
         ,"bluetooth_scale": ["ar": "ميزان Bluetooth"]
+        ,"brew_scale": ["ar": "ميزان التحضير"]
+        ,"add_bluetooth_scale": ["ar": "أضف ميزان Bluetooth"]
+        ,"manage_bluetooth_scale": ["ar": "إدارة ميزان Bluetooth المتصل"]
+        ,"scale_ready_live": ["ar": "جاهز للوزن والتدفق والتصفير المباشر"]
+        ,"scale_optional": ["ar": "اختياري · يعمل التحضير الموجّه بدونه"]
+        ,"scale_optional_hint": ["ar": "اختياري. يعمل التحضير الموجّه أيضاً بدون ميزان."]
+        ,"scale_connected_live": ["ar": "متصل · الوزن المباشر جاهز"]
+        ,"scale_connect_live": ["ar": "اتصل لعرض الوزن والتدفق مباشرة"]
+        ,"connect": ["ar": "اتصال"]
         ,"nearby_scales": ["ar": "الموازين القريبة"]
         ,"brew_companion": ["ar": "مساعد التحضير"]
         ,"live_measurements_less_guesswork": ["ar": "قياسات مباشرة، وتخمين أقل"]

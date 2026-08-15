@@ -136,7 +136,7 @@ struct BenefitPayCheckoutSheet: View {
             }
             .padding(24)
             .background(Color(red: 0.98, green: 0.965, blue: 0.935).ignoresSafeArea())
-            .navigationTitle("BenefitPay")
+            .navigationTitle(AppLocalization.text("benefitpay", fallback: "BenefitPay"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -202,7 +202,7 @@ struct BenefitPayCheckoutSheet: View {
     let onCancel: () -> Void
 
     var body: some View {
-        Text("BenefitPay SDK is unavailable.")
+        Text(AppLocalization.text("benefitpay_sdk_unavailable", fallback: "BenefitPay is unavailable on this device."))
     }
 }
 

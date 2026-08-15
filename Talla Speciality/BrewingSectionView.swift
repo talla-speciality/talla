@@ -640,7 +640,7 @@ struct BrewingSectionView: View {
 
     private var brewScaleConnectionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            brewSectionLabel("Brew scale")
+            brewSectionLabel(AppLocalization.text("brew_scale", fallback: "Brew scale"))
 
             Button {
                 isHomeScalePickerPresented = true
@@ -670,14 +670,14 @@ struct BrewingSectionView: View {
                     .frame(width: 46, height: 46)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(scaleManager.connectedScaleName ?? "Add a Bluetooth scale")
+                        Text(scaleManager.connectedScaleName ?? AppLocalization.text("add_bluetooth_scale", fallback: "Add a Bluetooth scale"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(brewPrimaryTextColor)
                             .lineLimit(1)
 
                         Text(scaleManager.isConnected
-                             ? "Ready for live weight, flow and tare"
-                             : "Optional · guided brewing works without one")
+                             ? AppLocalization.text("scale_ready_live", fallback: "Ready for live weight, flow and tare")
+                             : AppLocalization.text("scale_optional", fallback: "Optional · guided brewing works without one"))
                             .font(.system(size: 12, weight: .regular))
                             .foregroundColor(brewSecondaryTextColor)
                             .lineLimit(2)
@@ -703,8 +703,10 @@ struct BrewingSectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(scaleManager.isConnected ? "Manage connected Bluetooth scale" : "Add a Bluetooth scale")
-            .accessibilityHint("Optional. Guided brewing also works without a scale.")
+            .accessibilityLabel(scaleManager.isConnected
+                ? AppLocalization.text("manage_bluetooth_scale", fallback: "Manage connected Bluetooth scale")
+                : AppLocalization.text("add_bluetooth_scale", fallback: "Add a Bluetooth scale"))
+            .accessibilityHint(AppLocalization.text("scale_optional_hint", fallback: "Optional. Guided brewing also works without a scale."))
         }
     }
 
@@ -5360,11 +5362,13 @@ struct BrewingSectionView: View {
                 .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewSecondaryTextColor)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(scaleManager.connectedScaleName ?? "Bluetooth Scale")
+                Text(scaleManager.connectedScaleName ?? AppLocalization.text("bluetooth_scale", fallback: "Bluetooth Scale"))
                     .font(Font.custom("AvenirNext-DemiBold", size: 14))
                     .foregroundColor(brewPrimaryTextColor)
 
-                Text(scaleManager.isConnected ? "Connected · live weight ready" : "Connect for live weight and flow")
+                Text(scaleManager.isConnected
+                    ? AppLocalization.text("scale_connected_live", fallback: "Connected · live weight ready")
+                    : AppLocalization.text("scale_connect_live", fallback: "Connect for live weight and flow"))
                     .font(Font.custom("AvenirNext-Regular", size: 12))
                     .foregroundColor(brewSecondaryTextColor)
             }
@@ -5372,14 +5376,14 @@ struct BrewingSectionView: View {
             Spacer(minLength: 8)
 
             if scaleManager.isConnected {
-                Button("Tare") {
+                Button(AppLocalization.text("tare", fallback: "Tare")) {
                     scaleManager.tare()
                     brewStepHaptic(strong: false)
                 }
                 .font(Font.custom("AvenirNext-DemiBold", size: 13))
                 .foregroundColor(brewAccentColor)
             } else {
-                Button("Connect") {
+                Button(AppLocalization.text("connect", fallback: "Connect")) {
                     isScalePickerPresented = true
                 }
                 .font(Font.custom("AvenirNext-DemiBold", size: 13))

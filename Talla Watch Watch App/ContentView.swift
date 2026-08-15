@@ -7,6 +7,10 @@ import WatchKit
 import WatchConnectivity
 #endif
 
+private func watchText(_ english: String, arabic: String) -> String {
+    Locale.current.language.languageCode?.identifier == "ar" ? arabic : english
+}
+
 struct WatchBrewStep: Identifiable, Equatable {
     let id: Int
     let time: Int
@@ -27,43 +31,43 @@ struct WatchBrewRecipe {
             WatchBrewStep(
                 id: 0,
                 time: 0,
-                title: "Prepare your bed",
-                detail: "Level the coffee, start the timer, and get ready to bloom.",
+                title: watchText("Prepare your bed", arabic: "جهّز سطح القهوة"),
+                detail: watchText("Level the coffee, start the timer, and get ready to bloom.", arabic: "سوِّ سطح القهوة، ابدأ المؤقت، واستعد للتفتح."),
                 waterTarget: nil
             ),
             WatchBrewStep(
                 id: 1,
                 time: 10,
-                title: "Pour to 60 g",
-                detail: "Bloom evenly and let the coffee open.",
+                title: watchText("Pour to 60 g", arabic: "اسكب حتى 60 غ"),
+                detail: watchText("Bloom evenly and let the coffee open.", arabic: "بلّل القهوة بالتساوي واتركها تتفتح."),
                 waterTarget: 60
             ),
             WatchBrewStep(
                 id: 2,
                 time: 45,
-                title: "Continue to 180 g",
-                detail: "Pour slowly from the centre outward.",
+                title: watchText("Continue to 180 g", arabic: "تابع حتى 180 غ"),
+                detail: watchText("Pour slowly from the centre outward.", arabic: "اسكب ببطء من الوسط إلى الخارج."),
                 waterTarget: 180
             ),
             WatchBrewStep(
                 id: 3,
                 time: 90,
-                title: "Finish at 320 g",
-                detail: "Keep the stream steady and avoid the paper edge.",
+                title: watchText("Finish at 320 g", arabic: "أنهِ عند 320 غ"),
+                detail: watchText("Keep the stream steady and avoid the paper edge.", arabic: "حافظ على تدفق ثابت وتجنب حافة الورق."),
                 waterTarget: 320
             ),
             WatchBrewStep(
                 id: 4,
                 time: 150,
-                title: "Drawdown",
-                detail: "Let the bed drain flat and clean.",
+                title: watchText("Drawdown", arabic: "التصفية"),
+                detail: watchText("Let the bed drain flat and clean.", arabic: "اترك سطح القهوة يصفّي بشكل متساوٍ ونظيف."),
                 waterTarget: 320
             ),
             WatchBrewStep(
                 id: 5,
                 time: 210,
-                title: "Brew ready",
-                detail: "Your brew is ready. Enjoy it slowly.",
+                title: watchText("Brew ready", arabic: "التحضير جاهز"),
+                detail: watchText("Your brew is ready. Enjoy it slowly.", arabic: "قهوتك جاهزة. استمتع بها على مهل."),
                 waterTarget: 320
             )
         ]
@@ -74,7 +78,7 @@ struct TallaWatchSnapshot {
     var email: String = ""
     var points: Int = 0
     var tier: String = "Bronze"
-    var nextReward: String = "Open Talla on iPhone to check rewards"
+    var nextReward: String = watchText("Open Talla on iPhone to check rewards", arabic: "افتح Talla على iPhone لعرض المكافآت")
     var memberID: String = ""
     var favoriteCount: Int = 0
     var recentCount: Int = 0
@@ -86,7 +90,7 @@ struct TallaWatchSnapshot {
     }
 
     var displayEmail: String {
-        guard isSignedIn else { return "Connect Talla" }
+        guard isSignedIn else { return watchText("Connect Talla", arabic: "اربط Talla") }
         return email
     }
 
@@ -108,9 +112,9 @@ struct TallaWatchSnapshot {
 @MainActor
 final class TallaWatchStore: NSObject {
     var snapshot = TallaWatchSnapshot()
-    var statusText = "Open Talla on your iPhone and sign in to sync."
+    var statusText = watchText("Open Talla on your iPhone and sign in to sync.", arabic: "افتح Talla على iPhone وسجّل الدخول للمزامنة.")
     var isSyncing = false
-    var lastActionText = "Ready"
+    var lastActionText = watchText("Ready", arabic: "جاهز")
 
 #if canImport(WatchConnectivity)
     private var session: WCSession? {
@@ -142,17 +146,17 @@ final class TallaWatchStore: NSObject {
     func refresh() {
 #if canImport(WatchConnectivity)
         guard let session else {
-            statusText = "Watch sync is unavailable."
+            statusText = watchText("Watch sync is unavailable.", arabic: "مزامنة الساعة غير متاحة.")
             return
         }
 
         isSyncing = true
-        lastActionText = "Syncing"
+        lastActionText = watchText("Syncing", arabic: "جارٍ المزامنة")
 
         guard session.isReachable else {
             isSyncing = false
-            statusText = "Open Talla on your iPhone and sign in to sync."
-            lastActionText = "Connect Talla"
+            statusText = watchText("Open Talla on your iPhone and sign in to sync.", arabic: "افتح Talla على iPhone وسجّل الدخول للمزامنة.")
+            lastActionText = watchText("Connect Talla", arabic: "اربط Talla")
             return
         }
 
@@ -160,44 +164,44 @@ final class TallaWatchStore: NSObject {
             Task { @MainActor in
                 self?.apply(reply)
                 self?.isSyncing = false
-                self?.statusText = "Synced from iPhone."
-                self?.lastActionText = "Synced"
+                self?.statusText = watchText("Synced from iPhone.", arabic: "تمت المزامنة من iPhone.")
+                self?.lastActionText = watchText("Synced", arabic: "تمت المزامنة")
             }
         }, errorHandler: { [weak self] _ in
             Task { @MainActor in
                 self?.isSyncing = false
-                self?.statusText = "Could not reach iPhone."
-                self?.lastActionText = "Sync failed"
+                self?.statusText = watchText("Could not reach iPhone.", arabic: "تعذر الاتصال بـ iPhone.")
+                self?.lastActionText = watchText("Sync failed", arabic: "فشلت المزامنة")
             }
         })
 #else
-        statusText = "Watch sync is unavailable."
+        statusText = watchText("Watch sync is unavailable.", arabic: "مزامنة الساعة غير متاحة.")
 #endif
     }
 
     func openOnPhone(_ destination: String) {
 #if canImport(WatchConnectivity)
         guard let session, session.isReachable else {
-            statusText = "Open Talla on your iPhone and sign in to sync."
-            lastActionText = "Connect Talla"
+            statusText = watchText("Open Talla on your iPhone and sign in to sync.", arabic: "افتح Talla على iPhone وسجّل الدخول للمزامنة.")
+            lastActionText = watchText("Connect Talla", arabic: "اربط Talla")
             return
         }
 
-        lastActionText = "Opening"
+        lastActionText = watchText("Opening", arabic: "جارٍ الفتح")
         session.sendMessage(["open": destination], replyHandler: { [weak self] reply in
             Task { @MainActor in
                 self?.apply(reply)
-                self?.statusText = "Sent to iPhone."
-                self?.lastActionText = "Sent"
+                self?.statusText = watchText("Sent to iPhone.", arabic: "تم الإرسال إلى iPhone.")
+                self?.lastActionText = watchText("Sent", arabic: "تم الإرسال")
             }
         }, errorHandler: { [weak self] _ in
             Task { @MainActor in
-                self?.statusText = "Could not open iPhone app."
-                self?.lastActionText = "Failed"
+                self?.statusText = watchText("Could not open iPhone app.", arabic: "تعذر فتح التطبيق على iPhone.")
+                self?.lastActionText = watchText("Failed", arabic: "فشل")
             }
         })
 #else
-        statusText = "Watch sync is unavailable."
+        statusText = watchText("Watch sync is unavailable.", arabic: "مزامنة الساعة غير متاحة.")
 #endif
     }
 
@@ -212,8 +216,8 @@ final class TallaWatchStore: NSObject {
     ) {
 #if canImport(WatchConnectivity)
         guard let session, session.isReachable else {
-            statusText = "Open Talla on iPhone to show this brew as a Live Activity."
-            lastActionText = "Live Activity waiting"
+            statusText = watchText("Open Talla on iPhone to show this brew as a Live Activity.", arabic: "افتح Talla على iPhone لعرض التحضير كنشاط مباشر.")
+            lastActionText = watchText("Live Activity waiting", arabic: "بانتظار النشاط المباشر")
             return
         }
 
@@ -226,7 +230,7 @@ final class TallaWatchStore: NSObject {
             "totalSeconds": recipe.totalSeconds,
             "elapsedSeconds": elapsedSeconds,
             "currentStep": currentStep.title,
-            "nextStep": nextStep?.title ?? "Your brew is ready. Enjoy it slowly.",
+            "nextStep": nextStep?.title ?? watchText("Your brew is ready. Enjoy it slowly.", arabic: "قهوتك جاهزة. استمتع بها على مهل."),
             "currentWaterGrams": Double(currentWaterGrams),
             "isPaused": isPaused,
             "stepTimes": recipe.steps.map(\.time),
@@ -239,19 +243,19 @@ final class TallaWatchStore: NSObject {
                 self?.apply(reply)
                 if let status = reply["brewActivityStatus"] as? String {
                     self?.statusText = status == "started" || status == "updated"
-                        ? "Brew Live Activity is running on iPhone."
-                        : "Brew Live Activity status: \(status)."
-                    self?.lastActionText = "Live Activity"
+                        ? watchText("Brew Live Activity is running on iPhone.", arabic: "نشاط التحضير المباشر يعمل على iPhone.")
+                        : watchText("Brew Live Activity status: \(status).", arabic: "حالة نشاط التحضير المباشر: \(status).")
+                    self?.lastActionText = watchText("Live Activity", arabic: "نشاط مباشر")
                 }
             }
         }, errorHandler: { [weak self] _ in
             Task { @MainActor in
-                self?.statusText = "Open Talla on iPhone to show this brew as a Live Activity."
-                self?.lastActionText = "Live Activity waiting"
+                self?.statusText = watchText("Open Talla on iPhone to show this brew as a Live Activity.", arabic: "افتح Talla على iPhone لعرض التحضير كنشاط مباشر.")
+                self?.lastActionText = watchText("Live Activity waiting", arabic: "بانتظار النشاط المباشر")
             }
         })
 #else
-        statusText = "Watch sync is unavailable."
+        statusText = watchText("Watch sync is unavailable.", arabic: "مزامنة الساعة غير متاحة.")
 #endif
     }
 
@@ -260,7 +264,7 @@ final class TallaWatchStore: NSObject {
             email: payload["email"] as? String ?? "",
             points: payload["points"] as? Int ?? 0,
             tier: payload["tier"] as? String ?? "Bronze",
-            nextReward: payload["nextReward"] as? String ?? "Open Talla on iPhone to check rewards",
+            nextReward: payload["nextReward"] as? String ?? watchText("Open Talla on iPhone to check rewards", arabic: "افتح Talla على iPhone لعرض المكافآت"),
             memberID: payload["memberID"] as? String ?? "",
             favoriteCount: payload["favoriteCount"] as? Int ?? 0,
             recentCount: payload["recentCount"] as? Int ?? 0,
@@ -279,8 +283,8 @@ extension TallaWatchStore: WCSessionDelegate {
     ) {
         Task { @MainActor in
             if error != nil {
-                statusText = "Open Talla on your iPhone and sign in to sync."
-                lastActionText = "Connect Talla"
+                statusText = watchText("Open Talla on your iPhone and sign in to sync.", arabic: "افتح Talla على iPhone وسجّل الدخول للمزامنة.")
+                lastActionText = watchText("Connect Talla", arabic: "اربط Talla")
             } else {
                 refresh()
             }
@@ -305,7 +309,7 @@ struct ContentView: View {
                         rewardHero
                         continueBrewCard
                         watchPrimaryActions
-                        secondaryRowAction("Open Talla on iPhone", icon: "iphone", destination: "home")
+                        secondaryRowAction(watchText("Open Talla on iPhone", arabic: "افتح Talla على iPhone"), icon: "iphone", destination: "home")
                         syncFooter
                     } else {
                         continueBrewCard
@@ -340,6 +344,7 @@ struct ContentView: View {
                         }
                     }
                     .disabled(store.isSyncing)
+                    .accessibilityLabel(watchText("Refresh", arabic: "تحديث"))
                 }
             }
         }
@@ -357,7 +362,7 @@ struct ContentView: View {
                     .background(Color.white.opacity(0.08), in: Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Continue Last Brew")
+                    Text(watchText("Continue Last Brew", arabic: "تابع آخر تحضير"))
                         .font(.system(size: 12, weight: .black))
                         .foregroundStyle(.primary)
                     Text("\(watchBrewRecipe.methodName) · \(watchBrewRecipe.coffeeAmount) g · 1:\(watchBrewRecipe.ratio)")
@@ -390,7 +395,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("TALLA")
                     .font(.system(size: 18, weight: .black, design: .serif))
-                Text(store.snapshot.isSignedIn ? store.snapshot.tier : "Connect Talla")
+                Text(store.snapshot.isSignedIn ? store.snapshot.tier : watchText("Connect Talla", arabic: "اربط Talla"))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -407,7 +412,9 @@ struct ContentView: View {
             Circle()
                 .fill(store.canReachPhone ? .green : .orange)
                 .frame(width: 6, height: 6)
-            Text(store.snapshot.isSignedIn ? (store.canReachPhone ? "Live" : "Phone") : "Connect")
+            Text(store.snapshot.isSignedIn
+                ? (store.canReachPhone ? watchText("Live", arabic: "مباشر") : watchText("Phone", arabic: "الهاتف"))
+                : watchText("Connect", arabic: "اتصال"))
                 .font(.system(size: 9, weight: .bold))
         }
         .padding(.horizontal, 7)
@@ -432,14 +439,16 @@ struct ContentView: View {
                 .frame(width: 66, height: 66)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("The Talla Club")
+                    Text(watchText("The Talla Club", arabic: "نادي Talla"))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(accent)
-                    Text("\(store.snapshot.points) Beans")
+                    Text(watchText("\(store.snapshot.points) Beans", arabic: "\(store.snapshot.points) حبة"))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.primary)
                         .lineLimit(3)
-                    Text(store.snapshot.beansToNextReward == 0 ? "Reward ready" : "\(store.snapshot.beansToNextReward) Beans to your next reward")
+                    Text(store.snapshot.beansToNextReward == 0
+                        ? watchText("Reward ready", arabic: "المكافأة جاهزة")
+                        : watchText("\(store.snapshot.beansToNextReward) Beans to your next reward", arabic: "\(store.snapshot.beansToNextReward) حبة حتى مكافأتك التالية"))
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
@@ -466,12 +475,15 @@ struct ContentView: View {
                     .frame(width: 32, height: 32)
                     .background(accent, in: Circle())
 
-                Text("Connect Talla")
+                Text(watchText("Connect Talla", arabic: "اربط Talla"))
                     .font(.system(size: 15, weight: .black, design: .serif))
                     .lineLimit(1)
             }
 
-            Text("Open Talla on your iPhone and sign in to sync rewards, saved items, and orders.")
+            Text(watchText(
+                "Open Talla on your iPhone and sign in to sync rewards, saved items, and orders.",
+                arabic: "افتح Talla على iPhone وسجّل الدخول لمزامنة المكافآت والعناصر المحفوظة والطلبات."
+            ))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -480,7 +492,7 @@ struct ContentView: View {
                 store.openOnPhone("account")
             } label: {
                 HStack(spacing: 6) {
-                    Text("Open on iPhone")
+                    Text(watchText("Open on iPhone", arabic: "افتح على iPhone"))
                     Spacer(minLength: 0)
                     Image(systemName: "arrow.up.forward")
                 }
@@ -504,10 +516,10 @@ struct ContentView: View {
 
     private var watchPrimaryActions: some View {
         HStack(spacing: 7) {
-            localCompactAction("Brew", icon: "drop.fill") {
+            localCompactAction(watchText("Brew", arabic: "تحضير"), icon: "drop.fill") {
                 isBrewPresented = true
             }
-            compactAction("Shelf", icon: "books.vertical.fill", destination: "shelf")
+            compactAction(watchText("Shelf", arabic: "المحفوظات"), icon: "books.vertical.fill", destination: "shelf")
         }
     }
 
@@ -632,7 +644,7 @@ struct WatchBrewSessionView: View {
                     progressTimer(elapsed: elapsed, progress: progress)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Water target")
+                        Text(watchText("Water target", arabic: "هدف الماء"))
                             .font(.system(size: 9, weight: .black))
                             .foregroundStyle(accent)
                         Text("\(waterTarget) / \(recipe.totalWater) g")
@@ -644,7 +656,7 @@ struct WatchBrewSessionView: View {
 
                     if let nextStep {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Next")
+                            Text(watchText("Next", arabic: "التالي"))
                                 .font(.system(size: 9, weight: .black))
                                 .foregroundStyle(accent)
                             Text("\(nextStep.title) at \(formattedTime(nextStep.time))")
@@ -691,7 +703,7 @@ struct WatchBrewSessionView: View {
     private func sessionHeader(elapsed: Int) -> some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Guided Brew")
+                Text(watchText("Guided Brew", arabic: "تحضير موجّه"))
                     .font(.system(size: 10, weight: .black))
                     .foregroundStyle(accent)
                 Text(recipe.methodName)
@@ -713,6 +725,7 @@ struct WatchBrewSessionView: View {
             .buttonStyle(.bordered)
             .tint(.secondary)
             .disabled(isRunning && elapsed < recipe.totalSeconds)
+            .accessibilityLabel(watchText("Close brew", arabic: "إغلاق التحضير"))
         }
     }
 
@@ -732,9 +745,14 @@ struct WatchBrewSessionView: View {
             .frame(width: 86, height: 86)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(elapsed >= recipe.totalSeconds ? "Done" : (isRunning ? "Brewing" : "Paused"))
+                Text(elapsed >= recipe.totalSeconds
+                    ? watchText("Done", arabic: "اكتمل")
+                    : (isRunning ? watchText("Brewing", arabic: "جارٍ التحضير") : watchText("Paused", arabic: "متوقف مؤقتاً")))
                     .font(.system(size: 12, weight: .black))
-                Text("\(formattedTime(recipe.totalSeconds - min(elapsed, recipe.totalSeconds))) remaining")
+                Text(watchText(
+                    "\(formattedTime(recipe.totalSeconds - min(elapsed, recipe.totalSeconds))) remaining",
+                    arabic: "متبقي \(formattedTime(recipe.totalSeconds - min(elapsed, recipe.totalSeconds)))"
+                ))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
@@ -747,7 +765,10 @@ struct WatchBrewSessionView: View {
                 Button {
                     togglePause(elapsed: elapsed)
                 } label: {
-                    Label(isRunning ? "Pause" : "Resume", systemImage: isRunning ? "pause.fill" : "play.fill")
+                    Label(
+                        isRunning ? watchText("Pause", arabic: "إيقاف مؤقت") : watchText("Resume", arabic: "متابعة"),
+                        systemImage: isRunning ? "pause.fill" : "play.fill"
+                    )
                         .font(.system(size: 11, weight: .bold))
                         .frame(maxWidth: .infinity)
                 }
@@ -765,13 +786,14 @@ struct WatchBrewSessionView: View {
                 .buttonStyle(.bordered)
                 .tint(accent)
                 .disabled(elapsed >= recipe.totalSeconds)
+                .accessibilityLabel(watchText("Skip step", arabic: "تخطي الخطوة"))
             }
 
             HStack(spacing: 7) {
                 Button {
                     restart()
                 } label: {
-                    Label("Restart", systemImage: "arrow.counterclockwise")
+                    Label(watchText("Restart", arabic: "إعادة البدء"), systemImage: "arrow.counterclockwise")
                         .font(.system(size: 10, weight: .bold))
                         .frame(maxWidth: .infinity)
                 }
@@ -790,7 +812,7 @@ struct WatchBrewSessionView: View {
                     )
                     dismiss()
                 } label: {
-                    Text("End")
+                    Text(watchText("End", arabic: "إنهاء"))
                         .font(.system(size: 10, weight: .bold))
                         .frame(maxWidth: .infinity)
                 }

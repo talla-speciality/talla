@@ -606,7 +606,6 @@ struct ContentView: View {
     @AppStorage("app.appearanceMode") private var savedAppearanceMode = AppearanceMode.system.rawValue
     @AppStorage("app.hasSeenWelcome") private var hasSeenWelcome = false
     @AppStorage("app.hasSeenFeatureTour") private var hasSeenFeatureTour = false
-    @AppStorage("app.hasAskedInitialNotificationPermission") private var hasAskedInitialNotificationPermission = false
     @AppStorage("app.reviewLaunchCount") private var reviewLaunchCount = 0
     @AppStorage("app.reviewLastPromptAt") private var reviewLastPromptAt = 0.0
     @AppStorage("payment.activeEazyShopifyID") private var activeEazyShopifyPaymentID = ""
@@ -1197,6 +1196,15 @@ struct ContentView: View {
 #if canImport(UserNotifications)
         notificationAuthorizationStatus == UNAuthorizationStatus.authorized.rawValue
             || notificationAuthorizationStatus == UNAuthorizationStatus.provisional.rawValue
+            || notificationAuthorizationStatus == UNAuthorizationStatus.ephemeral.rawValue
+#else
+        false
+#endif
+    }
+
+    private var notificationAccessDenied: Bool {
+#if canImport(UserNotifications)
+        notificationAuthorizationStatus == UNAuthorizationStatus.denied.rawValue
 #else
         false
 #endif
@@ -1205,10 +1213,10 @@ struct ContentView: View {
     private var notificationStatusMessage: String {
 #if canImport(UserNotifications)
         switch UNAuthorizationStatus(rawValue: notificationAuthorizationStatus) {
-        case .authorized, .provisional:
-            return AppLocalization.text("alerts_notifications_enabled_detail", fallback: "Push alerts are enabled for watched products and account updates.")
+        case .authorized, .provisional, .ephemeral:
+            return AppLocalization.text("alerts_notifications_enabled_detail", fallback: "Notifications are enabled for brew timers, pickup updates, watched products, and important account activity.")
         case .denied:
-            return AppLocalization.text("alerts_notifications_denied_detail", fallback: "Notifications are off. Turn them on in Settings to receive product alerts.")
+            return AppLocalization.text("alerts_notifications_denied_detail", fallback: "Notifications are off. Open Settings to restore brew-timer, pickup, and product alerts.")
         default:
             return AppLocalization.text("alerts_notifications_disabled_detail", fallback: "Enable notifications to receive reminders for watched products and important account updates.")
         }
@@ -1217,9 +1225,9 @@ struct ContentView: View {
 #endif
     }
 
-    private var canRequestNotificationAccess: Bool {
+    private var canManageNotificationAccess: Bool {
 #if canImport(UserNotifications)
-        UNAuthorizationStatus(rawValue: notificationAuthorizationStatus) != .denied && !notificationsEnabled
+        !notificationsEnabled
 #else
         false
 #endif
@@ -1664,7 +1672,6 @@ struct ContentView: View {
             showLaunchSplash = false
         }
 
-        await requestInitialNotificationAccessIfNeeded()
         recordLaunchAndRequestReviewIfReady()
         handleShortcutDestination()
     }
@@ -5986,13 +5993,19 @@ struct ContentView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
-                Task {
-                    await requestNotificationAccess()
+                if notificationAccessDenied {
+                    openNotificationSettings()
+                } else {
+                    Task {
+                        await requestNotificationAccess()
+                    }
                 }
             } label: {
                 Text(notificationsEnabled
                     ? AppLocalization.text("notifications_enabled", fallback: "Notifications enabled")
-                    : AppLocalization.text("enable_notifications", fallback: "Enable Notifications"))
+                    : (notificationAccessDenied
+                        ? AppLocalization.text("open_settings", fallback: "Open Settings")
+                        : AppLocalization.text("enable_notifications", fallback: "Enable Notifications")))
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(1.6)
                     .textCase(.uppercase)
@@ -6003,7 +6016,7 @@ struct ContentView: View {
                     .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
-            .disabled(!canRequestNotificationAccess)
+            .disabled(!canManageNotificationAccess)
         }
         .padding(16)
         .background(cardFillColor)
@@ -6012,6 +6025,13 @@ struct ContentView: View {
                 .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func openNotificationSettings() {
+#if canImport(UIKit)
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(settingsURL)
+#endif
     }
 
     private var deleteAccountSettingsCard: some View {
@@ -10534,7 +10554,7 @@ struct ContentView: View {
 #if canImport(UserNotifications)
         let status = await ProductAlertNotificationService.authorizationStatus()
         notificationAuthorizationStatus = status.rawValue
-        if status == .authorized || status == .provisional {
+        if status == .authorized || status == .provisional || status == .ephemeral {
             registerForRemoteNotifications()
         }
 #endif
@@ -10555,36 +10575,13 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func requestInitialNotificationAccessIfNeeded() async {
-#if canImport(UserNotifications)
-        guard !hasAskedInitialNotificationPermission else { return }
-
-        let status = await ProductAlertNotificationService.authorizationStatus()
-        notificationAuthorizationStatus = status.rawValue
-        guard status == .notDetermined else {
-            hasAskedInitialNotificationPermission = true
-            return
-        }
-
-        hasAskedInitialNotificationPermission = true
-        let granted = await ProductAlertNotificationService.requestAuthorization()
-        await refreshNotificationStatus()
-
-        if granted {
-            registerForRemoteNotifications()
-            await syncRemotePushTokenIfPossible()
-        }
-#endif
-    }
-
-    @MainActor
     private func requestNotificationAccessIfNeeded() async -> Bool {
 #if canImport(UserNotifications)
         let status = await ProductAlertNotificationService.authorizationStatus()
         notificationAuthorizationStatus = status.rawValue
 
         switch status {
-        case .authorized, .provisional:
+        case .authorized, .provisional, .ephemeral:
             registerForRemoteNotifications()
             await syncRemotePushTokenIfPossible()
             return true
@@ -10643,6 +10640,7 @@ struct ContentView: View {
         let status = notificationAuthorizationStatus
         let notificationsEnabled = status == UNAuthorizationStatus.authorized.rawValue
             || status == UNAuthorizationStatus.provisional.rawValue
+            || status == UNAuthorizationStatus.ephemeral.rawValue
         guard notificationsEnabled else { return }
 
         let email = (customerProfile?.email ?? savedCustomerEmail)
@@ -10908,7 +10906,12 @@ struct ContentView: View {
         do {
             if selectedPaymentMethod.route == .shopifyCashOnDelivery {
                 guard appliedVoucher == nil else {
-                    throw LoyaltyServiceError.operationFailed("Remove the Talla voucher before using Shopify Checkout so the verified totals stay identical.")
+                    throw LoyaltyServiceError.operationFailed(
+                        AppLocalization.text(
+                            "cash_on_delivery_remove_voucher",
+                            fallback: "Remove the Talla voucher before using Shopify Checkout so the verified totals stay identical."
+                        )
+                    )
                 }
                 let lines = cartItems.map { ShopifyCheckoutLine(merchandiseId: $0.variant.id, quantity: $0.quantity) }
                 let checkoutAddress = preferredAddress.map { address in
@@ -10929,7 +10932,10 @@ struct ContentView: View {
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
                 checkoutSession = CheckoutSession(url: checkoutURL)
-                showToast(message: "Choose Cash on Delivery in Shopify Checkout to place your order.")
+                showToast(message: AppLocalization.text(
+                    "cash_on_delivery_shopify_prompt",
+                    fallback: "Choose Cash on Delivery in Shopify Checkout to place your order."
+                ))
                 isCheckingOut = false
                 return
             }

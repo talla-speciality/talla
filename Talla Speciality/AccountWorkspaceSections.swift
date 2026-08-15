@@ -283,7 +283,7 @@ struct OrderHistorySectionView: View {
                                 .font(Font.custom("AvenirNext-Bold", size: 12))
                                 .foregroundColor(primaryTextColor)
 
-                            Text(String(format: AppLocalization.text("estimated_delivery_format", fallback: "Estimated delivery: %@"), estimatedDeliveryLabel(for: order)))
+                            Text(orderTimingLabel(for: order))
                                 .font(Font.custom("AvenirNext-Regular", size: 12))
                                 .foregroundColor(secondaryTextColor)
                         }
@@ -497,7 +497,7 @@ struct OrderHistorySectionView: View {
 
     private func orderProgressRow(status: String) -> some View {
         let currentIndex = orderStatusStepIndex(status)
-        let steps = orderStatusSteps
+        let steps = orderStatusSteps(for: status)
 
         return VStack(alignment: .leading, spacing: 10) {
             GeometryReader { proxy in
@@ -564,14 +564,20 @@ struct OrderHistorySectionView: View {
         .accessibilityValue(orderStatusTitle(status))
     }
 
-    private var orderStatusSteps: [(key: String, title: String)] {
-        [
+    private func orderStatusSteps(for status: String) -> [(key: String, title: String)] {
+        var steps = [
             ("received", AppLocalization.text("order_step_received", fallback: "Received")),
             ("roasting", AppLocalization.text("order_step_roasting", fallback: "Roasting")),
             ("resting", AppLocalization.text("order_step_resting", fallback: "Resting")),
             ("packed", AppLocalization.text("order_step_packed", fallback: "Packed")),
             ("on-the-way", AppLocalization.text("order_step_on_the_way", fallback: "On its way"))
         ]
+
+        if isReadyForPickup(status: status) {
+            steps[4] = ("pickup-ready", AppLocalization.text("order_status_ready_pickup", fallback: "Ready for pickup"))
+        }
+
+        return steps
     }
 
     private func orderStatusStepIndex(_ status: String) -> Int {
@@ -580,9 +586,9 @@ struct OrderHistorySectionView: View {
             return 1
         case "resting":
             return 2
-        case "ready", "packed":
+        case "packed":
             return 3
-        case "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered":
+        case "ready", "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered":
             return 4
         case "cancelled", "canceled":
             return 0
@@ -648,7 +654,7 @@ struct OrderHistorySectionView: View {
     }
 
     private func orderStatusTitle(_ status: String) -> String {
-        switch status.lowercased() {
+        switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "pending":
             return AppLocalization.text("order_status_placed", fallback: "Order placed")
         case "confirmed":
@@ -713,6 +719,17 @@ struct OrderHistorySectionView: View {
         }
 
         return String(format: AppLocalization.text("order_number_format", fallback: "Order #%@"), String(order.id.prefix(6)))
+    }
+
+    private func orderTimingLabel(for order: ContentView.AccountOrder) -> String {
+        if isReadyForPickup(status: order.status) {
+            return AppLocalization.text("pickup_ready_now", fallback: "Pickup available now")
+        }
+
+        return String(
+            format: AppLocalization.text("estimated_delivery_format", fallback: "Estimated delivery: %@"),
+            estimatedDeliveryLabel(for: order)
+        )
     }
 
     private func estimatedDeliveryLabel(for order: ContentView.AccountOrder) -> String {
