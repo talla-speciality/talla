@@ -6376,6 +6376,33 @@ async function prunePushDevice(deviceToken) {
     }
 }
 
+const timeSensitiveRemotePushTypes = new Set([
+    "order_ready",
+    "order_out_for_delivery",
+    "delivery_arriving"
+]);
+
+function remotePushPayload(notification) {
+    const aps = {
+        alert: {
+            title: notification.title,
+            body: notification.body
+        },
+        sound: "default"
+    };
+
+    if (timeSensitiveRemotePushTypes.has(notification.type)) {
+        aps["interruption-level"] = "time-sensitive";
+    }
+
+    return {
+        aps,
+        type: notification.type || "stock_alert",
+        productID: notification.productID || null,
+        url: notification.url || null
+    };
+}
+
 async function sendRemotePushToDevice(deviceToken, notification) {
     const normalizedToken = normalizeDeviceToken(deviceToken);
     if (!normalizedToken || !remotePushConfigured()) {
@@ -6395,18 +6422,7 @@ async function sendRemotePushToDevice(deviceToken, notification) {
 
     return await new Promise((resolve) => {
         const client = http2.connect(authority);
-        const payload = JSON.stringify({
-            aps: {
-                alert: {
-                    title: notification.title,
-                    body: notification.body
-                },
-                sound: "default"
-            },
-            type: notification.type || "stock_alert",
-            productID: notification.productID || null,
-            url: notification.url || null
-        });
+        const payload = JSON.stringify(remotePushPayload(notification));
 
         client.on("error", () => {
             client.close();
@@ -11437,6 +11453,7 @@ module.exports = {
     renderClickToPayLaunch,
     renderBenefitResultPage,
     renderMpgsResultPage,
+    remotePushPayload,
     server,
     startServer,
     tierFor,

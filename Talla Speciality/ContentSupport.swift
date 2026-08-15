@@ -699,6 +699,8 @@ enum AppLocalization {
         ,"brew_timer": ["ar": "مؤقت التحضير"]
         ,"brew_timer_detail": ["ar": "ابدأ مؤقتاً مركزاً للقهوة التي تحضّرها الآن."]
         ,"brew_timer_done": ["ar": "انتهى مؤقت التحضير"]
+        ,"brew_timer_notification_title": ["ar": "اكتمل التحضير"]
+        ,"brew_timer_notification_body": ["ar": "قهوتك جاهزة للخطوة التالية."]
         ,"brewing_now": ["ar": "التحضير جارٍ"]
         ,"bronze": ["ar": "برونزي"]
         ,"calculator": ["ar": "الحاسبة"]

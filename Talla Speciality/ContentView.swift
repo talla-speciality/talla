@@ -572,6 +572,7 @@ struct ContentView: View {
     @State private var brewTimerRemainingSeconds = 210
     @State private var isBrewTimerRunning = false
     @State private var brewTimerRunID = UUID()
+    @State private var brewTimerEndDate: Date?
     @State private var journalTitleInput = ""
     @State private var journalMethodInput = "Pour Over"
     @State private var journalNotesInput = ""
@@ -1808,7 +1809,9 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active, hasLoadedProducts else { return }
+            guard newPhase == .active else { return }
+            synchronizeBrewTimerWithClock()
+            guard hasLoadedProducts else { return }
             Task {
                 if activeTab == .shop {
                     await refreshProductsIfNeeded()
@@ -5422,7 +5425,7 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 Button {
                     if isBrewTimerRunning {
-                        isBrewTimerRunning = false
+                        pauseBrewTimer()
                     } else {
                         startBrewTimer()
                     }
@@ -5617,10 +5620,13 @@ struct ContentView: View {
         let isSelected = selectedBrewTimerName == preset.name
 
         return Button {
+            cancelBrewTimerCompletionNotification()
+            brewTimerRunID = UUID()
             selectedBrewTimerName = preset.name
             selectedBrewTimerSeconds = preset.seconds
             brewTimerRemainingSeconds = preset.seconds
             isBrewTimerRunning = false
+            brewTimerEndDate = nil
             journalMethodInput = preset.name
         } label: {
             Label(preset.name, systemImage: preset.symbol)
@@ -10112,15 +10118,12 @@ struct ContentView: View {
 
     private func tickBrewTimer() {
         guard isBrewTimerRunning else { return }
-        guard brewTimerRemainingSeconds > 0 else {
-            isBrewTimerRunning = false
-            return
-        }
-
-        brewTimerRemainingSeconds -= 1
+        guard let brewTimerEndDate else { return }
+        brewTimerRemainingSeconds = max(Int(ceil(brewTimerEndDate.timeIntervalSinceNow)), 0)
 
         if brewTimerRemainingSeconds == 0 {
             isBrewTimerRunning = false
+            self.brewTimerEndDate = nil
             delightFeedbackTrigger += 1
             showToast(message: AppLocalization.text("brew_timer_done", fallback: "Brew timer done"))
         }
@@ -10128,13 +10131,32 @@ struct ContentView: View {
 
     private func startBrewTimer() {
         if brewTimerRemainingSeconds == 0 {
+            cancelBrewTimerCompletionNotification()
             brewTimerRemainingSeconds = selectedBrewTimerSeconds
         }
 
         let runID = UUID()
         brewTimerRunID = runID
         isBrewTimerRunning = true
+        brewTimerEndDate = Date().addingTimeInterval(TimeInterval(brewTimerRemainingSeconds))
         delightFeedbackTrigger += 1
+
+#if canImport(UserNotifications)
+        let notificationTitle = AppLocalization.text("brew_timer_notification_title", fallback: "Brew complete")
+        let notificationBody = AppLocalization.text("brew_timer_notification_body", fallback: "Your coffee is ready for the next step.")
+        Task {
+            await BrewTimerNotificationService.scheduleCompletion(
+                runID: runID,
+                after: brewTimerRemainingSeconds,
+                title: notificationTitle,
+                body: notificationBody
+            )
+            guard isBrewTimerRunning, brewTimerRunID == runID else {
+                BrewTimerNotificationService.cancelCompletion(runID: runID)
+                return
+            }
+        }
+#endif
 
         Task { @MainActor in
             while isBrewTimerRunning && brewTimerRunID == runID && brewTimerRemainingSeconds > 0 {
@@ -10145,10 +10167,31 @@ struct ContentView: View {
         }
     }
 
+    private func pauseBrewTimer() {
+        synchronizeBrewTimerWithClock()
+        cancelBrewTimerCompletionNotification()
+        brewTimerRunID = UUID()
+        isBrewTimerRunning = false
+        brewTimerEndDate = nil
+    }
+
+    private func synchronizeBrewTimerWithClock() {
+        guard isBrewTimerRunning, brewTimerEndDate != nil else { return }
+        tickBrewTimer()
+    }
+
     private func resetBrewTimer() {
+        cancelBrewTimerCompletionNotification()
         brewTimerRunID = UUID()
         brewTimerRemainingSeconds = selectedBrewTimerSeconds
         isBrewTimerRunning = false
+        brewTimerEndDate = nil
+    }
+
+    private func cancelBrewTimerCompletionNotification() {
+#if canImport(UserNotifications)
+        BrewTimerNotificationService.cancelCompletion(runID: brewTimerRunID)
+#endif
     }
 
     private func formattedTimerTime(_ seconds: Int) -> String {
@@ -11338,6 +11381,69 @@ private enum ProductAlertNotificationService {
 
     private static func reminderIdentifier(for productID: String) -> String {
         "product-alert-\(productID)"
+    }
+}
+
+private enum BrewTimerNotificationService {
+    private static let center = UNUserNotificationCenter.current()
+
+    static func scheduleCompletion(runID: UUID, after seconds: Int, title: String, body: String) async {
+        let settings = await notificationSettings()
+        let canNotify: Bool
+
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            canNotify = true
+        case .notDetermined:
+            canNotify = await requestAuthorization()
+        default:
+            canNotify = false
+        }
+
+        guard canNotify else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.interruptionLevel = .timeSensitive
+
+        let request = UNNotificationRequest(
+            identifier: completionIdentifier(for: runID),
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(
+                timeInterval: TimeInterval(max(seconds, 1)),
+                repeats: false
+            )
+        )
+
+        try? await center.add(request)
+    }
+
+    static func cancelCompletion(runID: UUID) {
+        let identifier = completionIdentifier(for: runID)
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        center.removeDeliveredNotifications(withIdentifiers: [identifier])
+    }
+
+    private static func notificationSettings() async -> UNNotificationSettings {
+        await withCheckedContinuation { continuation in
+            center.getNotificationSettings { settings in
+                continuation.resume(returning: settings)
+            }
+        }
+    }
+
+    private static func requestAuthorization() async -> Bool {
+        await withCheckedContinuation { continuation in
+            center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
+
+    private static func completionIdentifier(for runID: UUID) -> String {
+        "brew-timer-complete-\(runID.uuidString)"
     }
 }
 #endif
