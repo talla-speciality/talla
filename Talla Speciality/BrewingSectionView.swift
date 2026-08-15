@@ -379,8 +379,8 @@ struct BrewingSectionView: View {
             }
             .presentationDetents([.fraction(0.62), .large])
             .presentationDragIndicator(.visible)
-            .presentationCornerRadius(30)
-            .presentationBackground(brewBackgroundColor)
+            .presentationCornerRadius(40)
+            .presentationBackground(.clear)
         }
         .onChange(of: isFocusedBrewPresented) { _, _ in
             updateBrewIdleTimerState()
@@ -5134,8 +5134,8 @@ struct BrewingSectionView: View {
             }
             .presentationDetents([.fraction(0.62), .large])
             .presentationDragIndicator(.visible)
-            .presentationCornerRadius(30)
-            .presentationBackground(brewBackgroundColor)
+            .presentationCornerRadius(40)
+            .presentationBackground(.clear)
         }
     }
 
@@ -5547,6 +5547,16 @@ struct BrewingSectionView: View {
                 scaleManager.stopScanning()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            brewBackgroundColor
+                .frame(height: 10)
+        }
+        .background(brewBackgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
+        .shadow(color: Color.black.opacity(0.18), radius: 22, x: 0, y: 8)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 
     private var bluetoothScalePickerHero: some View {
