@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     'Vendor/BenefitPay/BenefitInAppSDK.xcframework/ios-arm64/BenefitInAppSDK.framework/BenefitInAppSDK'
+relocations:     []
+...
