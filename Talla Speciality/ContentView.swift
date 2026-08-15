@@ -1707,6 +1707,14 @@ struct ContentView: View {
     }
 
     var body: some View {
+        presentedContent
+            .onOpenURL(perform: handleDeepLink)
+            .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
+            .environment(\.layoutDirection, appLanguage.layoutDirection)
+            .preferredColorScheme(appearanceMode.colorScheme)
+    }
+
+    private var rootContent: some View {
         ZStack {
             LinearGradient(
                 colors: backgroundGradientColors,
@@ -1781,6 +1789,10 @@ struct ContentView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
+    }
+
+    private var lifecycleContent: some View {
+        rootContent
         .animation(.easeInOut(duration: 0.25), value: cartOpen)
         .animation(.easeInOut(duration: 0.28), value: showLaunchSplash)
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
@@ -1854,6 +1866,10 @@ struct ContentView: View {
             }
         }
 #endif
+    }
+
+    private var presentedContent: some View {
+        lifecycleContent
         .sheet(item: $checkoutSession, onDismiss: resetPaymentFlowAfterCheckoutDismiss) { session in
             CheckoutWebView(url: session.url)
         }
@@ -1927,12 +1943,6 @@ struct ContentView: View {
             WalletPassView(pass: item.pass)
         }
 #endif
-        .onOpenURL { url in
-            handleDeepLink(url)
-        }
-        .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
-        .environment(\.layoutDirection, appLanguage.layoutDirection)
-        .preferredColorScheme(appearanceMode.colorScheme)
     }
 
     private func resetPaymentFlowAfterCheckoutDismiss() {

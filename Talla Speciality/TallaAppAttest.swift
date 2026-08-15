@@ -52,7 +52,8 @@ actor TallaAppAttest {
     func assertionHeaders(for request: URLRequest) async throws -> [String: String]? {
 #if canImport(DeviceCheck) && canImport(CryptoKit) && os(iOS)
         let service = DCAppAttestService.shared
-        guard service.isSupported, let baseURL = BackendConfiguration.serviceBaseURL else { return nil }
+        guard service.isSupported else { return nil }
+        guard let baseURL = await BackendConfiguration.serviceBaseURL else { return nil }
         let keyID = try await registeredKeyID(service: service, baseURL: baseURL)
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path ?? ""
