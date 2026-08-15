@@ -20,6 +20,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
 
     private enum Backend {
         case acaia
+        case acaiaUmbra
         case bookoo
         case gina
         case hiroia
@@ -33,12 +34,40 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     @Published private(set) var scaleTimerSeconds = 0
 
     private var acaiaScalesByID: [String: AcaiaScale] = [:]
+    private var acaiaUmbraDevicesByID: [String: AcaiaUmbraScaleDriver.Device] = [:]
     private var bookooDevicesByID: [String: BookooScaleDriver.Device] = [:]
     private var ginaDevicesByID: [String: GinaScaleDriver.Device] = [:]
     private var hiroiaDevicesByID: [String: HiroiaScaleDriver.Device] = [:]
     private var mantabrewDevicesByID: [String: MantabrewScaleDriver.Device] = [:]
     private var activeBackend: Backend?
     private var lastWeightSample: (weight: Double, date: Date)?
+
+    private lazy var acaiaUmbraDriver: AcaiaUmbraScaleDriver = {
+        let driver = AcaiaUmbraScaleDriver()
+        driver.onDevicesChanged = { [weak self] devices in
+            self?.acaiaUmbraDevicesByID = Dictionary(uniqueKeysWithValues: devices.map { ($0.id, $0) })
+            self?.refreshDiscoveredScales()
+        }
+        driver.onConnecting = { [weak self] name in
+            self?.connectionState = .connecting(name)
+        }
+        driver.onConnected = { [weak self] name in
+            self?.activeBackend = .acaiaUmbra
+            self?.lastWeightSample = nil
+            self?.connectionState = .connected(name)
+        }
+        driver.onDisconnected = { [weak self] in
+            self?.resetConnection()
+        }
+        driver.onError = { [weak self] message in
+            self?.activeBackend = nil
+            self?.connectionState = .failed(message)
+        }
+        driver.onWeightChanged = { [weak self] weight in
+            self?.updateComputedWeight(weight)
+        }
+        return driver
+    }()
 
     private lazy var bookooDriver: BookooScaleDriver = {
         let driver = BookooScaleDriver()
@@ -176,12 +205,14 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         guard !isConnected else { return }
         connectionState = .scanning
         acaiaScalesByID = [:]
+        acaiaUmbraDevicesByID = [:]
         bookooDevicesByID = [:]
         ginaDevicesByID = [:]
         hiroiaDevicesByID = [:]
         mantabrewDevicesByID = [:]
         discoveredScales = []
         AcaiaManager.shared().startScan(0.5)
+        acaiaUmbraDriver.scan()
         bookooDriver.scan()
         ginaDriver.scan()
         hiroiaDriver.scan()
@@ -190,6 +221,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
 
     func stopScanning() {
         AcaiaManager.shared().stopScan()
+        acaiaUmbraDriver.stopScanning()
         bookooDriver.stopScanning()
         ginaDriver.stopScanning()
         hiroiaDriver.stopScanning()
@@ -203,14 +235,24 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         if id.hasPrefix("acaia:"), let scale = acaiaScalesByID[id] {
             activeBackend = .acaia
             connectionState = .connecting(scale.name)
+            acaiaUmbraDriver.stopScanning()
             bookooDriver.stopScanning()
             ginaDriver.stopScanning()
             hiroiaDriver.stopScanning()
             mantabrewDriver.stopScanning()
             scale.connect()
+        } else if id.hasPrefix("acaia-umbra:") {
+            activeBackend = .acaiaUmbra
+            AcaiaManager.shared().stopScan()
+            bookooDriver.stopScanning()
+            ginaDriver.stopScanning()
+            hiroiaDriver.stopScanning()
+            mantabrewDriver.stopScanning()
+            acaiaUmbraDriver.connect(to: String(id.dropFirst("acaia-umbra:".count)))
         } else if id.hasPrefix("bookoo:") {
             activeBackend = .bookoo
             AcaiaManager.shared().stopScan()
+            acaiaUmbraDriver.stopScanning()
             ginaDriver.stopScanning()
             hiroiaDriver.stopScanning()
             mantabrewDriver.stopScanning()
@@ -218,6 +260,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         } else if id.hasPrefix("gina:") {
             activeBackend = .gina
             AcaiaManager.shared().stopScan()
+            acaiaUmbraDriver.stopScanning()
             bookooDriver.stopScanning()
             hiroiaDriver.stopScanning()
             mantabrewDriver.stopScanning()
@@ -225,6 +268,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         } else if id.hasPrefix("hiroia:") {
             activeBackend = .hiroia
             AcaiaManager.shared().stopScan()
+            acaiaUmbraDriver.stopScanning()
             bookooDriver.stopScanning()
             ginaDriver.stopScanning()
             mantabrewDriver.stopScanning()
@@ -232,6 +276,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         } else if id.hasPrefix("mantabrew:") {
             activeBackend = .mantabrew
             AcaiaManager.shared().stopScan()
+            acaiaUmbraDriver.stopScanning()
             bookooDriver.stopScanning()
             ginaDriver.stopScanning()
             hiroiaDriver.stopScanning()
@@ -242,6 +287,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     func disconnect() {
         switch activeBackend {
         case .acaia: AcaiaManager.shared().connectedScale?.disconnect()
+        case .acaiaUmbra: acaiaUmbraDriver.disconnect()
         case .bookoo: bookooDriver.disconnect()
         case .gina: ginaDriver.disconnect()
         case .hiroia: hiroiaDriver.disconnect()
@@ -253,6 +299,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     func tare() {
         switch activeBackend {
         case .acaia: AcaiaManager.shared().connectedScale?.tare()
+        case .acaiaUmbra: acaiaUmbraDriver.tare()
         case .bookoo: bookooDriver.tare()
         case .gina: ginaDriver.tare()
         case .hiroia: hiroiaDriver.tare()
@@ -267,6 +314,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     func startTimer() {
         switch activeBackend {
         case .acaia: AcaiaManager.shared().connectedScale?.startTimer()
+        case .acaiaUmbra: break
         case .bookoo: bookooDriver.startTimer()
         case .gina: break
         case .hiroia: break
@@ -278,6 +326,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     func pauseTimer() {
         switch activeBackend {
         case .acaia: AcaiaManager.shared().connectedScale?.pauseTimer()
+        case .acaiaUmbra: break
         case .bookoo: bookooDriver.pauseTimer()
         case .gina: break
         case .hiroia: break
@@ -289,6 +338,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     func stopTimer() {
         switch activeBackend {
         case .acaia: AcaiaManager.shared().connectedScale?.stopTimer()
+        case .acaiaUmbra: break
         case .bookoo: bookooDriver.stopTimer()
         case .gina: break
         case .hiroia: break
@@ -310,7 +360,10 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     private func refreshAcaiaScales() {
-        let scales = AcaiaManager.shared().scaleList
+        let scales = AcaiaManager.shared().scaleList.filter {
+            !$0.name.localizedCaseInsensitiveContains("umbra")
+                && !$0.modelName.localizedCaseInsensitiveContains("umbra")
+        }
         acaiaScalesByID = Dictionary(uniqueKeysWithValues: scales.map { ("acaia:\($0.uuid)", $0) })
         refreshDiscoveredScales()
     }
@@ -318,6 +371,9 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     private func refreshDiscoveredScales() {
         let acaia = acaiaScalesByID.map { id, scale in
             DiscoveredCoffeeScale(id: id, name: scale.name, modelName: scale.modelName)
+        }
+        let acaiaUmbra = acaiaUmbraDevicesByID.values.map { device in
+            DiscoveredCoffeeScale(id: "acaia-umbra:\(device.id)", name: device.name, modelName: device.modelName)
         }
         let bookoo = bookooDevicesByID.values.map { device in
             DiscoveredCoffeeScale(id: "bookoo:\(device.id)", name: device.name, modelName: device.modelName)
@@ -331,7 +387,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         let mantabrew = mantabrewDevicesByID.values.map { device in
             DiscoveredCoffeeScale(id: "mantabrew:\(device.id)", name: device.name, modelName: device.modelName)
         }
-        discoveredScales = (acaia + bookoo + gina + hiroia + mantabrew).sorted {
+        discoveredScales = (acaia + acaiaUmbra + bookoo + gina + hiroia + mantabrew).sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
     }

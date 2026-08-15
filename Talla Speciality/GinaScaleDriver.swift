@@ -18,6 +18,7 @@ final class GinaScaleDriver: NSObject, @preconcurrency CBCentralManagerDelegate,
 
     private static let scaleServiceUUID = CBUUID(string: "91341521-BAC2-42D9-BBB3-942F7A10976C")
     private static let weightCharacteristicUUID = CBUUID(string: "91341522-BAC2-42D9-BBB3-942F7A10976C")
+    private static let calibrationCharacteristicUUID = CBUUID(string: "91341523-BAC2-42D9-BBB3-942F7A10976C")
 
     private var centralManager: CBCentralManager?
     private var peripheralsByID: [String: CBPeripheral] = [:]
@@ -26,6 +27,8 @@ final class GinaScaleDriver: NSObject, @preconcurrency CBCentralManagerDelegate,
     private var scanTask: Task<Void, Never>?
     private var shouldStartScanning = false
     private var failureDisconnectID: UUID?
+    private var weightCharacteristic: CBCharacteristic?
+    private var calibrationFactor = 1.0
     private var latestRawWeightGrams = 0.0
     private var tareOffsetGrams: Double?
 
@@ -146,7 +149,10 @@ final class GinaScaleDriver: NSObject, @preconcurrency CBCentralManagerDelegate,
             failConnection("This device does not expose the supported GINA scale service.")
             return
         }
-        peripheral.discoverCharacteristics([Self.weightCharacteristicUUID], for: service)
+        peripheral.discoverCharacteristics(
+            [Self.weightCharacteristicUUID, Self.calibrationCharacteristicUUID],
+            for: service
+        )
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
@@ -158,21 +164,75 @@ final class GinaScaleDriver: NSObject, @preconcurrency CBCentralManagerDelegate,
             failConnection("This GINA uses an unsupported Bluetooth profile.")
             return
         }
+        guard let calibration = service.characteristics?.first(where: {
+            $0.uuid == Self.calibrationCharacteristicUUID
+        }) else {
+            failConnection("Could not read this GINA's scale calibration.")
+            return
+        }
 
-        peripheral.setNotifyValue(true, for: weight)
+        // GINA's weight characteristic contains raw sensor grams. Every scale stores
+        // its individual divisor in 0x1523, encoded as a little-endian UInt32 / 10,000.
+        // Read it before subscribing so the first published weight is calibrated.
+        weightCharacteristic = weight
+        peripheral.readValue(for: calibration)
+    }
+
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didUpdateNotificationStateFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        guard characteristic.uuid == Self.weightCharacteristicUUID else { return }
+        if let error {
+            failConnection("Could not start GINA weight updates: \(error.localizedDescription)")
+            return
+        }
+        guard characteristic.isNotifying else {
+            failConnection("GINA did not enable live weight updates.")
+            return
+        }
+
         let id = peripheral.identifier.uuidString
         let name = devicesByID[id]?.name ?? displayName(for: peripheral.name)
         onConnected?(name)
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard error == nil, characteristic.uuid == Self.weightCharacteristicUUID,
-              let data = characteristic.value, data.count >= 4 else { return }
+        if let error {
+            if characteristic.uuid == Self.calibrationCharacteristicUUID {
+                failConnection("Could not read GINA scale calibration: \(error.localizedDescription)")
+            }
+            return
+        }
+        guard let data = characteristic.value, data.count >= 4 else {
+            if characteristic.uuid == Self.calibrationCharacteristicUUID {
+                failConnection("GINA returned invalid scale calibration data.")
+            }
+            return
+        }
 
-        let rawTenths = data.withUnsafeBytes { bytes in
+        let rawValue = data.withUnsafeBytes { bytes in
             UInt32(littleEndian: bytes.loadUnaligned(as: UInt32.self))
         }
-        latestRawWeightGrams = Double(rawTenths) / 10
+
+        if characteristic.uuid == Self.calibrationCharacteristicUUID {
+            let factor = Double(rawValue) / 10_000
+            guard factor.isFinite, factor > 0 else {
+                failConnection("GINA returned invalid scale calibration data.")
+                return
+            }
+            calibrationFactor = factor
+            guard let weightCharacteristic else {
+                failConnection("Could not start GINA weight updates.")
+                return
+            }
+            peripheral.setNotifyValue(true, for: weightCharacteristic)
+            return
+        }
+
+        guard characteristic.uuid == Self.weightCharacteristicUUID else { return }
+        latestRawWeightGrams = (Double(rawValue) / 10) / calibrationFactor
 
         if tareOffsetGrams == nil {
             tareOffsetGrams = latestRawWeightGrams
@@ -210,6 +270,8 @@ final class GinaScaleDriver: NSObject, @preconcurrency CBCentralManagerDelegate,
 
     private func clearConnection() {
         connectedPeripheral = nil
+        weightCharacteristic = nil
+        calibrationFactor = 1
         latestRawWeightGrams = 0
         tareOffsetGrams = nil
     }

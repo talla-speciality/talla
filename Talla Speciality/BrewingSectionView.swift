@@ -376,8 +376,10 @@ struct BrewingSectionView: View {
             bluetoothScalePicker {
                 isHomeScalePickerPresented = false
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.fraction(0.62), .large])
             .presentationDragIndicator(.visible)
+            .presentationCornerRadius(30)
+            .presentationBackground(brewBackgroundColor)
         }
         .onChange(of: isFocusedBrewPresented) { _, _ in
             updateBrewIdleTimerState()
@@ -637,53 +639,73 @@ struct BrewingSectionView: View {
     }
 
     private var brewScaleConnectionSection: some View {
-        Button {
-            isHomeScalePickerPresented = true
-        } label: {
-            HStack(spacing: 13) {
-                Image(systemName: scaleManager.isConnected ? "scalemass.fill" : "scalemass")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewSecondaryTextColor)
-                    .frame(width: 38, height: 38)
-                    .background(brewAccentColor.opacity(scaleManager.isConnected ? 0.14 : 0.08))
-                    .clipShape(Circle())
+        VStack(alignment: .leading, spacing: 10) {
+            brewSectionLabel("Brew scale")
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(scaleManager.connectedScaleName ?? "Add a Bluetooth scale")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(brewPrimaryTextColor)
-                        .lineLimit(1)
+            Button {
+                isHomeScalePickerPresented = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack(alignment: .bottomTrailing) {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [brewAccentColor.opacity(0.20), brewAccentColor.opacity(0.07)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
 
-                    Text(scaleManager.isConnected
-                         ? "Connected · live weight and flow are ready"
-                         : "Optional · connect now or brew without one")
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundColor(brewSecondaryTextColor)
-                        .lineLimit(2)
+                        Image(systemName: "scalemass.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(brewAccentColor)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        Circle()
+                            .fill(scaleManager.isConnected ? Color.green : brewSecondaryTextColor.opacity(0.45))
+                            .frame(width: 9, height: 9)
+                            .overlay(Circle().stroke(brewSurfaceColor, lineWidth: 2))
+                            .offset(x: 2, y: 2)
+                    }
+                    .frame(width: 46, height: 46)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(scaleManager.connectedScaleName ?? "Add a Bluetooth scale")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(brewPrimaryTextColor)
+                            .lineLimit(1)
+
+                        Text(scaleManager.isConnected
+                             ? "Ready for live weight, flow and tare"
+                             : "Optional · guided brewing works without one")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(brewSecondaryTextColor)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 6)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(brewAccentColor)
+                        .frame(width: 32, height: 32)
+                        .background(brewAccentColor.opacity(0.09))
+                        .clipShape(Circle())
                 }
-
-                Spacer(minLength: 8)
-
-                Text(scaleManager.isConnected ? "Manage" : "Add Scale")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(brewAccentColor)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(brewAccentColor)
+                .padding(15)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(brewSurfaceColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.46) : brewBorderColor, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(brewSurfaceColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.38) : brewBorderColor, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .buttonStyle(.plain)
+            .accessibilityLabel(scaleManager.isConnected ? "Manage connected Bluetooth scale" : "Add a Bluetooth scale")
+            .accessibilityHint("Optional. Guided brewing also works without a scale.")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(scaleManager.isConnected ? "Manage connected Bluetooth scale" : "Add a Bluetooth scale")
-        .accessibilityHint("Optional. Guided brewing also works without a scale.")
     }
 
     private var primaryBrewEntryDescription: String {
@@ -5109,8 +5131,10 @@ struct BrewingSectionView: View {
             bluetoothScalePicker {
                 isScalePickerPresented = false
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.fraction(0.62), .large])
             .presentationDragIndicator(.visible)
+            .presentationCornerRadius(30)
+            .presentationBackground(brewBackgroundColor)
         }
     }
 
@@ -5427,79 +5451,49 @@ struct BrewingSectionView: View {
 
     private func bluetoothScalePicker(onDone: @escaping () -> Void) -> some View {
         NavigationStack {
-            List {
-                Section {
-                    switch scaleManager.connectionState {
-                    case .connected(let name):
-                        Label("Connected to \(name)", systemImage: "checkmark.circle.fill")
-                            .foregroundColor(brewAccentColor)
+            ZStack {
+                brewBackgroundColor
+                    .ignoresSafeArea()
 
-                        Button("Tare scale") {
-                            scaleManager.tare()
-                        }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        bluetoothScalePickerHero
+                        bluetoothScalePickerStatus
 
-                        Button("Disconnect", role: .destructive) {
-                            scaleManager.disconnect()
-                        }
-
-                    case .scanning:
-                        HStack(spacing: 12) {
-                            ProgressView()
-                            Text("Looking for nearby Acaia, BOOKOO, GINA, HIROIA, and MANTABREW scales…")
-                        }
-
-                    case .connecting(let name):
-                        HStack(spacing: 12) {
-                            ProgressView()
-                            Text("Connecting to \(name)…")
-                        }
-
-                    case .failed(let message):
-                        Label(message, systemImage: "exclamationmark.triangle")
-                            .foregroundColor(.secondary)
-
-                        Button("Scan again") {
-                            scaleManager.scan()
-                        }
-
-                    case .disconnected:
-                        if scaleManager.discoveredScales.isEmpty {
-                            Text("Turn on your Acaia, BOOKOO, GINA, HIROIA, or MANTABREW scale, then scan.")
-                                .foregroundColor(.secondary)
-                            Button("Scan for Scale") {
-                                scaleManager.scan()
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Acaia · BOOKOO · GOAT STORY · HIROIA · MANTABREW")
-                }
-
-                if !scaleManager.discoveredScales.isEmpty && !scaleManager.isConnected {
-                    Section("Nearby scales") {
-                        ForEach(scaleManager.discoveredScales) { scale in
-                            Button {
-                                scaleManager.connect(to: scale.id)
-                            } label: {
+                        if !scaleManager.discoveredScales.isEmpty && !scaleManager.isConnected {
+                            VStack(alignment: .leading, spacing: 12) {
                                 HStack {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(scale.name)
-                                            .foregroundColor(.primary)
-                                        Text(scale.modelName)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
+                                    Text("Nearby scales")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(brewPrimaryTextColor)
+
                                     Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+
+                                    Button {
+                                        scaleManager.scan()
+                                    } label: {
+                                        Label("Refresh", systemImage: "arrow.clockwise")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(brewAccentColor)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(scaleManager.connectionState == .scanning)
+                                }
+
+                                ForEach(scaleManager.discoveredScales) { scale in
+                                    bluetoothScaleDeviceRow(scale)
                                 }
                             }
                         }
+
+                        bluetoothScalePickerFootnote
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 32)
                 }
             }
-            .navigationTitle("Bluetooth Scale")
+            .navigationTitle("Bluetooth scale")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -5508,6 +5502,7 @@ struct BrewingSectionView: View {
                     }
                 }
             }
+            .tint(brewAccentColor)
             .task {
                 if !scaleManager.isConnected {
                     scaleManager.scan()
@@ -5517,6 +5512,353 @@ struct BrewingSectionView: View {
                 scaleManager.stopScanning()
             }
         }
+    }
+
+    private var bluetoothScalePickerHero: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center, spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [brewAccentColor.opacity(0.24), brewAccentColor.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    Image(systemName: "scalemass.fill")
+                        .font(.system(size: 23, weight: .semibold))
+                        .foregroundColor(brewAccentColor)
+                }
+                .frame(width: 58, height: 58)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("BREW COMPANION")
+                        .font(brewEyebrowFont)
+                        .tracking(1.8)
+                        .foregroundColor(brewAccentColor)
+
+                    Text("Live measurements, less guesswork")
+                        .font(Font.custom("Georgia-Bold", size: 21))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Text("Connect once for live weight, flow rate and quick tare throughout every guided brew.")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundColor(brewSecondaryTextColor)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(scaleBrandLogoAssets, id: \.self) { assetName in
+                    Image(assetName)
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .foregroundColor(brewAccentColor)
+                        .frame(maxWidth: 74, maxHeight: 18)
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .padding(.horizontal, 8)
+                        .background(brewAccentColor.opacity(0.085))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .accessibilityLabel(scaleBrandDisplayName(forLogoAsset: assetName))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var bluetoothScalePickerStatus: some View {
+        switch scaleManager.connectionState {
+        case .connected(let name):
+            VStack(spacing: 14) {
+                scalePickerStatusCard(
+                    icon: "checkmark.circle.fill",
+                    title: name,
+                    detail: "Connected and ready for your next brew",
+                    tint: brewAccentColor
+                )
+
+                HStack(spacing: 0) {
+                    scalePickerLiveMetric(
+                        label: "Weight",
+                        value: String(format: "%.1f", scaleManager.weightGrams),
+                        unit: "g"
+                    )
+
+                    Rectangle()
+                        .fill(brewBorderColor)
+                        .frame(width: 1, height: 38)
+
+                    scalePickerLiveMetric(
+                        label: "Flow rate",
+                        value: String(format: "%.1f", scaleManager.flowRateGramsPerSecond),
+                        unit: "g/s"
+                    )
+                }
+                .padding(.vertical, 12)
+                .background(brewSurfaceColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(brewBorderColor, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                HStack(spacing: 10) {
+                    Button {
+                        scaleManager.tare()
+                    } label: {
+                        Label("Tare", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .background(brewSurfaceColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(brewBorderColor, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    Button(role: .destructive) {
+                        scaleManager.disconnect()
+                    } label: {
+                        Text("Disconnect")
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.red.opacity(0.82))
+                    .background(Color.red.opacity(0.07))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+
+        case .scanning:
+            scalePickerStatusCard(
+                icon: "dot.radiowaves.left.and.right",
+                title: "Looking for scales",
+                detail: "Keep your scale awake and close to this iPhone.",
+                tint: brewAccentColor,
+                showsProgress: true
+            )
+
+        case .connecting(let name):
+            scalePickerStatusCard(
+                icon: "link",
+                title: "Connecting to \(name)",
+                detail: "This usually takes only a moment.",
+                tint: brewAccentColor,
+                showsProgress: true
+            )
+
+        case .failed(let message):
+            VStack(spacing: 12) {
+                scalePickerStatusCard(
+                    icon: "exclamationmark.triangle.fill",
+                    title: message.hasPrefix("No supported scale") ? "No scales found" : "Connection issue",
+                    detail: message,
+                    tint: Color.orange
+                )
+                scalePickerScanButton(title: "Scan again")
+            }
+
+        case .disconnected:
+            if scaleManager.discoveredScales.isEmpty {
+                VStack(spacing: 12) {
+                    scalePickerStatusCard(
+                        icon: "power",
+                        title: "Ready when you are",
+                        detail: "Turn on your scale, then scan for nearby devices.",
+                        tint: brewSecondaryTextColor
+                    )
+                    scalePickerScanButton(title: "Scan for scales")
+                }
+            }
+        }
+    }
+
+    private func scalePickerLiveMetric(label: String, value: String, unit: String) -> some View {
+        VStack(spacing: 4) {
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .tracking(0.8)
+                .foregroundColor(brewSecondaryTextColor)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(brewPrimaryTextColor)
+                    .contentTransition(.numericText())
+
+                Text(unit)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(brewSecondaryTextColor)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label), \(value) \(unit)")
+    }
+
+    private func scalePickerStatusCard(
+        icon: String,
+        title: String,
+        detail: String,
+        tint: Color,
+        showsProgress: Bool = false
+    ) -> some View {
+        HStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(tint.opacity(0.11))
+
+                if showsProgress {
+                    ProgressView()
+                        .tint(tint)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(tint)
+                }
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(brewPrimaryTextColor)
+
+                Text(detail)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(brewSecondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(brewSurfaceColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(brewBorderColor, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func scalePickerScanButton(title: String) -> some View {
+        Button {
+            scaleManager.scan()
+        } label: {
+            Label(title, systemImage: "arrow.clockwise")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Color(hex: 0x1C1A17))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(brewAccentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func bluetoothScaleDeviceRow(_ scale: DiscoveredCoffeeScale) -> some View {
+        Button {
+            scaleManager.connect(to: scale.id)
+        } label: {
+            HStack(spacing: 13) {
+                Image(scaleBrandLogoAsset(for: scale))
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .foregroundColor(brewAccentColor)
+                    .frame(width: 52, height: 22)
+                    .frame(width: 68, height: 52)
+                    .background(brewAccentColor.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(scale.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .lineLimit(1)
+
+                    Text(scale.modelName)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(brewAccentColor)
+                    .frame(width: 30, height: 30)
+                    .background(brewAccentColor.opacity(0.09))
+                    .clipShape(Circle())
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(brewSurfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(brewBorderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Connect to \(scale.name), \(scale.modelName)")
+    }
+
+    private var scaleBrandLogoAssets: [String] {
+        [
+            "ScaleLogoAcaia",
+            "ScaleLogoBookoo",
+            "ScaleLogoGoatStory",
+            "ScaleLogoHiroia",
+            "ScaleLogoMantabrew"
+        ]
+    }
+
+    private func scaleBrandLogoAsset(for scale: DiscoveredCoffeeScale) -> String {
+        if scale.id.hasPrefix("bookoo:") { return "ScaleLogoBookoo" }
+        if scale.id.hasPrefix("gina:") { return "ScaleLogoGoatStory" }
+        if scale.id.hasPrefix("hiroia:") { return "ScaleLogoHiroia" }
+        if scale.id.hasPrefix("mantabrew:") { return "ScaleLogoMantabrew" }
+        return "ScaleLogoAcaia"
+    }
+
+    private func scaleBrandDisplayName(forLogoAsset assetName: String) -> String {
+        switch assetName {
+        case "ScaleLogoBookoo": return "BOOKOO"
+        case "ScaleLogoGoatStory": return "GOAT STORY"
+        case "ScaleLogoHiroia": return "HIROIA"
+        case "ScaleLogoMantabrew": return "MANTABREW"
+        default: return "Acaia"
+        }
+    }
+
+    private var bluetoothScalePickerFootnote: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(brewAccentColor)
+                .padding(.top, 1)
+
+            Text("A scale is optional. You can close this sheet and continue with the guided timer at any time.")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(brewSecondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 2)
+        .accessibilityElement(children: .combine)
     }
 
     private func focusedMetricRow(title: String, value: String) -> some View {
