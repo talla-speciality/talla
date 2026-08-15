@@ -197,6 +197,7 @@ struct OrderHistorySectionView: View {
     let tasteMemoryLookup: [String: ContentView.TasteMemoryRecord]
     let buyAgainAction: (ContentView.AccountOrder) -> Void
     let saveTasteMemoryAction: (ContentView.AccountOrder, ContentView.AccountOrder.Item, String, [String]) -> Void
+    let pickupDirectionsAction: () -> Void
     let browseProductsAction: () -> Void
 
     var body: some View {
@@ -289,6 +290,10 @@ struct OrderHistorySectionView: View {
 
                         orderProgressRow(status: order.status)
 
+                        if isReadyForPickup(status: order.status) {
+                            pickupDirectionsCard
+                        }
+
                         if order.beansAwarded == true, let pointsAwarded = order.pointsAwarded, pointsAwarded > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "sparkles")
@@ -334,6 +339,54 @@ struct OrderHistorySectionView: View {
                 }
             }
         }
+    }
+
+    private var pickupDirectionsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "storefront.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(width: 34, height: 34)
+                    .background(accentColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("pickup_ready_title", fallback: "Ready for pickup at Talla"))
+                        .font(Font.custom("AvenirNext-Bold", size: 13))
+                        .foregroundColor(primaryTextColor)
+
+                    Text(AppLocalization.text("pickup_address", fallback: "Villa 336, Street 1307, Riffa 913"))
+                        .font(Font.custom("AvenirNext-Regular", size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Button(action: pickupDirectionsAction) {
+                Label(AppLocalization.text("open_directions", fallback: "Open Directions"), systemImage: "map.fill")
+                    .font(Font.custom("AvenirNext-Bold", size: 10))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color(hex: 0x0A0804))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(accentColor)
+                    .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func isReadyForPickup(status: String) -> Bool {
+        status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "ready"
     }
 
     private func tasteMemoryItem(for order: ContentView.AccountOrder) -> ContentView.AccountOrder.Item? {
@@ -596,6 +649,22 @@ struct OrderHistorySectionView: View {
 
     private func orderStatusTitle(_ status: String) -> String {
         switch status.lowercased() {
+        case "pending":
+            return AppLocalization.text("order_status_placed", fallback: "Order placed")
+        case "confirmed":
+            return AppLocalization.text("order_status_confirmed", fallback: "Confirmed")
+        case "preparing", "roasting", "resting":
+            return AppLocalization.text("order_status_preparing", fallback: "Preparing")
+        case "packed":
+            return AppLocalization.text("order_step_packed", fallback: "Packed")
+        case "on its way", "out for delivery", "shipped":
+            return AppLocalization.text("order_step_on_the_way", fallback: "On its way")
+        case "ready":
+            return AppLocalization.text("order_status_ready_pickup", fallback: "Ready for pickup")
+        case "completed", "fulfilled":
+            return AppLocalization.text("order_status_completed", fallback: "Completed")
+        case "delivered":
+            return AppLocalization.text("delivered", fallback: "Delivered")
         case "cancelled", "canceled":
             return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
         default:

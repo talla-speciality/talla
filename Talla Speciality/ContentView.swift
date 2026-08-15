@@ -4473,6 +4473,10 @@ struct ContentView: View {
             saveTasteMemoryAction: { order, item, reaction, tags in
                 saveTasteMemory(order: order, item: item, reaction: reaction, tags: tags)
             },
+            pickupDirectionsAction: {
+                guard let pickupURL = URL(string: "https://maps.app.goo.gl/PaaVd6sz66JGk4KS9?g_st=ic") else { return }
+                openURL(pickupURL)
+            },
             browseProductsAction: {
                 openShop()
             }
