@@ -166,7 +166,8 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
             coffeeGrams: message["coffeeGrams"] as? Double ?? 20,
             ratio: message["ratio"] as? Double ?? 16,
             totalWaterGrams: message["totalWaterGrams"] as? Double ?? 320,
-            totalSeconds: message["totalSeconds"] as? Int ?? 210
+            totalSeconds: message["totalSeconds"] as? Int ?? 210,
+            languageCode: AppLocalization.currentLanguage.effectiveLanguageCode
         )
         let state = brewActivityState(from: message)
         let content = ActivityContent(

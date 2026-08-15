@@ -813,7 +813,15 @@ struct CheckoutActionBar: View {
                     .frame(height: 50)
                     .allowsHitTesting(enabled && !state.isBusy)
                     .opacity(enabled && !state.isBusy ? 1 : 0.5)
-                    .accessibilityLabel("Apple Pay, \(amountText)")
+                    .accessibilityLabel(
+                        String(
+                            format: AppLocalization.text(
+                                "payment_apple_pay_amount_accessibility",
+                                fallback: "Apple Pay, %@"
+                            ),
+                            amountText
+                        )
+                    )
             } else {
                 Button(action: action) {
                     HStack(spacing: 8) {

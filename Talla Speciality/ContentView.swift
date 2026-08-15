@@ -3998,7 +3998,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("The Talla Club")
+                            Text(AppLocalization.text("the_talla_club", fallback: "The Talla Club"))
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(2.2)
                                 .textCase(.uppercase)

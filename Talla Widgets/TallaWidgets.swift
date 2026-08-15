@@ -452,6 +452,11 @@ struct TallaBrewActivityAttributes: ActivityAttributes {
     let ratio: Double
     let totalWaterGrams: Double
     let totalSeconds: Int
+    let languageCode: String
+}
+
+private func tallaBrewText(_ english: String, arabic: String, languageCode: String) -> String {
+    languageCode == "ar" ? arabic : english
 }
 
 private enum TallaBrewActivityStyle {
@@ -545,7 +550,13 @@ struct TallaBrewLiveActivity: Widget {
                         Text(context.attributes.methodName)
                             .font(.caption.weight(.bold))
                             .lineLimit(1)
-                        Text("\(Int(context.attributes.coffeeGrams.rounded())) g coffee")
+                        Text(
+                            tallaBrewText(
+                                "\(Int(context.attributes.coffeeGrams.rounded())) g coffee",
+                                arabic: "\(Int(context.attributes.coffeeGrams.rounded())) غ قهوة",
+                                languageCode: context.attributes.languageCode
+                            )
+                        )
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -570,7 +581,13 @@ struct TallaBrewLiveActivity: Widget {
                             Text(snapshot.currentStep)
                                 .font(.headline.weight(.bold))
                                 .lineLimit(1)
-                            Text("Next: \(snapshot.nextStep)")
+                            Text(
+                                tallaBrewText(
+                                    "Next: \(snapshot.nextStep)",
+                                    arabic: "التالي: \(snapshot.nextStep)",
+                                    languageCode: context.attributes.languageCode
+                                )
+                            )
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -609,7 +626,13 @@ private struct TallaBrewLockScreenView: View {
                         .background(TallaBrewActivityStyle.accent, in: Circle())
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Guided Brew")
+                        Text(
+                            tallaBrewText(
+                                "Guided Brew",
+                                arabic: "تحضير موجّه",
+                                languageCode: context.attributes.languageCode
+                            )
+                        )
                             .font(.system(size: 11, weight: .black))
                             .tracking(1.4)
                             .textCase(.uppercase)
@@ -636,7 +659,13 @@ private struct TallaBrewLockScreenView: View {
                         .minimumScaleFactor(0.82)
 
                     HStack(spacing: 8) {
-                        Text("\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water")
+                        Text(
+                            tallaBrewText(
+                                "\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) g water",
+                                arabic: "\(Int(snapshot.currentWaterGrams.rounded())) / \(Int(context.attributes.totalWaterGrams.rounded())) غ ماء",
+                                languageCode: context.attributes.languageCode
+                            )
+                        )
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(TallaBrewActivityStyle.secondaryText)
                             .lineLimit(1)
@@ -645,7 +674,13 @@ private struct TallaBrewLockScreenView: View {
                             .fill(TallaBrewActivityStyle.secondaryText.opacity(0.35))
                             .frame(width: 4, height: 4)
 
-                        Text("Next: \(snapshot.nextStep)")
+                        Text(
+                            tallaBrewText(
+                                "Next: \(snapshot.nextStep)",
+                                arabic: "التالي: \(snapshot.nextStep)",
+                                languageCode: context.attributes.languageCode
+                            )
+                        )
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(TallaBrewActivityStyle.secondaryText)
                             .lineLimit(1)
