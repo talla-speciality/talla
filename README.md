@@ -2,3 +2,15 @@
 # talla
 # talla
 # talla
+
+## Delivery rates
+
+The iOS bag calculates delivery from the preferred address and Shopify variant weights:
+
+- Bahrain: BHD 2.000.
+- Saudi Arabia, Kuwait, UAE, Qatar, and Oman: BHD 5.500 up to 0.5 kg; BHD 6.500 up to 1 kg; BHD 7.500 up to 1.5 kg; BHD 8.500 up to 2 kg; BHD 9.500 up to 2.5 kg; BHD 10.500 up to 3 kg; BHD 11.500 up to 3.5 kg; and BHD 12.500 up to 4 kg.
+- Khaleeji transit time: 3 to 5 business days.
+- Cash on delivery adds BHD 2.000 for the five Khaleeji destinations above.
+- Khaleeji checkout is stopped when a physical Shopify variant has no weight or the shipment exceeds 4 kg.
+
+Every physical Shopify variant must have its shipping weight populated. Cash on delivery opens Shopify Checkout, so its Shopify shipping profiles and any COD-fee customization must use the same rates to keep the final checkout amount aligned with the app.

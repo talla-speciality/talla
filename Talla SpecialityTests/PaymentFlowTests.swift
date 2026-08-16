@@ -82,6 +82,29 @@ struct PaymentFlowTests {
         #expect(CheckoutCurrencyFormatter.bhd(8.5) == "BHD 8.500")
     }
 
+    @Test func bahrainShippingIsFixedRegardlessOfWeightOrPaymentMethod() {
+        #expect(TallaShippingRates.rate(countryCode: "BH", weightGrams: 0, cashOnDelivery: false) == 2.000)
+        #expect(TallaShippingRates.rate(countryCode: "bh", weightGrams: 4_000, cashOnDelivery: true) == 2.000)
+    }
+
+    @Test func khaleejiShippingUsesContinuousWeightTiers() {
+        #expect(TallaShippingRates.rate(countryCode: "SA", weightGrams: 500, cashOnDelivery: false) == 5.500)
+        #expect(TallaShippingRates.rate(countryCode: "KW", weightGrams: 500.1, cashOnDelivery: false) == 6.500)
+        #expect(TallaShippingRates.rate(countryCode: "AE", weightGrams: 1_000.1, cashOnDelivery: false) == 7.500)
+        #expect(TallaShippingRates.rate(countryCode: "QA", weightGrams: 1_500.1, cashOnDelivery: false) == 8.500)
+        #expect(TallaShippingRates.rate(countryCode: "OM", weightGrams: 2_000.1, cashOnDelivery: false) == 9.500)
+        #expect(TallaShippingRates.rate(countryCode: "SA", weightGrams: 2_500.1, cashOnDelivery: false) == 10.500)
+        #expect(TallaShippingRates.rate(countryCode: "KW", weightGrams: 3_000.1, cashOnDelivery: false) == 11.500)
+        #expect(TallaShippingRates.rate(countryCode: "AE", weightGrams: 3_500.1, cashOnDelivery: false) == 12.500)
+    }
+
+    @Test func khaleejiCashOnDeliveryAddsTwoBHDAndOverweightIsRejected() {
+        #expect(TallaShippingRates.rate(countryCode: "AE", weightGrams: 1_200, cashOnDelivery: true) == 9.500)
+        #expect(TallaShippingRates.rate(countryCode: "OM", weightGrams: 4_001, cashOnDelivery: false) == nil)
+        #expect(TallaShippingRates.rate(countryCode: "US", weightGrams: 500, cashOnDelivery: false) == nil)
+        #expect(TallaShippingRates.khaleejiTransitTime == "3 to 5 business days")
+    }
+
     @Test func accessibilitySummaryDescribesTheMethod() {
         #expect(TallaPaymentMethod.benefit.accessibilitySummary.contains("Bahraini debit cards"))
         #expect(TallaPaymentMethod.card.accessibilitySummary.contains("Visa"))

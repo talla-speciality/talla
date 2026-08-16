@@ -893,6 +893,40 @@ enum CheckoutCurrencyFormatter {
     }
 }
 
+enum TallaShippingRates {
+    static let bahrainRate = 2.000
+    static let khaleejiCashOnDeliverySurcharge = 2.000
+    static let maximumKhaleejiWeightGrams = 4_000.0
+    static let khaleejiTransitTime = "3 to 5 business days"
+
+    private static let khaleejiCountryCodes: Set<String> = ["SA", "KW", "AE", "QA", "OM"]
+    private static let khaleejiTiers: [(maximumWeightGrams: Double, rate: Double)] = [
+        (500, 5.500),
+        (1_000, 6.500),
+        (1_500, 7.500),
+        (2_000, 8.500),
+        (2_500, 9.500),
+        (3_000, 10.500),
+        (3_500, 11.500),
+        (4_000, 12.500)
+    ]
+
+    static func rate(countryCode: String, weightGrams: Double, cashOnDelivery: Bool) -> Double? {
+        let normalizedCountryCode = countryCode.uppercased()
+        if normalizedCountryCode == "BH" {
+            return bahrainRate
+        }
+
+        guard khaleejiCountryCodes.contains(normalizedCountryCode),
+              weightGrams > 0,
+              let tier = khaleejiTiers.first(where: { weightGrams <= $0.maximumWeightGrams }) else {
+            return nil
+        }
+
+        return tier.rate + (cashOnDelivery ? khaleejiCashOnDeliverySurcharge : 0)
+    }
+}
+
 enum TallaPaymentService {
     struct Session: Decodable {
         let sessionId: String

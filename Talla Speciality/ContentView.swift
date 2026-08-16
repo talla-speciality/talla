@@ -128,6 +128,8 @@ struct ContentView: View {
             let title: String
             let price: String
             let isAvailableForSale: Bool
+            let requiresShipping: Bool
+            let weightGrams: Double?
         }
 
         let id: String
@@ -813,7 +815,71 @@ struct ContentView: View {
     }
 
     private var cartTotal: Double {
-        max(cartSubtotal - cartDiscount, 0)
+        max(cartSubtotal - cartDiscount, 0) + (cartShippingCost ?? 0)
+    }
+
+    private var cartShipmentWeightGrams: Double? {
+        cartItems.reduce(Optional(0.0)) { partialResult, item in
+            guard let runningTotal = partialResult else { return nil }
+            guard item.variant.requiresShipping else { return runningTotal }
+            guard let weightGrams = item.variant.weightGrams, weightGrams > 0 else { return nil }
+            return runningTotal + (weightGrams * Double(item.quantity))
+        }
+    }
+
+    private var cartShippingCost: Double? {
+        guard let countryCode = preferredAddress?.country.rawValue else { return nil }
+        if countryCode == SupportedDeliveryCountry.bahrain.rawValue {
+            return TallaShippingRates.bahrainRate
+        }
+        guard let weightGrams = cartShipmentWeightGrams else { return nil }
+        return TallaShippingRates.rate(
+            countryCode: countryCode,
+            weightGrams: weightGrams,
+            cashOnDelivery: paymentFlow.selectedMethod == .cashOnDelivery
+        )
+    }
+
+    private var cartShippingLabel: String {
+        guard preferredAddress != nil else {
+            return AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout")
+        }
+        if let cartShippingCost {
+            return formattedBHD(cartShippingCost)
+        }
+        if cartShipmentWeightGrams == nil {
+            return AppLocalization.text("shipping_weight_missing", fallback: "Product weight required")
+        }
+        return AppLocalization.text("shipping_weight_over_limit", fallback: "Over 4 kg — contact us")
+    }
+
+    private var cartDeliveryTitle: String {
+        let isKhaleejiCashOnDelivery = preferredAddress.map { $0.country != .bahrain } == true
+            && paymentFlow.selectedMethod == .cashOnDelivery
+        return isKhaleejiCashOnDelivery
+            ? AppLocalization.text("delivery_with_cod", fallback: "Delivery + COD fee")
+            : AppLocalization.text("delivery", fallback: "Delivery")
+    }
+
+    private var cartOrderSummaryRows: [(title: String, value: String, emphasized: Bool)] {
+        var rows: [(title: String, value: String, emphasized: Bool)] = [
+            (AppLocalization.text("subtotal", fallback: "Subtotal"), formattedBHD(cartSubtotal), false),
+            (cartDeliveryTitle, cartShippingLabel, false)
+        ]
+        if preferredAddress.map({ $0.country != .bahrain }) == true {
+            rows.append((
+                AppLocalization.text("transit_time", fallback: "Transit time"),
+                AppLocalization.text("khaleeji_transit_time", fallback: TallaShippingRates.khaleejiTransitTime),
+                false
+            ))
+        }
+        rows.append((
+            AppLocalization.text("discount", fallback: "Discount"),
+            cartDiscount > 0 ? "-\(formattedBHD(cartDiscount))" : AppLocalization.text("none_dash", fallback: "—"),
+            false
+        ))
+        rows.append((AppLocalization.text("total", fallback: "Total"), formattedBHD(cartTotal), true))
+        return rows
     }
 
     private var signatureRoastProducts: [Product] {
@@ -7267,7 +7333,7 @@ struct ContentView: View {
                     method: paymentFlow.selectedMethod,
                     amountText: formattedBHD(cartTotal),
                     state: paymentFlow.state,
-                    enabled: !cartItems.isEmpty && !isCheckingOut && paymentFlow.canStart,
+                    enabled: !cartItems.isEmpty && !isCheckingOut && paymentFlow.canStart && cartShippingCost != nil,
                     applePayAvailable: isApplePayAvailable,
                     accentColor: Color(hex: 0xC8965A)
                 ) {
@@ -7297,12 +7363,7 @@ struct ContentView: View {
         return CompactOrderSummary(
             thumbnail: thumbnail,
             itemCountText: String(format: AppLocalization.text(itemKey, fallback: itemFallback), cartCount),
-            rows: [
-                (AppLocalization.text("subtotal", fallback: "Subtotal"), formattedBHD(cartSubtotal), false),
-                (AppLocalization.text("delivery", fallback: "Delivery"), AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout"), false),
-                (AppLocalization.text("discount", fallback: "Discount"), cartDiscount > 0 ? "-\(formattedBHD(cartDiscount))" : AppLocalization.text("none_dash", fallback: "—"), false),
-                (AppLocalization.text("total", fallback: "Total"), formattedBHD(cartTotal), true)
-            ],
+            rows: cartOrderSummaryRows,
             primaryColor: primaryTextColor,
             secondaryColor: secondaryTextColor,
             accentColor: Color(hex: 0xC8965A),
@@ -10945,6 +11006,14 @@ struct ContentView: View {
             return
         }
 
+        guard cartShippingCost != nil else {
+            paymentFlow.transition(to: .failed)
+            checkoutError = cartShipmentWeightGrams == nil
+                ? AppLocalization.text("shipping_weight_missing_detail", fallback: "A product in your bag has no shipping weight. Please contact us before checkout.")
+                : AppLocalization.text("shipping_weight_over_limit_detail", fallback: "Khaleeji delivery is available for shipments up to 4 kg. Please contact us for a larger order.")
+            return
+        }
+
         isCheckingOut = true
         checkoutError = nil
 
@@ -12928,6 +12997,9 @@ private enum ShopifyStorefrontClient {
                           id
                           title
                           availableForSale
+                          requiresShipping
+                          weight
+                          weightUnit
                           price {
                             amount
                             currencyCode
@@ -13157,7 +13229,27 @@ private struct ShopifyProductNode: Decodable {
         let id: String
         let title: String
         let availableForSale: Bool
+        let requiresShipping: Bool
+        let weight: Double?
+        let weightUnit: WeightUnit
         let price: Money
+
+        enum WeightUnit: String, Decodable {
+            case grams = "GRAMS"
+            case kilograms = "KILOGRAMS"
+            case ounces = "OUNCES"
+            case pounds = "POUNDS"
+        }
+
+        var weightGrams: Double? {
+            guard let weight else { return nil }
+            switch weightUnit {
+            case .grams: return weight
+            case .kilograms: return weight * 1_000
+            case .ounces: return weight * 28.349_523_125
+            case .pounds: return weight * 453.592_37
+            }
+        }
     }
 
     struct Money: Decodable {
@@ -13587,7 +13679,9 @@ private extension ContentView.Product {
                 id: edge.node.id,
                 title: edge.node.title.isEmpty ? "Default" : edge.node.title,
                 price: Self.formattedPrice(from: edge.node.price),
-                isAvailableForSale: edge.node.availableForSale
+                isAvailableForSale: edge.node.availableForSale,
+                requiresShipping: edge.node.requiresShipping,
+                weightGrams: edge.node.weightGrams
             )
         }
         let defaultVariant = variants.first(where: \.isAvailableForSale) ?? variants.first
