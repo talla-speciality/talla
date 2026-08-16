@@ -3,6 +3,33 @@ import Testing
 
 struct Talla_SpecialityTests {
 
+    @Test func freeDrinkRewardDoesNotDiscountNonDrinks() {
+        let discount = LoyaltyVoucherRules.freeDrinkDiscount(lines: [
+            (categoryKey: "coffee-beans", unitPrice: 6.500, quantity: 1),
+            (categoryKey: "coffee-equipment", unitPrice: 18.000, quantity: 1)
+        ])
+
+        #expect(discount == 0)
+    }
+
+    @Test func freeDrinkRewardDiscountsOneHighestPricedEligibleDrink() {
+        let discount = LoyaltyVoucherRules.freeDrinkDiscount(lines: [
+            (categoryKey: "coffee-beans", unitPrice: 6.500, quantity: 1),
+            (categoryKey: "ready-made-drinks", unitPrice: 1.800, quantity: 2),
+            (categoryKey: "summer-drinks", unitPrice: 12.000, quantity: 1)
+        ])
+
+        #expect(discount == 1.800)
+    }
+
+    @Test func freeDrinkRewardDiscountsOnlyOneUnit() {
+        let discount = LoyaltyVoucherRules.freeDrinkDiscount(lines: [
+            (categoryKey: "ready-made-drinks", unitPrice: 1.500, quantity: 4)
+        ])
+
+        #expect(discount == 1.500)
+    }
+
     @Test func excludesGiftCardsFromCatalog() {
         #expect(ProductCatalogRules.shouldInclude(title: "Gift Card", productType: "", tags: [] ) == false)
         #expect(ProductCatalogRules.shouldInclude(title: "House Beans", productType: "Coffee", tags: [] ) == true)
@@ -102,15 +129,21 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "Ready Made Drinks", fallbackKey: key) == "Drinks")
     }
 
-    @Test func mapsIcedProductsToSummerDrinks() {
-        let key = ProductCatalogRules.categoryKey(
-            productType: "Drink Cups",
+    @Test func mapsOnlySummerDrinkProductTypeToSummerBoxes() {
+        let boxKey = ProductCatalogRules.categoryKey(
+            productType: "Summer Drinks",
+            tags: [],
+            title: "Iced Coffee Box"
+        )
+        let coldBrewKey = ProductCatalogRules.categoryKey(
+            productType: "Drinks",
             tags: ["summer"],
-            title: "Talla Iced Latte Cup"
+            title: "Cold Brew"
         )
 
-        #expect(key == "summer-drinks")
-        #expect(ProductCatalogRules.categoryLabel(productType: "Drink Cups", fallbackKey: key) == "Summer Drinks")
+        #expect(boxKey == "summer-drinks")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Summer Drinks", fallbackKey: boxKey) == "Summer Boxes")
+        #expect(coldBrewKey == "ready-made-drinks")
     }
 
     @Test func mapsEquipmentSignalsToEquipmentCategory() {

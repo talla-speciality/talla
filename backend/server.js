@@ -5544,7 +5544,7 @@ async function updateOrderStatusAndAward(email, orderID, status) {
 function rewardDetailsFor(reward) {
     const normalized = String(reward || "").trim().toLowerCase();
     const catalog = {
-        "free drink": { detail: "One eligible drink of your choice, up to BHD 2.500", expiresInDays: 30 },
+        "free drink": { detail: "One eligible drink of your choice", expiresInDays: 30 },
         "espresso pour": { detail: "Complimentary espresso or batch brew", expiresInDays: 30 },
         "pastry pairing": { detail: "One pastry on the house", expiresInDays: 21 },
         "signature sip": { detail: "One signature drink on the house", expiresInDays: 30 },

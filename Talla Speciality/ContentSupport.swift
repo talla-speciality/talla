@@ -145,7 +145,7 @@ enum AppLocalization {
         "browse_catalog": ["ar": "تصفح حسب الفئة، واكتشف مفضلات العملاء، وأضف إلى السلة بسهولة."],
         "shop_eyebrow": ["ar": "ماذا تشتهي اليوم؟"],
         "shop_heading": ["ar": "اختر طلبك من Talla"],
-        "shop_intro": ["ar": "ابدأ بمشروبات الصيف الباردة، أو خذ أكواباً للطريق، أو أضف حلى، أو جدّد قهوتك المفضلة."],
+        "shop_intro": ["ar": "ابدأ بصناديق الصيف، أو خذ أكواباً للطريق، أو أضف حلى، أو جدّد قهوتك المفضلة."],
         "coffee_quiz_title": ["ar": "اكتشف قهوتك من Talla"],
         "coffee_quiz_detail": ["ar": "أجب على ثلاثة أسئلة سريعة لنرشح لك قهوة مناسبة بدون الحاجة لفهم المناطق أو المعالجة أو النكهات."],
         "coffee_quiz_brew_question": ["ar": "كيف تحضر القهوة؟"],
@@ -186,7 +186,7 @@ enum AppLocalization {
         "sort_price_low": ["ar": "الأقل سعراً"],
         "sort_price_high": ["ar": "الأعلى سعراً"],
         "sort_available": ["ar": "المتوفر"],
-        "search_shop_placeholder": ["ar": "ابحث عن مشروبات الصيف، أكواب، حلى..."],
+        "search_shop_placeholder": ["ar": "ابحث عن صناديق الصيف، أكواب، حلى..."],
         "clear_search": ["ar": "مسح البحث"],
         "no_search_results": ["ar": "لا توجد منتجات مطابقة لهذا البحث حالياً."],
         "loading_shop": ["ar": "جاري تحميل المتجر"],
@@ -640,7 +640,7 @@ enum AppLocalization {
         ,"favorites_count": ["ar": "%d اختيارات محفوظة"]
         ,"shelf_ready_count": ["ar": "%d عناصر جاهزة"]
         ,"category_all": ["ar": "الكل"]
-        ,"category_summer_drinks": ["ar": "مشروبات الصيف"]
+        ,"category_summer_drinks": ["ar": "صناديق الصيف"]
         ,"category_coffee_beans": ["ar": "حبوب القهوة"]
         ,"category_arabic_coffee": ["ar": "القهوة العربية والشمالية"]
         ,"category_drip_bags": ["ar": "أكياس الترشيح"]
@@ -653,7 +653,10 @@ enum AppLocalization {
         ,"category_hot_chocolate": ["ar": "الشوكولاتة الساخنة"]
         ,"category_gifts": ["ar": "صناديق Talla"]
         ,"category_all_subtitle": ["ar": "كل اختيارات Talla"]
-        ,"category_summer_drinks_subtitle": ["ar": "مشروبات باردة موسمية"]
+        ,"category_summer_drinks_subtitle": ["ar": "أربعة صناديق مشروبات موسمية"]
+        ,"summer_boxes": ["ar": "صناديق الصيف"]
+        ,"summer_box_card_summary": ["ar": "صندوق مشروبات موسمي"]
+        ,"best_summer_box": ["ar": "صندوق موسمي بارد مثالي للمشاركة."]
         ,"category_eid_gifts_subtitle": ["ar": "صناديق موسمية"]
         ,"category_coffee_beans_subtitle": ["ar": "حبوب كاملة مختارة"]
         ,"category_arabic_coffee_subtitle": ["ar": "تحميصات تقليدية"]
@@ -991,6 +994,9 @@ enum AppLocalization {
         ,"view_all_saved_products": ["ar": "عرض كل المنتجات المحفوظة"]
         ,"view_passport": ["ar": "عرض الجواز"]
         ,"view_rewards": ["ar": "عرض المكافآت"]
+        ,"free_drink_requires_eligible_drink": ["ar": "أضف مشروباً من قسم المشروبات قبل استخدام هذه المكافأة."]
+        ,"free_drink_reward_detail": ["ar": "مشروب واحد من اختيارك من قسم المشروبات."]
+        ,"one_eligible_drink": ["ar": "مشروب مؤهل واحد"]
         ,"voucher_apply_failed": ["ar": "تعذر تطبيق هذه القسيمة حالياً."]
         ,"wallet_pass_failed": ["ar": "تعذر تحميل بطاقة Wallet حالياً."]
         ,"welcome_back": ["ar": "مرحباً بعودتك،"]

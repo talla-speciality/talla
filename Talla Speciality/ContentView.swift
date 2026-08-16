@@ -27,6 +27,23 @@ import SafariServices
 import UIKit
 #endif
 
+enum LoyaltyVoucherRules {
+    static let freeDrinkCategoryKeys: Set<String> = ["ready-made-drinks"]
+
+    static func isFreeDrink(_ reward: String) -> Bool {
+        reward.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "free drink"
+    }
+
+    static func freeDrinkDiscount(
+        lines: [(categoryKey: String, unitPrice: Double, quantity: Int)]
+    ) -> Double {
+        lines
+            .filter { $0.quantity > 0 && freeDrinkCategoryKeys.contains($0.categoryKey) }
+            .map(\.unitPrice)
+            .max() ?? 0
+    }
+}
+
 private enum TallaWidgetSharedState {
     static let appGroupID = "group.Talla-Speciality.Talla-Speciality"
     static let widgetKind = "com.talla.speciality.quick-actions"
@@ -733,7 +750,7 @@ struct ContentView: View {
 
     private let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
-        ShopCategory(key: "summer-drinks", title: "Summer", subtitle: "Cold seasonal drinks", symbol: "sun.max.fill"),
+        ShopCategory(key: "summer-drinks", title: "Summer Boxes", subtitle: "Four seasonal drink boxes", symbol: "shippingbox.fill"),
         ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Whole bean roasts", symbol: "leaf.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
@@ -799,7 +816,15 @@ struct ContentView: View {
 
         switch appliedVoucher.reward.lowercased() {
         case "free drink":
-            return min(cartSubtotal, 2.500)
+            return LoyaltyVoucherRules.freeDrinkDiscount(
+                lines: cartItems.map {
+                    (
+                        categoryKey: $0.product.categoryKey,
+                        unitPrice: priceValue(from: $0.product.price),
+                        quantity: $0.quantity
+                    )
+                }
+            )
         case "pastry pairing":
             return min(cartSubtotal, 2.000)
         case "bag discount":
@@ -926,7 +951,7 @@ struct ContentView: View {
 
     private var quickDrinkProducts: [Product] {
         let eligibleProducts = products.filter { product in
-            (product.categoryKey == "ready-made-drinks" || product.categoryKey == "summer-drinks")
+            product.categoryKey == "ready-made-drinks"
                 && product.isAvailableForSale
                 && selectedVariant(for: product)?.isAvailableForSale == true
         }
@@ -4444,7 +4469,6 @@ struct ContentView: View {
             loyaltyPerks: loyaltyPerks,
             rewardProgress: loyaltyAccount.map { rewardProgress(for: $0.pointsBalance) },
             tierProgress: loyaltyAccount.map { tierProgress(for: $0.pointsBalance) },
-            stampProductImageURL: loyaltyStampProductImageURL,
             checkRewardsAction: {
                 Task {
                     await loadLoyaltyAccount()
@@ -4469,13 +4493,6 @@ struct ContentView: View {
             }),
             walletCallToAction: AnyView(walletCallToAction)
         )
-    }
-
-    private var loyaltyStampProductImageURL: URL? {
-        products.first {
-            ($0.categoryKey == "coffee-beans" || $0.categoryKey == "arabic-coffee-beans")
-                && $0.imageURL != nil
-        }?.imageURL ?? products.first(where: { $0.imageURL != nil })?.imageURL
     }
 
     private var cartRewardsSheet: some View {
@@ -4856,7 +4873,7 @@ struct ContentView: View {
     private var quickSearches: [(title: String, query: String, categoryKey: String)] {
         [
             (AppLocalization.text("beans", fallback: "Beans"), "beans", "coffee-beans"),
-            (AppLocalization.text("cold_drinks", fallback: "Cold Drinks"), "cold", "summer-drinks"),
+            (AppLocalization.text("summer_boxes", fallback: "Summer Boxes"), "box", "summer-drinks"),
             (AppLocalization.text("gifts", fallback: "Gifts"), "gift", "gifts"),
             (AppLocalization.text("crmb", fallback: "CRMB"), "crmb", "desserts"),
             (AppLocalization.text("equipment", fallback: "Equipment"), "brew", "coffee-equipment")
@@ -7696,7 +7713,7 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                     }
 
-                    Text(appliedVoucher.detail)
+                    Text(formattedVoucherDetail(for: appliedVoucher))
                         .font(bodyFont(size: 13))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -8459,8 +8476,10 @@ struct ContentView: View {
         }
 
         switch product.categoryKey {
-        case "ready-made-drinks", "summer-drinks":
+        case "ready-made-drinks":
             return AppLocalization.text("ready_drink_card_summary", fallback: "Ready to drink")
+        case "summer-drinks":
+            return AppLocalization.text("summer_box_card_summary", fallback: "Seasonal drink box")
         case "cups":
             return AppLocalization.text("cups_card_summary", fallback: "Reusable cup")
         case "coffee-equipment":
@@ -8501,8 +8520,12 @@ struct ContentView: View {
     private func productBrewRecommendation(for product: Product) -> String {
         let searchableText = normalizedSearchText(for: product)
 
-        if product.categoryKey == "ready-made-drinks" || product.categoryKey == "summer-drinks" {
+        if product.categoryKey == "ready-made-drinks" {
             return AppLocalization.text("best_ready_to_drink", fallback: "Best served chilled and ready to drink.")
+        }
+
+        if product.categoryKey == "summer-drinks" {
+            return AppLocalization.text("best_summer_box", fallback: "A chilled seasonal box made for sharing.")
         }
 
         if product.categoryKey == "cups" {
@@ -8599,7 +8622,8 @@ struct ContentView: View {
     private func productBrewChipTitle(for product: Product) -> String {
         let searchableText = normalizedSearchText(for: product)
 
-        if product.categoryKey == "ready-made-drinks" || product.categoryKey == "summer-drinks" { return "Chilled" }
+        if product.categoryKey == "ready-made-drinks" { return "Chilled" }
+        if product.categoryKey == "summer-drinks" { return "Share" }
         if product.categoryKey == "cups" { return "Serve" }
         if product.categoryKey == "coffee-equipment" { return "Gear" }
         if searchableText.contains("espresso") { return "Espresso" }
@@ -8654,7 +8678,7 @@ struct ContentView: View {
             badges.append(AppLocalization.text("popular", fallback: "Popular"))
         }
 
-        if product.categoryKey == "gifts" {
+        if product.categoryKey == "gifts" || product.categoryKey == "summer-drinks" {
             badges.append(AppLocalization.text("gift_ready", fallback: "Gift ready"))
         }
 
@@ -8662,7 +8686,7 @@ struct ContentView: View {
             badges.append(AppLocalization.text("reward_eligible", fallback: "Reward eligible"))
         }
 
-        if normalizedName.contains("cold") || normalizedName.contains("iced") || product.categoryKey == "summer-drinks" {
+        if normalizedName.contains("cold") || normalizedName.contains("iced") {
             badges.append(AppLocalization.text("cold_pick", fallback: "Cold pick"))
         }
 
@@ -11039,7 +11063,16 @@ struct ContentView: View {
         voucherError = nil
 
         do {
-            appliedVoucher = try await AccountService.previewVoucher(code: trimmedCode, email: profile.email)
+            let voucher = try await AccountService.previewVoucher(code: trimmedCode, email: profile.email)
+            guard !LoyaltyVoucherRules.isFreeDrink(voucher.reward) || cartDiscountForFreeDrink > 0 else {
+                throw LoyaltyServiceError.operationFailed(
+                    AppLocalization.text(
+                        "free_drink_requires_eligible_drink",
+                        fallback: "Add a drink from the Drinks section before applying this reward."
+                    )
+                )
+            }
+            appliedVoucher = voucher
             voucherCodeInput = trimmedCode
             await loadAvailableVouchers(for: profile.email)
             showToast(message: AppLocalization.text("voucher_applied_toast", fallback: "Voucher applied"))
@@ -11107,6 +11140,17 @@ struct ContentView: View {
         checkoutError = nil
 
         do {
+            if let appliedVoucher,
+               LoyaltyVoucherRules.isFreeDrink(appliedVoucher.reward),
+               cartDiscountForFreeDrink <= 0 {
+                throw LoyaltyServiceError.operationFailed(
+                    AppLocalization.text(
+                        "free_drink_requires_eligible_drink",
+                        fallback: "Add a drink from the Drinks section before using this reward."
+                    )
+                )
+            }
+
             if selectedPaymentMethod.route == .shopifyCashOnDelivery {
                 guard appliedVoucher == nil else {
                     throw LoyaltyServiceError.operationFailed(
@@ -11338,7 +11382,7 @@ struct ContentView: View {
     private func categoryLabel(for key: String) -> String {
         guard key != "all" else { return AppLocalization.text("category_all", fallback: "All") }
         if key == "summer-drinks" {
-            return AppLocalization.text("category_summer_drinks", fallback: "Summer Drinks")
+            return AppLocalization.text("category_summer_drinks", fallback: "Summer Boxes")
         }
         if key == "coffee-beans" {
             return AppLocalization.text("category_coffee_beans", fallback: "Coffee Beans")
@@ -11471,7 +11515,7 @@ struct ContentView: View {
     private func formattedDiscountLabel(for voucher: VoucherRecord) -> String {
         switch voucher.reward.lowercased() {
         case "free drink":
-            return "BHD 2.500"
+            return AppLocalization.text("one_eligible_drink", fallback: "1 eligible drink")
         case "pastry pairing":
             return "BHD 2.000"
         case "bag discount":
@@ -11485,6 +11529,25 @@ struct ContentView: View {
         default:
             return voucher.detail
         }
+    }
+
+    private func formattedVoucherDetail(for voucher: VoucherRecord) -> String {
+        if LoyaltyVoucherRules.isFreeDrink(voucher.reward) {
+            return AppLocalization.text("free_drink_reward_detail", fallback: "One drink of your choice from the Drinks section.")
+        }
+        return voucher.detail
+    }
+
+    private var cartDiscountForFreeDrink: Double {
+        LoyaltyVoucherRules.freeDrinkDiscount(
+            lines: cartItems.map {
+                (
+                    categoryKey: $0.product.categoryKey,
+                    unitPrice: priceValue(from: $0.product.price),
+                    quantity: $0.quantity
+                )
+            }
+        )
     }
 
 }
@@ -13571,10 +13634,7 @@ enum ProductCatalogRules {
         let sourceSlug = slug(from: parts.joined(separator: " "))
         let typeSlug = slug(from: productType)
 
-        if containsAny(sourceSlug, [
-            "summer", "summertime", "iced", "ice", "cold", "cold-brew", "refresher", "refreshers",
-            "lemonade", "sparkling", "cooler", "coolers", "frappe", "frappé", "milkshake"
-        ]) || ["summer", "summer-drinks", "cold-drinks"].contains(typeSlug) {
+        if typeSlug == "summer-drinks" {
             return "summer-drinks"
         }
 
@@ -13652,7 +13712,7 @@ enum ProductCatalogRules {
     static func categoryLabel(productType: String, fallbackKey: String) -> String {
         switch fallbackKey {
         case "summer-drinks":
-            return "Summer Drinks"
+            return "Summer Boxes"
         case "coffee-beans":
             return "Coffee Beans"
         case "arabic-coffee-beans", "arabic-coffee", "northern-coffee", "other":
@@ -13724,8 +13784,6 @@ enum ProductCatalogRules {
 
     private static func canonicalAppCategoryKey(from value: String) -> String? {
         switch slug(from: value) {
-        case "summer", "summer-drinks", "cold-drinks":
-            return "summer-drinks"
         case "coffee", "coffee-beans", "beans":
             return "coffee-beans"
         case "arabic-coffee", "arabic-coffee-beans", "northern-coffee", "shamali":

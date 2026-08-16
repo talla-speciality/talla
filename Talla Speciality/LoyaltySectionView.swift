@@ -24,7 +24,6 @@ struct LoyaltySectionView: View {
     let loyaltyPerks: [String]
     let rewardProgress: (current: Int, target: Int, remaining: Int, fraction: Double)?
     let tierProgress: (label: String, current: Int, target: Int, remaining: Int, fraction: Double)?
-    let stampProductImageURL: URL?
     let checkRewardsAction: () -> Void
     let signOutAction: () -> Void
     let expiringRewardsSection: AnyView
@@ -204,26 +203,15 @@ struct LoyaltySectionView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(cardFillColor.opacity(isEarned ? 1 : 0.42))
 
-            if let stampProductImageURL {
-                AsyncImage(url: stampProductImageURL) { phase in
-                    if case let .success(image) = phase {
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                    } else {
-                        coffeeBeanFallback
-                    }
-                }
-            } else {
-                coffeeBeanFallback
-            }
+            Image(isEarned ? "LoyaltyBottleFull" : "LoyaltyBottleEmpty")
+                .resizable()
+                .scaledToFit()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
         }
         .frame(height: isCompact ? 58 : 68)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .saturation(isEarned ? 1 : 0)
-        .opacity(isEarned ? 1 : 0.24)
+        .opacity(isEarned ? 1 : 0.48)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(accentColor.opacity(isEarned ? 0.38 : 0.12), lineWidth: 1)
