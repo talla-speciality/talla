@@ -30,7 +30,7 @@
             color: var(--ink);
         }
         .shell {
-            max-width: 1180px;
+            max-width: 1320px;
             margin: 0 auto;
             padding: 32px 20px 56px;
         }
@@ -60,9 +60,25 @@
             font-size: 32px;
         }
         .hero {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .hero-copy {
             display: grid;
             gap: 12px;
-            margin-bottom: 24px;
+        }
+        .hero-date {
+            flex: 0 0 auto;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.62);
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
         }
         .eyebrow {
             font-size: 12px;
@@ -139,6 +155,88 @@
             top: 14px;
             z-index: 10;
             backdrop-filter: blur(18px);
+        }
+        .command-center {
+            display: grid;
+            gap: 14px;
+            margin-bottom: 20px;
+            padding: 18px;
+            background: rgba(251, 247, 241, 0.9);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: 0 18px 40px rgba(39, 23, 13, 0.08);
+        }
+        .command-center-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .command-center-title {
+            display: grid;
+            gap: 3px;
+        }
+        .command-center-title strong {
+            font-size: 16px;
+        }
+        .quick-nav {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 2px 2px 8px;
+            scrollbar-width: thin;
+        }
+        button.nav-link {
+            flex: 0 0 auto;
+            padding: 10px 14px;
+            background: white;
+            color: var(--ink);
+            border: 1px solid var(--border);
+            box-shadow: none;
+            letter-spacing: 0;
+        }
+        button.nav-link:hover,
+        button.nav-link:focus-visible {
+            color: var(--accent);
+            border-color: rgba(159, 95, 47, 0.35);
+        }
+        .section-search-row {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) auto auto;
+            gap: 10px;
+        }
+        .section-search-row input {
+            width: 100%;
+        }
+        .section-count {
+            align-self: center;
+            color: var(--muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        [data-admin-section].section-hidden {
+            display: none;
+        }
+        [data-admin-section].section-focus {
+            outline: 3px solid rgba(159, 95, 47, 0.22);
+            outline-offset: 4px;
+        }
+        .shortcut-hint {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        kbd {
+            display: inline-grid;
+            min-width: 22px;
+            min-height: 22px;
+            place-items: center;
+            padding: 0 6px;
+            border: 1px solid var(--border);
+            border-bottom-width: 2px;
+            border-radius: 7px;
+            background: white;
+            color: var(--ink);
+            font: 700 11px/1 "Avenir Next", Avenir, sans-serif;
         }
         .toolbar-row {
             display: flex;
@@ -524,6 +622,24 @@
             .toolbar {
                 position: static;
             }
+            .hero {
+                align-items: start;
+                flex-direction: column;
+            }
+            .command-center-top {
+                align-items: start;
+                flex-direction: column;
+            }
+            .section-search-row {
+                grid-template-columns: 1fr 1fr;
+            }
+            .section-search-row input,
+            .section-count {
+                grid-column: 1 / -1;
+            }
+            .section-search-row button {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -536,16 +652,43 @@
             <input id="login-username" type="text" placeholder="Admin username" autocomplete="username">
             <input id="login-password" type="password" placeholder="Admin password" autocomplete="current-password">
             <button id="login-button">Sign In</button>
-            <div id="login-status" class="status info">Sign in to open the admin console.</div>
+            <div id="login-status" class="status info" role="status" aria-live="polite">Sign in to open the admin console.</div>
         </div>
     </section>
 
     <div id="app-shell" class="shell hidden">
         <section class="hero">
-            <div class="eyebrow">Talla Speciality Admin</div>
-            <h1>Customer, Loyalty, and Product Console</h1>
-            <div class="subcopy">Look up customers by email, inspect account state, apply manual loyalty adjustments, and manage Shopify products without leaving the live backend.</div>
+            <div class="hero-copy">
+                <div class="eyebrow">Talla Speciality Admin</div>
+                <h1>Your roastery at a glance.</h1>
+                <div class="subcopy">Start with what needs attention, then move quickly between orders, customers, products, and app content.</div>
+            </div>
+            <div id="today-label" class="hero-date"></div>
         </section>
+
+        <nav class="command-center" aria-label="Admin sections">
+            <div class="command-center-top">
+                <div class="command-center-title">
+                    <strong>Quick access</strong>
+                    <span class="shortcut-hint">Press <kbd>/</kbd> to find a section or <kbd>C</kbd> to find a customer.</span>
+                </div>
+                <div id="section-count" class="section-count">12 sections</div>
+            </div>
+            <div class="quick-nav">
+                <button class="nav-link" data-section-target="orders-section">Orders</button>
+                <button class="nav-link" data-section-target="customers-section">Customers</button>
+                <button class="nav-link" data-section-target="products-section">Products</button>
+                <button class="nav-link" data-section-target="home-section">App Home</button>
+                <button class="nav-link" data-section-target="app-controls-section">Live Controls</button>
+                <button class="nav-link" data-section-target="campaigns-section">Campaigns</button>
+                <button class="nav-link" data-section-target="analytics-section">Analytics</button>
+            </div>
+            <div class="section-search-row">
+                <input id="section-search" type="search" placeholder="Find an admin section…" aria-label="Find an admin section">
+                <button id="expand-sections" class="secondary">Expand All</button>
+                <button id="collapse-sections" class="secondary">Collapse All</button>
+            </div>
+        </nav>
 
         <section class="toolbar">
             <div class="toolbar-row space-between">
@@ -557,15 +700,57 @@
                 <button id="lookup">Lookup Customer</button>
                 <button id="refresh" class="secondary">Refresh</button>
             </div>
-            <div id="status" class="status info">Signed in. Search for a customer to begin.</div>
+            <div id="status" class="status info" role="status" aria-live="polite">Signed in. Search for a customer to begin.</div>
         </section>
 
-        <section class="panel" style="margin-bottom: 20px;">
+        <section id="dashboard-section" class="panel" data-admin-section="dashboard overview recent actions" style="margin-bottom: 20px;">
             <h2>Admin Dashboard</h2>
             <div id="admin-dashboard" class="empty">Loading dashboard...</div>
         </section>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="app-controls-section" class="panel" data-admin-section="live app controls announcement support links sections" style="margin-bottom: 20px;">
+            <summary class="panel-summary">
+                <h2>Live App Controls</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Change customer-facing content immediately, without publishing a new app version. The app keeps safe defaults if the backend is temporarily unavailable.</div>
+                <div class="list-item" style="margin-bottom: 14px;">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                        <input id="app-announcement-enabled" type="checkbox" style="width:auto;">
+                        <strong style="margin:0;">Show announcement on Home</strong>
+                    </label>
+                    <div class="grid" style="margin-top:12px;">
+                        <input id="app-announcement-title" type="text" maxlength="60" placeholder="Announcement title">
+                        <input id="app-announcement-action-label" type="text" maxlength="28" placeholder="Optional button label">
+                    </div>
+                    <textarea id="app-announcement-message" maxlength="220" style="width:100%; min-height:82px; margin-top:12px; resize:vertical;" placeholder="Short customer message"></textarea>
+                    <input id="app-announcement-action-url" type="url" maxlength="500" style="width:100%; margin-top:12px;" placeholder="Optional https:// or talla:// link">
+                </div>
+                <div class="list-item" style="margin-bottom: 14px;">
+                    <strong>Home sections</strong>
+                    <div class="grid" style="margin-top:12px;">
+                        <label><input id="app-show-quick-drinks" type="checkbox" style="width:auto; margin-right:8px;">Talla Express</label>
+                        <label><input id="app-show-fun-pick" type="checkbox" style="width:auto; margin-right:8px;">Today's fun pick</label>
+                        <label><input id="app-show-signature-roasts" type="checkbox" style="width:auto; margin-right:8px;">Signature roasts</label>
+                        <label><input id="app-show-passport" type="checkbox" style="width:auto; margin-right:8px;">Talla Passport</label>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <strong>Support and policy links</strong>
+                    <div class="product-controls" style="margin-top:12px;">
+                        <input id="app-whatsapp-url" type="url" maxlength="500" placeholder="WhatsApp support URL">
+                        <input id="app-privacy-url" type="url" maxlength="500" placeholder="Privacy policy URL">
+                        <input id="app-terms-url" type="url" maxlength="500" placeholder="Terms and conditions URL">
+                    </div>
+                </div>
+                <div class="toolbar-row" style="padding:14px 0 0;">
+                    <button id="save-app-settings">Publish App Changes</button>
+                    <div id="app-settings-status" class="muted" aria-live="polite">Loading live app controls...</div>
+                </div>
+            </div>
+        </details>
+
+        <details id="orders-section" class="panel" data-admin-section="orders fulfilment pickup status" open style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>All Orders</h2>
             </summary>
@@ -579,7 +764,7 @@
             </div>
         </details>
 
-        <section class="panel" style="margin-bottom: 20px;">
+        <section id="campaigns-section" class="panel" data-admin-section="campaign eid offer promotion" style="margin-bottom: 20px;">
             <h2>Eid Campaign</h2>
             <div class="subcopy" style="margin-bottom: 14px;">Control the Eid banner, Eid Gifts category promotion, and limited Eid product badges in the app.</div>
             <div class="grid">
@@ -600,7 +785,7 @@
             </div>
         </section>
 
-        <section class="panel" style="margin-bottom: 20px;">
+        <section id="push-section" class="panel" data-admin-section="push notification message customers" style="margin-bottom: 20px;">
             <h2>Customer Push</h2>
             <div class="subcopy" style="margin-bottom: 14px;">Send a normal APNs notification to every saved iOS device token that has granted notification permission.</div>
             <div class="grid">
@@ -614,7 +799,7 @@
             </div>
         </section>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="operations-section" class="panel" data-admin-section="operations health delivery inventory" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Operations Snapshot</h2>
             </summary>
@@ -623,7 +808,7 @@
             </div>
         </details>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="analytics-section" class="panel" data-admin-section="analytics performance customers loyalty" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Analytics Snapshot</h2>
             </summary>
@@ -632,7 +817,7 @@
             </div>
         </details>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="taste-section" class="panel" data-admin-section="taste memory feedback flavours" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Taste Memory</h2>
             </summary>
@@ -642,7 +827,7 @@
             </div>
         </details>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="home-section" class="panel" data-admin-section="app home controls hero signature roasts express" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Home Controls</h2>
             </summary>
@@ -670,7 +855,7 @@
             </div>
         </details>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="passport-section" class="panel" data-admin-section="passport origins reward" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Talla Passport</h2>
             </summary>
@@ -688,7 +873,7 @@
             </div>
         </details>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="products-section" class="panel" data-admin-section="products shopify catalog inventory price" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Products</h2>
             </summary>
@@ -732,7 +917,7 @@
             </div>
         </details>
 
-        <details class="panel" open style="margin-bottom: 20px;">
+        <details id="customers-section" class="panel" data-admin-section="customers directory voucher export filters" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Customer Directory</h2>
             </summary>
@@ -793,7 +978,7 @@
         </details>
 
         <section class="layout">
-            <details class="panel" open>
+            <details id="customer-section" class="panel" data-admin-section="customer account profile addresses orders vouchers" open>
                 <summary class="panel-summary">
                     <h2>Customer Snapshot</h2>
                 </summary>
@@ -802,7 +987,7 @@
                 </div>
             </details>
 
-            <details class="panel" open>
+            <details id="loyalty-section" class="panel" data-admin-section="loyalty points adjustment beans">
                 <summary class="panel-summary">
                     <h2>Loyalty Adjustment</h2>
                 </summary>
@@ -821,7 +1006,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -831,6 +1016,25 @@
         const loginStatusEl = document.getElementById("login-status");
         const sessionSummaryEl = document.getElementById("session-summary");
         const adminDashboardEl = document.getElementById("admin-dashboard");
+        const todayLabelEl = document.getElementById("today-label");
+        const sectionSearchInput = document.getElementById("section-search");
+        const sectionCountEl = document.getElementById("section-count");
+        const expandSectionsButton = document.getElementById("expand-sections");
+        const collapseSectionsButton = document.getElementById("collapse-sections");
+        const appAnnouncementEnabledInput = document.getElementById("app-announcement-enabled");
+        const appAnnouncementTitleInput = document.getElementById("app-announcement-title");
+        const appAnnouncementMessageInput = document.getElementById("app-announcement-message");
+        const appAnnouncementActionLabelInput = document.getElementById("app-announcement-action-label");
+        const appAnnouncementActionURLInput = document.getElementById("app-announcement-action-url");
+        const appShowQuickDrinksInput = document.getElementById("app-show-quick-drinks");
+        const appShowFunPickInput = document.getElementById("app-show-fun-pick");
+        const appShowSignatureRoastsInput = document.getElementById("app-show-signature-roasts");
+        const appShowPassportInput = document.getElementById("app-show-passport");
+        const appWhatsAppURLInput = document.getElementById("app-whatsapp-url");
+        const appPrivacyURLInput = document.getElementById("app-privacy-url");
+        const appTermsURLInput = document.getElementById("app-terms-url");
+        const saveAppSettingsButton = document.getElementById("save-app-settings");
+        const appSettingsStatusEl = document.getElementById("app-settings-status");
         const allOrdersEl = document.getElementById("all-orders");
         const ordersNoteEl = document.getElementById("orders-note");
         const refreshOrdersButton = document.getElementById("refresh-orders");
@@ -996,6 +1200,147 @@
             }
 
             sessionSummaryEl.textContent = `Signed in as ${state.session.username}`;
+        }
+
+        function initializeAdminNavigation() {
+            todayLabelEl.textContent = new Intl.DateTimeFormat(undefined, {
+                weekday: "long",
+                month: "short",
+                day: "numeric"
+            }).format(new Date());
+
+            const sections = Array.from(document.querySelectorAll("[data-admin-section]"));
+            sectionCountEl.textContent = `${sections.length} sections`;
+
+            document.querySelectorAll("details[data-admin-section]").forEach((section) => {
+                const savedState = localStorage.getItem(`talla-admin-section:${section.id}`);
+                if (savedState !== null) section.open = savedState === "open";
+                section.addEventListener("toggle", () => {
+                    localStorage.setItem(`talla-admin-section:${section.id}`, section.open ? "open" : "closed");
+                });
+            });
+        }
+
+        function filterAdminSections() {
+            const query = sectionSearchInput.value.trim().toLowerCase();
+            const sections = Array.from(document.querySelectorAll("[data-admin-section]"));
+            let visibleCount = 0;
+            sections.forEach((section) => {
+                const title = section.querySelector("h2")?.textContent || "";
+                const searchableText = `${title} ${section.dataset.adminSection || ""}`.toLowerCase();
+                const visible = !query || searchableText.includes(query);
+                section.classList.toggle("section-hidden", !visible);
+                if (visible) visibleCount += 1;
+            });
+            sectionCountEl.textContent = query
+                ? `${visibleCount} of ${sections.length} sections`
+                : `${sections.length} sections`;
+        }
+
+        function openAdminSection(sectionID) {
+            sectionSearchInput.value = "";
+            filterAdminSections();
+            const section = document.getElementById(sectionID);
+            if (!section) return;
+            if (section.matches("details")) section.open = true;
+            section.scrollIntoView({ behavior: "smooth", block: "start" });
+            section.classList.add("section-focus");
+            window.setTimeout(() => section.classList.remove("section-focus"), 1200);
+        }
+
+        function renderAppSettings() {
+            const settings = state.appSettings || {};
+            const announcement = settings.announcement || {};
+            const support = settings.support || {};
+            const homeSections = settings.homeSections || {};
+            appAnnouncementEnabledInput.checked = Boolean(announcement.enabled);
+            appAnnouncementTitleInput.value = announcement.title || "";
+            appAnnouncementMessageInput.value = announcement.message || "";
+            appAnnouncementActionLabelInput.value = announcement.actionLabel || "";
+            appAnnouncementActionURLInput.value = announcement.actionURL || "";
+            appShowQuickDrinksInput.checked = homeSections.showQuickDrinks !== false;
+            appShowFunPickInput.checked = homeSections.showFunPick !== false;
+            appShowSignatureRoastsInput.checked = homeSections.showSignatureRoasts !== false;
+            appShowPassportInput.checked = homeSections.showPassport !== false;
+            appWhatsAppURLInput.value = support.whatsappURL || "";
+            appPrivacyURLInput.value = support.privacyURL || "";
+            appTermsURLInput.value = support.termsURL || "";
+            appSettingsStatusEl.textContent = settings.updatedAt
+                ? `Last published ${new Date(settings.updatedAt).toLocaleString()}`
+                : "Using app defaults. Publish when you are ready.";
+        }
+
+        async function loadAppSettings() {
+            try {
+                const response = await fetch("/admin/api/app-settings");
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not load app controls.");
+                state.appSettings = payload;
+                renderAppSettings();
+            } catch (error) {
+                appSettingsStatusEl.textContent = error.message;
+            }
+        }
+
+        function validManagedURL(value) {
+            if (!value) return true;
+            try {
+                return ["https:", "talla:"].includes(new URL(value).protocol);
+            } catch {
+                return false;
+            }
+        }
+
+        async function saveAppSettings() {
+            const announcement = {
+                enabled: appAnnouncementEnabledInput.checked,
+                title: appAnnouncementTitleInput.value.trim(),
+                message: appAnnouncementMessageInput.value.trim(),
+                actionLabel: appAnnouncementActionLabelInput.value.trim(),
+                actionURL: appAnnouncementActionURLInput.value.trim()
+            };
+            const urls = [announcement.actionURL, appWhatsAppURLInput.value.trim(), appPrivacyURLInput.value.trim(), appTermsURLInput.value.trim()];
+            if (announcement.enabled && (!announcement.title || !announcement.message)) {
+                appSettingsStatusEl.textContent = "Add an announcement title and message before turning it on.";
+                return;
+            }
+            if (!urls.every(validManagedURL)) {
+                appSettingsStatusEl.textContent = "Links must begin with https:// or talla://";
+                return;
+            }
+            if (!window.confirm("Publish these controls to the live app? Customers will see the changes when the app refreshes.")) return;
+
+            setButtonBusy(saveAppSettingsButton, true, "Publish App Changes", "Publishing...");
+            appSettingsStatusEl.textContent = "Publishing live app controls...";
+            try {
+                const response = await fetch("/admin/api/app-settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        announcement,
+                        support: {
+                            whatsappURL: appWhatsAppURLInput.value.trim(),
+                            privacyURL: appPrivacyURLInput.value.trim(),
+                            termsURL: appTermsURLInput.value.trim()
+                        },
+                        homeSections: {
+                            showQuickDrinks: appShowQuickDrinksInput.checked,
+                            showFunPick: appShowFunPickInput.checked,
+                            showSignatureRoasts: appShowSignatureRoastsInput.checked,
+                            showPassport: appShowPassportInput.checked
+                        }
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not publish app controls.");
+                state.appSettings = payload;
+                renderAppSettings();
+                setStatus("Live app controls published.", "success");
+            } catch (error) {
+                appSettingsStatusEl.textContent = error.message;
+            } finally {
+                setButtonBusy(saveAppSettingsButton, false, "Publish App Changes");
+            }
         }
 
         function lowStockProducts(threshold = 5) {
@@ -1585,6 +1930,10 @@
                 return;
             }
 
+            if (!window.confirm(`Grant “${reward}” to ${customers.length} filtered customer${customers.length === 1 ? "" : "s"}?`)) {
+                return;
+            }
+
             setStatus(`Creating vouchers for ${customers.length} customers...`, "info");
             setButtonBusy(bulkCreateVoucherButton, true, "Grant To Filtered Customers", "Granting...");
             try {
@@ -1624,6 +1973,7 @@
         }
 
         async function sendEidPush() {
+            if (!window.confirm("Send the Eid notification to every eligible device now?")) return;
             setStatus("Sending Eid push campaign...", "info");
             setButtonBusy(sendEidPushButton, true, "Send Eid Push", "Sending...");
             try {
@@ -1656,6 +2006,8 @@
                 setStatus("Add a notification title and message first.", "error");
                 return;
             }
+
+            if (!window.confirm(`Send “${title}” to every eligible device now?`)) return;
 
             setStatus("Sending customer push notification...", "info");
             setButtonBusy(sendCustomerPushButton, true, "Send To All Devices", "Sending...");
@@ -2203,6 +2555,7 @@
                 renderAnalyticsSummary(state.analytics);
                 renderAdminDashboard();
                 await loadEidCampaign();
+                await loadAppSettings();
                 showApp();
                 await loadAdminOrders();
                 await loadTasteMemory();
@@ -2238,6 +2591,7 @@
             state.analytics = null;
             state.recentAdminActions = [];
             state.eidCampaign = null;
+            state.appSettings = null;
             state.signatureRoasts = { signatureRoastProductIDs: [], quickDrinkProductIDs: [] };
             state.passportSettings = null;
             state.productControlAvailable = true;
@@ -2251,6 +2605,7 @@
             eidCampaignStatusEl.textContent = "Sign in to manage Eid campaign settings.";
             eidModeEnabledInput.checked = false;
             eidOfferEndsAtInput.value = "";
+            appSettingsStatusEl.textContent = "Sign in to manage live app controls.";
             signatureRoastsEl.className = "empty";
             signatureRoastsEl.innerHTML = "Sign in to manage Home signature roasts.";
             tallaExpressDrinksEl.className = "empty";
@@ -2284,6 +2639,7 @@
                 renderAnalyticsSummary(state.analytics);
                 renderAdminDashboard();
                 await loadEidCampaign();
+                await loadAppSettings();
                 showApp();
                 await loadAdminOrders();
                 await loadTasteMemory();
@@ -2859,6 +3215,29 @@
         }
 
         loginButton.addEventListener("click", login);
+        saveAppSettingsButton.addEventListener("click", saveAppSettings);
+        sectionSearchInput.addEventListener("input", filterAdminSections);
+        expandSectionsButton.addEventListener("click", () => {
+            document.querySelectorAll("details[data-admin-section]:not(.section-hidden)").forEach((section) => { section.open = true; });
+        });
+        collapseSectionsButton.addEventListener("click", () => {
+            document.querySelectorAll("details[data-admin-section]:not(.section-hidden)").forEach((section) => { section.open = false; });
+        });
+        document.querySelectorAll("[data-section-target]").forEach((button) => {
+            button.addEventListener("click", () => openAdminSection(button.dataset.sectionTarget));
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.metaKey || event.ctrlKey || event.altKey) return;
+            const activeTag = document.activeElement?.tagName;
+            const isTyping = ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag);
+            if (event.key === "/" && !isTyping) {
+                event.preventDefault();
+                sectionSearchInput.focus();
+            } else if (event.key.toLowerCase() === "c" && !isTyping && !appShell.classList.contains("hidden")) {
+                event.preventDefault();
+                emailInput.focus();
+            }
+        });
         logoutButton.addEventListener("click", logout);
         lookupButton.addEventListener("click", lookupCustomer);
         refreshButton.addEventListener("click", () => state.currentEmail ? lookupCustomer() : setStatus("No customer loaded yet."));
@@ -3058,6 +3437,7 @@
             if (event.key === "Enter") createProduct();
         });
         initializeProductCategoryControls();
+        initializeAdminNavigation();
         bootstrap();
     </script>
 </body>

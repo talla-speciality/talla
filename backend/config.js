@@ -104,6 +104,7 @@ module.exports = {
         campaignSettings: path.join(dataDirectory, "campaignSettings.json"),
         homeSettings: path.join(dataDirectory, "homeSettings.json"),
         passportSettings: path.join(dataDirectory, "passportSettings.json"),
+        appSettings: path.join(dataDirectory, "appSettings.json"),
         tasteMemory: path.join(dataDirectory, "tasteMemory.json"),
         passwordResetTokens: path.join(dataDirectory, "passwordResetTokens.json"),
         benefitPayments: path.join(dataDirectory, "benefitPayments.json"),

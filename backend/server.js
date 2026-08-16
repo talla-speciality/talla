@@ -28,6 +28,7 @@ const alertInboxStorePath = config.stores.alertInbox;
 const campaignSettingsStorePath = config.stores.campaignSettings;
 const homeSettingsStorePath = config.stores.homeSettings;
 const passportSettingsStorePath = config.stores.passportSettings;
+const appSettingsStorePath = config.stores.appSettings;
 const tasteMemoryStorePath = config.stores.tasteMemory;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
@@ -155,6 +156,7 @@ ensureStoreFile(alertInboxStorePath, { alerts: {} });
 ensureStoreFile(campaignSettingsStorePath, { campaignSettings: defaultCampaignSettings() });
 ensureStoreFile(homeSettingsStorePath, { homeSettings: defaultHomeSettings() });
 ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSettings() });
+ensureStoreFile(appSettingsStorePath, { appSettings: defaultAppSettings() });
 ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
@@ -252,6 +254,70 @@ function normalizeHomeSettings(value = {}) {
         heroBadge: trimText(value.heroBadge, 40),
         primaryButtonTitle: trimText(value.primaryButtonTitle, 28),
         secondaryButtonTitle: trimText(value.secondaryButtonTitle, 28),
+        updatedAt: value.updatedAt || fallback.updatedAt
+    };
+}
+
+function defaultAppSettings() {
+    return {
+        announcement: {
+            enabled: false,
+            title: "",
+            message: "",
+            actionLabel: "",
+            actionURL: ""
+        },
+        support: {
+            whatsappURL: "https://wa.me/97339392414",
+            privacyURL: "https://duneroastery.myshopify.com/policies/privacy-policy",
+            termsURL: "https://duneroastery.myshopify.com/policies/terms-of-service"
+        },
+        homeSections: {
+            showQuickDrinks: true,
+            showFunPick: true,
+            showSignatureRoasts: true,
+            showPassport: true
+        },
+        updatedAt: null
+    };
+}
+
+function normalizeAppSettings(value = {}) {
+    const fallback = defaultAppSettings();
+    const trimText = (text, maxLength) => String(text || "").trim().slice(0, maxLength);
+    const safeURL = (candidate, fallbackValue) => {
+        const value = trimText(candidate, 500);
+        if (!value) return fallbackValue;
+        try {
+            const parsed = new URL(value);
+            return ["https:", "talla:"].includes(parsed.protocol) ? parsed.toString() : fallbackValue;
+        } catch {
+            return fallbackValue;
+        }
+    };
+    const announcement = value.announcement || {};
+    const support = value.support || {};
+    const homeSections = value.homeSections || {};
+
+    return {
+        announcement: {
+            enabled: Boolean(announcement.enabled),
+            title: trimText(announcement.title, 60),
+            message: trimText(announcement.message, 220),
+            actionLabel: trimText(announcement.actionLabel, 28),
+            actionURL: safeURL(announcement.actionURL, "")
+        },
+        support: {
+            whatsappURL: safeURL(support.whatsappURL, fallback.support.whatsappURL),
+            privacyURL: safeURL(support.privacyURL, fallback.support.privacyURL),
+            termsURL: safeURL(support.termsURL, fallback.support.termsURL)
+        },
+        homeSections: {
+            showQuickDrinks: homeSections.showQuickDrinks === undefined ? true : Boolean(homeSections.showQuickDrinks),
+            showFunPick: homeSections.showFunPick === undefined ? true : Boolean(homeSections.showFunPick),
+            showSignatureRoasts: homeSections.showSignatureRoasts === undefined ? true : Boolean(homeSections.showSignatureRoasts),
+            showPassport: homeSections.showPassport === undefined ? true : Boolean(homeSections.showPassport)
+        },
         updatedAt: value.updatedAt || fallback.updatedAt
     };
 }
@@ -7393,6 +7459,48 @@ async function savePassportSettings(nextSettings) {
     return settings;
 }
 
+async function getAppSettings() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT value, updated_at
+             FROM app_settings
+             WHERE key = $1`,
+            ["app_settings"]
+        );
+        if (result.rowCount > 0) {
+            return normalizeAppSettings({
+                ...result.rows[0].value,
+                updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
+            });
+        }
+        return defaultAppSettings();
+    }
+
+    const store = readJSON(appSettingsStorePath);
+    return normalizeAppSettings(store.appSettings || {});
+}
+
+async function saveAppSettings(nextSettings) {
+    const settings = normalizeAppSettings({
+        ...nextSettings,
+        updatedAt: new Date().toISOString()
+    });
+
+    if (database.isEnabled()) {
+        await database.query(
+            `INSERT INTO app_settings (key, value, updated_at)
+             VALUES ($1, $2::jsonb, NOW())
+             ON CONFLICT (key)
+             DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+            ["app_settings", JSON.stringify(settings)]
+        );
+        return getAppSettings();
+    }
+
+    writeJSON(appSettingsStorePath, { appSettings: settings });
+    return settings;
+}
+
 async function adminCustomerSummary(email) {
     const account = await getAccountByEmail(email);
     if (!account) {
@@ -7725,6 +7833,11 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/app/passport-settings") {
         sendJSON(response, 200, await getPassportSettings());
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/app/settings") {
+        sendJSON(response, 200, await getAppSettings());
         return;
     }
 
@@ -8191,6 +8304,29 @@ const server = http.createServer(async (request, response) => {
                 sendJSON(response, 200, settings);
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not save Eid campaign settings." });
+            }
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/app-settings") {
+            sendJSON(response, 200, await getAppSettings());
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/app-settings") {
+            try {
+                const body = await readBody(request);
+                const savedSettings = await saveAppSettings(body);
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "app_settings_updated",
+                    targetEmail: null,
+                    detail: "Updated live app controls",
+                    metadata: savedSettings
+                });
+                sendJSON(response, 200, savedSettings);
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not save app settings." });
             }
             return;
         }

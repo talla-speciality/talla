@@ -203,6 +203,33 @@ struct ContentView: View {
         let completionRewardDetail: String?
     }
 
+    struct AppSettings: Decodable {
+        struct Announcement: Decodable {
+            let enabled: Bool
+            let title: String
+            let message: String
+            let actionLabel: String
+            let actionURL: String
+        }
+
+        struct Support: Decodable {
+            let whatsappURL: String
+            let privacyURL: String
+            let termsURL: String
+        }
+
+        struct HomeSections: Decodable {
+            let showQuickDrinks: Bool
+            let showFunPick: Bool
+            let showSignatureRoasts: Bool
+            let showPassport: Bool
+        }
+
+        let announcement: Announcement
+        let support: Support
+        let homeSections: HomeSections
+    }
+
     struct BrewingMethod: Identifiable, Hashable {
         struct PublishedRecipe: Hashable {
             let coffeeGrams: Double?
@@ -671,6 +698,7 @@ struct ContentView: View {
     @State private var remoteSignatureRoastProductIDs: [String] = []
     @State private var remoteHomeSettings: HomeSettings?
     @State private var remotePassportSettings: PassportSettings?
+    @State private var remoteAppSettings: AppSettings?
     @State private var loyaltyEmail = ""
     @State private var loyaltyAccount: LoyaltyAccount?
     @State private var loyaltyError: String?
@@ -1806,6 +1834,7 @@ struct ContentView: View {
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
         .task {
             syncWidgetSharedState(reload: false)
+            await loadAppSettings()
             await runInitialLaunchSequence()
             syncWidgetSharedState(reload: true)
         }
@@ -1820,6 +1849,7 @@ struct ContentView: View {
             synchronizeBrewTimerWithClock()
             guard hasLoadedProducts else { return }
             Task {
+                await loadAppSettings()
                 if activeTab == .shop {
                     await refreshProductsIfNeeded()
                 }
@@ -2495,6 +2525,23 @@ struct ContentView: View {
         return subtitle
     }
 
+    private func managedURL(_ value: String?, fallback: String) -> URL {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return URL(string: trimmedValue.isEmpty ? fallback : trimmedValue) ?? URL(string: fallback)!
+    }
+
+    private var managedWhatsAppURL: URL {
+        managedURL(remoteAppSettings?.support.whatsappURL, fallback: "https://wa.me/97339392414")
+    }
+
+    private var managedPrivacyURL: URL {
+        managedURL(remoteAppSettings?.support.privacyURL, fallback: "https://duneroastery.myshopify.com/policies/privacy-policy")
+    }
+
+    private var managedTermsURL: URL {
+        managedURL(remoteAppSettings?.support.termsURL, fallback: "https://duneroastery.myshopify.com/policies/terms-of-service")
+    }
+
     private var header: some View {
         VStack(spacing: 14) {
             HStack {
@@ -2683,12 +2730,61 @@ struct ContentView: View {
     private var homeView: some View {
         VStack(spacing: 0) {
             heroSection
-            homeQuickDrinks
-            homeSurprisePick
-            featuredProducts
-            tallaPassportSection
+            appAnnouncementCard
+            if remoteAppSettings?.homeSections.showQuickDrinks != false {
+                homeQuickDrinks
+            }
+            if remoteAppSettings?.homeSections.showFunPick != false {
+                homeSurprisePick
+            }
+            if remoteAppSettings?.homeSections.showSignatureRoasts != false {
+                featuredProducts
+            }
+            if remoteAppSettings?.homeSections.showPassport != false {
+                tallaPassportSection
+            }
             homeFavoritesShelf
             homeRecentlyViewedShelf
+        }
+    }
+
+    @ViewBuilder
+    private var appAnnouncementCard: some View {
+        if let announcement = remoteAppSettings?.announcement,
+           announcement.enabled,
+           !announcement.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !announcement.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(announcement.title, systemImage: "megaphone.fill")
+                    .font(titleFont(size: 18))
+                    .foregroundColor(primaryTextColor)
+
+                Text(announcement.message)
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !announcement.actionLabel.isEmpty,
+                   let actionURL = URL(string: announcement.actionURL),
+                   ["https", "talla"].contains(actionURL.scheme?.lowercased()) {
+                    Button(announcement.actionLabel) {
+                        openURL(actionURL)
+                    }
+                    .font(labelFont(size: 11, weight: .bold))
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(hex: 0xC8965A))
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.24 : 0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(.horizontal, 18)
+            .padding(.bottom, 14)
         }
     }
 
@@ -5815,7 +5911,7 @@ struct ContentView: View {
                     title: AppLocalization.text("whatsapp_support", fallback: "WhatsApp Support"),
                     systemImage: "message.fill"
                 ) {
-                    openURL(URL(string: "https://wa.me/97339392414")!)
+                    openURL(managedWhatsAppURL)
                 }
 
                 settingsDivider
@@ -5833,7 +5929,7 @@ struct ContentView: View {
                     title: AppLocalization.text("privacy_policy", fallback: "Privacy Policy"),
                     systemImage: "hand.raised.fill"
                 ) {
-                    openURL(URL(string: "https://duneroastery.myshopify.com/policies/privacy-policy")!)
+                    openURL(managedPrivacyURL)
                 }
 
                 settingsDivider
@@ -5842,7 +5938,7 @@ struct ContentView: View {
                     title: AppLocalization.text("terms_and_conditions", fallback: "Terms and Conditions"),
                     systemImage: "doc.text.fill"
                 ) {
-                    openURL(URL(string: "https://duneroastery.myshopify.com/policies/terms-of-service")!)
+                    openURL(managedTermsURL)
                 }
 
                 settingsDivider
@@ -9757,6 +9853,7 @@ struct ContentView: View {
             lastProductsRefreshAt = Date()
             await loadHomeSettings()
             await loadPassportSettings()
+            await loadAppSettings()
 
             if !availableCategories.contains(where: { $0.key == activeCategory }) {
                 activeCategory = "all"
@@ -9794,6 +9891,15 @@ struct ContentView: View {
             remotePassportSettings = try await HomeSettingsService.fetchPassportSettings()
         } catch {
             remotePassportSettings = nil
+        }
+    }
+
+    @MainActor
+    private func loadAppSettings() async {
+        do {
+            remoteAppSettings = try await HomeSettingsService.fetchAppSettings()
+        } catch {
+            // Keep the bundled defaults when live controls are unavailable.
         }
     }
 
@@ -11414,6 +11520,27 @@ private enum HomeSettingsService {
         }
 
         return try JSONDecoder().decode(ContentView.PassportSettings.self, from: data)
+    }
+
+    static func fetchAppSettings() async throws -> ContentView.AppSettings {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "App settings service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/settings"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The app settings service returned an invalid response.")
+        }
+
+        guard 200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The app settings service could not complete your request.")
+        }
+
+        return try JSONDecoder().decode(ContentView.AppSettings.self, from: data)
     }
 }
 
