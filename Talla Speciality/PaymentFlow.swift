@@ -893,6 +893,13 @@ enum CheckoutCurrencyFormatter {
     }
 }
 
+enum TallaFulfillmentMethod: String, CaseIterable, Identifiable {
+    case delivery
+    case pickup
+
+    var id: String { rawValue }
+}
+
 enum TallaShippingRates {
     static let bahrainRate = 2.000
     static let khaleejiCashOnDeliverySurcharge = 2.000

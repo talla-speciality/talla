@@ -85,6 +85,7 @@ enum AppLocalization {
         "payment_cash_on_delivery_guidance": ["ar": "اختر الدفع عند الاستلام في صفحة دفع Shopify قبل تأكيد طلبك."],
         "cash_on_delivery_remove_voucher": ["ar": "أزل قسيمة Talla قبل استخدام دفع Shopify حتى تبقى المبالغ المتحققة متطابقة."],
         "cash_on_delivery_shopify_prompt": ["ar": "اختر الدفع عند الاستلام في صفحة Shopify لإتمام طلبك."],
+        "cash_on_pickup_shopify_prompt": ["ar": "اختر الاستلام المحلي والدفع عند الاستلام في صفحة Shopify لإتمام طلبك."],
         "payment_benefit_action": ["ar": "متابعة إلى بنفت"],
         "payment_card_action": ["ar": "إدخال بيانات البطاقة"],
         "payment_cash_on_delivery_action": ["ar": "المتابعة بالدفع عند الاستلام"],
@@ -509,6 +510,12 @@ enum AppLocalization {
         ,"order_summary": ["ar": "ملخص الطلب"]
         ,"subtotal": ["ar": "المجموع الفرعي"]
         ,"delivery": ["ar": "التوصيل"]
+        ,"pickup": ["ar": "الاستلام"]
+        ,"free": ["ar": "مجاني"]
+        ,"fulfillment_method": ["ar": "كيف ترغب في استلام طلبك؟"]
+        ,"pickup_at_talla": ["ar": "الاستلام من Talla"]
+        ,"pickup_location": ["ar": "موقع الاستلام"]
+        ,"pickup_location_short": ["ar": "Talla، الرفاع"]
         ,"delivery_with_cod": ["ar": "التوصيل + رسوم الدفع عند الاستلام"]
         ,"transit_time": ["ar": "مدة التوصيل"]
         ,"khaleeji_transit_time": ["ar": "من ٣ إلى ٥ أيام عمل"]

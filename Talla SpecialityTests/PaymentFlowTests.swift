@@ -82,6 +82,11 @@ struct PaymentFlowTests {
         #expect(CheckoutCurrencyFormatter.bhd(8.5) == "BHD 8.500")
     }
 
+    @Test func customersCanChooseDeliveryOrPickup() {
+        #expect(TallaFulfillmentMethod.allCases == [.delivery, .pickup])
+        #expect(TallaFulfillmentMethod.pickup.rawValue == "pickup")
+    }
+
     @Test func bahrainShippingIsFixedRegardlessOfWeightOrPaymentMethod() {
         #expect(TallaShippingRates.rate(countryCode: "BH", weightGrams: 0, cashOnDelivery: false) == 2.000)
         #expect(TallaShippingRates.rate(countryCode: "bh", weightGrams: 4_000, cashOnDelivery: true) == 2.000)

@@ -687,6 +687,7 @@ struct ContentView: View {
     @State private var isLoadingBackendAlerts = false
     @State private var alertInbox: [AlertInboxRecord] = []
     @State private var addresses: [DeliveryAddress] = []
+    @State private var fulfillmentMethod: TallaFulfillmentMethod = .delivery
     @State private var addressLabel = ""
     @State private var addressFullName = ""
     @State private var addressPhone = ""
@@ -828,6 +829,9 @@ struct ContentView: View {
     }
 
     private var cartShippingCost: Double? {
+        if fulfillmentMethod == .pickup {
+            return 0
+        }
         guard let countryCode = preferredAddress?.country.rawValue else { return nil }
         if countryCode == SupportedDeliveryCountry.bahrain.rawValue {
             return TallaShippingRates.bahrainRate
@@ -841,6 +845,9 @@ struct ContentView: View {
     }
 
     private var cartShippingLabel: String {
+        if fulfillmentMethod == .pickup {
+            return AppLocalization.text("free", fallback: "Free")
+        }
         guard preferredAddress != nil else {
             return AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout")
         }
@@ -854,6 +861,9 @@ struct ContentView: View {
     }
 
     private var cartDeliveryTitle: String {
+        if fulfillmentMethod == .pickup {
+            return AppLocalization.text("pickup", fallback: "Pickup")
+        }
         let isKhaleejiCashOnDelivery = preferredAddress.map { $0.country != .bahrain } == true
             && paymentFlow.selectedMethod == .cashOnDelivery
         return isKhaleejiCashOnDelivery
@@ -866,7 +876,13 @@ struct ContentView: View {
             (AppLocalization.text("subtotal", fallback: "Subtotal"), formattedBHD(cartSubtotal), false),
             (cartDeliveryTitle, cartShippingLabel, false)
         ]
-        if preferredAddress.map({ $0.country != .bahrain }) == true {
+        if fulfillmentMethod == .pickup {
+            rows.append((
+                AppLocalization.text("pickup_location", fallback: "Pickup location"),
+                AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa"),
+                false
+            ))
+        } else if preferredAddress.map({ $0.country != .bahrain }) == true {
             rows.append((
                 AppLocalization.text("transit_time", fallback: "Transit time"),
                 AppLocalization.text("khaleeji_transit_time", fallback: TallaShippingRates.khaleejiTransitTime),
@@ -1657,7 +1673,7 @@ struct ContentView: View {
     }
 
     private var checkoutReadinessTitle: String {
-        preferredAddress == nil
+        fulfillmentMethod == .delivery && preferredAddress == nil
             ? AppLocalization.text("almost_ready", fallback: "Almost ready")
             : AppLocalization.text("ready_to_checkout_checked", fallback: "Ready to checkout ✓")
     }
@@ -1666,9 +1682,14 @@ struct ContentView: View {
         let itemKey = cartCount == 1 ? "cart_item_count_singular" : "cart_item_count_plural"
         let itemFallback = cartCount == 1 ? "%d item" : "%d items"
         let itemText = String(format: AppLocalization.text(itemKey, fallback: itemFallback), cartCount)
-        let addressText = preferredAddress == nil
-            ? AppLocalization.text("delivery_address_needed_short", fallback: "Delivery address needed")
-            : AppLocalization.text("address_saved", fallback: "Address saved")
+        let addressText: String
+        if fulfillmentMethod == .pickup {
+            addressText = AppLocalization.text("pickup_at_talla", fallback: "Pickup at Talla")
+        } else {
+            addressText = preferredAddress == nil
+                ? AppLocalization.text("delivery_address_needed_short", fallback: "Delivery address needed")
+                : AppLocalization.text("address_saved", fallback: "Address saved")
+        }
 
         return "\(itemText) · \(addressText)"
     }
@@ -7205,6 +7226,7 @@ struct ContentView: View {
     private var cartReviewContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             cartItemsListSection
+            cartFulfillmentMethodSection
             cartPaymentMethodsSection
 
             VStack(alignment: .leading, spacing: 10) {
@@ -7227,7 +7249,7 @@ struct ContentView: View {
                         .minimumScaleFactor(0.82)
                 }
 
-                if preferredAddress == nil {
+                if fulfillmentMethod == .delivery && preferredAddress == nil {
                     Button {
                         cartOpen = false
                         isDeliveryDetailsExpanded = true
@@ -7256,6 +7278,73 @@ struct ContentView: View {
             cartSaveSection
             cartOrderingGuideSection
         }
+    }
+
+    private var cartFulfillmentMethodSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(AppLocalization.text("fulfillment_method", fallback: "How would you like your order?"))
+                .font(labelFont(size: 10, weight: .bold))
+                .tracking(1.3)
+                .textCase(.uppercase)
+                .foregroundColor(readableBrandGoldColor)
+
+            HStack(spacing: 8) {
+                fulfillmentMethodButton(
+                    .delivery,
+                    title: AppLocalization.text("delivery", fallback: "Delivery"),
+                    systemImage: "truck.box.fill"
+                )
+                fulfillmentMethodButton(
+                    .pickup,
+                    title: AppLocalization.text("pickup", fallback: "Pickup"),
+                    systemImage: "storefront.fill"
+                )
+            }
+
+            if fulfillmentMethod == .pickup {
+                Label(
+                    AppLocalization.text("pickup_address", fallback: "Villa 336, Street 1307, Riffa 913"),
+                    systemImage: "mappin.and.ellipse"
+                )
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func fulfillmentMethodButton(
+        _ method: TallaFulfillmentMethod,
+        title: String,
+        systemImage: String
+    ) -> some View {
+        let isSelected = fulfillmentMethod == method
+        return Button {
+            fulfillmentMethod = method
+            checkoutError = nil
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(labelFont(size: 11, weight: .bold))
+                .foregroundStyle(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    isSelected ? Color(hex: 0xC8965A) : cardFillColor,
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color(hex: 0xC8965A).opacity(isSelected ? 0 : 0.22), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var cartOrderingGuideSection: some View {
@@ -7308,7 +7397,7 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if preferredAddress == nil {
+            if fulfillmentMethod == .delivery && preferredAddress == nil {
                 Button {
                     checkoutError = nil
                     cartOpen = false
@@ -11028,7 +11117,7 @@ struct ContentView: View {
                     )
                 }
                 let lines = cartItems.map { ShopifyCheckoutLine(merchandiseId: $0.variant.id, quantity: $0.quantity) }
-                let checkoutAddress = preferredAddress.map { address in
+                let checkoutAddress = fulfillmentMethod == .delivery ? preferredAddress.map { address in
                     ShopifyCheckoutAddress(
                         email: profile.email,
                         fullName: address.fullName,
@@ -11037,19 +11126,26 @@ struct ContentView: View {
                         city: address.city,
                         country: address.country.rawValue
                     )
-                }
+                } : nil
                 let checkoutURL = try await ShopifyStorefrontClient.createCheckoutURL(
                     lines: lines,
                     customerEmail: profile.email,
-                    checkoutAddress: checkoutAddress
+                    checkoutAddress: checkoutAddress,
+                    fulfillmentMethod: fulfillmentMethod
                 )
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
                 checkoutSession = CheckoutSession(url: checkoutURL)
-                showToast(message: AppLocalization.text(
-                    "cash_on_delivery_shopify_prompt",
-                    fallback: "Choose Cash on Delivery in Shopify Checkout to place your order."
-                ))
+                let checkoutPrompt = fulfillmentMethod == .pickup
+                    ? AppLocalization.text(
+                        "cash_on_pickup_shopify_prompt",
+                        fallback: "Choose local pickup and Cash on Delivery in Shopify Checkout to place your order."
+                    )
+                    : AppLocalization.text(
+                        "cash_on_delivery_shopify_prompt",
+                        fallback: "Choose Cash on Delivery in Shopify Checkout to place your order."
+                    )
+                showToast(message: checkoutPrompt)
                 isCheckingOut = false
                 return
             }
@@ -11069,7 +11165,8 @@ struct ContentView: View {
             let checkoutStart = try await AccountService.recordCheckoutStarted(
                 email: profile.email,
                 items: checkoutItems,
-                total: cartTotal
+                total: cartTotal,
+                fulfillmentMethod: fulfillmentMethod
             )
             orderHistory = checkoutStart.orders
 
@@ -11865,7 +11962,8 @@ private enum AccountService {
     static func recordCheckoutStarted(
         email: String,
         items: [(name: String, quantity: Int, variantID: String)],
-        total: Double
+        total: Double,
+        fulfillmentMethod: TallaFulfillmentMethod
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -11886,8 +11984,9 @@ private enum AccountService {
         try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "email": email,
-            "title": "Checkout started",
+            "title": fulfillmentMethod == .pickup ? "Pickup order" : "Delivery order",
             "total": total,
+            "fulfillmentMethod": fulfillmentMethod.rawValue,
             "items": orderItems
         ])
 
@@ -13038,7 +13137,8 @@ private enum ShopifyStorefrontClient {
         lines: [ShopifyCheckoutLine],
         customerEmail: String? = nil,
         checkoutAddress: ShopifyCheckoutAddress? = nil,
-        tallaPaymentID: String? = nil
+        tallaPaymentID: String? = nil,
+        fulfillmentMethod: TallaFulfillmentMethod = .delivery
     ) async throws -> URL {
         let lineInputs = lines.map { line in
             [
@@ -13050,9 +13150,11 @@ private enum ShopifyStorefrontClient {
         var input: [String: Any] = [
             "lines": lineInputs
         ]
+        var attributes = [["key": "talla_fulfillment_method", "value": fulfillmentMethod.rawValue]]
         if let tallaPaymentID = tallaPaymentID?.trimmingCharacters(in: .whitespacesAndNewlines), !tallaPaymentID.isEmpty {
-            input["attributes"] = [["key": "talla_payment_id", "value": tallaPaymentID]]
+            attributes.append(["key": "talla_payment_id", "value": tallaPaymentID])
         }
+        input["attributes"] = attributes
         var buyerIdentity: [String: Any] = [:]
 
         if let customerEmail = customerEmail?.trimmingCharacters(in: .whitespacesAndNewlines), !customerEmail.isEmpty {

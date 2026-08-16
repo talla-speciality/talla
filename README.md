@@ -14,3 +14,5 @@ The iOS bag calculates delivery from the preferred address and Shopify variant w
 - Khaleeji checkout is stopped when a physical Shopify variant has no weight or the shipment exceeds 4 kg.
 
 Every physical Shopify variant must have its shipping weight populated. Cash on delivery opens Shopify Checkout, so its Shopify shipping profiles and any COD-fee customization must use the same rates to keep the final checkout amount aligned with the app.
+
+Customers can choose free pickup from Talla in Riffa instead of delivery. Pickup orders do not require a saved delivery address, are labeled as pickup orders for operations, and include a `talla_fulfillment_method=pickup` Shopify cart attribute. Shopify local pickup must be enabled for the Talla location so Shopify-hosted cash checkout offers the same choice.
