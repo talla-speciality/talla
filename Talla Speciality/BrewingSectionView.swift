@@ -373,13 +373,10 @@ struct BrewingSectionView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isHomeScalePickerPresented) {
-            bluetoothScalePicker {
+        .fullScreenCover(isPresented: $isHomeScalePickerPresented) {
+            floatingBluetoothScalePicker {
                 isHomeScalePickerPresented = false
             }
-            .presentationDetents([.fraction(0.62), .large])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(40)
             .presentationBackground(.clear)
         }
         .onChange(of: isFocusedBrewPresented) { _, _ in
@@ -5128,13 +5125,10 @@ struct BrewingSectionView: View {
         }
         .sensoryFeedback(.selection, trigger: brewModeHapticTrigger)
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $isScalePickerPresented) {
-            bluetoothScalePicker {
+        .fullScreenCover(isPresented: $isScalePickerPresented) {
+            floatingBluetoothScalePicker {
                 isScalePickerPresented = false
             }
-            .presentationDetents([.fraction(0.62), .large])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(40)
             .presentationBackground(.clear)
         }
     }
@@ -5548,15 +5542,35 @@ struct BrewingSectionView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            brewBackgroundColor
-                .frame(height: 10)
-        }
         .background(brewBackgroundColor)
-        .clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
-        .shadow(color: Color.black.opacity(0.18), radius: 22, x: 0, y: 8)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+    }
+
+    private func floatingBluetoothScalePicker(onDone: @escaping () -> Void) -> some View {
+        GeometryReader { proxy in
+            let panelHeight = min(max(proxy.size.height * 0.66, 560), proxy.size.height - 28)
+
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.46)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onDone()
+                    }
+
+                bluetoothScalePicker(onDone: onDone)
+                    .frame(height: panelHeight)
+                    .background(brewBackgroundColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 40, style: .continuous)
+                            .stroke(Color.white.opacity(brewingColorScheme == .dark ? 0.10 : 0.58), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.24), radius: 24, x: 0, y: 10)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, max(proxy.safeAreaInsets.bottom, 8))
+            }
+        }
+        .ignoresSafeArea()
     }
 
     private var bluetoothScalePickerHero: some View {
