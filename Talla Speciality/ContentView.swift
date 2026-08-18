@@ -612,6 +612,12 @@ struct ContentView: View {
     @State private var cartOpen = false
     @State private var isCheckoutPresented = false
     @State private var isCheckoutAddressSheetPresented = false
+    @State private var isPostPaymentPresented = false
+    @State private var postPaymentOrderID = ""
+    @State private var postPaymentTotal = ""
+    @State private var postPaymentMethodTitle = ""
+    @State private var postPaymentFulfillmentTitle = ""
+    @State private var postPaymentDestination = ""
     @State private var toastMessage: String?
     @State private var cartCelebrationID = 0
     @State private var showingCartCelebration = false
@@ -2094,6 +2100,9 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $isCheckoutPresented) {
             checkoutView
         }
+        .fullScreenCover(isPresented: $isPostPaymentPresented) {
+            postPaymentView
+        }
         .fullScreenCover(isPresented: $isAccountOnboardingPresented) {
             accountOnboardingView
                 .interactiveDismissDisabled(true)
@@ -2127,6 +2136,7 @@ struct ContentView: View {
         if let eazyShopifyBrowserKind {
             self.eazyShopifyBrowserKind = nil
             paymentFlow.transition(to: .processing)
+            presentPostPayment()
             Task {
                 await waitForEazyShopifyProgress(openHostedCheckout: eazyShopifyBrowserKind == .shopifyEazy)
             }
@@ -2165,11 +2175,17 @@ struct ContentView: View {
                 voucherError = nil
                 paymentFlow.transition(to: .succeeded)
                 await loadOrderHistory()
-                showToast(message: status.shopifyOrderName.map { "Payment successful · \($0)" } ?? "Payment successful")
+                if postPaymentOrderID.isEmpty,
+                   let shopifyOrderName = status.shopifyOrderName,
+                   !shopifyOrderName.isEmpty {
+                    postPaymentOrderID = shopifyOrderName
+                }
+                presentPostPayment()
                 return true
             }
             if ["FAILED", "CANCELLED"].contains(status.status) {
                 paymentFlow.transition(to: status.status == "CANCELLED" ? .cancelled : .failed, error: status.message)
+                presentPostPayment()
                 return true
             }
             if openHostedCheckout, let paymentURL = status.paymentUrl {
@@ -2201,7 +2217,14 @@ struct ContentView: View {
             appliedVoucher = nil
             voucherCodeInput = ""
             voucherError = nil
-            showToast(message: AppLocalization.text("payment_complete", fallback: "Payment completed successfully."))
+            Task {
+                await loadOrderHistory()
+                if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    await loadLoyaltyAccount()
+                }
+            }
+            presentPostPayment()
+            return
         }
         paymentFlow.reset()
     }
@@ -2565,6 +2588,7 @@ struct ContentView: View {
         if !activeEazyShopifyPaymentID.isEmpty {
             checkoutSession = nil
             paymentFlow.transition(to: .processing)
+            presentPostPayment()
             Task {
                 await waitForEazyShopifyProgress(openHostedCheckout: false)
             }
@@ -2578,7 +2602,6 @@ struct ContentView: View {
         }?.value
 
         checkoutSession = nil
-        openAccountSection(AccountSectionView.ScrollTarget.customer)
 
         switch status {
         case "success", "succeeded", "paid", "captured", "approved":
@@ -2587,20 +2610,17 @@ struct ContentView: View {
             voucherCodeInput = ""
             voucherError = nil
             paymentFlow.transition(to: .succeeded)
-            showToast(message: AppLocalization.text("payment_complete", fallback: "Payment completed successfully."))
         case "cancelled", "canceled", "cancel":
             paymentFlow.transition(to: .cancelled)
-            showToast(message: AppLocalization.text("payment_cancelled_title", fallback: "Payment cancelled"))
         case "failed", "failure", "declined", "error", "not_captured":
             paymentFlow.transition(
                 to: .failed,
                 error: message ?? AppLocalization.text("payment_failed_detail", fallback: "Please check your details or try another payment method.")
             )
-            showToast(message: AppLocalization.text("payment_failed_title", fallback: "We couldn’t complete the payment."))
         default:
             paymentFlow.transition(to: .processing)
-            showToast(message: AppLocalization.text("payment_processing", fallback: "Completing your order…"))
         }
+        presentPostPayment()
 
         Task {
             await loadOrderHistory()
@@ -2615,11 +2635,12 @@ struct ContentView: View {
               BenefitPayCallbackParser.referenceID(from: url) == session.referenceId else {
             benefitPaySession = nil
             paymentFlow.transition(to: .failed, error: "BenefitPay returned an invalid payment reference.")
+            presentPostPayment()
             return
         }
         benefitPaySession = nil
         paymentFlow.transition(to: .processing)
-        showToast(message: AppLocalization.text("payment_processing", fallback: "Completing your order…"))
+        presentPostPayment()
         Task {
             do {
                 let confirmation = try await BenefitPayService.confirm(session: session)
@@ -2636,10 +2657,8 @@ struct ContentView: View {
                 if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     await loadLoyaltyAccount()
                 }
-                showToast(message: AppLocalization.text("payment_complete", fallback: "Payment completed successfully."))
             } catch {
                 paymentFlow.transition(to: .failed, error: error.localizedDescription)
-                showToast(message: AppLocalization.text("payment_failed_title", fallback: "We couldn’t complete the payment."))
             }
         }
     }
@@ -7641,6 +7660,271 @@ struct ContentView: View {
         }
     }
 
+    private var postPaymentOrder: AccountOrder? {
+        if !postPaymentOrderID.isEmpty,
+           let matchingOrder = orderHistory.first(where: { $0.id == postPaymentOrderID }) {
+            return matchingOrder
+        }
+
+        guard paymentFlow.state == .succeeded else { return nil }
+        return orderHistory.max { orderDate(from: $0.createdAt) < orderDate(from: $1.createdAt) }
+    }
+
+    private var postPaymentOrderNumber: String? {
+        let source = postPaymentOrder?.title ?? postPaymentOrderID
+        guard !source.isEmpty else { return nil }
+        let digits = source.filter(\.isNumber)
+        let identifier = digits.isEmpty ? String(source.suffix(8)) : String(digits.suffix(8))
+        return String(format: AppLocalization.text("order_number_format", fallback: "Order #%@"), identifier)
+    }
+
+    private var postPaymentView: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    Spacer(minLength: 18)
+
+                    postPaymentStatusHero
+
+                    if paymentFlow.state == .succeeded {
+                        postPaymentReceiptCard
+                    }
+
+                    postPaymentActions
+                }
+                .frame(maxWidth: 560)
+                .padding(.horizontal, 22)
+                .padding(.bottom, 30)
+                .frame(maxWidth: .infinity)
+            }
+            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismissPostPayment()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                            .frame(width: 34, height: 34)
+                            .background(cardFillColor, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+                }
+            }
+        }
+        .interactiveDismissDisabled(paymentFlow.state.isBusy)
+    }
+
+    @ViewBuilder
+    private var postPaymentStatusHero: some View {
+        VStack(spacing: 16) {
+            if paymentFlow.state == .succeeded {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: 0xC8965A).opacity(0.13))
+                        .frame(width: 104, height: 104)
+                    Circle()
+                        .stroke(Color(hex: 0xC8965A).opacity(0.28), lineWidth: 1)
+                        .frame(width: 84, height: 84)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 36, weight: .semibold))
+                        .foregroundColor(Color(hex: 0xC8965A))
+                }
+                .accessibilityHidden(true)
+
+                Text(AppLocalization.text("order_confirmed", fallback: "Order confirmed"))
+                    .font(displayFont(size: 34))
+                    .foregroundColor(primaryTextColor)
+                    .multilineTextAlignment(.center)
+
+                Text(customerProfile.map {
+                    String(format: AppLocalization.text("thank_you_name", fallback: "Thank you, %@."), $0.displayName)
+                } ?? AppLocalization.text("thank_you_order", fallback: "Thank you for your order."))
+                    .font(bodyFont(size: 15))
+                    .foregroundColor(secondaryTextColor)
+                    .multilineTextAlignment(.center)
+            } else if paymentFlow.state == .failed || paymentFlow.state == .cancelled {
+                ZStack {
+                    Circle()
+                        .fill(Color.red.opacity(0.09))
+                        .frame(width: 96, height: 96)
+                    Image(systemName: paymentFlow.state == .cancelled ? "xmark" : "exclamationmark")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundColor(.red.opacity(0.82))
+                }
+                .accessibilityHidden(true)
+
+                Text(paymentFlow.state == .cancelled
+                    ? AppLocalization.text("payment_cancelled_title", fallback: "Payment cancelled")
+                    : AppLocalization.text("payment_failed_title", fallback: "Payment unsuccessful"))
+                    .font(displayFont(size: 32))
+                    .foregroundColor(primaryTextColor)
+                    .multilineTextAlignment(.center)
+
+                Text(paymentFlow.errorMessage
+                    ?? AppLocalization.text("payment_failed_detail", fallback: "No order was placed. You can try again or choose another payment method."))
+                    .font(bodyFont(size: 15))
+                    .foregroundColor(secondaryTextColor)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: 0xC8965A).opacity(0.12))
+                        .frame(width: 96, height: 96)
+                    ProgressView()
+                        .controlSize(.large)
+                        .tint(Color(hex: 0xC8965A))
+                }
+
+                Text(AppLocalization.text("confirming_payment", fallback: "Confirming your payment"))
+                    .font(displayFont(size: 32))
+                    .foregroundColor(primaryTextColor)
+                    .multilineTextAlignment(.center)
+
+                Text(AppLocalization.text(
+                    "confirming_payment_detail",
+                    fallback: "This usually takes only a moment. You can safely close this page while verification continues."
+                ))
+                .font(bodyFont(size: 15))
+                .foregroundColor(secondaryTextColor)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var postPaymentReceiptCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if let postPaymentOrderNumber {
+                Text(postPaymentOrderNumber)
+                    .font(.headline)
+                    .foregroundColor(primaryTextColor)
+            }
+
+            Divider().overlay(Color(hex: 0xC8965A).opacity(0.16))
+
+            if !postPaymentFulfillmentTitle.isEmpty {
+                postPaymentReceiptRow(
+                    title: postPaymentFulfillmentTitle,
+                    value: postPaymentDestination,
+                    systemImage: fulfillmentMethod == .pickup ? "storefront.fill" : "mappin.and.ellipse"
+                )
+            }
+
+            postPaymentReceiptRow(
+                title: AppLocalization.text("payment_method", fallback: "Payment"),
+                value: postPaymentMethodTitle,
+                systemImage: "wallet.bifold"
+            )
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(AppLocalization.text("total", fallback: "Total"))
+                    .font(.subheadline)
+                    .foregroundColor(secondaryTextColor)
+                Spacer()
+                Text(postPaymentOrder?.total ?? postPaymentTotal)
+                    .font(.headline)
+                    .foregroundColor(primaryTextColor)
+                    .monospacedDigit()
+            }
+
+            if let points = postPaymentOrder?.pointsAwarded, points > 0 {
+                Divider().overlay(Color(hex: 0xC8965A).opacity(0.16))
+                Label {
+                    Text(String(format: AppLocalization.text("beans_earned_format", fallback: "+%d Beans earned"), points))
+                        .font(.subheadline.weight(.semibold))
+                } icon: {
+                    Image(systemName: "sparkles")
+                }
+                .foregroundColor(readableBrandGoldColor)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.09), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func postPaymentReceiptRow(title: String, value: String, systemImage: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(readableBrandGoldColor)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(secondaryTextColor)
+                if !value.isEmpty {
+                    Text(value)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(primaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private var postPaymentActions: some View {
+        VStack(spacing: 11) {
+            if paymentFlow.state == .succeeded {
+                Button {
+                    dismissPostPayment(openOrders: true)
+                } label: {
+                    Text(AppLocalization.text("track_order", fallback: "Track order"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color(hex: 0xC8965A), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    dismissPostPayment(openShop: true)
+                } label: {
+                    Text(AppLocalization.text("continue_shopping", fallback: "Continue shopping"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.plain)
+            } else if paymentFlow.state == .failed || paymentFlow.state == .cancelled {
+                Button {
+                    retryPostPayment()
+                } label: {
+                    Text(AppLocalization.text("retry_payment", fallback: "Try payment again"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color(hex: 0xC8965A), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button(AppLocalization.text("close", fallback: "Close")) {
+                    dismissPostPayment()
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(secondaryTextColor)
+            } else {
+                Button(AppLocalization.text("close_for_now", fallback: "Close for now")) {
+                    isPostPaymentPresented = false
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(secondaryTextColor)
+            }
+        }
+    }
+
     private var cartFulfillmentMethodSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("fulfillment_method", fallback: "How would you like your order?"))
@@ -11520,6 +11804,55 @@ struct ContentView: View {
     }
 
     @MainActor
+    private func preparePostPaymentContext(orderID: String, method: TallaPaymentMethod) {
+        postPaymentOrderID = orderID
+        postPaymentTotal = formattedBHD(cartTotal)
+        postPaymentMethodTitle = method.title
+        if fulfillmentMethod == .pickup {
+            postPaymentFulfillmentTitle = AppLocalization.text("pickup", fallback: "Pickup")
+            postPaymentDestination = AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa")
+        } else {
+            postPaymentFulfillmentTitle = AppLocalization.text("delivery", fallback: "Delivery")
+            postPaymentDestination = preferredAddress.map {
+                "\($0.label) · \($0.line1), \($0.city), \($0.country.name)"
+            } ?? ""
+        }
+    }
+
+    @MainActor
+    private func presentPostPayment() {
+        isCheckoutPresented = false
+        isPostPaymentPresented = true
+    }
+
+    @MainActor
+    private func dismissPostPayment(openOrders: Bool = false, openShop shouldOpenShop: Bool = false) {
+        isPostPaymentPresented = false
+
+        if !paymentFlow.state.isBusy {
+            paymentFlow.reset()
+        }
+
+        guard openOrders || shouldOpenShop else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            if openOrders {
+                openAccountSection(AccountSectionView.ScrollTarget.customer)
+            } else if shouldOpenShop {
+                openShop()
+            }
+        }
+    }
+
+    @MainActor
+    private func retryPostPayment() {
+        isPostPaymentPresented = false
+        paymentFlow.reset()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            prepareCheckout()
+        }
+    }
+
+    @MainActor
     private func prepareCheckout() {
         guard !cartItems.isEmpty else { return }
 
@@ -11568,6 +11901,7 @@ struct ContentView: View {
 
         isCheckingOut = true
         checkoutError = nil
+        preparePostPaymentContext(orderID: "", method: selectedPaymentMethod)
 
         do {
             if let appliedVoucher,
@@ -11644,6 +11978,7 @@ struct ContentView: View {
                 fulfillmentMethod: fulfillmentMethod
             )
             orderHistory = checkoutStart.orders
+            preparePostPaymentContext(orderID: checkoutStart.orderID, method: selectedPaymentMethod)
 
             switch selectedPaymentMethod.route {
             case .benefitHosted:
