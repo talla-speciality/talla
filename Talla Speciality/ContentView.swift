@@ -765,6 +765,7 @@ struct ContentView: View {
     @State private var selectedSettingsDetail: SettingsDetail?
     @State private var accountScrollTarget: String?
     @State private var tabScrollTarget: Tab?
+    @State private var accountOrdersPresentationRequest = 0
     @State private var shopCatalogueScrollRequest = 0
     @State private var didRecordReviewLaunch = false
     @State private var nfcScanner = TallaNFCScanner()
@@ -5960,6 +5961,7 @@ struct ContentView: View {
             isShoppingSectionExpanded: $isShoppingSectionExpanded,
             isBrewingSectionExpanded: $isBrewingSectionExpanded,
             isSupportSectionExpanded: $isSupportSectionExpanded,
+            ordersPresentationRequest: accountOrdersPresentationRequest,
             openOrdersAction: {
                 Task {
                     await loadOrderHistory()
@@ -11837,6 +11839,9 @@ struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             if openOrders {
                 openAccountSection(AccountSectionView.ScrollTarget.customer)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                    accountOrdersPresentationRequest += 1
+                }
             } else if shouldOpenShop {
                 openShop()
             }

@@ -3,6 +3,7 @@ import SwiftUI
 struct AccountSectionView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var presentedDetail: AccountDetail?
+    @State private var handledOrdersPresentationRequest = 0
 
     private enum AccountDetail: String, Identifiable {
         case personalDetails
@@ -69,6 +70,7 @@ struct AccountSectionView: View {
     @Binding var isShoppingSectionExpanded: Bool
     @Binding var isBrewingSectionExpanded: Bool
     @Binding var isSupportSectionExpanded: Bool
+    let ordersPresentationRequest: Int
     let openOrdersAction: () -> Void
     let signOutAction: () -> Void
     let customerAccountSection: AnyView
@@ -95,6 +97,20 @@ struct AccountSectionView: View {
         .sheet(item: $presentedDetail) { detail in
             accountDetailScreen(detail)
         }
+        .onAppear {
+            handleOrdersPresentationRequest(ordersPresentationRequest)
+        }
+        .onChange(of: ordersPresentationRequest) { _, request in
+            handleOrdersPresentationRequest(request)
+        }
+    }
+
+    private func handleOrdersPresentationRequest(_ request: Int) {
+        guard request > 0, request != handledOrdersPresentationRequest else { return }
+        handledOrdersPresentationRequest = request
+        isCustomerSectionExpanded = true
+        presentedDetail = .orders
+        openOrdersAction()
     }
 
     private var accountSummaryCard: some View {
