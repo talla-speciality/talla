@@ -559,10 +559,10 @@
 					E08D10A82F66FF140092272C = {
 						CreatedOnToolsVersion = 26.3;
 						SystemCapabilities = {
-							com.apple.AssociatedDomains = {
+							com.apple.AppAttest = {
 								enabled = 1;
 							};
-							com.apple.AppAttest = {
+							com.apple.AssociatedDomains = {
 								enabled = 1;
 							};
 							com.apple.NearFieldCommunicationTagReading = {
@@ -877,6 +877,9 @@
 				INFOPLIST_FILE = "Talla Speciality/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Talla Speciality";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.shopping";
+				INFOPLIST_KEY_NFCReaderUsageDescription = "Scan Talla tags on coffee bags and brewing cards to open the matching product or guide.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Talla Speciality connects to supported Acaia, BOOKOO, GOAT STORY GINA, HIROIA, and MANTABREW scales to show live weight and flow during guided brews.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Talla uses the camera to scan codes and support in-app ordering features.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Talla Speciality connects to your local development server so account, loyalty, and order features can be tested on this device.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Talla Speciality lets you choose a coffee or setup photo so the concierge can suggest better products and brewing guidance.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -936,6 +939,9 @@
 				INFOPLIST_FILE = "Talla Speciality/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Talla Speciality";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.shopping";
+				INFOPLIST_KEY_NFCReaderUsageDescription = "Scan Talla tags on coffee bags and brewing cards to open the matching product or guide.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Talla Speciality connects to supported Acaia, BOOKOO, GOAT STORY GINA, HIROIA, and MANTABREW scales to show live weight and flow during guided brews.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Talla uses the camera to scan codes and support in-app ordering features.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Talla Speciality connects to your local development server so account, loyalty, and order features can be tested on this device.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Talla Speciality lets you choose a coffee or setup photo so the concierge can suggest better products and brewing guidance.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;

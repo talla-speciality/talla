@@ -434,9 +434,9 @@ struct ContentView: View {
         static let qatar = Self(rawValue: "QA")!
         static let oman = Self(rawValue: "OM")!
 
-        private static let khaleejiCodes: Set<String> = ["BH", "SA", "KW", "AE", "QA", "OM"]
-        private static let preferredCountries = [bahrain, saudiArabia, kuwait, uae, qatar, oman]
-        private static let isoCountryCodes = Set(
+        nonisolated private static let khaleejiCodes: Set<String> = ["BH", "SA", "KW", "AE", "QA", "OM"]
+        nonisolated private static let preferredCountries = [bahrain, saudiArabia, kuwait, uae, qatar, oman]
+        nonisolated private static let isoCountryCodes = Set(
             Locale.Region.isoRegions
                 .map(\.identifier)
                 .filter { $0.count == 2 }
@@ -452,13 +452,13 @@ struct ContentView: View {
         var id: String { rawValue }
         var isKhaleeji: Bool { Self.khaleejiCodes.contains(rawValue) }
 
-        init?(rawValue: String) {
+        nonisolated init?(rawValue: String) {
             let code = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             guard code.count == 2, Self.isoCountryCodes.contains(code) else { return nil }
             self.rawValue = code
         }
 
-        init?(code: String?) {
+        nonisolated init?(code: String?) {
             guard let code else { return nil }
             self.init(rawValue: code)
         }
@@ -610,6 +610,8 @@ struct ContentView: View {
     @State private var pendingUniversalLinkProductHandle = ""
     @State private var cartItems: [CartItem] = []
     @State private var cartOpen = false
+    @State private var isCheckoutPresented = false
+    @State private var isCheckoutAddressSheetPresented = false
     @State private var toastMessage: String?
     @State private var cartCelebrationID = 0
     @State private var showingCartCelebration = false
@@ -2081,21 +2083,6 @@ struct ContentView: View {
         .sheet(isPresented: $isFavoriteShelfPresented) {
             favoriteShelfSheet
         }
-        .sheet(isPresented: $isPaymentMethodSheetPresented) {
-            PaymentMethodSelectionSheet(
-                selectedMethod: paymentFlow.selectedMethod,
-                applePayAvailable: isApplePayAvailable,
-                gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
-                primaryColor: primaryTextColor,
-                secondaryColor: secondaryTextColor,
-                accentColor: Color(hex: 0xC8965A),
-                surfaceColor: elevatedSurfaceColor
-            ) { method in
-                paymentFlow.select(method)
-            }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
         .sheet(isPresented: $isCartRewardsPresented) {
             cartRewardsSheet
                 .presentationDetents([.large])
@@ -2103,6 +2090,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isCoffeeConciergePresented) {
             coffeeConciergeSheet
+        }
+        .fullScreenCover(isPresented: $isCheckoutPresented) {
+            checkoutView
         }
         .fullScreenCover(isPresented: $isAccountOnboardingPresented) {
             accountOnboardingView
@@ -7254,7 +7244,7 @@ struct ContentView: View {
             hasItems: !cartItems.isEmpty,
             emptyState: AnyView(cartEmptyState),
             reviewContent: AnyView(cartReviewContent),
-            footerContent: AnyView(cartFooterContent),
+            footerContent: AnyView(cartBagFooterContent),
             closeAction: {
                 cartOpen = false
             }
@@ -7294,81 +7284,360 @@ struct ContentView: View {
     private var cartReviewContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             cartItemsListSection
-            cartFulfillmentMethodSection
-            cartPaymentMethodsSection
+            cartPromoSection
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text(checkoutReadinessTitle)
+    private var cartPromoSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isVoucherCodeEntryExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Label(
+                        AppLocalization.text("add_voucher_discount_code", fallback: "Promo or reward"),
+                        systemImage: "ticket"
+                    )
                     .font(labelFont(size: 11, weight: .bold))
-                    .tracking(1.4)
-                    .textCase(.uppercase)
-                    .foregroundColor(readableBrandGoldColor)
-
-                Text(checkoutReadinessSummary)
-                    .font(bodyFont(size: 14))
                     .foregroundColor(primaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
 
-                if fulfillmentMethod == .delivery, !addresses.isEmpty {
-                    Menu {
-                        ForEach(addresses) { address in
-                            Button {
-                                Task { await makePreferredAddress(address) }
-                            } label: {
-                                Label(
-                                    "\(address.label) · \(address.city), \(address.country.name)",
-                                    systemImage: address.isPreferred ? "checkmark.circle.fill" : "circle"
-                                )
-                            }
-                        }
-                    } label: {
-                        Label(
-                            preferredAddress.map { "\($0.label) · \($0.city), \($0.country.name)" }
-                                ?? AppLocalization.text("choose_delivery_address", fallback: "Choose delivery address"),
-                            systemImage: "mappin.and.ellipse"
-                        )
-                        .font(labelFont(size: 11, weight: .bold))
-                        .foregroundColor(readableBrandGoldColor)
+                    Spacer()
+
+                    if let appliedVoucher {
+                        Text(appliedVoucher.code)
+                            .font(bodyFont(size: 11))
+                            .foregroundColor(readableBrandGoldColor)
                     }
-                    .accessibilityLabel(AppLocalization.text("choose_delivery_address", fallback: "Choose delivery address"))
+
+                    Image(systemName: isVoucherCodeEntryExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .padding(14)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if isVoucherCodeEntryExpanded {
+                HStack(spacing: 10) {
+                    TextField(
+                        AppLocalization.text("enter_voucher_code", fallback: "Enter code"),
+                        text: $voucherCodeInput
+                    )
+                    .textInputAutocapitalization(.characters)
+                    .disableAutocorrection(true)
+                    .font(bodyFont(size: 14))
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 48)
+                    .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    Button {
+                        Task { await applyVoucher() }
+                    } label: {
+                        Text(isApplyingVoucher ? "…" : AppLocalization.text("apply", fallback: "Apply"))
+                            .font(labelFont(size: 11, weight: .bold))
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 48)
+                            .background(Color(hex: 0xC8965A), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isApplyingVoucher || voucherCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
                 if let appliedVoucher {
-                    Text(String(format: AppLocalization.text("voucher_applied_summary", fallback: "Voucher %@ applied"), appliedVoucher.code))
+                    HStack {
+                        Text(String(
+                            format: AppLocalization.text("voucher_applied_summary", fallback: "Voucher %@ applied"),
+                            appliedVoucher.code
+                        ))
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
+
+                        Spacer()
+
+                        Button(AppLocalization.text("remove", fallback: "Remove")) {
+                            removeAppliedVoucher()
+                        }
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(readableBrandGoldColor)
+                    }
                 }
 
-                if fulfillmentMethod == .delivery && preferredAddress == nil {
+                if customerProfile != nil {
                     Button {
-                        cartOpen = false
-                        isDeliveryDetailsExpanded = true
-                        openAccountSection(AccountSectionView.ScrollTarget.library)
+                        isCartRewardsPresented = true
                     } label: {
-                        Label(AppLocalization.text("add_delivery_address", fallback: "Add Delivery Address"), systemImage: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(1.3)
-                            .textCase(.uppercase)
+                        Label(AppLocalization.text("view_rewards", fallback: "View available rewards"), systemImage: "sparkles")
+                            .font(bodyFont(size: 12))
                             .foregroundColor(readableBrandGoldColor)
                     }
                     .buttonStyle(.plain)
                 }
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-            cartRewardsSection
-            cartOrderSummarySection
-            cartSaveSection
-            cartOrderingGuideSection
+                if let voucherError {
+                    Text(voucherError)
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(.red.opacity(0.85))
+                }
+            }
+        }
+    }
+
+    private var checkoutView: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    SecurityReassurance(
+                        text: AppLocalization.text(
+                            "payment_encrypted_secure",
+                            fallback: "Your payment is encrypted and processed securely."
+                        ),
+                        accentColor: Color(hex: 0xC8965A),
+                        textColor: secondaryTextColor
+                    )
+
+                    cartFulfillmentMethodSection
+                    checkoutDestinationSection
+                    cartPaymentMethodsSection
+                    cartOrderSummarySection
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+            }
+            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .navigationTitle(AppLocalization.text("checkout", fallback: "Checkout"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isCheckoutPresented = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            cartOpen = true
+                        }
+                    } label: {
+                        Label(
+                            AppLocalization.text("your_cart", fallback: "Bag"),
+                            systemImage: appLanguage.layoutDirection == .rightToLeft ? "chevron.right" : "chevron.left"
+                        )
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(readableBrandGoldColor)
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                cartFooterContent
+                    .padding(.horizontal, 18)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+                    .background(.ultraThinMaterial)
+            }
+        }
+        .sheet(isPresented: $isPaymentMethodSheetPresented) {
+            PaymentMethodSelectionSheet(
+                selectedMethod: paymentFlow.selectedMethod,
+                applePayAvailable: isApplePayAvailable,
+                gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
+                primaryColor: primaryTextColor,
+                secondaryColor: secondaryTextColor,
+                accentColor: Color(hex: 0xC8965A),
+                surfaceColor: elevatedSurfaceColor
+            ) { method in
+                paymentFlow.select(method)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isCheckoutAddressSheetPresented) {
+            checkoutAddressSheet
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var checkoutDestinationSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(fulfillmentMethod == .pickup
+                ? AppLocalization.text("pickup_location", fallback: "Pickup location")
+                : AppLocalization.text("delivery_address", fallback: "Delivery address"))
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundColor(readableBrandGoldColor)
+
+            if fulfillmentMethod == .pickup {
+                Label {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa"))
+                            .font(.body.weight(.semibold))
+                            .foregroundColor(primaryTextColor)
+                        Text(AppLocalization.text("pickup_address", fallback: "Villa 336, Street 1307, Riffa 913"))
+                            .font(.footnote)
+                            .foregroundColor(secondaryTextColor)
+                    }
+                } icon: {
+                    Image(systemName: "storefront.fill")
+                        .foregroundColor(readableBrandGoldColor)
+                }
+            } else if let address = preferredAddress {
+                Button {
+                    isCheckoutAddressSheetPresented = true
+                } label: {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .foregroundColor(readableBrandGoldColor)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(address.label)
+                                .font(.body.weight(.semibold))
+                                .foregroundColor(primaryTextColor)
+                            Text("\(address.line1), \(address.city), \(address.country.name)")
+                                .font(.footnote)
+                                .foregroundColor(secondaryTextColor)
+                                .multilineTextAlignment(.leading)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        Text(AppLocalization.text("change", fallback: "Change"))
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(readableBrandGoldColor)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else if customerProfile != nil {
+                Button {
+                    isCheckoutAddressSheetPresented = true
+                } label: {
+                    Label(AppLocalization.text("add_delivery_address", fallback: "Add delivery address"), systemImage: "plus.circle.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    isCheckoutPresented = false
+                    openAccountSection(AccountSectionView.ScrollTarget.library)
+                } label: {
+                    Label(AppLocalization.text("sign_in_before_checkout", fallback: "Sign in to add a delivery address"), systemImage: "person.crop.circle")
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var checkoutAddressSheet: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                    if !addresses.isEmpty {
+                        Text(AppLocalization.text("choose_delivery_address", fallback: "Choose a saved address"))
+                            .font(.headline)
+                            .foregroundColor(primaryTextColor)
+
+                        ForEach(addresses) { address in
+                            Button {
+                                Task {
+                                    await makePreferredAddress(address)
+                                    if preferredAddress?.id == address.id {
+                                        isCheckoutAddressSheetPresented = false
+                                    }
+                                }
+                            } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: address.id == preferredAddress?.id ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(readableBrandGoldColor)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(address.label)
+                                            .font(.body.weight(.semibold))
+                                            .foregroundColor(primaryTextColor)
+                                        Text("\(address.line1), \(address.city), \(address.country.name)")
+                                            .font(.footnote)
+                                            .foregroundColor(secondaryTextColor)
+                                            .multilineTextAlignment(.leading)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(14)
+                                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        Divider().overlay(Color(hex: 0xC8965A).opacity(0.16))
+                    }
+
+                    Text(AppLocalization.text("add_delivery_address", fallback: "Add a new address"))
+                        .font(.headline)
+                        .foregroundColor(primaryTextColor)
+
+                    Group {
+                        TextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel)
+                        TextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName)
+                        TextField(AppLocalization.text("phone", fallback: "Phone"), text: $addressPhone)
+                            .keyboardType(.phonePad)
+                        TextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1)
+                        deliveryCountrySelector
+                        TextField(AppLocalization.text("city", fallback: "City"), text: $addressCity)
+                        TextField(AppLocalization.text("notes", fallback: "Delivery notes (optional)"), text: $addressNotes)
+                    }
+                    .textInputAutocapitalization(.words)
+                    .font(bodyFont(size: 14))
+                    .foregroundColor(primaryTextColor)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 48)
+                    .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    Button {
+                        Task {
+                            let addressCount = addresses.count
+                            await saveAddress()
+                            if addresses.count > addressCount {
+                                isCheckoutAddressSheetPresented = false
+                            }
+                        }
+                    } label: {
+                        Text(isSavingAddress
+                            ? AppLocalization.text("saving", fallback: "Saving…")
+                            : AppLocalization.text("save_address", fallback: "Save address"))
+                            .font(.headline)
+                            .foregroundColor(Color(hex: 0x0A0804))
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(Color(hex: 0xC8965A), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSavingAddress)
+                }
+                .padding(18)
+            }
+            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .navigationTitle(AppLocalization.text("delivery_address", fallback: "Delivery address"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(AppLocalization.text("cancel", fallback: "Cancel")) {
+                        isCheckoutAddressSheetPresented = false
+                    }
+                }
+            }
         }
     }
 
@@ -7480,6 +7749,40 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
+    private var cartBagFooterContent: some View {
+        VStack(spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(AppLocalization.text("subtotal", fallback: "Subtotal"))
+                    .font(.footnote)
+                    .foregroundColor(secondaryTextColor)
+
+                Spacer()
+
+                Text(formattedBHD(cartSubtotal))
+                    .font(.headline)
+                    .foregroundColor(primaryTextColor)
+                    .monospacedDigit()
+            }
+
+            Button(action: prepareCheckout) {
+                HStack {
+                    Text(AppLocalization.text("checkout", fallback: "Checkout"))
+                        .font(.headline)
+                    Spacer()
+                    Text(formattedBHD(cartSubtotal))
+                        .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
+                }
+                .foregroundColor(Color(hex: 0x0A0804))
+                .padding(.horizontal, 17)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(Color(hex: 0xC8965A), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(cartItems.isEmpty)
+        }
+    }
+
     private var cartFooterContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let checkoutError {
@@ -7492,9 +7795,12 @@ struct ContentView: View {
             if fulfillmentMethod == .delivery && preferredAddress == nil {
                 Button {
                     checkoutError = nil
-                    cartOpen = false
-                    isDeliveryDetailsExpanded = true
-                    openAccountSection(AccountSectionView.ScrollTarget.library)
+                    if customerProfile == nil {
+                        isCheckoutPresented = false
+                        openAccountSection(AccountSectionView.ScrollTarget.library)
+                    } else {
+                        isCheckoutAddressSheetPresented = true
+                    }
                 } label: {
                     HStack {
                         Text(AppLocalization.text("add_address_to_continue", fallback: "Add address to continue"))
@@ -11214,6 +11520,25 @@ struct ContentView: View {
     }
 
     @MainActor
+    private func prepareCheckout() {
+        guard !cartItems.isEmpty else { return }
+
+        if paymentFlow.selectedMethod == nil {
+            if isApplePayAvailable && MastercardSDKAvailability.isAvailable {
+                paymentFlow.select(.applePay)
+            } else if BenefitPaySDKConfiguration.isAvailable {
+                paymentFlow.select(.benefitPay)
+            } else {
+                paymentFlow.select(.benefit)
+            }
+        }
+
+        checkoutError = nil
+        cartOpen = false
+        isCheckoutPresented = true
+    }
+
+    @MainActor
     private func beginCheckout() async {
         guard let selectedPaymentMethod = paymentFlow.selectedMethod else {
             isPaymentMethodSheetPresented = true
@@ -11284,6 +11609,7 @@ struct ContentView: View {
                 )
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
+                isCheckoutPresented = false
                 checkoutSession = CheckoutSession(url: checkoutURL)
                 let checkoutPrompt = fulfillmentMethod == .pickup
                     ? AppLocalization.text(
@@ -11324,6 +11650,7 @@ struct ContentView: View {
                 let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
+                isCheckoutPresented = false
                 checkoutSession = CheckoutSession(url: paymentURL)
             case .benefitPaySDK:
                 guard BenefitPaySDKConfiguration.isAvailable else {
@@ -11332,6 +11659,7 @@ struct ContentView: View {
                 let session = try await BenefitPayService.createSession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
+                isCheckoutPresented = false
                 benefitPaySession = session
             case .cardGateway:
                 guard MastercardSDKAvailability.isAvailable else {
@@ -11340,6 +11668,7 @@ struct ContentView: View {
                 let session = try await TallaPaymentService.createCardSession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
+                isCheckoutPresented = false
                 mastercardPaymentContext = MastercardPaymentContext(
                     localOrderID: checkoutStart.orderID,
                     session: session,
@@ -11355,6 +11684,7 @@ struct ContentView: View {
                 let session = try await TallaPaymentService.createApplePaySession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
+                isCheckoutPresented = false
                 mastercardPaymentContext = MastercardPaymentContext(
                     localOrderID: checkoutStart.orderID,
                     session: session,

@@ -542,6 +542,7 @@ struct PaymentMethodSelectionSheet: View {
 
     private var methods: [TallaPaymentMethod] {
         PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable)
+            .filter(isEnabled)
     }
 
     private func isEnabled(_ method: TallaPaymentMethod) -> Bool {
@@ -560,6 +561,8 @@ struct PaymentMethodSelectionSheet: View {
                         Button {
                             guard enabled else { return }
                             draftMethod = method
+                            onConfirm(method)
+                            dismiss()
                         } label: {
                             HStack(spacing: 12) {
                                 PaymentMethodBadge(method: method, accentColor: accentColor, enabled: enabled)
@@ -622,28 +625,6 @@ struct PaymentMethodSelectionSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(AppLocalization.text("cancel", fallback: "Cancel")) { dismiss() }
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                Button {
-                    guard let draftMethod else { return }
-                    onConfirm(draftMethod)
-                    dismiss()
-                } label: {
-                    Text(draftMethod.map {
-                        String(format: AppLocalization.text("use_payment_method", fallback: "Use %@"), $0.title)
-                    } ?? AppLocalization.text("choose_payment_method", fallback: "Choose a payment method"))
-                        .font(.headline)
-                        .foregroundStyle(Color(red: 0.08, green: 0.065, blue: 0.04))
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .background(accentColor, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .disabled(draftMethod == nil)
-                .opacity(draftMethod == nil ? 0.5 : 1)
-                .padding(.horizontal, 18)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
-                .background(.ultraThinMaterial)
             }
         }
     }

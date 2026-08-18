@@ -1,0 +1,49 @@
+{
+  "passportSettings": {
+    "origins": [
+      {
+        "id": "ethiopia",
+        "title": "Ethiopia",
+        "emoji": "🇪🇹",
+        "keywords": [
+          "ethiopia",
+          "ethiopian"
+        ],
+        "rewardLabel": ""
+      },
+      {
+        "id": "yemen",
+        "title": "Yemen",
+        "emoji": "🇾🇪",
+        "keywords": [
+          "yemen",
+          "yemeni"
+        ],
+        "rewardLabel": ""
+      },
+      {
+        "id": "colombia",
+        "title": "Colombia",
+        "emoji": "🇨🇴",
+        "keywords": [
+          "colombia",
+          "colombian"
+        ],
+        "rewardLabel": ""
+      },
+      {
+        "id": "brazil",
+        "title": "Brazil",
+        "emoji": "🇧🇷",
+        "keywords": [
+          "brazil",
+          "brazilian"
+        ],
+        "rewardLabel": ""
+      }
+    ],
+    "completionRewardTitle": "Passport reward",
+    "completionRewardDetail": "Complete your passport to unlock a reward.",
+    "updatedAt": null
+  }
+}
