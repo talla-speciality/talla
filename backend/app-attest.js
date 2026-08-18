@@ -21,6 +21,7 @@ const protectedPaths = new Set([
     "/api/payments/benefit/create",
     "/api/payments/eazy/shopify/session",
     "/addresses/save",
+    "/addresses/preferred",
     "/addresses/delete",
     "/loyalty/transactions/redeem",
     "/loyalty/transactions/earn",

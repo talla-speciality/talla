@@ -6885,19 +6885,38 @@ struct ContentView: View {
 
                             Spacer(minLength: 0)
 
-                            Button {
-                                Task {
-                                    await deleteAddress(address)
+                            VStack(spacing: 8) {
+                                if !address.isPreferred {
+                                    Button {
+                                        Task {
+                                            await makePreferredAddress(address)
+                                        }
+                                    } label: {
+                                        Image(systemName: "checkmark.circle")
+                                            .font(.system(size: 15, weight: .bold))
+                                            .foregroundColor(readableBrandGoldColor)
+                                            .frame(width: 34, height: 34)
+                                            .background(cardFillColor)
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(AppLocalization.text("use_this_address", fallback: "Use this address"))
                                 }
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(primaryTextColor)
-                                    .frame(width: 34, height: 34)
-                                    .background(cardFillColor)
-                                    .clipShape(Circle())
+
+                                Button {
+                                    Task {
+                                        await deleteAddress(address)
+                                    }
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(primaryTextColor)
+                                        .frame(width: 34, height: 34)
+                                        .background(cardFillColor)
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -7289,6 +7308,30 @@ struct ContentView: View {
                     .font(bodyFont(size: 14))
                     .foregroundColor(primaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if fulfillmentMethod == .delivery, !addresses.isEmpty {
+                    Menu {
+                        ForEach(addresses) { address in
+                            Button {
+                                Task { await makePreferredAddress(address) }
+                            } label: {
+                                Label(
+                                    "\(address.label) · \(address.city), \(address.country.name)",
+                                    systemImage: address.isPreferred ? "checkmark.circle.fill" : "circle"
+                                )
+                            }
+                        }
+                    } label: {
+                        Label(
+                            preferredAddress.map { "\($0.label) · \($0.city), \($0.country.name)" }
+                                ?? AppLocalization.text("choose_delivery_address", fallback: "Choose delivery address"),
+                            systemImage: "mappin.and.ellipse"
+                        )
+                        .font(labelFont(size: 11, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                    }
+                    .accessibilityLabel(AppLocalization.text("choose_delivery_address", fallback: "Choose delivery address"))
+                }
 
                 if let appliedVoucher {
                     Text(String(format: AppLocalization.text("voucher_applied_summary", fallback: "Voucher %@ applied"), appliedVoucher.code))
@@ -9981,6 +10024,25 @@ struct ContentView: View {
         }
     }
 
+    @MainActor
+    private func makePreferredAddress(_ address: DeliveryAddress) async {
+        guard let profile = customerProfile, !address.isPreferred else { return }
+
+        do {
+            addresses = try await AccountService.setPreferredAddress(
+                email: profile.email,
+                addressID: address.id
+            )
+            checkoutError = nil
+            showToast(message: AppLocalization.text("delivery_address_selected", fallback: "Delivery address selected"))
+        } catch {
+            showToast(message: customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("address_selection_failed", fallback: "The delivery address could not be selected right now.")
+            ))
+        }
+    }
+
     private func friendlyCustomerAuthMessage(for error: Error, fallback: String? = nil) -> String {
         if let urlError = error as? URLError,
            [.cannotConnectToHost, .cannotFindHost, .timedOut, .networkConnectionLost, .notConnectedToInternet].contains(urlError.code) {
@@ -12356,6 +12418,24 @@ private enum AccountService {
         }
 
         var request = URLRequest(url: baseURL.appending(path: "/addresses/delete"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": email,
+            "addressID": addressID
+        ])
+
+        return try await performAddressesRequest(request)
+    }
+
+    static func setPreferredAddress(email: String, addressID: String) async throws -> [ContentView.DeliveryAddress] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The address service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/addresses/preferred"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

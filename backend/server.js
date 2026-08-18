@@ -6905,6 +6905,39 @@ async function deleteAddress(email, addressID) {
     return updated;
 }
 
+function preferAddressRecords(addresses, addressID) {
+    if (!addresses.some((address) => address.id === addressID)) return null;
+    return addresses.map((address) => ({
+        ...address,
+        isPreferred: address.id === addressID
+    }));
+}
+
+async function setPreferredAddress(email, addressID) {
+    if (database.isEnabled()) {
+        const existing = await database.query(
+            `SELECT 1 FROM addresses WHERE email = $1 AND id = $2`,
+            [email, addressID]
+        );
+        if (existing.rowCount === 0) return null;
+
+        await database.query(
+            `UPDATE addresses
+             SET is_preferred = (id = $2)
+             WHERE email = $1`,
+            [email, addressID]
+        );
+        return addressesFor(email);
+    }
+
+    const store = readJSON(addressesStorePath);
+    const updated = preferAddressRecords(store.addresses[email] || [], addressID);
+    if (!updated) return null;
+    store.addresses[email] = updated;
+    writeJSON(addressesStorePath, store);
+    return updated;
+}
+
 async function alertInboxFor(email) {
     if (database.isEnabled()) {
         const result = await database.query(
@@ -11281,6 +11314,34 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/addresses/preferred") {
+        try {
+            const body = await readBody(request);
+            const addressID = String(body.addressID || "").trim();
+            const requestedEmail = normalizeEmail(body.email);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) return;
+
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+
+            if (!addressID) {
+                sendJSON(response, 400, { error: "Invalid address payload" });
+                return;
+            }
+
+            const addresses = await setPreferredAddress(customer.email, addressID);
+            if (!addresses) {
+                sendJSON(response, 404, { error: "Address not found" });
+                return;
+            }
+            sendJSON(response, 200, addresses);
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/wallet/pass") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
         const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
@@ -11597,6 +11658,7 @@ module.exports = {
     normalizeCountryCode,
     normalizeTallaPaymentID,
     prepareShopifyEazyOrder,
+    preferAddressRecords,
     publicShopifyEazyPayment,
     normalizeBenefitPayMPQRText,
     parseBenefitCallbackRequest,
