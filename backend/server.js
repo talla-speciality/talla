@@ -1747,6 +1747,11 @@ function normalizeEmail(email) {
     return String(email || "").trim().toLowerCase();
 }
 
+function normalizeCountryCode(value, fallback = "") {
+    const countryCode = String(value || "").trim().toUpperCase();
+    return /^[A-Z]{2}$/.test(countryCode) ? countryCode : fallback;
+}
+
 function requestBodyTooLargeError() {
     const error = new Error("REQUEST_BODY_TOO_LARGE");
     error.code = "REQUEST_BODY_TOO_LARGE";
@@ -6737,6 +6742,7 @@ function addressRowToRecord(row) {
         phone: row.phone,
         line1: row.line1,
         city: row.city,
+        countryCode: normalizeCountryCode(row.country_code, "BH"),
         notes: row.notes,
         isPreferred: row.is_preferred
     };
@@ -6745,7 +6751,7 @@ function addressRowToRecord(row) {
 async function addressesFor(email) {
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, label, full_name, phone, line1, city, notes, is_preferred, created_at
+            `SELECT id, label, full_name, phone, line1, city, country_code, notes, is_preferred, created_at
              FROM addresses
              WHERE email = $1
              ORDER BY is_preferred DESC, created_at DESC`,
@@ -6755,7 +6761,10 @@ async function addressesFor(email) {
     }
 
     const store = readJSON(addressesStorePath);
-    return store.addresses[email] || [];
+    return (store.addresses[email] || []).map((address) => ({
+        ...address,
+        countryCode: normalizeCountryCode(address.countryCode, "BH")
+    }));
 }
 
 async function saveAddress(email, payload) {
@@ -6787,10 +6796,11 @@ async function saveAddress(email, payload) {
                      phone = $5,
                      line1 = $6,
                      city = $7,
-                     notes = $8,
-                     is_preferred = $9
+                     country_code = $8,
+                     notes = $9,
+                     is_preferred = $10
                  WHERE email = $1 AND id = $2`,
-                [email, payload.id, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.notes || null, isPreferred]
+                [email, payload.id, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.countryCode, payload.notes || null, isPreferred]
             );
             return addressesFor(email);
         }
@@ -6799,9 +6809,9 @@ async function saveAddress(email, payload) {
         const createdAt = new Date().toISOString();
         await database.query(
             `INSERT INTO addresses
-             (id, email, label, full_name, phone, line1, city, notes, is_preferred, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [id, email, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.notes || null, isPreferred, createdAt]
+             (id, email, label, full_name, phone, line1, city, country_code, notes, is_preferred, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [id, email, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.countryCode, payload.notes || null, isPreferred, createdAt]
         );
 
         return addressesFor(email);
@@ -6824,6 +6834,7 @@ async function saveAddress(email, payload) {
                 phone: payload.phone,
                 line1: payload.line1,
                 city: payload.city,
+                countryCode: payload.countryCode,
                 notes: payload.notes || null,
                 isPreferred: requestedPreferred || (addresses.length === 1 ? true : address.isPreferred)
             };
@@ -6843,6 +6854,7 @@ async function saveAddress(email, payload) {
         phone: payload.phone,
         line1: payload.line1,
         city: payload.city,
+        countryCode: payload.countryCode,
         notes: payload.notes || null,
         isPreferred: requestedPreferred || addresses.length === 0
     };
@@ -8888,6 +8900,7 @@ const server = http.createServer(async (request, response) => {
                 const phone = String(body.phone || "").trim();
                 const line1 = String(body.line1 || "").trim();
                 const city = String(body.city || "").trim();
+                const countryCode = normalizeCountryCode(body.countryCode, "BH");
                 const notes = body.notes ? String(body.notes).trim() : null;
                 const addressID = body.addressID ? String(body.addressID).trim() : null;
                 const isPreferred = Boolean(body.isPreferred);
@@ -8910,6 +8923,7 @@ const server = http.createServer(async (request, response) => {
                     phone,
                     line1,
                     city,
+                    countryCode,
                     notes,
                     isPreferred
                 });
@@ -8926,6 +8940,7 @@ const server = http.createServer(async (request, response) => {
                         phone,
                         line1,
                         city,
+                        countryCode,
                         hasNotes: Boolean(notes),
                         isPreferred
                     }
@@ -11194,6 +11209,7 @@ const server = http.createServer(async (request, response) => {
             const phone = String(body.phone || "").trim();
             const line1 = String(body.line1 || "").trim();
             const city = String(body.city || "").trim();
+            const countryCode = normalizeCountryCode(body.countryCode);
             const requestedEmail = normalizeEmail(body.email);
             const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
             if (!authenticated) {
@@ -11205,7 +11221,7 @@ const server = http.createServer(async (request, response) => {
                 return;
             }
 
-            if (!label || !fullName || !phone || !line1 || !city) {
+            if (!label || !fullName || !phone || !line1 || !city || !countryCode) {
                 sendJSON(response, 400, { error: "Invalid address payload" });
                 return;
             }
@@ -11222,6 +11238,8 @@ const server = http.createServer(async (request, response) => {
                 phone,
                 line1,
                 city,
+                countryCode,
+                isPreferred: body.isPreferred !== false,
                 notes: body.notes ? String(body.notes).trim() : null
             }));
         } catch (error) {
@@ -11576,6 +11594,7 @@ module.exports = {
     findShopifyEazyPayment,
     isEazyPayManualShopifyOrder,
     loyaltyPerksFor,
+    normalizeCountryCode,
     normalizeTallaPaymentID,
     prepareShopifyEazyOrder,
     publicShopifyEazyPayment,

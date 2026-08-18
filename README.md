@@ -12,6 +12,7 @@ The iOS bag calculates delivery from the preferred address and Shopify variant w
 - Khaleeji transit time: 3 to 5 business days.
 - Cash on delivery adds BHD 2.000 for the five Khaleeji destinations above.
 - Khaleeji checkout is stopped when a physical Shopify variant has no weight or the shipment exceeds 4 kg.
+- Customers can save addresses for all international countries. Destinations outside the GCC continue through Shopify Checkout, where Shopify calculates the configured international shipping rate and shows the payment methods available for that country.
 
 Every physical Shopify variant must have its shipping weight populated. Cash on delivery opens Shopify Checkout, so its Shopify shipping profiles and any COD-fee customization must use the same rates to keep the final checkout amount aligned with the app.
 

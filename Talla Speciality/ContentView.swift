@@ -424,41 +424,53 @@ struct ContentView: View {
         }
     }
 
-    enum SupportedDeliveryCountry: String, CaseIterable, Identifiable, Codable {
-        case oman = "OM"
-        case bahrain = "BH"
-        case qatar = "QA"
-        case kuwait = "KW"
-        case uae = "AE"
-        case saudiArabia = "SA"
+    struct SupportedDeliveryCountry: RawRepresentable, CaseIterable, Identifiable, Hashable {
+        let rawValue: String
+
+        static let bahrain = Self(rawValue: "BH")!
+        static let saudiArabia = Self(rawValue: "SA")!
+        static let kuwait = Self(rawValue: "KW")!
+        static let uae = Self(rawValue: "AE")!
+        static let qatar = Self(rawValue: "QA")!
+        static let oman = Self(rawValue: "OM")!
+
+        private static let khaleejiCodes: Set<String> = ["BH", "SA", "KW", "AE", "QA", "OM"]
+        private static let preferredCountries = [bahrain, saudiArabia, kuwait, uae, qatar, oman]
+        private static let isoCountryCodes = Set(
+            Locale.Region.isoRegions
+                .map(\.identifier)
+                .filter { $0.count == 2 }
+        ).subtracting(["EU", "EZ", "QO", "UN"])
+
+        static var allCases: [Self] {
+            preferredCountries + isoCountryCodes
+                .subtracting(preferredCountries.map(\.rawValue))
+                .compactMap(Self.init(rawValue:))
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
 
         var id: String { rawValue }
+        var isKhaleeji: Bool { Self.khaleejiCodes.contains(rawValue) }
+
+        init?(rawValue: String) {
+            let code = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard code.count == 2, Self.isoCountryCodes.contains(code) else { return nil }
+            self.rawValue = code
+        }
 
         init?(code: String?) {
             guard let code else { return nil }
-            self.init(rawValue: code.uppercased())
+            self.init(rawValue: code)
         }
 
         var name: String {
-            switch self {
-            case .oman: return AppLocalization.text("country_oman", fallback: "Oman")
-            case .bahrain: return AppLocalization.text("country_bahrain", fallback: "Bahrain")
-            case .qatar: return AppLocalization.text("country_qatar", fallback: "Qatar")
-            case .kuwait: return AppLocalization.text("country_kuwait", fallback: "Kuwait")
-            case .uae: return AppLocalization.text("country_uae", fallback: "UAE")
-            case .saudiArabia: return AppLocalization.text("country_saudi_arabia", fallback: "Saudi Arabia")
-            }
+            Locale.current.localizedString(forRegionCode: rawValue) ?? rawValue
         }
 
         var flag: String {
-            switch self {
-            case .oman: return "🇴🇲"
-            case .bahrain: return "🇧🇭"
-            case .qatar: return "🇶🇦"
-            case .kuwait: return "🇰🇼"
-            case .uae: return "🇦🇪"
-            case .saudiArabia: return "🇸🇦"
-            }
+            rawValue.unicodeScalars.compactMap { scalar in
+                UnicodeScalar(127397 + scalar.value).map(String.init)
+            }.joined()
         }
 
         var phonePrefix: String {
@@ -469,6 +481,7 @@ struct ContentView: View {
             case .kuwait: return "+965"
             case .uae: return "+971"
             case .saudiArabia: return "+966"
+            default: return ""
             }
         }
     }
@@ -869,12 +882,35 @@ struct ContentView: View {
         )
     }
 
+    private var usesShopifyCalculatedShipping: Bool {
+        fulfillmentMethod == .delivery
+            && preferredAddress.map { !$0.country.isKhaleeji } == true
+    }
+
+    private var canStartCheckoutWithShipping: Bool {
+        if fulfillmentMethod == .pickup { return true }
+        guard preferredAddress != nil else { return false }
+        if usesShopifyCalculatedShipping {
+            return paymentFlow.selectedMethod?.route == .shopifyCashOnDelivery
+        }
+        return cartShippingCost != nil
+    }
+
+    private var cartCheckoutAmountText: String {
+        usesShopifyCalculatedShipping
+            ? AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout")
+            : formattedBHD(cartTotal)
+    }
+
     private var cartShippingLabel: String {
         if fulfillmentMethod == .pickup {
             return AppLocalization.text("free", fallback: "Free")
         }
         guard preferredAddress != nil else {
             return AppLocalization.text("calculated_at_checkout", fallback: "Calculated at checkout")
+        }
+        if usesShopifyCalculatedShipping {
+            return AppLocalization.text("calculated_at_shopify_checkout", fallback: "Calculated at Shopify checkout")
         }
         if let cartShippingCost {
             return formattedBHD(cartShippingCost)
@@ -889,7 +925,7 @@ struct ContentView: View {
         if fulfillmentMethod == .pickup {
             return AppLocalization.text("pickup", fallback: "Pickup")
         }
-        let isKhaleejiCashOnDelivery = preferredAddress.map { $0.country != .bahrain } == true
+        let isKhaleejiCashOnDelivery = preferredAddress.map { $0.country.isKhaleeji && $0.country != .bahrain } == true
             && paymentFlow.selectedMethod == .cashOnDelivery
         return isKhaleejiCashOnDelivery
             ? AppLocalization.text("delivery_with_cod", fallback: "Delivery + COD fee")
@@ -907,7 +943,7 @@ struct ContentView: View {
                 AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa"),
                 false
             ))
-        } else if preferredAddress.map({ $0.country != .bahrain }) == true {
+        } else if preferredAddress.map({ $0.country.isKhaleeji && $0.country != .bahrain }) == true {
             rows.append((
                 AppLocalization.text("transit_time", fallback: "Transit time"),
                 AppLocalization.text("khaleeji_transit_time", fallback: TallaShippingRates.khaleejiTransitTime),
@@ -6515,43 +6551,25 @@ struct ContentView: View {
                 .textCase(.uppercase)
                 .foregroundColor(tertiaryTextColor)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(SupportedDeliveryCountry.allCases) { country in
-                        let isSelected = country == addressCountry
-
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.18)) {
-                                addressCountry = country
-                            }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text(country.flag)
-                                    .font(labelFont(size: 10, weight: .bold))
-                                    .foregroundColor(isSelected ? Color(hex: 0x0A0804) : Color(hex: 0xC8965A))
-                                    .frame(width: 28, height: 28)
-                                    .background(isSelected ? Color(hex: 0xF7E4C2) : Color(hex: 0xC8965A).opacity(0.12))
-                                    .clipShape(Circle())
-
-                                Text(country.name)
-                                    .font(labelFont(size: 11, weight: .bold))
-                                    .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 12)
-                            .frame(height: 44)
-                            .background(isSelected ? Color(hex: 0xC8965A) : cardFillColor)
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color(hex: 0xC8965A).opacity(isSelected ? 0 : 0.18), lineWidth: 1)
-                            )
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
+            Picker(
+                AppLocalization.text("delivery_country", fallback: "Delivery country"),
+                selection: $addressCountry
+            ) {
+                ForEach(SupportedDeliveryCountry.allCases) { country in
+                    Text("\(country.flag)  \(country.name)")
+                        .tag(country)
                 }
-                .padding(.vertical, 2)
             }
+            .pickerStyle(.menu)
+            .tint(readableBrandGoldColor)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
 
@@ -6584,11 +6602,18 @@ struct ContentView: View {
                         )
 
                         HStack(spacing: 10) {
-                            Text(addressCountry.phonePrefix)
-                                .font(labelFont(size: 12, weight: .bold))
-                                .foregroundColor(readableBrandGoldColor)
+                            if !addressCountry.phonePrefix.isEmpty {
+                                Text(addressCountry.phonePrefix)
+                                    .font(labelFont(size: 12, weight: .bold))
+                                    .foregroundColor(readableBrandGoldColor)
+                            }
 
-                            TextField(AppLocalization.text("phone_number", fallback: "Phone number"), text: $addressPhone)
+                            TextField(
+                                addressCountry.phonePrefix.isEmpty
+                                    ? AppLocalization.text("phone_with_country_code", fallback: "Phone with +country code")
+                                    : AppLocalization.text("phone_number", fallback: "Phone number"),
+                                text: $addressPhone
+                            )
                                 .keyboardType(.phonePad)
                                 .font(bodyFont(size: 15))
                                 .foregroundColor(primaryTextColor)
@@ -6746,12 +6771,19 @@ struct ContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     HStack(spacing: 8) {
-                        Text(addressCountry.phonePrefix)
-                            .font(labelFont(size: 12, weight: .bold))
-                            .foregroundColor(readableBrandGoldColor)
-                            .frame(minWidth: 42, alignment: .leading)
+                        if !addressCountry.phonePrefix.isEmpty {
+                            Text(addressCountry.phonePrefix)
+                                .font(labelFont(size: 12, weight: .bold))
+                                .foregroundColor(readableBrandGoldColor)
+                                .frame(minWidth: 42, alignment: .leading)
+                        }
 
-                        TextField(AppLocalization.text("phone", fallback: "Phone"), text: $addressPhone)
+                        TextField(
+                            addressCountry.phonePrefix.isEmpty
+                                ? AppLocalization.text("phone_with_country_code", fallback: "Phone with +country code")
+                                : AppLocalization.text("phone", fallback: "Phone"),
+                            text: $addressPhone
+                        )
                             .keyboardType(.phonePad)
                             .font(bodyFont(size: 14))
                             .foregroundColor(primaryTextColor)
@@ -7437,9 +7469,9 @@ struct ContentView: View {
             } else {
                 CheckoutActionBar(
                     method: paymentFlow.selectedMethod,
-                    amountText: formattedBHD(cartTotal),
+                    amountText: cartCheckoutAmountText,
                     state: paymentFlow.state,
-                    enabled: !cartItems.isEmpty && !isCheckingOut && paymentFlow.canStart && cartShippingCost != nil,
+                    enabled: !cartItems.isEmpty && !isCheckingOut && paymentFlow.canStart && canStartCheckoutWithShipping,
                     applePayAvailable: isApplePayAvailable,
                     accentColor: Color(hex: 0xC8965A)
                 ) {
@@ -7488,6 +7520,16 @@ struct ContentView: View {
                 surfaceColor: cardFillColor
             ) {
                 isPaymentMethodSheetPresented = true
+            }
+
+            if usesShopifyCalculatedShipping {
+                Text(AppLocalization.text(
+                    "international_checkout_payment_hint",
+                    fallback: "For destinations outside the GCC, choose Cash on Delivery to continue to Shopify Checkout. Shopify will show the shipping rate and payment methods available for your country."
+                ))
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             PaymentStatusView(
@@ -9919,6 +9961,7 @@ struct ContentView: View {
             return compact
         }
 
+        guard !addressCountry.phonePrefix.isEmpty else { return "" }
         let localNumber = compact.drop(while: { $0 == "0" })
         return "\(addressCountry.phonePrefix)\(localNumber)"
     }
@@ -11128,7 +11171,7 @@ struct ContentView: View {
             return
         }
 
-        guard cartShippingCost != nil else {
+        guard canStartCheckoutWithShipping else {
             paymentFlow.transition(to: .failed)
             checkoutError = cartShipmentWeightGrams == nil
                 ? AppLocalization.text("shipping_weight_missing_detail", fallback: "A product in your bag has no shipping weight. Please contact us before checkout.")
@@ -12290,7 +12333,8 @@ private enum AccountService {
             "phone": phone,
             "line1": line1,
             "city": city,
-            "countryCode": countryCode
+            "countryCode": countryCode,
+            "isPreferred": true
         ]
         if let notes {
             payload["notes"] = notes

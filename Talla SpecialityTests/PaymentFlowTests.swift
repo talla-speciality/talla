@@ -110,6 +110,14 @@ struct PaymentFlowTests {
         #expect(TallaShippingRates.khaleejiTransitTime == "3 to 5 business days")
     }
 
+    @Test func deliveryCountriesIncludeGCCAndInternationalDestinations() {
+        let countryCodes = Set(ContentView.SupportedDeliveryCountry.allCases.map(\.rawValue))
+        #expect(countryCodes.isSuperset(of: ["BH", "SA", "KW", "AE", "QA", "OM", "US", "GB"]))
+        #expect(ContentView.SupportedDeliveryCountry(code: "sa") == .saudiArabia)
+        #expect(ContentView.SupportedDeliveryCountry(code: "US")?.isKhaleeji == false)
+        #expect(ContentView.SupportedDeliveryCountry(code: "AE")?.phonePrefix == "+971")
+    }
+
     @Test func accessibilitySummaryDescribesTheMethod() {
         #expect(TallaPaymentMethod.benefit.accessibilitySummary.contains("Bahraini debit cards"))
         #expect(TallaPaymentMethod.card.accessibilitySummary.contains("Visa"))
