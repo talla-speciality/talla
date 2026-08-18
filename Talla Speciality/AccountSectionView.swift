@@ -41,6 +41,7 @@ struct AccountSectionView: View {
     let cardFillColor: Color
     let accentColor: Color
     let isLightAppearance: Bool
+    let isOLEDAppearance: Bool
     let titleFont: Font
     let introFont: Font
     let bodyFont: Font
@@ -475,7 +476,7 @@ struct AccountSectionView: View {
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : (isOLEDAppearance ? .black : Color(hex: 0x181411)))
             .navigationTitle(activeDetailTitle(detail))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

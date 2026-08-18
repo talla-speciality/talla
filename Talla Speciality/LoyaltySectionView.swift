@@ -5,6 +5,7 @@ struct LoyaltySectionView: View {
 
     let isCompact: Bool
     let isLightAppearance: Bool
+    let isOLEDAppearance: Bool
     let primaryTextColor: Color
     let secondaryTextColor: Color
     let tertiaryTextColor: Color
@@ -205,6 +206,8 @@ struct LoyaltySectionView: View {
 
             Image(isEarned ? "LoyaltyBottleFull" : "LoyaltyBottleEmpty")
                 .resizable()
+                .interpolation(.high)
+                .antialiased(true)
                 .scaledToFit()
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
@@ -245,7 +248,7 @@ struct LoyaltySectionView: View {
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : (isOLEDAppearance ? .black : Color(hex: 0x181411)))
             .navigationTitle(AppLocalization.text("rewards", fallback: "Rewards"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

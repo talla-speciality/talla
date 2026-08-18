@@ -140,6 +140,7 @@ enum AppLocalization {
         "brewing": ["ar": "التحضير"],
         "account": ["ar": "الحساب"],
         "appearance": ["ar": "المظهر"],
+        "oled_dark": ["ar": "داكن OLED"],
         "explore": ["ar": "استكشف"],
         "all_products": ["ar": "كل المنتجات"],
         "browse_catalog": ["ar": "تصفح حسب الفئة، واكتشف مفضلات العملاء، وأضف إلى السلة بسهولة."],

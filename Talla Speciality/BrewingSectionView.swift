@@ -212,6 +212,7 @@ struct BrewingSectionView: View {
     let tertiaryTextColor: Color
     let cardFillColor: Color
     let accentColor: Color
+    let isOLEDAppearance: Bool
     let displayedMethods: [ContentView.BrewingMethod]
     let brewingCategories: [String]
     let gridColumns: [GridItem]
@@ -414,11 +415,11 @@ struct BrewingSectionView: View {
     }
 
     private var brewBackgroundColor: Color {
-        brewingColorScheme == .dark ? Color(hex: 0x15120E) : Color(hex: 0xF7F5EF)
+        isOLEDAppearance ? .black : (brewingColorScheme == .dark ? Color(hex: 0x15120E) : Color(hex: 0xF7F5EF))
     }
 
     private var brewSurfaceColor: Color {
-        brewingColorScheme == .dark ? Color(hex: 0x1F1A14) : Color(hex: 0xFFFDF8)
+        isOLEDAppearance ? .black : (brewingColorScheme == .dark ? Color(hex: 0x1F1A14) : Color(hex: 0xFFFDF8))
     }
 
     private var brewPrimaryTextColor: Color {
@@ -3973,6 +3974,8 @@ struct BrewingSectionView: View {
             if let coffeeBagPreviewImage {
                 Image(uiImage: coffeeBagPreviewImage)
                     .resizable()
+                    .interpolation(.high)
+                    .antialiased(true)
                     .scaledToFill()
                     .frame(height: 140)
                     .frame(maxWidth: .infinity)

@@ -75,6 +75,7 @@ private enum TallaWidgetSharedState {
 
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.requestReview) private var requestReview
@@ -113,6 +114,7 @@ struct ContentView: View {
         case system
         case light
         case dark
+        case oled
 
         var id: String { rawValue }
 
@@ -124,6 +126,8 @@ struct ContentView: View {
                 return "Light"
             case .dark:
                 return "Dark"
+            case .oled:
+                return AppLocalization.text("oled_dark", fallback: "OLED Dark")
             }
         }
 
@@ -133,7 +137,7 @@ struct ContentView: View {
                 return nil
             case .light:
                 return .light
-            case .dark:
+            case .dark, .oled:
                 return .dark
             }
         }
@@ -1038,6 +1042,10 @@ struct ContentView: View {
         appearanceMode == .light || (appearanceMode == .system && colorScheme == .light)
     }
 
+    private var isOLEDAppearance: Bool {
+        appearanceMode == .oled
+    }
+
     private var backgroundGradientColors: [Color] {
         if isLightAppearance {
             return [
@@ -1047,11 +1055,13 @@ struct ContentView: View {
             ]
         }
 
-        return [
-            Color(hex: 0x080706),
-            Color(hex: 0x12100D),
-            Color(hex: 0x1A1511)
-        ]
+        return isOLEDAppearance
+            ? [.black, .black, .black]
+            : [
+                Color(hex: 0x080706),
+                Color(hex: 0x12100D),
+                Color(hex: 0x1A1511)
+            ]
     }
 
     private var primaryTextColor: Color {
@@ -1071,15 +1081,31 @@ struct ContentView: View {
     }
 
     private var cardFillColor: Color {
-        isLightAppearance ? Color(hex: 0xFFFBF6).opacity(0.96) : Color(hex: 0x1A1511).opacity(0.9)
+        if isLightAppearance {
+            return Color(hex: 0xFFFBF6).opacity(0.96)
+        }
+        return isOLEDAppearance ? .black : Color(hex: 0x1A1511).opacity(0.9)
     }
 
     private var elevatedSurfaceColor: Color {
-        isLightAppearance ? Color(hex: 0xFFFCF8) : Color(hex: 0x15110E)
+        if isLightAppearance {
+            return Color(hex: 0xFFFCF8)
+        }
+        return isOLEDAppearance ? .black : Color(hex: 0x15110E)
     }
 
     private var headerOverlayColor: Color {
-        isLightAppearance ? Color(hex: 0xFFFCF8).opacity(0.92) : Color(hex: 0x0F0C09).opacity(0.88)
+        if isLightAppearance {
+            return Color(hex: 0xFFFCF8).opacity(0.92)
+        }
+        return isOLEDAppearance ? .black : Color(hex: 0x0F0C09).opacity(0.88)
+    }
+
+    private var pageBackgroundColor: Color {
+        if isLightAppearance {
+            return Color(hex: 0xFFFDF9)
+        }
+        return isOLEDAppearance ? .black : Color(hex: 0x181411)
     }
 
     private var scrimColor: Color {
@@ -1815,11 +1841,13 @@ struct ContentView: View {
     private var launchSplashView: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(hex: 0x100B07),
-                    Color(hex: 0x1A120C),
-                    Color(hex: 0x0A0804)
-                ],
+                colors: isOLEDAppearance
+                    ? [.black, .black, .black]
+                    : [
+                        Color(hex: 0x100B07),
+                        Color(hex: 0x1A120C),
+                        Color(hex: 0x0A0804)
+                    ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -1986,8 +2014,13 @@ struct ContentView: View {
 
     private var lifecycleContent: some View {
         rootContent
-        .animation(.easeInOut(duration: 0.25), value: cartOpen)
-        .animation(.easeInOut(duration: 0.28), value: showLaunchSplash)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: cartOpen)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: showLaunchSplash)
+        .transaction { transaction in
+            if reduceMotion {
+                transaction.disablesAnimations = true
+            }
+        }
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
         .task {
             syncWidgetSharedState(reload: false)
@@ -2324,9 +2357,10 @@ struct ContentView: View {
     }
 
     private var tabBarBackgroundColor: Color {
-        isLightAppearance
-            ? Color(hex: 0xFFFCF8).opacity(0.98)
-            : Color(hex: 0x100D0A).opacity(0.98)
+        if isLightAppearance {
+            return Color(hex: 0xFFFCF8).opacity(0.98)
+        }
+        return isOLEDAppearance ? .black : Color(hex: 0x100D0A).opacity(0.98)
     }
 
     private func topScrollPadding(for tab: Tab) -> CGFloat {
@@ -3089,7 +3123,9 @@ struct ContentView: View {
             LinearGradient(
                 colors: isLightAppearance
                     ? [Color(hex: 0xFFF8EF), Color(hex: 0xF0DEC5)]
-                    : [Color(hex: 0x21170F), Color(hex: 0x120D08)],
+                    : (isOLEDAppearance
+                        ? [.black, .black]
+                        : [Color(hex: 0x21170F), Color(hex: 0x120D08)]),
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -4428,10 +4464,11 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            isLightAppearance ? Color(hex: 0xFFF7ED) : Color(hex: 0x22170F).opacity(0.95),
-                            isLightAppearance ? Color(hex: 0xEAD9C3) : elevatedSurfaceColor.opacity(0.96)
-                        ],
+                        colors: isLightAppearance
+                            ? [Color(hex: 0xFFF7ED), Color(hex: 0xEAD9C3)]
+                            : (isOLEDAppearance
+                                ? [.black, .black]
+                                : [Color(hex: 0x22170F).opacity(0.95), elevatedSurfaceColor.opacity(0.96)]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -4496,6 +4533,7 @@ struct ContentView: View {
         LoyaltySectionView(
             isCompact: isCompact,
             isLightAppearance: isLightAppearance,
+            isOLEDAppearance: isOLEDAppearance,
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,
@@ -4549,7 +4587,7 @@ struct ContentView: View {
                     .padding(.top, 20)
                     .padding(.bottom, 28)
             }
-            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .background(pageBackgroundColor.ignoresSafeArea())
             .navigationTitle(AppLocalization.text("the_talla_club", fallback: "The Talla Club"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -5455,6 +5493,8 @@ struct ContentView: View {
         if let conciergeImageData, let image = UIImage(data: conciergeImageData) {
             Image(uiImage: image)
                 .resizable()
+                .interpolation(.high)
+                .antialiased(true)
                 .scaledToFill()
                 .frame(width: 42, height: 42)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -5549,6 +5589,7 @@ struct ContentView: View {
             tertiaryTextColor: tertiaryTextColor,
             cardFillColor: cardFillColor,
             accentColor: Color(hex: 0xC8965A),
+            isOLEDAppearance: isOLEDAppearance,
             displayedMethods: displayedBrewingMethods,
             brewingCategories: brewingCategories,
             gridColumns: brewingGridColumns,
@@ -5932,6 +5973,7 @@ struct ContentView: View {
             cardFillColor: cardFillColor,
             accentColor: Color(hex: 0xC8965A),
             isLightAppearance: isLightAppearance,
+            isOLEDAppearance: isOLEDAppearance,
             titleFont: displayFont(size: 32),
             introFont: bodyFont(size: 17),
             bodyFont: bodyFont(size: 14),
@@ -6175,7 +6217,7 @@ struct ContentView: View {
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+            .background(pageBackgroundColor)
             .navigationTitle(settingsDetailTitle(detail))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -6700,7 +6742,7 @@ struct ContentView: View {
                 .padding(.top, 34)
                 .padding(.bottom, 44)
             }
-            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .background(pageBackgroundColor.ignoresSafeArea())
         }
     }
 
@@ -7434,7 +7476,7 @@ struct ContentView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 24)
             }
-            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .background(pageBackgroundColor.ignoresSafeArea())
             .navigationTitle(AppLocalization.text("checkout", fallback: "Checkout"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -7649,7 +7691,7 @@ struct ContentView: View {
                 }
                 .padding(18)
             }
-            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .background(pageBackgroundColor.ignoresSafeArea())
             .navigationTitle(AppLocalization.text("delivery_address", fallback: "Delivery address"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -7699,7 +7741,7 @@ struct ContentView: View {
                 .padding(.bottom, 30)
                 .frame(maxWidth: .infinity)
             }
-            .background((isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411)).ignoresSafeArea())
+            .background(pageBackgroundColor.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -9681,10 +9723,12 @@ struct ContentView: View {
                                 Color(hex: 0xFFF9F1),
                                 Color(hex: 0xF2E0C7)
                             ]
-                            : [
-                                Color(hex: 0x241A12).opacity(0.94),
-                                elevatedSurfaceColor.opacity(0.96)
-                            ],
+                            : (isOLEDAppearance
+                                ? [.black, .black]
+                                : [
+                                    Color(hex: 0x241A12).opacity(0.94),
+                                    elevatedSurfaceColor.opacity(0.96)
+                                ]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -9730,10 +9774,12 @@ struct ContentView: View {
                                 Color.white.opacity(0.88),
                                 Color(hex: 0xF3E3CC).opacity(0.94)
                             ]
-                            : [
-                                Color.white.opacity(0.03),
-                                Color(hex: 0x2A1D14).opacity(0.82)
-                            ],
+                            : (isOLEDAppearance
+                                ? [.black, .black]
+                                : [
+                                    Color.white.opacity(0.03),
+                                    Color(hex: 0x2A1D14).opacity(0.82)
+                                ]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -12329,6 +12375,8 @@ struct ContentView: View {
 
 private struct ProductThumbnail: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.displayScale) private var displayScale
+    @AppStorage("app.appearanceMode") private var savedAppearanceMode = "system"
 
     let imageURL: URL?
     let size: CGFloat?
@@ -12338,6 +12386,10 @@ private struct ProductThumbnail: View {
         colorScheme == .light
     }
 
+    private var isOLEDAppearance: Bool {
+        savedAppearanceMode == "oled"
+    }
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius)
@@ -12345,7 +12397,9 @@ private struct ProductThumbnail: View {
                     LinearGradient(
                         colors: isLightAppearance
                             ? [Color(hex: 0xFFF9F2), Color(hex: 0xF2E2CD)]
-                            : [Color(hex: 0x1A1612), Color(hex: 0x100D08)],
+                            : (isOLEDAppearance
+                                ? [.black, .black]
+                                : [Color(hex: 0x1A1612), Color(hex: 0x100D08)]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -12358,8 +12412,8 @@ private struct ProductThumbnail: View {
                         )
                 )
 
-            if let imageURL {
-                AsyncImage(url: imageURL) { phase in
+            if let imageURL = retinaImageURL {
+                AsyncImage(url: imageURL, transaction: Transaction(animation: nil)) { phase in
                     switch phase {
                     case .empty:
                         ProgressView()
@@ -12368,6 +12422,8 @@ private struct ProductThumbnail: View {
                     case .success(let image):
                         image
                             .resizable()
+                            .interpolation(.high)
+                            .antialiased(true)
                             .scaledToFit()
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .padding(size == nil ? 12 : 4)
@@ -12386,6 +12442,28 @@ private struct ProductThumbnail: View {
         }
         .frame(width: size, height: size)
         .clipped()
+    }
+
+    /// Shopify image URLs can retain a small `width` transform from an upstream
+    /// response or cache. Always request enough physical pixels for Retina and
+    /// ProMotion iPhones so SwiftUI never has to enlarge a thumbnail.
+    private var retinaImageURL: URL? {
+        guard let imageURL else { return nil }
+        guard imageURL.host?.localizedCaseInsensitiveContains("shopify") == true else {
+            return imageURL
+        }
+
+        var components = URLComponents(url: imageURL, resolvingAgainstBaseURL: false)
+        var queryItems = components?.queryItems ?? []
+        queryItems.removeAll {
+            ["width", "height"].contains($0.name.lowercased())
+        }
+
+        let renderedPoints = size ?? 420
+        let targetPixels = max(768, min(2_048, Int(ceil(renderedPoints * displayScale * 1.5))))
+        queryItems.append(URLQueryItem(name: "width", value: String(targetPixels)))
+        components?.queryItems = queryItems
+        return components?.url ?? imageURL
     }
 
     private var placeholder: some View {
