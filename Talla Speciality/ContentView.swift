@@ -738,6 +738,7 @@ struct ContentView: View {
     @State private var addressCountry: SupportedDeliveryCountry = .bahrain
     @State private var addressNotes = ""
     @State private var isSavingAddress = false
+    @State private var selectingAddressID: String?
     @State private var isAccountOnboardingPresented = false
     @State private var selectedVariantIDs: [String: String] = [:]
     @State private var remoteSignatureRoastProductIDs: [String] = []
@@ -6942,17 +6943,30 @@ struct ContentView: View {
                                 if !address.isPreferred {
                                     Button {
                                         Task {
-                                            await makePreferredAddress(address)
+                                            _ = await makePreferredAddress(address)
                                         }
                                     } label: {
-                                        Image(systemName: "checkmark.circle")
-                                            .font(.system(size: 15, weight: .bold))
-                                            .foregroundColor(readableBrandGoldColor)
-                                            .frame(width: 34, height: 34)
-                                            .background(cardFillColor)
-                                            .clipShape(Circle())
+                                        HStack(spacing: 7) {
+                                            if selectingAddressID == address.id {
+                                                ProgressView()
+                                                    .tint(readableBrandGoldColor)
+                                            } else {
+                                                Image(systemName: "checkmark.circle")
+                                                    .font(.system(size: 15, weight: .bold))
+                                            }
+                                            Text(AppLocalization.text("use_this_address", fallback: "Use this address"))
+                                                .font(labelFont(size: 10, weight: .bold))
+                                                .lineLimit(1)
+                                        }
+                                        .foregroundColor(readableBrandGoldColor)
+                                        .padding(.horizontal, 12)
+                                        .frame(minHeight: 48)
+                                        .background(Color(hex: 0xC8965A).opacity(0.10))
+                                        .clipShape(Capsule())
+                                        .contentShape(Capsule())
                                     }
                                     .buttonStyle(.plain)
+                                    .disabled(selectingAddressID != nil)
                                     .accessibilityLabel(AppLocalization.text("use_this_address", fallback: "Use this address"))
                                 }
 
@@ -6962,13 +6976,15 @@ struct ContentView: View {
                                     }
                                 } label: {
                                     Image(systemName: "trash")
-                                        .font(.system(size: 14, weight: .bold))
+                                        .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(primaryTextColor)
-                                        .frame(width: 34, height: 34)
-                                        .background(cardFillColor)
+                                        .frame(width: 48, height: 48)
+                                        .background(primaryTextColor.opacity(0.06))
                                         .clipShape(Circle())
+                                        .contentShape(Circle())
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel(AppLocalization.text("delete_address", fallback: "Delete address"))
                             }
                         }
                         .padding(16)
@@ -7574,8 +7590,11 @@ struct ContentView: View {
                             .font(.footnote.weight(.semibold))
                             .foregroundColor(readableBrandGoldColor)
                     }
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint(AppLocalization.text("choose_delivery_address", fallback: "Choose delivery address"))
             } else if customerProfile != nil {
                 Button {
                     isCheckoutAddressSheetPresented = true
@@ -7619,15 +7638,21 @@ struct ContentView: View {
                         ForEach(addresses) { address in
                             Button {
                                 Task {
-                                    await makePreferredAddress(address)
-                                    if preferredAddress?.id == address.id {
+                                    if await makePreferredAddress(address) {
                                         isCheckoutAddressSheetPresented = false
                                     }
                                 }
                             } label: {
                                 HStack(alignment: .top, spacing: 12) {
-                                    Image(systemName: address.id == preferredAddress?.id ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(readableBrandGoldColor)
+                                    if selectingAddressID == address.id {
+                                        ProgressView()
+                                            .tint(readableBrandGoldColor)
+                                            .frame(width: 24, height: 24)
+                                    } else {
+                                        Image(systemName: address.id == preferredAddress?.id ? "checkmark.circle.fill" : "circle")
+                                            .foregroundColor(readableBrandGoldColor)
+                                            .frame(width: 24, height: 24)
+                                    }
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(address.label)
                                             .font(.body.weight(.semibold))
@@ -7640,9 +7665,14 @@ struct ContentView: View {
                                     Spacer()
                                 }
                                 .padding(14)
+                                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                                 .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                             }
                             .buttonStyle(.plain)
+                            .disabled(selectingAddressID != nil)
+                            .accessibilityLabel("\(address.label), \(address.city), \(address.country.name)")
+                            .accessibilityHint(AppLocalization.text("use_this_address", fallback: "Use this address"))
                         }
 
                         Divider().overlay(Color(hex: 0xC8965A).opacity(0.16))
@@ -10663,8 +10693,26 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func makePreferredAddress(_ address: DeliveryAddress) async {
-        guard let profile = customerProfile, !address.isPreferred else { return }
+    private func makePreferredAddress(_ address: DeliveryAddress) async -> Bool {
+        guard let profile = customerProfile else { return false }
+        guard !address.isPreferred else { return true }
+
+        let previousAddresses = addresses
+        selectingAddressID = address.id
+        addresses = addresses.map { candidate in
+            DeliveryAddress(
+                id: candidate.id,
+                label: candidate.label,
+                fullName: candidate.fullName,
+                phone: candidate.phone,
+                line1: candidate.line1,
+                city: candidate.city,
+                countryCode: candidate.countryCode,
+                notes: candidate.notes,
+                isPreferred: candidate.id == address.id
+            )
+        }
+        defer { selectingAddressID = nil }
 
         do {
             addresses = try await AccountService.setPreferredAddress(
@@ -10673,11 +10721,14 @@ struct ContentView: View {
             )
             checkoutError = nil
             showToast(message: AppLocalization.text("delivery_address_selected", fallback: "Delivery address selected"))
+            return true
         } catch {
+            addresses = previousAddresses
             showToast(message: customerFacingServiceMessage(
                 for: error,
                 fallback: AppLocalization.text("address_selection_failed", fallback: "The delivery address could not be selected right now.")
             ))
+            return false
         }
     }
 
