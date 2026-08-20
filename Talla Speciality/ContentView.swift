@@ -765,7 +765,6 @@ struct ContentView: View {
     @State private var isCheckoutNoteExpanded = false
     @State private var isVoucherCodeEntryExpanded = false
     @State private var isCartSaveEntryExpanded = false
-    @State private var isDeliveryDetailsExpanded = false
     @State private var isTallaPassportExpanded = false
     @State private var selectedSettingsDetail: SettingsDetail?
     @State private var accountScrollTarget: String?
@@ -4255,7 +4254,6 @@ struct ContentView: View {
                     minHeight: 106
                 ) {
                     isLibrarySectionExpanded = true
-                    isDeliveryDetailsExpanded = false
                     openAccountSection(AccountSectionView.ScrollTarget.library)
                 }
 
@@ -6768,39 +6766,23 @@ struct ContentView: View {
 
     private var addressesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isDeliveryDetailsExpanded.toggle()
-                }
-            } label: {
-                HStack(alignment: .center, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(AppLocalization.text("delivery_details", fallback: "DELIVERY DETAILS"))
-                            .font(displayFont(size: 22))
-                            .tracking(2)
-                            .foregroundColor(primaryTextColor)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(AppLocalization.text("delivery_details", fallback: "DELIVERY DETAILS"))
+                    .font(displayFont(size: 22))
+                    .tracking(2)
+                    .foregroundColor(primaryTextColor)
 
-                        Text(addresses.isEmpty
-                            ? AppLocalization.text("delivery_details_empty", fallback: "Add an address for faster checkout.")
-                            : (addresses.count == 1
-                                ? AppLocalization.text("delivery_details_ready_one", fallback: "1 saved address ready.")
-                                : String(format: AppLocalization.text("delivery_details_ready_many", fallback: "%d saved addresses ready."), addresses.count)))
-                            .font(bodyFont(size: 14))
-                            .foregroundColor(secondaryTextColor)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: isDeliveryDetailsExpanded ? "minus.circle.fill" : "plus.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(readableBrandGoldColor)
-                }
+                Text(addresses.isEmpty
+                    ? AppLocalization.text("delivery_details_empty", fallback: "Add an address for faster checkout.")
+                    : (addresses.count == 1
+                        ? AppLocalization.text("delivery_details_ready_one", fallback: "1 saved address ready.")
+                        : String(format: AppLocalization.text("delivery_details_ready_many", fallback: "%d saved addresses ready."), addresses.count)))
+                    .font(bodyFont(size: 14))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.plain)
 
-            if isDeliveryDetailsExpanded {
-                VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
                     Text(AppLocalization.text("delivery_details_hint", fallback: "Save your preferred address here so checkout feels faster, even when Shopify opens on the web."))
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
@@ -6897,20 +6879,9 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isSavingAddress)
-                }
-                .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
-                if addresses.isEmpty {
-                    actionEmptyState(
-                        message: AppLocalization.text("no_saved_addresses", fallback: "No saved addresses yet."),
-                        actionTitle: AppLocalization.text("add_address", fallback: "Add Address"),
-                        systemImage: "location.fill"
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isDeliveryDetailsExpanded = true
-                        }
-                    }
-                } else {
+            if !addresses.isEmpty {
                     ForEach(addresses) { address in
                         HStack(alignment: .top, spacing: 12) {
                             VStack(alignment: .leading, spacing: 6) {
@@ -6996,7 +6967,6 @@ struct ContentView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
-                }
             }
         }
     }
@@ -10224,7 +10194,6 @@ struct ContentView: View {
                 .joined(separator: " ")
         }
 
-        isDeliveryDetailsExpanded = true
         isAccountOnboardingPresented = true
     }
 
