@@ -24,6 +24,23 @@ struct SmartBrewInput: Equatable {
     let bloomPreference: String
     let requestedPourCount: Int
     let controlMode: String
+    let calibration: SmartBrewCalibration?
+
+    init(coffeeGrams: Double, ratio: Double, brewerID: String, brewMode: String, roast: String, process: String, tasteGoal: String, altitudeMeters: Int?, daysOffRoast: Int?, grinder: String, bloomPreference: String, requestedPourCount: Int, controlMode: String, calibration: SmartBrewCalibration? = nil) {
+        self.coffeeGrams = coffeeGrams; self.ratio = ratio; self.brewerID = brewerID; self.brewMode = brewMode
+        self.roast = roast; self.process = process; self.tasteGoal = tasteGoal; self.altitudeMeters = altitudeMeters
+        self.daysOffRoast = daysOffRoast; self.grinder = grinder; self.bloomPreference = bloomPreference
+        self.requestedPourCount = requestedPourCount; self.controlMode = controlMode; self.calibration = calibration
+    }
+}
+
+struct SmartBrewCalibration: Codable, Equatable {
+    var grindMicronOffset: Int
+    var temperatureOffset: Int
+    var pourCountOffset: Int
+    var preferredAgitation: String?
+    var brewCount: Int
+    var lastFeedback: [String]
 }
 
 struct SmartBrewRecipe: Equatable {
@@ -76,6 +93,7 @@ enum SmartBrewRecipeEngine {
         if goal.contains("clar") || goal.contains("bright") || goal.contains("acid") { temperature += 1 }
         if goal.contains("body") || goal.contains("rich") { temperature -= 1 }
         if iced && !process.isSensitive { temperature += 1 }
+        temperature += input.calibration?.temperatureOffset ?? 0
         temperature = min(max(temperature, 88), 96)
 
         let geometry = brewerGeometry(input.brewerID)
@@ -85,10 +103,11 @@ enum SmartBrewRecipeEngine {
         if goal.contains("body") || goal.contains("sweet") || goal.contains("rich") { microns -= 30 }
         if goal.contains("clar") || goal.contains("bright") { microns += 25 }
         if process.isSensitive { microns += 25 }
+        microns += input.calibration?.grindMicronOffset ?? 0
         microns = min(max(microns, 350), 1_100)
 
         let grind = grindLabel(microns: microns, brewerID: input.brewerID)
-        let agitation = process.isSensitive || goal.contains("clar") || goal.contains("bright") ? "Gentle" : (goal.contains("body") || goal.contains("rich") ? "Medium-high" : "Medium")
+        let agitation = input.calibration?.preferredAgitation ?? (process.isSensitive || goal.contains("clar") || goal.contains("bright") ? "Gentle" : (goal.contains("body") || goal.contains("rich") ? "Medium-high" : "Medium"))
         let steps = makeSteps(
             dose: dose,
             total: total,
@@ -99,7 +118,7 @@ enum SmartBrewRecipeEngine {
             temperature: temperature,
             geometry: geometry,
             brewerID: input.brewerID,
-            requestedPourCount: input.requestedPourCount,
+            requestedPourCount: input.requestedPourCount + (input.calibration?.pourCountOffset ?? 0),
             process: process,
             agitation: agitation
         )

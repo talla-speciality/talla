@@ -232,6 +232,14 @@ struct BrewingSectionView: View {
         let reason: String
     }
 
+    private struct CoffeeCalibrationRecord: Codable, Identifiable {
+        let id: String
+        var coffeeName: String
+        var roaster: String
+        var calibration: SmartBrewCalibration
+        var updatedAt: Date
+    }
+
     private struct PersistedBrewSession: Codable {
         let savedAt: Date
         let isPresented: Bool
@@ -263,6 +271,7 @@ struct BrewingSectionView: View {
         static let lastMethodKey = "talla.brewing.lastMethod.v1"
         static let lastBrewTimestampKey = "talla.brewing.lastBrewTimestamp.v1"
         static let favoriteMethodsKey = "talla.brewing.favoriteMethods.v1"
+        static let coffeeCalibrationsKey = "talla.brewing.coffeeCalibrations.v1"
     }
 
     let isCompact: Bool
@@ -310,6 +319,7 @@ struct BrewingSectionView: View {
     @AppStorage(BrewSessionStorage.lastMethodKey) private var storedLastBrewMethodID = ""
     @AppStorage(BrewSessionStorage.lastBrewTimestampKey) private var storedLastBrewTimestamp = 0.0
     @AppStorage(BrewSessionStorage.favoriteMethodsKey) private var storedFavoriteBrewMethodIDs = "v60,solo,kalita"
+    @AppStorage(BrewSessionStorage.coffeeCalibrationsKey) private var storedCoffeeCalibrations = ""
     @State private var isBrewModeRunning = false
     @State private var brewModeElapsedSeconds = 0
     @State private var brewModeRunID = UUID()
@@ -900,8 +910,8 @@ struct BrewingSectionView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     brewerSetupSelector
-                    createRecipeTextField(title: AppLocalization.text("grinder", fallback: "Grinder"), placeholder: "Fellow Ode, Comandante, EK43", text: $recipeGrinder)
-                    createRecipeTextField(title: AppLocalization.text("filter", fallback: "Filter"), placeholder: "Hario paper, Kalita Wave 185", text: $recipeFilterType)
+                    catalogPicker(title: AppLocalization.text("grinder", fallback: "Grinder"), selection: $recipeGrinder, options: grinderCatalog, customPlaceholder: "Other grinder")
+                    catalogPicker(title: AppLocalization.text("filter", fallback: "Filter"), selection: $recipeFilterType, options: filterCatalog, customPlaceholder: "Other filter")
                 }
                 .padding(20)
             }
@@ -2589,6 +2599,7 @@ struct BrewingSectionView: View {
             generatedRecipeScienceSection
             generatedRecipeNotesSection
             generatedRecipeExpectedCupSection
+            generatedCoffeeHistorySection
             generatedRecipeAfterBrewSection
         }
         .transition(.opacity.combined(with: .move(edge: .trailing)))
@@ -2786,15 +2797,15 @@ struct BrewingSectionView: View {
             recipeSectionHeading(AppLocalization.text("brew_science", fallback: "Brew Science"))
 
             VStack(spacing: 0) {
-                scienceTopicCard(id: "temperature", title: AppLocalization.text("why_this_temperature", fallback: "Why this temperature"), summary: AppLocalization.text("temperature_science_short", fallback: "93 °C brings sweetness forward without pushing harshness."), more: AppLocalization.text("temperature_science_more", fallback: "The 92–94 °C range works well for most light-to-medium specialty coffees because it extracts enough sweetness while keeping bitterness controlled."))
+                scienceTopicCard(id: "temperature", title: AppLocalization.text("why_this_temperature", fallback: "Why this temperature"), summary: restoredTemperatureReason ?? smartRecipe.temperatureReason, more: "Recommended range: \(smartRecipe.temperatureRange). Talla considered the \(coffeeRoastLevel.lowercased()) roast, \(coffeeProcess.isEmpty ? "unknown process" : coffeeProcess.lowercased()), altitude, roast age, brew mode, and your \(generatedTasteGoalName.lowercased()) goal.")
                 recipeDivider
-                scienceTopicCard(id: "grind", title: AppLocalization.text("why_this_grind", fallback: "Why this grind"), summary: AppLocalization.text("grind_science_short", fallback: "Medium-fine gives the water enough contact time for a clean, sweet cup."), more: AppLocalization.text("grind_science_more", fallback: "If the brew runs too fast or tastes sharp, go slightly finer. If it feels dry or heavy, go coarser."))
+                scienceTopicCard(id: "grind", title: AppLocalization.text("why_this_grind", fallback: "Why this grind"), summary: "\(generatedGrindDescription) at about \(smartRecipe.grindMicrons) μm matches this dose, brewer, process, and taste goal.", more: "Your \(recipeGrinder.isEmpty ? "grinder" : recipeGrinder) starting point is \(generatedGrinderSetting). Coffee Doctor will move this in small steps when a brew tastes sour, bitter, dry, fast, or slow.")
                 recipeDivider
-                scienceTopicCard(id: "ratio", title: AppLocalization.text("why_this_ratio", fallback: "Why this ratio"), summary: AppLocalization.text("ratio_science_short", fallback: "1:16 is a balanced place to start before personal tuning."), more: AppLocalization.text("ratio_science_more", fallback: "A tighter ratio gives more body. A longer ratio can add clarity, but may taste thinner if extraction is low."))
+                scienceTopicCard(id: "ratio", title: AppLocalization.text("why_this_ratio", fallback: "Why this ratio"), summary: "1:\(formattedRatioValue(validRatioValue)) produces \(formattedWholeGram(validWaterAmount)) g total water from \(formattedRatioValue(validCoffeeAmount)) g coffee.", more: isV60IcedRecipe ? "For iced brewing, Talla preserves that ratio by splitting the total into \(formattedWholeGram(recipeBrewingWaterAmount)) g hot water and \(formattedWholeGram(recipeIceAmount)) g ice." : "The expected beverage is about \(formattedWholeGram(expectedBeverageAmount)) g after allowing for coffee-bed retention.")
                 recipeDivider
-                scienceTopicCard(id: "recipe", title: AppLocalization.text("why_this_recipe", fallback: "Why this recipe"), summary: AppLocalization.text("recipe_science_short", fallback: "This recipe matches your brewer, dose, and taste goal with a practical pour pattern."), more: AppLocalization.text("recipe_science_more", fallback: "The structure keeps targets easy to hit while giving Talla enough feedback to refine the next version after you rate the cup."))
+                scienceTopicCard(id: "recipe", title: AppLocalization.text("why_this_recipe", fallback: "Why this recipe"), summary: generatedApproachNotes, more: generatedDecisionExplanation)
                 recipeDivider
-                scienceTopicCard(id: "process", title: AppLocalization.text("process_considerations", fallback: "Process considerations"), summary: generatedProcessConsiderationSummary, more: AppLocalization.text("process_considerations_more", fallback: "Processing affects solubility and flavour expression. Talla starts conservatively, then adjusts after your tasting feedback."))
+                scienceTopicCard(id: "process", title: AppLocalization.text("process_considerations", fallback: "Process considerations"), summary: generatedProcessConsiderationSummary, more: "The process changes bloom duration, temperature, grind, agitation, and pour style. This recipe uses a \(bloomDurationSeconds)-second bloom and \(generatedAgitationLevel.lowercased()) agitation rather than applying one generic method to every coffee.")
             }
             .background(brewSurfaceColor)
             .overlay(
@@ -2829,6 +2840,60 @@ struct BrewingSectionView: View {
                 .font(brewReadingFont)
                 .foregroundColor(brewSecondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var generatedCoffeeHistorySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            recipeSectionHeading(AppLocalization.text("coffee_history", fallback: "This coffee’s history"))
+
+            VStack(alignment: .leading, spacing: 12) {
+                if let calibration = activeCoffeeCalibration {
+                    Label(
+                        "Talla has learned from \(calibration.calibration.brewCount) previous refinement\(calibration.calibration.brewCount == 1 ? "" : "s") for this coffee.",
+                        systemImage: "brain.head.profile"
+                    )
+                    .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                    .foregroundColor(accentColor)
+
+                    if !calibration.calibration.lastFeedback.isEmpty {
+                        Text("Latest feedback: \(calibration.calibration.lastFeedback.joined(separator: ", "))")
+                            .font(bodyFont)
+                            .foregroundColor(secondaryTextColor)
+                    }
+                }
+
+                if currentCoffeeHistory.isEmpty {
+                    Text(AppLocalization.text("first_brew_history", fallback: "This is the first saved brew for this coffee. Rate it afterwards and Talla will build its calibration history here."))
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                } else {
+                    ForEach(Array(currentCoffeeHistory.prefix(5).enumerated()), id: \.element.id) { index, recipe in
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("\(index + 1)")
+                                .font(Font.custom("AvenirNext-Bold", size: 11))
+                                .foregroundColor(accentColor)
+                                .frame(width: 26, height: 26)
+                                .background(accentColor.opacity(0.10))
+                                .clipShape(Circle())
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(recipe.title)
+                                    .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                                    .foregroundColor(primaryTextColor)
+                                Text(recipe.detail)
+                                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                                    .foregroundColor(secondaryTextColor)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(brewSurfaceColor)
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(brewBorderColor, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
 
@@ -3508,9 +3573,85 @@ struct BrewingSectionView: View {
                 grinder: recipeGrinder,
                 bloomPreference: recipeBloomRatio,
                 requestedPourCount: recipePourCount,
-                controlMode: recipeBrewControlMode
+                controlMode: recipeBrewControlMode,
+                calibration: activeCoffeeCalibration?.calibration
             )
         )
+    }
+
+    private var coffeeCalibrationRecords: [CoffeeCalibrationRecord] {
+        guard let data = storedCoffeeCalibrations.data(using: .utf8),
+              let records = try? JSONDecoder().decode([CoffeeCalibrationRecord].self, from: data) else {
+            return []
+        }
+        return records
+    }
+
+    private var currentCoffeeIdentity: String {
+        normalizedCoffeeIdentity(coffeeName)
+    }
+
+    private func normalizedCoffeeIdentity(_ value: String) -> String {
+        var parts = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().split(separator: " ").map(String.init)
+        if let last = parts.last, last.first == "v", last.dropFirst().allSatisfy(\.isNumber) {
+            parts.removeLast()
+        }
+        return parts.joined(separator: " ").folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+    }
+
+    private var currentCoffeeHistory: [BrewRecipeRecord] {
+        let identity = currentCoffeeIdentity
+        guard !identity.isEmpty else { return [] }
+        return brewHistoryItems.filter { normalizedCoffeeIdentity($0.title) == identity }
+    }
+
+    private var activeCoffeeCalibration: CoffeeCalibrationRecord? {
+        guard !coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return coffeeCalibrationRecords.first { $0.id == currentCoffeeIdentity }
+    }
+
+    private func persistCoffeeCalibrations(_ records: [CoffeeCalibrationRecord]) {
+        guard let data = try? JSONEncoder().encode(Array(records.prefix(50))),
+              let payload = String(data: data, encoding: .utf8) else { return }
+        storedCoffeeCalibrations = payload
+    }
+
+    private func rememberCoffeeDoctorCalibration(from changes: [RecipeRevisionChange]) {
+        guard !coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        var records = coffeeCalibrationRecords
+        let identity = currentCoffeeIdentity
+        let existing = records.first(where: { $0.id == identity })?.calibration
+        var calibration = existing ?? SmartBrewCalibration(grindMicronOffset: 0, temperatureOffset: 0, pourCountOffset: 0, preferredAgitation: nil, brewCount: 0, lastFeedback: [])
+
+        if let grind = changes.first(where: { $0.id == "grind" }) {
+            let order = ["Fine", "Medium-fine", "Medium", "Medium-coarse", "Coarse"]
+            let before = order.firstIndex(of: grind.before) ?? 2
+            let after = order.firstIndex(of: grind.after) ?? before
+            calibration.grindMicronOffset = min(max(calibration.grindMicronOffset + ((after - before) * 35), -140), 140)
+        }
+        if let temperature = changes.first(where: { $0.id == "temperature" }) {
+            let before = Int(temperature.before.filter(\.isNumber)) ?? generatedTemperatureC
+            let after = Int(temperature.after.filter(\.isNumber)) ?? before
+            calibration.temperatureOffset = min(max(calibration.temperatureOffset + after - before, -4), 4)
+        }
+        if changes.contains(where: { $0.id == "time" }) {
+            calibration.pourCountOffset = min(calibration.pourCountOffset + 1, 2)
+        }
+        if let agitation = changes.first(where: { $0.id == "agitation" }) {
+            calibration.preferredAgitation = agitation.after
+        }
+        calibration.brewCount += 1
+        calibration.lastFeedback = Array((afterBrewSelections.sorted() + afterBrewMoreOfSelections.sorted()).prefix(8))
+
+        let record = CoffeeCalibrationRecord(
+            id: identity,
+            coffeeName: coffeeName.trimmingCharacters(in: .whitespacesAndNewlines),
+            roaster: coffeeRoaster.trimmingCharacters(in: .whitespacesAndNewlines),
+            calibration: calibration,
+            updatedAt: Date()
+        )
+        records.removeAll { $0.id == identity }
+        persistCoffeeCalibrations([record] + records.sorted { $0.updatedAt > $1.updatedAt })
     }
 
     private func generatedPourStartTime(for index: Int) -> Int {
@@ -3565,27 +3706,25 @@ struct BrewingSectionView: View {
 
     private var generatedProcessConsiderationSummary: String {
         if let restoredApproach { return restoredApproach }
-        let process = coffeeProcess.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if process.contains("natural") {
-            return AppLocalization.text("process_natural_summary", fallback: "Natural coffees can show more fruit and body, so the recipe avoids excessive agitation.")
-        }
-        if process.contains("washed") {
-            return AppLocalization.text("process_washed_summary", fallback: "Washed coffees often reward clarity, so the recipe keeps flow steady and clean.")
-        }
-        if process.contains("honey") {
-            return AppLocalization.text("process_honey_summary", fallback: "Honey process coffees often suit rounded sweetness and moderate contact time.")
-        }
-        return AppLocalization.text("process_default_summary", fallback: "The process is treated conservatively until your first tasting note confirms the direction.")
+        return smartRecipe.approach
     }
 
     private var generatedApproachNotes: String {
         if let restoredApproach { return restoredApproach }
-        let process = coffeeProcess.trimmingCharacters(in: .whitespacesAndNewlines)
         let notes = coffeeTastingNotes.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !process.isEmpty || !notes.isEmpty {
-            return String(format: AppLocalization.text("approach_notes_with_coffee", fallback: "Approach this coffee gently. Let %1$@ guide aroma expectations, and keep the first brew repeatable before making large changes."), notes.isEmpty ? process : notes)
+        return notes.isEmpty ? smartRecipe.approach : "\(smartRecipe.approach) Look for \(notes) as the cup cools."
+    }
+
+    private var generatedDecisionExplanation: String {
+        var decisions = [
+            "\(generatedBrewerName) determines the pour geometry and flow pattern.",
+            "\(coffeeProcess.isEmpty ? "Unknown processing" : coffeeProcess) sets a \(bloomDurationSeconds)-second bloom and \(generatedAgitationLevel.lowercased()) agitation.",
+            "The \(formattedRatioValue(validCoffeeAmount)) g dose and 1:\(formattedRatioValue(validRatioValue)) ratio set every cumulative water target."
+        ]
+        if let calibration = activeCoffeeCalibration {
+            decisions.append("Coffee Doctor applied \(calibration.calibration.brewCount) saved refinement\(calibration.calibration.brewCount == 1 ? "" : "s") from earlier brews of this coffee.")
         }
-        return AppLocalization.text("approach_notes_default", fallback: "Brew this first version calmly and repeatably. Keep the pour height low, avoid heavy agitation, and let the cup cool before judging it.")
+        return decisions.joined(separator: " ")
     }
 
     private func copyGeneratedRecipeToClipboard() {
@@ -3735,8 +3874,8 @@ struct BrewingSectionView: View {
                 )
 
                 brewerSetupSelector
-                createRecipeTextField(title: AppLocalization.text("filter", fallback: "Filter"), placeholder: "Hario paper, Kalita Wave 185", text: $recipeFilterType)
-                createRecipeTextField(title: AppLocalization.text("grinder", fallback: "Grinder"), placeholder: "Fellow Ode, Comandante, EK43", text: $recipeGrinder)
+                catalogPicker(title: AppLocalization.text("filter", fallback: "Filter"), selection: $recipeFilterType, options: filterCatalog, customPlaceholder: "Other filter")
+                catalogPicker(title: AppLocalization.text("grinder", fallback: "Grinder"), selection: $recipeGrinder, options: grinderCatalog, customPlaceholder: "Other grinder")
 
                 creamGoldSegmentedControl(
                     title: AppLocalization.text("brew_mode", fallback: "Brew mode"),
@@ -4085,7 +4224,7 @@ struct BrewingSectionView: View {
             createRecipeTextField(title: AppLocalization.text("region", fallback: "Region"), placeholder: "Guji", text: $coffeeRegion)
             createRecipeTextField(title: AppLocalization.text("altitude", fallback: "Altitude"), placeholder: "1,900 masl", text: $coffeeAltitude)
             createRecipeTextField(title: AppLocalization.text("variety", fallback: "Variety"), placeholder: "Heirloom, SL28, Gesha", text: $coffeeVariety)
-            createRecipeTextField(title: AppLocalization.text("process", fallback: "Process"), placeholder: "Washed, natural, honey", text: $coffeeProcess)
+            catalogPicker(title: AppLocalization.text("process", fallback: "Process"), selection: $coffeeProcess, options: processCatalog, customPlaceholder: "Other or experimental process")
             createRecipeTextField(title: AppLocalization.text("flavour_profile", fallback: "Flavour profile"), placeholder: "Jasmine, peach, honey", text: $coffeeTastingNotes)
 
             creamGoldSegmentedControl(
@@ -4150,6 +4289,72 @@ struct BrewingSectionView: View {
                 .stroke(brewBorderColor, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func catalogPicker(title: String, selection: Binding<String>, options: [String], customPlaceholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title)
+                .font(brewEyebrowFont)
+                .foregroundColor(brewSecondaryTextColor)
+
+            Menu {
+                ForEach(options, id: \.self) { option in
+                    Button {
+                        selection.wrappedValue = option
+                    } label: {
+                        if selection.wrappedValue == option {
+                            Label(option, systemImage: "checkmark")
+                        } else {
+                            Text(option)
+                        }
+                    }
+                }
+                Divider()
+                Button("Other / Custom") { selection.wrappedValue = "" }
+            } label: {
+                HStack {
+                    Text(selection.wrappedValue.isEmpty ? "Choose \(title.lowercased())" : selection.wrappedValue)
+                        .font(.system(size: 15))
+                        .foregroundColor(selection.wrappedValue.isEmpty ? brewSecondaryTextColor : brewPrimaryTextColor)
+                        .multilineTextAlignment(.leading)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(brewAccentColor)
+                }
+                .frame(minHeight: 28)
+            }
+            .buttonStyle(.plain)
+
+            if selection.wrappedValue.isEmpty {
+                TextField(customPlaceholder, text: selection)
+                    .font(.system(size: 14))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .textInputAutocapitalization(.words)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(14)
+        .background(brewSurfaceColor)
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(brewBorderColor, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var grinderCatalog: [String] {
+        ["Fellow Ode Gen 2", "Comandante C40", "1Zpresso ZP6", "1Zpresso K-Ultra", "Timemore C3", "Timemore Sculptor", "DF64", "Mahlkönig EK43", "Microns only"]
+    }
+
+    private var filterCatalog: [String] {
+        ["Hario V60 Paper", "Cafec Abaca", "Cafec T-90", "Kalita Wave 155", "Kalita Wave 185", "Chemex Bonded", "AeroPress Paper", "AeroPress Metal", "Sibarist FAST", "xBloom Omni Dripper", "Cloth filter"]
+    }
+
+    private var processCatalog: [String] {
+        [
+            "Washed", "Natural", "Honey", "Pulped Natural", "Wet-Hulled", "Double Fermented",
+            "Anaerobic Natural", "Anaerobic Washed", "Extended Anaerobic", "Carbonic Maceration",
+            "Co-Fermented", "Fruit Fermentation", "Thermal Shock", "Koji Fermented",
+            "Nitrogen Infusion", "Decaf", "Experimental / Other"
+        ]
     }
 
     private func creamGoldSegmentedControl(title: String, options: [String], selection: Binding<String>) -> some View {
@@ -6512,6 +6717,7 @@ struct BrewingSectionView: View {
         let versionTitle = "\(baseTitle) v\(brewHistoryItems.count + 2)"
         revisedRecipeVersionTitle = versionTitle
 
+        rememberCoffeeDoctorCalibration(from: recipeRevisionChanges)
         applyRecipeRevisionChanges(recipeRevisionChanges)
 
         brewRecipeName = versionTitle
@@ -7485,6 +7691,7 @@ struct BrewingSectionView: View {
         generatedRecipeID = recipe.id
         isGeneratedRecipeActive = recipe.brewMode != nil || recipe.brewerID != nil
         brewRecipeName = recipe.title
+        coffeeName = recipe.title
         if let coffeeGrams = recipe.coffeeGrams {
             ratioCoffeeInput = formattedRatioValue(coffeeGrams)
         }

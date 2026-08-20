@@ -75,6 +75,39 @@ struct Talla_SpecialityTests {
         #expect(recipe.grinderSetting.contains("μm"))
     }
 
+    @Test func coffeeDoctorCalibrationChangesFutureRecipesForThatCoffee() {
+        let baseline = SmartBrewRecipeEngine.generate(smartInput())
+        let input = SmartBrewInput(
+            coffeeGrams: 20,
+            ratio: 16,
+            brewerID: "v60",
+            brewMode: "Hot",
+            roast: "Light",
+            process: "Washed",
+            tasteGoal: "balanced",
+            altitudeMeters: 1_900,
+            daysOffRoast: 14,
+            grinder: "Fellow Ode Gen 2",
+            bloomPreference: "Auto",
+            requestedPourCount: 3,
+            controlMode: "Manual",
+            calibration: SmartBrewCalibration(
+                grindMicronOffset: 35,
+                temperatureOffset: -1,
+                pourCountOffset: 1,
+                preferredAgitation: "Gentle",
+                brewCount: 2,
+                lastFeedback: ["Dry or astringent"]
+            )
+        )
+        let calibrated = SmartBrewRecipeEngine.generate(input)
+
+        #expect(calibrated.grindMicrons == baseline.grindMicrons + 35)
+        #expect(calibrated.temperatureC == baseline.temperatureC - 1)
+        #expect(calibrated.agitation == "Gentle")
+        #expect(calibrated.steps.count == baseline.steps.count + 1)
+    }
+
     @Test func icedRecipeSplitsTotalWaterWithoutChangingTheRequestedRatio() {
         let split = BrewRecipeMath.waterSplit(totalWater: 320, isIced: true)
 
