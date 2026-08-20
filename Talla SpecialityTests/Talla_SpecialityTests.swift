@@ -3,6 +3,78 @@ import Testing
 
 struct Talla_SpecialityTests {
 
+    private func smartInput(
+        brewMode: String = "Hot",
+        brewerID: String = "v60",
+        process: String = "Washed",
+        tasteGoal: String = "balanced",
+        dose: Double = 20,
+        ratio: Double = 16
+    ) -> SmartBrewInput {
+        SmartBrewInput(
+            coffeeGrams: dose,
+            ratio: ratio,
+            brewerID: brewerID,
+            brewMode: brewMode,
+            roast: "Light",
+            process: process,
+            tasteGoal: tasteGoal,
+            altitudeMeters: 1_900,
+            daysOffRoast: 14,
+            grinder: "Fellow Ode Gen 2",
+            bloomPreference: "Auto",
+            requestedPourCount: 3,
+            controlMode: "Manual"
+        )
+    }
+
+    @Test func smartRecipeKeepsDoseRatioInvariantAndAvoidsSixtyGramBloom() {
+        let recipe = SmartBrewRecipeEngine.generate(smartInput())
+
+        #expect(recipe.totalWaterGrams == 320)
+        #expect(recipe.brewingWaterGrams == 320)
+        #expect(recipe.iceGrams == 0)
+        #expect(recipe.bloomWaterGrams == 50)
+        #expect(recipe.steps.first(where: { $0.title == "Bloom" })?.cumulativeWater == 50)
+    }
+
+    @Test func smartRecipeUsesCoffeeSpecificBloomInsteadOfFixedSixtyGrams() {
+        let natural = SmartBrewRecipeEngine.generate(smartInput(process: "Anaerobic Natural"))
+        let darkInput = SmartBrewInput(coffeeGrams: 18, ratio: 16, brewerID: "v60", brewMode: "Hot", roast: "Dark", process: "Natural", tasteGoal: "body", altitudeMeters: nil, daysOffRoast: 10, grinder: "Comandante C40", bloomPreference: "1:2", requestedPourCount: 3, controlMode: "Manual")
+        let dark = SmartBrewRecipeEngine.generate(darkInput)
+
+        #expect(natural.bloomWaterGrams == 45)
+        #expect(dark.bloomWaterGrams == 36)
+    }
+
+    @Test func icedRecipeAddsIceFirstAndGuidesOnlyHotWaterTargets() {
+        let recipe = SmartBrewRecipeEngine.generate(smartInput(brewMode: "Iced"))
+
+        #expect(recipe.totalWaterGrams == 320)
+        #expect(recipe.brewingWaterGrams == 192)
+        #expect(recipe.iceGrams == 128)
+        #expect(recipe.steps.first?.title == "Add ice")
+        #expect(recipe.steps.first?.instruction.contains("128 g") == true)
+        #expect(recipe.steps.compactMap(\.cumulativeWater).max() == 192)
+    }
+
+    @Test func processAndBrewerGeometryChangeTheGeneratedRecipe() {
+        let washedCone = SmartBrewRecipeEngine.generate(smartInput(process: "Washed"))
+        let fermentedFlat = SmartBrewRecipeEngine.generate(smartInput(brewerID: "kalita", process: "Extended Anaerobic"))
+
+        #expect(washedCone.bloomDurationSeconds != fermentedFlat.bloomDurationSeconds)
+        #expect(washedCone.temperatureC != fermentedFlat.temperatureC)
+        #expect(washedCone.steps != fermentedFlat.steps)
+        #expect(fermentedFlat.steps.contains(where: { $0.instruction.contains("do not swirl") }))
+    }
+
+    @Test func grinderCatalogProducesUsableSetting() {
+        let recipe = SmartBrewRecipeEngine.generate(smartInput())
+
+        #expect(recipe.grinderSetting.contains("Ode"))
+        #expect(recipe.grinderSetting.contains("μm"))
+    }
+
     @Test func icedRecipeSplitsTotalWaterWithoutChangingTheRequestedRatio() {
         let split = BrewRecipeMath.waterSplit(totalWater: 320, isIced: true)
 

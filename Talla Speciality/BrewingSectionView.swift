@@ -33,6 +33,27 @@ struct BrewRecipeRecord: Identifiable {
     let grind: String?
     let temperatureC: Int?
     let controlMode: String?
+    let process: String?
+    let roast: String?
+    let grinder: String?
+    let filter: String?
+    let altitudeMeters: Int?
+    let tastingNotes: String?
+    let targetTimeRange: String?
+    let temperatureReason: String?
+    let expectedCup: String?
+    let approach: String?
+    let steps: [SmartBrewStep]?
+
+    init(id: UUID, title: String, detail: String, coffeeGrams: Double?, ratio: Double?, totalWaterGrams: Double?, brewingWaterGrams: Double?, iceGrams: Double?, methodID: String?, brewerID: String?, brewMode: String?, bloomRatio: String?, pourCount: Int?, grind: String?, temperatureC: Int?, controlMode: String?, process: String? = nil, roast: String? = nil, grinder: String? = nil, filter: String? = nil, altitudeMeters: Int? = nil, tastingNotes: String? = nil, targetTimeRange: String? = nil, temperatureReason: String? = nil, expectedCup: String? = nil, approach: String? = nil, steps: [SmartBrewStep]? = nil) {
+        self.id = id; self.title = title; self.detail = detail; self.coffeeGrams = coffeeGrams; self.ratio = ratio
+        self.totalWaterGrams = totalWaterGrams; self.brewingWaterGrams = brewingWaterGrams; self.iceGrams = iceGrams
+        self.methodID = methodID; self.brewerID = brewerID; self.brewMode = brewMode; self.bloomRatio = bloomRatio
+        self.pourCount = pourCount; self.grind = grind; self.temperatureC = temperatureC; self.controlMode = controlMode
+        self.process = process; self.roast = roast; self.grinder = grinder; self.filter = filter; self.altitudeMeters = altitudeMeters
+        self.tastingNotes = tastingNotes; self.targetTimeRange = targetTimeRange; self.temperatureReason = temperatureReason
+        self.expectedCup = expectedCup; self.approach = approach; self.steps = steps
+    }
 }
 
 enum BrewRecipeMath {
@@ -369,6 +390,11 @@ struct BrewingSectionView: View {
     @State private var restoredBrewTotalSeconds: Int?
     @State private var generatedRecipeID = UUID()
     @State private var isGeneratedRecipeActive = false
+    @State private var restoredRecipeSteps: [SmartBrewStep]?
+    @State private var restoredTargetTimeRange: String?
+    @State private var restoredTemperatureReason: String?
+    @State private var restoredExpectedCup: String?
+    @State private var restoredApproach: String?
 #if canImport(PhotosUI)
     @State private var coffeeBagPhotoSelection: PhotosPickerItem?
 #endif
@@ -3388,24 +3414,11 @@ struct BrewingSectionView: View {
     }
 
     private var generatedGrinderSetting: String {
-        let trimmed = recipeGrinder.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? AppLocalization.text("optional_grinder_setting", fallback: "Optional grinder setting") : trimmed
+        smartRecipe.grinderSetting
     }
 
     private var generatedTargetTimeRange: String {
-        if isClassicColdBrewRecipe {
-            return "12–16 hr"
-        }
-        if isV60IcedRecipe {
-            return "2:00–2:15"
-        }
-        if createRecipeBrewer == "espresso" {
-            return "0:25–0:32"
-        }
-        if createRecipeBrewer == "french-press" {
-            return "4:00–4:30"
-        }
-        return "2:50–3:30"
+        restoredTargetTimeRange ?? smartRecipe.targetTimeRange
     }
 
     private var isClassicColdBrewRecipe: Bool {
@@ -3450,15 +3463,7 @@ struct BrewingSectionView: View {
     }
 
     private var bloomWaterAmount: Double {
-        let multiplier: Double
-        switch recipeBloomRatio {
-        case "1:2": multiplier = 2
-        case "1:2.5": multiplier = 2.5
-        case "1:3": multiplier = 3
-        case "1:4": multiplier = 4
-        default: multiplier = smartBloomMultiplier
-        }
-        return min(recipeBrewingWaterAmount, validCoffeeAmount * multiplier)
+        smartRecipe.bloomWaterGrams
     }
 
     private var smartBloomMultiplier: Double {
@@ -3470,101 +3475,42 @@ struct BrewingSectionView: View {
     }
 
     private var bloomDurationSeconds: Int {
-        createRecipeExperience == "starting" ? 45 : 35
+        smartRecipe.bloomDurationSeconds
     }
 
     private var generatedAgitationLevel: String {
-        switch createRecipeTasteGoal {
-        case "rich": return AppLocalization.text("medium_high", fallback: "Medium-high")
-        case "bright": return AppLocalization.text("gentle", fallback: "Gentle")
-        default: return AppLocalization.text("medium", fallback: "Medium")
-        }
+        smartRecipe.agitation
     }
 
     private var generatedPourRows: [GeneratedPourRow] {
-        if isV60IcedRecipe {
-            let hotWater = Int(recipeBrewingWaterAmount.rounded())
-            let ice = Int(recipeIceAmount.rounded())
-            let bloom = Int(bloomWaterAmount.rounded())
-            let secondTarget = Int((recipeBrewingWaterAmount * 120 / 180).rounded())
-            return [
-                GeneratedPourRow(id: 0, title: "Add ice to server", waterAdded: nil, cumulativeWater: nil, startTime: 0, flowRate: "—", instruction: "Weigh \(ice) g ice into the server, rinse the filter, and add \(formattedRatioValue(validCoffeeAmount)) g medium-ground coffee."),
-                GeneratedPourRow(id: 1, title: "Bloom", waterAdded: bloom, cumulativeWater: bloom, startTime: 10, flowRate: "3–4 g/s", instruction: "Pour \(bloom) g at 93 °C, wet every ground, and wait 10–15 seconds."),
-                GeneratedPourRow(id: 2, title: "Second pour", waterAdded: secondTarget - bloom, cumulativeWater: secondTarget, startTime: 45, flowRate: "3–4 g/s", instruction: "Pour in slow circles to reach \(secondTarget) g total hot water."),
-                GeneratedPourRow(id: 3, title: "Final pour", waterAdded: hotWater - secondTarget, cumulativeWater: hotWater, startTime: 90, flowRate: "3–4 g/s", instruction: "Add the final water to reach \(hotWater) g."),
-                GeneratedPourRow(id: 4, title: "Swirl and serve", waterAdded: nil, cumulativeWater: hotWater, startTime: 135, flowRate: "—", instruction: "Swirl the server to mix the melted brewing ice, then pour over fresh ice.")
-            ]
+        (restoredRecipeSteps ?? smartRecipe.steps).map {
+            let instruction = restoredRecipeSteps == nil
+                ? $0.instruction.replacingOccurrences(of: "\(smartRecipe.temperatureC) °C", with: "\(generatedTemperatureC) °C")
+                : $0.instruction
+            return GeneratedPourRow(id: $0.id, title: $0.title, waterAdded: $0.waterAdded, cumulativeWater: $0.cumulativeWater, startTime: $0.startTime, flowRate: $0.flowRate, instruction: instruction)
         }
+    }
 
-        if isClassicColdBrewRecipe {
-            let brewingWater = Int(recipeBrewingWaterAmount.rounded())
-            return [
-                GeneratedPourRow(id: 0, title: "Add coarse coffee", waterAdded: nil, cumulativeWater: nil, startTime: 0, flowRate: "—", instruction: "Add \(formattedRatioValue(validCoffeeAmount)) g coarse-ground coffee to a clean jar or cold-brew bottle."),
-                GeneratedPourRow(id: 1, title: "Add filtered water", waterAdded: brewingWater, cumulativeWater: brewingWater, startTime: 10, flowRate: "Steady", instruction: "Pour \(brewingWater) g room-temperature filtered water and stir until every ground is wet."),
-                GeneratedPourRow(id: 2, title: "Steep covered", waterAdded: nil, cumulativeWater: brewingWater, startTime: 60, flowRate: "—", instruction: "Cover and steep at room temperature for 12–16 hours."),
-                GeneratedPourRow(id: 3, title: "Filter concentrate", waterAdded: nil, cumulativeWater: brewingWater, startTime: 50_400, flowRate: "—", instruction: "Filter into a clean vessel and refrigerate."),
-                GeneratedPourRow(id: 4, title: "Dilute over ice", waterAdded: nil, cumulativeWater: nil, startTime: 50_400, flowRate: "—", instruction: "For one serving, combine 100 g concentrate with 200 g water or milk and about 100 g ice.")
-            ]
-        }
-
-        let totalWater = Int(validWaterAmount.rounded())
-        let bloom = Int(bloomWaterAmount.rounded())
-        let remaining = max(totalWater - bloom, 0)
-        let pourCount = max(recipePourCount, 2)
-        let poursAfterBloom = max(pourCount - 1, 1)
-        var rows = [
-            GeneratedPourRow(
-                id: 0,
-                title: AppLocalization.text("rinse_and_preheat", fallback: "Rinse and preheat"),
-                waterAdded: nil,
-                cumulativeWater: nil,
-                startTime: 0,
-                flowRate: "—",
-                instruction: AppLocalization.text("rinse_preheat_instruction", fallback: "Rinse the filter and warm the brewer, then discard the water.")
-            ),
-            GeneratedPourRow(
-                id: 1,
-                title: AppLocalization.text("bloom", fallback: "Bloom"),
-                waterAdded: bloom,
-                cumulativeWater: bloom,
-                startTime: 10,
-                flowRate: "2–3 g/s",
-                instruction: AppLocalization.text("bloom_instruction", fallback: "Saturate all grounds and let the coffee open.")
-            )
-        ]
-
-        var cumulative = bloom
-        for index in 1...poursAfterBloom {
-            let target = bloom + Int((Double(remaining) * Double(index) / Double(poursAfterBloom)).rounded())
-            let added = max(target - cumulative, 0)
-            cumulative = target
-            rows.append(
-                GeneratedPourRow(
-                    id: index + 1,
-                    title: index == poursAfterBloom ? AppLocalization.text("final_pour", fallback: "Final pour") : "\(AppLocalization.text("pour", fallback: "Pour")) \(index)",
-                    waterAdded: added,
-                    cumulativeWater: target,
-                    startTime: generatedPourStartTime(for: index),
-                    flowRate: "3–4 g/s",
-                    instruction: index == poursAfterBloom ? AppLocalization.text("final_pour_instruction", fallback: "Finish calmly and let the bed draw down evenly.") : AppLocalization.text("steady_pour_instruction", fallback: "Pour steadily through the centre, then let it settle.")
-                )
-            )
-        }
-
-        let drawdownStart = max(generatedPourStartTime(for: poursAfterBloom) + 30, 150)
-        rows.append(
-            GeneratedPourRow(
-                id: rows.count,
-                title: AppLocalization.text("drawdown", fallback: "Drawdown"),
-                waterAdded: nil,
-                cumulativeWater: totalWater,
-                startTime: drawdownStart,
-                flowRate: "—",
-                instruction: AppLocalization.text("drawdown_instruction", fallback: "Let the bed drain without stirring. Stop when the stream turns to slow drips.")
+    private var smartRecipe: SmartBrewRecipe {
+        let altitude = Int(coffeeAltitude.filter { $0.isNumber })
+        let days = max(Calendar.current.dateComponents([.day], from: coffeeRoastDate, to: Date()).day ?? 0, 0)
+        return SmartBrewRecipeEngine.generate(
+            SmartBrewInput(
+                coffeeGrams: validCoffeeAmount,
+                ratio: validRatioValue,
+                brewerID: createRecipeBrewer,
+                brewMode: recipeBrewTemperatureMode,
+                roast: coffeeRoastLevel,
+                process: coffeeProcess,
+                tasteGoal: createRecipeTasteGoal,
+                altitudeMeters: altitude,
+                daysOffRoast: days,
+                grinder: recipeGrinder,
+                bloomPreference: recipeBloomRatio,
+                requestedPourCount: recipePourCount,
+                controlMode: recipeBrewControlMode
             )
         )
-
-        return rows
     }
 
     private func generatedPourStartTime(for index: Int) -> Int {
@@ -3593,11 +3539,12 @@ struct BrewingSectionView: View {
     }
 
     private var expectedCupFlavourExpression: String {
+        if let restoredExpectedCup { return restoredExpectedCup }
         let notes = coffeeTastingNotes.trimmingCharacters(in: .whitespacesAndNewlines)
         if !notes.isEmpty {
-            return String(format: AppLocalization.text("expected_flavour_with_notes", fallback: "Expect %1$@ to show with a calm sweetness and a clean finish."), notes)
+            return "\(smartRecipe.expectedCup) Look for \(notes)."
         }
-        return AppLocalization.text("expected_flavour_default", fallback: "Expect a sweet, balanced cup with tidy acidity, a rounded body, and a clean finish.")
+        return smartRecipe.expectedCup
     }
 
     private func cycleGeneratedGrind() {
@@ -3617,6 +3564,7 @@ struct BrewingSectionView: View {
     }
 
     private var generatedProcessConsiderationSummary: String {
+        if let restoredApproach { return restoredApproach }
         let process = coffeeProcess.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if process.contains("natural") {
             return AppLocalization.text("process_natural_summary", fallback: "Natural coffees can show more fruit and body, so the recipe avoids excessive agitation.")
@@ -3631,6 +3579,7 @@ struct BrewingSectionView: View {
     }
 
     private var generatedApproachNotes: String {
+        if let restoredApproach { return restoredApproach }
         let process = coffeeProcess.trimmingCharacters(in: .whitespacesAndNewlines)
         let notes = coffeeTastingNotes.trimmingCharacters(in: .whitespacesAndNewlines)
         if !process.isEmpty || !notes.isEmpty {
@@ -3698,7 +3647,20 @@ struct BrewingSectionView: View {
             pourCount: recipePourCount,
             grind: generatedGrindDescription,
             temperatureC: generatedTemperatureC,
-            controlMode: recipeBrewControlMode
+            controlMode: recipeBrewControlMode,
+            process: coffeeProcess,
+            roast: coffeeRoastLevel,
+            grinder: recipeGrinder,
+            filter: recipeFilterType,
+            altitudeMeters: Int(coffeeAltitude.filter { $0.isNumber }),
+            tastingNotes: coffeeTastingNotes,
+            targetTimeRange: generatedTargetTimeRange,
+            temperatureReason: restoredTemperatureReason ?? smartRecipe.temperatureReason,
+            expectedCup: expectedCupFlavourExpression,
+            approach: generatedApproachNotes,
+            steps: generatedPourRows.map {
+                SmartBrewStep(id: $0.id, title: $0.title, waterAdded: $0.waterAdded, cumulativeWater: $0.cumulativeWater, startTime: $0.startTime, flowRate: $0.flowRate, instruction: $0.instruction)
+            }
         )
     }
 
@@ -3830,7 +3792,7 @@ struct BrewingSectionView: View {
 
                 creamGoldSegmentedControl(
                     title: AppLocalization.text("brew_control", fallback: "Brew control"),
-                    options: ["Manual", "Automatic"],
+                    options: ["Manual", "xBloom Studio"],
                     selection: $recipeBrewControlMode
                 )
             }
@@ -4315,6 +4277,11 @@ struct BrewingSectionView: View {
         restoredBrewTotalSeconds = nil
         generatedRecipeID = UUID()
         isGeneratedRecipeActive = true
+        restoredRecipeSteps = nil
+        restoredTargetTimeRange = nil
+        restoredTemperatureReason = nil
+        restoredExpectedCup = nil
+        restoredApproach = nil
         applySmartRecipeRecommendations()
         let name = coffeeName.trimmingCharacters(in: .whitespacesAndNewlines)
         brewRecipeName = name.isEmpty ? selectedCreateRecipeTitle : name
@@ -4338,40 +4305,9 @@ struct BrewingSectionView: View {
     }
 
     private func applySmartRecipeRecommendations() {
-        if isClassicColdBrewRecipe {
-            generatedGrindDescription = "Coarse"
-            generatedTemperatureC = 20
-            return
-        }
-
-        switch createRecipeBrewer {
-        case "espresso":
-            generatedGrindDescription = "Fine"
-        case "french-press":
-            generatedGrindDescription = "Coarse"
-        case "aeropress":
-            generatedGrindDescription = "Medium-fine"
-        case "chemex":
-            generatedGrindDescription = "Medium-coarse"
-        default:
-            generatedGrindDescription = createRecipeTasteGoal == "rich" ? "Medium" : "Medium-fine"
-        }
-
-        let roast = coffeeRoastLevel.lowercased()
-        var temperature = roast.contains("dark") ? 89 : roast.contains("medium") ? 92 : 94
-        let process = coffeeProcess.lowercased()
-        if process.contains("natural") || process.contains("anaerobic") || process.contains("ferment") {
-            temperature -= 1
-        }
-        if createRecipeTasteGoal == "bright" {
-            temperature += 1
-        } else if createRecipeTasteGoal == "rich" {
-            temperature -= 1
-        }
-        if isV60IcedRecipe {
-            temperature = max(92, temperature)
-        }
-        generatedTemperatureC = min(max(temperature, 88), 96)
+        let recommendation = smartRecipe
+        generatedGrindDescription = recommendation.grindDescription
+        generatedTemperatureC = recommendation.temperatureC
     }
 
     @MainActor
@@ -6599,6 +6535,11 @@ struct BrewingSectionView: View {
     }
 
     private func applyRecipeRevisionChanges(_ changes: [RecipeRevisionChange]) {
+        restoredRecipeSteps = nil
+        restoredTargetTimeRange = nil
+        restoredTemperatureReason = nil
+        restoredExpectedCup = nil
+        restoredApproach = nil
         if let grindChange = changes.first(where: { $0.id == "grind" }) {
             generatedGrindDescription = grindChange.after
         }
@@ -7558,6 +7499,17 @@ struct BrewingSectionView: View {
         if let grind = recipe.grind { generatedGrindDescription = grind }
         if let temperatureC = recipe.temperatureC { generatedTemperatureC = temperatureC }
         if let controlMode = recipe.controlMode { recipeBrewControlMode = controlMode }
+        if let process = recipe.process { coffeeProcess = process }
+        if let roast = recipe.roast { coffeeRoastLevel = roast }
+        if let grinder = recipe.grinder { recipeGrinder = grinder }
+        if let filter = recipe.filter { recipeFilterType = filter }
+        if let altitude = recipe.altitudeMeters { coffeeAltitude = String(altitude) }
+        if let tastingNotes = recipe.tastingNotes { coffeeTastingNotes = tastingNotes }
+        restoredRecipeSteps = recipe.steps
+        restoredTargetTimeRange = recipe.targetTimeRange
+        restoredTemperatureReason = recipe.temperatureReason
+        restoredExpectedCup = recipe.expectedCup
+        restoredApproach = recipe.approach
         usePublishedRecipe(nil)
 
         if let method = displayedMethods.first(where: { $0.id == recipe.methodID })

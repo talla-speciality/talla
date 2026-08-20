@@ -609,6 +609,17 @@ struct ContentView: View {
         let grind: String?
         let temperatureC: Int?
         let controlMode: String?
+        let process: String?
+        let roast: String?
+        let grinder: String?
+        let filter: String?
+        let altitudeMeters: Int?
+        let tastingNotes: String?
+        let targetTimeRange: String?
+        let temperatureReason: String?
+        let expectedCup: String?
+        let approach: String?
+        let steps: [SmartBrewStep]?
     }
 
     private struct BrewJournalEntry: Codable, Identifiable {
@@ -1881,7 +1892,18 @@ struct ContentView: View {
                 pourCount: recipe.pourCount,
                 grind: recipe.grind,
                 temperatureC: recipe.temperatureC,
-                controlMode: recipe.controlMode
+                controlMode: recipe.controlMode,
+                process: recipe.process,
+                roast: recipe.roast,
+                grinder: recipe.grinder,
+                filter: recipe.filter,
+                altitudeMeters: recipe.altitudeMeters,
+                tastingNotes: recipe.tastingNotes,
+                targetTimeRange: recipe.targetTimeRange,
+                temperatureReason: recipe.temperatureReason,
+                expectedCup: recipe.expectedCup,
+                approach: recipe.approach,
+                steps: recipe.steps
             )
         }
 
@@ -11655,7 +11677,18 @@ struct ContentView: View {
             pourCount: record.pourCount,
             grind: record.grind,
             temperatureC: record.temperatureC,
-            controlMode: record.controlMode
+            controlMode: record.controlMode,
+            process: record.process,
+            roast: record.roast,
+            grinder: record.grinder,
+            filter: record.filter,
+            altitudeMeters: record.altitudeMeters,
+            tastingNotes: record.tastingNotes,
+            targetTimeRange: record.targetTimeRange,
+            temperatureReason: record.temperatureReason,
+            expectedCup: record.expectedCup,
+            approach: record.approach,
+            steps: record.steps
         )
 
         persistBrewRecipes([recipe] + brewRecipes.filter { $0.id != recipe.id })
