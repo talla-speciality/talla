@@ -4977,7 +4977,7 @@ struct ContentView: View {
                     }
                 } else {
                     LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: min(4, max(roasts.count, 1))),
+                        columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 12)],
                         alignment: .leading,
                         spacing: 12
                     ) {
@@ -9240,11 +9240,12 @@ struct ContentView: View {
 
     private func signatureRoastCard(_ product: Product) -> some View {
         let notes = productTasteNotes(for: product)
-        let cardWidth: CGFloat = isCompact ? 176 : 194
+        let compactCardWidth: CGFloat = 176
 
         return VStack(alignment: .leading, spacing: 7) {
             ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 14)
-                .frame(width: cardWidth - 20, height: isCompact ? 122 : 134)
+                .frame(maxWidth: .infinity)
+                .frame(height: isCompact ? 122 : 146)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(productOriginLabel(for: product))
@@ -9318,7 +9319,8 @@ struct ContentView: View {
             .frame(height: 30, alignment: .center)
         }
         .padding(10)
-        .frame(width: cardWidth, height: isCompact ? 258 : 276, alignment: .topLeading)
+        .frame(width: isCompact ? compactCardWidth : nil, height: isCompact ? 258 : 288, alignment: .topLeading)
+        .frame(maxWidth: isCompact ? nil : .infinity, alignment: .topLeading)
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)

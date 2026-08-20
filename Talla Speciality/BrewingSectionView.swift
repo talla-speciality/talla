@@ -5472,6 +5472,25 @@ struct BrewingSectionView: View {
     }
 
     private var focusedLiveBrewView: some View {
+        GeometryReader { proxy in
+            let usesLandscapeLayout = proxy.size.width >= 900 && proxy.size.width > proxy.size.height
+
+            Group {
+                if usesLandscapeLayout {
+                    focusedLandscapeLiveBrewView
+                } else {
+                    focusedPortraitLiveBrewView
+                }
+            }
+            .frame(maxWidth: usesLandscapeLayout ? 1180 : 820, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, usesLandscapeLayout ? 32 : 22)
+            .safeAreaPadding(.top, 10)
+            .safeAreaPadding(.bottom, 14)
+        }
+    }
+
+    private var focusedPortraitLiveBrewView: some View {
         VStack(alignment: .leading, spacing: 0) {
             focusedBrewTopArea
 
@@ -5492,9 +5511,82 @@ struct BrewingSectionView: View {
 
             focusedBrewControls
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 18)
-        .padding(.bottom, 24)
+    }
+
+    private var focusedLandscapeLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            focusedBrewTopArea
+
+            focusedBrewTimeline
+                .padding(.top, 12)
+
+            Spacer(minLength: 14)
+
+            if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                focusedPrepareBrewContent
+                    .frame(maxWidth: 760)
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity)
+            } else {
+                focusedLandscapeActiveBrewContent
+                    .transition(.opacity)
+            }
+
+            Spacer(minLength: 14)
+
+            focusedBrewControls
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var focusedLandscapeActiveBrewContent: some View {
+        HStack(alignment: .top, spacing: 34) {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(currentBrewPhaseName)
+                        .font(brewEyebrowFont)
+                        .foregroundColor(brewAccentColor)
+
+                    Text(formattedTimerTime(brewModeElapsedSeconds))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 72))
+                        .monospacedDigit()
+                        .foregroundColor(brewPrimaryTextColor)
+                        .contentTransition(.numericText())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(AppLocalization.text("elapsed_timer", fallback: "Elapsed timer"))
+                .accessibilityValue("\(formattedTimerTime(brewModeElapsedSeconds)), \(currentBrewPhaseName)")
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(primaryWaterTargetText)
+                        .font(Font.custom("Georgia-Bold", size: 38))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .monospacedDigit()
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+
+                    Text(focusedBrewGuidanceText)
+                        .font(Font.custom("AvenirNext-Regular", size: 16))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if scaleManager.isConnected {
+                    focusedScaleLiveCard
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            VStack(alignment: .leading, spacing: 14) {
+                focusedBrewMetricRows
+                focusedNextStepPreview
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
     }
 
     private var focusedBrewTopArea: some View {
