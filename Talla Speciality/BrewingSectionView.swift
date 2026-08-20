@@ -306,6 +306,8 @@ struct BrewingSectionView: View {
     @State private var methodCategoryFilter = "All"
     @State private var selectedMethodChoiceID = ""
     @State private var coffeeBagReviewMessage: String?
+    @State private var isCoffeeBagImageAnalyzing = false
+    @State private var coffeeBagAnalysisID = UUID()
     @State private var recipeGenerationStageIndex = 0
     @State private var recipeGenerationProgress = 0.0
     @State private var recipeGenerationTaskID = UUID()
@@ -3948,6 +3950,18 @@ struct BrewingSectionView: View {
                 .foregroundColor(brewSecondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if isCoffeeBagImageAnalyzing {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(brewAccentColor)
+                    Text(AppLocalization.text("bag_photo_reading", fallback: "Reading coffee bag details…"))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(brewAccentColor)
+                }
+                .accessibilityElement(children: .combine)
+            }
+
             HStack(spacing: 10) {
 #if canImport(UIKit)
                 Button {
@@ -3960,6 +3974,7 @@ struct BrewingSectionView: View {
                     scanActionLabel(title: AppLocalization.text("open_camera", fallback: "Open Camera"), systemImage: "camera.fill")
                 }
                 .buttonStyle(.plain)
+                .disabled(isCoffeeBagImageAnalyzing)
 #endif
 
 #if canImport(PhotosUI)
@@ -3967,6 +3982,7 @@ struct BrewingSectionView: View {
                     scanActionLabel(title: AppLocalization.text("photo_library", fallback: "Photo Library"), systemImage: "photo.fill")
                 }
                 .buttonStyle(.plain)
+                .disabled(isCoffeeBagImageAnalyzing)
 #endif
             }
 
@@ -4341,14 +4357,44 @@ struct BrewingSectionView: View {
 #endif
 
 #if canImport(UIKit)
+    @MainActor
     private func handleCoffeeBagImage(_ image: UIImage?) {
         guard let image else { return }
+        let analysisID = UUID()
+        coffeeBagAnalysisID = analysisID
         coffeeBagPreviewImage = image
         coffeeDetailsMode = .scan
-        coffeeBagReviewMessage = AppLocalization.text("bag_photo_ready_friendly", fallback: "Photo added. Review the coffee details below before continuing.")
-        if coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            coffeeName = AppLocalization.text("coffee_from_bag", fallback: "Coffee from bag")
+        isCoffeeBagImageAnalyzing = true
+        coffeeBagReviewMessage = AppLocalization.text("bag_photo_reading", fallback: "Reading coffee bag details…")
+
+        Task { @MainActor in
+            do {
+                let result = try await CoffeeBagImageAnalyzer.analyze(image)
+                guard coffeeBagAnalysisID == analysisID else { return }
+                applyCoffeeBagScanResult(result)
+                isCoffeeBagImageAnalyzing = false
+                coffeeBagReviewMessage = result.populatedFieldCount > 0
+                    ? AppLocalization.text("bag_photo_details_found", fallback: "Details were added from the bag. Review and edit them below before continuing.")
+                    : AppLocalization.text("bag_photo_read_friendly", fallback: "Talla could not read that photo clearly. You can still enter or adjust the coffee details below.")
+            } catch {
+                guard coffeeBagAnalysisID == analysisID else { return }
+                isCoffeeBagImageAnalyzing = false
+                coffeeBagReviewMessage = AppLocalization.text("bag_photo_read_friendly", fallback: "Talla could not read that photo clearly. You can still enter or adjust the coffee details below.")
+            }
         }
+    }
+
+    @MainActor
+    private func applyCoffeeBagScanResult(_ result: CoffeeBagScanResult) {
+        if let value = result.name { coffeeName = value }
+        if let value = result.roaster { coffeeRoaster = value }
+        if let value = result.origin { coffeeOrigin = value }
+        if let value = result.region { coffeeRegion = value }
+        if let value = result.altitude { coffeeAltitude = value }
+        if let value = result.variety { coffeeVariety = value }
+        if let value = result.process { coffeeProcess = value }
+        if let value = result.tastingNotes { coffeeTastingNotes = value }
+        createRecipeValidationMessage = nil
     }
 #endif
 
