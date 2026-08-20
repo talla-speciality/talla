@@ -1,5 +1,24 @@
 import Foundation
 
+enum SmartScaleGuidanceRules {
+    static func shouldAdvance(
+        isConnected: Bool,
+        isRunning: Bool,
+        waterAdded: Int?,
+        stepTitle: String,
+        previousWeight: Double,
+        currentWeight: Double,
+        targetWeight: Double
+    ) -> Bool {
+        guard isConnected, isRunning, waterAdded != nil, targetWeight > 0 else { return false }
+        let title = stepTitle.lowercased()
+        guard !title.contains("bloom"), !title.contains("wait"), !title.contains("steep") else { return false }
+        let tolerance = max(1, targetWeight * 0.005)
+        let threshold = targetWeight - tolerance
+        return previousWeight < threshold && currentWeight >= threshold
+    }
+}
+
 struct SmartBrewStep: Codable, Equatable, Identifiable {
     let id: Int
     let title: String

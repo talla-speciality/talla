@@ -405,6 +405,7 @@ struct BrewingSectionView: View {
     @State private var restoredTemperatureReason: String?
     @State private var restoredExpectedCup: String?
     @State private var restoredApproach: String?
+    @State private var lastScaleAutoAdvancedStepID: Int?
 #if canImport(PhotosUI)
     @State private var coffeeBagPhotoSelection: PhotosPickerItem?
 #endif
@@ -470,6 +471,9 @@ struct BrewingSectionView: View {
         .onChange(of: brewModeElapsedSeconds) { _, _ in
             updateBrewIdleTimerState()
             persistActiveBrewSession()
+        }
+        .onChange(of: scaleManager.weightGrams) { previousWeight, currentWeight in
+            handleSmartScaleWeightChange(previousWeight: previousWeight, currentWeight: currentWeight)
         }
         .onChange(of: scenePhase) { _, newPhase in
             handleBrewScenePhaseChange(newPhase)
@@ -6774,6 +6778,7 @@ struct BrewingSectionView: View {
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
+        lastScaleAutoAdvancedStepID = nil
         brewModeBackgroundDate = nil
         restoredBrewTotalSeconds = nil
         recipeRevisionChanges = []
@@ -7928,11 +7933,41 @@ struct BrewingSectionView: View {
     }
 
     private var currentSuggestedFlow: String {
+        if isGeneratedRecipeActive,
+           let row = generatedPourRows.first(where: { $0.id == currentBrewModeStep.id }) {
+            return row.flowRate
+        }
         let title = currentBrewModeStep.title.lowercased()
         if currentWaterTarget <= 0 { return "—" }
         if title.contains("bloom") { return "2–3 g/s" }
         if title.contains("final") { return "3–4 g/s" }
         return "3–4 g/s"
+    }
+
+    private func handleSmartScaleWeightChange(previousWeight: Double, currentWeight: Double) {
+        guard isGeneratedRecipeActive,
+              lastScaleAutoAdvancedStepID != currentBrewModeStep.id,
+              let row = generatedPourRows.first(where: { $0.id == currentBrewModeStep.id }),
+              let target = currentBrewModeStep.waterTarget,
+              SmartScaleGuidanceRules.shouldAdvance(
+                isConnected: scaleManager.isConnected,
+                isRunning: isBrewModeRunning,
+                waterAdded: row.waterAdded,
+                stepTitle: row.title,
+                previousWeight: previousWeight,
+                currentWeight: currentWeight,
+                targetWeight: target
+              ) else { return }
+
+        lastScaleAutoAdvancedStepID = currentBrewModeStep.id
+        guard let nextBrewModeStep else { return }
+        brewModeElapsedSeconds = max(brewModeElapsedSeconds, nextBrewModeStep.time)
+        lastCueStepIndex = currentBrewModeStepIndex
+        lastPrePourCueStepID = nil
+        updateBrewLiveActivity(isPaused: !isBrewModeRunning)
+        sendBrewWatchUpdate(action: "update", isPaused: !isBrewModeRunning)
+        persistActiveBrewSession()
+        brewStepHaptic(strong: true)
     }
 
     private var brewModePauseResumeTitle: String {
@@ -8454,6 +8489,7 @@ struct BrewingSectionView: View {
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
+        lastScaleAutoAdvancedStepID = nil
         brewModeBackgroundDate = nil
         brewModeRunID = UUID()
         isBrewModeRunning = false
@@ -8480,6 +8516,7 @@ struct BrewingSectionView: View {
             brewModeElapsedSeconds = 0
             lastCueStepIndex = -1
             lastPrePourCueStepID = nil
+            lastScaleAutoAdvancedStepID = nil
         }
 
         startBrewModeSession()
@@ -8502,6 +8539,7 @@ struct BrewingSectionView: View {
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
+        lastScaleAutoAdvancedStepID = nil
         brewModeBackgroundDate = nil
         endBrewLiveActivity()
         startBrewModeSession()
@@ -8512,6 +8550,7 @@ struct BrewingSectionView: View {
         brewModeElapsedSeconds = brewModeSteps[previousIndex].time
         lastCueStepIndex = previousIndex
         lastPrePourCueStepID = nil
+        lastScaleAutoAdvancedStepID = nil
         updateBrewLiveActivity(isPaused: !isBrewModeRunning)
         sendBrewWatchUpdate(action: "update", isPaused: !isBrewModeRunning)
         brewStepHaptic(strong: false)
@@ -8542,6 +8581,7 @@ struct BrewingSectionView: View {
 
         if brewModeElapsedSeconds == 0 {
             resetAfterBrewFeedbackState()
+            lastScaleAutoAdvancedStepID = nil
         }
 
         let runID = UUID()
@@ -8627,6 +8667,7 @@ struct BrewingSectionView: View {
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
+        lastScaleAutoAdvancedStepID = nil
         brewModeBackgroundDate = nil
         restoredBrewTotalSeconds = nil
         isFocusedBrewPresented = false

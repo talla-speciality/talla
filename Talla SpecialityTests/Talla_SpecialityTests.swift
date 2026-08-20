@@ -108,6 +108,34 @@ struct Talla_SpecialityTests {
         #expect(calibrated.steps.count == baseline.steps.count + 1)
     }
 
+    @Test func smartScaleAdvancesWhenARealPourCrossesItsTarget() {
+        #expect(SmartScaleGuidanceRules.shouldAdvance(
+            isConnected: true,
+            isRunning: true,
+            waterAdded: 100,
+            stepTitle: "Pour 1",
+            previousWeight: 147,
+            currentWeight: 149.5,
+            targetWeight: 150
+        ))
+    }
+
+    @Test func smartScaleNeverSkipsBloomWaitOrPreparationSteps() {
+        #expect(!SmartScaleGuidanceRules.shouldAdvance(isConnected: true, isRunning: true, waterAdded: 50, stepTitle: "Bloom", previousWeight: 48, currentWeight: 50, targetWeight: 50))
+        #expect(!SmartScaleGuidanceRules.shouldAdvance(isConnected: true, isRunning: true, waterAdded: nil, stepTitle: "Add ice", previousWeight: 0, currentWeight: 128, targetWeight: 128))
+        #expect(!SmartScaleGuidanceRules.shouldAdvance(isConnected: false, isRunning: true, waterAdded: 100, stepTitle: "Pour 1", previousWeight: 149, currentWeight: 150, targetWeight: 150))
+    }
+
+    @Test func generatedScaleGuidanceUsesBrewerSpecificFlowRates() {
+        let cone = SmartBrewRecipeEngine.generate(smartInput())
+        let flat = SmartBrewRecipeEngine.generate(smartInput(brewerID: "kalita"))
+        let conePour = cone.steps.first { $0.title == "Pour 1" }
+        let flatPour = flat.steps.first { $0.title == "Pour 1" }
+
+        #expect(conePour?.flowRate == "2–3 g/s")
+        #expect(flatPour?.flowRate == "3–4 g/s")
+    }
+
     @Test func icedRecipeSplitsTotalWaterWithoutChangingTheRequestedRatio() {
         let split = BrewRecipeMath.waterSplit(totalWater: 320, isIced: true)
 
