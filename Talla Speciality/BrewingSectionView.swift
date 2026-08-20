@@ -16,6 +16,45 @@ import WatchConnectivity
 import UIKit
 #endif
 
+struct BrewRecipeRecord: Identifiable {
+    let id: UUID
+    let title: String
+    let detail: String
+    let coffeeGrams: Double?
+    let ratio: Double?
+    let totalWaterGrams: Double?
+    let brewingWaterGrams: Double?
+    let iceGrams: Double?
+    let methodID: String?
+    let brewerID: String?
+    let brewMode: String?
+    let bloomRatio: String?
+    let pourCount: Int?
+    let grind: String?
+    let temperatureC: Int?
+    let controlMode: String?
+}
+
+enum BrewRecipeMath {
+    static func waterSplit(totalWater: Double, isIced: Bool) -> (brewingWater: Double, ice: Double) {
+        guard isIced else { return (totalWater, 0) }
+        return (totalWater * 0.6, totalWater * 0.4)
+    }
+
+    static func suggestedBloomMultiplier(roast: String, process: String, tasteGoal: String) -> Double {
+        let normalizedRoast = roast.lowercased()
+        let normalizedProcess = process.lowercased()
+
+        if normalizedRoast.contains("dark") || tasteGoal == "rich" || tasteGoal == "body" {
+            return 2
+        }
+        if normalizedProcess.contains("natural") || normalizedProcess.contains("honey") || normalizedProcess.contains("anaerobic") {
+            return 2.25
+        }
+        return 2.5
+    }
+}
+
 #if canImport(UIKit)
 private struct CoffeeBagCameraPicker: UIViewControllerRepresentable {
     let completion: (UIImage?) -> Void
@@ -226,12 +265,12 @@ struct BrewingSectionView: View {
     let calculatedWaterAmount: Double
     let ratioCoffeeAmount: Double
     let ratioValue: Double
-    let brewHistoryItems: [(title: String, detail: String, coffeeGrams: Double?, ratio: Double?)]
+    let brewHistoryItems: [BrewRecipeRecord]
     let titleFont: Font
     let sectionTitleFont: Font
     let bodyFont: Font
     let labelFont: Font
-    let saveRecipeAction: () -> Void
+    let saveRecipeAction: (BrewRecipeRecord) -> Void
     let openArticleAction: (URL) -> Void
     let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int) -> Void
     let brewTimerSection: AnyView
@@ -293,7 +332,7 @@ struct BrewingSectionView: View {
     @State private var recipeBrewTemperatureMode = "Hot"
     @State private var recipeCoffeeDose = "20"
     @State private var recipePreferredRatio = "16"
-    @State private var recipeBloomRatio = "1:3"
+    @State private var recipeBloomRatio = "Auto"
     @State private var recipePourCount = 3
     @State private var recipeBrewControlMode = "Manual"
     @State private var brewerSearchText = ""
@@ -328,6 +367,8 @@ struct BrewingSectionView: View {
     @State private var isAfterBrewFeedbackExpanded = false
     @State private var hasRestoredPersistedBrewSession = false
     @State private var restoredBrewTotalSeconds: Int?
+    @State private var generatedRecipeID = UUID()
+    @State private var isGeneratedRecipeActive = false
 #if canImport(PhotosUI)
     @State private var coffeeBagPhotoSelection: PhotosPickerItem?
 #endif
@@ -1446,7 +1487,7 @@ struct BrewingSectionView: View {
             recipeCoffeeDose = "60"
             recipePreferredRatio = "8"
             recipeBrewTemperatureMode = "Cold"
-            recipeBloomRatio = "1:2"
+            recipeBloomRatio = "Auto"
             recipePourCount = 2
             generatedGrindDescription = "Coarse"
             generatedTemperatureC = 20
@@ -1454,7 +1495,7 @@ struct BrewingSectionView: View {
             recipeCoffeeDose = "20"
             recipePreferredRatio = "15"
             recipeBrewTemperatureMode = "Iced"
-            recipeBloomRatio = "1:2.5"
+            recipeBloomRatio = "Auto"
             recipePourCount = 3
             generatedGrindDescription = "Medium"
             generatedTemperatureC = 93
@@ -1462,7 +1503,7 @@ struct BrewingSectionView: View {
             recipeCoffeeDose = "20"
             recipePreferredRatio = "16"
             recipeBrewTemperatureMode = "Hot"
-            recipeBloomRatio = "1:3"
+            recipeBloomRatio = "Auto"
             recipePourCount = 3
             generatedTemperatureC = 93
         }
@@ -1493,7 +1534,7 @@ struct BrewingSectionView: View {
         }?.id
     }
 
-    private func continueRecipeDetail(_ latest: (title: String, detail: String, coffeeGrams: Double?, ratio: Double?)?) -> String {
+    private func continueRecipeDetail(_ latest: BrewRecipeRecord?) -> String {
         if let latest {
             return latest.detail
         }
@@ -1996,14 +2037,14 @@ struct BrewingSectionView: View {
             .clipShape(Capsule(style: .continuous))
     }
 
-    private func dashboardBrewMetaLine(for recipe: (title: String, detail: String, coffeeGrams: Double?, ratio: Double?)?) -> String {
+    private func dashboardBrewMetaLine(for recipe: BrewRecipeRecord?) -> String {
         let method = selectedBrewModeMethod?.name ?? AppLocalization.text("filter", fallback: "Filter")
         let coffee = formattedRatioValue(recipe?.coffeeGrams ?? validCoffeeAmount)
         let ratio = formattedRatioValue(recipe?.ratio ?? validRatioValue)
         return "\(method) · \(coffee) g · 1:\(ratio)"
     }
 
-    private func savedDashboardRecipeCard(_ recipe: (title: String, detail: String, coffeeGrams: Double?, ratio: Double?)) -> some View {
+    private func savedDashboardRecipeCard(_ recipe: BrewRecipeRecord) -> some View {
         Button {
             applySavedRecipe(recipe, start: true)
         } label: {
@@ -2536,7 +2577,7 @@ struct BrewingSectionView: View {
                     createRecipeStep = .equipment
                 }
                 recipeTextButton(AppLocalization.text("save", fallback: "Save")) {
-                    saveRecipeAction()
+                    saveCurrentRecipe()
                 }
             }
 
@@ -2708,7 +2749,7 @@ struct BrewingSectionView: View {
                     copyGeneratedRecipeToClipboard()
                 }
                 secondaryRecipeAction(title: AppLocalization.text("save_recipe", fallback: "Save Recipe")) {
-                    saveRecipeAction()
+                    saveCurrentRecipe()
                 }
             }
         }
@@ -2815,7 +2856,7 @@ struct BrewingSectionView: View {
                     }
                     brewDivider
                     brewingLinkedRow(title: AppLocalization.text("save_to_journal", fallback: "Save to Journal"), detail: AppLocalization.text("save_to_journal_detail", fallback: "Store this recipe and brew notes."), value: nil) {
-                        saveRecipeAction()
+                        saveCurrentRecipe()
                     }
                 }
                 .background(brewSurfaceColor)
@@ -3372,10 +3413,15 @@ struct BrewingSectionView: View {
     }
 
     private var isV60IcedRecipe: Bool {
-        createRecipeBrewer == "v60-iced" || activeSmartRecipeID == "v60-iced"
+        recipeBrewTemperatureMode.caseInsensitiveCompare("Iced") == .orderedSame
+            || createRecipeBrewer == "v60-iced"
+            || activeSmartRecipeID == "v60-iced"
     }
 
     private var recipeBrewingWaterAmount: Double {
+        if isGeneratedRecipeActive {
+            return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).brewingWater
+        }
         guard let publishedRecipeWaterGrams,
               let publishedRecipeCoffeeGrams,
               publishedRecipeCoffeeGrams > 0 else {
@@ -3385,6 +3431,9 @@ struct BrewingSectionView: View {
     }
 
     private var recipeIceAmount: Double {
+        if isGeneratedRecipeActive {
+            return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).ice
+        }
         guard let publishedRecipeIceGrams,
               let publishedRecipeCoffeeGrams,
               publishedRecipeCoffeeGrams > 0 else {
@@ -3404,10 +3453,20 @@ struct BrewingSectionView: View {
         let multiplier: Double
         switch recipeBloomRatio {
         case "1:2": multiplier = 2
+        case "1:2.5": multiplier = 2.5
+        case "1:3": multiplier = 3
         case "1:4": multiplier = 4
-        default: multiplier = 3
+        default: multiplier = smartBloomMultiplier
         }
-        return min(validWaterAmount, validCoffeeAmount * multiplier)
+        return min(recipeBrewingWaterAmount, validCoffeeAmount * multiplier)
+    }
+
+    private var smartBloomMultiplier: Double {
+        BrewRecipeMath.suggestedBloomMultiplier(
+            roast: coffeeRoastLevel,
+            process: coffeeProcess,
+            tasteGoal: createRecipeTasteGoal
+        )
     }
 
     private var bloomDurationSeconds: Int {
@@ -3426,11 +3485,11 @@ struct BrewingSectionView: View {
         if isV60IcedRecipe {
             let hotWater = Int(recipeBrewingWaterAmount.rounded())
             let ice = Int(recipeIceAmount.rounded())
-            let bloom = Int((recipeBrewingWaterAmount * 50 / 180).rounded())
+            let bloom = Int(bloomWaterAmount.rounded())
             let secondTarget = Int((recipeBrewingWaterAmount * 120 / 180).rounded())
             return [
                 GeneratedPourRow(id: 0, title: "Add ice to server", waterAdded: nil, cumulativeWater: nil, startTime: 0, flowRate: "—", instruction: "Weigh \(ice) g ice into the server, rinse the filter, and add \(formattedRatioValue(validCoffeeAmount)) g medium-ground coffee."),
-                GeneratedPourRow(id: 1, title: "Bloom", waterAdded: bloom, cumulativeWater: bloom, startTime: 0, flowRate: "3–4 g/s", instruction: "Pour \(bloom) g at 93 °C, wet every ground, and wait 10–15 seconds."),
+                GeneratedPourRow(id: 1, title: "Bloom", waterAdded: bloom, cumulativeWater: bloom, startTime: 10, flowRate: "3–4 g/s", instruction: "Pour \(bloom) g at 93 °C, wet every ground, and wait 10–15 seconds."),
                 GeneratedPourRow(id: 2, title: "Second pour", waterAdded: secondTarget - bloom, cumulativeWater: secondTarget, startTime: 45, flowRate: "3–4 g/s", instruction: "Pour in slow circles to reach \(secondTarget) g total hot water."),
                 GeneratedPourRow(id: 3, title: "Final pour", waterAdded: hotWater - secondTarget, cumulativeWater: hotWater, startTime: 90, flowRate: "3–4 g/s", instruction: "Add the final water to reach \(hotWater) g."),
                 GeneratedPourRow(id: 4, title: "Swirl and serve", waterAdded: nil, cumulativeWater: hotWater, startTime: 135, flowRate: "—", instruction: "Swirl the server to mix the melted brewing ice, then pour over fresh ice.")
@@ -3441,7 +3500,7 @@ struct BrewingSectionView: View {
             let brewingWater = Int(recipeBrewingWaterAmount.rounded())
             return [
                 GeneratedPourRow(id: 0, title: "Add coarse coffee", waterAdded: nil, cumulativeWater: nil, startTime: 0, flowRate: "—", instruction: "Add \(formattedRatioValue(validCoffeeAmount)) g coarse-ground coffee to a clean jar or cold-brew bottle."),
-                GeneratedPourRow(id: 1, title: "Add filtered water", waterAdded: brewingWater, cumulativeWater: brewingWater, startTime: 0, flowRate: "Steady", instruction: "Pour \(brewingWater) g room-temperature filtered water and stir until every ground is wet."),
+                GeneratedPourRow(id: 1, title: "Add filtered water", waterAdded: brewingWater, cumulativeWater: brewingWater, startTime: 10, flowRate: "Steady", instruction: "Pour \(brewingWater) g room-temperature filtered water and stir until every ground is wet."),
                 GeneratedPourRow(id: 2, title: "Steep covered", waterAdded: nil, cumulativeWater: brewingWater, startTime: 60, flowRate: "—", instruction: "Cover and steep at room temperature for 12–16 hours."),
                 GeneratedPourRow(id: 3, title: "Filter concentrate", waterAdded: nil, cumulativeWater: brewingWater, startTime: 50_400, flowRate: "—", instruction: "Filter into a clean vessel and refrigerate."),
                 GeneratedPourRow(id: 4, title: "Dilute over ice", waterAdded: nil, cumulativeWater: nil, startTime: 50_400, flowRate: "—", instruction: "For one serving, combine 100 g concentrate with 200 g water or milk and about 100 g ice.")
@@ -3468,7 +3527,7 @@ struct BrewingSectionView: View {
                 title: AppLocalization.text("bloom", fallback: "Bloom"),
                 waterAdded: bloom,
                 cumulativeWater: bloom,
-                startTime: 0,
+                startTime: 10,
                 flowRate: "2–3 g/s",
                 instruction: AppLocalization.text("bloom_instruction", fallback: "Saturate all grounds and let the coffee open.")
             )
@@ -3510,7 +3569,7 @@ struct BrewingSectionView: View {
 
     private func generatedPourStartTime(for index: Int) -> Int {
         switch index {
-        case 1: return bloomDurationSeconds
+        case 1: return 10 + bloomDurationSeconds
         case 2: return 75
         case 3: return 110
         default: return 145
@@ -3622,6 +3681,31 @@ struct BrewingSectionView: View {
         return trimmed.isEmpty ? selectedCreateRecipeTitle : trimmed
     }
 
+    private var currentRecipeRecord: BrewRecipeRecord {
+        BrewRecipeRecord(
+            id: generatedRecipeID,
+            title: generatedRecipeTitle,
+            detail: generatedRecipeSubtitle,
+            coffeeGrams: validCoffeeAmount,
+            ratio: validRatioValue,
+            totalWaterGrams: validWaterAmount,
+            brewingWaterGrams: recipeBrewingWaterAmount,
+            iceGrams: recipeIceAmount > 0 ? recipeIceAmount : nil,
+            methodID: selectedBrewModeMethodID,
+            brewerID: createRecipeBrewer,
+            brewMode: recipeBrewTemperatureMode,
+            bloomRatio: recipeBloomRatio,
+            pourCount: recipePourCount,
+            grind: generatedGrindDescription,
+            temperatureC: generatedTemperatureC,
+            controlMode: recipeBrewControlMode
+        )
+    }
+
+    private func saveCurrentRecipe() {
+        saveRecipeAction(currentRecipeRecord)
+    }
+
     private var generatedRecipeSubtitle: String {
         let brewer = brewerChoices.first { $0.id == createRecipeBrewer }?.title ?? AppLocalization.text("filter", fallback: "Filter")
         return "\(brewer) · \(recipeBrewTemperatureMode) · \(recipeBrewControlMode)"
@@ -3705,7 +3789,7 @@ struct BrewingSectionView: View {
                         .keyboardType(.decimalPad)
                 }
 
-                Text("\(formattedWholeGram(validCoffeeAmount * validRatioValue)) g \(AppLocalization.text("calculated_water", fallback: "calculated water"))")
+                Text("\(formattedWholeGram(createRecipeCoffeeAmount * createRecipeRatioValue)) g \(AppLocalization.text("calculated_water", fallback: "calculated water"))")
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundColor(brewAccentColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -3713,9 +3797,16 @@ struct BrewingSectionView: View {
 
                 creamGoldSegmentedControl(
                     title: AppLocalization.text("bloom_ratio", fallback: "Bloom ratio"),
-                    options: ["1:2", "1:3", "1:4"],
+                    options: ["Auto", "1:2", "1:2.5", "1:3"],
                     selection: $recipeBloomRatio
                 )
+
+                Text(recipeBloomRatio == "Auto"
+                    ? "Talla recommends a \(formattedWholeGram(bloomWaterAmount)) g bloom for this coffee."
+                    : "Bloom target: \(formattedWholeGram(bloomWaterAmount)) g")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(brewSecondaryTextColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(AppLocalization.text("number_of_pours", fallback: "Number of pours"))
@@ -4222,15 +4313,19 @@ struct BrewingSectionView: View {
 
     private func buildCreatedRecipe() {
         restoredBrewTotalSeconds = nil
+        generatedRecipeID = UUID()
+        isGeneratedRecipeActive = true
+        applySmartRecipeRecommendations()
         let name = coffeeName.trimmingCharacters(in: .whitespacesAndNewlines)
         brewRecipeName = name.isEmpty ? selectedCreateRecipeTitle : name
         ratioCoffeeInput = recipeCoffeeDose.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "20" : recipeCoffeeDose
         ratioValueInput = recipePreferredRatio.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "16" : recipePreferredRatio
-        activeSmartRecipeID = recommendedProfileForCreateRecipe?.id
+        usePublishedRecipe(nil)
+        activeSmartRecipeID = nil
         selectedGuideProfileID = recommendedProfileForCreateRecipe?.id ?? selectedGuideProfileID
 
         if let method = matchingMethodForCreateRecipe {
-            selectBrewModeMethod(method, start: false, usesSmartRecipe: activeSmartRecipeID != nil)
+            selectBrewModeMethod(method, start: false, preserveRecipeIdentity: true)
         }
 
         createRecipeValidationMessage = nil
@@ -4240,6 +4335,43 @@ struct BrewingSectionView: View {
         withAnimation(.easeInOut(duration: 0.28)) {
             createRecipeStep = .generating
         }
+    }
+
+    private func applySmartRecipeRecommendations() {
+        if isClassicColdBrewRecipe {
+            generatedGrindDescription = "Coarse"
+            generatedTemperatureC = 20
+            return
+        }
+
+        switch createRecipeBrewer {
+        case "espresso":
+            generatedGrindDescription = "Fine"
+        case "french-press":
+            generatedGrindDescription = "Coarse"
+        case "aeropress":
+            generatedGrindDescription = "Medium-fine"
+        case "chemex":
+            generatedGrindDescription = "Medium-coarse"
+        default:
+            generatedGrindDescription = createRecipeTasteGoal == "rich" ? "Medium" : "Medium-fine"
+        }
+
+        let roast = coffeeRoastLevel.lowercased()
+        var temperature = roast.contains("dark") ? 89 : roast.contains("medium") ? 92 : 94
+        let process = coffeeProcess.lowercased()
+        if process.contains("natural") || process.contains("anaerobic") || process.contains("ferment") {
+            temperature -= 1
+        }
+        if createRecipeTasteGoal == "bright" {
+            temperature += 1
+        } else if createRecipeTasteGoal == "rich" {
+            temperature -= 1
+        }
+        if isV60IcedRecipe {
+            temperature = max(92, temperature)
+        }
+        generatedTemperatureC = min(max(temperature, 88), 96)
     }
 
     @MainActor
@@ -4274,6 +4406,7 @@ struct BrewingSectionView: View {
         withAnimation(.easeInOut(duration: 0.38)) {
             createRecipeStep = .recipeDetail
         }
+        saveCurrentRecipe()
     }
 
     private func recipeStageHaptic(isFinal: Bool) {
@@ -4319,6 +4452,13 @@ struct BrewingSectionView: View {
     }
 
     private var matchingMethodForCreateRecipe: ContentView.BrewingMethod? {
+        if let exactMatch = displayedMethods.first(where: {
+            $0.id.caseInsensitiveCompare(createRecipeBrewer) == .orderedSame
+                || $0.name.caseInsensitiveCompare(generatedBrewerName) == .orderedSame
+        }) {
+            return exactMatch
+        }
+
         let keywords: [String]
         switch createRecipeBrewer {
         case "v60-iced": keywords = ["v60 iced"]
@@ -4328,7 +4468,11 @@ struct BrewingSectionView: View {
         case "arabic": keywords = ["arabic", "traditional", "dallah"]
         case "cold": keywords = ["classic cold brew"]
         case "chemex": keywords = ["chemex"]
-        default: keywords = ["pour", "filter", "v60", "kalita", "origami", "solo"]
+        case "v60": keywords = ["v60"]
+        case "solo": keywords = ["solo"]
+        case "kalita": keywords = ["kalita", "wave"]
+        case "origami": keywords = ["origami"]
+        default: keywords = ["pour", "filter"]
         }
 
         return displayedMethods.first { method in
@@ -4613,7 +4757,7 @@ struct BrewingSectionView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(AppLocalization.text("brew_again", fallback: "Brew again"))
 
-                Button(action: saveRecipeAction) {
+                Button(action: saveCurrentRecipe) {
                     Image(systemName: "bookmark.fill")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(primaryTextColor)
@@ -4719,7 +4863,7 @@ struct BrewingSectionView: View {
         }
     }
 
-    private func savedRecipeGuideButton(_ recipe: (title: String, detail: String, coffeeGrams: Double?, ratio: Double?)) -> some View {
+    private func savedRecipeGuideButton(_ recipe: BrewRecipeRecord) -> some View {
         Button {
             applySavedRecipe(recipe, start: false)
         } label: {
@@ -6375,7 +6519,7 @@ struct BrewingSectionView: View {
 
     private func saveAfterBrewToJournal() {
         saveAfterBrewJournalEntryIfNeeded()
-        saveRecipeAction()
+        saveCurrentRecipe()
         clearPersistedBrewSession()
         brewModeRunID = UUID()
         isBrewModeRunning = false
@@ -6435,7 +6579,7 @@ struct BrewingSectionView: View {
         applyRecipeRevisionChanges(recipeRevisionChanges)
 
         brewRecipeName = versionTitle
-        saveRecipeAction()
+        saveCurrentRecipe()
         brewStepHaptic(strong: true)
     }
 
@@ -6446,7 +6590,7 @@ struct BrewingSectionView: View {
 
     private func keepOriginalRecipe() {
         saveAfterBrewJournalEntryIfNeeded()
-        saveRecipeAction()
+        saveCurrentRecipe()
         clearPersistedBrewSession()
         brewModeRunID = UUID()
         isBrewModeRunning = false
@@ -6825,15 +6969,7 @@ struct BrewingSectionView: View {
             if let latestBrew = brewHistoryItems.first {
                 brewHistoryButton(latestBrew, isPrimary: true)
             } else {
-                brewHistoryButton(
-                    (
-                        title: currentBrewRecipeTitle,
-                        detail: "\(formattedRatioValue(validCoffeeAmount)) g - 1:\(formattedRatioValue(validRatioValue))",
-                        coffeeGrams: validCoffeeAmount,
-                        ratio: validRatioValue
-                    ),
-                    isPrimary: true
-                )
+                brewHistoryButton(currentRecipeRecord, isPrimary: true)
             }
 
             if brewHistoryItems.count > 1 {
@@ -7363,7 +7499,10 @@ struct BrewingSectionView: View {
     }
 
     private var currentBrewRecipeTitle: String {
-        activeSmartRecipe?.title ?? selectedBrewModeMethod?.name ?? AppLocalization.text("custom_brew", fallback: "Custom Brew")
+        if isGeneratedRecipeActive, !brewRecipeName.isEmpty {
+            return brewRecipeName
+        }
+        return activeSmartRecipe?.title ?? selectedBrewModeMethod?.name ?? AppLocalization.text("custom_brew", fallback: "Custom Brew")
     }
 
     private func matchingMethod(for profile: BrewGuideProfile) -> ContentView.BrewingMethod? {
@@ -7399,9 +7538,11 @@ struct BrewingSectionView: View {
         brewRecipeName = profile.title
     }
 
-    private func applySavedRecipe(_ recipe: (title: String, detail: String, coffeeGrams: Double?, ratio: Double?), start: Bool) {
+    private func applySavedRecipe(_ recipe: BrewRecipeRecord, start: Bool) {
         restoredBrewTotalSeconds = nil
         activeSmartRecipeID = nil
+        generatedRecipeID = recipe.id
+        isGeneratedRecipeActive = recipe.brewMode != nil || recipe.brewerID != nil
         brewRecipeName = recipe.title
         if let coffeeGrams = recipe.coffeeGrams {
             ratioCoffeeInput = formattedRatioValue(coffeeGrams)
@@ -7410,8 +7551,18 @@ struct BrewingSectionView: View {
             ratioValueInput = formattedRatioValue(ratio)
         }
 
-        if let method = displayedMethods.first(where: { recipe.title.localizedCaseInsensitiveContains($0.name) || $0.name.localizedCaseInsensitiveContains(recipe.title) }) {
-            selectBrewModeMethod(method, start: start)
+        if let brewerID = recipe.brewerID { createRecipeBrewer = brewerID }
+        if let brewMode = recipe.brewMode { recipeBrewTemperatureMode = brewMode }
+        if let bloomRatio = recipe.bloomRatio { recipeBloomRatio = bloomRatio }
+        if let pourCount = recipe.pourCount { recipePourCount = pourCount }
+        if let grind = recipe.grind { generatedGrindDescription = grind }
+        if let temperatureC = recipe.temperatureC { generatedTemperatureC = temperatureC }
+        if let controlMode = recipe.controlMode { recipeBrewControlMode = controlMode }
+        usePublishedRecipe(nil)
+
+        if let method = displayedMethods.first(where: { $0.id == recipe.methodID })
+            ?? displayedMethods.first(where: { recipe.title.localizedCaseInsensitiveContains($0.name) || $0.name.localizedCaseInsensitiveContains(recipe.title) }) {
+            selectBrewModeMethod(method, start: start, preserveRecipeIdentity: true)
         } else if start {
             restartBrewMode()
         }
@@ -7520,6 +7671,16 @@ struct BrewingSectionView: View {
         ratioCoffeeAmount > 0 ? ratioCoffeeAmount : 20
     }
 
+    private var createRecipeCoffeeAmount: Double {
+        let value = Double(recipeCoffeeDose.replacingOccurrences(of: ",", with: ".")) ?? 0
+        return value > 0 ? value : 20
+    }
+
+    private var createRecipeRatioValue: Double {
+        let value = Double(recipePreferredRatio.replacingOccurrences(of: ",", with: ".")) ?? 0
+        return value > 0 ? value : 16
+    }
+
     private var validRatioValue: Double {
         ratioValue > 0 ? ratioValue : 16
     }
@@ -7542,6 +7703,9 @@ struct BrewingSectionView: View {
     }
 
     private var brewModeTotalSeconds: Int {
+        if isGeneratedRecipeActive {
+            return max((generatedPourRows.last?.startTime ?? 165) + 45, 1)
+        }
         if let activeSmartRecipe {
             return activeSmartRecipe.targetSeconds
         }
@@ -7744,6 +7908,17 @@ struct BrewingSectionView: View {
     }
 
     private var brewModeSteps: [BrewModeStep] {
+        if isGeneratedRecipeActive {
+            return generatedPourRows.map { row in
+                BrewModeStep(
+                    id: row.id,
+                    time: row.startTime,
+                    title: row.title,
+                    detail: row.instruction,
+                    waterTarget: row.cumulativeWater.map(Double.init)
+                )
+            }
+        }
         if let activeSmartRecipe {
             return smartRecipeBrewModeSteps(for: activeSmartRecipe)
         }
@@ -8051,7 +8226,7 @@ struct BrewingSectionView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private func brewHistoryButton(_ item: (title: String, detail: String, coffeeGrams: Double?, ratio: Double?), isPrimary: Bool) -> some View {
+    private func brewHistoryButton(_ item: BrewRecipeRecord, isPrimary: Bool) -> some View {
         Button {
             brewRecipeName = item.title
             if let coffeeGrams = item.coffeeGrams {
@@ -8101,14 +8276,22 @@ struct BrewingSectionView: View {
         .buttonStyle(.plain)
     }
 
-    private func selectBrewModeMethod(_ method: ContentView.BrewingMethod, start: Bool, usesSmartRecipe: Bool = false) {
+    private func selectBrewModeMethod(
+        _ method: ContentView.BrewingMethod,
+        start: Bool,
+        usesSmartRecipe: Bool = false,
+        preserveRecipeIdentity: Bool = false
+    ) {
         restoredBrewTotalSeconds = nil
         if !usesSmartRecipe {
             activeSmartRecipeID = nil
         }
 
         selectedBrewModeMethodID = method.id
-        brewRecipeName = method.name
+        if !preserveRecipeIdentity {
+            brewRecipeName = method.name
+            isGeneratedRecipeActive = false
+        }
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
@@ -8653,7 +8836,7 @@ struct BrewingSectionView: View {
                     keyboardType: .default
                 )
 
-                Button(action: saveRecipeAction) {
+                Button(action: saveCurrentRecipe) {
                     Text(AppLocalization.text("save_recipe", fallback: "Save Recipe"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(2)

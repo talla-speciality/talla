@@ -599,6 +599,16 @@ struct ContentView: View {
         let waterGrams: Double
         let category: String
         let createdAt: String
+        let brewingWaterGrams: Double?
+        let iceGrams: Double?
+        let methodID: String?
+        let brewerID: String?
+        let brewMode: String?
+        let bloomRatio: String?
+        let pourCount: Int?
+        let grind: String?
+        let temperatureC: Int?
+        let controlMode: String?
     }
 
     private struct BrewJournalEntry: Codable, Identifiable {
@@ -1827,31 +1837,55 @@ struct ContentView: View {
         ratioCoffeeAmount * ratioValue
     }
 
-    private var brewAgainHistoryItems: [(title: String, detail: String, coffeeGrams: Double?, ratio: Double?)] {
-        let journalItems = brewJournalEntries.compactMap { entry -> (title: String, detail: String, coffeeGrams: Double?, ratio: Double?)? in
+    private var brewAgainHistoryItems: [BrewRecipeRecord] {
+        let journalItems = brewJournalEntries.compactMap { entry -> BrewRecipeRecord? in
             guard let coffeeGrams = entry.coffeeGrams,
                   let ratio = entry.ratio else {
                 return nil
             }
 
-            return (
-                entry.title,
-                "\(entry.method) - \(formattedRatioValue(coffeeGrams)) g - 1:\(formattedRatioValue(ratio)) - Rated \(entry.rating)/5",
-                coffeeGrams,
-                ratio
+            return BrewRecipeRecord(
+                id: entry.id,
+                title: entry.title,
+                detail: "\(entry.method) - \(formattedRatioValue(coffeeGrams)) g - 1:\(formattedRatioValue(ratio)) - Rated \(entry.rating)/5",
+                coffeeGrams: coffeeGrams,
+                ratio: ratio,
+                totalWaterGrams: entry.waterGrams,
+                brewingWaterGrams: entry.waterGrams,
+                iceGrams: nil,
+                methodID: nil,
+                brewerID: nil,
+                brewMode: nil,
+                bloomRatio: nil,
+                pourCount: nil,
+                grind: nil,
+                temperatureC: nil,
+                controlMode: nil
             )
         }
 
         let recipeItems = brewRecipes.map { recipe in
-            (
-                recipe.name,
-                "\(recipe.category) - \(formattedRatioValue(recipe.coffeeGrams)) g - 1:\(formattedRatioValue(recipe.ratio))",
-                recipe.coffeeGrams,
-                recipe.ratio
+            BrewRecipeRecord(
+                id: recipe.id,
+                title: recipe.name,
+                detail: "\(recipe.category) - \(formattedRatioValue(recipe.coffeeGrams)) g - 1:\(formattedRatioValue(recipe.ratio))",
+                coffeeGrams: recipe.coffeeGrams,
+                ratio: recipe.ratio,
+                totalWaterGrams: recipe.waterGrams,
+                brewingWaterGrams: recipe.brewingWaterGrams,
+                iceGrams: recipe.iceGrams,
+                methodID: recipe.methodID,
+                brewerID: recipe.brewerID,
+                brewMode: recipe.brewMode,
+                bloomRatio: recipe.bloomRatio,
+                pourCount: recipe.pourCount,
+                grind: recipe.grind,
+                temperatureC: recipe.temperatureC,
+                controlMode: recipe.controlMode
             )
         }
 
-        return Array((journalItems + recipeItems).prefix(3))
+        return Array((recipeItems + journalItems).prefix(6))
     }
 
     private var loyaltyPerks: [String] {
@@ -5709,8 +5743,8 @@ struct ContentView: View {
             sectionTitleFont: labelFont(size: 11, weight: .bold),
             bodyFont: bodyFont(size: 13),
             labelFont: labelFont(size: 10, weight: .semibold),
-            saveRecipeAction: {
-                saveCurrentBrewRecipe()
+            saveRecipeAction: { recipe in
+                saveCurrentBrewRecipe(recipe)
             },
             openArticleAction: { url in
                 articleSession = CheckoutSession(url: url)
@@ -11594,25 +11628,37 @@ struct ContentView: View {
         showToast(message: AppLocalization.text("journal_deleted_toast", fallback: "Coffee note deleted"))
     }
 
-    private func saveCurrentBrewRecipe() {
-        guard ratioCoffeeAmount > 0, ratioValue > 0 else {
+    private func saveCurrentBrewRecipe(_ record: BrewRecipeRecord) {
+        guard let coffeeGrams = record.coffeeGrams,
+              let ratio = record.ratio,
+              coffeeGrams > 0,
+              ratio > 0 else {
             showToast(message: AppLocalization.text("enter_valid_brew_recipe", fallback: "Enter a valid brew recipe first"))
             return
         }
 
-        let trimmedName = brewRecipeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = record.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let recipe = BrewRecipe(
-            id: UUID(),
+            id: record.id,
             name: trimmedName.isEmpty ? defaultBrewRecipeName() : trimmedName,
-            coffeeGrams: ratioCoffeeAmount,
-            ratio: ratioValue,
-            waterGrams: calculatedWaterAmount,
+            coffeeGrams: coffeeGrams,
+            ratio: ratio,
+            waterGrams: record.totalWaterGrams ?? coffeeGrams * ratio,
             category: activeBrewingCategory == "All" ? "Custom Brew" : activeBrewingCategory,
-            createdAt: ISO8601DateFormatter().string(from: Date())
+            createdAt: ISO8601DateFormatter().string(from: Date()),
+            brewingWaterGrams: record.brewingWaterGrams,
+            iceGrams: record.iceGrams,
+            methodID: record.methodID,
+            brewerID: record.brewerID,
+            brewMode: record.brewMode,
+            bloomRatio: record.bloomRatio,
+            pourCount: record.pourCount,
+            grind: record.grind,
+            temperatureC: record.temperatureC,
+            controlMode: record.controlMode
         )
 
-        persistBrewRecipes([recipe] + brewRecipes)
-        brewRecipeName = ""
+        persistBrewRecipes([recipe] + brewRecipes.filter { $0.id != recipe.id })
         showToast(message: AppLocalization.text("brew_recipe_saved_toast", fallback: "Brew recipe saved"))
     }
 

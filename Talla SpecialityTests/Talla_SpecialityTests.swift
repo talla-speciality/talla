@@ -3,6 +3,30 @@ import Testing
 
 struct Talla_SpecialityTests {
 
+    @Test func icedRecipeSplitsTotalWaterWithoutChangingTheRequestedRatio() {
+        let split = BrewRecipeMath.waterSplit(totalWater: 320, isIced: true)
+
+        #expect(split.brewingWater == 192)
+        #expect(split.ice == 128)
+        #expect(split.brewingWater + split.ice == 320)
+    }
+
+    @Test func automaticBloomAvoidsGenericSixtyGramFirstPour() {
+        let multiplier = BrewRecipeMath.suggestedBloomMultiplier(
+            roast: "Light",
+            process: "Washed",
+            tasteGoal: "balanced"
+        )
+
+        #expect(multiplier == 2.5)
+        #expect(20 * multiplier == 50)
+    }
+
+    @Test func automaticBloomIsGentlerForDarkAndHighlySolubleCoffees() {
+        #expect(BrewRecipeMath.suggestedBloomMultiplier(roast: "Dark", process: "Washed", tasteGoal: "balanced") == 2)
+        #expect(BrewRecipeMath.suggestedBloomMultiplier(roast: "Light", process: "Natural", tasteGoal: "balanced") == 2.25)
+    }
+
     @Test func freeDrinkRewardDoesNotDiscountNonDrinks() {
         let discount = LoyaltyVoucherRules.freeDrinkDiscount(lines: [
             (categoryKey: "coffee-beans", unitPrice: 6.500, quantity: 1),
