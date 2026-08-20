@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import StoreKit
+#if canImport(Security)
+import Security
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -26,6 +29,96 @@ import PhotosUI
 import SafariServices
 import UIKit
 #endif
+
+private enum TallaAccountCredentialStore {
+    private static let tokenDefaultsKey = "local.customerAccessToken"
+    private static let keychainService = "Talla-Speciality.customer-session"
+    private static let keychainAccount = "current"
+
+    static var accessToken: String {
+        let localToken = UserDefaults.standard.string(forKey: tokenDefaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !localToken.isEmpty {
+            saveToKeychain(localToken)
+            return localToken
+        }
+
+        guard let syncedToken = readFromKeychain(), !syncedToken.isEmpty else {
+            return ""
+        }
+
+        UserDefaults.standard.set(syncedToken, forKey: tokenDefaultsKey)
+        return syncedToken
+    }
+
+    static func save(_ token: String) {
+        let normalizedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedToken.isEmpty else {
+            clear()
+            return
+        }
+
+        UserDefaults.standard.set(normalizedToken, forKey: tokenDefaultsKey)
+        saveToKeychain(normalizedToken)
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
+#if canImport(Security)
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: keychainService,
+            kSecAttrAccount: keychainAccount,
+            kSecAttrSynchronizable: kSecAttrSynchronizableAny
+        ]
+        SecItemDelete(query as CFDictionary)
+#endif
+    }
+
+    private static func readFromKeychain() -> String? {
+#if canImport(Security)
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: keychainService,
+            kSecAttrAccount: keychainAccount,
+            kSecAttrSynchronizable: kSecAttrSynchronizableAny,
+            kSecMatchLimit: kSecMatchLimitOne,
+            kSecReturnData: true
+        ]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+#else
+        return nil
+#endif
+    }
+
+    private static func saveToKeychain(_ token: String) {
+#if canImport(Security)
+        let lookup: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: keychainService,
+            kSecAttrAccount: keychainAccount,
+            kSecAttrSynchronizable: true
+        ]
+        let attributes: [CFString: Any] = [
+            kSecValueData: Data(token.utf8),
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock
+        ]
+
+        let status = SecItemUpdate(lookup as CFDictionary, attributes as CFDictionary)
+        guard status == errSecItemNotFound else { return }
+
+        var item = lookup
+        attributes.forEach { item[$0.key] = $0.value }
+        SecItemAdd(item as CFDictionary, nil)
+#endif
+    }
+}
 
 enum LoyaltyVoucherRules {
     static let freeDrinkCategoryKeys: Set<String> = ["ready-made-drinks"]
@@ -1871,6 +1964,7 @@ struct ContentView: View {
     private func runInitialLaunchSequence() async {
         let startTime = Date()
 
+        restoreSyncedCustomerCredential()
         await loadProductsIfNeeded()
         await refreshNotificationStatus()
         await syncRemotePushTokenIfPossible()
@@ -2037,8 +2131,12 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             synchronizeBrewTimerWithClock()
-            guard hasLoadedProducts else { return }
             Task {
+                let restoredCredential = restoreSyncedCustomerCredential()
+                if restoredCredential, customerProfile == nil {
+                    await loadCustomerProfile()
+                }
+                guard hasLoadedProducts else { return }
                 await loadAppSettings()
                 if activeTab == .shop {
                     await refreshProductsIfNeeded()
@@ -2047,7 +2145,11 @@ struct ContentView: View {
                 await refreshNotificationStatus()
                 await syncRemotePushTokenIfPossible()
                 if customerProfile != nil {
+                    await refreshSignedInProfile()
                     await loadOrderHistory()
+                    await loadBackendStockAlerts()
+                    await loadAddresses()
+                    await loadAlertInbox()
                     if !activeEazyShopifyPaymentID.isEmpty, checkoutSession == nil {
                         await refreshActiveEazyShopifyPayment(openHostedCheckout: false)
                     }
@@ -10160,7 +10262,7 @@ struct ContentView: View {
         await loadProducts()
         await loadBrewingMethodsIfNeeded()
 
-        if !savedCustomerEmail.isEmpty, customerProfile == nil {
+        if !savedCustomerAccessToken.isEmpty, customerProfile == nil {
             await loadCustomerProfile()
         }
 
@@ -10388,12 +10490,49 @@ struct ContentView: View {
         do {
             let profile = try await AccountService.fetchProfile()
             applySignedInProfile(profile, loadLoyalty: loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } catch {
+        } catch AccountService.SessionError.invalid {
             signOutCustomer(clearError: false)
+            customerAuthError = AppLocalization.text("account_session_expired", fallback: "Your account session expired. Sign in again to continue.")
+        } catch {
             customerAuthError = friendlyCustomerAuthMessage(for: error)
         }
 
         isLoadingCustomer = false
+    }
+
+    @MainActor
+    private func refreshSignedInProfile() async {
+        guard customerProfile != nil, !isLoadingCustomer else { return }
+        isLoadingCustomer = true
+        defer { isLoadingCustomer = false }
+
+        do {
+            let profile = try await AccountService.fetchProfile()
+            customerProfile = profile
+            savedCustomerEmail = profile.email
+            accountEmail = profile.email
+            profileFirstName = profile.firstName ?? ""
+            profileLastName = profile.lastName ?? ""
+        } catch AccountService.SessionError.invalid {
+            signOutCustomer(clearError: false)
+            customerAuthError = AppLocalization.text("account_session_expired", fallback: "Your account session expired. Sign in again to continue.")
+        } catch {
+            // Keep the last known account state during transient network failures.
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    private func restoreSyncedCustomerCredential() -> Bool {
+        guard savedCustomerAccessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            TallaAccountCredentialStore.save(savedCustomerAccessToken)
+            return false
+        }
+
+        let syncedToken = TallaAccountCredentialStore.accessToken
+        guard !syncedToken.isEmpty else { return false }
+        savedCustomerAccessToken = syncedToken
+        return true
     }
 
     private func signOutCustomer(clearError: Bool = true) {
@@ -10405,6 +10544,7 @@ struct ContentView: View {
         savedRegisteredPushDeviceToken = ""
         savedCustomerEmail = ""
         savedCustomerAccessToken = ""
+        TallaAccountCredentialStore.clear()
         customerProfile = nil
         isAccountOnboardingPresented = false
         accountAuthMode = .signIn
@@ -10469,6 +10609,7 @@ struct ContentView: View {
 
     @MainActor
     private func applySignedInSession(_ session: AccountService.CustomerSession, loadLoyalty: Bool = true) {
+        TallaAccountCredentialStore.save(session.accessToken)
         savedCustomerAccessToken = session.accessToken
         applySignedInProfile(session.profile, loadLoyalty: loadLoyalty)
     }
@@ -12759,7 +12900,10 @@ private enum HomeSettingsService {
 
 private enum AccountService {
     private static let baseURL = BackendConfiguration.serviceBaseURL
-    private static let sessionTokenKey = "local.customerAccessToken"
+
+    enum SessionError: Error {
+        case invalid
+    }
 
     struct CustomerSession {
         let profile: ContentView.ShopifyCustomerProfile
@@ -12773,7 +12917,7 @@ private enum AccountService {
     }
 
     private static var accessToken: String {
-        UserDefaults.standard.string(forKey: sessionTokenKey) ?? ""
+        TallaAccountCredentialStore.accessToken
     }
 
     fileprivate static func authorize(_ request: inout URLRequest, accessTokenOverride: String? = nil) throws {
@@ -13442,6 +13586,10 @@ private enum AccountService {
                 accessToken: decoded.accessToken,
                 expiresAt: decoded.expiresAt
             )
+        }
+
+        if [401, 403, 404].contains(httpResponse.statusCode) {
+            throw SessionError.invalid
         }
 
         if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
