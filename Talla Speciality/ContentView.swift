@@ -6765,7 +6765,7 @@ struct ContentView: View {
     }
 
     private var addressesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(AppLocalization.text("delivery_details", fallback: "DELIVERY DETAILS"))
                     .font(displayFont(size: 22))
@@ -6782,193 +6782,248 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                    Text(AppLocalization.text("delivery_details_hint", fallback: "Save your preferred address here so checkout feels faster, even when Shopify opens on the web."))
-                        .font(bodyFont(size: 14))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    TextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel)
-                        .textInputAutocapitalization(.words)
-                        .font(bodyFont(size: 14))
-                        .foregroundColor(primaryTextColor)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(cardFillColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                    TextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName)
-                        .textInputAutocapitalization(.words)
-                        .font(bodyFont(size: 14))
-                        .foregroundColor(primaryTextColor)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(cardFillColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                    HStack(spacing: 8) {
-                        if !addressCountry.phonePrefix.isEmpty {
-                            Text(addressCountry.phonePrefix)
-                                .font(labelFont(size: 12, weight: .bold))
-                                .foregroundColor(readableBrandGoldColor)
-                                .frame(minWidth: 42, alignment: .leading)
-                        }
-
-                        TextField(
-                            addressCountry.phonePrefix.isEmpty
-                                ? AppLocalization.text("phone_with_country_code", fallback: "Phone with +country code")
-                                : AppLocalization.text("phone", fallback: "Phone"),
-                            text: $addressPhone
-                        )
-                            .keyboardType(.phonePad)
-                            .font(bodyFont(size: 14))
-                            .foregroundColor(primaryTextColor)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(cardFillColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                    TextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1)
-                        .textInputAutocapitalization(.words)
-                        .font(bodyFont(size: 14))
-                        .foregroundColor(primaryTextColor)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(cardFillColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                    deliveryCountrySelector
-
-                    HStack(spacing: 10) {
-                        TextField(AppLocalization.text("city", fallback: "City"), text: $addressCity)
-                            .textInputAutocapitalization(.words)
-                            .font(bodyFont(size: 14))
-                            .foregroundColor(primaryTextColor)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(cardFillColor)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                        TextField(AppLocalization.text("notes", fallback: "Notes"), text: $addressNotes)
-                            .textInputAutocapitalization(.sentences)
-                            .font(bodyFont(size: 14))
-                            .foregroundColor(primaryTextColor)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(cardFillColor)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-
-                    Button {
-                        Task {
-                            await saveAddress()
-                        }
-                    } label: {
-                        Text(isSavingAddress
-                            ? AppLocalization.text("saving", fallback: "Saving...")
-                            : AppLocalization.text("save_address", fallback: "Save Address"))
-                            .font(labelFont(size: 11, weight: .bold))
-                            .tracking(1.8)
-                            .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0x0A0804))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color(hex: 0xC8965A))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isSavingAddress)
-            }
+            addressEntryForm
 
             if !addresses.isEmpty {
-                    ForEach(addresses) { address in
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(address.label)
-                                    .font(titleFont(size: 18))
-                                    .foregroundColor(primaryTextColor)
-                                Text("\(address.fullName) • \(address.phone)")
-                                    .font(bodyFont(size: 13))
-                                    .foregroundColor(secondaryTextColor)
-                                Text("\(address.line1), \(address.city), \(address.country.name)")
-                                    .font(bodyFont(size: 13))
-                                    .foregroundColor(secondaryTextColor)
-                                if let notes = address.notes, !notes.isEmpty {
-                                    Text(notes)
-                                        .font(bodyFont(size: 12))
-                                        .foregroundColor(tertiaryTextColor)
-                                }
-                                if address.isPreferred {
-                                    Text(AppLocalization.text("preferred", fallback: "Preferred"))
-                                        .font(labelFont(size: 10, weight: .bold))
-                                        .tracking(1.6)
-                                        .textCase(.uppercase)
-                                        .foregroundColor(readableBrandGoldColor)
-                                }
-                            }
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(AppLocalization.text("saved_addresses", fallback: "SAVED ADDRESSES"))
+                            .font(labelFont(size: 11, weight: .bold))
+                            .tracking(1.8)
+                            .foregroundColor(primaryTextColor)
 
-                            Spacer(minLength: 0)
+                        Spacer()
 
-                            VStack(spacing: 8) {
-                                if !address.isPreferred {
-                                    Button {
-                                        Task {
-                                            _ = await makePreferredAddress(address)
-                                        }
-                                    } label: {
-                                        HStack(spacing: 7) {
-                                            if selectingAddressID == address.id {
-                                                ProgressView()
-                                                    .tint(readableBrandGoldColor)
-                                            } else {
-                                                Image(systemName: "checkmark.circle")
-                                                    .font(.system(size: 15, weight: .bold))
-                                            }
-                                            Text(AppLocalization.text("use_this_address", fallback: "Use this address"))
-                                                .font(labelFont(size: 10, weight: .bold))
-                                                .lineLimit(1)
-                                        }
-                                        .foregroundColor(readableBrandGoldColor)
-                                        .padding(.horizontal, 12)
-                                        .frame(minHeight: 48)
-                                        .background(Color(hex: 0xC8965A).opacity(0.10))
-                                        .clipShape(Capsule())
-                                        .contentShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(selectingAddressID != nil)
-                                    .accessibilityLabel(AppLocalization.text("use_this_address", fallback: "Use this address"))
-                                }
-
-                                Button {
-                                    Task {
-                                        await deleteAddress(address)
-                                    }
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(primaryTextColor)
-                                        .frame(width: 48, height: 48)
-                                        .background(primaryTextColor.opacity(0.06))
-                                        .clipShape(Circle())
-                                        .contentShape(Circle())
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(AppLocalization.text("delete_address", fallback: "Delete address"))
-                            }
-                        }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(cardFillColor)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        Text("\(addresses.count)")
+                            .font(labelFont(size: 11, weight: .bold))
+                            .foregroundColor(readableBrandGoldColor)
                     }
+
+                    ForEach(addresses) { address in
+                        savedAddressCard(address)
+                    }
+                }
             }
         }
+    }
+
+    private var addressEntryForm: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label {
+                Text(AppLocalization.text("add_new_address", fallback: "ADD A NEW ADDRESS"))
+                    .font(labelFont(size: 11, weight: .bold))
+                    .tracking(1.8)
+            } icon: {
+                Image(systemName: "location.badge.plus")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            .foregroundColor(readableBrandGoldColor)
+
+            Text(AppLocalization.text("delivery_details_hint", fallback: "Save your preferred address here so checkout feels faster, even when Shopify opens on the web."))
+                .font(bodyFont(size: 14))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            addressFormTextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel, capitalization: .words)
+            addressFormTextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName, capitalization: .words)
+
+            HStack(spacing: 8) {
+                if !addressCountry.phonePrefix.isEmpty {
+                    Text(addressCountry.phonePrefix)
+                        .font(labelFont(size: 12, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                        .frame(minWidth: 42, alignment: .leading)
+                }
+
+                TextField(
+                    addressCountry.phonePrefix.isEmpty
+                        ? AppLocalization.text("phone_with_country_code", fallback: "Phone with +country code")
+                        : AppLocalization.text("phone", fallback: "Phone"),
+                    text: $addressPhone
+                )
+                .keyboardType(.phonePad)
+                .font(bodyFont(size: 14))
+                .foregroundColor(primaryTextColor)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .background(cardFillColor)
+            .overlay(addressFieldBorder)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            addressFormTextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1, capitalization: .words)
+            deliveryCountrySelector
+
+            Group {
+                if isCompact {
+                    VStack(spacing: 12) {
+                        addressFormTextField(AppLocalization.text("city", fallback: "City"), text: $addressCity, capitalization: .words)
+                        addressFormTextField(AppLocalization.text("notes", fallback: "Notes (optional)"), text: $addressNotes, capitalization: .sentences)
+                    }
+                } else {
+                    HStack(spacing: 12) {
+                        addressFormTextField(AppLocalization.text("city", fallback: "City"), text: $addressCity, capitalization: .words)
+                        addressFormTextField(AppLocalization.text("notes", fallback: "Notes (optional)"), text: $addressNotes, capitalization: .sentences)
+                    }
+                }
+            }
+
+            Button {
+                Task {
+                    await saveAddress()
+                }
+            } label: {
+                HStack(spacing: 9) {
+                    if isSavingAddress {
+                        ProgressView()
+                            .tint(Color(hex: 0x0A0804))
+                    }
+                    Text(isSavingAddress
+                        ? AppLocalization.text("saving", fallback: "Saving...")
+                        : AppLocalization.text("save_address", fallback: "Save Address"))
+                        .font(labelFont(size: 11, weight: .bold))
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                }
+                .foregroundColor(Color(hex: 0x0A0804))
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(Color(hex: 0xC8965A))
+                .clipShape(Capsule())
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(isSavingAddress)
+            .opacity(isSavingAddress ? 0.72 : 1)
+        }
+        .padding(16)
+        .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.045 : 0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func addressFormTextField(
+        _ title: String,
+        text: Binding<String>,
+        capitalization: TextInputAutocapitalization
+    ) -> some View {
+        TextField(title, text: text)
+            .textInputAutocapitalization(capitalization)
+            .font(bodyFont(size: 14))
+            .foregroundColor(primaryTextColor)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .background(cardFillColor)
+            .overlay(addressFieldBorder)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var addressFieldBorder: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .stroke(Color(hex: 0xC8965A).opacity(0.14), lineWidth: 1)
+    }
+
+    private func savedAddressCard(_ address: DeliveryAddress) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 8) {
+                    Text(address.label)
+                        .font(titleFont(size: 18))
+                        .foregroundColor(primaryTextColor)
+
+                    if address.isPreferred {
+                        Text(AppLocalization.text("preferred", fallback: "Preferred"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(1.2)
+                            .textCase(.uppercase)
+                            .foregroundColor(readableBrandGoldColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(Color(hex: 0xC8965A).opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                }
+
+                Text("\(address.fullName) • \(address.phone)")
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+                Text("\(address.line1), \(address.city), \(address.country.name)")
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let notes = address.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(tertiaryTextColor)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 8) {
+                if !address.isPreferred {
+                    Button {
+                        Task {
+                            _ = await makePreferredAddress(address)
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            if selectingAddressID == address.id {
+                                ProgressView()
+                                    .tint(readableBrandGoldColor)
+                            } else {
+                                Image(systemName: "checkmark.circle")
+                                    .font(.system(size: 15, weight: .bold))
+                            }
+                            Text(AppLocalization.text("use_this_address", fallback: "Use this address"))
+                                .font(labelFont(size: 10, weight: .bold))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(readableBrandGoldColor)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 48)
+                        .background(Color(hex: 0xC8965A).opacity(0.10))
+                        .clipShape(Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(selectingAddressID != nil)
+                    .accessibilityLabel(AppLocalization.text("use_this_address", fallback: "Use this address"))
+                } else {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                        .frame(width: 48, height: 48)
+                        .accessibilityLabel(AppLocalization.text("preferred", fallback: "Preferred"))
+                }
+
+                Button {
+                    Task {
+                        await deleteAddress(address)
+                    }
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 48, height: 48)
+                        .background(primaryTextColor.opacity(0.06))
+                        .clipShape(Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("delete_address", fallback: "Delete address"))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(address.isPreferred ? Color(hex: 0xC8965A).opacity(0.055) : cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(address.isPreferred ? 0.32 : 0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var brewRecipesSection: some View {
@@ -7542,7 +7597,9 @@ struct ContentView: View {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "mappin.and.ellipse")
                             .foregroundColor(readableBrandGoldColor)
-                            .frame(width: 24)
+                            .frame(width: 36, height: 36)
+                            .background(Color(hex: 0xC8965A).opacity(0.10))
+                            .clipShape(Circle())
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(address.label)
@@ -7559,6 +7616,10 @@ struct ContentView: View {
                         Text(AppLocalization.text("change", fallback: "Change"))
                             .font(.footnote.weight(.semibold))
                             .foregroundColor(readableBrandGoldColor)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(Color(hex: 0xC8965A).opacity(0.10))
+                            .clipShape(Capsule())
                     }
                     .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
                     .contentShape(Rectangle())
@@ -7599,11 +7660,17 @@ struct ContentView: View {
     private var checkoutAddressSheet: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 18) {
                     if !addresses.isEmpty {
-                        Text(AppLocalization.text("choose_delivery_address", fallback: "Choose a saved address"))
-                            .font(.headline)
-                            .foregroundColor(primaryTextColor)
+                        HStack {
+                            Text(AppLocalization.text("choose_delivery_address", fallback: "Choose a saved address"))
+                                .font(.headline)
+                                .foregroundColor(primaryTextColor)
+                            Spacer()
+                            Text("\(addresses.count)")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(readableBrandGoldColor)
+                        }
 
                         ForEach(addresses) { address in
                             Button {
@@ -7635,9 +7702,21 @@ struct ContentView: View {
                                     Spacer()
                                 }
                                 .padding(14)
-                                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                                .background(
+                                    address.id == preferredAddress?.id
+                                        ? Color(hex: 0xC8965A).opacity(0.08)
+                                        : cardFillColor,
+                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(
+                                            Color(hex: 0xC8965A).opacity(address.id == preferredAddress?.id ? 0.32 : 0.12),
+                                            lineWidth: 1
+                                        )
+                                )
+                                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                             .buttonStyle(.plain)
                             .disabled(selectingAddressID != nil)
@@ -7648,26 +7727,50 @@ struct ContentView: View {
                         Divider().overlay(Color(hex: 0xC8965A).opacity(0.16))
                     }
 
-                    Text(AppLocalization.text("add_delivery_address", fallback: "Add a new address"))
-                        .font(.headline)
-                        .foregroundColor(primaryTextColor)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label(AppLocalization.text("add_delivery_address", fallback: "Add a new address"), systemImage: "location.badge.plus")
+                            .font(.headline)
+                            .foregroundColor(primaryTextColor)
 
-                    Group {
-                        TextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel)
-                        TextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName)
-                        TextField(AppLocalization.text("phone", fallback: "Phone"), text: $addressPhone)
+                        addressFormTextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel, capitalization: .words)
+                        addressFormTextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName, capitalization: .words)
+
+                        HStack(spacing: 8) {
+                            if !addressCountry.phonePrefix.isEmpty {
+                                Text(addressCountry.phonePrefix)
+                                    .font(labelFont(size: 12, weight: .bold))
+                                    .foregroundColor(readableBrandGoldColor)
+                                    .frame(minWidth: 42, alignment: .leading)
+                            }
+                            TextField(
+                                addressCountry.phonePrefix.isEmpty
+                                    ? AppLocalization.text("phone_with_country_code", fallback: "Phone with +country code")
+                                    : AppLocalization.text("phone", fallback: "Phone"),
+                                text: $addressPhone
+                            )
                             .keyboardType(.phonePad)
-                        TextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1)
+                            .font(bodyFont(size: 14))
+                            .foregroundColor(primaryTextColor)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 52)
+                        .background(cardFillColor)
+                        .overlay(addressFieldBorder)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                        addressFormTextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1, capitalization: .words)
                         deliveryCountrySelector
-                        TextField(AppLocalization.text("city", fallback: "City"), text: $addressCity)
-                        TextField(AppLocalization.text("notes", fallback: "Delivery notes (optional)"), text: $addressNotes)
+
+                        addressFormTextField(AppLocalization.text("city", fallback: "City"), text: $addressCity, capitalization: .words)
+                        addressFormTextField(AppLocalization.text("notes", fallback: "Delivery notes (optional)"), text: $addressNotes, capitalization: .sentences)
                     }
-                    .textInputAutocapitalization(.words)
-                    .font(bodyFont(size: 14))
-                    .foregroundColor(primaryTextColor)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 48)
-                    .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(16)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.045 : 0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                     Button {
                         Task {
@@ -7678,16 +7781,24 @@ struct ContentView: View {
                             }
                         }
                     } label: {
-                        Text(isSavingAddress
-                            ? AppLocalization.text("saving", fallback: "Saving…")
-                            : AppLocalization.text("save_address", fallback: "Save address"))
-                            .font(.headline)
-                            .foregroundColor(Color(hex: 0x0A0804))
-                            .frame(maxWidth: .infinity, minHeight: 50)
-                            .background(Color(hex: 0xC8965A), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        HStack(spacing: 9) {
+                            if isSavingAddress {
+                                ProgressView()
+                                    .tint(Color(hex: 0x0A0804))
+                            }
+                            Text(isSavingAddress
+                                ? AppLocalization.text("saving", fallback: "Saving…")
+                                : AppLocalization.text("save_address", fallback: "Save address"))
+                                .font(.headline)
+                        }
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Color(hex: 0xC8965A), in: Capsule())
+                        .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .disabled(isSavingAddress)
+                    .opacity(isSavingAddress ? 0.72 : 1)
                 }
                 .padding(18)
             }

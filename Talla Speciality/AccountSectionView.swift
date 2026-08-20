@@ -474,6 +474,8 @@ struct AccountSectionView: View {
             ScrollView(showsIndicators: false) {
                 activeDetailContent(detail)
                     .padding(18)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: detail == .addresses ? 680 : .infinity, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(isLightAppearance ? Color(hex: 0xFFFDF9) : (isOLEDAppearance ? .black : Color(hex: 0x181411)))
@@ -487,8 +489,8 @@ struct AccountSectionView: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(primaryTextColor)
-                            .frame(width: 32, height: 32)
-                            .background(cardFillColor)
+                            .frame(width: 44, height: 44)
+                            .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
@@ -496,6 +498,7 @@ struct AccountSectionView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .contentShape(Circle())
                     .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
                 }
             }
