@@ -2799,7 +2799,7 @@ struct BrewingSectionView: View {
             VStack(spacing: 0) {
                 scienceTopicCard(id: "temperature", title: AppLocalization.text("why_this_temperature", fallback: "Why this temperature"), summary: restoredTemperatureReason ?? smartRecipe.temperatureReason, more: "Recommended range: \(smartRecipe.temperatureRange). Talla considered the \(coffeeRoastLevel.lowercased()) roast, \(coffeeProcess.isEmpty ? "unknown process" : coffeeProcess.lowercased()), altitude, roast age, brew mode, and your \(generatedTasteGoalName.lowercased()) goal.")
                 recipeDivider
-                scienceTopicCard(id: "grind", title: AppLocalization.text("why_this_grind", fallback: "Why this grind"), summary: "\(generatedGrindDescription) at about \(smartRecipe.grindMicrons) μm matches this dose, brewer, process, and taste goal.", more: "Your \(recipeGrinder.isEmpty ? "grinder" : recipeGrinder) starting point is \(generatedGrinderSetting). Coffee Doctor will move this in small steps when a brew tastes sour, bitter, dry, fast, or slow.")
+                scienceTopicCard(id: "grind", title: AppLocalization.text("why_this_grind", fallback: "Why this grind"), summary: "\(generatedGrindDescription) at about \(smartRecipe.grindMicrons) μm matches this dose, brewer, process, and taste goal.", more: "Your \(recipeGrinder.isEmpty ? "grinder" : recipeGrinder) starting point is \(generatedGrinderSetting). Talla Dial-In will move this in small steps when a brew tastes sour, bitter, dry, fast, or slow.")
                 recipeDivider
                 scienceTopicCard(id: "ratio", title: AppLocalization.text("why_this_ratio", fallback: "Why this ratio"), summary: "1:\(formattedRatioValue(validRatioValue)) produces \(formattedWholeGram(validWaterAmount)) g total water from \(formattedRatioValue(validCoffeeAmount)) g coffee.", more: isV60IcedRecipe ? "For iced brewing, Talla preserves that ratio by splitting the total into \(formattedWholeGram(recipeBrewingWaterAmount)) g hot water and \(formattedWholeGram(recipeIceAmount)) g ice." : "The expected beverage is about \(formattedWholeGram(expectedBeverageAmount)) g after allowing for coffee-bed retention.")
                 recipeDivider
@@ -3616,7 +3616,7 @@ struct BrewingSectionView: View {
         storedCoffeeCalibrations = payload
     }
 
-    private func rememberCoffeeDoctorCalibration(from changes: [RecipeRevisionChange]) {
+    private func rememberTallaDialInCalibration(from changes: [RecipeRevisionChange]) {
         guard !coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         var records = coffeeCalibrationRecords
         let identity = currentCoffeeIdentity
@@ -3722,7 +3722,7 @@ struct BrewingSectionView: View {
             "The \(formattedRatioValue(validCoffeeAmount)) g dose and 1:\(formattedRatioValue(validRatioValue)) ratio set every cumulative water target."
         ]
         if let calibration = activeCoffeeCalibration {
-            decisions.append("Coffee Doctor applied \(calibration.calibration.brewCount) saved refinement\(calibration.calibration.brewCount == 1 ? "" : "s") from earlier brews of this coffee.")
+            decisions.append("Talla Dial-In applied \(calibration.calibration.brewCount) saved refinement\(calibration.calibration.brewCount == 1 ? "" : "s") from earlier brews of this coffee.")
         }
         return decisions.joined(separator: " ")
     }
@@ -6717,7 +6717,7 @@ struct BrewingSectionView: View {
         let versionTitle = "\(baseTitle) v\(brewHistoryItems.count + 2)"
         revisedRecipeVersionTitle = versionTitle
 
-        rememberCoffeeDoctorCalibration(from: recipeRevisionChanges)
+        rememberTallaDialInCalibration(from: recipeRevisionChanges)
         applyRecipeRevisionChanges(recipeRevisionChanges)
 
         brewRecipeName = versionTitle

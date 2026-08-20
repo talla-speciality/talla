@@ -75,7 +75,7 @@ struct Talla_SpecialityTests {
         #expect(recipe.grinderSetting.contains("μm"))
     }
 
-    @Test func coffeeDoctorCalibrationChangesFutureRecipesForThatCoffee() {
+    @Test func tallaDialInCalibrationChangesFutureRecipesForThatCoffee() {
         let baseline = SmartBrewRecipeEngine.generate(smartInput())
         let input = SmartBrewInput(
             coffeeGrams: 20,
