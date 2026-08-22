@@ -309,6 +309,7 @@ struct BrewingSectionView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var brewingColorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var scaleManager = CoffeeScaleManager()
     @AppStorage(BrewSessionStorage.profileCompletedKey) private var isBrewProfileComplete = false
     @AppStorage(BrewSessionStorage.profileExperienceKey) private var storedBrewProfileExperience = "basics"
@@ -642,8 +643,8 @@ struct BrewingSectionView: View {
                 }
             }
 
-            brewScaleConnectionSection
             primaryBrewEntrySection
+            brewScaleConnectionSection
             brewingMinimalRecentRecipes
             brewingLibrarySection
             exploreBrewingGuidesSection
@@ -1014,13 +1015,13 @@ struct BrewingSectionView: View {
                         )
                         methodChoiceSection(
                             title: AppLocalization.text("favourites", fallback: "Favourites"),
-                            methods: favoriteMethodChoices
+                            methods: deduplicatedFavoriteMethodChoices
                         )
                     }
 
                     methodChoiceSection(
                         title: AppLocalization.text("popular_methods", fallback: "Popular Methods"),
-                        methods: filteredMethodChoices
+                        methods: deduplicatedFilteredMethodChoices
                     )
                 }
                 .padding(.horizontal, 22)
@@ -1031,22 +1032,35 @@ struct BrewingSectionView: View {
             .background(brewBackgroundColor.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
                 if let selectedMethodChoice {
-                    VStack(spacing: 0) {
+                    VStack(spacing: 10) {
                         brewDivider.padding(.leading, 0)
                         Button {
                             beginBrewSetup(with: selectedMethodChoice)
                         } label: {
-                            Text(String(format: AppLocalization.text("continue_with_method", fallback: "Continue with %@"), selectedMethodChoice.title))
+                            Text(String(format: AppLocalization.text("start_guided_brew_with_method", fallback: "Start guided brew with %@"), selectedMethodChoice.title))
                                 .font(.system(size: 16, weight: .semibold))
                                 .frame(maxWidth: .infinity, minHeight: 50)
                         }
                         .buttonStyle(.plain)
                         .foregroundColor(brewingColorScheme == .dark ? brewPrimaryTextColor : .white)
                         .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .padding(.horizontal, 22)
-                        .padding(.vertical, 14)
-                        .background(brewBackgroundColor)
+
+                        Button {
+                            beginCustomRecipeSetup(with: selectedMethodChoice)
+                        } label: {
+                            Text(AppLocalization.text("customize_recipe", fallback: "Customize recipe"))
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(brewAccentColor)
+                                .frame(maxWidth: .infinity, minHeight: 36)
+                        }
+                        .buttonStyle(.plain)
+
+                        .padding(.bottom, 4)
                     }
+                        .padding(.horizontal, 22)
+                        .padding(.top, 10)
+                        .padding(.bottom, 8)
+                        .background(brewBackgroundColor)
                 }
             }
             .toolbar {
@@ -1060,8 +1074,40 @@ struct BrewingSectionView: View {
         }
     }
 
+    @ViewBuilder
     private var methodCategorySelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        if horizontalSizeClass == .compact {
+            Menu {
+                ForEach(methodCategoryFilters, id: \.self) { category in
+                    Button {
+                        methodCategoryFilter = category
+                    } label: {
+                        if methodCategoryFilter == category {
+                            Label(category, systemImage: "checkmark")
+                        } else {
+                            Text(category)
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(String(format: AppLocalization.text("category_format", fallback: "Category: %@"), methodCategoryFilter))
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(brewPrimaryTextColor)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .background(brewSurfaceColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(brewBorderColor, lineWidth: 1)
+                )
+            }
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(methodCategoryFilters, id: \.self) { category in
                     Button {
@@ -1082,6 +1128,7 @@ struct BrewingSectionView: View {
                     .accessibilityAddTraits(methodCategoryFilter == category ? .isSelected : [])
                 }
             }
+        }
         }
     }
 
@@ -1424,6 +1471,19 @@ struct BrewingSectionView: View {
         }
     }
 
+    private var deduplicatedFavoriteMethodChoices: [BrewingMethodChoice] {
+        let recentIDs = Set(recentMethodChoices.map(\.id))
+        return favoriteMethodChoices.filter { !recentIDs.contains($0.id) }
+    }
+
+    private var deduplicatedFilteredMethodChoices: [BrewingMethodChoice] {
+        guard methodSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return filteredMethodChoices
+        }
+        let shownIDs = Set((recentMethodChoices + deduplicatedFavoriteMethodChoices).map(\.id))
+        return filteredMethodChoices.filter { !shownIDs.contains($0.id) }
+    }
+
     private var selectedMethodChoice: BrewingMethodChoice? {
         methodChoice(for: selectedMethodChoiceID)
     }
@@ -1483,6 +1543,31 @@ struct BrewingSectionView: View {
             storedBrewProfileBrewer = method.id
         }
         if isCustomerSignedIn {
+            storedLastBrewMethodID = method.id
+            if rememberSelection || storedLastBrewTimestamp == 0 {
+                storedLastBrewTimestamp = Date().timeIntervalSince1970
+            }
+        }
+
+        isMethodSelectionPresented = false
+
+        DispatchQueue.main.async {
+            if let guidedMethod = displayedMethods.first(where: { $0.id == displayedMethodID }) {
+                selectBrewModeMethod(guidedMethod, start: true)
+            } else {
+                beginCustomRecipeSetup(with: method, rememberSelection: false)
+            }
+        }
+    }
+
+    private func beginCustomRecipeSetup(with method: BrewingMethodChoice, rememberSelection: Bool = true) {
+        createRecipeBrewer = method.id
+        let displayedMethodID = matchingDisplayedMethodID(for: method)
+        selectedBrewModeMethodID = displayedMethodID
+        let publishedRecipe = displayedMethods.first { $0.id == displayedMethodID }?.publishedRecipe
+        applyPublishedRecipeDefaults(for: method.id, publishedRecipe: publishedRecipe)
+        if isCustomerSignedIn {
+            storedBrewProfileBrewer = method.id
             storedLastBrewMethodID = method.id
             if rememberSelection || storedLastBrewTimestamp == 0 {
                 storedLastBrewTimestamp = Date().timeIntervalSince1970

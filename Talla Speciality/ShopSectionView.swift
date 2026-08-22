@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ShopSectionView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let activeCategoryTitle: String
     let availableCategories: [ContentView.ShopCategory]
     let filteredProducts: [ContentView.Product]
@@ -362,13 +363,49 @@ struct ShopSectionView: View {
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 7) {
+            if horizontalSizeClass == .compact {
+                Menu {
                     ForEach(availableCategories) { category in
-                        shopCategoryButton(category)
+                        Button {
+                            activeCategory = category.key
+                            categorySelected()
+                        } label: {
+                            if activeCategory == category.key {
+                                Label(category.title, systemImage: "checkmark")
+                            } else {
+                                Text(category.title)
+                            }
+                        }
                     }
+                } label: {
+                    HStack(spacing: 10) {
+                        Text(activeCategoryTitle)
+                            .font(categoryLabelFont)
+                            .tracking(localizedTracking(0.8))
+                            .textCase(.uppercase)
+                            .foregroundColor(primaryTextColor)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(accentColor)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .background(cardFillColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(accentColor.opacity(0.28), lineWidth: 1)
+                    )
                 }
-                .padding(.vertical, 2)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 7) {
+                        ForEach(availableCategories) { category in
+                            shopCategoryButton(category)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
             }
         }
     }

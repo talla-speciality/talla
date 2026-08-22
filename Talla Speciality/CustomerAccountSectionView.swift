@@ -51,7 +51,7 @@ struct CustomerAccountSectionView: View {
                 signedInContent
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(AppLocalization.text("customer_sign_in", fallback: "CUSTOMER SIGN IN"))
+                    Text(accountAuthTitle)
                         .font(titleFont)
                         .foregroundColor(primaryTextColor)
 
@@ -93,7 +93,18 @@ struct CustomerAccountSectionView: View {
             HStack(spacing: 10) {
                 accountModeButton(title: AppLocalization.text("sign_in", fallback: "Sign In"), mode: .signIn)
                 accountModeButton(title: AppLocalization.text("create_account", fallback: "Create Account"), mode: .createAccount)
-                accountModeButton(title: AppLocalization.text("change_password", fallback: "Change Password"), mode: .changePassword)
+            }
+
+            if accountAuthMode != .changePassword {
+                Button(AppLocalization.text("change_password", fallback: "Change Password")) {
+                    toggleModeAction(.changePassword)
+                }
+                .font(Font.custom("AvenirNext-Bold", size: 11))
+                .tracking(1.6)
+                .textCase(.uppercase)
+                .foregroundColor(accentColor)
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             if accountAuthMode == .createAccount {
@@ -212,6 +223,17 @@ struct CustomerAccountSectionView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    private var accountAuthTitle: String {
+        switch accountAuthMode {
+        case .signIn:
+            return AppLocalization.text("customer_sign_in", fallback: "CUSTOMER SIGN IN")
+        case .createAccount:
+            return AppLocalization.text("create_your_account", fallback: "CREATE YOUR ACCOUNT")
+        case .changePassword:
+            return AppLocalization.text("change_your_password", fallback: "CHANGE YOUR PASSWORD")
         }
     }
 

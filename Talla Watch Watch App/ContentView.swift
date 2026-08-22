@@ -290,6 +290,14 @@ extension TallaWatchStore: WCSessionDelegate {
             }
         }
     }
+
+#if os(iOS)
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
+
+    nonisolated func sessionDidDeactivate(_ session: WCSession) {
+        session.activate()
+    }
+#endif
 }
 #endif
 

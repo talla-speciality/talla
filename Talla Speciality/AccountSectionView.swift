@@ -114,7 +114,16 @@ struct AccountSectionView: View {
         openOrdersAction()
     }
 
+    @ViewBuilder
     private var accountSummaryCard: some View {
+        if isCustomerSignedIn {
+            signedInAccountSummaryCard
+        } else {
+            guestAccountSummaryCard
+        }
+    }
+
+    private var signedInAccountSummaryCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "person.crop.circle.fill")
@@ -171,6 +180,51 @@ struct AccountSectionView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .id(ScrollTarget.loyalty)
+    }
+
+    private var guestAccountSummaryCard: some View {
+        Button {
+            isCustomerSectionExpanded = true
+            presentedDetail = .personalDetails
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(accentColor)
+                    .frame(width: 46, height: 46)
+                    .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("welcome_to_talla", fallback: "Welcome to Talla"))
+                        .font(titleFont)
+                        .foregroundColor(primaryTextColor)
+
+                    Text(AppLocalization.text("account_guest_summary", fallback: "Sign in or create an account to manage orders, addresses, and rewards."))
+                        .font(quickActionBodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 4)
+
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(AppLocalization.text("account_guest_action_hint", fallback: "Opens account sign in and registration"))
+        .id(ScrollTarget.customer)
     }
 
     private func accountSummaryMetric(value: String, label: String) -> some View {
@@ -286,26 +340,7 @@ struct AccountSectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             accountAreaCard(
                 title: AppLocalization.text("account_and_settings", fallback: "Account & Settings"),
-                rows: [
-                    accountNavigationRowData(
-                        detail: .personalDetails,
-                        title: AppLocalization.text("personal_information", fallback: "Personal information"),
-                        subtitle: accountProfileSubtitle,
-                        systemImage: "person.text.rectangle.fill"
-                    ),
-                    accountNavigationRowData(
-                        detail: .password,
-                        title: AppLocalization.text("password_and_security", fallback: "Password and security"),
-                        subtitle: AppLocalization.text("manage_password", fallback: "Manage password"),
-                        systemImage: "lock.fill"
-                    ),
-                    accountNavigationRowData(
-                        detail: .support,
-                        title: AppLocalization.text("support", fallback: "Support"),
-                        subtitle: AppLocalization.text("settings_help_summary", fallback: "Language, notifications, support"),
-                        systemImage: "gearshape.fill"
-                    )
-                ]
+                rows: accountAndSettingsRows
             )
             .id(ScrollTarget.customer)
 
@@ -341,19 +376,52 @@ struct AccountSectionView: View {
             )
             .id(ScrollTarget.brewing)
 
-            accountAreaCard(
-                title: AppLocalization.text("session", fallback: "Session"),
-                rows: [
-                    accountNavigationRowData(
-                        detail: nil,
-                        title: AppLocalization.text("sign_out", fallback: "Sign out"),
-                        subtitle: isCustomerSignedIn ? AppLocalization.text("end_session", fallback: "End this session") : AppLocalization.text("not_signed_in", fallback: "Not signed in"),
-                        systemImage: "rectangle.portrait.and.arrow.right",
-                        action: signOutAction
-                    )
-                ]
-            )
+            if isCustomerSignedIn {
+                accountAreaCard(
+                    title: AppLocalization.text("session", fallback: "Session"),
+                    rows: [
+                        accountNavigationRowData(
+                            detail: nil,
+                            title: AppLocalization.text("sign_out", fallback: "Sign out"),
+                            subtitle: AppLocalization.text("end_session", fallback: "End this session"),
+                            systemImage: "rectangle.portrait.and.arrow.right",
+                            action: signOutAction
+                        )
+                    ]
+                )
+            }
         }
+    }
+
+    private var accountAndSettingsRows: [AccountNavigationRowData] {
+        [
+            accountNavigationRowData(
+                detail: .personalDetails,
+                title: isCustomerSignedIn
+                    ? AppLocalization.text("personal_information", fallback: "Personal information")
+                    : AppLocalization.text("sign_in_or_create_account", fallback: "Sign in or create account"),
+                subtitle: isCustomerSignedIn
+                    ? accountProfileSubtitle
+                    : AppLocalization.text("account_access_summary", fallback: "Access orders, delivery details, and rewards"),
+                systemImage: isCustomerSignedIn ? "person.text.rectangle.fill" : "person.crop.circle.badge.plus"
+            ),
+            accountNavigationRowData(
+                detail: .password,
+                title: isCustomerSignedIn
+                    ? AppLocalization.text("password_and_security", fallback: "Password and security")
+                    : AppLocalization.text("reset_password", fallback: "Reset password"),
+                subtitle: isCustomerSignedIn
+                    ? AppLocalization.text("manage_password", fallback: "Manage password")
+                    : AppLocalization.text("password_help_summary", fallback: "Get help accessing your account"),
+                systemImage: "lock.fill"
+            ),
+            accountNavigationRowData(
+                detail: .support,
+                title: AppLocalization.text("support", fallback: "Support"),
+                subtitle: AppLocalization.text("settings_help_summary", fallback: "Language, notifications, support"),
+                systemImage: "gearshape.fill"
+            )
+        ]
     }
 
     private struct AccountNavigationRowData: Identifiable {
@@ -508,9 +576,13 @@ struct AccountSectionView: View {
     private func activeDetailTitle(_ detail: AccountDetail) -> String {
         switch detail {
         case .personalDetails:
-            return AppLocalization.text("personal_details", fallback: "Personal details")
+            return isCustomerSignedIn
+                ? AppLocalization.text("personal_details", fallback: "Personal details")
+                : AppLocalization.text("account_access", fallback: "Account access")
         case .password:
-            return AppLocalization.text("password", fallback: "Password")
+            return isCustomerSignedIn
+                ? AppLocalization.text("password", fallback: "Password")
+                : AppLocalization.text("reset_password", fallback: "Reset password")
         case .orders:
             return AppLocalization.text("orders", fallback: "Orders")
         case .addresses:
@@ -597,24 +669,29 @@ struct AccountSectionView: View {
         }
     }
 
+    @ViewBuilder
     private var accountQuickActions: some View {
         LazyVGrid(columns: accountQuickActionColumns, spacing: 10) {
-            accountQuickChip(
-                title: AppLocalization.text("orders", fallback: "Orders"),
-                detail: orderCount == 0
-                    ? AppLocalization.text("no_orders_short", fallback: "No orders")
-                    : "\(orderCount) saved",
-                systemImage: "shippingbox.fill",
-                action: {
-                    presentedDetail = .orders
-                    isCustomerSectionExpanded = true
-                    openOrdersAction()
-                }
-            )
+            if isCustomerSignedIn {
+                accountQuickChip(
+                    title: AppLocalization.text("orders", fallback: "Orders"),
+                    detail: orderCount == 0
+                        ? AppLocalization.text("no_orders_short", fallback: "No orders")
+                        : "\(orderCount) saved",
+                    systemImage: "shippingbox.fill",
+                    action: {
+                        presentedDetail = .orders
+                        isCustomerSectionExpanded = true
+                        openOrdersAction()
+                    }
+                )
+            }
 
             accountQuickChip(
                 title: AppLocalization.text("loyalty", fallback: "Rewards"),
-                detail: "\(beansBalance) Beans",
+                detail: isCustomerSignedIn
+                    ? "\(beansBalance) Beans"
+                    : AppLocalization.text("check_rewards", fallback: "Check rewards"),
                 systemImage: "sparkles",
                 action: {
                     presentedDetail = .beansBalance
@@ -622,17 +699,19 @@ struct AccountSectionView: View {
                 }
             )
 
-            accountQuickChip(
-                title: AppLocalization.text("addresses", fallback: "Addresses"),
-                detail: addressesCount == 0
-                    ? AppLocalization.text("delivery_setup_empty", fallback: "Add address")
-                    : "\(addressesCount) saved",
-                systemImage: "location.fill",
-                action: {
-                    presentedDetail = .addresses
-                    isLibrarySectionExpanded = true
-                }
-            )
+            if isCustomerSignedIn {
+                accountQuickChip(
+                    title: AppLocalization.text("addresses", fallback: "Addresses"),
+                    detail: addressesCount == 0
+                        ? AppLocalization.text("delivery_setup_empty", fallback: "Add address")
+                        : "\(addressesCount) saved",
+                    systemImage: "location.fill",
+                    action: {
+                        presentedDetail = .addresses
+                        isLibrarySectionExpanded = true
+                    }
+                )
+            }
 
             accountQuickChip(
                 title: AppLocalization.text("saved", fallback: "Saved"),

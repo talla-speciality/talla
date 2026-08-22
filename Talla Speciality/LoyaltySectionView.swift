@@ -40,7 +40,7 @@ struct LoyaltySectionView: View {
                 loyaltyLookupCard
 
                 if !savedLoyaltyEmail.isEmpty {
-                    loyaltyBenefit(title: AppLocalization.text("signed_in", fallback: "Signed In"), detail: savedLoyaltyEmail)
+                    loyaltyBenefit(title: AppLocalization.text("rewards_email_connected", fallback: "Rewards email connected"), detail: savedLoyaltyEmail)
                 }
             }
 
@@ -313,7 +313,7 @@ struct LoyaltySectionView: View {
 
             if !savedLoyaltyEmail.isEmpty {
                 Button(action: signOutAction) {
-                    Text(AppLocalization.text("sign_out", fallback: "SIGN OUT"))
+                    Text(AppLocalization.text("disconnect_rewards", fallback: "DISCONNECT REWARDS"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(2)
                         .textCase(.uppercase)

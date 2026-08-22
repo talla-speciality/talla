@@ -782,6 +782,7 @@ struct ContentView: View {
     @State private var selectedProduct: Product?
     @State private var isFavoriteShelfPresented = false
     @State private var isHomeShelfExpanded = false
+    @State private var isHomeMoreExpanded = false
     @State private var voucherCodeInput = ""
     @State private var appliedVoucher: VoucherRecord?
     @State private var isApplyingVoucher = false
@@ -2423,7 +2424,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var appTabView: some View {
-        if #available(iOS 18.0, *) {
+        if #available(iOS 18.0, *), horizontalSizeClass == .regular {
             baseTabView
                 .tabViewStyle(.sidebarAdaptable)
         } else {
@@ -2990,7 +2991,7 @@ struct ContentView: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "gearshape.fill")
+                    Image(systemName: "circle.lefthalf.filled")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(readableBrandGoldColor)
                         .frame(width: 40, height: 40)
@@ -3002,6 +3003,7 @@ struct ContentView: View {
                         )
                 }
                 .menuStyle(.button)
+                .accessibilityLabel(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"))
             }
         }
         .padding(.horizontal, 18)
@@ -3084,18 +3086,67 @@ struct ContentView: View {
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }
-            if remoteAppSettings?.homeSections.showFunPick != false {
-                homeSurprisePick
-            }
             if remoteAppSettings?.homeSections.showSignatureRoasts != false {
                 featuredProducts
             }
-            if remoteAppSettings?.homeSections.showPassport != false {
-                tallaPassportSection
+
+            homeMoreSectionsToggle
+
+            if isHomeMoreExpanded {
+                Group {
+                    if remoteAppSettings?.homeSections.showFunPick != false {
+                        homeSurprisePick
+                    }
+                    if remoteAppSettings?.homeSections.showPassport != false {
+                        tallaPassportSection
+                    }
+                    homeFavoritesShelf
+                    homeRecentlyViewedShelf
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            homeFavoritesShelf
-            homeRecentlyViewedShelf
         }
+    }
+
+    private var homeMoreSectionsToggle: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                isHomeMoreExpanded.toggle()
+            }
+        } label: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppLocalization.text("more_from_talla", fallback: "More from Talla"))
+                        .font(titleFont(size: 17))
+                        .foregroundColor(primaryTextColor)
+                    Text(AppLocalization.text("more_from_talla_summary", fallback: "Surprise picks, passport, favourites, and recent items"))
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: isHomeMoreExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(readableBrandGoldColor)
+            }
+            .padding(15)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+        .accessibilityValue(isHomeMoreExpanded
+            ? AppLocalization.text("expanded", fallback: "Expanded")
+            : AppLocalization.text("collapsed", fallback: "Collapsed"))
     }
 
     @ViewBuilder
@@ -3209,6 +3260,7 @@ struct ContentView: View {
                     .frame(width: cardWidth - 20, height: isCompact ? 106 : 118)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(String(format: AppLocalization.text("view_product_format", fallback: "View %@"), customerFacingProductName(for: product)))
 
             Text(customerFacingProductName(for: product))
                 .font(titleFont(size: isCompact ? 15 : 16))
@@ -9091,6 +9143,9 @@ struct ContentView: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(isFavorite(product)
+                        ? AppLocalization.text("remove_from_favorites", fallback: "Remove from favourites")
+                        : AppLocalization.text("add_to_favorites", fallback: "Add to favourites"))
 
                     if shouldShowAlertButton {
                         Button {
