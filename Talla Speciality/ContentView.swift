@@ -9503,7 +9503,12 @@ struct ContentView: View {
             ("yemen", "Yemen"),
             ("kenya", "Kenya"),
             ("guatemala", "Guatemala"),
-            ("costa rica", "Costa Rica")
+            ("costa rica", "Costa Rica"),
+            ("greece", "Greece"),
+            ("qatar", "Qatar"),
+            ("united arab emirates", "United Arab Emirates"),
+            ("emirati", "United Arab Emirates"),
+            ("kuwait", "Kuwait")
         ])
     }
 
@@ -15062,6 +15067,51 @@ enum ProductCatalogRules {
         return tag == "BESTSELLER" ? "BEST SELLER" : tag
     }
 
+    static func countryOfOriginLabel(from tags: [String]) -> String? {
+        let countryNamesByTag = [
+            "bolivia": "Bolivia",
+            "brazil": "Brazil",
+            "burundi": "Burundi",
+            "colombia": "Colombia",
+            "costa rica": "Costa Rica",
+            "ecuador": "Ecuador",
+            "el salvador": "El Salvador",
+            "ethiopia": "Ethiopia",
+            "greece": "Greece",
+            "guatemala": "Guatemala",
+            "honduras": "Honduras",
+            "india": "India",
+            "indonesia": "Indonesia",
+            "kenya": "Kenya",
+            "kuwait": "Kuwait",
+            "mexico": "Mexico",
+            "nicaragua": "Nicaragua",
+            "panama": "Panama",
+            "papua new guinea": "Papua New Guinea",
+            "peru": "Peru",
+            "qatar": "Qatar",
+            "rwanda": "Rwanda",
+            "tanzania": "Tanzania",
+            "thailand": "Thailand",
+            "uganda": "Uganda",
+            "united arab emirates": "United Arab Emirates",
+            "uae": "United Arab Emirates",
+            "vietnam": "Vietnam",
+            "yemen": "Yemen"
+        ]
+        var seenCountries = Set<String>()
+        let countries = tags.compactMap { tag -> String? in
+            let normalizedTag = tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard let country = countryNamesByTag[normalizedTag], seenCountries.insert(country).inserted else {
+                return nil
+            }
+            return country
+        }
+
+        guard let firstCountry = countries.first else { return nil }
+        return countries.count == 1 ? firstCountry : "\(firstCountry) +\(countries.count - 1)"
+    }
+
     private static func containsAny(_ source: String, _ needles: [String]) -> Bool {
         needles.contains { source.contains($0) }
     }
@@ -15159,8 +15209,11 @@ private extension ContentView.Product {
             )
         }
         let defaultVariant = variants.first(where: \.isAvailableForSale) ?? variants.first
-        let countryOfOrigin = shopifyNode.countryOfOrigin?.value
+        let metafieldCountryOfOrigin = shopifyNode.countryOfOrigin?.value
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let countryOfOrigin = metafieldCountryOfOrigin?.isEmpty == false
+            ? metafieldCountryOfOrigin
+            : ProductCatalogRules.countryOfOriginLabel(from: shopifyNode.tags)
 
         self.init(
             id: shopifyNode.id,
@@ -15174,7 +15227,7 @@ private extension ContentView.Product {
             imageURL: shopifyNode.featuredImage?.url,
             desc: shopifyNode.description,
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
-            countryOfOrigin: countryOfOrigin?.isEmpty == false ? countryOfOrigin : nil,
+            countryOfOrigin: countryOfOrigin,
             isAvailableForSale: defaultVariant?.isAvailableForSale ?? false
         )
     }

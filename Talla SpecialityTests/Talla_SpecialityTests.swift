@@ -402,4 +402,15 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.productTag(from: ["local", "new"]) == "NEW")
         #expect(ProductCatalogRules.productTag(from: ["single-origin"]) == nil)
     }
+
+    @Test func readsCountryOfOriginFromShopifyTags() {
+        #expect(ProductCatalogRules.countryOfOriginLabel(from: ["Greece"]) == "Greece")
+        #expect(ProductCatalogRules.countryOfOriginLabel(from: ["United Arab Emirates"]) == "United Arab Emirates")
+        #expect(ProductCatalogRules.countryOfOriginLabel(from: ["Cups"]) == nil)
+    }
+
+    @Test func summarizesProductsWithMultipleOrigins() {
+        #expect(ProductCatalogRules.countryOfOriginLabel(from: ["Brazil", "Colombia", "Ethiopia", "Yemen"]) == "Brazil +3")
+        #expect(ProductCatalogRules.countryOfOriginLabel(from: ["Colombia", "Yemen"]) == "Colombia +1")
+    }
 }
