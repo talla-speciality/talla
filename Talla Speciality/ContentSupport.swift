@@ -1242,6 +1242,7 @@ enum AppLocalization {
         ,"origami_detail_short": ["ar": "تدفق مرن ووضوح أنيق."]
         ,"origami_profile_detail": ["ar": "تدفق مرن ووضوح."]
         ,"origin": ["ar": "المصدر"]
+        ,"country_of_origin": ["ar": "بلد المنشأ"]
         ,"other_brewer_detail_short": ["ar": "سيكيّف Talla الوصفة يدوياً."]
         ,"other_profile_detail": ["ar": "ابحث في قائمة أدوات التحضير."]
         ,"over_target_format": ["ar": "أعلى بـ %@"]

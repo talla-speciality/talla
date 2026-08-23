@@ -257,6 +257,7 @@ struct ContentView: View {
         let imageURL: URL?
         let desc: String
         let tag: String?
+        let countryOfOrigin: String?
         let isAvailableForSale: Bool
 
         var defaultVariant: Variant? {
@@ -9185,14 +9186,27 @@ struct ContentView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(product.categoryLabel)
-                    .font(labelFont(size: 10, weight: .semibold))
-                    .tracking(1.4)
-                    .textCase(.uppercase)
-                    .foregroundColor(tertiaryTextColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(height: 13, alignment: .leading)
+                HStack(spacing: 4) {
+                    Text(product.categoryLabel)
+                        .font(labelFont(size: 10, weight: .semibold))
+                        .tracking(1.4)
+                        .textCase(.uppercase)
+                        .foregroundColor(tertiaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    Spacer(minLength: 2)
+
+                    if let countryOfOrigin = productCountryOfOrigin(for: product) {
+                        Label(countryOfOrigin, systemImage: "globe.europe.africa.fill")
+                            .font(labelFont(size: 9, weight: .semibold))
+                            .foregroundColor(readableBrandGoldColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .accessibilityLabel("\(AppLocalization.text("country_of_origin", fallback: "Country of origin")): \(countryOfOrigin)")
+                    }
+                }
+                .frame(height: 13, alignment: .leading)
 
                 Text(product.name)
                     .font(titleFont(size: showDescription ? (isCompact ? 16 : 18) : (isCompact ? 18 : 20)))
@@ -9468,24 +9482,29 @@ struct ContentView: View {
     }
 
     private func productOriginLabel(for product: Product) -> String {
-        let searchableText = normalizedSearchText(for: product)
+        if let countryOfOrigin = productCountryOfOrigin(for: product) {
+            return countryOfOrigin
+        }
 
-        if let origin = firstMatchedValue(in: searchableText, matches: [
+        return product.categoryLabel.isEmpty
+            ? AppLocalization.text("signature_roast_origin_fallback", fallback: "Signature Roast")
+            : product.categoryLabel
+    }
+
+    private func productCountryOfOrigin(for product: Product) -> String? {
+        if let countryOfOrigin = product.countryOfOrigin {
+            return countryOfOrigin
+        }
+
+        return firstMatchedValue(in: normalizedSearchText(for: product), matches: [
             ("ethiopia", "Ethiopia"),
             ("colombia", "Colombia"),
             ("brazil", "Brazil"),
             ("yemen", "Yemen"),
             ("kenya", "Kenya"),
             ("guatemala", "Guatemala"),
-            ("costa rica", "Costa Rica"),
-            ("arabic", "Arabic Coffee")
-        ]) {
-            return origin
-        }
-
-        return product.categoryLabel.isEmpty
-            ? AppLocalization.text("signature_roast_origin_fallback", fallback: "Signature Roast")
-            : product.categoryLabel
+            ("costa rica", "Costa Rica")
+        ])
     }
 
     private func productTasteNotes(for product: Product) -> [String] {
@@ -14437,6 +14456,9 @@ private enum ShopifyStorefrontClient {
                     description
                     tags
                     productType
+                    countryOfOrigin: metafield(namespace: "custom", key: "country_of_origin") {
+                      value
+                    }
                     featuredImage {
                       url
                     }
@@ -14657,12 +14679,17 @@ private struct ShopifyProductNode: Decodable {
     let description: String
     let tags: [String]
     let productType: String
+    let countryOfOrigin: Metafield?
     let featuredImage: FeaturedImage?
     let variants: VariantConnection
     let priceRange: PriceRange
 
     struct FeaturedImage: Decodable {
         let url: URL
+    }
+
+    struct Metafield: Decodable {
+        let value: String
     }
 
     struct PriceRange: Decodable {
@@ -15132,6 +15159,8 @@ private extension ContentView.Product {
             )
         }
         let defaultVariant = variants.first(where: \.isAvailableForSale) ?? variants.first
+        let countryOfOrigin = shopifyNode.countryOfOrigin?.value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         self.init(
             id: shopifyNode.id,
@@ -15145,6 +15174,7 @@ private extension ContentView.Product {
             imageURL: shopifyNode.featuredImage?.url,
             desc: shopifyNode.description,
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
+            countryOfOrigin: countryOfOrigin?.isEmpty == false ? countryOfOrigin : nil,
             isAvailableForSale: defaultVariant?.isAvailableForSale ?? false
         )
     }
