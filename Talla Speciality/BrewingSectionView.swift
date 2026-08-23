@@ -258,6 +258,8 @@ struct BrewingSectionView: View {
         let generatedGrindDescription: String
         let generatedTemperatureC: Int
         let recipePourCount: Int
+        let scaleStepOverrideIndex: Int?
+        let didCompleteBrewFromScale: Bool?
     }
 
     private enum BrewSessionStorage {
@@ -407,6 +409,8 @@ struct BrewingSectionView: View {
     @State private var restoredExpectedCup: String?
     @State private var restoredApproach: String?
     @State private var lastScaleAutoAdvancedStepID: Int?
+    @State private var scaleStepOverrideIndex: Int?
+    @State private var didCompleteBrewFromScale = false
 #if canImport(PhotosUI)
     @State private var coffeeBagPhotoSelection: PhotosPickerItem?
 #endif
@@ -5511,7 +5515,7 @@ struct BrewingSectionView: View {
             brewBackgroundColor
             .ignoresSafeArea()
 
-            if brewModeElapsedSeconds >= brewModeTotalSeconds && !isBrewModeRunning {
+            if (brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale) && !isBrewModeRunning {
                 focusedAfterBrewView
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
             } else {
@@ -6956,6 +6960,8 @@ struct BrewingSectionView: View {
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
         lastScaleAutoAdvancedStepID = nil
+        scaleStepOverrideIndex = nil
+        didCompleteBrewFromScale = false
         brewModeBackgroundDate = nil
         restoredBrewTotalSeconds = nil
         recipeRevisionChanges = []
@@ -8063,7 +8069,8 @@ struct BrewingSectionView: View {
     }
 
     private var currentBrewModeStepIndex: Int {
-        brewModeSteps.lastIndex { brewModeElapsedSeconds >= $0.time } ?? 0
+        let timedIndex = brewModeSteps.lastIndex { brewModeElapsedSeconds >= $0.time } ?? 0
+        return min(max(timedIndex, scaleStepOverrideIndex ?? 0), brewModeSteps.count - 1)
     }
 
     private var currentBrewModeStep: BrewModeStep {
@@ -8071,6 +8078,7 @@ struct BrewingSectionView: View {
     }
 
     private var nextBrewModeStep: BrewModeStep? {
+        guard !didCompleteBrewFromScale else { return nil }
         let nextIndex = currentBrewModeStepIndex + 1
         guard brewModeElapsedSeconds < brewModeTotalSeconds, brewModeSteps.indices.contains(nextIndex) else {
             return nil
@@ -8136,11 +8144,20 @@ struct BrewingSectionView: View {
                 targetWeight: target
               ) else { return }
 
+        let completedIndex = currentBrewModeStepIndex
         lastScaleAutoAdvancedStepID = currentBrewModeStep.id
-        guard let nextBrewModeStep else { return }
-        brewModeElapsedSeconds = max(brewModeElapsedSeconds, nextBrewModeStep.time)
+        let hasLaterPour = generatedPourRows.dropFirst(completedIndex + 1).contains { $0.waterAdded != nil }
+        if brewModeSteps.indices.contains(completedIndex + 1) {
+            scaleStepOverrideIndex = completedIndex + 1
+        }
         lastCueStepIndex = currentBrewModeStepIndex
         lastPrePourCueStepID = nil
+
+        if !hasLaterPour {
+            completeBrewModeSession(preserveElapsedTime: true, completedFromScale: true)
+            return
+        }
+
         updateBrewLiveActivity(isPaused: !isBrewModeRunning)
         sendBrewWatchUpdate(action: "update", isPaused: !isBrewModeRunning)
         persistActiveBrewSession()
@@ -8211,7 +8228,7 @@ struct BrewingSectionView: View {
     }
 
     private var currentBrewPhaseName: String {
-        if brewModeElapsedSeconds >= brewModeTotalSeconds {
+        if brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale {
             return AppLocalization.text("complete", fallback: "Complete")
         }
 
@@ -8248,7 +8265,7 @@ struct BrewingSectionView: View {
             return AppLocalization.text("pause", fallback: "Pause")
         }
 
-        if brewModeElapsedSeconds >= brewModeTotalSeconds {
+        if brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale {
             return AppLocalization.text("rate_this_brew_save", fallback: "Rate This Brew & Save")
         }
 
@@ -8271,7 +8288,7 @@ struct BrewingSectionView: View {
             return "pause.fill"
         }
 
-        if brewModeElapsedSeconds >= brewModeTotalSeconds {
+        if brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale {
             return "star.fill"
         }
 
@@ -8667,6 +8684,8 @@ struct BrewingSectionView: View {
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
         lastScaleAutoAdvancedStepID = nil
+        scaleStepOverrideIndex = nil
+        didCompleteBrewFromScale = false
         brewModeBackgroundDate = nil
         brewModeRunID = UUID()
         isBrewModeRunning = false
@@ -8689,19 +8708,21 @@ struct BrewingSectionView: View {
             return
         }
 
-        if brewModeElapsedSeconds >= brewModeTotalSeconds {
+        if brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale {
             brewModeElapsedSeconds = 0
             lastCueStepIndex = -1
             lastPrePourCueStepID = nil
             lastScaleAutoAdvancedStepID = nil
+            scaleStepOverrideIndex = nil
+            didCompleteBrewFromScale = false
         }
 
         startBrewModeSession()
     }
 
     private func handleBrewModePrimaryAction() {
-        if !isBrewModeRunning, brewModeElapsedSeconds >= brewModeTotalSeconds {
-            guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeTotalSeconds)
+        if !isBrewModeRunning, (brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale) {
+            guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds)
             clearPersistedBrewSession()
             isFocusedBrewPresented = false
             brewModeHapticTrigger += 1
@@ -8717,6 +8738,8 @@ struct BrewingSectionView: View {
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
         lastScaleAutoAdvancedStepID = nil
+        scaleStepOverrideIndex = nil
+        didCompleteBrewFromScale = false
         brewModeBackgroundDate = nil
         endBrewLiveActivity()
         startBrewModeSession()
@@ -8728,6 +8751,8 @@ struct BrewingSectionView: View {
         lastCueStepIndex = previousIndex
         lastPrePourCueStepID = nil
         lastScaleAutoAdvancedStepID = nil
+        scaleStepOverrideIndex = previousIndex
+        didCompleteBrewFromScale = false
         updateBrewLiveActivity(isPaused: !isBrewModeRunning)
         sendBrewWatchUpdate(action: "update", isPaused: !isBrewModeRunning)
         brewStepHaptic(strong: false)
@@ -8739,6 +8764,8 @@ struct BrewingSectionView: View {
             return
         }
 
+        scaleStepOverrideIndex = nil
+        didCompleteBrewFromScale = false
         brewModeElapsedSeconds = nextBrewModeStep.time
         lastCueStepIndex = currentBrewModeStepIndex
         lastPrePourCueStepID = nil
@@ -8759,6 +8786,8 @@ struct BrewingSectionView: View {
         if brewModeElapsedSeconds == 0 {
             resetAfterBrewFeedbackState()
             lastScaleAutoAdvancedStepID = nil
+            scaleStepOverrideIndex = nil
+            didCompleteBrewFromScale = false
         }
 
         let runID = UUID()
@@ -8814,8 +8843,15 @@ struct BrewingSectionView: View {
         }
     }
 
-    private func completeBrewModeSession(dismissLiveActivityAfter seconds: Double = 8) {
-        brewModeElapsedSeconds = brewModeTotalSeconds
+    private func completeBrewModeSession(
+        dismissLiveActivityAfter seconds: Double = 8,
+        preserveElapsedTime: Bool = false,
+        completedFromScale: Bool = false
+    ) {
+        if !preserveElapsedTime {
+            brewModeElapsedSeconds = brewModeTotalSeconds
+        }
+        didCompleteBrewFromScale = completedFromScale
         brewModeRunID = UUID()
         isBrewModeRunning = false
         brewModeBackgroundDate = nil
@@ -8845,6 +8881,8 @@ struct BrewingSectionView: View {
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
         lastScaleAutoAdvancedStepID = nil
+        scaleStepOverrideIndex = nil
+        didCompleteBrewFromScale = false
         brewModeBackgroundDate = nil
         restoredBrewTotalSeconds = nil
         isFocusedBrewPresented = false
@@ -8935,7 +8973,9 @@ struct BrewingSectionView: View {
             createRecipeTasteGoal: createRecipeTasteGoal,
             generatedGrindDescription: generatedGrindDescription,
             generatedTemperatureC: generatedTemperatureC,
-            recipePourCount: recipePourCount
+            recipePourCount: recipePourCount,
+            scaleStepOverrideIndex: scaleStepOverrideIndex,
+            didCompleteBrewFromScale: didCompleteBrewFromScale
         )
 
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
@@ -8971,6 +9011,8 @@ struct BrewingSectionView: View {
         generatedGrindDescription = snapshot.generatedGrindDescription
         generatedTemperatureC = snapshot.generatedTemperatureC
         recipePourCount = snapshot.recipePourCount
+        scaleStepOverrideIndex = snapshot.scaleStepOverrideIndex
+        didCompleteBrewFromScale = snapshot.didCompleteBrewFromScale ?? false
         restoredBrewTotalSeconds = snapshot.totalSeconds
 
         let backgroundDelta = snapshot.isRunning ? max(Int(Date().timeIntervalSince(snapshot.savedAt)), 0) : 0
@@ -8979,11 +9021,11 @@ struct BrewingSectionView: View {
         lastPrePourCueStepID = nil
         brewModeBackgroundDate = nil
 
-        if snapshot.isPresented || brewModeElapsedSeconds > 0 {
+        if snapshot.isPresented || brewModeElapsedSeconds > 0 || didCompleteBrewFromScale {
             isFocusedBrewPresented = true
         }
 
-        if snapshot.isRunning && brewModeElapsedSeconds < brewModeTotalSeconds {
+        if snapshot.isRunning && !didCompleteBrewFromScale && brewModeElapsedSeconds < brewModeTotalSeconds {
             startBrewModeSession()
         } else {
             isBrewModeRunning = false
@@ -9001,6 +9043,9 @@ struct BrewingSectionView: View {
         brewModeBackgroundDate = nil
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
+        lastScaleAutoAdvancedStepID = nil
+        scaleStepOverrideIndex = nil
+        didCompleteBrewFromScale = false
         endBrewLiveActivity()
         sendBrewWatchUpdate(action: "end", isPaused: false, allowBackgroundTransfer: true)
         setBrewIdleTimerDisabled(false)
