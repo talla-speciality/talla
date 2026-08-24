@@ -374,6 +374,7 @@ struct BrewingSectionView: View {
     @State private var isMethodSelectionPresented = false
     @State private var isSavedEquipmentPresented = false
     @State private var isRecentRecipesExpanded = false
+    @State private var isBrewingGuidesExpanded = false
     @State private var areAllBrewingGuidesVisible = false
     @State private var methodSearchText = ""
     @State private var methodCategoryFilter = "All"
@@ -1216,37 +1217,61 @@ struct BrewingSectionView: View {
         Group {
             if !displayedMethods.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 12) {
-                        brewSectionLabel(AppLocalization.text("explore_brewing_guides", fallback: "Explore Brewing Guides"))
-                        Spacer(minLength: 8)
-                        if displayedMethods.count > 3 {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.22)) {
-                                    areAllBrewingGuidesVisible.toggle()
-                                }
-                            } label: {
-                                Text(areAllBrewingGuidesVisible ? AppLocalization.text("show_less", fallback: "Show Less") : AppLocalization.text("view_all", fallback: "View All"))
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(brewAccentColor)
-                            }
-                            .buttonStyle(.plain)
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            isBrewingGuidesExpanded.toggle()
                         }
-                    }
+                    } label: {
+                        HStack(spacing: 12) {
+                            brewSectionLabel(AppLocalization.text("explore_brewing_guides", fallback: "Explore Brewing Guides"))
+                            Spacer(minLength: 8)
 
-                    VStack(spacing: 0) {
-                        ForEach(Array(visibleBrewingGuides.enumerated()), id: \.element.id) { index, method in
-                            if index > 0 {
-                                brewDivider
-                            }
-                            brewingGuideEntryRow(method)
+                            Text("\(displayedMethods.count)")
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .foregroundColor(brewSecondaryTextColor)
+
+                            Image(systemName: isBrewingGuidesExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(brewAccentColor)
+                                .accessibilityHidden(true)
                         }
+                        .contentShape(Rectangle())
                     }
-                    .background(brewSurfaceColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(brewBorderColor, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .buttonStyle(.plain)
+
+                    if isBrewingGuidesExpanded {
+                        if displayedMethods.count > 3 {
+                            HStack {
+                                Spacer(minLength: 0)
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.22)) {
+                                        areAllBrewingGuidesVisible.toggle()
+                                    }
+                                } label: {
+                                    Text(areAllBrewingGuidesVisible ? AppLocalization.text("show_less", fallback: "Show Less") : AppLocalization.text("view_all", fallback: "View All"))
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(brewAccentColor)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(visibleBrewingGuides.enumerated()), id: \.element.id) { index, method in
+                                if index > 0 {
+                                    brewDivider
+                                }
+                                brewingGuideEntryRow(method)
+                            }
+                        }
+                        .background(brewSurfaceColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(brewBorderColor, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                 }
             }
         }
