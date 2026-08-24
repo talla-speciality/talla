@@ -28,9 +28,11 @@ const benefitGateway = require("../benefit-gateway");
 const {
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
+    benefitGatewayHostEnvironment,
     normalizeBenefitPayMPQRText,
     renderBenefitResultPage,
     server,
+    validateBenefitHostedPaymentURL,
     verifyBenefitNotification
 } = require("../server");
 
@@ -78,6 +80,31 @@ test("BenefitPay MPQR fields stay within the gateway limits", () => {
         "TALLA SPECIALITY BY CHEF"
     );
     assert.equal(normalizeBenefitPayMPQRText("  Manama  ", 15), "Manama");
+});
+
+test("BENEFIT gateway hosts are separated by environment", () => {
+    assert.equal(benefitGatewayHostEnvironment("www.benefit-gateway.bh"), "production");
+    assert.equal(benefitGatewayHostEnvironment("benefit-gateway.bh"), "production");
+    assert.equal(benefitGatewayHostEnvironment("www.test.benefit-gateway.bh"), "test");
+    assert.equal(benefitGatewayHostEnvironment("test.benefit-gateway.bh"), "test");
+    assert.equal(benefitGatewayHostEnvironment("merchant.example"), "custom");
+});
+
+test("production BENEFIT checkout cannot redirect to the test gateway", () => {
+    assert.equal(
+        validateBenefitHostedPaymentURL(
+            "https://benefit-gateway.bh/payment/PaymentHTTP.htm?param=paymentInit",
+            "https://www.benefit-gateway.bh/payment/API/hosted.htm"
+        ),
+        "https://benefit-gateway.bh/payment/PaymentHTTP.htm?param=paymentInit"
+    );
+    assert.throws(
+        () => validateBenefitHostedPaymentURL(
+            "https://test.benefit-gateway.bh/payment/PaymentHTTP.htm?param=paymentInit",
+            "https://www.benefit-gateway.bh/payment/API/hosted.htm"
+        ),
+        (error) => error.code === "BENEFIT_INVALID_PAYMENT_URL"
+    );
 });
 
 function resetStores(options = {}) {

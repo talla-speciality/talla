@@ -4350,7 +4350,8 @@ async function queryBenefitPayTransaction(referenceID) {
     };
     const endpoint = safeConfiguredBenefitURL(
         benefitPayConfiguration.checkStatusURL,
-        "BenefitPay check-status URL"
+        "BenefitPay check-status URL",
+        "/web/v1/merchant/transaction/check-status"
     );
     const upstreamResponse = await fetch(endpoint, {
         method: "POST",
@@ -5059,13 +5060,32 @@ function sendBenefitRedirectAcknowledgement(response, redirectURL) {
     response.end(`REDIRECT=${redirectURL}`);
 }
 
-function validateBenefitHostedPaymentURL(value) {
+function benefitGatewayHostEnvironment(hostname) {
+    const normalizedHostname = String(hostname || "").trim().toLowerCase();
+    if (normalizedHostname === "benefit-gateway.bh"
+        || normalizedHostname === "www.benefit-gateway.bh") {
+        return "production";
+    }
+    if (normalizedHostname === "test.benefit-gateway.bh"
+        || normalizedHostname === "www.test.benefit-gateway.bh") {
+        return "test";
+    }
+    return "custom";
+}
+
+function validateBenefitHostedPaymentURL(value, configuredEndpoint = benefitAPIEndpoint) {
     const hostedURL = safeConfiguredBenefitURL(value, "BENEFIT hosted payment URL");
-    const endpointURL = safeConfiguredBenefitURL(benefitAPIEndpoint, "BENEFIT API endpoint");
+    const endpointURL = safeConfiguredBenefitURL(
+        configuredEndpoint,
+        "BENEFIT API endpoint",
+        "/payment/API/hosted.htm"
+    );
     const matchesEndpointHost = hostedURL.hostname === endpointURL.hostname;
-    const isBenefitGatewayHost = hostedURL.hostname === "benefit-gateway.bh"
-        || hostedURL.hostname.endsWith(".benefit-gateway.bh");
-    if (!matchesEndpointHost && !isBenefitGatewayHost) {
+    const endpointEnvironment = benefitGatewayHostEnvironment(endpointURL.hostname);
+    const hostedEnvironment = benefitGatewayHostEnvironment(hostedURL.hostname);
+    const matchesGatewayEnvironment = endpointEnvironment !== "custom"
+        && endpointEnvironment === hostedEnvironment;
+    if (!matchesEndpointHost && !matchesGatewayEnvironment) {
         throw benefitPaymentError("BENEFIT_INVALID_PAYMENT_URL", 502, "BENEFIT returned an invalid payment URL.");
     }
     return hostedURL.toString();
@@ -10582,7 +10602,11 @@ const server = http.createServer(async (request, response) => {
                 throw benefitPaymentError("BENEFIT_AMOUNT_INVALID", 409, "The stored order does not have a valid payable total.");
             }
 
-            const endpointURL = safeConfiguredBenefitURL(benefitAPIEndpoint, "BENEFIT API endpoint");
+            const endpointURL = safeConfiguredBenefitURL(
+                benefitAPIEndpoint,
+                "BENEFIT API endpoint",
+                "/payment/API/hosted.htm"
+            );
             const notificationURL = safeConfiguredBenefitURL(
                 benefitNotificationURL,
                 "BENEFIT notification URL",
@@ -11644,6 +11668,7 @@ if (require.main === module) {
 module.exports = {
     applyConfirmedMpgsPayment,
     applyBenefitNotification,
+    benefitGatewayHostEnvironment,
     benefitResultState,
     bhdFils,
     createBenefitPayCheckStatusSignature,
@@ -11674,6 +11699,7 @@ module.exports = {
     shopifyOrderCreateInput,
     verifyConfirmedMpgsOrder,
     verifyEazyTransactionForShopifyPayment,
+    validateBenefitHostedPaymentURL,
     verifyMpgsAuthenticationForPurchase,
     verifyBenefitNotification
 };

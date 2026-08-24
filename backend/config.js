@@ -50,7 +50,8 @@ module.exports = {
     benefitTranportalID: process.env.BENEFIT_TRANPORTAL_ID || "",
     benefitTranportalPassword: process.env.BENEFIT_TRANPORTAL_PASSWORD || "",
     benefitResourceKey: process.env.BENEFIT_RESOURCE_KEY || "",
-    benefitAPIEndpoint: process.env.BENEFIT_API_ENDPOINT || "",
+    benefitAPIEndpoint: process.env.BENEFIT_API_ENDPOINT
+        || "https://www.benefit-gateway.bh/payment/API/hosted.htm",
     benefitSuccessURL: process.env.BENEFIT_SUCCESS_URL || "",
     benefitErrorURL: process.env.BENEFIT_ERROR_URL || "",
     benefitNotificationURL: process.env.BENEFIT_NOTIFICATION_URL || "",

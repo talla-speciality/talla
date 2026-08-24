@@ -54,10 +54,18 @@ EAZY_PAYMENT_METHODS=BENEFITGATEWAY,CREDITCARD,APPLEPAY
 BENEFIT_TRANPORTAL_ID=
 BENEFIT_TRANPORTAL_PASSWORD=
 BENEFIT_RESOURCE_KEY=
-BENEFIT_API_ENDPOINT=
-BENEFIT_SUCCESS_URL=https://your-api.example/api/payments/benefit/result
-BENEFIT_ERROR_URL=https://your-api.example/api/payments/benefit/result
-BENEFIT_NOTIFICATION_URL=https://your-api.example/api/payments/benefit/response
+BENEFIT_API_ENDPOINT=https://www.benefit-gateway.bh/payment/API/hosted.htm
+BENEFIT_SUCCESS_URL=https://talla-backend.onrender.com/api/payments/benefit/result
+BENEFIT_ERROR_URL=https://talla-backend.onrender.com/api/payments/benefit/result
+BENEFIT_NOTIFICATION_URL=https://talla-backend.onrender.com/api/payments/benefit/response
+BENEFITPAY_APP_ID=
+BENEFITPAY_MERCHANT_ID=
+BENEFITPAY_SECRET_KEY=
+BENEFITPAY_CHECK_STATUS_URL=
+BENEFITPAY_MERCHANT_NAME=
+BENEFITPAY_MERCHANT_CITY=
+BENEFITPAY_MCC=
+BENEFITPAY_COUNTRY_CODE=BH
 MPGS_MERCHANT_ID=
 MPGS_API_PASSWORD=
 MPGS_API_VERSION=100
@@ -91,8 +99,11 @@ Notes:
 - `EAZY_APP_ID` and `EAZY_SECRET_KEY` are required for EazyPay invoice creation and Query API verification; keep both in Render secrets
 - `EAZY_API_BASE_URL` defaults to `https://api.eazy.net`; use an EazyPay-provided sandbox URL during UAT
 - `EAZY_PAYMENT_METHODS` defaults to `BENEFITGATEWAY,CREDITCARD,APPLEPAY`
-- All seven `BENEFIT_*` variables are required for hosted checkout; keep the merchant credentials and resource key in Render secrets
+- All seven `BENEFIT_*` variables are required for hosted checkout; keep the merchant credentials and resource key in Render secrets. Production uses `https://www.benefit-gateway.bh/payment/API/hosted.htm`.
 - `BENEFIT_SUCCESS_URL` and `BENEFIT_ERROR_URL` should use `/api/payments/benefit/result`, while `BENEFIT_NOTIFICATION_URL` should use `/api/payments/benefit/response`
+- BenefitPay is a separate in-app SDK flow. Keep all `BENEFITPAY_*` values supplied for production in Render, and set `BENEFITPAY_CHECK_STATUS_URL` to the exact production check-status URL supplied by BenefitPay.
+- The iOS BenefitPay SDK secret belongs in the ignored `Config/BenefitPaySecrets.xcconfig` file as `BENEFITPAY_SDK_SECRET_KEY = ...`; never commit that file. The production SDK archive supplied by BenefitPay matches the framework already stored under `Vendor/BenefitPay`.
+- The KeyStore files and alias name are only for plugin integration and are not used by Talla's API integration.
 - `MPGS_MERCHANT_ID` and `MPGS_API_PASSWORD` are required for card sessions; keep the API password in Render secrets
 - `MPGS_API_VERSION` defaults to `100`, and `MPGS_BASE_URL` defaults to the EazyPay Mastercard Gateway host
 - Wallet pass signing requires both the signer `.p12` and the WWDR certificate; on Render, a base64 signer cert plus a repo-tracked WWDR file is the most stable setup
