@@ -4936,6 +4936,29 @@ async function findBenefitPaymentByResultToken(resultToken) {
     )) || null;
 }
 
+async function findBenefitPaymentByOrderID(orderID) {
+    const normalizedOrderID = normalizeBenefitIdentifier(orderID);
+    if (!normalizedOrderID) {
+        return null;
+    }
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT *
+             FROM benefit_payments
+             WHERE order_id = $1
+             ORDER BY updated_at DESC
+             LIMIT 1`,
+            [normalizedOrderID]
+        );
+        return result.rowCount > 0 ? benefitPaymentRowToRecord(result.rows[0]) : null;
+    }
+    const store = readJSON(benefitPaymentsStorePath);
+    return Object.values(store.payments || {})
+        .filter((payment) => timingSafeStringEqual(payment.orderID, normalizedOrderID))
+        .sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")))[0]
+        || null;
+}
+
 async function updateBenefitPaymentInitiation(trackID, hostedPaymentURL, status = "Initiated") {
     const updatedAt = new Date().toISOString();
     if (database.isEnabled()) {
@@ -5289,10 +5312,23 @@ function benefitResultState(payment) {
     if (payment?.status === "Captured" && payment.effectsAppliedAt) {
         return "success";
     }
+    if (payment?.status === "Canceled") {
+        return "cancelled";
+    }
     if (["Declined", "Canceled", "DeniedByRisk", "GatewayError", "HostTimeout", "InitiationFailed"].includes(payment?.status)) {
         return "failure";
     }
     return "pending";
+}
+
+function benefitClientPaymentStatus(payment) {
+    const state = benefitResultState(payment);
+    return {
+        status: state === "success"
+            ? "succeeded"
+            : state === "cancelled" ? "cancelled" : state === "failure" ? "failed" : "pending",
+        paid: state === "success"
+    };
 }
 
 function renderBenefitResultPage(payment) {
@@ -5302,6 +5338,11 @@ function renderBenefitResultPage(payment) {
             title: "Payment confirmed",
             detail: "Your BENEFIT payment was confirmed. You can return to Talla and view your order.",
             accent: "#23603f"
+        },
+        cancelled: {
+            title: "Payment cancelled",
+            detail: "The payment was cancelled. No order was marked paid.",
+            accent: "#8b2f2f"
         },
         pending: {
             title: "Payment pending",
@@ -5314,6 +5355,7 @@ function renderBenefitResultPage(payment) {
             accent: "#8b2f2f"
         }
     }[state];
+    const appStatus = benefitClientPaymentStatus(payment).status;
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -5333,7 +5375,7 @@ function renderBenefitResultPage(payment) {
     <main>
         <h1>${escapeHTML(content.title)}</h1>
         <p>${escapeHTML(content.detail)}</p>
-        <a href="talla://checkout-return">Return to Talla</a>
+        <a href="talla://checkout-return?status=${appStatus}">Return to Talla</a>
     </main>
 </body>
 </html>`;
@@ -11288,6 +11330,52 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "POST" && benefitPathMatches(url.pathname, "/api/payments/benefit/status")) {
+        let body;
+        try {
+            body = await readBody(request, 4_096);
+        } catch (error) {
+            const publicError = benefitPublicError(error);
+            sendJSON(response, publicError.statusCode === 413 ? 413 : 400, { error: publicError.message });
+            return;
+        }
+
+        try {
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) {
+                return;
+            }
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) {
+                return;
+            }
+            const orderID = normalizeBenefitIdentifier(body.orderID || body.orderId);
+            if (!orderID) {
+                sendJSON(response, 400, { error: "Provide a valid existing orderID." });
+                return;
+            }
+            const order = await findOrderByID(orderID);
+            if (!order) {
+                throw benefitPaymentError("BENEFIT_ORDER_NOT_FOUND", 404, "Order not found.");
+            }
+            if (!timingSafeStringEqual(normalizeEmail(order.email), normalizeEmail(customer.email))) {
+                throw benefitPaymentError("BENEFIT_ORDER_FORBIDDEN", 403, "This order does not belong to the authenticated customer.");
+            }
+            const payment = await findBenefitPaymentByOrderID(orderID);
+            if (!payment || !timingSafeStringEqual(normalizeEmail(payment.email), normalizeEmail(customer.email))) {
+                throw benefitPaymentError("BENEFIT_PAYMENT_NOT_FOUND", 404, "BENEFIT payment was not found.");
+            }
+            sendJSON(response, 200, {
+                orderId: orderID,
+                ...benefitClientPaymentStatus(payment)
+            });
+        } catch (error) {
+            const publicError = benefitPublicError(error);
+            sendJSON(response, publicError.statusCode, { error: publicError.message });
+        }
+        return;
+    }
+
     if (request.method === "POST" && benefitPathMatches(url.pathname, "/api/payments/benefit/response")) {
         let fallbackErrorURL;
         try {
@@ -12273,6 +12361,7 @@ module.exports = {
     benefitGatewayHostEnvironment,
     benefitResultState,
     bhdFils,
+    benefitClientPaymentStatus,
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
     queryBenefitPayTransaction,

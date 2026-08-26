@@ -28,6 +28,7 @@ const benefitGateway = require("../benefit-gateway");
 const {
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
+    benefitClientPaymentStatus,
     benefitGatewayHostEnvironment,
     normalizeBenefitPayMPQRText,
     queryBenefitPayTransaction,
@@ -442,6 +443,7 @@ test("result page uses backend state rather than claimed query status", async ()
     );
     assert.equal(response.statusCode, 200);
     assert.match(response.body, /Payment pending/);
+    assert.match(response.body, /talla:\/\/checkout-return\?status=pending/);
     assert.doesNotMatch(response.body, /test-password|test-terminal/);
 });
 
@@ -539,5 +541,31 @@ test("rendered result never exposes provider identifiers", () => {
         paymentID: "SECRET-PAYMENT-ID"
     });
     assert.match(html, /Payment confirmed/);
+    assert.match(html, /talla:\/\/checkout-return\?status=succeeded/);
     assert.doesNotMatch(html, /SECRET-PAYMENT-ID/);
+});
+
+test("BENEFIT client status only reports paid after effects are applied", () => {
+    assert.deepEqual(benefitClientPaymentStatus({
+        status: "Captured",
+        effectsAppliedAt: null
+    }), {
+        status: "pending",
+        paid: false
+    });
+    assert.deepEqual(benefitClientPaymentStatus({
+        status: "Captured",
+        effectsAppliedAt: "2026-08-26T12:00:00.000Z"
+    }), {
+        status: "succeeded",
+        paid: true
+    });
+    assert.deepEqual(benefitClientPaymentStatus({ status: "Canceled" }), {
+        status: "cancelled",
+        paid: false
+    });
+    assert.deepEqual(benefitClientPaymentStatus({ status: "Declined" }), {
+        status: "failed",
+        paid: false
+    });
 });

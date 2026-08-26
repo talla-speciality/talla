@@ -3083,6 +3083,15 @@ struct ContentView: View {
             }
             return
         }
+        if paymentFlow.selectedMethod == .benefit, !postPaymentOrderID.isEmpty {
+            checkoutSession = nil
+            paymentFlow.transition(to: .processing)
+            presentPostPayment()
+            Task {
+                await waitForBenefitHostedProgress()
+            }
+            return
+        }
         let status = queryItems.first {
             ["status", "result", "paymentStatus"].contains($0.name)
         }?.value?.lowercased().replacingOccurrences(of: " ", with: "_") ?? ""
@@ -3117,6 +3126,76 @@ struct ContentView: View {
                 await loadLoyaltyAccount()
             }
         }
+    }
+
+    @MainActor
+    private func waitForBenefitHostedProgress() async {
+        let orderID = postPaymentOrderID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !orderID.isEmpty else {
+            paymentFlow.transition(
+                to: .failed,
+                error: AppLocalization.text(
+                    "payment_verification_unavailable",
+                    fallback: "Payment verification is temporarily unavailable."
+                )
+            )
+            return
+        }
+
+        for attempt in 0 ..< 20 {
+            do {
+                let status = try await AccountService.fetchBenefitPaymentStatus(orderID: orderID)
+                if status.paid || status.status == "succeeded" {
+                    cartItems.removeAll()
+                    appliedVoucher = nil
+                    voucherCodeInput = ""
+                    voucherError = nil
+                    paymentFlow.transition(to: .succeeded)
+                    await loadOrderHistory()
+                    if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        await loadLoyaltyAccount()
+                    }
+                    return
+                }
+                if status.status == "cancelled" {
+                    paymentFlow.transition(to: .cancelled)
+                    return
+                }
+                if status.status == "failed" {
+                    paymentFlow.transition(
+                        to: .failed,
+                        error: AppLocalization.text(
+                            "payment_failed_detail",
+                            fallback: "Please check your details or try another payment method."
+                        )
+                    )
+                    return
+                }
+            } catch {
+                if attempt == 19 {
+                    checkoutError = customerFacingServiceMessage(
+                        for: error,
+                        fallback: AppLocalization.text(
+                            "payment_verification_unavailable",
+                            fallback: "Payment verification is temporarily unavailable."
+                        )
+                    )
+                }
+            }
+
+            if attempt < 19 {
+                try? await Task.sleep(for: .seconds(1.5))
+            }
+        }
+
+        isPostPaymentPresented = false
+        paymentFlow.reset()
+        await loadOrderHistory()
+        openAccountSection(AccountSectionView.ScrollTarget.customer)
+        showToast(message: AppLocalization.text(
+            "payment_verifying",
+            fallback: "Payment is still being verified. You can safely return later."
+        ))
     }
 
     private func handleBenefitPayReturn(_ url: URL) {
@@ -13965,6 +14044,32 @@ private enum AccountService {
         return try await performBenefitPaymentRequest(request)
     }
 
+    static func fetchBenefitPaymentStatus(orderID: String) async throws -> BenefitHostedPaymentStatus {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/api/payments/benefit/status"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["orderID": orderID])
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
+        }
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            return try JSONDecoder().decode(BenefitHostedPaymentStatus.self, from: data)
+        }
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+        throw ContentView.LoyaltyServiceError.operationFailed("The payment service could not confirm the payment.")
+    }
+
     static func createEazyShopifyPaymentSession(tallaPaymentID: String) async throws -> EazyShopifyPaymentResponse {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
@@ -15522,6 +15627,12 @@ private struct CheckoutStartResponse: Decodable {
 private struct BenefitPaymentResponse: Decodable {
     let paymentUrl: URL
     let trackId: String
+}
+
+private struct BenefitHostedPaymentStatus: Decodable {
+    let orderId: String
+    let status: String
+    let paid: Bool
 }
 
 private struct EazyShopifyPaymentResponse: Decodable {

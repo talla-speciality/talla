@@ -34,6 +34,7 @@ actor TallaAppAttest {
         "/api/payments/benefitpay/session",
         "/api/payments/benefitpay/confirm",
         "/api/payments/benefit/create",
+        "/api/payments/benefit/status",
         "/api/payments/eazy/shopify/session",
         "/addresses/save",
         "/addresses/preferred",
