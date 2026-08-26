@@ -5041,11 +5041,15 @@ function verifyBenefitNotification(payment, order, notification) {
         throw benefitPaymentError("BENEFIT_TRANSACTION_ID_MISMATCH", 409, "BENEFIT transaction ID does not match.");
     }
     if (notification.result === "CAPTURED") {
-        if (!notification.resultToken
-            || !notification.paymentID
-            || !notification.transactionID
-            || notification.authResponseCode !== "00") {
-            throw benefitPaymentError("BENEFIT_CAPTURE_INVALID", 409, "BENEFIT capture response is incomplete.");
+        const validationIssues = [
+            !notification.paymentID ? "paymentID" : "",
+            !notification.transactionID ? "transactionID" : "",
+            notification.authResponseCode !== "00" ? "authResponseCode" : ""
+        ].filter(Boolean);
+        if (validationIssues.length > 0) {
+            const error = benefitPaymentError("BENEFIT_CAPTURE_INVALID", 409, "BENEFIT capture response is incomplete.");
+            error.validationIssues = validationIssues;
+            throw error;
         }
     }
     return true;
@@ -11436,9 +11440,12 @@ const server = http.createServer(async (request, response) => {
                 });
             });
         } catch (error) {
+            const validationDetails = Array.isArray(error.validationIssues) && error.validationIssues.length > 0
+                ? ` missing=${error.validationIssues.join(",")}`
+                : "";
             console.error(
                 `BENEFIT notification rejected${notification?.trackID ? ` for track ${notification.trackID}` : ""}:`,
-                error.code || "BENEFIT_CALLBACK_INVALID"
+                `${error.code || "BENEFIT_CALLBACK_INVALID"}${validationDetails}`
             );
             sendBenefitRedirectAcknowledgement(response, fallbackErrorURL);
         }

@@ -334,6 +334,17 @@ test("approved CAPTURED notification acknowledges first and applies payment once
     assert.equal(loyalty.transactions.length, 1);
 });
 
+test("production CAPTURED notification may omit echoed udf2", async () => {
+    resetStores();
+    const response = await postEncryptedNotification({ udf2: "" });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body, "REDIRECT=https://merchant.test/api/payments/benefit/result");
+    const payment = await waitForPaymentStatus("Captured");
+    assert.ok(payment.effectsAppliedAt);
+    const order = JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[customerEmail][0];
+    assert.equal(order.status, "Completed");
+});
+
 test("declined NOT CAPTURED notification does not complete the order", async () => {
     resetStores();
     await postEncryptedNotification({
