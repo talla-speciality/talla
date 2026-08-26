@@ -9546,6 +9546,34 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/accounts/delete") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) {
+            return;
+        }
+
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) {
+            return;
+        }
+
+        try {
+            // Related customer records use ON DELETE CASCADE in Postgres. The
+            // JSON-store implementation performs the equivalent cleanup.
+            const deleted = await deleteAccountRecord(customer.email);
+            if (!deleted) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
+
+            sendJSON(response, 200, { success: true });
+        } catch (error) {
+            console.error("Customer account deletion failed.", error);
+            sendJSON(response, 500, { error: "The account could not be deleted right now." });
+        }
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/accounts/profile") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
         const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);

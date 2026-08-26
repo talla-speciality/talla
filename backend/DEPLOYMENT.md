@@ -20,6 +20,7 @@ Set these environment variables in your host:
 ```text
 HOST=0.0.0.0
 PORT=8787
+NODE_ENV=production
 APP_URL=https://api.tallaspeciality.com
 CORS_ALLOWED_ORIGIN=*
 DATA_DIRECTORY=/data
@@ -81,6 +82,7 @@ WALLET_WWDR_BASE64=
 Notes:
 
 - `HOST` should stay `0.0.0.0` in containers
+- `NODE_ENV` must be `production` so App Attest and APNs use secure production defaults
 - `APP_URL` should be your real public URL
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
 - `DATABASE_URL` should point to your managed Postgres instance

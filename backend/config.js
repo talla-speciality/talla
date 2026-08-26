@@ -27,6 +27,7 @@ const walletPassTemplateDirectory = toAbsolutePath(process.env.WALLET_PASS_TEMPL
     || path.join(__dirname, "..", "WalletPass", "TallaLoyalty.pass");
 const adminDirectory = path.join(__dirname, "admin");
 const appURL = process.env.APP_URL || `http://localhost:${port}`;
+const isProduction = process.env.NODE_ENV === "production";
 module.exports = {
     host,
     port,
@@ -44,8 +45,12 @@ module.exports = {
     emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "",
     appleSignInClientID: process.env.APPLE_SIGN_IN_CLIENT_ID || "Talla-Speciality.Talla-Speciality",
     appAttestAppID: process.env.APP_ATTEST_APP_ID || "TAG9WXY85M.Talla-Speciality.Talla-Speciality",
-    appAttestEnforce: process.env.APP_ATTEST_ENFORCE === "true",
-    appAttestAllowDevelopment: process.env.APP_ATTEST_ALLOW_DEVELOPMENT !== "false",
+    appAttestEnforce: process.env.APP_ATTEST_ENFORCE
+        ? process.env.APP_ATTEST_ENFORCE === "true"
+        : isProduction,
+    appAttestAllowDevelopment: process.env.APP_ATTEST_ALLOW_DEVELOPMENT
+        ? process.env.APP_ATTEST_ALLOW_DEVELOPMENT !== "false"
+        : !isProduction,
     applePaySettlementProvider: process.env.APPLE_PAY_SETTLEMENT_PROVIDER || "",
     benefitTranportalID: process.env.BENEFIT_TRANPORTAL_ID || "",
     benefitTranportalPassword: process.env.BENEFIT_TRANPORTAL_PASSWORD || "",
@@ -75,7 +80,9 @@ module.exports = {
     apnsKeyID: process.env.APNS_KEY_ID || "",
     apnsTeamID: process.env.APNS_TEAM_ID || "",
     apnsBundleID: process.env.APNS_BUNDLE_ID || process.env.APPLE_SIGN_IN_CLIENT_ID || "",
-    apnsUseSandbox: process.env.APNS_USE_SANDBOX !== "false",
+    apnsUseSandbox: process.env.APNS_USE_SANDBOX
+        ? process.env.APNS_USE_SANDBOX !== "false"
+        : !isProduction,
     apnsPrivateKeyPath: toAbsolutePath(process.env.APNS_PRIVATE_KEY_PATH),
     apnsPrivateKeyBase64: process.env.APNS_PRIVATE_KEY_BASE64 || "",
     passwordResetTokenHours: toNumber(process.env.PASSWORD_RESET_TOKEN_HOURS, 1),
