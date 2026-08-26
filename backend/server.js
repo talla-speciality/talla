@@ -8270,7 +8270,11 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
-        sendHTML(response, 200, fs.readFileSync(adminPagePath, "utf8"));
+        sendHTML(response, 200, fs.readFileSync(adminPagePath, "utf8"), {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0"
+        });
         return;
     }
 

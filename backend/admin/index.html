@@ -684,7 +684,7 @@
                 <button class="nav-link" data-section-target="products-section">Products</button>
                 <button class="nav-link" data-section-target="home-section">App Home</button>
                 <button class="nav-link" data-section-target="app-controls-section">Live Controls</button>
-                <button class="nav-link" data-section-target="campaigns-section">Campaigns</button>
+                <button class="nav-link" data-section-target="campaigns-section">Seasonal Events</button>
                 <button class="nav-link" data-section-target="analytics-section">Analytics</button>
             </div>
             <div class="section-search-row">
@@ -712,7 +712,7 @@
             <div id="admin-dashboard" class="empty">Loading dashboard...</div>
         </section>
 
-        <details id="app-controls-section" class="panel" data-admin-section="live app controls announcement support links sections" style="margin-bottom: 20px;">
+        <details id="app-controls-section" class="panel" data-admin-section="live app controls payments delivery pickup maintenance versions loyalty announcement support links sections" data-section-version="2" style="margin-bottom: 20px;" open>
             <summary class="panel-summary">
                 <h2>Live App Controls</h2>
             </summary>
@@ -1366,10 +1366,13 @@
             sectionCountEl.textContent = `${sections.length} sections`;
 
             document.querySelectorAll("details[data-admin-section]").forEach((section) => {
-                const savedState = localStorage.getItem(`talla-admin-section:${section.id}`);
+                const storageKey = section.dataset.sectionVersion
+                    ? `talla-admin-section:${section.id}:${section.dataset.sectionVersion}`
+                    : `talla-admin-section:${section.id}`;
+                const savedState = localStorage.getItem(storageKey);
                 if (savedState !== null) section.open = savedState === "open";
                 section.addEventListener("toggle", () => {
-                    localStorage.setItem(`talla-admin-section:${section.id}`, section.open ? "open" : "closed");
+                    localStorage.setItem(storageKey, section.open ? "open" : "closed");
                 });
             });
         }
