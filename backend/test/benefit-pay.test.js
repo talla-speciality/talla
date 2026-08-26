@@ -30,6 +30,7 @@ const {
     createBenefitPayReferenceID,
     benefitGatewayHostEnvironment,
     normalizeBenefitPayMPQRText,
+    queryBenefitPayTransaction,
     renderBenefitResultPage,
     server,
     validateBenefitHostedPaymentURL,
@@ -69,6 +70,65 @@ test("BenefitPay check-status signature matches the documented KEYVAL HMAC vecto
         }),
         "l8fB6TaPtQRlTpPnbkv160AE1S3WLrE1en+B/KvFJIU="
     );
+});
+
+test("BenefitPay check-status retries a newly created transaction and sends only documented fields", async () => {
+    const originalFetch = global.fetch;
+    const calls = [];
+    global.fetch = async (url, options) => {
+        calls.push({ url: String(url), options });
+        if (calls.length < 3) {
+            return new Response(JSON.stringify({
+                meta: { status: "FAILED" },
+                response: { message: "transaction does not exists", status: "FAILED" }
+            }), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        return new Response(JSON.stringify({
+            meta: { status: "OK" },
+            response: { status: "success", amount: "12.800", currency: "BHD" }
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    try {
+        const transaction = await queryBenefitPayTransaction("BP123", {
+            attempts: 3,
+            retryDelays: [0, 0]
+        });
+        assert.equal(transaction.status, "success");
+        assert.equal(calls.length, 3);
+        assert.deepEqual(JSON.parse(calls[0].options.body), {
+            merchant_id: "merchant-test",
+            reference_id: "BP123"
+        });
+        assert.equal(calls[0].options.headers["X-CLIENT-ID"], "app-test");
+        assert.equal(calls[0].options.headers["X-FOO-Signature-Type"], "KEYVAL");
+        assert.doesNotMatch(JSON.stringify(calls), /benefitpay-test-secret/);
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test("BenefitPay check-status preserves safe provider diagnostics without retrying credential errors", async () => {
+    const originalFetch = global.fetch;
+    let callCount = 0;
+    global.fetch = async () => {
+        callCount += 1;
+        return new Response(JSON.stringify({
+            meta: { status: "FAILED" },
+            response: { error_code: "FOO_301", message: "Invalid App" }
+        }), { status: 401, headers: { "Content-Type": "application/json" } });
+    };
+    try {
+        await assert.rejects(
+            queryBenefitPayTransaction("BP123", { attempts: 3, retryDelays: [0, 0] }),
+            (error) => error.code === "BENEFITPAY_QUERY_FAILED"
+                && error.upstreamStatus === 401
+                && error.providerCode === "FOO_301"
+                && error.providerMessage === "Invalid App"
+        );
+        assert.equal(callCount, 1);
+    } finally {
+        global.fetch = originalFetch;
+    }
 });
 
 test("BenefitPay MPQR fields stay within the gateway limits", () => {

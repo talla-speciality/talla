@@ -4614,7 +4614,41 @@ function createBenefitPayCheckStatusSignature(parameters) {
         .digest("base64");
 }
 
-async function queryBenefitPayTransaction(referenceID) {
+function benefitPayQueryErrorDetails(upstreamResponse, payload) {
+    const providerResponse = payload?.response && typeof payload.response === "object"
+        ? payload.response
+        : {};
+    const safeValue = (value, maxLength = 120) => String(value || "")
+        .replace(/[^A-Za-z0-9 _.,:/#-]/g, "")
+        .trim()
+        .slice(0, maxLength);
+    return {
+        upstreamStatus: Number(upstreamResponse?.status) || 0,
+        providerStatus: safeValue(payload?.meta?.status, 32),
+        providerCode: safeValue(
+            providerResponse.error_code || providerResponse.code || payload?.error_code || payload?.code,
+            48
+        ),
+        providerMessage: safeValue(
+            providerResponse.error_description
+                || providerResponse.message
+                || payload?.error_description
+                || payload?.message,
+            120
+        )
+    };
+}
+
+function benefitPayTransactionIsPending(details) {
+    return details.providerStatus.toUpperCase() === "FAILED"
+        && /transaction.*(?:does not exist|doesnt exist|not exist|not found)/i.test(details.providerMessage);
+}
+
+function wait(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function queryBenefitPayTransaction(referenceID, options = {}) {
     const body = {
         merchant_id: benefitPayConfiguration.merchantID,
         reference_id: referenceID
@@ -4624,32 +4658,78 @@ async function queryBenefitPayTransaction(referenceID) {
         "BenefitPay check-status URL",
         "/web/v1/merchant/transaction/check-status"
     );
-    const upstreamResponse = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            Accept: "application/json",
-            "X-CLIENT-ID": benefitPayConfiguration.appID,
-            "X-FOO-Signature": createBenefitPayCheckStatusSignature(body),
-            "X-FOO-Signature-Type": "KEYVAL"
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15_000)
-    });
-    const responseText = await upstreamResponse.text();
-    if (responseText.length > 131_072) {
-        throw benefitPaymentError("BENEFITPAY_RESPONSE_INVALID", 502, "BenefitPay returned an invalid response.");
+    const retryDelays = Array.isArray(options.retryDelays) ? options.retryDelays : [500, 1_000, 2_000];
+    const attempts = Math.max(1, Number(options.attempts) || retryDelays.length + 1);
+    let lastPendingDetails = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        let upstreamResponse;
+        try {
+            upstreamResponse = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json; charset=utf-8",
+                    Accept: "application/json",
+                    "X-CLIENT-ID": benefitPayConfiguration.appID,
+                    "X-FOO-Signature": createBenefitPayCheckStatusSignature(body),
+                    "X-FOO-Signature-Type": "KEYVAL"
+                },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(8_000)
+            });
+        } catch {
+            const error = benefitPaymentError(
+                "BENEFITPAY_QUERY_UNAVAILABLE",
+                502,
+                "BenefitPay could not confirm the transaction."
+            );
+            error.upstreamStatus = 0;
+            throw error;
+        }
+        const responseText = await upstreamResponse.text();
+        if (responseText.length > 131_072) {
+            throw benefitPaymentError("BENEFITPAY_RESPONSE_INVALID", 502, "BenefitPay returned an invalid response.");
+        }
+        let payload;
+        try {
+            payload = JSON.parse(responseText);
+        } catch {
+            const error = benefitPaymentError(
+                "BENEFITPAY_RESPONSE_INVALID",
+                502,
+                "BenefitPay returned an invalid response."
+            );
+            error.upstreamStatus = upstreamResponse.status;
+            throw error;
+        }
+        if (upstreamResponse.ok && payload?.meta?.status === "OK" && payload?.response) {
+            return payload.response;
+        }
+        const details = benefitPayQueryErrorDetails(upstreamResponse, payload);
+        if (benefitPayTransactionIsPending(details)) {
+            lastPendingDetails = details;
+            if (attempt + 1 < attempts) {
+                await wait(retryDelays[Math.min(attempt, retryDelays.length - 1)] || 0);
+                continue;
+            }
+            const error = benefitPaymentError(
+                "BENEFITPAY_TRANSACTION_PENDING",
+                202,
+                "BenefitPay is still confirming the transaction."
+            );
+            Object.assign(error, details);
+            throw error;
+        }
+        const error = benefitPaymentError("BENEFITPAY_QUERY_FAILED", 502, "BenefitPay could not confirm the transaction.");
+        Object.assign(error, details);
+        throw error;
     }
-    let payload;
-    try {
-        payload = JSON.parse(responseText);
-    } catch {
-        throw benefitPaymentError("BENEFITPAY_RESPONSE_INVALID", 502, "BenefitPay returned an invalid response.");
-    }
-    if (!upstreamResponse.ok || payload?.meta?.status !== "OK" || !payload?.response) {
-        throw benefitPaymentError("BENEFITPAY_QUERY_FAILED", 502, "BenefitPay could not confirm the transaction.");
-    }
-    return payload.response;
+    const error = benefitPaymentError(
+        "BENEFITPAY_TRANSACTION_PENDING",
+        202,
+        "BenefitPay is still confirming the transaction."
+    );
+    Object.assign(error, lastPendingDetails || {});
+    throw error;
 }
 
 function normalizeBenefitIdentifier(value, maxLength = 255) {
@@ -11044,7 +11124,23 @@ const server = http.createServer(async (request, response) => {
                 duplicate: isPaid && !result.applied
             });
         } catch (error) {
-            console.error("BenefitPay transaction confirmation failed:", error.code || "BENEFITPAY_CONFIRM_FAILED");
+            const diagnostic = [
+                `code=${error.code || "BENEFITPAY_CONFIRM_FAILED"}`,
+                error.upstreamStatus ? `http=${error.upstreamStatus}` : "",
+                error.providerStatus ? `providerStatus=${error.providerStatus}` : "",
+                error.providerCode ? `providerCode=${error.providerCode}` : "",
+                error.providerMessage ? `providerMessage=${error.providerMessage}` : ""
+            ].filter(Boolean).join(" ");
+            if (error.code === "BENEFITPAY_TRANSACTION_PENDING") {
+                console.info(`BenefitPay transaction confirmation pending: ${diagnostic}`);
+                sendJSON(response, 202, {
+                    status: "pending",
+                    orderId: orderID,
+                    duplicate: false
+                });
+                return;
+            }
+            console.error(`BenefitPay transaction confirmation failed: ${diagnostic}`);
             const publicError = benefitPublicError(error);
             sendJSON(response, publicError.statusCode, { error: publicError.message });
         }
@@ -12179,6 +12275,7 @@ module.exports = {
     bhdFils,
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
+    queryBenefitPayTransaction,
     confirmShopifyEazyPayment,
     ensureShopifyEazyInvoice,
     eventSettingsFromLegacyEid,

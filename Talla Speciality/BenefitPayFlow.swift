@@ -58,14 +58,25 @@ enum BenefitPayService {
     }
 
     static func confirm(session: BenefitPaySession) async throws -> BenefitPayConfirmation {
-        try await post(
-            path: "/api/payments/benefitpay/confirm",
-            payload: [
-                "orderID": session.orderId,
-                "referenceID": session.referenceId,
-                "paymentToken": session.paymentToken
-            ]
-        )
+        let payload = [
+            "orderID": session.orderId,
+            "referenceID": session.referenceId,
+            "paymentToken": session.paymentToken
+        ]
+        let retryDelays: [UInt64] = [0, 1, 2, 3, 4]
+        for delay in retryDelays {
+            if delay > 0 {
+                try await Task.sleep(for: .seconds(delay))
+            }
+            let confirmation: BenefitPayConfirmation = try await post(
+                path: "/api/payments/benefitpay/confirm",
+                payload: payload
+            )
+            if confirmation.status != "pending" {
+                return confirmation
+            }
+        }
+        throw PaymentServiceError.gateway("BenefitPay is still confirming your payment. Please check your order again shortly.")
     }
 
     private static func post<Response: Decodable>(
