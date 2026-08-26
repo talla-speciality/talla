@@ -9083,7 +9083,11 @@ struct BrewingSectionView: View {
 
 #if canImport(WatchConnectivity) && os(iOS)
     private func sendBrewWatchUpdate(action: String, isPaused: Bool, allowBackgroundTransfer: Bool = false) {
-        guard WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated,
+              session.isPaired,
+              session.isWatchAppInstalled else { return }
 
         let payload: [String: Any] = [
             "brewActivity": action,
@@ -9102,10 +9106,10 @@ struct BrewingSectionView: View {
             "stepWaterTargets": brewModeSteps.map { $0.waterTarget ?? -1 }
         ]
 
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(payload, replyHandler: nil)
+        if session.isReachable {
+            session.sendMessage(payload, replyHandler: nil)
         } else if allowBackgroundTransfer {
-            WCSession.default.transferUserInfo(payload)
+            session.transferUserInfo(payload)
         }
     }
 #else

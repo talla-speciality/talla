@@ -5,6 +5,7 @@ import PassKit
 
 struct LoyaltyRewardsActionsView: View {
     let account: ContentView.LoyaltyAccount
+    let configuration: ContentView.AppSettings.Loyalty?
     let primaryTextColor: Color
     let secondaryTextColor: Color
     let tertiaryTextColor: Color
@@ -23,7 +24,18 @@ struct LoyaltyRewardsActionsView: View {
     }
 
     private var rewardOptions: [RewardOption] {
-        [
+        if let configuration {
+            return configuration.rewards.filter(\.enabled).map { reward in
+                RewardOption(
+                    id: reward.id,
+                    title: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? reward.titleAR : reward.titleEN,
+                    detail: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? reward.detailAR : reward.detailEN,
+                    points: reward.points,
+                    reward: reward.reward
+                )
+            }
+        }
+        return [
             RewardOption(
                 id: "espresso-pour",
                 title: AppLocalization.text("reward_espresso_pour", fallback: "Drink of Your Choice"),
@@ -85,7 +97,9 @@ struct LoyaltyRewardsActionsView: View {
                 .foregroundColor(accentColor)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(AppLocalization.text("earn_beans_rate", fallback: "Completed orders earn 5 Beans for every 1 BHD spent."))
+                Text(configuration.map {
+                    String(format: AppLocalization.text("earn_beans_rate_dynamic", fallback: "Completed orders earn %.1f Beans for every 1 BHD spent."), $0.pointsPerBHD)
+                } ?? AppLocalization.text("earn_beans_rate", fallback: "Completed orders earn 5 Beans for every 1 BHD spent."))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(1.3)
                     .foregroundColor(primaryTextColor)
@@ -116,9 +130,10 @@ struct LoyaltyRewardsActionsView: View {
                 }
             }
 
-            Text(account.pointsBalance >= 50
+            let firstRewardPoints = rewardOptions.map(\.points).min() ?? 50
+            Text(account.pointsBalance >= firstRewardPoints
                 ? AppLocalization.text("choose_reward_redeem", fallback: "Choose a reward to redeem with your available Beans.")
-                : AppLocalization.text("reach_first_reward", fallback: "Reach 50 Beans to unlock your first reward."))
+                : String(format: AppLocalization.text("reach_first_reward_dynamic", fallback: "Reach %d Beans to unlock your first reward."), firstRewardPoints))
                 .font(Font.custom("AvenirNext-Regular", size: 12))
                 .foregroundColor(tertiaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)

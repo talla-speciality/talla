@@ -46,7 +46,7 @@ struct CoffeeBagLabelParserTests {
 
     @Test func extractsArabicCoffeeBagDetails() {
         let result = CoffeeBagLabelParser.parse(lines: [
-            "محمصة تالا المختصة",
+            "محمصة تله المختصة",
             "اسم القهوة: شاكيسو",
             "بلد المنشأ: إثيوبيا",
             "المنطقة: قوجي",
@@ -57,7 +57,7 @@ struct CoffeeBagLabelParserTests {
         ])
 
         #expect(result.name == "شاكيسو")
-        #expect(result.roaster == "محمصة تالا المختصة")
+        #expect(result.roaster == "محمصة تله المختصة")
         #expect(result.origin == "إثيوبيا")
         #expect(result.region == "قوجي")
         #expect(result.altitude == "١٩٠٠ متر")

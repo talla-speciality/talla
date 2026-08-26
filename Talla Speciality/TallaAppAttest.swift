@@ -47,14 +47,44 @@ actor TallaAppAttest {
         "/accounts/password/change"
     ]
 
-    private let keyIDKey = "security.appAttest.keyID"
-    private let registeredKey = "security.appAttest.registered"
+    private let legacyKeyIDKey = "security.appAttest.keyID"
+    private let legacyRegisteredKey = "security.appAttest.registered"
+
+    private var storageNamespace: String {
+        let environment = Bundle.main.object(forInfoDictionaryKey: "TallaAppAttestEnvironment") as? String
+        return environment?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "unknown"
+    }
+
+    private var keyIDKey: String { "security.appAttest.\(storageNamespace).keyID" }
+    private var registeredKey: String { "security.appAttest.\(storageNamespace).registered" }
 
     func assertionHeaders(for request: URLRequest) async throws -> [String: String]? {
 #if canImport(DeviceCheck) && canImport(CryptoKit) && os(iOS)
         let service = DCAppAttestService.shared
         guard service.isSupported else { return nil }
         guard let baseURL = await BackendConfiguration.serviceBaseURL else { return nil }
+
+        do {
+            return try await makeAssertionHeaders(for: request, service: service, baseURL: baseURL)
+        } catch where isInvalidKey(error) {
+            clearStoredKey()
+            do {
+                return try await makeAssertionHeaders(for: request, service: service, baseURL: baseURL)
+            } catch where isInvalidKey(error) {
+                throw AttestError.deviceVerificationUnavailable
+            }
+        }
+#else
+        return nil
+#endif
+    }
+
+#if canImport(DeviceCheck) && canImport(CryptoKit) && os(iOS)
+    private func makeAssertionHeaders(
+        for request: URLRequest,
+        service: DCAppAttestService,
+        baseURL: URL
+    ) async throws -> [String: String] {
         let keyID = try await registeredKeyID(service: service, baseURL: baseURL)
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path ?? ""
@@ -71,12 +101,8 @@ actor TallaAppAttest {
             "X-Talla-App-Attest-Challenge": challenge.encoded,
             "X-Talla-App-Attest-Assertion": assertion.base64EncodedString()
         ]
-#else
-        return nil
-#endif
     }
 
-#if canImport(DeviceCheck) && canImport(CryptoKit) && os(iOS)
     private struct Challenge: Decodable {
         let challenge: String
 
@@ -91,13 +117,24 @@ actor TallaAppAttest {
         }
     }
 
-    private enum AttestError: Error {
+    private enum AttestError: LocalizedError {
         case invalidChallenge
         case invalidResponse
+        case deviceVerificationUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidChallenge, .invalidResponse:
+                return "The secure connection could not be verified. Please try again."
+            case .deviceVerificationUnavailable:
+                return "This device could not be verified securely. Please restart the app and try again."
+            }
+        }
     }
 
     private func registeredKeyID(service: DCAppAttestService, baseURL: URL) async throws -> String {
         let defaults = UserDefaults.standard
+        migrateLegacyStateIfNeeded(defaults: defaults)
         let keyID: String
         if let existing = defaults.string(forKey: keyIDKey), !existing.isEmpty {
             keyID = existing
@@ -126,6 +163,28 @@ actor TallaAppAttest {
         }
         defaults.set(true, forKey: registeredKey)
         return keyID
+    }
+
+    private func migrateLegacyStateIfNeeded(defaults: UserDefaults) {
+        guard defaults.string(forKey: keyIDKey) == nil,
+              let legacyKeyID = defaults.string(forKey: legacyKeyIDKey),
+              !legacyKeyID.isEmpty else { return }
+
+        defaults.set(legacyKeyID, forKey: keyIDKey)
+        defaults.set(defaults.bool(forKey: legacyRegisteredKey), forKey: registeredKey)
+        defaults.removeObject(forKey: legacyKeyIDKey)
+        defaults.removeObject(forKey: legacyRegisteredKey)
+    }
+
+    private func clearStoredKey() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: keyIDKey)
+        defaults.removeObject(forKey: registeredKey)
+    }
+
+    private func isInvalidKey(_ error: Error) -> Bool {
+        let error = error as NSError
+        return error.domain == DCErrorDomain && error.code == DCError.Code.invalidKey.rawValue
     }
 
     private func fetchChallenge(

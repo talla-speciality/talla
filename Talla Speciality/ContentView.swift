@@ -342,9 +342,109 @@ struct ContentView: View {
             let showPassport: Bool
         }
 
+        struct Payments: Decodable {
+            let applePayEnabled: Bool
+            let benefitPayEnabled: Bool
+            let benefitEnabled: Bool
+            let cardEnabled: Bool
+            let cashOnDeliveryEnabled: Bool
+            let noticeEN: String
+            let noticeAR: String
+        }
+
+        struct Fulfillment: Decodable {
+            struct ShippingTier: Decodable {
+                let maximumWeightGrams: Double
+                let rate: Double
+            }
+
+            let deliveryEnabled: Bool
+            let pickupEnabled: Bool
+            let pickupNameEN: String
+            let pickupNameAR: String
+            let pickupAddressEN: String
+            let pickupAddressAR: String
+            let pickupMapsURL: String
+            let openingHoursEN: String
+            let openingHoursAR: String
+            let bahrainRate: Double
+            let khaleejiCashOnDeliverySurcharge: Double
+            let maximumKhaleejiWeightGrams: Double
+            let khaleejiTransitEN: String
+            let khaleejiTransitAR: String
+            let khaleejiTiers: [ShippingTier]
+        }
+
+        struct Release: Decodable {
+            let maintenanceEnabled: Bool
+            let checkoutMaintenanceEnabled: Bool
+            let minimumSupportedVersion: String
+            let latestVersion: String
+            let appStoreURL: String
+            let titleEN: String
+            let titleAR: String
+            let messageEN: String
+            let messageAR: String
+            let updateMessageEN: String
+            let updateMessageAR: String
+        }
+
+        struct Loyalty: Decodable {
+            struct Reward: Decodable, Identifiable {
+                let id: String
+                let enabled: Bool
+                let titleEN: String
+                let titleAR: String
+                let detailEN: String
+                let detailAR: String
+                let points: Int
+                let reward: String
+            }
+
+            let pointsPerBHD: Double
+            let silverThreshold: Int
+            let goldThreshold: Int
+            let rewardStep: Int
+            let rewards: [Reward]
+        }
+
         let announcement: Announcement
         let support: Support
         let homeSections: HomeSections
+        let payments: Payments?
+        let fulfillment: Fulfillment?
+        let release: Release?
+        let loyalty: Loyalty?
+    }
+
+    struct EventSettings: Decodable {
+        struct SeasonalEvent: Decodable, Identifiable, Hashable {
+            let id: String
+            let enabled: Bool
+            let name: String
+            let titleEN: String
+            let titleAR: String
+            let subtitleEN: String
+            let subtitleAR: String
+            let badgeEN: String
+            let badgeAR: String
+            let ctaEN: String
+            let ctaAR: String
+            let categoryTitleEN: String
+            let categoryTitleAR: String
+            let categorySubtitleEN: String
+            let categorySubtitleAR: String
+            let startAt: String?
+            let endAt: String?
+            let imageURL: String
+            let accentHex: String
+            let secondaryHex: String
+            let symbol: String
+            let productIDs: [String]
+            let priority: Int
+        }
+
+        let events: [SeasonalEvent]
     }
 
     struct BrewingMethod: Identifiable, Hashable {
@@ -832,6 +932,9 @@ struct ContentView: View {
     @State private var isResettingPassword = false
     @State private var isRequestingPasswordResetLink = false
     @State private var isSigningInWithApple = false
+    @State private var isDeletingAccount = false
+    @State private var isDeleteConfirmationPresented = false
+    @State private var accountDeletionError: String?
     @State private var appleSignInNonce = ""
     @State private var customerProfile: ShopifyCustomerProfile?
     @State private var customerAuthError: String?
@@ -861,6 +964,7 @@ struct ContentView: View {
     @State private var remoteHomeSettings: HomeSettings?
     @State private var remotePassportSettings: PassportSettings?
     @State private var remoteAppSettings: AppSettings?
+    @State private var remoteEventSettings: EventSettings?
     @State private var loyaltyEmail = ""
     @State private var loyaltyAccount: LoyaltyAccount?
     @State private var loyaltyError: String?
@@ -1001,13 +1105,14 @@ struct ContentView: View {
         }
         guard let countryCode = preferredAddress?.country.rawValue else { return nil }
         if countryCode == SupportedDeliveryCountry.bahrain.rawValue {
-            return TallaShippingRates.bahrainRate
+            return shippingConfiguration.bahrainRate
         }
         guard let weightGrams = cartShipmentWeightGrams else { return nil }
         return TallaShippingRates.rate(
             countryCode: countryCode,
             weightGrams: weightGrams,
-            cashOnDelivery: paymentFlow.selectedMethod == .cashOnDelivery
+            cashOnDelivery: paymentFlow.selectedMethod == .cashOnDelivery,
+            configuration: shippingConfiguration
         )
     }
 
@@ -1069,13 +1174,13 @@ struct ContentView: View {
         if fulfillmentMethod == .pickup {
             rows.append((
                 AppLocalization.text("pickup_location", fallback: "Pickup location"),
-                AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa"),
+                managedPickupName,
                 false
             ))
         } else if preferredAddress.map({ $0.country.isKhaleeji && $0.country != .bahrain }) == true {
             rows.append((
                 AppLocalization.text("transit_time", fallback: "Transit time"),
-                AppLocalization.text("khaleeji_transit_time", fallback: TallaShippingRates.khaleejiTransitTime),
+                AppLocalization.text("khaleeji_transit_time", fallback: shippingConfiguration.khaleejiTransitTime),
                 false
             ))
         }
@@ -1299,7 +1404,72 @@ struct ContentView: View {
             return categoryCatalog.filter { $0.key == "all" }
         }
 
-        return ordered.map(localizedCategory) + extras
+        let allCategory = ordered.filter { $0.key == "all" }.map(localizedCategory)
+        let standardCategories = ordered.filter { $0.key != "all" }.map(localizedCategory) + extras
+        return allCategory + seasonalEventCategories + standardCategories
+    }
+
+    private var activeSeasonalEvents: [EventSettings.SeasonalEvent] {
+        let now = Date()
+        return (remoteEventSettings?.events ?? [])
+            .filter { event in
+                guard event.enabled, !event.titleEN.isEmpty else { return false }
+                let startsInTime = event.startAt.flatMap(eventDate).map { $0 <= now } ?? true
+                let hasNotEnded = event.endAt.flatMap(eventDate).map { $0 > now } ?? true
+                return startsInTime && hasNotEnded
+            }
+            .sorted { left, right in
+                left.priority == right.priority ? left.name < right.name : left.priority > right.priority
+            }
+    }
+
+    private var seasonalEventCategories: [ShopCategory] {
+        let availableProductIDs = Set(products.map(\.id))
+        return activeSeasonalEvents.compactMap { event in
+            guard event.productIDs.contains(where: availableProductIDs.contains) else { return nil }
+            return ShopCategory(
+                key: eventCategoryKey(event),
+                title: eventCategoryTitle(event),
+                subtitle: eventCategorySubtitle(event),
+                symbol: event.symbol.isEmpty ? "sparkles" : event.symbol
+            )
+        }
+    }
+
+    private func eventCategoryKey(_ event: EventSettings.SeasonalEvent) -> String {
+        "event-\(event.id)"
+    }
+
+    private func eventForCategory(_ key: String) -> EventSettings.SeasonalEvent? {
+        activeSeasonalEvents.first { eventCategoryKey($0) == key }
+    }
+
+    private func eventText(english: String, arabic: String, fallback: String = "") -> String {
+        if appLanguage.effectiveLanguageCode == "ar", !arabic.isEmpty {
+            return arabic
+        }
+        return english.isEmpty ? fallback : english
+    }
+
+    private func eventCategoryTitle(_ event: EventSettings.SeasonalEvent) -> String {
+        eventText(
+            english: event.categoryTitleEN.isEmpty ? event.titleEN : event.categoryTitleEN,
+            arabic: event.categoryTitleAR.isEmpty ? event.titleAR : event.categoryTitleAR,
+            fallback: event.name
+        )
+    }
+
+    private func eventCategorySubtitle(_ event: EventSettings.SeasonalEvent) -> String {
+        eventText(
+            english: event.categorySubtitleEN.isEmpty ? event.subtitleEN : event.categorySubtitleEN,
+            arabic: event.categorySubtitleAR.isEmpty ? event.subtitleAR : event.categorySubtitleAR
+        )
+    }
+
+    private func eventDate(_ value: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
     }
 
     private func localizedCategory(_ category: ShopCategory) -> ShopCategory {
@@ -1343,9 +1513,15 @@ struct ContentView: View {
     }
 
     private var filteredProducts: [Product] {
-        let categoryFilteredProducts = activeCategory == "all"
-            ? products
-            : products.filter { $0.categoryKey == activeCategory }
+        let categoryFilteredProducts: [Product]
+        if activeCategory == "all" {
+            categoryFilteredProducts = products
+        } else if let event = eventForCategory(activeCategory) {
+            let eventProductIDs = Set(event.productIDs)
+            categoryFilteredProducts = products.filter { eventProductIDs.contains($0.id) }
+        } else {
+            categoryFilteredProducts = products.filter { $0.categoryKey == activeCategory }
+        }
         let normalizedQuery = shopSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         let searchedProducts: [Product]
@@ -1588,7 +1764,7 @@ struct ContentView: View {
     }
 
     private func rewardProgress(for points: Int) -> (current: Int, target: Int, remaining: Int, fraction: Double) {
-        let threshold = 50
+        let threshold = max(remoteAppSettings?.loyalty?.rewardStep ?? 50, 1)
         let progress = points % threshold
         let current = progress == 0 && points > 0 ? threshold : progress
         let remaining = progress == 0 ? threshold : threshold - progress
@@ -1601,8 +1777,10 @@ struct ContentView: View {
     }
 
     private func tierProgress(for points: Int) -> (label: String, current: Int, target: Int, remaining: Int, fraction: Double) {
-        if points < 150 {
-            let target = 150
+        let silver = max(remoteAppSettings?.loyalty?.silverThreshold ?? 150, 1)
+        let gold = max(remoteAppSettings?.loyalty?.goldThreshold ?? 300, silver + 1)
+        if points < silver {
+            let target = silver
             return (
                 label: "Silver",
                 current: points,
@@ -1612,14 +1790,14 @@ struct ContentView: View {
             )
         }
 
-        if points < 300 {
-            let current = points - 150
-            let span = 150
+        if points < gold {
+            let current = points - silver
+            let span = gold - silver
             return (
                 label: "Gold",
                 current: current,
                 target: span,
-                remaining: 300 - points,
+                remaining: gold - points,
                 fraction: min(max(Double(current) / Double(span), 0), 1)
             )
         }
@@ -2079,6 +2257,76 @@ struct ContentView: View {
         AppLanguage(rawValue: savedAppLanguage) ?? .system
     }
 
+    private var isArabicInterface: Bool {
+        appLanguage.layoutDirection == .rightToLeft
+    }
+
+    private var paymentAvailability: TallaPaymentAvailability {
+        guard let payments = remoteAppSettings?.payments else { return TallaPaymentAvailability() }
+        return TallaPaymentAvailability(
+            applePayEnabled: payments.applePayEnabled,
+            benefitPayEnabled: payments.benefitPayEnabled,
+            benefitEnabled: payments.benefitEnabled,
+            cardEnabled: payments.cardEnabled,
+            cashOnDeliveryEnabled: payments.cashOnDeliveryEnabled
+        )
+    }
+
+    private var shippingConfiguration: TallaShippingConfiguration {
+        guard let fulfillment = remoteAppSettings?.fulfillment else { return TallaShippingConfiguration() }
+        return TallaShippingConfiguration(
+            bahrainRate: fulfillment.bahrainRate,
+            khaleejiCashOnDeliverySurcharge: fulfillment.khaleejiCashOnDeliverySurcharge,
+            maximumKhaleejiWeightGrams: fulfillment.maximumKhaleejiWeightGrams,
+            khaleejiTransitTime: isArabicInterface ? fulfillment.khaleejiTransitAR : fulfillment.khaleejiTransitEN,
+            khaleejiTiers: fulfillment.khaleejiTiers.map {
+                TallaShippingConfiguration.Tier(maximumWeightGrams: $0.maximumWeightGrams, rate: $0.rate)
+            }
+        )
+    }
+
+    private var managedPickupName: String {
+        guard let fulfillment = remoteAppSettings?.fulfillment else {
+            return AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa")
+        }
+        return isArabicInterface ? fulfillment.pickupNameAR : fulfillment.pickupNameEN
+    }
+
+    private var managedPickupAddress: String {
+        guard let fulfillment = remoteAppSettings?.fulfillment else {
+            return AppLocalization.text("pickup_address", fallback: "Villa 336, Street 1307, Riffa 913")
+        }
+        return isArabicInterface ? fulfillment.pickupAddressAR : fulfillment.pickupAddressEN
+    }
+
+    private func version(_ lhs: String, isOlderThan rhs: String) -> Bool {
+        let left = lhs.split(separator: ".").map { Int($0) ?? 0 }
+        let right = rhs.split(separator: ".").map { Int($0) ?? 0 }
+        for index in 0..<max(left.count, right.count) {
+            let leftPart = index < left.count ? left[index] : 0
+            let rightPart = index < right.count ? right[index] : 0
+            if leftPart != rightPart { return leftPart < rightPart }
+        }
+        return false
+    }
+
+    private var requiresAppUpdate: Bool {
+        guard let minimum = remoteAppSettings?.release?.minimumSupportedVersion,
+              !minimum.isEmpty else { return false }
+        return version(currentAppVersion, isOlderThan: minimum)
+    }
+
+    private var blocksApplicationUse: Bool {
+        remoteAppSettings?.release?.maintenanceEnabled == true || requiresAppUpdate
+    }
+
+    private var hasOptionalAppUpdate: Bool {
+        guard !requiresAppUpdate,
+              let latest = remoteAppSettings?.release?.latestVersion,
+              !latest.isEmpty else { return false }
+        return version(currentAppVersion, isOlderThan: latest)
+    }
+
     var body: some View {
         presentedContent
             .onOpenURL(perform: handleDeepLink)
@@ -2177,6 +2425,7 @@ struct ContentView: View {
         .task {
             syncWidgetSharedState(reload: false)
             await loadAppSettings()
+            await loadEventSettings()
             await runInitialLaunchSequence()
             syncWidgetSharedState(reload: true)
         }
@@ -2196,6 +2445,7 @@ struct ContentView: View {
                 }
                 guard hasLoadedProducts else { return }
                 await loadAppSettings()
+                await loadEventSettings()
                 if activeTab == .shop {
                     await refreshProductsIfNeeded()
                 }
@@ -2259,7 +2509,13 @@ struct ContentView: View {
     }
 
     private var presentedContent: some View {
-        lifecycleContent
+        ZStack {
+            lifecycleContent
+            if blocksApplicationUse {
+                operationalBlockerView
+                    .zIndex(200)
+            }
+        }
         .sheet(item: $checkoutSession, onDismiss: resetPaymentFlowAfterCheckoutDismiss) { session in
             CheckoutWebView(url: session.url)
         }
@@ -2324,6 +2580,44 @@ struct ContentView: View {
             WalletPassView(pass: item.pass)
         }
 #endif
+    }
+
+    private var operationalBlockerView: some View {
+        let release = remoteAppSettings?.release
+        let title = requiresAppUpdate
+            ? (isArabicInterface ? "يرجى تحديث التطبيق" : "Update required")
+            : (isArabicInterface ? release?.titleAR : release?.titleEN)
+        let message = requiresAppUpdate
+            ? (isArabicInterface ? release?.updateMessageAR : release?.updateMessageEN)
+            : (isArabicInterface ? release?.messageAR : release?.messageEN)
+
+        return ZStack {
+            pageBackgroundColor.ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: requiresAppUpdate ? "arrow.down.app.fill" : "cup.and.saucer.fill")
+                    .font(.system(size: 46, weight: .semibold))
+                    .foregroundColor(Color(hex: 0xC8965A))
+                Text(title ?? "Talla")
+                    .font(displayFont(size: 32))
+                    .foregroundColor(primaryTextColor)
+                    .multilineTextAlignment(.center)
+                Text(message ?? "Please try again shortly.")
+                    .font(bodyFont(size: 15))
+                    .foregroundColor(secondaryTextColor)
+                    .multilineTextAlignment(.center)
+                if requiresAppUpdate,
+                   let urlString = release?.appStoreURL,
+                   let url = URL(string: urlString),
+                   !urlString.isEmpty {
+                    Button(isArabicInterface ? "التحديث من App Store" : "Update on the App Store") {
+                        openURL(url)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(hex: 0xC8965A))
+                }
+            }
+            .padding(28)
+        }
     }
 
     private func resetPaymentFlowAfterCheckoutDismiss() {
@@ -3084,6 +3378,8 @@ struct ContentView: View {
         VStack(spacing: 0) {
             heroSection
             appAnnouncementCard
+            optionalAppUpdateCard
+            seasonalEventsSection
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }
@@ -3188,6 +3484,149 @@ struct ContentView: View {
             .padding(.horizontal, 18)
             .padding(.bottom, 14)
         }
+    }
+
+    @ViewBuilder
+    private var optionalAppUpdateCard: some View {
+        if hasOptionalAppUpdate, let release = remoteAppSettings?.release {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.down.app.fill")
+                    .foregroundColor(readableBrandGoldColor)
+                Text(isArabicInterface ? release.updateMessageAR : release.updateMessageEN)
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(primaryTextColor)
+                Spacer(minLength: 6)
+                if let url = URL(string: release.appStoreURL), !release.appStoreURL.isEmpty {
+                    Button(isArabicInterface ? "تحديث" : "Update") { openURL(url) }
+                        .font(labelFont(size: 10, weight: .bold))
+                        .buttonStyle(.bordered)
+                        .tint(Color(hex: 0xC8965A))
+                }
+            }
+            .padding(14)
+            .background(cardFillColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, 18)
+            .padding(.bottom, 12)
+        }
+    }
+
+    @ViewBuilder
+    private var seasonalEventsSection: some View {
+        if !activeSeasonalEvents.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(eventText(english: "Seasonal at Talla", arabic: "المواسم في تالا"))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 2.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(readableBrandGoldColor)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(activeSeasonalEvents) { event in
+                            seasonalEventCard(event)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 18)
+        }
+    }
+
+    private func seasonalEventCard(_ event: EventSettings.SeasonalEvent) -> some View {
+        let accent = eventColor(event.accentHex, fallback: 0xC8965A)
+        let secondary = eventColor(event.secondaryHex, fallback: 0x2A1D14)
+        let targetCategory = seasonalEventCategories.contains(where: { $0.key == eventCategoryKey(event) })
+            ? eventCategoryKey(event)
+            : "all"
+
+        return Button {
+            openShop(category: targetCategory)
+        } label: {
+            ZStack(alignment: .leading) {
+                LinearGradient(
+                    colors: [secondary, secondary.opacity(0.88), accent.opacity(0.78)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                if let imageURL = URL(string: event.imageURL), !event.imageURL.isEmpty {
+                    AsyncImage(url: imageURL, transaction: Transaction(animation: nil)) { phase in
+                        if case let .success(image) = phase {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .overlay(LinearGradient(colors: [secondary.opacity(0.92), secondary.opacity(0.30)], startPoint: .leading, endPoint: .trailing))
+                        }
+                    }
+                } else {
+                    Image(systemName: event.symbol.isEmpty ? "sparkles" : event.symbol)
+                        .font(.system(size: 86, weight: .semibold))
+                        .foregroundColor(accent.opacity(0.25))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.trailing, 22)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    let badge = eventText(english: event.badgeEN, arabic: event.badgeAR)
+                    if !badge.isEmpty {
+                        Text(badge)
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.6)
+                            .textCase(.uppercase)
+                            .foregroundColor(secondary)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(accent)
+                            .clipShape(Capsule())
+                    }
+
+                    Text(eventText(english: event.titleEN, arabic: event.titleAR, fallback: event.name))
+                        .font(displayFont(size: 25))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+
+                    let subtitle = eventText(english: event.subtitleEN, arabic: event.subtitleAR)
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(bodyFont(size: 13))
+                            .foregroundColor(.white.opacity(0.82))
+                            .lineLimit(3)
+                    }
+
+                    HStack(spacing: 8) {
+                        Text(eventText(english: event.ctaEN, arabic: event.ctaAR, fallback: AppLocalization.text("explore", fallback: "Explore")))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .textCase(.uppercase)
+                        Image(systemName: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
+                            .font(.system(size: 10, weight: .bold))
+
+                        if let endAt = event.endAt.flatMap(eventDate) {
+                            Spacer(minLength: 6)
+                            Text(endAt, style: .timer)
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        }
+                    }
+                    .foregroundColor(accent)
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(width: isCompact ? 326 : 500, height: 220)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(accent.opacity(0.38), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(eventText(english: event.titleEN, arabic: event.titleAR, fallback: event.name))
+    }
+
+    private func eventColor(_ value: String, fallback: UInt32) -> Color {
+        let normalized = value.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        return Color(hex: UInt32(normalized, radix: 16) ?? fallback)
     }
 
     @ViewBuilder
@@ -6534,25 +6973,43 @@ struct ContentView: View {
 
     private var deleteAccountSettingsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(AppLocalization.text("delete_account_detail", fallback: "To delete your Talla account and associated app data, contact support and we will help complete the request."))
+            Text(customerProfile == nil
+                ? AppLocalization.text("delete_account_sign_in_detail", fallback: "Sign in to the account you want to delete.")
+                : AppLocalization.text("delete_account_detail", fallback: "Permanently delete your Talla account and associated customer data. This action cannot be undone."))
                 .font(bodyFont(size: 14))
                 .foregroundColor(secondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
-                openURL(URL(string: "https://wa.me/97339392414")!)
+                accountDeletionError = nil
+                isDeleteConfirmationPresented = true
             } label: {
-                Text(AppLocalization.text("contact_support", fallback: "Contact Support"))
-                    .font(labelFont(size: 11, weight: .bold))
-                    .tracking(1.6)
-                    .textCase(.uppercase)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.red.opacity(0.86))
-                    .clipShape(Capsule(style: .continuous))
+                HStack(spacing: 8) {
+                    if isDeletingAccount {
+                        ProgressView()
+                            .tint(.white)
+                    }
+
+                    Text(AppLocalization.text("delete_account_permanently", fallback: "Delete Account Permanently"))
+                }
+                .font(labelFont(size: 11, weight: .bold))
+                .tracking(1.6)
+                .textCase(.uppercase)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.red.opacity(0.86))
+                .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(customerProfile == nil || isDeletingAccount)
+
+            if let accountDeletionError {
+                Text(accountDeletionError)
+                    .font(bodyFont(size: 13))
+                    .foregroundColor(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(16)
         .background(cardFillColor)
@@ -6561,6 +7018,54 @@ struct ContentView: View {
                 .stroke(Color.red.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .alert(
+            AppLocalization.text("delete_account_confirmation_title", fallback: "Delete Account Permanently?"),
+            isPresented: $isDeleteConfirmationPresented
+        ) {
+            Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) {}
+            Button(AppLocalization.text("delete_account", fallback: "Delete Account"), role: .destructive) {
+                Task {
+                    await deleteCustomerAccount()
+                }
+            }
+        } message: {
+            Text(AppLocalization.text(
+                "delete_account_confirmation_detail",
+                fallback: "Your profile, loyalty data, saved addresses, alerts, vouchers, and order records will be permanently deleted."
+            ))
+        }
+    }
+
+    @MainActor
+    private func deleteCustomerAccount() async {
+        guard customerProfile != nil, !isDeletingAccount else { return }
+
+        isDeletingAccount = true
+        accountDeletionError = nil
+        defer { isDeletingAccount = false }
+
+        do {
+            try await AccountService.deleteAccount()
+            signOutCustomer(clearError: false, unregisterBackend: false)
+            savedLoyaltyEmail = ""
+            loyaltyEmail = ""
+            loyaltyAccount = nil
+            savedFavoriteProductIDs = ""
+            savedRecentlyViewedProductIDs = ""
+            savedRecentSearchQueries = ""
+            savedAlertProductIDs = ""
+            savedBrewRecipes = ""
+            savedBrewJournal = ""
+            savedTasteMemory = ""
+            savedCartsPayload = ""
+            selectedSettingsDetail = nil
+            showToast(message: AppLocalization.text("account_deleted", fallback: "Your account has been deleted."))
+        } catch {
+            accountDeletionError = friendlyCustomerAuthMessage(
+                for: error,
+                fallback: AppLocalization.text("account_delete_failed", fallback: "Your account could not be deleted right now. Please try again.")
+            )
+        }
     }
 
     private func languageOptionButton(_ language: AppLanguage) -> some View {
@@ -7719,6 +8224,18 @@ struct ContentView: View {
                         textColor: secondaryTextColor
                     )
 
+                    if let payments = remoteAppSettings?.payments {
+                        let notice = isArabicInterface ? payments.noticeAR : payments.noticeEN
+                        if !notice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Label(notice, systemImage: "info.circle.fill")
+                                .font(bodyFont(size: 13))
+                                .foregroundColor(secondaryTextColor)
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
+
                     cartFulfillmentMethodSection
                     checkoutDestinationSection
                     cartPaymentMethodsSection
@@ -7761,6 +8278,7 @@ struct ContentView: View {
                 selectedMethod: paymentFlow.selectedMethod,
                 applePayAvailable: isApplePayAvailable,
                 gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
+                availability: paymentAvailability,
                 primaryColor: primaryTextColor,
                 secondaryColor: secondaryTextColor,
                 accentColor: Color(hex: 0xC8965A),
@@ -7790,10 +8308,10 @@ struct ContentView: View {
             if fulfillmentMethod == .pickup {
                 Label {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa"))
+                        Text(managedPickupName)
                             .font(.body.weight(.semibold))
                             .foregroundColor(primaryTextColor)
-                        Text(AppLocalization.text("pickup_address", fallback: "Villa 336, Street 1307, Riffa 913"))
+                        Text(managedPickupAddress)
                             .font(.footnote)
                             .foregroundColor(secondaryTextColor)
                     }
@@ -8300,21 +8818,25 @@ struct ContentView: View {
                 .foregroundColor(readableBrandGoldColor)
 
             HStack(spacing: 8) {
-                fulfillmentMethodButton(
-                    .delivery,
-                    title: AppLocalization.text("delivery", fallback: "Delivery"),
-                    systemImage: "truck.box.fill"
-                )
-                fulfillmentMethodButton(
-                    .pickup,
-                    title: AppLocalization.text("pickup", fallback: "Pickup"),
-                    systemImage: "storefront.fill"
-                )
+                if remoteAppSettings?.fulfillment?.deliveryEnabled != false {
+                    fulfillmentMethodButton(
+                        .delivery,
+                        title: AppLocalization.text("delivery", fallback: "Delivery"),
+                        systemImage: "truck.box.fill"
+                    )
+                }
+                if remoteAppSettings?.fulfillment?.pickupEnabled != false {
+                    fulfillmentMethodButton(
+                        .pickup,
+                        title: AppLocalization.text("pickup", fallback: "Pickup"),
+                        systemImage: "storefront.fill"
+                    )
+                }
             }
 
             if fulfillmentMethod == .pickup {
                 Label(
-                    AppLocalization.text("pickup_address", fallback: "Villa 336, Street 1307, Riffa 913"),
+                    managedPickupAddress,
                     systemImage: "mappin.and.ellipse"
                 )
                 .font(bodyFont(size: 12))
@@ -10175,6 +10697,7 @@ struct ContentView: View {
     private func loyaltyRewardsActions(account: LoyaltyAccount) -> some View {
         LoyaltyRewardsActionsView(
             account: account,
+            configuration: remoteAppSettings?.loyalty,
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,
@@ -10672,10 +11195,12 @@ struct ContentView: View {
         return true
     }
 
-    private func signOutCustomer(clearError: Bool = true) {
+    private func signOutCustomer(clearError: Bool = true, unregisterBackend: Bool = true) {
         let emailToUnregister = customerProfile?.email ?? (!savedCustomerEmail.isEmpty ? savedCustomerEmail : nil)
         let accessTokenToUnregister = savedCustomerAccessToken
-        unregisterRemotePushToken(email: emailToUnregister, accessToken: accessTokenToUnregister)
+        if unregisterBackend {
+            unregisterRemotePushToken(email: emailToUnregister, accessToken: accessTokenToUnregister)
+        }
         unregisterRemoteNotifications()
         savedRegisteredPushDeviceEmail = ""
         savedRegisteredPushDeviceToken = ""
@@ -11180,6 +11705,7 @@ struct ContentView: View {
             await loadHomeSettings()
             await loadPassportSettings()
             await loadAppSettings()
+            await loadEventSettings()
 
             if !availableCategories.contains(where: { $0.key == activeCategory }) {
                 activeCategory = "all"
@@ -11223,9 +11749,26 @@ struct ContentView: View {
     @MainActor
     private func loadAppSettings() async {
         do {
-            remoteAppSettings = try await HomeSettingsService.fetchAppSettings()
+            let settings = try await HomeSettingsService.fetchAppSettings()
+            remoteAppSettings = settings
+            if settings.fulfillment?.deliveryEnabled == false,
+               settings.fulfillment?.pickupEnabled == true {
+                fulfillmentMethod = .pickup
+            } else if settings.fulfillment?.pickupEnabled == false,
+                      settings.fulfillment?.deliveryEnabled == true {
+                fulfillmentMethod = .delivery
+            }
         } catch {
             // Keep the bundled defaults when live controls are unavailable.
+        }
+    }
+
+    @MainActor
+    private func loadEventSettings() async {
+        do {
+            remoteEventSettings = try await HomeSettingsService.fetchEventSettings()
+        } catch {
+            // Seasonal content is optional; keep the normal storefront if unavailable.
         }
     }
 
@@ -12290,7 +12833,7 @@ struct ContentView: View {
         postPaymentMethodTitle = method.title
         if fulfillmentMethod == .pickup {
             postPaymentFulfillmentTitle = AppLocalization.text("pickup", fallback: "Pickup")
-            postPaymentDestination = AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa")
+            postPaymentDestination = managedPickupName
         } else {
             postPaymentFulfillmentTitle = AppLocalization.text("delivery", fallback: "Delivery")
             postPaymentDestination = preferredAddress.map {
@@ -12339,6 +12882,18 @@ struct ContentView: View {
     private func prepareCheckout() {
         guard !cartItems.isEmpty else { return }
 
+        guard remoteAppSettings?.release?.checkoutMaintenanceEnabled != true,
+              remoteAppSettings?.release?.maintenanceEnabled != true else {
+            checkoutError = isArabicInterface ? "الدفع غير متاح مؤقتاً." : "Checkout is temporarily unavailable."
+            return
+        }
+
+        guard (fulfillmentMethod == .delivery && remoteAppSettings?.fulfillment?.deliveryEnabled != false)
+                || (fulfillmentMethod == .pickup && remoteAppSettings?.fulfillment?.pickupEnabled != false) else {
+            checkoutError = isArabicInterface ? "طريقة الاستلام هذه غير متاحة حالياً." : "This fulfillment method is currently unavailable."
+            return
+        }
+
         if paymentFlow.selectedMethod == nil {
             if isApplePayAvailable && MastercardSDKAvailability.isAvailable {
                 paymentFlow.select(.applePay)
@@ -12358,6 +12913,12 @@ struct ContentView: View {
     private func beginCheckout() async {
         guard let selectedPaymentMethod = paymentFlow.selectedMethod else {
             isPaymentMethodSheetPresented = true
+            return
+        }
+
+        guard paymentAvailability.isEnabled(selectedPaymentMethod) else {
+            paymentFlow.transition(to: .failed)
+            checkoutError = isArabicInterface ? "طريقة الدفع هذه غير متاحة حالياً." : "This payment method is currently unavailable."
             return
         }
         guard !isCheckingOut, paymentFlow.begin() else { return }
@@ -12598,6 +13159,15 @@ struct ContentView: View {
     }
 
     private func categoryDefinition(for key: String) -> ShopCategory {
+        if let event = eventForCategory(key) {
+            return ShopCategory(
+                key: key,
+                title: eventCategoryTitle(event),
+                subtitle: eventCategorySubtitle(event),
+                symbol: event.symbol.isEmpty ? "sparkles" : event.symbol
+            )
+        }
+
         if key == "tea" || key == "drinks" {
             return categoryDefinition(for: "ready-made-drinks")
         }
@@ -12634,6 +13204,9 @@ struct ContentView: View {
 
     private func categoryLabel(for key: String) -> String {
         guard key != "all" else { return AppLocalization.text("category_all", fallback: "All") }
+        if let event = eventForCategory(key) {
+            return eventCategoryTitle(event)
+        }
         if key == "summer-drinks" {
             return AppLocalization.text("category_summer_drinks", fallback: "Summer Boxes")
         }
@@ -13056,6 +13629,24 @@ private enum HomeSettingsService {
 
         return try JSONDecoder().decode(ContentView.AppSettings.self, from: data)
     }
+
+    static func fetchEventSettings() async throws -> ContentView.EventSettings {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Events service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/events"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The events service could not complete your request.")
+        }
+
+        return try JSONDecoder().decode(ContentView.EventSettings.self, from: data)
+    }
 }
 
 private enum AccountService {
@@ -13211,6 +13802,19 @@ private enum AccountService {
             "currentPassword": currentPassword,
             "newPassword": newPassword
         ])
+
+        _ = try await performEmptyRequest(request)
+    }
+
+    static func deleteAccount() async throws {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/delete"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
 
         _ = try await performEmptyRequest(request)
     }

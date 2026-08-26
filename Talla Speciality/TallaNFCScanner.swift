@@ -8,7 +8,7 @@ final class TallaNFCScanner: NSObject, NFCNDEFReaderSessionDelegate {
     private var onScan: ((URL) -> Void)?
     private var onError: ((String) -> Void)?
 
-    var isAvailable: Bool { NFCNDEFReaderSession.readingAvailable }
+    let isAvailable = NFCNDEFReaderSession.readingAvailable
 
     func beginScanning(onScan: @escaping (URL) -> Void, onError: @escaping (String) -> Void) {
         self.onScan = onScan
@@ -27,6 +27,8 @@ final class TallaNFCScanner: NSObject, NFCNDEFReaderSessionDelegate {
         guard (error as? NFCReaderError)?.code != .readerSessionInvalidationErrorUserCanceled else { return }
         Task { @MainActor in self.onError?(error.localizedDescription) }
     }
+
+    nonisolated func readerSessionDidBecomeActive(_ session: NFCNDEFReaderSession) {}
 
     nonisolated func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
         let url = messages
@@ -52,7 +54,7 @@ final class TallaNFCScanner: NSObject, NFCNDEFReaderSessionDelegate {
 #else
 @MainActor
 final class TallaNFCScanner {
-    var isAvailable: Bool { false }
+    let isAvailable = false
     func beginScanning(onScan: @escaping (URL) -> Void, onError: @escaping (String) -> Void) {
         onError(AppLocalization.text("nfc_unavailable", fallback: "NFC scanning is not available on this device."))
     }

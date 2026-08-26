@@ -290,6 +290,7 @@ struct PaymentMethodSelectorView: View {
     let state: TallaPaymentState
     let applePayAvailable: Bool
     let gatewaySDKAvailable: Bool
+    var availability = TallaPaymentAvailability()
     let primaryColor: Color
     let secondaryColor: Color
     let accentColor: Color
@@ -298,13 +299,17 @@ struct PaymentMethodSelectorView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var methods: [TallaPaymentMethod] {
-        Self.visibleMethods(applePayAvailable: applePayAvailable)
+        Self.visibleMethods(applePayAvailable: applePayAvailable, availability: availability)
     }
 
-    static func visibleMethods(applePayAvailable: Bool) -> [TallaPaymentMethod] {
-        applePayAvailable
+    static func visibleMethods(
+        applePayAvailable: Bool,
+        availability: TallaPaymentAvailability = TallaPaymentAvailability()
+    ) -> [TallaPaymentMethod] {
+        let methods: [TallaPaymentMethod] = applePayAvailable
             ? [.applePay, .benefitPay, .benefit, .card, .cashOnDelivery]
             : [.benefitPay, .benefit, .card, .cashOnDelivery]
+        return methods.filter(availability.isEnabled)
     }
 
     var body: some View {
@@ -510,6 +515,7 @@ struct CompactPaymentMethodRow: View {
 struct PaymentMethodSelectionSheet: View {
     let applePayAvailable: Bool
     let gatewaySDKAvailable: Bool
+    let availability: TallaPaymentAvailability
     let primaryColor: Color
     let secondaryColor: Color
     let accentColor: Color
@@ -523,6 +529,7 @@ struct PaymentMethodSelectionSheet: View {
         selectedMethod: TallaPaymentMethod?,
         applePayAvailable: Bool,
         gatewaySDKAvailable: Bool,
+        availability: TallaPaymentAvailability = TallaPaymentAvailability(),
         primaryColor: Color,
         secondaryColor: Color,
         accentColor: Color,
@@ -531,17 +538,18 @@ struct PaymentMethodSelectionSheet: View {
     ) {
         self.applePayAvailable = applePayAvailable
         self.gatewaySDKAvailable = gatewaySDKAvailable
+        self.availability = availability
         self.primaryColor = primaryColor
         self.secondaryColor = secondaryColor
         self.accentColor = accentColor
         self.surfaceColor = surfaceColor
         self.onConfirm = onConfirm
-        let visibleMethods = PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable)
+        let visibleMethods = PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable, availability: availability)
         _draftMethod = State(initialValue: selectedMethod.flatMap { visibleMethods.contains($0) ? $0 : nil })
     }
 
     private var methods: [TallaPaymentMethod] {
-        PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable)
+        PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable, availability: availability)
             .filter(isEnabled)
     }
 
@@ -881,6 +889,42 @@ enum TallaFulfillmentMethod: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+struct TallaPaymentAvailability {
+    var applePayEnabled = true
+    var benefitPayEnabled = true
+    var benefitEnabled = true
+    var cardEnabled = true
+    var cashOnDeliveryEnabled = true
+
+    func isEnabled(_ method: TallaPaymentMethod) -> Bool {
+        switch method {
+        case .applePay: applePayEnabled
+        case .benefitPay: benefitPayEnabled
+        case .benefit: benefitEnabled
+        case .card: cardEnabled
+        case .cashOnDelivery: cashOnDeliveryEnabled
+        }
+    }
+}
+
+struct TallaShippingConfiguration {
+    struct Tier {
+        let maximumWeightGrams: Double
+        let rate: Double
+    }
+
+    var bahrainRate = 2.0
+    var khaleejiCashOnDeliverySurcharge = 2.0
+    var maximumKhaleejiWeightGrams = 4_000.0
+    var khaleejiTransitTime = "3 to 5 business days"
+    var khaleejiTiers = [
+        Tier(maximumWeightGrams: 500, rate: 5.5), Tier(maximumWeightGrams: 1_000, rate: 6.5),
+        Tier(maximumWeightGrams: 1_500, rate: 7.5), Tier(maximumWeightGrams: 2_000, rate: 8.5),
+        Tier(maximumWeightGrams: 2_500, rate: 9.5), Tier(maximumWeightGrams: 3_000, rate: 10.5),
+        Tier(maximumWeightGrams: 3_500, rate: 11.5), Tier(maximumWeightGrams: 4_000, rate: 12.5)
+    ]
+}
+
 enum TallaShippingRates {
     static let bahrainRate = 2.000
     static let khaleejiCashOnDeliverySurcharge = 2.000
@@ -899,19 +943,25 @@ enum TallaShippingRates {
         (4_000, 12.500)
     ]
 
-    static func rate(countryCode: String, weightGrams: Double, cashOnDelivery: Bool) -> Double? {
+    static func rate(
+        countryCode: String,
+        weightGrams: Double,
+        cashOnDelivery: Bool,
+        configuration: TallaShippingConfiguration = TallaShippingConfiguration()
+    ) -> Double? {
         let normalizedCountryCode = countryCode.uppercased()
         if normalizedCountryCode == "BH" {
-            return bahrainRate
+            return configuration.bahrainRate
         }
 
         guard khaleejiCountryCodes.contains(normalizedCountryCode),
               weightGrams > 0,
-              let tier = khaleejiTiers.first(where: { weightGrams <= $0.maximumWeightGrams }) else {
+              weightGrams <= configuration.maximumKhaleejiWeightGrams,
+              let tier = configuration.khaleejiTiers.first(where: { weightGrams <= $0.maximumWeightGrams }) else {
             return nil
         }
 
-        return tier.rate + (cashOnDelivery ? khaleejiCashOnDeliverySurcharge : 0)
+        return tier.rate + (cashOnDelivery ? configuration.khaleejiCashOnDeliverySurcharge : 0)
     }
 }
 

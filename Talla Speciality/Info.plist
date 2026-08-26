@@ -8,6 +8,8 @@
 	<string>https://talla-backend.onrender.com</string>
 	<key>BenefitPaySDKSecretKey</key>
 	<string>$(BENEFITPAY_SDK_SECRET_KEY)</string>
+	<key>TallaAppAttestEnvironment</key>
+	<string>$(APP_ATTEST_ENVIRONMENT)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
