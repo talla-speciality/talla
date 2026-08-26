@@ -26,6 +26,7 @@ const pushDevicesStorePath = config.stores.pushDevices;
 const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
 const campaignSettingsStorePath = config.stores.campaignSettings;
+const eventsStorePath = config.stores.events;
 const homeSettingsStorePath = config.stores.homeSettings;
 const passportSettingsStorePath = config.stores.passportSettings;
 const appSettingsStorePath = config.stores.appSettings;
@@ -100,7 +101,6 @@ const shopifyAdminAccessToken = config.shopifyAdminAccessToken;
 const shopifyAdminAPIVersion = config.shopifyAdminAPIVersion;
 const shopifyAdminPublicationID = config.shopifyAdminPublicationID;
 const shopifyWebhookSecret = config.shopifyWebhookSecret;
-const loyaltyPointsPerBHD = 5;
 const sampleOrderTotal = 8.5;
 const sampleOrderItems = [
     { name: "Brazil", quantity: 1 },
@@ -154,6 +154,7 @@ ensureStoreFile(walletPassesStorePath, { passes: {}, devices: {}, registrations:
 ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
 ensureStoreFile(campaignSettingsStorePath, { campaignSettings: defaultCampaignSettings() });
+ensureStoreFile(eventsStorePath, { eventSettings: defaultEventSettings() });
 ensureStoreFile(homeSettingsStorePath, { homeSettings: defaultHomeSettings() });
 ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSettings() });
 ensureStoreFile(appSettingsStorePath, { appSettings: defaultAppSettings() });
@@ -164,6 +165,10 @@ ensureStoreFile(cardPaymentsStorePath, { payments: {} });
 ensureStoreFile(shopifyEazyPaymentsStorePath, { payments: {} });
 ensureStoreFile(shopifyOrderExportsStorePath, { exports: {} });
 ensureStoreFile(appAttestStorePath, { keys: {} });
+
+const runtimeAppSettings = {
+    value: normalizeAppSettings(readJSON(appSettingsStorePath).appSettings || {})
+};
 
 function ensureStoreFile(filePath, fallback) {
     if (!fs.existsSync(dataDirectory)) {
@@ -201,6 +206,110 @@ function normalizeCampaignSettings(value = {}) {
         eidModeEnabled: value.eidModeEnabled === undefined ? fallback.eidModeEnabled : Boolean(value.eidModeEnabled),
         eidOfferEndsAt,
         updatedAt: value.updatedAt || fallback.updatedAt
+    };
+}
+
+function defaultEventSettings() {
+    return {
+        events: [],
+        updatedAt: null
+    };
+}
+
+function normalizeEventSettings(value = {}) {
+    const trimText = (text, maxLength) => String(text || "").trim().slice(0, maxLength);
+    const eventID = (candidate, fallback) => {
+        const normalized = trimText(candidate || fallback, 60)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+        return normalized || fallback;
+    };
+    const isoDate = (candidate) => {
+        if (!candidate) return null;
+        const date = new Date(candidate);
+        return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+    };
+    const httpsURL = (candidate) => {
+        const value = trimText(candidate, 500);
+        if (!value) return "";
+        try {
+            const parsed = new URL(value);
+            return parsed.protocol === "https:" ? parsed.toString() : "";
+        } catch {
+            return "";
+        }
+    };
+    const hexColor = (candidate, fallback) => {
+        const value = trimText(candidate, 7).toUpperCase();
+        return /^#[0-9A-F]{6}$/.test(value) ? value : fallback;
+    };
+    const seenIDs = new Set();
+    const sourceEvents = Array.isArray(value.events) ? value.events : [];
+    const events = sourceEvents.slice(0, 30).map((event, index) => {
+        let id = eventID(event?.id, `event-${index + 1}`);
+        if (seenIDs.has(id)) {
+            id = `${id}-${index + 1}`;
+        }
+        seenIDs.add(id);
+
+        const seenProductIDs = new Set();
+        const productIDs = (Array.isArray(event?.productIDs) ? event.productIDs : [])
+            .map((productID) => trimText(productID, 180))
+            .filter((productID) => {
+                if (!productID || seenProductIDs.has(productID)) return false;
+                seenProductIDs.add(productID);
+                return true;
+            })
+            .slice(0, 40);
+        const priority = Number(event?.priority);
+
+        return {
+            id,
+            enabled: Boolean(event?.enabled),
+            name: trimText(event?.name || event?.titleEN || id, 80),
+            titleEN: trimText(event?.titleEN, 80),
+            titleAR: trimText(event?.titleAR, 80),
+            subtitleEN: trimText(event?.subtitleEN, 220),
+            subtitleAR: trimText(event?.subtitleAR, 220),
+            badgeEN: trimText(event?.badgeEN, 40),
+            badgeAR: trimText(event?.badgeAR, 40),
+            ctaEN: trimText(event?.ctaEN, 32),
+            ctaAR: trimText(event?.ctaAR, 32),
+            categoryTitleEN: trimText(event?.categoryTitleEN, 60),
+            categoryTitleAR: trimText(event?.categoryTitleAR, 60),
+            categorySubtitleEN: trimText(event?.categorySubtitleEN, 100),
+            categorySubtitleAR: trimText(event?.categorySubtitleAR, 100),
+            startAt: isoDate(event?.startAt),
+            endAt: isoDate(event?.endAt),
+            imageURL: httpsURL(event?.imageURL),
+            accentHex: hexColor(event?.accentHex, "#C8965A"),
+            secondaryHex: hexColor(event?.secondaryHex, "#2A1D14"),
+            symbol: trimText(event?.symbol || "sparkles", 60),
+            productIDs,
+            priority: Number.isFinite(priority) ? Math.max(-1000, Math.min(1000, Math.round(priority))) : 0
+        };
+    });
+
+    return {
+        events,
+        updatedAt: value.updatedAt || null
+    };
+}
+
+function activeEventSettings(settings, now = new Date()) {
+    const nowTime = now.getTime();
+    return {
+        ...settings,
+        events: settings.events
+            .filter((event) => {
+                if (!event.enabled || !event.titleEN) return false;
+                const startTime = event.startAt ? new Date(event.startAt).getTime() : null;
+                const endTime = event.endAt ? new Date(event.endAt).getTime() : null;
+                return (startTime === null || startTime <= nowTime)
+                    && (endTime === null || endTime > nowTime);
+            })
+            .sort((left, right) => right.priority - left.priority || left.name.localeCompare(right.name))
     };
 }
 
@@ -278,6 +387,69 @@ function defaultAppSettings() {
             showSignatureRoasts: true,
             showPassport: true
         },
+        payments: {
+            applePayEnabled: true,
+            benefitPayEnabled: true,
+            benefitEnabled: true,
+            cardEnabled: true,
+            cashOnDeliveryEnabled: true,
+            noticeEN: "",
+            noticeAR: ""
+        },
+        fulfillment: {
+            deliveryEnabled: true,
+            pickupEnabled: true,
+            pickupNameEN: "Talla, Riffa",
+            pickupNameAR: "تالة، الرفاع",
+            pickupAddressEN: "Villa 336, Street 1307, Riffa 913",
+            pickupAddressAR: "فيلا 336، طريق 1307، الرفاع 913",
+            pickupMapsURL: "",
+            openingHoursEN: "",
+            openingHoursAR: "",
+            bahrainRate: 2,
+            khaleejiCashOnDeliverySurcharge: 2,
+            maximumKhaleejiWeightGrams: 4000,
+            khaleejiTransitEN: "3 to 5 business days",
+            khaleejiTransitAR: "من 3 إلى 5 أيام عمل",
+            khaleejiTiers: [
+                { maximumWeightGrams: 500, rate: 5.5 },
+                { maximumWeightGrams: 1000, rate: 6.5 },
+                { maximumWeightGrams: 1500, rate: 7.5 },
+                { maximumWeightGrams: 2000, rate: 8.5 },
+                { maximumWeightGrams: 2500, rate: 9.5 },
+                { maximumWeightGrams: 3000, rate: 10.5 },
+                { maximumWeightGrams: 3500, rate: 11.5 },
+                { maximumWeightGrams: 4000, rate: 12.5 }
+            ]
+        },
+        release: {
+            maintenanceEnabled: false,
+            checkoutMaintenanceEnabled: false,
+            minimumSupportedVersion: "",
+            latestVersion: "",
+            appStoreURL: "",
+            titleEN: "We'll be right back",
+            titleAR: "سنعود قريباً",
+            messageEN: "Talla is being updated. Please try again shortly.",
+            messageAR: "يتم تحديث تالة. يرجى المحاولة بعد قليل.",
+            updateMessageEN: "A new version of Talla is available.",
+            updateMessageAR: "يتوفر إصدار جديد من تطبيق تالة."
+        },
+        loyalty: {
+            pointsPerBHD: 5,
+            silverThreshold: 150,
+            goldThreshold: 300,
+            rewardStep: 50,
+            rewards: [
+                { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" },
+                { id: "pastry-pairing", enabled: true, titleEN: "Pastry Pairing", titleAR: "حلوى مع القهوة", detailEN: "Pastry with coffee", detailAR: "حلوى مع القهوة", points: 75, reward: "Pastry pairing" },
+                { id: "signature-sip", enabled: true, titleEN: "Signature Sip", titleAR: "مشروب تالة المميز", detailEN: "One signature drink", detailAR: "مشروب مميز واحد", points: 100, reward: "Signature sip" },
+                { id: "majlis-hosting", enabled: true, titleEN: "Majlis Hosting Reward", titleAR: "مكافأة ضيافة المجلس", detailEN: "Hosting credit", detailAR: "رصيد للضيافة", points: 120, reward: "Majlis hosting reward" },
+                { id: "coffee-bag-credit", enabled: true, titleEN: "Coffee Bag Credit", titleAR: "رصيد كيس قهوة", detailEN: "Credit toward a coffee bag", detailAR: "رصيد لشراء كيس قهوة", points: 150, reward: "Coffee bag credit" },
+                { id: "talla-box-treat", enabled: true, titleEN: "Talla Box Treat", titleAR: "هدية صندوق تالة", detailEN: "Gift box credit", detailAR: "رصيد لصندوق هدايا", points: 200, reward: "Talla box treat" },
+                { id: "gold-club-gift", enabled: true, titleEN: "Gold Club Gift", titleAR: "هدية النادي الذهبي", detailEN: "Exclusive Talla Club gift", detailAR: "هدية حصرية من نادي تالة", points: 250, reward: "Gold club gift" }
+            ]
+        },
         updatedAt: null
     };
 }
@@ -295,9 +467,62 @@ function normalizeAppSettings(value = {}) {
             return fallbackValue;
         }
     };
+    const safeVersion = (candidate) => {
+        const version = trimText(candidate, 30);
+        return /^\d+(?:\.\d+){0,3}$/.test(version) ? version : "";
+    };
     const announcement = value.announcement || {};
     const support = value.support || {};
     const homeSections = value.homeSections || {};
+    const payments = value.payments || {};
+    const fulfillment = value.fulfillment || {};
+    const release = value.release || {};
+    const loyalty = value.loyalty || {};
+    const requestedDeliveryEnabled = fulfillment.deliveryEnabled === undefined
+        ? fallback.fulfillment.deliveryEnabled
+        : Boolean(fulfillment.deliveryEnabled);
+    const requestedPickupEnabled = fulfillment.pickupEnabled === undefined
+        ? fallback.fulfillment.pickupEnabled
+        : Boolean(fulfillment.pickupEnabled);
+    const hasFulfillmentMethod = requestedDeliveryEnabled || requestedPickupEnabled;
+    const boundedNumber = (candidate, fallbackValue, minimum, maximum) => {
+        const number = Number(candidate);
+        return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallbackValue;
+    };
+    const normalizedTiers = Array.isArray(fulfillment.khaleejiTiers)
+        ? fulfillment.khaleejiTiers
+            .map((tier) => {
+                const maximumWeightGrams = Number(tier?.maximumWeightGrams);
+                const rate = Number(tier?.rate);
+                if (!Number.isFinite(maximumWeightGrams) || maximumWeightGrams <= 0 || !Number.isFinite(rate) || rate < 0) {
+                    return null;
+                }
+                return {
+                    maximumWeightGrams: Math.round(Math.min(maximumWeightGrams, 50_000)),
+                    rate: Math.min(rate, 500)
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.maximumWeightGrams - b.maximumWeightGrams)
+            .slice(0, 20)
+        : fallback.fulfillment.khaleejiTiers;
+    const normalizedRewards = Array.isArray(loyalty.rewards)
+        ? loyalty.rewards.map((reward, index) => ({
+            id: trimText(reward?.id || `reward-${index + 1}`, 60).toLowerCase().replace(/[^a-z0-9-]/g, "-") || `reward-${index + 1}`,
+            enabled: reward?.enabled === undefined ? true : Boolean(reward.enabled),
+            titleEN: trimText(reward?.titleEN, 80),
+            titleAR: trimText(reward?.titleAR, 80),
+            detailEN: trimText(reward?.detailEN, 160),
+            detailAR: trimText(reward?.detailAR, 160),
+            points: Math.round(boundedNumber(reward?.points, 50, 1, 1_000_000)),
+            reward: trimText(reward?.reward, 100)
+        })).filter((reward) => reward.titleEN && reward.reward).slice(0, 30)
+        : fallback.loyalty.rewards;
+    const silverThreshold = Math.round(boundedNumber(loyalty.silverThreshold, fallback.loyalty.silverThreshold, 1, 1_000_000));
+    const goldThreshold = Math.max(
+        Math.round(boundedNumber(loyalty.goldThreshold, fallback.loyalty.goldThreshold, 1, 1_000_000)),
+        silverThreshold + 1
+    );
 
     return {
         announcement: {
@@ -317,6 +542,52 @@ function normalizeAppSettings(value = {}) {
             showFunPick: homeSections.showFunPick === undefined ? true : Boolean(homeSections.showFunPick),
             showSignatureRoasts: homeSections.showSignatureRoasts === undefined ? true : Boolean(homeSections.showSignatureRoasts),
             showPassport: homeSections.showPassport === undefined ? true : Boolean(homeSections.showPassport)
+        },
+        payments: {
+            applePayEnabled: payments.applePayEnabled === undefined ? fallback.payments.applePayEnabled : Boolean(payments.applePayEnabled),
+            benefitPayEnabled: payments.benefitPayEnabled === undefined ? fallback.payments.benefitPayEnabled : Boolean(payments.benefitPayEnabled),
+            benefitEnabled: payments.benefitEnabled === undefined ? fallback.payments.benefitEnabled : Boolean(payments.benefitEnabled),
+            cardEnabled: payments.cardEnabled === undefined ? fallback.payments.cardEnabled : Boolean(payments.cardEnabled),
+            cashOnDeliveryEnabled: payments.cashOnDeliveryEnabled === undefined ? fallback.payments.cashOnDeliveryEnabled : Boolean(payments.cashOnDeliveryEnabled),
+            noticeEN: trimText(payments.noticeEN, 220),
+            noticeAR: trimText(payments.noticeAR, 220)
+        },
+        fulfillment: {
+            deliveryEnabled: hasFulfillmentMethod ? requestedDeliveryEnabled : fallback.fulfillment.deliveryEnabled,
+            pickupEnabled: hasFulfillmentMethod ? requestedPickupEnabled : fallback.fulfillment.pickupEnabled,
+            pickupNameEN: trimText(fulfillment.pickupNameEN, 100) || fallback.fulfillment.pickupNameEN,
+            pickupNameAR: trimText(fulfillment.pickupNameAR, 100) || fallback.fulfillment.pickupNameAR,
+            pickupAddressEN: trimText(fulfillment.pickupAddressEN, 180) || fallback.fulfillment.pickupAddressEN,
+            pickupAddressAR: trimText(fulfillment.pickupAddressAR, 180) || fallback.fulfillment.pickupAddressAR,
+            pickupMapsURL: safeURL(fulfillment.pickupMapsURL, ""),
+            openingHoursEN: trimText(fulfillment.openingHoursEN, 160),
+            openingHoursAR: trimText(fulfillment.openingHoursAR, 160),
+            bahrainRate: boundedNumber(fulfillment.bahrainRate, fallback.fulfillment.bahrainRate, 0, 500),
+            khaleejiCashOnDeliverySurcharge: boundedNumber(fulfillment.khaleejiCashOnDeliverySurcharge, fallback.fulfillment.khaleejiCashOnDeliverySurcharge, 0, 500),
+            maximumKhaleejiWeightGrams: boundedNumber(fulfillment.maximumKhaleejiWeightGrams, fallback.fulfillment.maximumKhaleejiWeightGrams, 1, 50_000),
+            khaleejiTransitEN: trimText(fulfillment.khaleejiTransitEN, 100) || fallback.fulfillment.khaleejiTransitEN,
+            khaleejiTransitAR: trimText(fulfillment.khaleejiTransitAR, 100) || fallback.fulfillment.khaleejiTransitAR,
+            khaleejiTiers: normalizedTiers.length ? normalizedTiers : fallback.fulfillment.khaleejiTiers
+        },
+        release: {
+            maintenanceEnabled: Boolean(release.maintenanceEnabled),
+            checkoutMaintenanceEnabled: Boolean(release.checkoutMaintenanceEnabled),
+            minimumSupportedVersion: safeVersion(release.minimumSupportedVersion),
+            latestVersion: safeVersion(release.latestVersion),
+            appStoreURL: safeURL(release.appStoreURL, ""),
+            titleEN: trimText(release.titleEN, 80) || fallback.release.titleEN,
+            titleAR: trimText(release.titleAR, 80) || fallback.release.titleAR,
+            messageEN: trimText(release.messageEN, 300) || fallback.release.messageEN,
+            messageAR: trimText(release.messageAR, 300) || fallback.release.messageAR,
+            updateMessageEN: trimText(release.updateMessageEN, 220) || fallback.release.updateMessageEN,
+            updateMessageAR: trimText(release.updateMessageAR, 220) || fallback.release.updateMessageAR
+        },
+        loyalty: {
+            pointsPerBHD: boundedNumber(loyalty.pointsPerBHD, fallback.loyalty.pointsPerBHD, 0, 10_000),
+            silverThreshold,
+            goldThreshold,
+            rewardStep: Math.round(boundedNumber(loyalty.rewardStep, fallback.loyalty.rewardStep, 1, 1_000_000)),
+            rewards: normalizedRewards.length ? normalizedRewards : fallback.loyalty.rewards
         },
         updatedAt: value.updatedAt || fallback.updatedAt
     };
@@ -3234,7 +3505,7 @@ function orderBeansFor(order) {
         return 0;
     }
 
-    return Math.max(0, Math.round(numericOrderTotal(order) * loyaltyPointsPerBHD));
+    return Math.max(0, Math.round(numericOrderTotal(order) * runtimeAppSettings.value.loyalty.pointsPerBHD));
 }
 
 async function orderPayloadWithRewardState(email, order) {
@@ -5792,13 +6063,14 @@ function memberIDFor(email) {
 }
 
 function tierFor(pointsBalance) {
-    if (pointsBalance >= 300) return "Gold";
-    if (pointsBalance >= 150) return "Silver";
+    const loyalty = runtimeAppSettings.value.loyalty;
+    if (pointsBalance >= loyalty.goldThreshold) return "Gold";
+    if (pointsBalance >= loyalty.silverThreshold) return "Silver";
     return "Bronze";
 }
 
 function nextRewardText(pointsBalance) {
-    const threshold = 50;
+    const threshold = runtimeAppSettings.value.loyalty.rewardStep;
     const remainder = pointsBalance % threshold;
     const remaining = remainder === 0 ? threshold : threshold - remainder;
     return `${remaining} Beans to your next reward`;
@@ -7440,6 +7712,105 @@ async function saveCampaignSettings(nextSettings) {
     return settings;
 }
 
+async function getEventSettings() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT value, updated_at
+             FROM app_settings
+             WHERE key = $1`,
+            ["event_settings"]
+        );
+        if (result.rowCount > 0) {
+            return normalizeEventSettings({
+                ...result.rows[0].value,
+                updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
+            });
+        }
+        return eventSettingsFromLegacyEid(await getCampaignSettings());
+    }
+
+    const store = readJSON(eventsStorePath);
+    const settings = normalizeEventSettings(store.eventSettings || {});
+    if (settings.updatedAt || settings.events.length > 0) {
+        return settings;
+    }
+    return eventSettingsFromLegacyEid(await getCampaignSettings());
+}
+
+function eventSettingsFromLegacyEid(campaignSettings) {
+    if (!campaignSettings?.updatedAt) {
+        return defaultEventSettings();
+    }
+    return normalizeEventSettings({
+        updatedAt: campaignSettings.updatedAt,
+        events: [{
+            id: "eid",
+            enabled: campaignSettings.eidModeEnabled,
+            name: "Eid",
+            titleEN: "Eid at Talla",
+            titleAR: "العيد في تالا",
+            subtitleEN: "Seasonal gifts and coffee made for sharing.",
+            subtitleAR: "هدايا موسمية وقهوة صنعت للمشاركة.",
+            badgeEN: "Eid collection",
+            badgeAR: "مجموعة العيد",
+            ctaEN: "Explore",
+            ctaAR: "استكشف",
+            categoryTitleEN: "Eid Gifts",
+            categoryTitleAR: "هدايا العيد",
+            categorySubtitleEN: "Seasonal gifts",
+            categorySubtitleAR: "هدايا موسمية",
+            startAt: null,
+            endAt: campaignSettings.eidOfferEndsAt,
+            imageURL: "",
+            accentHex: "#D6A667",
+            secondaryHex: "#26372D",
+            symbol: "moon.stars.fill",
+            productIDs: [],
+            priority: 80
+        }]
+    });
+}
+
+async function saveEventSettings(nextSettings) {
+    const settings = normalizeEventSettings({
+        ...nextSettings,
+        updatedAt: new Date().toISOString()
+    });
+
+    if (database.isEnabled()) {
+        await database.query(
+            `INSERT INTO app_settings (key, value, updated_at)
+             VALUES ($1, $2::jsonb, NOW())
+             ON CONFLICT (key)
+             DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+            ["event_settings", JSON.stringify(settings)]
+        );
+        return getEventSettings();
+    }
+
+    writeJSON(eventsStorePath, { eventSettings: settings });
+    return settings;
+}
+
+async function syncLegacyEidCampaignToEvents(campaignSettings) {
+    const settings = await getEventSettings();
+    const legacy = eventSettingsFromLegacyEid({
+        ...campaignSettings,
+        updatedAt: campaignSettings.updatedAt || new Date().toISOString()
+    }).events[0];
+    const index = settings.events.findIndex((event) => event.id === "eid");
+    if (index >= 0) {
+        settings.events[index] = {
+            ...settings.events[index],
+            enabled: legacy.enabled,
+            endAt: legacy.endAt
+        };
+    } else {
+        settings.events.push(legacy);
+    }
+    return saveEventSettings(settings);
+}
+
 async function getHomeSettings() {
     if (database.isEnabled()) {
         const result = await database.query(
@@ -7533,16 +7904,19 @@ async function getAppSettings() {
             ["app_settings"]
         );
         if (result.rowCount > 0) {
-            return normalizeAppSettings({
+            runtimeAppSettings.value = normalizeAppSettings({
                 ...result.rows[0].value,
                 updatedAt: result.rows[0].updated_at?.toISOString?.() || result.rows[0].updated_at
             });
+            return runtimeAppSettings.value;
         }
-        return defaultAppSettings();
+        runtimeAppSettings.value = defaultAppSettings();
+        return runtimeAppSettings.value;
     }
 
     const store = readJSON(appSettingsStorePath);
-    return normalizeAppSettings(store.appSettings || {});
+    runtimeAppSettings.value = normalizeAppSettings(store.appSettings || {});
+    return runtimeAppSettings.value;
 }
 
 async function saveAppSettings(nextSettings) {
@@ -7563,7 +7937,21 @@ async function saveAppSettings(nextSettings) {
     }
 
     writeJSON(appSettingsStorePath, { appSettings: settings });
+    runtimeAppSettings.value = settings;
     return settings;
+}
+
+async function requireOperationalPayment(paymentKey, response) {
+    const settings = await getAppSettings();
+    if (settings.release.maintenanceEnabled || settings.release.checkoutMaintenanceEnabled) {
+        sendJSON(response, 503, { error: "Checkout is temporarily unavailable." });
+        return false;
+    }
+    if (!settings.payments[paymentKey]) {
+        sendJSON(response, 503, { error: "This payment method is temporarily unavailable." });
+        return false;
+    }
+    return true;
 }
 
 async function adminCustomerSummary(email) {
@@ -7888,6 +8276,11 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/campaigns/eid") {
         sendJSON(response, 200, await getCampaignSettings());
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/app/events") {
+        sendJSON(response, 200, activeEventSettings(await getEventSettings()));
         return;
     }
 
@@ -8341,6 +8734,73 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
+        if (request.method === "GET" && url.pathname === "/admin/api/events") {
+            sendJSON(response, 200, await getEventSettings());
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/events") {
+            try {
+                const body = await readBody(request, 262_144);
+                if (!Array.isArray(body.events)) {
+                    sendJSON(response, 400, { error: "Provide an events array." });
+                    return;
+                }
+                if (body.events.length > 30) {
+                    sendJSON(response, 400, { error: "A maximum of 30 events can be stored." });
+                    return;
+                }
+
+                for (const event of body.events) {
+                    const name = String(event?.name || "").trim();
+                    const titleEN = String(event?.titleEN || "").trim();
+                    if (!name || !titleEN) {
+                        sendJSON(response, 400, { error: "Every event needs an internal name and English title." });
+                        return;
+                    }
+                    if (event?.imageURL) {
+                        let imageURL;
+                        try {
+                            imageURL = new URL(String(event.imageURL));
+                        } catch {
+                            sendJSON(response, 400, { error: `${name} has an invalid banner image URL.` });
+                            return;
+                        }
+                        if (imageURL.protocol !== "https:") {
+                            sendJSON(response, 400, { error: `${name} banner images must use HTTPS.` });
+                            return;
+                        }
+                    }
+                    const startAt = event?.startAt ? new Date(event.startAt) : null;
+                    const endAt = event?.endAt ? new Date(event.endAt) : null;
+                    if ((startAt && !Number.isFinite(startAt.getTime())) || (endAt && !Number.isFinite(endAt.getTime()))) {
+                        sendJSON(response, 400, { error: `${name} has an invalid start or end date.` });
+                        return;
+                    }
+                    if (startAt && endAt && endAt <= startAt) {
+                        sendJSON(response, 400, { error: `${name} must end after it starts.` });
+                        return;
+                    }
+                }
+
+                const settings = await saveEventSettings({ events: body.events });
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "events_updated",
+                    targetEmail: null,
+                    detail: `Saved ${settings.events.length} seasonal event${settings.events.length === 1 ? "" : "s"}`,
+                    metadata: {
+                        eventIDs: settings.events.map((event) => event.id),
+                        enabledEventIDs: settings.events.filter((event) => event.enabled).map((event) => event.id)
+                    }
+                });
+                sendJSON(response, 200, settings);
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Could not save events." });
+            }
+            return;
+        }
+
         if (request.method === "POST" && url.pathname === "/admin/api/campaigns/eid") {
             try {
                 const body = await readBody(request);
@@ -8357,6 +8817,7 @@ const server = http.createServer(async (request, response) => {
                     eidModeEnabled,
                     eidOfferEndsAt: endsAtDate ? endsAtDate.toISOString() : null
                 });
+                await syncLegacyEidCampaignToEvents(settings);
 
                 await createAdminAuditLog({
                     adminUser: admin.username,
@@ -9816,6 +10277,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/payments/apple-pay/session") {
+        if (!await requireOperationalPayment("applePayEnabled", response)) return;
         let body;
         try {
             body = await readBody(request, 16_384);
@@ -9932,6 +10394,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/payments/card/session") {
+        if (!await requireOperationalPayment("cardEnabled", response)) return;
         let body;
         try {
             body = await readBody(request, 16_384);
@@ -10286,6 +10749,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/payments/click-to-pay/create") {
+        if (!await requireOperationalPayment("cardEnabled", response)) return;
         let body;
         try {
             body = await readBody(request, 16_384);
@@ -10438,6 +10902,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/payments/benefitpay/session") {
+        if (!await requireOperationalPayment("benefitPayEnabled", response)) return;
         let body;
         try {
             body = await readBody(request, 16_384);
@@ -10583,6 +11048,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && benefitPathMatches(url.pathname, "/api/payments/benefit/create")) {
+        if (!await requireOperationalPayment("benefitEnabled", response)) return;
         let body;
         let pendingTrackID = "";
         try {
@@ -11244,7 +11710,7 @@ const server = http.createServer(async (request, response) => {
                 writeJSON(ordersStorePath, store);
             }
 
-            const awardedPoints = Math.round(sampleOrderTotal * loyaltyPointsPerBHD);
+            const awardedPoints = Math.round(sampleOrderTotal * runtimeAppSettings.value.loyalty.pointsPerBHD);
             await updateLoyaltyAccount(customer.email, (account) => {
                 account.pointsBalance += awardedPoints;
                 account.transactions = account.transactions || [];
@@ -11479,8 +11945,18 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/loyalty/transactions/redeem") {
         try {
             const body = await readBody(request);
-            const points = Number(body.points);
-            const reward = String(body.reward || "Reward redemption");
+            const requestedReward = String(body.reward || "").trim();
+            const loyaltySettings = (await getAppSettings()).loyalty;
+            const catalogReward = loyaltySettings.rewards.find((entry) => entry.enabled && (
+                entry.id.toLowerCase() === requestedReward.toLowerCase()
+                || entry.reward.toLowerCase() === requestedReward.toLowerCase()
+            ));
+            if (!catalogReward) {
+                sendJSON(response, 409, { error: "This reward is no longer available." });
+                return;
+            }
+            const points = catalogReward.points;
+            const reward = catalogReward.reward;
             const requestedEmail = normalizeEmail(body.email);
             const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
             if (!authenticated) {
@@ -11489,11 +11965,6 @@ const server = http.createServer(async (request, response) => {
 
             const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) {
-                return;
-            }
-
-            if (!Number.isFinite(points) || points <= 0) {
-                sendJSON(response, 400, { error: "Invalid redemption payload" });
                 return;
             }
 
@@ -11670,6 +12141,7 @@ const server = http.createServer(async (request, response) => {
 
 async function startServer() {
     if (!database.isEnabled()) {
+        await getAppSettings();
         server.listen(port, host, () => {
             console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
         });
@@ -11678,6 +12150,7 @@ async function startServer() {
 
     try {
         await database.initializeDatabase();
+        await getAppSettings();
         console.log("Postgres storage enabled for accounts and loyalty.");
         startOpsAlertMonitor();
         server.listen(port, host, () => {
@@ -11694,6 +12167,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+    activeEventSettings,
     applyConfirmedMpgsPayment,
     applyBenefitNotification,
     benefitGatewayHostEnvironment,
@@ -11703,12 +12177,16 @@ module.exports = {
     createBenefitPayReferenceID,
     confirmShopifyEazyPayment,
     ensureShopifyEazyInvoice,
+    eventSettingsFromLegacyEid,
     exportCompletedOrderToShopify,
     findShopifyOrderExport,
     findShopifyEazyPayment,
     isEazyPayManualShopifyOrder,
     loyaltyPerksFor,
+    defaultAppSettings,
+    normalizeAppSettings,
     normalizeCountryCode,
+    normalizeEventSettings,
     normalizeTallaPaymentID,
     prepareShopifyEazyOrder,
     preferAddressRecords,

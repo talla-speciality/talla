@@ -300,6 +300,10 @@
             background: var(--accent-soft);
             color: var(--accent);
         }
+        button.danger {
+            background: #a33b32;
+            color: white;
+        }
         .status {
             min-height: 24px;
             display: flex;
@@ -735,13 +739,82 @@
                         <label><input id="app-show-passport" type="checkbox" style="width:auto; margin-right:8px;">Talla Passport</label>
                     </div>
                 </div>
-                <div class="list-item">
+                <div class="list-item" style="margin-bottom:14px;">
                     <strong>Support and policy links</strong>
                     <div class="product-controls" style="margin-top:12px;">
                         <input id="app-whatsapp-url" type="url" maxlength="500" placeholder="WhatsApp support URL">
                         <input id="app-privacy-url" type="url" maxlength="500" placeholder="Privacy policy URL">
                         <input id="app-terms-url" type="url" maxlength="500" placeholder="Terms and conditions URL">
                     </div>
+                </div>
+                <div class="list-item" style="margin-bottom:14px;">
+                    <strong>Payment methods</strong>
+                    <div class="grid" style="margin-top:12px;">
+                        <label><input id="app-pay-apple" type="checkbox" style="width:auto; margin-right:8px;">Apple Pay</label>
+                        <label><input id="app-pay-benefitpay" type="checkbox" style="width:auto; margin-right:8px;">BenefitPay app</label>
+                        <label><input id="app-pay-benefit" type="checkbox" style="width:auto; margin-right:8px;">BENEFIT hosted</label>
+                        <label><input id="app-pay-card" type="checkbox" style="width:auto; margin-right:8px;">Credit/debit card</label>
+                        <label><input id="app-pay-cod" type="checkbox" style="width:auto; margin-right:8px;">Cash on delivery</label>
+                    </div>
+                    <div class="grid" style="margin-top:12px;">
+                        <input id="app-payment-notice-en" type="text" maxlength="220" placeholder="Optional checkout notice (English)">
+                        <input id="app-payment-notice-ar" type="text" maxlength="220" dir="rtl" placeholder="تنبيه اختياري للدفع">
+                    </div>
+                </div>
+                <div class="list-item" style="margin-bottom:14px;">
+                    <strong>Delivery and pickup</strong>
+                    <div class="grid" style="margin-top:12px;">
+                        <label><input id="app-delivery-enabled" type="checkbox" style="width:auto; margin-right:8px;">Delivery enabled</label>
+                        <label><input id="app-pickup-enabled" type="checkbox" style="width:auto; margin-right:8px;">Pickup enabled</label>
+                    </div>
+                    <div class="grid" style="margin-top:12px;">
+                        <input id="app-pickup-name-en" type="text" maxlength="100" placeholder="Pickup location name (English)">
+                        <input id="app-pickup-name-ar" type="text" maxlength="100" dir="rtl" placeholder="اسم موقع الاستلام">
+                        <input id="app-pickup-address-en" type="text" maxlength="180" placeholder="Pickup address (English)">
+                        <input id="app-pickup-address-ar" type="text" maxlength="180" dir="rtl" placeholder="عنوان الاستلام">
+                        <input id="app-pickup-maps-url" type="url" maxlength="500" placeholder="Optional maps link">
+                        <input id="app-opening-hours-en" type="text" maxlength="160" placeholder="Opening hours (English)">
+                        <input id="app-opening-hours-ar" type="text" maxlength="160" dir="rtl" placeholder="ساعات العمل">
+                    </div>
+                    <div class="grid" style="margin-top:12px;">
+                        <label>Bahrain delivery (BHD)<input id="app-bahrain-rate" type="number" min="0" max="500" step="0.001"></label>
+                        <label>GCC COD surcharge (BHD)<input id="app-gcc-cod" type="number" min="0" max="500" step="0.001"></label>
+                        <label>GCC maximum weight (g)<input id="app-gcc-max-weight" type="number" min="1" max="50000" step="1"></label>
+                    </div>
+                    <div class="grid" style="margin-top:12px;">
+                        <input id="app-gcc-transit-en" type="text" maxlength="100" placeholder="GCC transit time (English)">
+                        <input id="app-gcc-transit-ar" type="text" maxlength="100" dir="rtl" placeholder="مدة التوصيل للخليج">
+                    </div>
+                    <textarea id="app-gcc-tiers" style="width:100%; min-height:100px; margin-top:12px; resize:vertical;" placeholder="GCC shipping tiers, one per line: maximum grams = BHD rate"></textarea>
+                </div>
+                <div class="list-item" style="margin-bottom:14px;">
+                    <strong>Maintenance and App Store versions</strong>
+                    <div class="grid" style="margin-top:12px;">
+                        <label><input id="app-maintenance" type="checkbox" style="width:auto; margin-right:8px;">Put entire app in maintenance</label>
+                        <label><input id="app-checkout-maintenance" type="checkbox" style="width:auto; margin-right:8px;">Pause checkout only</label>
+                        <input id="app-min-version" type="text" maxlength="30" placeholder="Minimum supported version, e.g. 2.3.0">
+                        <input id="app-latest-version" type="text" maxlength="30" placeholder="Latest App Store version">
+                        <input id="app-store-url" type="url" maxlength="500" placeholder="App Store URL">
+                    </div>
+                    <div class="grid" style="margin-top:12px;">
+                        <input id="app-maintenance-title-en" type="text" maxlength="80" placeholder="Maintenance title (English)">
+                        <input id="app-maintenance-title-ar" type="text" maxlength="80" dir="rtl" placeholder="عنوان الصيانة">
+                        <textarea id="app-maintenance-message-en" maxlength="300" placeholder="Maintenance message (English)"></textarea>
+                        <textarea id="app-maintenance-message-ar" maxlength="300" dir="rtl" placeholder="رسالة الصيانة"></textarea>
+                        <textarea id="app-update-message-en" maxlength="220" placeholder="Optional update message (English)"></textarea>
+                        <textarea id="app-update-message-ar" maxlength="220" dir="rtl" placeholder="رسالة التحديث الاختياري"></textarea>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <strong>Loyalty rules and rewards</strong>
+                    <div class="grid" style="margin-top:12px;">
+                        <label>Beans per BHD<input id="app-points-per-bhd" type="number" min="0" max="10000" step="0.1"></label>
+                        <label>Silver threshold<input id="app-silver-threshold" type="number" min="1" max="1000000" step="1"></label>
+                        <label>Gold threshold<input id="app-gold-threshold" type="number" min="1" max="1000000" step="1"></label>
+                        <label>Next reward step<input id="app-reward-step" type="number" min="1" max="1000000" step="1"></label>
+                    </div>
+                    <textarea id="app-loyalty-rewards" style="width:100%; min-height:180px; margin-top:12px; resize:vertical;" placeholder="One reward per line: enabled | id | points | code | English title | Arabic title | English detail | Arabic detail"></textarea>
+                    <div class="subcopy">Keep the pipe-separated format. Disabled rewards start with “no”; enabled rewards start with “yes”.</div>
                 </div>
                 <div class="toolbar-row" style="padding:14px 0 0;">
                     <button id="save-app-settings">Publish App Changes</button>
@@ -764,26 +837,64 @@
             </div>
         </details>
 
-        <section id="campaigns-section" class="panel" data-admin-section="campaign eid offer promotion" style="margin-bottom: 20px;">
-            <h2>Eid Campaign</h2>
-            <div class="subcopy" style="margin-bottom: 14px;">Control the Eid banner, Eid Gifts category promotion, and limited Eid product badges in the app.</div>
-            <div class="grid">
-                <label class="list-item" style="cursor:pointer;">
-                    <strong>Show Eid campaign in app</strong>
-                    <div class="muted" style="margin: 6px 0 12px;">Turn this off after the Eid campaign ends.</div>
-                    <input id="eid-mode-enabled" type="checkbox" style="width:auto;">
-                </label>
-                <div class="list-item">
-                    <strong>Offer ends</strong>
-                    <div class="muted" style="margin: 6px 0 12px;">Optional. Used for the countdown shown in the app.</div>
-                    <input id="eid-offer-ends-at" type="datetime-local">
+        <details id="campaigns-section" class="panel" data-admin-section="events seasonal eid ramadan christmas world cup arab cup national day promotion" style="margin-bottom: 20px;" open>
+            <summary class="panel-summary">
+                <h2>Events & Seasonal Categories</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Create scheduled Home campaigns and temporary Shop categories without publishing a new app version. Customer text can be entered in English and Arabic.</div>
+                <div class="toolbar-row" style="padding:0 0 14px;">
+                    <button id="add-event">Add Event</button>
+                    <button id="add-event-preset" class="secondary">Use Event Preset</button>
+                    <div id="events-status" class="muted" aria-live="polite">Loading events...</div>
+                </div>
+                <div class="grid" style="align-items:start;">
+                    <div>
+                        <div id="events-list" class="list"><div class="empty">Loading events...</div></div>
+                    </div>
+                    <div id="event-editor" class="list-item" hidden>
+                        <div class="toolbar-row" style="padding:0 0 12px;">
+                            <strong id="event-editor-title">Event</strong>
+                            <label style="display:flex;align-items:center;gap:8px;"><input id="event-enabled" type="checkbox" style="width:auto;">Live</label>
+                        </div>
+                        <div class="grid">
+                            <input id="event-name" type="text" maxlength="80" placeholder="Internal name, e.g. World Cup 2026">
+                            <input id="event-id" type="text" maxlength="60" placeholder="Event ID, e.g. world-cup-2026">
+                            <input id="event-title-en" type="text" maxlength="80" placeholder="English title">
+                            <input id="event-title-ar" type="text" maxlength="80" dir="rtl" placeholder="العنوان بالعربية">
+                            <input id="event-subtitle-en" type="text" maxlength="220" placeholder="English subtitle">
+                            <input id="event-subtitle-ar" type="text" maxlength="220" dir="rtl" placeholder="الوصف بالعربية">
+                            <input id="event-badge-en" type="text" maxlength="40" placeholder="English badge">
+                            <input id="event-badge-ar" type="text" maxlength="40" dir="rtl" placeholder="الشارة بالعربية">
+                            <input id="event-cta-en" type="text" maxlength="32" placeholder="English button, e.g. Explore">
+                            <input id="event-cta-ar" type="text" maxlength="32" dir="rtl" placeholder="نص الزر بالعربية">
+                            <input id="event-category-title-en" type="text" maxlength="60" placeholder="English Shop category">
+                            <input id="event-category-title-ar" type="text" maxlength="60" dir="rtl" placeholder="فئة المتجر بالعربية">
+                            <input id="event-category-subtitle-en" type="text" maxlength="100" placeholder="English category subtitle">
+                            <input id="event-category-subtitle-ar" type="text" maxlength="100" dir="rtl" placeholder="وصف الفئة بالعربية">
+                            <label>Starts<input id="event-start-at" type="datetime-local"></label>
+                            <label>Ends<input id="event-end-at" type="datetime-local"></label>
+                            <input id="event-image-url" type="url" maxlength="500" placeholder="HTTPS banner image URL">
+                            <input id="event-symbol" type="text" maxlength="60" value="sparkles" placeholder="SF Symbol, e.g. sportscourt.fill">
+                            <label>Primary color<input id="event-accent" type="color" value="#C8965A"></label>
+                            <label>Secondary color<input id="event-secondary" type="color" value="#2A1D14"></label>
+                            <label>Priority<input id="event-priority" type="number" min="-1000" max="1000" step="1" value="0"></label>
+                        </div>
+                        <div style="margin-top:14px;">
+                            <strong>Products in seasonal category</strong>
+                            <div class="muted" style="margin:6px 0 10px;">Choose products already available in Shopify.</div>
+                            <div id="event-products" class="list" style="max-height:260px;overflow:auto;"></div>
+                        </div>
+                        <div class="toolbar-row" style="padding:14px 0 0;">
+                            <button id="save-event">Save Event</button>
+                            <button id="duplicate-event" class="secondary">Duplicate</button>
+                            <button id="delete-event" class="danger">Delete</button>
+                            <button id="cancel-event" class="secondary">Close</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="toolbar-row" style="padding: 14px 0 0;">
-                <button id="save-eid-campaign" class="secondary">Save Eid Campaign</button>
-                <div id="eid-campaign-status" class="muted">Loading Eid campaign settings...</div>
-            </div>
-        </section>
+        </details>
 
         <section id="push-section" class="panel" data-admin-section="push notification message customers" style="margin-bottom: 20px;">
             <h2>Customer Push</h2>
@@ -1006,7 +1117,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eidCampaign: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -1033,16 +1144,58 @@
         const appWhatsAppURLInput = document.getElementById("app-whatsapp-url");
         const appPrivacyURLInput = document.getElementById("app-privacy-url");
         const appTermsURLInput = document.getElementById("app-terms-url");
+        const appOperationalInputs = Object.fromEntries([
+            "app-pay-apple", "app-pay-benefitpay", "app-pay-benefit", "app-pay-card", "app-pay-cod",
+            "app-payment-notice-en", "app-payment-notice-ar", "app-delivery-enabled", "app-pickup-enabled",
+            "app-pickup-name-en", "app-pickup-name-ar", "app-pickup-address-en", "app-pickup-address-ar",
+            "app-pickup-maps-url", "app-opening-hours-en", "app-opening-hours-ar", "app-bahrain-rate",
+            "app-gcc-cod", "app-gcc-max-weight", "app-gcc-transit-en", "app-gcc-transit-ar", "app-gcc-tiers",
+            "app-maintenance", "app-checkout-maintenance", "app-min-version", "app-latest-version", "app-store-url",
+            "app-maintenance-title-en", "app-maintenance-title-ar", "app-maintenance-message-en", "app-maintenance-message-ar",
+            "app-update-message-en", "app-update-message-ar",
+            "app-points-per-bhd", "app-silver-threshold", "app-gold-threshold", "app-reward-step", "app-loyalty-rewards"
+        ].map((id) => [id, document.getElementById(id)]));
         const saveAppSettingsButton = document.getElementById("save-app-settings");
         const appSettingsStatusEl = document.getElementById("app-settings-status");
         const allOrdersEl = document.getElementById("all-orders");
         const ordersNoteEl = document.getElementById("orders-note");
         const refreshOrdersButton = document.getElementById("refresh-orders");
         const tasteMemoryEl = document.getElementById("taste-memory");
-        const eidModeEnabledInput = document.getElementById("eid-mode-enabled");
-        const eidOfferEndsAtInput = document.getElementById("eid-offer-ends-at");
-        const saveEidCampaignButton = document.getElementById("save-eid-campaign");
-        const eidCampaignStatusEl = document.getElementById("eid-campaign-status");
+        const eventsListEl = document.getElementById("events-list");
+        const eventsStatusEl = document.getElementById("events-status");
+        const eventEditorEl = document.getElementById("event-editor");
+        const eventEditorTitleEl = document.getElementById("event-editor-title");
+        const addEventButton = document.getElementById("add-event");
+        const addEventPresetButton = document.getElementById("add-event-preset");
+        const saveEventButton = document.getElementById("save-event");
+        const duplicateEventButton = document.getElementById("duplicate-event");
+        const deleteEventButton = document.getElementById("delete-event");
+        const cancelEventButton = document.getElementById("cancel-event");
+        const eventProductsEl = document.getElementById("event-products");
+        const eventInputs = {
+            enabled: document.getElementById("event-enabled"),
+            name: document.getElementById("event-name"),
+            id: document.getElementById("event-id"),
+            titleEN: document.getElementById("event-title-en"),
+            titleAR: document.getElementById("event-title-ar"),
+            subtitleEN: document.getElementById("event-subtitle-en"),
+            subtitleAR: document.getElementById("event-subtitle-ar"),
+            badgeEN: document.getElementById("event-badge-en"),
+            badgeAR: document.getElementById("event-badge-ar"),
+            ctaEN: document.getElementById("event-cta-en"),
+            ctaAR: document.getElementById("event-cta-ar"),
+            categoryTitleEN: document.getElementById("event-category-title-en"),
+            categoryTitleAR: document.getElementById("event-category-title-ar"),
+            categorySubtitleEN: document.getElementById("event-category-subtitle-en"),
+            categorySubtitleAR: document.getElementById("event-category-subtitle-ar"),
+            startAt: document.getElementById("event-start-at"),
+            endAt: document.getElementById("event-end-at"),
+            imageURL: document.getElementById("event-image-url"),
+            symbol: document.getElementById("event-symbol"),
+            accentHex: document.getElementById("event-accent"),
+            secondaryHex: document.getElementById("event-secondary"),
+            priority: document.getElementById("event-priority")
+        };
         const customerPushTitleInput = document.getElementById("customer-push-title");
         const customerPushBodyInput = document.getElementById("customer-push-body");
         const customerPushURLInput = document.getElementById("customer-push-url");
@@ -1253,6 +1406,10 @@
             const announcement = settings.announcement || {};
             const support = settings.support || {};
             const homeSections = settings.homeSections || {};
+            const payments = settings.payments || {};
+            const fulfillment = settings.fulfillment || {};
+            const release = settings.release || {};
+            const loyalty = settings.loyalty || {};
             appAnnouncementEnabledInput.checked = Boolean(announcement.enabled);
             appAnnouncementTitleInput.value = announcement.title || "";
             appAnnouncementMessageInput.value = announcement.message || "";
@@ -1265,6 +1422,48 @@
             appWhatsAppURLInput.value = support.whatsappURL || "";
             appPrivacyURLInput.value = support.privacyURL || "";
             appTermsURLInput.value = support.termsURL || "";
+            const input = (id) => appOperationalInputs[id];
+            input("app-pay-apple").checked = payments.applePayEnabled !== false;
+            input("app-pay-benefitpay").checked = payments.benefitPayEnabled !== false;
+            input("app-pay-benefit").checked = payments.benefitEnabled !== false;
+            input("app-pay-card").checked = payments.cardEnabled !== false;
+            input("app-pay-cod").checked = payments.cashOnDeliveryEnabled !== false;
+            input("app-payment-notice-en").value = payments.noticeEN || "";
+            input("app-payment-notice-ar").value = payments.noticeAR || "";
+            input("app-delivery-enabled").checked = fulfillment.deliveryEnabled !== false;
+            input("app-pickup-enabled").checked = fulfillment.pickupEnabled !== false;
+            input("app-pickup-name-en").value = fulfillment.pickupNameEN || "";
+            input("app-pickup-name-ar").value = fulfillment.pickupNameAR || "";
+            input("app-pickup-address-en").value = fulfillment.pickupAddressEN || "";
+            input("app-pickup-address-ar").value = fulfillment.pickupAddressAR || "";
+            input("app-pickup-maps-url").value = fulfillment.pickupMapsURL || "";
+            input("app-opening-hours-en").value = fulfillment.openingHoursEN || "";
+            input("app-opening-hours-ar").value = fulfillment.openingHoursAR || "";
+            input("app-bahrain-rate").value = fulfillment.bahrainRate ?? 2;
+            input("app-gcc-cod").value = fulfillment.khaleejiCashOnDeliverySurcharge ?? 2;
+            input("app-gcc-max-weight").value = fulfillment.maximumKhaleejiWeightGrams ?? 4000;
+            input("app-gcc-transit-en").value = fulfillment.khaleejiTransitEN || "";
+            input("app-gcc-transit-ar").value = fulfillment.khaleejiTransitAR || "";
+            input("app-gcc-tiers").value = (fulfillment.khaleejiTiers || []).map((tier) => `${tier.maximumWeightGrams} = ${Number(tier.rate).toFixed(3)}`).join("\n");
+            input("app-maintenance").checked = Boolean(release.maintenanceEnabled);
+            input("app-checkout-maintenance").checked = Boolean(release.checkoutMaintenanceEnabled);
+            input("app-min-version").value = release.minimumSupportedVersion || "";
+            input("app-latest-version").value = release.latestVersion || "";
+            input("app-store-url").value = release.appStoreURL || "";
+            input("app-maintenance-title-en").value = release.titleEN || "";
+            input("app-maintenance-title-ar").value = release.titleAR || "";
+            input("app-maintenance-message-en").value = release.messageEN || "";
+            input("app-maintenance-message-ar").value = release.messageAR || "";
+            input("app-update-message-en").value = release.updateMessageEN || "";
+            input("app-update-message-ar").value = release.updateMessageAR || "";
+            input("app-points-per-bhd").value = loyalty.pointsPerBHD ?? 5;
+            input("app-silver-threshold").value = loyalty.silverThreshold ?? 150;
+            input("app-gold-threshold").value = loyalty.goldThreshold ?? 300;
+            input("app-reward-step").value = loyalty.rewardStep ?? 50;
+            input("app-loyalty-rewards").value = (loyalty.rewards || []).map((reward) => [
+                reward.enabled === false ? "no" : "yes", reward.id, reward.points, reward.reward,
+                reward.titleEN, reward.titleAR, reward.detailEN, reward.detailAR
+            ].join(" | ")).join("\n");
             appSettingsStatusEl.textContent = settings.updatedAt
                 ? `Last published ${new Date(settings.updatedAt).toLocaleString()}`
                 : "Using app defaults. Publish when you are ready.";
@@ -1292,6 +1491,7 @@
         }
 
         async function saveAppSettings() {
+            const input = (id) => appOperationalInputs[id];
             const announcement = {
                 enabled: appAnnouncementEnabledInput.checked,
                 title: appAnnouncementTitleInput.value.trim(),
@@ -1299,13 +1499,43 @@
                 actionLabel: appAnnouncementActionLabelInput.value.trim(),
                 actionURL: appAnnouncementActionURLInput.value.trim()
             };
-            const urls = [announcement.actionURL, appWhatsAppURLInput.value.trim(), appPrivacyURLInput.value.trim(), appTermsURLInput.value.trim()];
+            const urls = [
+                announcement.actionURL, appWhatsAppURLInput.value.trim(), appPrivacyURLInput.value.trim(),
+                appTermsURLInput.value.trim(), input("app-pickup-maps-url").value.trim(), input("app-store-url").value.trim()
+            ];
             if (announcement.enabled && (!announcement.title || !announcement.message)) {
                 appSettingsStatusEl.textContent = "Add an announcement title and message before turning it on.";
                 return;
             }
             if (!urls.every(validManagedURL)) {
                 appSettingsStatusEl.textContent = "Links must begin with https:// or talla://";
+                return;
+            }
+            const parseTiers = () => input("app-gcc-tiers").value.split("\n").map((line) => {
+                const [weight, rate] = line.split("=").map((part) => part.trim());
+                return { maximumWeightGrams: Number(weight), rate: Number(rate) };
+            }).filter((tier) => Number.isFinite(tier.maximumWeightGrams) && Number.isFinite(tier.rate));
+            const parseRewards = () => input("app-loyalty-rewards").value.split("\n").map((line) => {
+                const [enabled, id, points, reward, titleEN, titleAR, detailEN, detailAR] = line.split("|").map((part) => part.trim());
+                return { enabled: enabled.toLowerCase() !== "no", id, points: Number(points), reward, titleEN, titleAR, detailEN, detailAR };
+            }).filter((reward) => reward.id && reward.reward && reward.titleEN && Number.isFinite(reward.points));
+            const shippingTiers = parseTiers();
+            const loyaltyRewards = parseRewards();
+            if (!input("app-delivery-enabled").checked && !input("app-pickup-enabled").checked) {
+                appSettingsStatusEl.textContent = "Keep at least delivery or pickup enabled.";
+                return;
+            }
+            if (!shippingTiers.length || !loyaltyRewards.length) {
+                appSettingsStatusEl.textContent = "Shipping tiers and loyalty rewards must each contain at least one valid row.";
+                return;
+            }
+            const versions = [input("app-min-version").value.trim(), input("app-latest-version").value.trim()];
+            if (!versions.every((version) => !version || /^\d+(?:\.\d+){0,3}$/.test(version))) {
+                appSettingsStatusEl.textContent = "Versions must contain only numbers and dots, for example 2.4.0.";
+                return;
+            }
+            if (Number(input("app-gold-threshold").value) <= Number(input("app-silver-threshold").value)) {
+                appSettingsStatusEl.textContent = "The Gold threshold must be higher than Silver.";
                 return;
             }
             if (!window.confirm("Publish these controls to the live app? Customers will see the changes when the app refreshes.")) return;
@@ -1328,6 +1558,52 @@
                             showFunPick: appShowFunPickInput.checked,
                             showSignatureRoasts: appShowSignatureRoastsInput.checked,
                             showPassport: appShowPassportInput.checked
+                        },
+                        payments: {
+                            applePayEnabled: input("app-pay-apple").checked,
+                            benefitPayEnabled: input("app-pay-benefitpay").checked,
+                            benefitEnabled: input("app-pay-benefit").checked,
+                            cardEnabled: input("app-pay-card").checked,
+                            cashOnDeliveryEnabled: input("app-pay-cod").checked,
+                            noticeEN: input("app-payment-notice-en").value.trim(),
+                            noticeAR: input("app-payment-notice-ar").value.trim()
+                        },
+                        fulfillment: {
+                            deliveryEnabled: input("app-delivery-enabled").checked,
+                            pickupEnabled: input("app-pickup-enabled").checked,
+                            pickupNameEN: input("app-pickup-name-en").value.trim(),
+                            pickupNameAR: input("app-pickup-name-ar").value.trim(),
+                            pickupAddressEN: input("app-pickup-address-en").value.trim(),
+                            pickupAddressAR: input("app-pickup-address-ar").value.trim(),
+                            pickupMapsURL: input("app-pickup-maps-url").value.trim(),
+                            openingHoursEN: input("app-opening-hours-en").value.trim(),
+                            openingHoursAR: input("app-opening-hours-ar").value.trim(),
+                            bahrainRate: Number(input("app-bahrain-rate").value),
+                            khaleejiCashOnDeliverySurcharge: Number(input("app-gcc-cod").value),
+                            maximumKhaleejiWeightGrams: Number(input("app-gcc-max-weight").value),
+                            khaleejiTransitEN: input("app-gcc-transit-en").value.trim(),
+                            khaleejiTransitAR: input("app-gcc-transit-ar").value.trim(),
+                            khaleejiTiers: shippingTiers
+                        },
+                        release: {
+                            maintenanceEnabled: input("app-maintenance").checked,
+                            checkoutMaintenanceEnabled: input("app-checkout-maintenance").checked,
+                            minimumSupportedVersion: input("app-min-version").value.trim(),
+                            latestVersion: input("app-latest-version").value.trim(),
+                            appStoreURL: input("app-store-url").value.trim(),
+                            titleEN: input("app-maintenance-title-en").value.trim(),
+                            titleAR: input("app-maintenance-title-ar").value.trim(),
+                            messageEN: input("app-maintenance-message-en").value.trim(),
+                            messageAR: input("app-maintenance-message-ar").value.trim(),
+                            updateMessageEN: input("app-update-message-en").value.trim(),
+                            updateMessageAR: input("app-update-message-ar").value.trim()
+                        },
+                        loyalty: {
+                            pointsPerBHD: Number(input("app-points-per-bhd").value),
+                            silverThreshold: Number(input("app-silver-threshold").value),
+                            goldThreshold: Number(input("app-gold-threshold").value),
+                            rewardStep: Number(input("app-reward-step").value),
+                            rewards: loyaltyRewards
                         }
                     })
                 });
@@ -1574,53 +1850,231 @@
             return date.toISOString().slice(0, 16);
         }
 
-        function renderEidCampaign() {
-            const settings = state.eidCampaign || { eidModeEnabled: true, eidOfferEndsAt: null };
-            eidModeEnabledInput.checked = Boolean(settings.eidModeEnabled);
-            eidOfferEndsAtInput.value = localDateTimeValue(settings.eidOfferEndsAt);
-            eidCampaignStatusEl.textContent = settings.eidModeEnabled
-                ? `Eid mode is on${settings.eidOfferEndsAt ? ` until ${new Date(settings.eidOfferEndsAt).toLocaleString()}` : ""}.`
-                : "Eid mode is off.";
+        function eventSlug(value) {
+            return String(value || "")
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "")
+                .slice(0, 60);
         }
 
-        async function fetchEidCampaign() {
-            const response = await fetch("/admin/api/campaigns/eid");
+        function blankEvent(overrides = {}) {
+            const timestamp = Date.now();
+            return {
+                id: `event-${timestamp}`,
+                enabled: false,
+                name: "New Event",
+                titleEN: "",
+                titleAR: "",
+                subtitleEN: "",
+                subtitleAR: "",
+                badgeEN: "",
+                badgeAR: "",
+                ctaEN: "Explore",
+                ctaAR: "استكشف",
+                categoryTitleEN: "",
+                categoryTitleAR: "",
+                categorySubtitleEN: "",
+                categorySubtitleAR: "",
+                startAt: null,
+                endAt: null,
+                imageURL: "",
+                accentHex: "#C8965A",
+                secondaryHex: "#2A1D14",
+                symbol: "sparkles",
+                productIDs: [],
+                priority: 0,
+                ...overrides
+            };
+        }
+
+        const eventPresets = {
+            eid: blankEvent({ id: "eid", name: "Eid", titleEN: "Eid at Talla", titleAR: "العيد في تالا", subtitleEN: "Seasonal gifts and coffee made for sharing.", subtitleAR: "هدايا موسمية وقهوة صنعت للمشاركة.", badgeEN: "Eid collection", badgeAR: "مجموعة العيد", categoryTitleEN: "Eid Gifts", categoryTitleAR: "هدايا العيد", symbol: "moon.stars.fill", accentHex: "#D6A667", secondaryHex: "#26372D", priority: 80 }),
+            ramadan: blankEvent({ id: "ramadan", name: "Ramadan", titleEN: "Ramadan at Talla", titleAR: "رمضان في تالا", subtitleEN: "Coffee and hosting selections for Ramadan evenings.", subtitleAR: "تشكيلة القهوة والضيافة لأمسيات رمضان.", badgeEN: "Ramadan collection", badgeAR: "مجموعة رمضان", categoryTitleEN: "Ramadan Majlis", categoryTitleAR: "مجلس رمضان", symbol: "moon.fill", accentHex: "#D3AF62", secondaryHex: "#25352C", priority: 90 }),
+            christmas: blankEvent({ id: "christmas", name: "Christmas", titleEN: "Christmas at Talla", titleAR: "عيد الميلاد في تالا", subtitleEN: "Warm gifts and festive coffee for the season.", subtitleAR: "هدايا دافئة وقهوة احتفالية للموسم.", badgeEN: "Holiday collection", badgeAR: "مجموعة الأعياد", categoryTitleEN: "Holiday Gifts", categoryTitleAR: "هدايا الأعياد", symbol: "snowflake", accentHex: "#D8C7A0", secondaryHex: "#365342", priority: 60 }),
+            "world-cup": blankEvent({ id: "world-cup", name: "World Cup", titleEN: "Match Days at Talla", titleAR: "أيام المباريات في تالا", subtitleEN: "Coffee, boxes, and sharing picks for every match.", subtitleAR: "قهوة وصناديق وخيارات للمشاركة في كل مباراة.", badgeEN: "World Cup", badgeAR: "كأس العالم", categoryTitleEN: "Match Day Collection", categoryTitleAR: "مجموعة يوم المباراة", symbol: "soccerball", accentHex: "#F0D7A1", secondaryHex: "#5A2433", priority: 75 }),
+            "arab-cup": blankEvent({ id: "arab-cup", name: "Arab Cup", titleEN: "Arab Cup at Talla", titleAR: "كأس العرب في تالا", subtitleEN: "Match-day coffee and sharing boxes.", subtitleAR: "قهوة المباريات وصناديق المشاركة.", badgeEN: "Arab Cup", badgeAR: "كأس العرب", categoryTitleEN: "Arab Cup Specials", categoryTitleAR: "عروض كأس العرب", symbol: "soccerball", accentHex: "#D9BE78", secondaryHex: "#1F4938", priority: 75 }),
+            "national-day": blankEvent({ id: "bahrain-national-day", name: "Bahrain National Day", titleEN: "Bahrain National Day", titleAR: "العيد الوطني البحريني", subtitleEN: "Celebrate Bahrain with a special Talla collection.", subtitleAR: "احتفل بالبحرين مع مجموعة تالا الخاصة.", badgeEN: "Bahrain", badgeAR: "البحرين", categoryTitleEN: "National Day Collection", categoryTitleAR: "مجموعة العيد الوطني", symbol: "flag.fill", accentHex: "#FFFFFF", secondaryHex: "#CE1126", priority: 85 })
+        };
+
+        function selectedEvent() {
+            return (state.eventSettings?.events || []).find((event) => event.id === state.selectedEventID) || null;
+        }
+
+        function eventScheduleLabel(event) {
+            const now = Date.now();
+            const start = event.startAt ? new Date(event.startAt).getTime() : null;
+            const end = event.endAt ? new Date(event.endAt).getTime() : null;
+            if (!event.enabled) return "Off";
+            if (start && start > now) return `Scheduled ${new Date(start).toLocaleString()}`;
+            if (end && end <= now) return `Ended ${new Date(end).toLocaleString()}`;
+            return end ? `Live until ${new Date(end).toLocaleString()}` : "Live";
+        }
+
+        function renderEvents() {
+            const events = state.eventSettings?.events || [];
+            eventsStatusEl.textContent = state.eventSettings?.updatedAt
+                ? `${events.length} event${events.length === 1 ? "" : "s"} • updated ${new Date(state.eventSettings.updatedAt).toLocaleString()}`
+                : `${events.length} event${events.length === 1 ? "" : "s"}`;
+            eventsListEl.className = events.length ? "list" : "empty";
+            eventsListEl.innerHTML = events.length ? events
+                .slice()
+                .sort((left, right) => (right.priority || 0) - (left.priority || 0))
+                .map((event) => `<button class="list-item event-row secondary" data-event-id="${escapeHTML(event.id)}" style="text-align:left;width:100%;${event.id === state.selectedEventID ? "border-color:var(--accent);" : ""}"><strong>${escapeHTML(event.name || event.titleEN)}</strong><div class="muted">${escapeHTML(eventScheduleLabel(event))} • ${event.productIDs?.length || 0} products</div></button>`)
+                .join("") : "No events yet. Add one or start from a preset.";
+            renderEventEditor();
+        }
+
+        function renderEventProducts(event = selectedEvent()) {
+            if (!event) {
+                eventProductsEl.innerHTML = "";
+                return;
+            }
+            const selectedIDs = new Set(event.productIDs || []);
+            eventProductsEl.className = state.products.length ? "list" : "empty";
+            eventProductsEl.innerHTML = state.products.length ? state.products.map((product) => `
+                <label class="list-item" style="display:flex;gap:10px;align-items:center;cursor:pointer;">
+                    <input class="event-product-input" type="checkbox" value="${escapeHTML(product.id)}" ${selectedIDs.has(product.id) ? "checked" : ""} style="width:auto;">
+                    <span><strong>${escapeHTML(product.title)}</strong><span class="muted" style="display:block;">${escapeHTML(product.productType || "Shopify product")}</span></span>
+                </label>`).join("") : "Load Shopify products to choose items for this category.";
+        }
+
+        function renderEventEditor() {
+            const event = selectedEvent();
+            eventEditorEl.hidden = !event;
+            if (!event) return;
+            eventEditorTitleEl.textContent = event.name || "Event";
+            Object.entries(eventInputs).forEach(([key, input]) => {
+                if (key === "enabled") input.checked = Boolean(event.enabled);
+                else if (key === "startAt" || key === "endAt") input.value = localDateTimeValue(event[key]);
+                else input.value = event[key] ?? "";
+            });
+            renderEventProducts(event);
+        }
+
+        function eventFromEditor() {
+            const current = selectedEvent() || blankEvent();
+            return {
+                ...current,
+                enabled: eventInputs.enabled.checked,
+                name: eventInputs.name.value.trim(),
+                id: eventSlug(eventInputs.id.value || eventInputs.name.value),
+                titleEN: eventInputs.titleEN.value.trim(),
+                titleAR: eventInputs.titleAR.value.trim(),
+                subtitleEN: eventInputs.subtitleEN.value.trim(),
+                subtitleAR: eventInputs.subtitleAR.value.trim(),
+                badgeEN: eventInputs.badgeEN.value.trim(),
+                badgeAR: eventInputs.badgeAR.value.trim(),
+                ctaEN: eventInputs.ctaEN.value.trim(),
+                ctaAR: eventInputs.ctaAR.value.trim(),
+                categoryTitleEN: eventInputs.categoryTitleEN.value.trim(),
+                categoryTitleAR: eventInputs.categoryTitleAR.value.trim(),
+                categorySubtitleEN: eventInputs.categorySubtitleEN.value.trim(),
+                categorySubtitleAR: eventInputs.categorySubtitleAR.value.trim(),
+                startAt: eventInputs.startAt.value ? new Date(eventInputs.startAt.value).toISOString() : null,
+                endAt: eventInputs.endAt.value ? new Date(eventInputs.endAt.value).toISOString() : null,
+                imageURL: eventInputs.imageURL.value.trim(),
+                symbol: eventInputs.symbol.value.trim() || "sparkles",
+                accentHex: eventInputs.accentHex.value,
+                secondaryHex: eventInputs.secondaryHex.value,
+                priority: Number(eventInputs.priority.value) || 0,
+                productIDs: Array.from(eventProductsEl.querySelectorAll(".event-product-input:checked")).map((input) => input.value)
+            };
+        }
+
+        async function persistEvents(message = "Events saved.") {
+            const response = await fetch("/admin/api/events", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ events: state.eventSettings.events })
+            });
             const payload = await response.json();
-            if (!response.ok) throw new Error(payload.error || "Could not load Eid campaign settings.");
-            return payload;
+            if (!response.ok) throw new Error(payload.error || "Could not save events.");
+            state.eventSettings = payload;
+            if (state.selectedEventID && !payload.events.some((event) => event.id === state.selectedEventID)) {
+                state.selectedEventID = null;
+            }
+            renderEvents();
+            setStatus(message, "success");
         }
 
-        async function loadEidCampaign() {
+        async function loadEvents() {
             try {
-                state.eidCampaign = await fetchEidCampaign();
-                renderEidCampaign();
+                const response = await fetch("/admin/api/events");
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not load events.");
+                state.eventSettings = payload;
+                renderEvents();
             } catch (error) {
-                eidCampaignStatusEl.textContent = error.message;
+                eventsStatusEl.textContent = error.message;
             }
         }
 
-        async function saveEidCampaign() {
-            setButtonBusy(saveEidCampaignButton, true, "Save Eid Campaign", "Saving...");
-            eidCampaignStatusEl.textContent = "Saving Eid campaign...";
+        function addEvent(event = blankEvent()) {
+            const existingIDs = new Set(state.eventSettings.events.map((item) => item.id));
+            let nextID = event.id;
+            let suffix = 2;
+            while (existingIDs.has(nextID)) nextID = `${event.id}-${suffix++}`;
+            const nextEvent = { ...event, id: nextID, name: existingIDs.has(event.id) ? `${event.name} Copy` : event.name };
+            state.eventSettings.events.push(nextEvent);
+            state.selectedEventID = nextEvent.id;
+            renderEvents();
+        }
+
+        function addEventPreset() {
+            const choice = window.prompt("Choose a preset: eid, ramadan, christmas, world-cup, arab-cup, national-day", "ramadan");
+            if (!choice) return;
+            const preset = eventPresets[eventSlug(choice)];
+            if (!preset) {
+                setStatus("Unknown preset. Choose eid, ramadan, christmas, world-cup, arab-cup, or national-day.", "error");
+                return;
+            }
+            addEvent({ ...preset, productIDs: [] });
+        }
+
+        async function saveSelectedEvent() {
+            const nextEvent = eventFromEditor();
+            if (!nextEvent.name || !nextEvent.titleEN || !nextEvent.id) {
+                setStatus("Add an internal name and English title.", "error");
+                return;
+            }
+            if (nextEvent.startAt && nextEvent.endAt && new Date(nextEvent.endAt) <= new Date(nextEvent.startAt)) {
+                setStatus("The event end must be after its start.", "error");
+                return;
+            }
+            const duplicate = state.eventSettings.events.some((event) => event.id === nextEvent.id && event.id !== state.selectedEventID);
+            if (duplicate) {
+                setStatus("Use a unique event ID.", "error");
+                return;
+            }
+            const index = state.eventSettings.events.findIndex((event) => event.id === state.selectedEventID);
+            state.eventSettings.events[index] = nextEvent;
+            state.selectedEventID = nextEvent.id;
+            setButtonBusy(saveEventButton, true, "Save Event", "Saving...");
             try {
-                const response = await fetch("/admin/api/campaigns/eid", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        eidModeEnabled: eidModeEnabledInput.checked,
-                        eidOfferEndsAt: eidOfferEndsAtInput.value ? new Date(eidOfferEndsAtInput.value).toISOString() : null
-                    })
-                });
-                const payload = await response.json();
-                if (!response.ok) throw new Error(payload.error || "Could not save Eid campaign settings.");
-                state.eidCampaign = payload;
-                renderEidCampaign();
-                setStatus("Eid campaign settings saved.", "success");
+                await persistEvents(`${nextEvent.name} saved.`);
             } catch (error) {
-                eidCampaignStatusEl.textContent = error.message;
                 setStatus(error.message, "error");
             } finally {
-                setButtonBusy(saveEidCampaignButton, false, "Save Eid Campaign");
+                setButtonBusy(saveEventButton, false, "Save Event");
+            }
+        }
+
+        function duplicateSelectedEvent() {
+            const event = selectedEvent();
+            if (!event) return;
+            addEvent({ ...event, id: `${event.id}-copy`, name: `${event.name} Copy`, enabled: false });
+        }
+
+        async function deleteSelectedEvent() {
+            const event = selectedEvent();
+            if (!event || !window.confirm(`Delete ${event.name}?`)) return;
+            state.eventSettings.events = state.eventSettings.events.filter((item) => item.id !== event.id);
+            state.selectedEventID = null;
+            try {
+                await persistEvents(`${event.name} deleted.`);
+            } catch (error) {
+                setStatus(error.message, "error");
             }
         }
 
@@ -2554,7 +3008,7 @@
                 state.recentAdminActions = (await fetchRecentAdminActions()).auditLogs || [];
                 renderAnalyticsSummary(state.analytics);
                 renderAdminDashboard();
-                await loadEidCampaign();
+                await loadEvents();
                 await loadAppSettings();
                 showApp();
                 await loadAdminOrders();
@@ -2590,7 +3044,8 @@
             productsNoteEl.textContent = "";
             state.analytics = null;
             state.recentAdminActions = [];
-            state.eidCampaign = null;
+            state.eventSettings = { events: [] };
+            state.selectedEventID = null;
             state.appSettings = null;
             state.signatureRoasts = { signatureRoastProductIDs: [], quickDrinkProductIDs: [] };
             state.passportSettings = null;
@@ -2602,9 +3057,10 @@
             ordersNoteEl.textContent = "";
             tasteMemoryEl.className = "empty";
             tasteMemoryEl.innerHTML = "Sign in to view customer taste feedback.";
-            eidCampaignStatusEl.textContent = "Sign in to manage Eid campaign settings.";
-            eidModeEnabledInput.checked = false;
-            eidOfferEndsAtInput.value = "";
+            eventsStatusEl.textContent = "Sign in to manage seasonal events.";
+            eventsListEl.className = "empty";
+            eventsListEl.innerHTML = "Sign in to manage seasonal events.";
+            eventEditorEl.hidden = true;
             appSettingsStatusEl.textContent = "Sign in to manage live app controls.";
             signatureRoastsEl.className = "empty";
             signatureRoastsEl.innerHTML = "Sign in to manage Home signature roasts.";
@@ -2638,7 +3094,7 @@
                 state.recentAdminActions = (await fetchRecentAdminActions()).auditLogs || [];
                 renderAnalyticsSummary(state.analytics);
                 renderAdminDashboard();
-                await loadEidCampaign();
+                await loadEvents();
                 await loadAppSettings();
                 showApp();
                 await loadAdminOrders();
@@ -2662,6 +3118,7 @@
                 state.productControlAvailable = true;
                 renderProducts(payload.products, payload.publicationConfigured);
                 renderSignatureRoasts();
+                renderEventProducts();
                 renderAdminDashboard();
             } catch (error) {
                 if (error.message === "Admin authorization required.") {
@@ -3251,7 +3708,25 @@
         productSortInput.addEventListener("change", () => renderProducts());
         applyEidProductPresetButton.addEventListener("click", applyEidProductPreset);
         createProductButton.addEventListener("click", createProduct);
-        saveEidCampaignButton.addEventListener("click", saveEidCampaign);
+        addEventButton.addEventListener("click", () => addEvent());
+        addEventPresetButton.addEventListener("click", addEventPreset);
+        saveEventButton.addEventListener("click", saveSelectedEvent);
+        duplicateEventButton.addEventListener("click", duplicateSelectedEvent);
+        deleteEventButton.addEventListener("click", deleteSelectedEvent);
+        cancelEventButton.addEventListener("click", () => {
+            const event = selectedEvent();
+            if (event && !event.titleEN) {
+                state.eventSettings.events = state.eventSettings.events.filter((item) => item.id !== event.id);
+            }
+            state.selectedEventID = null;
+            renderEvents();
+        });
+        eventsListEl.addEventListener("click", (event) => {
+            const row = event.target.closest("[data-event-id]");
+            if (!row) return;
+            state.selectedEventID = row.dataset.eventId;
+            renderEvents();
+        });
         saveSignatureRoastsButton.addEventListener("click", saveSignatureRoasts);
         savePassportSettingsButton.addEventListener("click", savePassportSettings);
         signatureRoastsEl.addEventListener("change", (event) => {

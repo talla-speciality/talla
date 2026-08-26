@@ -110,6 +110,7 @@ module.exports = {
         addresses: path.join(dataDirectory, "addresses.json"),
         alertInbox: path.join(dataDirectory, "alertInbox.json"),
         campaignSettings: path.join(dataDirectory, "campaignSettings.json"),
+        events: path.join(dataDirectory, "events.json"),
         homeSettings: path.join(dataDirectory, "homeSettings.json"),
         passportSettings: path.join(dataDirectory, "passportSettings.json"),
         appSettings: path.join(dataDirectory, "appSettings.json"),
