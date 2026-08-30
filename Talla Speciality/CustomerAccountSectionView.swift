@@ -119,6 +119,12 @@ struct CustomerAccountSectionView: View {
             SecureField(accountAuthMode == .changePassword ? AppLocalization.text("current_password", fallback: "Current password") : AppLocalization.text("password", fallback: "Password"), text: $accountPassword)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .submitLabel(accountAuthMode == .signIn ? .go : .next)
+                .onSubmit {
+                    if accountAuthMode == .signIn, !isSubmitDisabled {
+                        submitAction()
+                    }
+                }
                 .font(Font.custom("AvenirNext-Regular", size: 15))
                 .foregroundColor(primaryTextColor)
                 .padding(.horizontal, 14)
@@ -147,13 +153,20 @@ struct CustomerAccountSectionView: View {
             }
 
             Button(action: submitAction) {
-                Text(primaryActionTitle)
-                    .font(Font.custom("AvenirNext-Bold", size: 12))
-                    .tracking(2.5)
-                    .foregroundColor(Color(hex: 0x0A0804))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .glassEffect(.regular.tint(accentColor).interactive(), in: .capsule)
+                HStack(spacing: 10) {
+                    if isSigningIn || isCreatingAccount || isResettingPassword {
+                        ProgressView()
+                            .tint(Color(hex: 0x0A0804))
+                    }
+
+                    Text(primaryActionTitle)
+                        .font(Font.custom("AvenirNext-Bold", size: 12))
+                        .tracking(2.5)
+                }
+                .foregroundColor(Color(hex: 0x0A0804))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .glassEffect(.regular.tint(accentColor).interactive(), in: .capsule)
             }
             .buttonStyle(.plain)
             .disabled(isSubmitDisabled)

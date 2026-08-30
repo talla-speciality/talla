@@ -294,6 +294,7 @@ struct BrewingSectionView: View {
     @Binding var ratioCoffeeInput: String
     @Binding var ratioValueInput: String
     @Binding var brewRecipeName: String
+    @Binding var pendingCoffeeName: String
     let calculatedWaterAmount: Double
     let ratioCoffeeAmount: Double
     let ratioValue: Double
@@ -492,10 +493,14 @@ struct BrewingSectionView: View {
                 resetVisibleBrewSession()
             }
         }
+        .onChange(of: pendingCoffeeName) { _, _ in
+            consumePendingCoffeeIfNeeded()
+        }
         .onAppear {
             restoreBrewProfileSelections()
             restorePersistedBrewSessionIfNeeded()
             updateBrewIdleTimerState()
+            consumePendingCoffeeIfNeeded()
         }
         .onDisappear {
             setBrewIdleTimerDisabled(false)
@@ -1909,6 +1914,19 @@ struct BrewingSectionView: View {
         createRecipeValidationMessage = nil
         recipeGenerationProgress = 0
         recipeGenerationStageIndex = 0
+    }
+
+    private func consumePendingCoffeeIfNeeded() {
+        let name = pendingCoffeeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
+        coffeeName = name
+        coffeeRoaster = "Talla Speciality"
+        brewRecipeName = name
+        prepareNewRecipeJourney(startsWithScan: false)
+        coffeeDetailsMode = .manual
+        pendingCoffeeName = ""
+        activeDashboardDestination = .createRecipe
     }
 
     private var brewMethodCategories: [(title: String, detail: String, query: String)] {

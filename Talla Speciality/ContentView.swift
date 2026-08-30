@@ -827,6 +827,7 @@ struct ContentView: View {
     @State private var quizAdventure = "curious"
     @State private var products: [Product] = []
     @State private var pendingUniversalLinkProductHandle = ""
+    @State private var pendingBrewingCoffeeName = ""
     @State private var cartItems: [CartItem] = []
     @State private var cartOpen = false
     @State private var isCheckoutPresented = false
@@ -992,7 +993,6 @@ struct ContentView: View {
     @State private var accountOrdersPresentationRequest = 0
     @State private var shopCatalogueScrollRequest = 0
     @State private var didRecordReviewLaunch = false
-    @State private var nfcScanner = TallaNFCScanner()
 
     private let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
@@ -1046,6 +1046,14 @@ struct ContentView: View {
     private var isApplePayAvailable: Bool {
 #if canImport(PassKit)
         PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard, .amex])
+#else
+        false
+#endif
+    }
+
+    private var isApplePaySupported: Bool {
+#if canImport(PassKit)
+        PKPaymentAuthorizationController.canMakePayments()
 #else
         false
 #endif
@@ -2850,6 +2858,17 @@ struct ContentView: View {
         openTab(.brewing)
     }
 
+    private func startBrewing(product: Product) {
+        let coffeeName = product.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        selectedProduct = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            brewRecipeName = coffeeName
+            openBrewing(category: product.categoryKey == "arabic-coffee-beans" ? "Traditional" : "All")
+            pendingBrewingCoffeeName = coffeeName
+            showToast(message: AppLocalization.text("brew_ready", fallback: "Coffee added to your brewing workspace"))
+        }
+    }
+
     private func openAccountSection(_ target: String, authMode: AccountAuthMode? = nil) {
         if let authMode {
             switchAccountAuthMode(authMode)
@@ -2973,9 +2992,7 @@ struct ContentView: View {
         let searchQuery = queryItems.first(where: { $0.name == "q" || $0.name == "search" })?.value ?? ""
 
         if isUniversalLink, pathTokens.first == "products", let handle = pathTokens.dropFirst().first {
-            pendingUniversalLinkProductHandle = handle
-            openShop(searchQuery: handle.replacingOccurrences(of: "-", with: " "))
-            resolvePendingUniversalLinkProduct()
+            openProductLink(handle: handle)
             return
         }
 
@@ -3048,6 +3065,13 @@ struct ContentView: View {
         default:
             return "all"
         }
+    }
+
+    private func openProductLink(handle: String) {
+        hasSeenWelcome = true
+        pendingUniversalLinkProductHandle = handle
+        openShop(searchQuery: handle.replacingOccurrences(of: "-", with: " "))
+        resolvePendingUniversalLinkProduct()
     }
 
     private func resolvePendingUniversalLinkProduct() {
@@ -3309,28 +3333,6 @@ struct ContentView: View {
 
                 if !showLaunchSplash && shouldShowHeaderCartButton {
                     headerCartButton
-                }
-
-                if !showLaunchSplash && nfcScanner.isAvailable {
-                    Button {
-                        nfcScanner.beginScanning(
-                            onScan: handleDeepLink,
-                            onError: { showToast(message: $0) }
-                        )
-                    } label: {
-                        Image(systemName: "wave.3.right.circle.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(readableBrandGoldColor)
-                            .frame(width: 40, height: 40)
-                            .background(cardFillColor)
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(AppLocalization.text("scan_talla_tag", fallback: "Scan Talla tag"))
                 }
 
                 Menu {
@@ -6328,6 +6330,7 @@ struct ContentView: View {
             ratioCoffeeInput: $ratioCoffeeInput,
             ratioValueInput: $ratioValueInput,
             brewRecipeName: $brewRecipeName,
+            pendingCoffeeName: $pendingBrewingCoffeeName,
             calculatedWaterAmount: calculatedWaterAmount,
             ratioCoffeeAmount: ratioCoffeeAmount,
             ratioValue: ratioValue,
@@ -6752,6 +6755,7 @@ struct ContentView: View {
             recentlyViewedSection: AnyView(recentlyViewedSection),
             savedRecipesSection: AnyView(brewRecipesSection),
             journalSection: AnyView(coffeeJournalSection),
+            deleteAccountSection: AnyView(deleteAccountSettingsCard),
             supportSection: AnyView(settingsAndHelpSection)
         )
         .padding(.horizontal, 18)
@@ -8355,7 +8359,7 @@ struct ContentView: View {
         .sheet(isPresented: $isPaymentMethodSheetPresented) {
             PaymentMethodSelectionSheet(
                 selectedMethod: paymentFlow.selectedMethod,
-                applePayAvailable: isApplePayAvailable,
+                applePayAvailable: isApplePaySupported,
                 gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
                 availability: paymentAvailability,
                 primaryColor: primaryTextColor,
@@ -10490,6 +10494,26 @@ struct ContentView: View {
                 }
 
                 VStack(spacing: 12) {
+                    if isBrewableCoffee(product) {
+                        Button {
+                            startBrewing(product: product)
+                        } label: {
+                            Label(
+                                AppLocalization.text("brew_this_coffee", fallback: "Start Brewing This Coffee"),
+                                systemImage: "cup.and.saucer.fill"
+                            )
+                                .font(labelFont(size: 11, weight: .bold))
+                                .tracking(1.6)
+                                .textCase(.uppercase)
+                                .foregroundColor(Color(hex: 0x0A0804))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color(hex: 0xC8965A))
+                                .clipShape(Capsule(style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     HStack(spacing: 12) {
                         Button {
                             toggleFavorite(product: product)
@@ -10565,6 +10589,10 @@ struct ContentView: View {
         }
         .background(backgroundGradientColors[0].ignoresSafeArea())
         .presentationDetents([.medium, .large])
+    }
+
+    private func isBrewableCoffee(_ product: Product) -> Bool {
+        ["coffee-beans", "arabic-coffee-beans", "drip-bags"].contains(product.categoryKey)
     }
 
     private func collectionTile(eyebrow: String, name: String, desc: String, accent: String, systemImage: String, color: Color, categoryKey: String) -> some View {
@@ -11021,6 +11049,7 @@ struct ContentView: View {
 
         isSigningIn = true
         customerAuthError = nil
+        defer { isSigningIn = false }
 
         do {
             let session = try await AccountService.signIn(email: trimmedEmail, password: accountPassword)
@@ -11032,7 +11061,6 @@ struct ContentView: View {
             customerAuthError = friendlyCustomerAuthMessage(for: error)
         }
 
-        isSigningIn = false
     }
 
 #if canImport(AuthenticationServices)
@@ -13000,6 +13028,18 @@ struct ContentView: View {
             checkoutError = isArabicInterface ? "طريقة الدفع هذه غير متاحة حالياً." : "This payment method is currently unavailable."
             return
         }
+
+        if selectedPaymentMethod == .applePay, !isApplePayAvailable {
+#if canImport(PassKit)
+            PKPassLibrary().openPaymentSetup()
+#endif
+            checkoutError = AppLocalization.text(
+                "apple_pay_setup_required",
+                fallback: "Add a supported card to Apple Wallet, then return to complete checkout with Apple Pay."
+            )
+            return
+        }
+
         guard !isCheckingOut, paymentFlow.begin() else { return }
 
         guard !cartItems.isEmpty else {
@@ -13731,8 +13771,21 @@ private enum HomeSettingsService {
 private enum AccountService {
     private static let baseURL = BackendConfiguration.serviceBaseURL
 
-    enum SessionError: Error {
+    enum SessionError: LocalizedError {
         case invalid
+        case invalidCredentials
+        case deactivated
+
+        var errorDescription: String? {
+            switch self {
+            case .invalid:
+                return "Your account session expired. Sign in again to continue."
+            case .invalidCredentials:
+                return "The email or password is incorrect."
+            case .deactivated:
+                return "This account is deactivated. Contact Talla support for help."
+            }
+        }
     }
 
     struct CustomerSession {
@@ -13785,6 +13838,7 @@ private enum AccountService {
 
         var request = URLRequest(url: baseURL.appending(path: "/accounts/login"))
         request.httpMethod = "POST"
+        request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
@@ -13841,6 +13895,7 @@ private enum AccountService {
 
         var request = URLRequest(url: baseURL.appending(path: "/accounts/session"))
         request.httpMethod = "GET"
+        request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         try authorize(&request)
 
@@ -14457,8 +14512,12 @@ private enum AccountService {
             )
         }
 
-        if [401, 403, 404].contains(httpResponse.statusCode) {
-            throw SessionError.invalid
+        if httpResponse.statusCode == 401 {
+            throw SessionError.invalidCredentials
+        }
+
+        if httpResponse.statusCode == 403 {
+            throw SessionError.deactivated
         }
 
         if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
@@ -14483,6 +14542,10 @@ private enum AccountService {
                 lastName: decoded.lastName,
                 email: decoded.email
             )
+        }
+
+        if [401, 403].contains(httpResponse.statusCode) {
+            throw SessionError.invalid
         }
 
         if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {

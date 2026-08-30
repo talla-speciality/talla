@@ -21,6 +21,7 @@ struct AccountSectionView: View {
         case savedRecipes
         case journalEntries
         case brewArchive
+        case deleteAccount
         case support
 
         var id: String { rawValue }
@@ -86,6 +87,7 @@ struct AccountSectionView: View {
     let recentlyViewedSection: AnyView
     let savedRecipesSection: AnyView
     let journalSection: AnyView
+    let deleteAccountSection: AnyView
     let supportSection: AnyView
 
     var body: some View {
@@ -183,7 +185,7 @@ struct AccountSectionView: View {
     }
 
     private var guestAccountSummaryCard: some View {
-        Button {
+        return Button {
             isCustomerSectionExpanded = true
             presentedDetail = .personalDetails
         } label: {
@@ -394,7 +396,7 @@ struct AccountSectionView: View {
     }
 
     private var accountAndSettingsRows: [AccountNavigationRowData] {
-        [
+        var rows = [
             accountNavigationRowData(
                 detail: .personalDetails,
                 title: isCustomerSignedIn
@@ -422,6 +424,20 @@ struct AccountSectionView: View {
                 systemImage: "gearshape.fill"
             )
         ]
+
+        if isCustomerSignedIn {
+            rows.append(
+                accountNavigationRowData(
+                    detail: .deleteAccount,
+                    title: AppLocalization.text("delete_account", fallback: "Delete Account"),
+                    subtitle: AppLocalization.text("delete_account_navigation_detail", fallback: "Permanently delete your account and data"),
+                    systemImage: "trash.fill",
+                    isDestructive: true
+                )
+            )
+        }
+
+        return rows
     }
 
     private struct AccountNavigationRowData: Identifiable {
@@ -430,6 +446,7 @@ struct AccountSectionView: View {
         let title: String
         let subtitle: String
         let systemImage: String
+        let isDestructive: Bool
         let action: (() -> Void)?
     }
 
@@ -438,9 +455,17 @@ struct AccountSectionView: View {
         title: String,
         subtitle: String,
         systemImage: String,
+        isDestructive: Bool = false,
         action: (() -> Void)? = nil
     ) -> AccountNavigationRowData {
-        AccountNavigationRowData(detail: detail, title: title, subtitle: subtitle, systemImage: systemImage, action: action)
+        AccountNavigationRowData(
+            detail: detail,
+            title: title,
+            subtitle: subtitle,
+            systemImage: systemImage,
+            isDestructive: isDestructive,
+            action: action
+        )
     }
 
     private func accountAreaCard(title: String, rows: [AccountNavigationRowData]) -> some View {
@@ -473,7 +498,9 @@ struct AccountSectionView: View {
     }
 
     private func accountNavigationRow(_ row: AccountNavigationRowData) -> some View {
-        Button {
+        let rowColor = row.isDestructive ? Color.red : accentColor
+
+        return Button {
             row.action?()
             if let detail = row.detail {
                 presentedDetail = detail
@@ -483,15 +510,15 @@ struct AccountSectionView: View {
             HStack(spacing: 12) {
                 Image(systemName: row.systemImage)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(rowColor)
                     .frame(width: 34, height: 34)
-                    .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.14))
+                    .background(rowColor.opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(row.title)
                         .font(quickActionTitleFont)
-                        .foregroundColor(primaryTextColor)
+                        .foregroundColor(row.isDestructive ? .red : primaryTextColor)
                         .lineLimit(1)
 
                     Text(row.subtitle)
@@ -609,6 +636,8 @@ struct AccountSectionView: View {
             return AppLocalization.text("journal_entries", fallback: "Journal entries")
         case .brewArchive:
             return AppLocalization.text("brew_archive", fallback: "Brew Archive")
+        case .deleteAccount:
+            return AppLocalization.text("delete_account", fallback: "Delete Account")
         case .support:
             return AppLocalization.text("settings_and_help", fallback: "Settings & Help")
         }
@@ -647,6 +676,8 @@ struct AccountSectionView: View {
                     .frame(height: 1)
                 journalSection
             }
+        case .deleteAccount:
+            deleteAccountSection
         case .support:
             supportSection
         }
@@ -664,6 +695,8 @@ struct AccountSectionView: View {
             isShoppingSectionExpanded = true
         case .savedRecipes, .journalEntries, .brewArchive:
             isBrewingSectionExpanded = true
+        case .deleteAccount:
+            isCustomerSectionExpanded = true
         case .support:
             isSupportSectionExpanded = true
         }

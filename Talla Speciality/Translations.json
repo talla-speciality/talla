@@ -2088,7 +2088,25 @@
     "ar": "حذف الحساب"
   },
   "delete_account_detail": {
-    "ar": "لحذف حساب Talla والبيانات المرتبطة به، تواصل مع الدعم وسنساعدك في إتمام الطلب."
+    "ar": "احذف حساب تالا وجميع بيانات العميل المرتبطة به نهائياً. لا يمكن التراجع عن هذا الإجراء."
+  },
+  "delete_account_navigation_detail": {
+    "ar": "احذف حسابك وبياناتك نهائياً"
+  },
+  "delete_account_permanently": {
+    "ar": "حذف الحساب نهائياً"
+  },
+  "delete_account_confirmation_title": {
+    "ar": "حذف الحساب نهائياً؟"
+  },
+  "delete_account_confirmation_detail": {
+    "ar": "سيتم حذف ملفك وبيانات الولاء والعناوين والتنبيهات والقسائم وسجلات الطلبات نهائياً."
+  },
+  "account_deleted": {
+    "ar": "تم حذف حسابك."
+  },
+  "account_delete_failed": {
+    "ar": "تعذر حذف حسابك الآن. يرجى المحاولة مرة أخرى."
   },
   "delivered": {
     "ar": "تم التوصيل"
@@ -2536,21 +2554,6 @@
   },
   "scan_again": {
     "ar": "البحث مجدداً"
-  },
-  "scan_talla_tag": {
-    "ar": "مسح علامة تله"
-  },
-  "nfc_scan_prompt": {
-    "ar": "قرّب الآيفون من علامة تله."
-  },
-  "nfc_scan_success": {
-    "ar": "تم فتح علامة تله."
-  },
-  "nfc_invalid_tag": {
-    "ar": "هذه ليست علامة تله مدعومة."
-  },
-  "nfc_unavailable": {
-    "ar": "مسح NFC غير متاح على هذا الجهاز."
   },
   "scale_ready_when_you_are": {
     "ar": "جاهز عندما تكون جاهزاً"
@@ -4099,5 +4102,14 @@
   },
   "accessibility_cold_brew_bottle": {
     "ar": "زجاجة تحضير بارد"
+  },
+  "brew_this_coffee": {
+    "ar": "ابدأ تحضير هذه القهوة"
+  },
+  "brew_ready": {
+    "ar": "تمت إضافة القهوة إلى مساحة التحضير"
+  },
+  "apple_pay_setup_required": {
+    "ar": "أضف بطاقة مدعومة إلى Apple Wallet، ثم ارجع لإكمال الدفع عبر Apple Pay."
   }
 }

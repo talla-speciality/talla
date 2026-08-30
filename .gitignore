@@ -7,3 +7,14 @@ keystore.bin
 keystore.pooh
 resource.cgn
 Config/BenefitPaySecrets.xcconfig
+
+# Android local state, generated output, signing material, and proprietary SDKs
+android/.gradle/
+android/.idea/
+android/local.properties
+android/**/build/
+android/app/libs/*.aar
+android/gateway-repo/
+android/*.jks
+android/*.keystore
+android/keystore.properties

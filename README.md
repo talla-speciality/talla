@@ -1,7 +1,23 @@
-# talla
-# talla
-# talla
-# talla
+# Talla Speciality
+
+The Talla monorepo contains the native Apple clients, native Android client, and shared Node/Postgres backend.
+
+## Projects
+
+- `Talla Speciality/`, `Talla Watch Watch App/`, and the Xcode project: iOS, widgets, and watchOS.
+- `android/`: Kotlin and Jetpack Compose Android app. Open this directory directly in Android Studio.
+- `backend/`: shared account, commerce, loyalty, notification, and payment service used by both mobile apps.
+
+The mobile clients share the production backend at `https://talla-backend.onrender.com`. Payment-provider secrets remain in Render and must never be committed to either client.
+
+### Android verification
+
+```bash
+cd android
+./gradlew test assembleDebug lintDebug
+```
+
+Authorized vendor payment SDKs are installed locally according to `android/README.md` and are intentionally excluded from Git.
 
 ## Delivery rates
 

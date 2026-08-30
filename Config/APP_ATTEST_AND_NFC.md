@@ -1,4 +1,4 @@
-# App Attest and NFC rollout
+# App Attest rollout
 
 ## App Attest
 
@@ -19,17 +19,4 @@ Keep enforcement off while the App Store update rolls out so older clients conti
 Monitor failed registrations/assertions, then set `APP_ATTEST_ENFORCE=true`. Development
 attestations should only be allowed in non-production environments.
 
-## NFC tags
-
-Encode tags as NDEF URI records. Supported destinations are Talla universal links such as:
-
-```text
-https://talla.me/products/<shopify-product-handle>
-https://talla.me/collections/<shopify-collection-handle>
-https://talla.me/app/brewing
-https://talla.me/app/rewards
-```
-
-The scanner rejects non-Talla domains and hands valid tags to the same navigation path used by
-universal links. Test on a physical iPhone; the simulator cannot scan NFC tags or create App Attest
-keys.
+Test App Attest on a physical iPhone or iPad; the simulator cannot create App Attest keys.
