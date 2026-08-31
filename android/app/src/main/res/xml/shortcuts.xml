@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shop"
+        android:enabled="true"
+        android:icon="@drawable/talla_mark"
+        android:shortcutShortLabel="@string/shortcut_shop_short"
+        android:shortcutLongLabel="@string/shortcut_shop_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="talla://shop"
+            android:targetClass="com.talla.speciality.MainActivity"
+            android:targetPackage="com.talla.speciality" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="brewing"
+        android:enabled="true"
+        android:icon="@drawable/talla_mark"
+        android:shortcutShortLabel="@string/shortcut_brewing_short"
+        android:shortcutLongLabel="@string/shortcut_brewing_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="talla://brewing"
+            android:targetClass="com.talla.speciality.MainActivity"
+            android:targetPackage="com.talla.speciality" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="rewards"
+        android:enabled="true"
+        android:icon="@drawable/talla_mark"
+        android:shortcutShortLabel="@string/shortcut_rewards_short"
+        android:shortcutLongLabel="@string/shortcut_rewards_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="talla://rewards"
+            android:targetClass="com.talla.speciality.MainActivity"
+            android:targetPackage="com.talla.speciality" />
+    </shortcut>
+</shortcuts>

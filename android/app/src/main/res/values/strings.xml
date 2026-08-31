@@ -135,4 +135,10 @@
     <string name="supported_scales">Supports BOOKOO Themis, MANTABREW WeighMaster 2.0, HIROIA JIMMY, and GOAT STORY GINA. Keep the scale awake and nearby.</string>
     <string name="talla_widget_name">Talla Coffee &amp; Rewards</string>
     <string name="talla_widget_description">Beans, shelf, bag, and brewing shortcuts.</string>
+    <string name="shortcut_shop_short">Shop</string>
+    <string name="shortcut_shop_long">Shop Talla coffee</string>
+    <string name="shortcut_brewing_short">Brewing</string>
+    <string name="shortcut_brewing_long">Open brewing studio</string>
+    <string name="shortcut_rewards_short">Rewards</string>
+    <string name="shortcut_rewards_long">Open Talla Beans and rewards</string>
 </resources>

@@ -139,4 +139,10 @@
     <string name="supported_scales">يدعم BOOKOO Themis وMANTABREW WeighMaster 2.0 وHIROIA JIMMY وGOAT STORY GINA. أبقِ الميزان يعمل وبالقرب منك.</string>
     <string name="talla_widget_name">تالا للقهوة والمكافآت</string>
     <string name="talla_widget_description">الحبوب والرف والسلة واختصارات التحضير.</string>
+    <string name="shortcut_shop_short">المتجر</string>
+    <string name="shortcut_shop_long">تسوق قهوة تالا</string>
+    <string name="shortcut_brewing_short">التحضير</string>
+    <string name="shortcut_brewing_long">افتح استوديو التحضير</string>
+    <string name="shortcut_rewards_short">المكافآت</string>
+    <string name="shortcut_rewards_long">افتح حبوب ومكافآت تالا</string>
 </resources>

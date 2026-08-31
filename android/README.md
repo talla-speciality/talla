@@ -24,6 +24,7 @@ Native Android foundation for Talla Speciality, built with Kotlin and Jetpack Co
 - English and Arabic resources, automatic RTL layout, and an in-app language selector.
 - Light and dark colour schemes.
 - A responsive English/Arabic home-screen widget for Beans, favourites, bag, brew history, and quick actions.
+- Long-press launcher shortcuts for Shop, Brewing, and Rewards.
 
 ## Open the project
 
