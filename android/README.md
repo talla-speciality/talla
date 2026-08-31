@@ -23,6 +23,7 @@ Native Android foundation for Talla Speciality, built with Kotlin and Jetpack Co
 - Bluetooth discovery and live brewing telemetry for BOOKOO Themis, MANTABREW WeighMaster 2.0, HIROIA JIMMY, and GOAT STORY GINA scales.
 - English and Arabic resources, automatic RTL layout, and an in-app language selector.
 - Light and dark colour schemes.
+- A responsive English/Arabic home-screen widget for Beans, favourites, bag, brew history, and quick actions.
 
 ## Open the project
 
@@ -63,6 +64,6 @@ Use the AAR and local Maven repository supplied directly by BENEFIT/FOO and Mast
 2. Firebase Cloud Messaging and Android Play Integrity verification on sensitive backend routes.
 3. Physical validation of the supported Bluetooth scales and enhanced Arabic-script OCR.
 4. Arabic resources and RTL QA, accessibility pass, analytics/privacy review, and Play Store release preparation.
-5. Google Wallet, widgets, and Wear OS surfaces.
+5. Google Wallet and Wear OS surfaces.
 
 The existing iOS source was used as product and platform reference only. It was not modified.

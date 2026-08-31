@@ -133,4 +133,6 @@
     <string name="nearby_scales">Nearby scales</string>
     <string name="connect">Connect</string>
     <string name="supported_scales">Supports BOOKOO Themis, MANTABREW WeighMaster 2.0, HIROIA JIMMY, and GOAT STORY GINA. Keep the scale awake and nearby.</string>
+    <string name="talla_widget_name">Talla Coffee &amp; Rewards</string>
+    <string name="talla_widget_description">Beans, shelf, bag, and brewing shortcuts.</string>
 </resources>

@@ -137,4 +137,6 @@
     <string name="nearby_scales">الموازين القريبة</string>
     <string name="connect">اتصال</string>
     <string name="supported_scales">يدعم BOOKOO Themis وMANTABREW WeighMaster 2.0 وHIROIA JIMMY وGOAT STORY GINA. أبقِ الميزان يعمل وبالقرب منك.</string>
+    <string name="talla_widget_name">تالا للقهوة والمكافآت</string>
+    <string name="talla_widget_description">الحبوب والرف والسلة واختصارات التحضير.</string>
 </resources>

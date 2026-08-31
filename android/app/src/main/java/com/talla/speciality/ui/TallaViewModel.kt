@@ -26,9 +26,15 @@ import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.data.ScaleAction
 import com.talla.speciality.data.ScaleUiState
+import com.talla.speciality.widget.TallaQuickActionsWidget
+import com.talla.speciality.widget.TallaWidgetSnapshot
+import com.talla.speciality.widget.TallaWidgetStateStore
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -87,6 +93,26 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<TallaUiState> = mutableState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            mutableState
+                .map { current ->
+                    TallaWidgetSnapshot(
+                        signedIn = current.profile != null,
+                        loyaltyPoints = current.loyalty?.pointsBalance ?: 0,
+                        loyaltyTier = current.loyalty?.tier.orEmpty(),
+                        loyaltyNextReward = current.loyalty?.nextReward.orEmpty(),
+                        favoriteCount = current.favoriteProductIds.size,
+                        recentCount = current.recentlyViewedProductIds.size,
+                        bagCount = current.cartCount,
+                        brewCount = current.brewJournal.size,
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { widgetState ->
+                    TallaWidgetStateStore.save(application, widgetState)
+                    TallaQuickActionsWidget().updateAll(application)
+                }
+        }
         viewModelScope.launch {
             scales.state.collect { scaleState -> mutableState.update { it.copy(scale = scaleState) } }
         }

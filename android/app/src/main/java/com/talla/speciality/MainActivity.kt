@@ -6,20 +6,34 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.talla.speciality.ui.TallaApp
 import com.talla.speciality.ui.theme.TallaTheme
 import mobi.foo.benefitinapp.utils.BenefitInAppHelper
 
 class MainActivity : AppCompatActivity() {
+    private var deepLinkDestination by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        deepLinkDestination = navigationDestination(intent)
         enableEdgeToEdge()
-        setContent { TallaTheme { TallaApp() } }
+        setContent {
+            TallaTheme {
+                TallaApp(
+                    deepLinkDestination = deepLinkDestination,
+                    onDeepLinkConsumed = { deepLinkDestination = null },
+                )
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        deepLinkDestination = navigationDestination(intent)
     }
 
     @Deprecated("Required by the supplied BenefitPay SDK callback contract")
@@ -29,4 +43,8 @@ class MainActivity : AppCompatActivity() {
             BenefitInAppHelper.handleResult(data)
         }
     }
+
+    private fun navigationDestination(intent: Intent?): String? = intent?.data?.takeIf {
+        it.scheme.equals("talla", ignoreCase = true)
+    }?.host?.lowercase()?.takeIf { it in setOf("shop", "brewing", "rewards") }
 }

@@ -141,12 +141,25 @@ private enum class CheckoutMethod(val labelRes: Int, val detailRes: Int) {
 }
 
 @Composable
-fun TallaApp(viewModel: TallaViewModel = viewModel()) {
+fun TallaApp(
+    viewModel: TallaViewModel = viewModel(),
+    deepLinkDestination: String? = null,
+    onDeepLinkConsumed: () -> Unit = {},
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var tab by remember { mutableStateOf(TallaTab.Home) }
     var cartOpen by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
+
+    LaunchedEffect(deepLinkDestination) {
+        when (deepLinkDestination) {
+            "shop" -> tab = TallaTab.Shop
+            "brewing" -> tab = TallaTab.Brewing
+            "rewards" -> tab = TallaTab.Account
+        }
+        if (deepLinkDestination != null) onDeepLinkConsumed()
+    }
 
     LaunchedEffect(state.checkoutUrl) {
         state.checkoutUrl?.let { url ->
