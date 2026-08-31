@@ -26,6 +26,8 @@ import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.data.ScaleAction
 import com.talla.speciality.data.ScaleUiState
+import com.talla.speciality.data.TallaRemoteSettings
+import com.talla.speciality.data.TallaRemoteSettingsRepository
 import com.talla.speciality.widget.TallaQuickActionsWidget
 import com.talla.speciality.widget.TallaWidgetSnapshot
 import com.talla.speciality.widget.TallaWidgetStateStore
@@ -70,12 +72,14 @@ data class TallaUiState(
     val scale: ScaleUiState = ScaleUiState(),
     val accountLoading: Boolean = false,
     val accountError: String? = null,
+    val remoteSettings: TallaRemoteSettings = TallaRemoteSettings(),
 ) {
     val cartCount: Int get() = cart.values.sumOf { it.quantity }
 }
 
 class TallaViewModel(application: Application) : AndroidViewModel(application) {
     private val shopify = ShopifyRepository()
+    private val remoteSettings = TallaRemoteSettingsRepository()
     private val accounts = AccountRepository(application)
     private val payments = PaymentRepository(application)
     private val scales = CoffeeScaleManager(application)
@@ -124,6 +128,8 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh() {
         viewModelScope.launch {
             mutableState.update { it.copy(loading = true, error = null) }
+            runCatching { remoteSettings.fetch() }
+                .onSuccess { settings -> mutableState.update { it.copy(remoteSettings = settings) } }
             runCatching { shopify.products() }
                 .onSuccess { products ->
                     val byVariant = products.flatMap { product -> product.variants.map { it.id to (product to it) } }.toMap()
