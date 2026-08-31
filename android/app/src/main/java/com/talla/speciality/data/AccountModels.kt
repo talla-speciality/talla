@@ -16,7 +16,10 @@ data class CustomerOrder(
     val total: Double,
     val status: String,
     val createdAt: String,
+    val items: List<OrderItem> = emptyList(),
 )
+
+data class OrderItem(val name: String, val quantity: Int)
 
 data class DeliveryAddress(
     val id: String,
@@ -44,4 +47,14 @@ data class StockAlert(
     val productName: String,
     val available: Boolean,
     val status: String,
+)
+
+data class TasteMemoryRecord(
+    val id: String,
+    val orderId: String,
+    val productName: String,
+    val reaction: String,
+    val tags: List<String>,
+    val createdAt: String,
+    val updatedAt: String,
 )

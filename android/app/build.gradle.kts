@@ -56,6 +56,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     implementation("com.mastercard.gateway:Mobile_SDK_Android:2.0.17") {
         // gateway-android-3ds still declares the retired support-v7 artifact even

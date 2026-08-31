@@ -1,6 +1,7 @@
 package com.talla.speciality.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,7 +17,12 @@ import com.talla.speciality.data.Voucher
 import com.talla.speciality.data.StockAlert
 import com.talla.speciality.data.ShopifyRepository
 import com.talla.speciality.data.BenefitPaySession
+import com.talla.speciality.data.BrewJournalEntry
+import com.talla.speciality.data.BrewJournalPolicy
+import com.talla.speciality.data.CoffeeBagScanResult
+import com.talla.speciality.data.CoffeeBagTextRecognizer
 import com.talla.speciality.data.PaymentRepository
+import com.talla.speciality.data.TasteMemoryRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 data class TallaUiState(
     val products: List<Product> = emptyList(),
@@ -45,6 +52,11 @@ data class TallaUiState(
     val addresses: List<DeliveryAddress> = emptyList(),
     val vouchers: List<Voucher> = emptyList(),
     val stockAlerts: List<StockAlert> = emptyList(),
+    val tasteMemory: List<TasteMemoryRecord> = emptyList(),
+    val brewJournal: List<BrewJournalEntry> = emptyList(),
+    val coffeeBagScan: CoffeeBagScanResult? = null,
+    val coffeeBagScanning: Boolean = false,
+    val coffeeBagScanError: String? = null,
     val accountLoading: Boolean = false,
     val accountError: String? = null,
 ) {
@@ -64,6 +76,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             recentlyViewedProductIds = loadRecentIds(),
             hostedBenefitOrderId = preferences.getString("hosted_benefit_order", null),
             clickToPayOrderId = preferences.getString("click_to_pay_order", null),
+            brewJournal = loadBrewJournal(),
         )
     )
     val state: StateFlow<TallaUiState> = mutableState.asStateFlow()
@@ -300,7 +313,12 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     fun logout() {
         val token = tokenStore.read()
         tokenStore.clear()
-        mutableState.update { it.copy(profile = null, loyalty = null, orders = emptyList(), addresses = emptyList(), vouchers = emptyList(), stockAlerts = emptyList(), accountError = null) }
+        mutableState.update {
+            it.copy(
+                profile = null, loyalty = null, orders = emptyList(), addresses = emptyList(), vouchers = emptyList(),
+                stockAlerts = emptyList(), tasteMemory = emptyList(), accountError = null,
+            )
+        }
         if (token != null) viewModelScope.launch { accounts.logout(token) }
     }
 
@@ -345,6 +363,69 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun saveTasteMemory(orderId: String, productName: String, reaction: String, tags: List<String>) {
+        val token = tokenStore.read()
+        if (token == null) {
+            mutableState.update { it.copy(accountError = "Sign in to save taste feedback") }
+            return
+        }
+        accountAction {
+            val records = accounts.saveTasteMemory(token, orderId, productName, reaction, tags)
+            mutableState.update { it.copy(tasteMemory = records, accountLoading = false) }
+        }
+    }
+
+    fun saveBrewJournalEntry(
+        title: String,
+        method: String,
+        coffeeGrams: Int,
+        ratio: Double,
+        waterGrams: Int,
+        brewTimeSeconds: Int,
+        rating: Int,
+        notes: String,
+    ) {
+        val cleanTitle = title.trim().ifBlank { method.trim().ifBlank { "Coffee brew" } }
+        val entry = BrewJournalEntry(
+            id = UUID.randomUUID().toString(), title = cleanTitle, method = method.trim().ifBlank { "Coffee" },
+            coffeeGrams = coffeeGrams, ratio = ratio, waterGrams = waterGrams,
+            brewTimeSeconds = brewTimeSeconds, rating = rating, notes = notes.trim(), createdAt = System.currentTimeMillis(),
+        )
+        mutableState.update { current ->
+            current.copy(brewJournal = BrewJournalPolicy.add(current.brewJournal, entry)).also(::persistBrewJournal)
+        }
+    }
+
+    fun deleteBrewJournalEntry(id: String) {
+        mutableState.update { current ->
+            current.copy(brewJournal = BrewJournalPolicy.remove(current.brewJournal, id)).also(::persistBrewJournal)
+        }
+    }
+
+    fun scanCoffeeBag(imageUri: Uri) {
+        viewModelScope.launch {
+            mutableState.update { it.copy(coffeeBagScanning = true, coffeeBagScanError = null) }
+            runCatching { CoffeeBagTextRecognizer.analyze(getApplication(), imageUri) }
+                .onSuccess { result ->
+                    mutableState.update {
+                        it.copy(coffeeBagScan = result, coffeeBagScanning = false, coffeeBagScanError = null)
+                    }
+                }
+                .onFailure { failure ->
+                    mutableState.update {
+                        it.copy(
+                            coffeeBagScanning = false,
+                            coffeeBagScanError = failure.message ?: "Unable to read this coffee bag",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun clearCoffeeBagScan() = mutableState.update {
+        it.copy(coffeeBagScan = null, coffeeBagScanError = null, coffeeBagScanning = false)
+    }
+
     private fun restoreAccount() {
         val token = tokenStore.read() ?: return
         accountAction { loadAccount(token, accounts.profile(token)) }
@@ -367,8 +448,12 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val addresses = accounts.addresses(token)
         val vouchers = accounts.vouchers(token)
         val stockAlerts = accounts.alerts(token)
+        val tasteMemory = accounts.tasteMemory(token)
         mutableState.update {
-            it.copy(profile = profile, loyalty = loyalty, orders = orders, addresses = addresses, vouchers = vouchers, stockAlerts = stockAlerts, accountLoading = false, accountError = null)
+            it.copy(
+                profile = profile, loyalty = loyalty, orders = orders, addresses = addresses, vouchers = vouchers,
+                stockAlerts = stockAlerts, tasteMemory = tasteMemory, accountLoading = false, accountError = null,
+            )
         }
     }
 
@@ -386,5 +471,33 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadRecentIds(): List<String> = runCatching {
         val json = JSONArray(preferences.getString("recent", "[]") ?: "[]")
         (0 until json.length()).mapNotNull { json.optString(it).takeIf(String::isNotBlank) }
+    }.getOrDefault(emptyList())
+
+    private fun persistBrewJournal(state: TallaUiState) {
+        val json = JSONArray()
+        state.brewJournal.forEach { entry ->
+            json.put(
+                JSONObject()
+                    .put("id", entry.id).put("title", entry.title).put("method", entry.method)
+                    .put("coffeeGrams", entry.coffeeGrams).put("ratio", entry.ratio).put("waterGrams", entry.waterGrams)
+                    .put("brewTimeSeconds", entry.brewTimeSeconds).put("rating", entry.rating)
+                    .put("notes", entry.notes).put("createdAt", entry.createdAt)
+            )
+        }
+        preferences.edit { putString("brew_journal", json.toString()) }
+    }
+
+    private fun loadBrewJournal(): List<BrewJournalEntry> = runCatching {
+        val json = JSONArray(preferences.getString("brew_journal", "[]") ?: "[]")
+        (0 until json.length()).map { index ->
+            val entry = json.getJSONObject(index)
+            BrewJournalEntry(
+                id = entry.getString("id"), title = entry.optString("title"), method = entry.optString("method"),
+                coffeeGrams = entry.optInt("coffeeGrams"), ratio = entry.optDouble("ratio"),
+                waterGrams = entry.optInt("waterGrams"), brewTimeSeconds = entry.optInt("brewTimeSeconds"),
+                rating = entry.optInt("rating", 4).coerceIn(1, 5), notes = entry.optString("notes"),
+                createdAt = entry.optLong("createdAt"),
+            )
+        }.take(BrewJournalPolicy.MAX_ENTRIES)
     }.getOrDefault(emptyList())
 }

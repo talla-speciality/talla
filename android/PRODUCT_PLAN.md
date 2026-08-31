@@ -50,4 +50,4 @@ Android should therefore be a native client of the same commerce and customer pl
 
 ## Current Android implementation status
 
-The commerce catalogue, product variants, favourites, persistent bag, hosted Shopify checkout, encrypted Talla accounts, loyalty, orders, vouchers, addresses, stock alerts, and guided brewing timer are implemented and compile into the debug APK. Remaining items require platform/merchant credentials, specialist hardware testing, translation QA, or store-release configuration.
+The commerce catalogue, product variants, favourites, persistent bag, hosted Shopify checkout, encrypted Talla accounts, loyalty, orders, vouchers, addresses, stock alerts, guided brewing timer, coffee-bag OCR, local brew journal, and shared taste memory are implemented and compile into the debug APK. Remaining items require platform/merchant credentials, specialist hardware testing, translation QA, or store-release configuration.

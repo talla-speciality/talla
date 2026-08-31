@@ -37,8 +37,34 @@ class AccountRepository {
 
     suspend fun orders(token: String): List<CustomerOrder> = withContext(Dispatchers.IO) {
         requestArray("GET", "/orders", token).objects().map { json ->
-            CustomerOrder(json.optString("id"), json.optString("title"), json.optDouble("total"), json.optString("status"), json.optString("createdAt"))
+            CustomerOrder(
+                id = json.optString("id"), title = json.optString("title"), total = json.optDouble("total"),
+                status = json.optString("status"), createdAt = json.optString("createdAt"),
+                items = json.optJSONArray("items").objects().map { item ->
+                    OrderItem(item.optString("name"), item.optInt("quantity", 1))
+                },
+            )
         }
+    }
+
+    suspend fun tasteMemory(token: String): List<TasteMemoryRecord> = withContext(Dispatchers.IO) {
+        requestArray("GET", "/taste-memory", token).objects().map(::parseTasteMemory)
+    }
+
+    suspend fun saveTasteMemory(
+        token: String,
+        orderId: String,
+        productName: String,
+        reaction: String,
+        tags: List<String>,
+    ): List<TasteMemoryRecord> = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("orderID", orderId)
+            .put("productName", productName)
+            .put("reaction", reaction)
+            .put("tags", JSONArray(tags))
+        request("POST", "/taste-memory/save", body, token)
+            .optJSONArray("tasteMemory").objects().map(::parseTasteMemory)
     }
 
     suspend fun addresses(token: String): List<DeliveryAddress> = withContext(Dispatchers.IO) {
@@ -162,6 +188,12 @@ class AccountRepository {
         available = json.optBoolean("isAvailableForSale"), status = json.optString("status"),
     )
 
+    private fun parseTasteMemory(json: JSONObject) = TasteMemoryRecord(
+        id = json.optString("id"), orderId = json.optString("orderID"), productName = json.optString("productName"),
+        reaction = json.optString("reaction"), tags = json.optJSONArray("tags").strings(),
+        createdAt = json.optString("createdAt"), updatedAt = json.optString("updatedAt"),
+    )
+
     private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { optString(it) }
-    private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
+    private fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).map { getJSONObject(it) }
 }

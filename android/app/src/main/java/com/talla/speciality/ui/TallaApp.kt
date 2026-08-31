@@ -2,6 +2,9 @@ package com.talla.speciality.ui
 
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -27,18 +30,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Coffee
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Badge
 import androidx.compose.material3.AlertDialog
@@ -91,10 +99,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.core.net.toUri
+import androidx.core.content.FileProvider
 import com.talla.speciality.R
 import com.talla.speciality.data.CartLine
 import com.talla.speciality.data.BrewRecipeEngine
+import com.talla.speciality.data.BrewJournalEntry
+import com.talla.speciality.data.BrewRecipe
+import com.talla.speciality.data.CoffeeBagScanResult
+import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.Product
+import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.ui.theme.Coffee
 import com.talla.speciality.ui.theme.Sand
 import com.talla.speciality.ui.theme.Sage
@@ -102,6 +116,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.net.URL
+import java.io.File
 
 private enum class TallaTab(val labelRes: Int, val icon: ImageVector) {
     Home(R.string.home, Icons.Default.Home),
@@ -165,7 +180,17 @@ fun TallaApp(viewModel: TallaViewModel = viewModel()) {
         when (tab) {
             TallaTab.Home -> HomeScreen(state, viewModel::refresh, viewModel::addToCart, openProduct, Modifier.padding(padding))
             TallaTab.Shop -> ShopScreen(state, viewModel::refresh, viewModel::addToCart, openProduct, Modifier.padding(padding))
-            TallaTab.Brewing -> BrewingScreen(Modifier.padding(padding))
+            TallaTab.Brewing -> BrewingScreen(
+                journalEntries = state.brewJournal,
+                scanResult = state.coffeeBagScan,
+                scanning = state.coffeeBagScanning,
+                scanError = state.coffeeBagScanError,
+                onScanCoffeeBag = viewModel::scanCoffeeBag,
+                onClearScan = viewModel::clearCoffeeBagScan,
+                onSaveJournal = viewModel::saveBrewJournalEntry,
+                onDeleteJournal = viewModel::deleteBrewJournalEntry,
+                modifier = Modifier.padding(padding),
+            )
             TallaTab.Account -> AccountScreen(
                 state = state,
                 onLogin = viewModel::login,
@@ -174,6 +199,7 @@ fun TallaApp(viewModel: TallaViewModel = viewModel()) {
                 onRefresh = viewModel::refreshAccount,
                 onSaveAddress = viewModel::saveAddress,
                 onDeleteAddress = viewModel::deleteAddress,
+                onSaveTasteMemory = viewModel::saveTasteMemory,
                 openProduct = openProduct,
                 modifier = Modifier.padding(padding),
             )
@@ -400,7 +426,17 @@ private fun RemoteImage(url: String?, description: String, modifier: Modifier = 
 }
 
 @Composable
-private fun BrewingScreen(modifier: Modifier = Modifier) {
+private fun BrewingScreen(
+    journalEntries: List<BrewJournalEntry>,
+    scanResult: CoffeeBagScanResult?,
+    scanning: Boolean,
+    scanError: String?,
+    onScanCoffeeBag: (Uri) -> Unit,
+    onClearScan: () -> Unit,
+    onSaveJournal: (String, String, Int, Double, Int, Int, Int, String) -> Unit,
+    onDeleteJournal: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val methods = listOf("V60", "Kalita", "AeroPress", "French press", "Espresso", "Cold brew")
     var brewer by remember { mutableStateOf("V60") }
     var dose by remember { mutableFloatStateOf(20f) }
@@ -419,6 +455,15 @@ private fun BrewingScreen(modifier: Modifier = Modifier) {
 
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text(stringResource(R.string.brewing_studio), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black) }
+        item {
+            CoffeeBagScannerCard(
+                result = scanResult,
+                scanning = scanning,
+                error = scanError,
+                onScan = onScanCoffeeBag,
+                onClear = onClearScan,
+            )
+        }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(methods) { method -> FilterChip(selected = brewer == method, onClick = { brewer = method; elapsed = 0; running = false }, label = { Text(method) }) }
@@ -474,6 +519,208 @@ private fun BrewingScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+        item {
+            BrewJournalCard(
+                recipe = recipe,
+                elapsedSeconds = elapsed,
+                entries = journalEntries,
+                scanResult = scanResult,
+                onSave = onSaveJournal,
+                onDelete = onDeleteJournal,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CoffeeBagScannerCard(
+    result: CoffeeBagScanResult?,
+    scanning: Boolean,
+    error: String?,
+    onScan: (Uri) -> Unit,
+    onClear: () -> Unit,
+) {
+    val context = LocalContext.current
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        if (captured) pendingCameraUri?.let(onScan)
+    }
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let(onScan)
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = Sand.copy(alpha = .13f)), shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.scan_coffee_bag), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            Text(stringResource(R.string.scan_coffee_bag_detail), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = {
+                        val directory = File(context.cacheDir, "coffee-bag-scans").apply { mkdirs() }
+                        val imageFile = File.createTempFile("coffee-bag-", ".jpg", directory)
+                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
+                        pendingCameraUri = uri
+                        cameraLauncher.launch(uri)
+                    },
+                    enabled = !scanning,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.CameraAlt, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.camera))
+                }
+                TextButton(
+                    onClick = { galleryLauncher.launch("image/*") },
+                    enabled = !scanning,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.photo_library))
+                }
+            }
+            if (scanning) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.reading_coffee_bag))
+                }
+            }
+            error?.let { message -> Text(message, color = MaterialTheme.colorScheme.error) }
+            result?.let { scan ->
+                HorizontalDivider()
+                Text(stringResource(R.string.detected_coffee), fontWeight = FontWeight.Bold)
+                ScanResultRow(R.string.coffee_name, scan.name)
+                ScanResultRow(R.string.roaster, scan.roaster)
+                ScanResultRow(R.string.origin, scan.origin)
+                ScanResultRow(R.string.region, scan.region)
+                ScanResultRow(R.string.altitude, scan.altitude)
+                ScanResultRow(R.string.variety, scan.variety)
+                ScanResultRow(R.string.process, scan.process)
+                ScanResultRow(R.string.tasting_notes, scan.tastingNotes)
+                Text(stringResource(R.string.scan_added_to_journal), style = MaterialTheme.typography.bodySmall, color = Coffee)
+                TextButton(onClick = onClear) { Text(stringResource(R.string.clear_scan)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScanResultRow(labelRes: Int, value: String?) {
+    if (!value.isNullOrBlank()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(labelRes), Modifier.width(110.dp), style = MaterialTheme.typography.labelMedium, color = Coffee)
+            Text(value, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun BrewJournalCard(
+    recipe: BrewRecipe,
+    elapsedSeconds: Int,
+    entries: List<BrewJournalEntry>,
+    scanResult: CoffeeBagScanResult?,
+    onSave: (String, String, Int, Double, Int, Int, Int, String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    var title by remember { mutableStateOf("") }
+    var method by remember(recipe.brewer) { mutableStateOf(recipe.brewer) }
+    var notes by remember { mutableStateOf("") }
+    var rating by remember { mutableIntStateOf(4) }
+    val recipeRatio = recipe.waterGrams.toDouble() / recipe.coffeeGrams.coerceAtLeast(1)
+
+    LaunchedEffect(scanResult) {
+        scanResult?.let { result ->
+            title = result.name.orEmpty()
+            notes = result.journalNotes()
+        }
+    }
+
+    Card(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.coffee_journal), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            Text(stringResource(R.string.coffee_journal_detail), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(
+                value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.journal_title)) }, singleLine = true,
+            )
+            OutlinedTextField(
+                value = method, onValueChange = { method = it }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.method)) }, singleLine = true,
+            )
+            Text(
+                stringResource(
+                    R.string.journal_recipe_detail,
+                    recipe.coffeeGrams,
+                    recipeRatio,
+                    recipe.waterGrams,
+                    "%d:%02d".format(elapsedSeconds / 60, elapsedSeconds % 60),
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = Coffee,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                (1..5).forEach { star ->
+                    IconButton(onClick = { rating = star }) {
+                        Icon(
+                            imageVector = if (star <= rating) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = stringResource(R.string.star_rating, star),
+                            tint = Sand,
+                        )
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.tasting_notes)) }, minLines = 2, maxLines = 4,
+            )
+            Button(
+                onClick = {
+                    onSave(
+                        title, method, recipe.coffeeGrams, recipeRatio, recipe.waterGrams,
+                        elapsedSeconds, rating, notes,
+                    )
+                    title = ""
+                    notes = ""
+                },
+                enabled = title.isNotBlank() || notes.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.save_journal_entry)) }
+
+            if (entries.isNotEmpty()) {
+                HorizontalDivider()
+                Text(stringResource(R.string.recent_notes), fontWeight = FontWeight.Bold)
+                entries.take(3).forEach { entry ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Sand.copy(alpha = .12f))) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.Top) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(entry.title, fontWeight = FontWeight.Bold)
+                                Text(
+                                    stringResource(R.string.journal_method_rating, entry.method, entry.rating),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Coffee,
+                                )
+                                Text(
+                                    stringResource(
+                                        R.string.journal_recipe_detail,
+                                        entry.coffeeGrams,
+                                        entry.ratio,
+                                        entry.waterGrams,
+                                        "%d:%02d".format(entry.brewTimeSeconds / 60, entry.brewTimeSeconds % 60),
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (entry.notes.isNotBlank()) Text(entry.notes)
+                            }
+                            IconButton(onClick = { onDelete(entry.id) }) {
+                                Icon(Icons.Default.Delete, stringResource(R.string.delete_journal_entry))
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -486,6 +733,7 @@ private fun AccountScreen(
     onRefresh: () -> Unit,
     onSaveAddress: (String, String, String, String, String, String) -> Unit,
     onDeleteAddress: (String) -> Unit,
+    onSaveTasteMemory: (String, String, String, List<String>) -> Unit,
     openProduct: (Product) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -523,9 +771,18 @@ private fun AccountScreen(
             item { Text(stringResource(R.string.recent_orders), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
             items(state.orders.take(5), key = { it.id }) { order ->
                 Card(shape = RoundedCornerShape(18.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) { Text(order.title.ifBlank { order.id }, fontWeight = FontWeight.Bold); Text(order.status) }
-                        Text("BHD ${"%.3f".format(order.total)}")
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) { Text(order.title.ifBlank { order.id }, fontWeight = FontWeight.Bold); Text(order.status) }
+                            Text("BHD ${"%.3f".format(order.total)}")
+                        }
+                        val item = order.items.firstOrNull()
+                        if (item != null && order.status.lowercase() in setOf("completed", "fulfilled", "delivered")) {
+                            val existing = state.tasteMemory.firstOrNull {
+                                it.orderId == order.id && it.productName.equals(item.name, ignoreCase = true)
+                            }
+                            TasteMemoryPrompt(order, item.name, existing, onSaveTasteMemory)
+                        }
                     }
                 }
             }
@@ -590,6 +847,62 @@ private fun AccountScreen(
         AddAddressDialog(onDismiss = { addingAddress = false }) { label, name, phone, line1, city, country ->
             onSaveAddress(label, name, phone, line1, city, country)
             addingAddress = false
+        }
+    }
+}
+
+@Composable
+private fun TasteMemoryPrompt(
+    order: CustomerOrder,
+    productName: String,
+    existing: TasteMemoryRecord?,
+    onSave: (String, String, String, List<String>) -> Unit,
+) {
+    val tags = listOf(
+        "Chocolate" to R.string.taste_chocolate,
+        "Fruity" to R.string.taste_fruity,
+        "Floral" to R.string.taste_floral,
+        "Caramel" to R.string.taste_caramel,
+        "Citrus" to R.string.taste_citrus,
+        "Nutty" to R.string.taste_nutty,
+    )
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Sand.copy(alpha = .14f)).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Text(stringResource(R.string.taste_memory_question, productName), fontWeight = FontWeight.Bold)
+        Text(
+            stringResource(if (existing == null) R.string.taste_memory_detail else R.string.taste_memory_saved_detail),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = existing?.reaction == "loved",
+                onClick = { onSave(order.id, productName, "loved", existing?.tags.orEmpty()) },
+                label = { Text(stringResource(R.string.loved_it)) },
+                leadingIcon = { Icon(Icons.Default.Favorite, null, Modifier.size(18.dp)) },
+            )
+            FilterChip(
+                selected = existing?.reaction == "not-for-me",
+                onClick = { onSave(order.id, productName, "not-for-me", existing?.tags.orEmpty()) },
+                label = { Text(stringResource(R.string.not_for_me)) },
+                leadingIcon = { Icon(Icons.Default.ThumbDown, null, Modifier.size(18.dp)) },
+            )
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            items(tags, key = { it.first }) { (canonicalName, labelRes) ->
+                val selected = canonicalName in existing?.tags.orEmpty()
+                FilterChip(
+                    selected = selected,
+                    onClick = {
+                        val updated = if (selected) existing?.tags.orEmpty() - canonicalName
+                        else existing?.tags.orEmpty() + canonicalName
+                        onSave(order.id, productName, existing?.reaction ?: "loved", updated)
+                    },
+                    label = { Text(stringResource(labelRes)) },
+                )
+            }
         }
     }
 }
