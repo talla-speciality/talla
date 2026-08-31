@@ -12,6 +12,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,6 +67,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -126,6 +130,7 @@ import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.Product
 import com.talla.speciality.data.ScaleFamily
 import com.talla.speciality.data.ScaleUiState
+import com.talla.speciality.data.TallaAppSettings
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.ui.theme.Coffee
 import com.talla.speciality.ui.theme.Ink
@@ -277,6 +282,7 @@ fun TallaApp(
     if (cartOpen) {
         CartSheet(
             lines = state.cart.values.toList(),
+            settings = state.remoteSettings.app,
             onAdd = { viewModel.addToCart(it.product) },
             onRemove = { viewModel.removeFromCart(it.variant.id) },
             loading = state.checkoutLoading,
@@ -287,6 +293,17 @@ fun TallaApp(
             onBenefitPay = viewModel::beginBenefitPay,
             onClearError = viewModel::clearCheckoutError,
             onDismiss = { cartOpen = false },
+        )
+    }
+
+    if (state.remoteSettings.app.release.maintenanceEnabled) {
+        val isArabic = LocalConfiguration.current.locales[0].language == "ar"
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            icon = { Image(painterResource(R.drawable.talla_logo), null, Modifier.size(58.dp)) },
+            title = { Text(if (isArabic) state.remoteSettings.app.release.titleAr else state.remoteSettings.app.release.titleEn, style = MaterialTheme.typography.titleLarge) },
+            text = { Text(if (isArabic) state.remoteSettings.app.release.messageAr else state.remoteSettings.app.release.messageEn) },
         )
     }
 
@@ -324,6 +341,8 @@ fun TallaApp(
 
 @Composable
 private fun TallaTopBar(cartCount: Int, profileName: String?, showCart: Boolean, onCartClick: () -> Unit) {
+    var settingsOpen by remember { mutableStateOf(false) }
+    val languageTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
     Row(
         modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha = .96f)).padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -350,8 +369,17 @@ private fun TallaTopBar(cartCount: Int, profileName: String?, showCart: Boolean,
             }
         }
         Spacer(Modifier.width(8.dp))
-        Box(Modifier.size(40.dp).clip(CircleShape).background(TallaCard), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(TallaCard).clickable { settingsOpen = true }, contentAlignment = Alignment.Center) {
             Icon(Icons.Default.Contrast, contentDescription = stringResource(R.string.appearance_and_language), tint = TallaGoldText, modifier = Modifier.size(19.dp))
+            DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
+                DropdownMenuItem(text = { Text("System appearance") }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM); settingsOpen = false })
+                DropdownMenuItem(text = { Text("Light appearance") }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO); settingsOpen = false })
+                DropdownMenuItem(text = { Text("Dark appearance") }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES); settingsOpen = false })
+                HorizontalDivider()
+                DropdownMenuItem(text = { Text(if (languageTag.isBlank()) "✓  System language" else "System language") }, onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()); settingsOpen = false })
+                DropdownMenuItem(text = { Text(if (languageTag.startsWith("en")) "✓  English" else "English") }, onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en")); settingsOpen = false })
+                DropdownMenuItem(text = { Text(if (languageTag.startsWith("ar")) "✓  العربية" else "العربية") }, onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ar")); settingsOpen = false })
+            }
         }
     }
 }
@@ -390,7 +418,7 @@ private fun HomeScreen(
         }
         if (app.homeSections.showQuickDrinks && (quickDrinks.isNotEmpty() || state.loading)) {
             item {
-                HomeSectionHeader("TALLA EXPRESS", "Drinks, one tap away", "SEE ALL", openShop)
+                HomeSectionHeader(stringResource(R.string.talla_express), stringResource(R.string.quick_drinks_title), stringResource(R.string.see_all), openShop)
                 ProductStatus(state, retry) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(quickDrinks.ifEmpty { state.products.take(6) }, key = { it.id }) { product ->
@@ -403,7 +431,7 @@ private fun HomeScreen(
         }
         if (app.homeSections.showSignatureRoasts) {
             item {
-                HomeSectionHeader("THE ROASTERY", "Signature Roasts", "SHOP ALL", openShop)
+                HomeSectionHeader(stringResource(R.string.the_roastery), stringResource(R.string.signature_roasts), stringResource(R.string.shop_all), openShop)
                 ProductStatus(state, retry) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(signatureRoasts.ifEmpty { state.products.take(4) }, key = { it.id }) { product ->
@@ -414,7 +442,7 @@ private fun HomeScreen(
                 Spacer(Modifier.height(14.dp))
             }
         }
-        item { MoreFromTallaCard() }
+        item { MoreFromTallaSection(state, add, open, openShop) }
     }
 }
 
@@ -430,11 +458,11 @@ private fun HeroCard(home: com.talla.speciality.data.HomeSettings, openShop: () 
     ) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(home.heroEyebrow ?: "ROASTERY", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
-                Text("Coffee for daily rituals", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                Text(home.heroEyebrow ?: stringResource(R.string.roastery), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Text(stringResource(R.string.coffee_daily_rituals), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
             }
             Text(
-                "✦  ${(home.heroBadge ?: "FRESH ROAST").uppercase()}",
+                "✦  ${(home.heroBadge ?: stringResource(R.string.fresh_roast)).uppercase()}",
                 modifier = Modifier.clip(CircleShape).background(Color(0xFFF3DFC2)).padding(horizontal = 10.dp, vertical = 6.dp),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color(0xFF8B5B2A),
@@ -449,14 +477,14 @@ private fun HeroCard(home: com.talla.speciality.data.HomeSettings, openShop: () 
                 colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 8.dp),
-            ) { Text((home.primaryButtonTitle ?: "EXPLORE COFFEES").uppercase(), style = MaterialTheme.typography.labelLarge, maxLines = 1) }
+            ) { Text((home.primaryButtonTitle ?: stringResource(R.string.explore_coffees)).uppercase(), style = MaterialTheme.typography.labelLarge, maxLines = 1) }
             Button(
                 onClick = openBrewing,
                 modifier = Modifier.weight(1f).height(40.dp).border(1.dp, Sand.copy(alpha = .18f), RoundedCornerShape(14.dp)),
                 colors = ButtonDefaults.buttonColors(containerColor = TallaCard, contentColor = Ink),
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 8.dp),
-            ) { Text((home.secondaryButtonTitle ?: "BREWING GUIDE").uppercase(), style = MaterialTheme.typography.labelLarge, maxLines = 1) }
+            ) { Text((home.secondaryButtonTitle ?: stringResource(R.string.brewing_guide)).uppercase(), style = MaterialTheme.typography.labelLarge, maxLines = 1) }
         }
     }
 }
@@ -540,23 +568,130 @@ private fun QuickDrinkCard(product: Product, add: (Product) -> Unit, open: (Prod
             colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
             shape = CircleShape,
             contentPadding = PaddingValues(horizontal = 6.dp),
-        ) { Text(if (product.variants.size > 1) "CHOOSE" else "BUY NOW", style = MaterialTheme.typography.labelMedium) }
+        ) { Text(stringResource(if (product.variants.size > 1) R.string.choose else R.string.buy_now).uppercase(), style = MaterialTheme.typography.labelMedium) }
     }
 }
 
 @Composable
-private fun MoreFromTallaCard() {
-    Row(
+private fun MoreFromTallaSection(
+    state: TallaUiState,
+    add: (Product) -> Unit,
+    open: (Product) -> Unit,
+    openShop: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var pickOffset by remember { mutableIntStateOf(0) }
+    val configuredPick = state.remoteSettings.home.funPickProductId?.let { id -> state.products.firstOrNull { it.id == id } }
+    val pickPool = state.products.filter { it.defaultVariant?.available == true }
+    val hotPick = configuredPick ?: pickPool.getOrNull(if (pickPool.isEmpty()) 0 else pickOffset.mod(pickPool.size))
+    val favorites = state.products.filter { it.id in state.favoriteProductIds }
+    val recent = state.recentlyViewedProductIds.mapNotNull { id -> state.products.firstOrNull { it.id == id } }
+    val defaultOrigins = listOf(
+        com.talla.speciality.data.PassportOrigin("ethiopia", "Ethiopia", "🇪🇹", listOf("ethiopia", "ethiopian"), null),
+        com.talla.speciality.data.PassportOrigin("yemen", "Yemen", "🇾🇪", listOf("yemen", "yemeni"), null),
+        com.talla.speciality.data.PassportOrigin("colombia", "Colombia", "🇨🇴", listOf("colombia", "colombian"), null),
+        com.talla.speciality.data.PassportOrigin("brazil", "Brazil", "🇧🇷", listOf("brazil", "brazilian"), null),
+    )
+    val origins = state.remoteSettings.passport.origins.ifEmpty { defaultOrigins }
+    val purchasedText = state.orders.flatMap { it.items }.joinToString(" ") { it.name }.lowercase()
+    val stamped = origins.filter { origin ->
+        (origin.keywords + origin.title).any { keyword -> keyword.isNotBlank() && purchasedText.contains(keyword.lowercase()) }
+    }.map { it.id }.toSet()
+
+    Column(
         Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(18.dp)).background(TallaCard)
-            .border(1.dp, Sand.copy(alpha = .18f), RoundedCornerShape(18.dp)).padding(15.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clip(RoundedCornerShape(22.dp)).background(TallaCard)
+            .border(1.dp, Sand.copy(alpha = .18f), RoundedCornerShape(22.dp))
+            .clickable { expanded = !expanded }.padding(15.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("More from Talla", style = MaterialTheme.typography.titleMedium, color = Ink)
-            Text("Surprise picks, passport, favourites, and recent items", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(stringResource(R.string.more_from_talla), style = MaterialTheme.typography.titleMedium, color = Ink)
+                Text(stringResource(R.string.more_from_talla_summary), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+            }
+            Text(if (expanded) "⌃" else "⌄", style = MaterialTheme.typography.titleLarge, color = TallaGoldText)
         }
-        Text("⌄", style = MaterialTheme.typography.titleLarge, color = TallaGoldText)
+        if (expanded) {
+            if (state.remoteSettings.app.homeSections.showFunPick && hotPick != null) {
+                HorizontalDivider(color = Sand.copy(alpha = .14f))
+                Text(stringResource(R.string.todays_hot_pick), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Sand.copy(alpha = .09f))
+                        .clickable { open(hotPick) }.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    RemoteImage(hotPick.imageUrl, hotPick.name, Modifier.size(74.dp).clip(RoundedCornerShape(14.dp)))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(hotPick.name, style = MaterialTheme.typography.titleMedium, color = Ink, maxLines = 2)
+                        Text(hotPick.priceLabel, style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                        Text(stringResource(R.string.hot_pick_detail), style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .68f), maxLines = 2)
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { if (pickPool.isNotEmpty()) pickOffset += 1 }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(stringResource(R.string.surprise_me))
+                    }
+                    Button(
+                        onClick = { if (hotPick.variants.size > 1) open(hotPick) else add(hotPick) },
+                        modifier = Modifier.weight(1f), shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
+                    ) { Text(stringResource(R.string.buy_now).uppercase()) }
+                }
+            }
+
+            if (state.remoteSettings.app.homeSections.showPassport && origins.isNotEmpty()) {
+                HorizontalDivider(color = Sand.copy(alpha = .14f))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text("☕", modifier = Modifier.size(38.dp).clip(CircleShape).background(Sand).padding(8.dp), color = Color(0xFF0A0804))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.talla_passport), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                        Text(stringResource(R.string.passport_progress, stamped.size, origins.size), style = MaterialTheme.typography.titleSmall, color = Ink)
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { if (origins.isEmpty()) 0f else stamped.size.toFloat() / origins.size },
+                    modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
+                    color = Sage,
+                    trackColor = Sand.copy(alpha = .15f),
+                )
+                Text(
+                    if (stamped.size == origins.size) state.remoteSettings.passport.completionRewardTitle ?: stringResource(R.string.passport_complete)
+                    else stringResource(R.string.passport_reward_hint),
+                    style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .68f),
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    origins.take(4).forEach { origin ->
+                        Column(
+                            Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                                .background(if (origin.id in stamped) Sage.copy(alpha = .18f) else Sand.copy(alpha = .08f)).padding(7.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(origin.emoji.ifBlank { "☕" })
+                            Text(origin.title, style = MaterialTheme.typography.labelSmall, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+
+            if (favorites.isNotEmpty()) {
+                HorizontalDivider(color = Sand.copy(alpha = .14f))
+                HomeSectionHeader(stringResource(R.string.saved), stringResource(R.string.favorites), stringResource(R.string.shop_all), openShop)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(favorites, key = { it.id }) { product -> QuickDrinkCard(product, add, open) }
+                }
+            }
+            if (recent.isNotEmpty()) {
+                HorizontalDivider(color = Sand.copy(alpha = .14f))
+                Text(stringResource(R.string.recently_viewed), style = MaterialTheme.typography.titleMedium, color = Ink)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(recent.take(8), key = { it.id }) { product -> QuickDrinkCard(product, add, open) }
+                }
+            }
+        }
     }
 }
 
@@ -579,8 +714,8 @@ private fun ShopScreen(state: TallaUiState, retry: () -> Unit, add: (Product) ->
     }
     Column(modifier.fillMaxSize().padding(horizontal = 18.dp)) {
         Column(Modifier.padding(top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("WHAT ARE YOU CRAVING?", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
-            Text("Pick your Talla run", style = MaterialTheme.typography.displaySmall, color = Ink)
+            Text(stringResource(R.string.shop_eyebrow).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+            Text(stringResource(R.string.shop_heading), style = MaterialTheme.typography.displaySmall, color = Ink)
         }
         OutlinedTextField(
             value = query,
@@ -591,7 +726,7 @@ private fun ShopScreen(state: TallaUiState, retry: () -> Unit, add: (Product) ->
             singleLine = true,
             shape = RoundedCornerShape(18.dp),
         )
-        Text("CATEGORIES", modifier = Modifier.padding(top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+        Text(stringResource(R.string.categories).uppercase(), modifier = Modifier.padding(top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             item { TallaCategoryChip(stringResource(R.string.all), category == null) { category = null } }
             items(categories) { item -> TallaCategoryChip(item, category == item) { category = item } }
@@ -603,8 +738,8 @@ private fun ShopScreen(state: TallaUiState, retry: () -> Unit, add: (Product) ->
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text((category ?: "All products").uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
-                Text(if (query.isBlank()) "${visibleProducts.size} products" else "${visibleProducts.size} results for “$query”", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                Text((category ?: stringResource(R.string.all_products)).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Text(if (query.isBlank()) stringResource(R.string.products_count, visibleProducts.size) else "${visibleProducts.size} results for “$query”", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
             }
             Text("SORT: FEATURED  ⌄", style = MaterialTheme.typography.labelMedium, color = Ink, modifier = Modifier.clip(CircleShape).border(1.dp, Sand.copy(alpha = .18f), CircleShape).padding(horizontal = 12.dp, vertical = 9.dp))
         }
@@ -676,7 +811,7 @@ private fun ProductCard(product: Product, add: (Product) -> Unit, open: (Product
                     contentPadding = PaddingValues(horizontal = 11.dp),
                     modifier = Modifier.height(34.dp),
                     shape = CircleShape,
-                ) { Text(if (product.variants.size > 1) "OPTIONS" else "ADD", style = MaterialTheme.typography.labelMedium) }
+                ) { Text(stringResource(if (product.variants.size > 1) R.string.options else R.string.add).uppercase(), style = MaterialTheme.typography.labelMedium) }
             }
         }
     }
@@ -722,6 +857,7 @@ private fun BrewingScreen(
     var ratio by remember { mutableFloatStateOf(15f) }
     var elapsed by remember { mutableIntStateOf(0) }
     var running by remember { mutableStateOf(false) }
+    var showBrewWorkspace by remember { mutableStateOf(false) }
     val recipe = remember(brewer, dose, ratio) { BrewRecipeEngine.generate(brewer, dose.toInt(), ratio.toDouble()) }
     val activeStepIndex = recipe.steps.indexOfLast { it.startSeconds <= elapsed }.coerceAtLeast(0)
 
@@ -732,8 +868,21 @@ private fun BrewingScreen(
         }
     }
 
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text(stringResource(R.string.brewing_studio), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black) }
+    if (!showBrewWorkspace) {
+        BrewingDashboard(
+            latestEntry = journalEntries.firstOrNull(),
+            onCreateRecipe = { showBrewWorkspace = true },
+            onScanBag = { showBrewWorkspace = true },
+            onOpenTool = { showBrewWorkspace = true },
+            modifier = modifier,
+        )
+        return
+    }
+
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            TextButton(onClick = { showBrewWorkspace = false }, contentPadding = PaddingValues(0.dp)) { Text("←  BREWING METHODS", style = MaterialTheme.typography.labelMedium, color = TallaGoldText) }
+        }
         item {
             CoffeeBagScannerCard(
                 result = scanResult,
@@ -821,6 +970,110 @@ private fun BrewingScreen(
                 onSave = onSaveJournal,
                 onDelete = onDeleteJournal,
             )
+        }
+    }
+}
+
+@Composable
+private fun BrewingDashboard(
+    latestEntry: BrewJournalEntry?,
+    onCreateRecipe: () -> Unit,
+    onScanBag: () -> Unit,
+    onOpenTool: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tools = listOf(
+        stringResource(R.string.ratio_calculator) to stringResource(R.string.dose_and_water),
+        stringResource(R.string.brew_timer) to stringResource(R.string.guided_pours),
+        stringResource(R.string.coffee_journal) to stringResource(R.string.taste_notes_short),
+        stringResource(R.string.brew_coach) to stringResource(R.string.tune_the_cup),
+    )
+    val methods = listOf(
+        stringResource(R.string.pour_over), stringResource(R.string.immersion), stringResource(R.string.traditional),
+        stringResource(R.string.cold_brew), stringResource(R.string.espresso),
+    )
+    LazyColumn(
+        modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.the_craft).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Text(stringResource(R.string.brewing_methods), style = MaterialTheme.typography.displaySmall, color = Ink)
+                Text(stringResource(R.string.brewing_intro_dashboard), style = MaterialTheme.typography.bodyLarge, color = Ink.copy(alpha = .72f))
+            }
+        }
+        item {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(TallaCard)
+                    .border(1.dp, Sand.copy(alpha = .18f), RoundedCornerShape(24.dp)).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
+                    Box(Modifier.size(46.dp).clip(CircleShape).background(Sand), contentAlignment = Alignment.Center) { Text("✦", style = MaterialTheme.typography.titleLarge, color = Color(0xFF2B170F)) }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.create_brew_recipe), style = MaterialTheme.typography.titleLarge, color = Ink)
+                        Text(stringResource(R.string.create_brew_recipe_detail), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = onCreateRecipe, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF2B170F)), shape = CircleShape) { Text("＋ ${stringResource(R.string.create_recipe).uppercase()}", style = MaterialTheme.typography.labelMedium) }
+                    Button(onClick = onScanBag, modifier = Modifier.weight(1f).border(1.dp, Sand.copy(alpha = .22f), CircleShape), colors = ButtonDefaults.buttonColors(containerColor = TallaCard, contentColor = Ink), shape = CircleShape) { Text(stringResource(R.string.scan_coffee_bag).uppercase(), style = MaterialTheme.typography.labelMedium) }
+                }
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (latestEntry == null) stringResource(R.string.brew_again).uppercase() else "CONTINUE BREW", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(TallaCard)
+                        .border(1.dp, Sand.copy(alpha = .16f), RoundedCornerShape(20.dp)).clickable(onClick = onOpenTool).padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(latestEntry?.title ?: "Balanced Filter", style = MaterialTheme.typography.headlineSmall, color = Ink)
+                        Text(latestEntry?.let { "${it.method} · ${it.coffeeGrams} g · 1:${"%.1f".format(it.ratio)}" } ?: "V60 · 20 g · 1:15", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                    }
+                    Text("→", style = MaterialTheme.typography.titleLarge, color = TallaGoldText)
+                }
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.quick_tools).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                tools.chunked(2).forEach { rowTools ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        rowTools.forEach { tool ->
+                            Column(
+                                Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(TallaCard)
+                                    .border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp)).clickable(onClick = onOpenTool).padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(tool.first, style = MaterialTheme.typography.titleMedium, color = Ink)
+                                Text(tool.second, style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.browse_methods).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                methods.chunked(2).forEach { rowMethods ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        rowMethods.forEach { method ->
+                            Row(
+                                Modifier.weight(1f).height(58.dp).clip(RoundedCornerShape(18.dp)).background(TallaCard)
+                                    .border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp)).clickable(onClick = onOpenTool).padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) { Text(method, style = MaterialTheme.typography.titleMedium, color = Ink) }
+                        }
+                        if (rowMethods.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
         }
     }
 }
@@ -1139,25 +1392,51 @@ private fun AccountScreen(
     val favorites = state.products.filter { it.id in state.favoriteProductIds }
     var addingAddress by remember { mutableStateOf(false) }
     val languageTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.hello_name, profile.firstName), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-                    Text(profile.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(TallaCard)
+                    .border(1.dp, Sand.copy(alpha = .16f), RoundedCornerShape(22.dp)).padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Box(Modifier.size(46.dp).clip(CircleShape).background(Sand.copy(alpha = .12f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, null, tint = TallaGoldText) }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${profile.firstName} ${profile.lastName}".trim(), style = MaterialTheme.typography.displaySmall, color = Ink, maxLines = 1)
+                        Text(profile.email, style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                        Text("MEMBERSHIP: ${(state.loyalty?.tier ?: "Bronze").uppercase()}", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                    }
+                    IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, "Refresh account", tint = TallaGoldText) }
                 }
-                IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, "Refresh account") }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AccountMetric((state.loyalty?.pointsBalance ?: 0).toString(), "BEANS", Modifier.weight(1f))
+                    val remaining = (50 - ((state.loyalty?.pointsBalance ?: 0) % 50)).let { if (it == 0) 50 else it }
+                    AccountMetric(remaining.toString(), "UNTIL REWARD", Modifier.weight(1f))
+                }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                AccountQuickChip("Orders", "${state.orders.size} saved", Modifier.weight(1f))
+                AccountQuickChip("Rewards", "${state.loyalty?.pointsBalance ?: 0} Beans", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                AccountQuickChip("Addresses", "${state.addresses.size} saved", Modifier.weight(1f))
+                AccountQuickChip("Saved", "${favorites.size} picks", Modifier.weight(1f))
             }
         }
         state.loyalty?.let { loyalty ->
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = Coffee), shape = RoundedCornerShape(28.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(loyalty.tier.uppercase(), color = Sand, style = MaterialTheme.typography.labelLarge)
-                        Text(pluralStringResource(R.plurals.beans_count, loyalty.pointsBalance, loyalty.pointsBalance), color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-                        Text(loyalty.nextReward, color = androidx.compose.ui.graphics.Color.White.copy(alpha = .78f))
-                        Text(stringResource(R.string.member_id, loyalty.memberId), color = androidx.compose.ui.graphics.Color.White.copy(alpha = .6f), style = MaterialTheme.typography.labelSmall)
-                    }
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(TallaCard)
+                        .border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp)).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text("THE TALLA CLUB", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                    Text(loyalty.nextReward, style = MaterialTheme.typography.titleMedium, color = Ink)
+                    Text(stringResource(R.string.member_id, loyalty.memberId), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .62f))
                 }
             }
         }
@@ -1242,6 +1521,23 @@ private fun AccountScreen(
             onSaveAddress(label, name, phone, line1, city, country)
             addingAddress = false
         }
+    }
+}
+
+@Composable
+private fun AccountMetric(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Sand.copy(alpha = .08f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(value, style = MaterialTheme.typography.titleLarge, color = Ink)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = Ink.copy(alpha = .72f))
+    }
+}
+
+@Composable
+private fun AccountQuickChip(title: String, detail: String, modifier: Modifier = Modifier) {
+    Row(modifier.height(58.dp).clip(RoundedCornerShape(18.dp)).background(TallaCard).border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(28.dp).clip(CircleShape).background(Sand.copy(alpha = .12f)), contentAlignment = Alignment.Center) { Text("✦", color = TallaGoldText) }
+        Spacer(Modifier.width(10.dp))
+        Column { Text(title, style = MaterialTheme.typography.labelLarge, color = Ink); Text(detail, style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f), maxLines = 1) }
     }
 }
 
@@ -1336,47 +1632,86 @@ private fun AddAddressDialog(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun SignedOutAccount(
     state: TallaUiState,
     onLogin: (String, String) -> Unit,
     onRegister: (String, String, String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var accountAccessOpen by remember { mutableStateOf(false) }
     var registering by remember { mutableStateOf(false) }
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text(stringResource(if (registering) R.string.join_talla else R.string.welcome_back), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black) }
-        item { Text(stringResource(R.string.signin_detail), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        if (registering) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(firstName, { firstName = it }, Modifier.weight(1f), label = { Text(stringResource(R.string.first_name)) }, singleLine = true)
-                    OutlinedTextField(lastName, { lastName = it }, Modifier.weight(1f), label = { Text(stringResource(R.string.last_name)) }, singleLine = true)
-                }
-            }
-        }
-        item { OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.email)) }, singleLine = true) }
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item {
-            OutlinedTextField(
-                password, { password = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.password)) }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-            )
-        }
-        state.accountError?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-        item {
-            Button(
-                onClick = { if (registering) onRegister(firstName, lastName, email, password) else onLogin(email, password) },
-                enabled = !state.accountLoading && email.isNotBlank() && password.length >= 5 && (!registering || firstName.isNotBlank() && lastName.isNotBlank()),
-                modifier = Modifier.fillMaxWidth(),
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(TallaCard)
+                    .border(1.dp, Sand.copy(alpha = .16f), RoundedCornerShape(22.dp)).clickable { accountAccessOpen = true }.padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (state.accountLoading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text(stringResource(if (registering) R.string.create_account else R.string.sign_in))
+                Box(Modifier.size(46.dp).clip(CircleShape).background(Sand.copy(alpha = .12f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, null, tint = TallaGoldText) }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(stringResource(R.string.welcome_to_talla), style = MaterialTheme.typography.titleLarge, color = Ink)
+                    Text(stringResource(R.string.account_guest_summary), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                }
+                Text("→", style = MaterialTheme.typography.titleLarge, color = Ink.copy(alpha = .55f))
             }
         }
-        item { TextButton(onClick = { registering = !registering }) { Text(stringResource(if (registering) R.string.already_account else R.string.new_to_talla)) } }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                AccountQuickChip(stringResource(R.string.rewards), stringResource(R.string.check_rewards), Modifier.weight(1f))
+                AccountQuickChip(stringResource(R.string.saved), stringResource(R.string.picks_count, state.favoriteProductIds.size), Modifier.weight(1f))
+            }
+        }
+        item { AccountAreaCard(stringResource(R.string.account_and_settings).uppercase(), listOf(stringResource(R.string.new_to_talla) to stringResource(R.string.signin_detail), "Reset password" to "Get help accessing your account", "Support" to stringResource(R.string.appearance_and_language)), onFirst = { accountAccessOpen = true }) }
+        item { AccountAreaCard(stringResource(R.string.shopping_tools).uppercase(), listOf(stringResource(R.string.saved_bags) to stringResource(R.string.resume_checkout), stringResource(R.string.back_in_stock_alerts) to stringResource(R.string.notify_when_available))) }
+        item { AccountAreaCard(stringResource(R.string.brewing).uppercase(), listOf(stringResource(R.string.brew_archive) to stringResource(R.string.saved_recipes_journal))) }
+    }
+
+    if (accountAccessOpen) {
+        ModalBottomSheet(onDismissRequest = { accountAccessOpen = false }) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(stringResource(if (registering) R.string.join_talla else R.string.welcome_back), style = MaterialTheme.typography.displaySmall, color = Ink)
+                Text(stringResource(R.string.signin_detail), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+                if (registering) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(firstName, { firstName = it }, Modifier.weight(1f), label = { Text(stringResource(R.string.first_name)) }, singleLine = true)
+                        OutlinedTextField(lastName, { lastName = it }, Modifier.weight(1f), label = { Text(stringResource(R.string.last_name)) }, singleLine = true)
+                    }
+                }
+                OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.email)) }, singleLine = true)
+                OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                state.accountError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                Button(
+                    onClick = { if (registering) onRegister(firstName, lastName, email, password) else onLogin(email, password) },
+                    enabled = !state.accountLoading && email.isNotBlank() && password.length >= 5 && (!registering || firstName.isNotBlank() && lastName.isNotBlank()),
+                    modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)), shape = CircleShape,
+                ) { if (state.accountLoading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text(stringResource(if (registering) R.string.create_account else R.string.sign_in), style = MaterialTheme.typography.labelLarge) }
+                TextButton(onClick = { registering = !registering }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(if (registering) R.string.already_account else R.string.new_to_talla), color = TallaGoldText) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountAreaCard(title: String, rows: List<Pair<String, String>>, onFirst: () -> Unit = {}) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(title, style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(TallaCard).border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp))) {
+            rows.forEachIndexed { index, row ->
+                Row(Modifier.fillMaxWidth().clickable(enabled = index == 0, onClick = onFirst).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(34.dp).clip(CircleShape).background(Sand.copy(alpha = .10f)), contentAlignment = Alignment.Center) { Text("✦", color = TallaGoldText) }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) { Text(row.first, style = MaterialTheme.typography.labelLarge, color = Ink); Text(row.second, style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f), maxLines = 1) }
+                    Text("›", style = MaterialTheme.typography.titleLarge, color = Ink.copy(alpha = .45f))
+                }
+                if (index < rows.lastIndex) HorizontalDivider(Modifier.padding(start = 50.dp), color = Sand.copy(alpha = .10f))
+            }
+        }
     }
 }
 
@@ -1400,29 +1735,29 @@ private fun ProductDetailsSheet(
 ) {
     var selectedVariantId by remember(product.id) { mutableStateOf(product.defaultVariant?.id) }
     val selectedVariant = product.variants.firstOrNull { it.id == selectedVariantId }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.background) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item { RemoteImage(product.imageUrl, product.name, Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(28.dp))) }
+            item { RemoteImage(product.imageUrl, product.name, Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(24.dp))) }
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(product.category.uppercase(), style = MaterialTheme.typography.labelMedium, color = Sand)
-                        Text(product.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+                        Text(product.category.uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                        Text(product.name, style = MaterialTheme.typography.displaySmall, color = Ink)
                     }
                     IconButton(onClick = onFavorite) {
                         Icon(if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Favourite", tint = if (favorite) Sand else MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
-            if (product.description.isNotBlank()) item { Text(product.description, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (product.description.isNotBlank()) item { Text(product.description, style = MaterialTheme.typography.bodyLarge, color = Ink.copy(alpha = .72f)) }
             if (product.variants.size > 1) {
                 item { Text(stringResource(R.string.choose_option), fontWeight = FontWeight.Bold) }
                 items(product.variants, key = { it.id }) { variant ->
-                    Card(onClick = { if (variant.available) selectedVariantId = variant.id }, shape = RoundedCornerShape(16.dp)) {
+                    Card(onClick = { if (variant.available) selectedVariantId = variant.id }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = TallaCard)) {
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = selectedVariantId == variant.id, onClick = { if (variant.available) selectedVariantId = variant.id }, enabled = variant.available)
                             Column(Modifier.weight(1f)) {
@@ -1439,7 +1774,9 @@ private fun ProductDetailsSheet(
                     onClick = { selectedVariantId?.let(onAdd) },
                     enabled = selectedVariant?.available == true,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (selectedVariant == null) "Unavailable" else "Add to bag · ${selectedVariant.currencyCode} ${selectedVariant.price}") }
+                    colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
+                    shape = CircleShape,
+                ) { Text(if (selectedVariant == null) "UNAVAILABLE" else "ADD TO BAG · ${selectedVariant.currencyCode} ${selectedVariant.price}", style = MaterialTheme.typography.labelLarge) }
             }
             if (product.variants.none { it.available }) {
                 item {
@@ -1457,6 +1794,7 @@ private fun ProductDetailsSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun CartSheet(
     lines: List<CartLine>,
+    settings: TallaAppSettings,
     onAdd: (CartLine) -> Unit,
     onRemove: (CartLine) -> Unit,
     loading: Boolean,
@@ -1468,37 +1806,71 @@ private fun CartSheet(
     onClearError: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var fulfillment by remember { mutableStateOf("delivery") }
-    var checkoutMethod by remember { mutableStateOf(CheckoutMethod.CashOnDelivery) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
-            Text(stringResource(R.string.your_bag), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+    val availableFulfillment = buildList {
+        if (settings.fulfillment.deliveryEnabled) add("delivery")
+        if (settings.fulfillment.pickupEnabled) add("pickup")
+    }
+    val availableMethods = CheckoutMethod.entries.filter { method ->
+        when (method) {
+            CheckoutMethod.CashOnDelivery -> settings.payments.cashOnDeliveryEnabled
+            CheckoutMethod.Benefit -> settings.payments.benefitEnabled
+            CheckoutMethod.ClickToPay -> settings.payments.cardEnabled
+            CheckoutMethod.BenefitPay -> settings.payments.benefitPayEnabled
+        }
+    }
+    var fulfillment by remember(settings.fulfillment) { mutableStateOf(availableFulfillment.firstOrNull().orEmpty()) }
+    var checkoutMethod by remember(settings.payments) { mutableStateOf(availableMethods.firstOrNull() ?: CheckoutMethod.CashOnDelivery) }
+    val isArabic = LocalConfiguration.current.locales[0].language == "ar"
+    val subtotal = lines.sumOf { line -> (line.variant.price.toDoubleOrNull() ?: 0.0) * line.quantity }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.background) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
+            Text("YOUR BAG", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+            Text("A good ritual starts here", style = MaterialTheme.typography.displaySmall, color = Ink)
             Spacer(Modifier.height(12.dp))
             if (lines.isEmpty()) Text(stringResource(R.string.empty_bag), color = MaterialTheme.colorScheme.onSurfaceVariant)
             lines.forEach { line ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(line.product.name, fontWeight = FontWeight.Bold); Text(line.product.priceLabel) }
-                    IconButton(onClick = { onRemove(line) }) { Icon(Icons.Default.Remove, "Remove one") }
-                    Text(line.quantity.toString())
-                    IconButton(onClick = { onAdd(line) }) { Icon(Icons.Default.Add, "Add one") }
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(18.dp)).background(TallaCard)
+                        .border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp)).padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RemoteImage(line.product.imageUrl, line.product.name, Modifier.size(70.dp).clip(RoundedCornerShape(14.dp)))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) { Text(line.product.name, style = MaterialTheme.typography.titleMedium, color = Ink); Text("${line.variant.currencyCode} ${line.variant.price}", style = MaterialTheme.typography.labelMedium, color = TallaGoldText) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { onRemove(line) }, modifier = Modifier.size(34.dp)) { Icon(Icons.Default.Remove, "Remove one", Modifier.size(17.dp)) }
+                        Text(line.quantity.toString(), style = MaterialTheme.typography.labelLarge)
+                        IconButton(onClick = { onAdd(line) }, modifier = Modifier.size(34.dp)) { Icon(Icons.Default.Add, "Add one", Modifier.size(17.dp)) }
+                    }
                 }
-                HorizontalDivider()
             }
             if (lines.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
+                    Text("SUBTOTAL", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = Ink.copy(alpha = .72f))
+                    Text("BHD ${"%.3f".format(subtotal)}", style = MaterialTheme.typography.titleMedium, color = Ink)
+                }
                 Spacer(Modifier.height(16.dp))
-                Text(stringResource(R.string.fulfilment), fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.fulfilment).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = fulfillment == "delivery", onClick = { fulfillment = "delivery" })
-                    Text(stringResource(R.string.delivery))
-                    Spacer(Modifier.width(18.dp))
-                    RadioButton(selected = fulfillment == "pickup", onClick = { fulfillment = "pickup" })
-                    Text(stringResource(R.string.pickup_riffa))
+                    if (settings.fulfillment.deliveryEnabled) {
+                        RadioButton(selected = fulfillment == "delivery", onClick = { fulfillment = "delivery" })
+                        Text(stringResource(R.string.delivery))
+                        Spacer(Modifier.width(18.dp))
+                    }
+                    if (settings.fulfillment.pickupEnabled) {
+                        RadioButton(selected = fulfillment == "pickup", onClick = { fulfillment = "pickup" })
+                        Text(if (isArabic) settings.fulfillment.pickupNameAr else settings.fulfillment.pickupNameEn)
+                    }
+                }
+                if (fulfillment == "pickup") {
+                    Text(if (isArabic) settings.fulfillment.pickupAddressAr else settings.fulfillment.pickupAddressEn, style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .72f))
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.payment_method), fontWeight = FontWeight.Bold)
-                CheckoutMethod.entries.forEach { method ->
+                Text(stringResource(R.string.payment_method).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                availableMethods.forEach { method ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(TallaCard)
+                            .border(1.dp, Sand.copy(alpha = if (checkoutMethod == method) .45f else .12f), RoundedCornerShape(16.dp)).clickable { checkoutMethod = method }.padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(selected = checkoutMethod == method, onClick = { checkoutMethod = method })
@@ -1512,6 +1884,9 @@ private fun CartSheet(
                         }
                     }
                 }
+                val paymentNotice = if (isArabic) settings.payments.noticeAr else settings.payments.noticeEn
+                if (paymentNotice.isNotBlank()) Text(paymentNotice, style = MaterialTheme.typography.bodySmall, color = TallaGoldText)
+                if (settings.release.checkoutMaintenanceEnabled) Text(if (isArabic) "الدفع غير متاح مؤقتاً." else "Checkout is temporarily unavailable.", color = MaterialTheme.colorScheme.error)
                 if (error != null) {
                     Text(error, color = MaterialTheme.colorScheme.error)
                     TextButton(onClick = onClearError) { Text(stringResource(R.string.dismiss)) }
@@ -1525,11 +1900,13 @@ private fun CartSheet(
                             CheckoutMethod.BenefitPay -> onBenefitPay(fulfillment)
                         }
                     },
-                    enabled = !loading,
+                    enabled = !loading && availableFulfillment.isNotEmpty() && availableMethods.isNotEmpty() && !settings.release.checkoutMaintenanceEnabled,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
+                    shape = CircleShape,
                 ) {
                     if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else Text(stringResource(R.string.continue_to_payment))
+                    else Text(stringResource(R.string.continue_to_payment).uppercase(), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }

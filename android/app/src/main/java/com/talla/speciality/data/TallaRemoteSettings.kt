@@ -34,9 +34,62 @@ data class HomeSectionSettings(
     val showPassport: Boolean = true,
 )
 
+data class PassportOrigin(
+    val id: String,
+    val title: String,
+    val emoji: String,
+    val keywords: List<String>,
+    val rewardLabel: String?,
+)
+
+data class PassportSettings(
+    val origins: List<PassportOrigin> = emptyList(),
+    val completionRewardTitle: String? = null,
+    val completionRewardDetail: String? = null,
+)
+
+data class PaymentSettings(
+    val benefitPayEnabled: Boolean = true,
+    val benefitEnabled: Boolean = true,
+    val cardEnabled: Boolean = true,
+    val cashOnDeliveryEnabled: Boolean = true,
+    val noticeEn: String = "",
+    val noticeAr: String = "",
+)
+
+data class FulfillmentSettings(
+    val deliveryEnabled: Boolean = true,
+    val pickupEnabled: Boolean = true,
+    val pickupNameEn: String = "Talla, Riffa",
+    val pickupNameAr: String = "تالة، الرفاع",
+    val pickupAddressEn: String = "Villa 336, Street 1307, Riffa 913",
+    val pickupAddressAr: String = "فيلا 336، طريق 1307، الرفاع 913",
+    val openingHoursEn: String = "",
+    val openingHoursAr: String = "",
+)
+
+data class SupportSettings(
+    val whatsappUrl: String = "https://wa.me/97339392414",
+    val privacyUrl: String = "",
+    val termsUrl: String = "",
+)
+
+data class ReleaseSettings(
+    val maintenanceEnabled: Boolean = false,
+    val checkoutMaintenanceEnabled: Boolean = false,
+    val titleEn: String = "We'll be right back",
+    val titleAr: String = "سنعود قريباً",
+    val messageEn: String = "Talla is being updated. Please try again shortly.",
+    val messageAr: String = "يتم تحديث تالة. يرجى المحاولة بعد قليل.",
+)
+
 data class TallaAppSettings(
     val announcement: TallaAnnouncement = TallaAnnouncement(),
     val homeSections: HomeSectionSettings = HomeSectionSettings(),
+    val payments: PaymentSettings = PaymentSettings(),
+    val fulfillment: FulfillmentSettings = FulfillmentSettings(),
+    val support: SupportSettings = SupportSettings(),
+    val release: ReleaseSettings = ReleaseSettings(),
 )
 
 data class SeasonalEvent(
@@ -59,6 +112,7 @@ data class TallaRemoteSettings(
     val home: HomeSettings = HomeSettings(),
     val app: TallaAppSettings = TallaAppSettings(),
     val events: List<SeasonalEvent> = emptyList(),
+    val passport: PassportSettings = PassportSettings(),
 )
 
 class TallaRemoteSettingsRepository {
@@ -67,6 +121,7 @@ class TallaRemoteSettingsRepository {
             home = parseHome(get("/app/home-settings")),
             app = parseApp(get("/app/settings")),
             events = parseEvents(get("/app/events")),
+            passport = parsePassport(get("/app/passport-settings")),
         )
     }
 
@@ -102,6 +157,10 @@ class TallaRemoteSettingsRepository {
     private fun parseApp(json: JSONObject): TallaAppSettings {
         val announcement = json.optJSONObject("announcement") ?: JSONObject()
         val sections = json.optJSONObject("homeSections") ?: JSONObject()
+        val payments = json.optJSONObject("payments") ?: JSONObject()
+        val fulfillment = json.optJSONObject("fulfillment") ?: JSONObject()
+        val support = json.optJSONObject("support") ?: JSONObject()
+        val release = json.optJSONObject("release") ?: JSONObject()
         return TallaAppSettings(
             announcement = TallaAnnouncement(
                 enabled = announcement.optBoolean("enabled"),
@@ -115,6 +174,37 @@ class TallaRemoteSettingsRepository {
                 showFunPick = sections.optBoolean("showFunPick", true),
                 showSignatureRoasts = sections.optBoolean("showSignatureRoasts", true),
                 showPassport = sections.optBoolean("showPassport", true),
+            ),
+            payments = PaymentSettings(
+                benefitPayEnabled = payments.optBoolean("benefitPayEnabled", true),
+                benefitEnabled = payments.optBoolean("benefitEnabled", true),
+                cardEnabled = payments.optBoolean("cardEnabled", true),
+                cashOnDeliveryEnabled = payments.optBoolean("cashOnDeliveryEnabled", true),
+                noticeEn = payments.optString("noticeEN"),
+                noticeAr = payments.optString("noticeAR"),
+            ),
+            fulfillment = FulfillmentSettings(
+                deliveryEnabled = fulfillment.optBoolean("deliveryEnabled", true),
+                pickupEnabled = fulfillment.optBoolean("pickupEnabled", true),
+                pickupNameEn = fulfillment.optString("pickupNameEN", "Talla, Riffa"),
+                pickupNameAr = fulfillment.optString("pickupNameAR", "تالة، الرفاع"),
+                pickupAddressEn = fulfillment.optString("pickupAddressEN", "Villa 336, Street 1307, Riffa 913"),
+                pickupAddressAr = fulfillment.optString("pickupAddressAR", "فيلا 336، طريق 1307، الرفاع 913"),
+                openingHoursEn = fulfillment.optString("openingHoursEN"),
+                openingHoursAr = fulfillment.optString("openingHoursAR"),
+            ),
+            support = SupportSettings(
+                whatsappUrl = support.optString("whatsappURL", "https://wa.me/97339392414"),
+                privacyUrl = support.optString("privacyURL"),
+                termsUrl = support.optString("termsURL"),
+            ),
+            release = ReleaseSettings(
+                maintenanceEnabled = release.optBoolean("maintenanceEnabled"),
+                checkoutMaintenanceEnabled = release.optBoolean("checkoutMaintenanceEnabled"),
+                titleEn = release.optString("titleEN", "We'll be right back"),
+                titleAr = release.optString("titleAR", "سنعود قريباً"),
+                messageEn = release.optString("messageEN", "Talla is being updated. Please try again shortly."),
+                messageAr = release.optString("messageAR", "يتم تحديث تالة. يرجى المحاولة بعد قليل."),
             ),
         )
     }
@@ -141,6 +231,29 @@ class TallaRemoteSettingsRepository {
                 )
             )
         }
+    }
+
+    private fun parsePassport(json: JSONObject): PassportSettings {
+        val origins = buildList {
+            val values = json.optJSONArray("origins") ?: return@buildList
+            for (index in 0 until values.length()) {
+                val origin = values.optJSONObject(index) ?: continue
+                add(
+                    PassportOrigin(
+                        id = origin.optString("id", index.toString()),
+                        title = origin.optString("title"),
+                        emoji = origin.optString("emoji", "☕"),
+                        keywords = origin.stringList("keywords"),
+                        rewardLabel = origin.optionalText("rewardLabel"),
+                    )
+                )
+            }
+        }
+        return PassportSettings(
+            origins = origins,
+            completionRewardTitle = json.optionalText("completionRewardTitle"),
+            completionRewardDetail = json.optionalText("completionRewardDetail"),
+        )
     }
 }
 
