@@ -55,6 +55,8 @@ class CoffeeScaleManager(context: Context) {
     private var activeFamily: ScaleFamily? = null
     private var ginaCalibration = 1.0
     private var ginaTareOffset: Double? = null
+    private var hiroiaUnitCommandPending = false
+    private var hiroiaModeCommandPending = false
     private val stopScan = Runnable { stopScanning() }
 
     private val scanCallback = object : ScanCallback() {
@@ -182,6 +184,8 @@ class CoffeeScaleManager(context: Context) {
         activeFamily = selected.family
         ginaCalibration = 1.0
         ginaTareOffset = null
+        hiroiaUnitCommandPending = false
+        hiroiaModeCommandPending = false
         mutableState.update { it.copy(connectingAddress = address, error = null) }
         val connection = device.connectGatt(
             appContext,
@@ -207,13 +211,16 @@ class CoffeeScaleManager(context: Context) {
 
     fun perform(action: ScaleAction) {
         val family = activeFamily ?: return
+        val activeConnection = gatt ?: return
         if (family == ScaleFamily.Gina && action == ScaleAction.Tare) {
             ginaTareOffset = mutableState.value.weightGrams + (ginaTareOffset ?: 0.0)
             mutableState.update { it.copy(weightGrams = 0.0, flowGramsPerSecond = null) }
             return
         }
         ScalePacketParser.command(family, action).forEachIndexed { index, bytes ->
-            handler.postDelayed({ writeCommand(bytes) }, index * 250L)
+            handler.postDelayed({
+                if (gatt === activeConnection && activeFamily == family) writeCommand(bytes)
+            }, index * 250L)
         }
         if (action == ScaleAction.Tare) mutableState.update { it.copy(weightGrams = 0.0, flowGramsPerSecond = null) }
     }
@@ -269,6 +276,8 @@ class CoffeeScaleManager(context: Context) {
         if (family == ScaleFamily.Gina) {
             if (ginaTareOffset == null) ginaTareOffset = weight
             weight -= ginaTareOffset ?: 0.0
+        } else if (family == ScaleFamily.Hiroia) {
+            scheduleHiroiaSetupCommands(bytes)
         }
         mutableState.update {
             it.copy(weightGrams = weight, flowGramsPerSecond = telemetry.flowGramsPerSecond, timerSeconds = telemetry.timerSeconds)
@@ -279,9 +288,16 @@ class CoffeeScaleManager(context: Context) {
     private fun writeCommand(bytes: ByteArray) {
         val connection = gatt ?: return
         val characteristic = commandCharacteristic ?: return
-        val writeType = if ((characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0) {
-            BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-        } else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        val supportsWrite = (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0
+        val supportsWriteWithoutResponse =
+            (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
+        val preferWriteWithoutResponse = activeFamily == ScaleFamily.Mantabrew
+        val writeType = when {
+            preferWriteWithoutResponse && supportsWriteWithoutResponse -> BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            supportsWrite -> BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            supportsWriteWithoutResponse -> BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            else -> return
+        }
         if (Build.VERSION.SDK_INT >= 33) {
             connection.writeCharacteristic(characteristic, bytes, writeType)
         } else {
@@ -289,6 +305,34 @@ class CoffeeScaleManager(context: Context) {
             characteristic.value = bytes
             @Suppress("DEPRECATION")
             connection.writeCharacteristic(characteristic)
+        }
+    }
+
+    private fun scheduleHiroiaSetupCommands(bytes: ByteArray) {
+        val commands = ScalePacketParser.hiroiaSetupCommands(bytes).filter { command ->
+            when (command.firstOrNull()?.toInt()?.and(0xFF)) {
+                0x0B -> if (hiroiaUnitCommandPending) false else {
+                    hiroiaUnitCommandPending = true
+                    true
+                }
+                0x04 -> if (hiroiaModeCommandPending) false else {
+                    hiroiaModeCommandPending = true
+                    true
+                }
+                else -> false
+            }
+        }
+        val activeConnection = gatt
+        commands.forEachIndexed { index, command ->
+            handler.postDelayed({
+                if (gatt === activeConnection && activeFamily == ScaleFamily.Hiroia) writeCommand(command)
+            }, index * 200L)
+        }
+        if (commands.isNotEmpty()) {
+            handler.postDelayed({
+                hiroiaUnitCommandPending = false
+                hiroiaModeCommandPending = false
+            }, 500L)
         }
     }
 
@@ -306,6 +350,8 @@ class CoffeeScaleManager(context: Context) {
         activeFamily = null
         ginaCalibration = 1.0
         ginaTareOffset = null
+        hiroiaUnitCommandPending = false
+        hiroiaModeCommandPending = false
         mutableState.update {
             it.copy(
                 connectingAddress = null, connectedAddress = null, connectedName = null, connectedFamily = null,

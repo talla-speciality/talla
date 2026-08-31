@@ -55,8 +55,21 @@ object ScalePacketParser {
             ScaleAction.PauseTimer -> listOf(byteArrayOf(0x52, 0x0B, 0x00, 0, 0, 0, 0))
             ScaleAction.StopTimer -> listOf(byteArrayOf(0x52, 0x0B, 0x02, 0, 0, 0, 0))
         }
-        ScaleFamily.Hiroia -> if (action == ScaleAction.Tare) listOf(byteArrayOf(0x07, 0x00)) else emptyList()
+        ScaleFamily.Hiroia -> if (action == ScaleAction.Tare) {
+            listOf(byteArrayOf(0x07, 0x00), byteArrayOf(0x07, 0x00))
+        } else emptyList()
         ScaleFamily.Gina -> emptyList()
+    }
+
+    fun hiroiaSetupCommands(bytes: ByteArray): List<ByteArray> {
+        if (bytes.size < 7) return emptyList()
+        val rawMode = u(bytes[0])
+        val isOunce = rawMode > 0x08
+        val mode = if (isOunce) rawMode - 0x08 else rawMode
+        return buildList {
+            if (isOunce) add(byteArrayOf(0x0B, 0x00))
+            if (mode != 0x01) add(byteArrayOf(0x04, 0x00))
+        }
     }
 
     private fun bookoo(bytes: ByteArray): ScaleTelemetry? {

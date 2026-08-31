@@ -51,6 +51,20 @@ class ScalePacketParserTest {
         assertEquals(ScaleFamily.Hiroia, ScaleFamily.detect(null, listOf(ScaleFamily.Hiroia.serviceUuid)))
     }
 
+    @Test
+    fun createsHiroiaSetupAndRepeatedTareCommands() {
+        val tareCommands = ScalePacketParser.command(ScaleFamily.Hiroia, ScaleAction.Tare)
+        assertEquals(2, tareCommands.size)
+        tareCommands.forEach { assertArrayEquals(byteArrayOf(0x07, 0x00), it) }
+
+        val ounceAutomaticPacket = byteArrayOf(0x0A, 0, 0, 0, 0, 0, 0)
+        val setup = ScalePacketParser.hiroiaSetupCommands(ounceAutomaticPacket)
+        assertEquals(2, setup.size)
+        assertArrayEquals(byteArrayOf(0x0B, 0x00), setup[0])
+        assertArrayEquals(byteArrayOf(0x04, 0x00), setup[1])
+        assertEquals(0, ScalePacketParser.hiroiaSetupCommands(byteArrayOf(0x01, 0, 0, 0, 0, 0, 0)).size)
+    }
+
     private fun putUnsigned24(target: ByteArray, offset: Int, value: Int) {
         target[offset] = (value shr 16).toByte()
         target[offset + 1] = (value shr 8).toByte()
