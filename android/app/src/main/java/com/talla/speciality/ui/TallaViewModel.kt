@@ -21,8 +21,11 @@ import com.talla.speciality.data.BrewJournalEntry
 import com.talla.speciality.data.BrewJournalPolicy
 import com.talla.speciality.data.CoffeeBagScanResult
 import com.talla.speciality.data.CoffeeBagTextRecognizer
+import com.talla.speciality.data.CoffeeScaleManager
 import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
+import com.talla.speciality.data.ScaleAction
+import com.talla.speciality.data.ScaleUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,6 +60,7 @@ data class TallaUiState(
     val coffeeBagScan: CoffeeBagScanResult? = null,
     val coffeeBagScanning: Boolean = false,
     val coffeeBagScanError: String? = null,
+    val scale: ScaleUiState = ScaleUiState(),
     val accountLoading: Boolean = false,
     val accountError: String? = null,
 ) {
@@ -67,6 +71,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     private val shopify = ShopifyRepository()
     private val accounts = AccountRepository()
     private val payments = PaymentRepository()
+    private val scales = CoffeeScaleManager(application)
     private val tokenStore = SecureTokenStore(application)
     private val preferences = application.getSharedPreferences("talla_state", 0)
     private val pendingCart = loadCartQuantities()
@@ -82,6 +87,9 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<TallaUiState> = mutableState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            scales.state.collect { scaleState -> mutableState.update { it.copy(scale = scaleState) } }
+        }
         refresh()
         restoreAccount()
     }
@@ -424,6 +432,20 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearCoffeeBagScan() = mutableState.update {
         it.copy(coffeeBagScan = null, coffeeBagScanError = null, coffeeBagScanning = false)
+    }
+
+    fun scanForScales() = scales.scan()
+    fun connectScale(address: String) = scales.connect(address)
+    fun disconnectScale() = scales.disconnect()
+    fun tareScale() = scales.perform(ScaleAction.Tare)
+    fun startScaleTimer() = scales.perform(ScaleAction.StartTimer)
+    fun pauseScaleTimer() = scales.perform(ScaleAction.PauseTimer)
+    fun stopScaleTimer() = scales.perform(ScaleAction.StopTimer)
+    fun clearScaleError() = scales.clearError()
+
+    override fun onCleared() {
+        scales.stopScanning()
+        scales.disconnect()
     }
 
     private fun restoreAccount() {

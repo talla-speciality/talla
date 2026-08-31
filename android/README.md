@@ -20,6 +20,7 @@ Native Android foundation for Talla Speciality, built with Kotlin and Jetpack Co
 - A persistent coffee journal prefilled from guided brews, with ratings, recipe details, and tasting notes.
 - Shared taste memory on completed orders, synced with the same backend used by iOS.
 - Camera and photo-library coffee-bag scanning with bundled on-device OCR and structured label extraction.
+- Bluetooth discovery and live brewing telemetry for BOOKOO Themis, MANTABREW WeighMaster 2.0, HIROIA JIMMY, and GOAT STORY GINA scales.
 - English and Arabic resources, automatic RTL layout, and an in-app language selector.
 - Light and dark colour schemes.
 
@@ -60,7 +61,7 @@ Use the AAR and local Maven repository supplied directly by BENEFIT/FOO and Mast
 
 1. Enable the final merchant credentials and provider approvals for BENEFIT, BenefitPay, Click to Pay, native MPGS card, and Google Pay.
 2. Firebase Cloud Messaging and Android Play Integrity verification on sensitive backend routes.
-3. BLE scale drivers and enhanced Arabic-script OCR.
+3. Acaia Android SDK integration, physical scale validation, and enhanced Arabic-script OCR.
 4. Arabic resources and RTL QA, accessibility pass, analytics/privacy review, and Play Store release preparation.
 5. Google Wallet, widgets, and Wear OS surfaces.
 

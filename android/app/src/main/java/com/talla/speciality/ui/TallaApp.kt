@@ -1,8 +1,11 @@
 package com.talla.speciality.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -57,6 +61,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -100,6 +105,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.core.net.toUri
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import com.talla.speciality.R
 import com.talla.speciality.data.CartLine
 import com.talla.speciality.data.BrewRecipeEngine
@@ -108,6 +114,8 @@ import com.talla.speciality.data.BrewRecipe
 import com.talla.speciality.data.CoffeeBagScanResult
 import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.Product
+import com.talla.speciality.data.ScaleFamily
+import com.talla.speciality.data.ScaleUiState
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.ui.theme.Coffee
 import com.talla.speciality.ui.theme.Sand
@@ -187,6 +195,15 @@ fun TallaApp(viewModel: TallaViewModel = viewModel()) {
                 scanError = state.coffeeBagScanError,
                 onScanCoffeeBag = viewModel::scanCoffeeBag,
                 onClearScan = viewModel::clearCoffeeBagScan,
+                scaleState = state.scale,
+                onScanScales = viewModel::scanForScales,
+                onConnectScale = viewModel::connectScale,
+                onDisconnectScale = viewModel::disconnectScale,
+                onTareScale = viewModel::tareScale,
+                onStartScaleTimer = viewModel::startScaleTimer,
+                onPauseScaleTimer = viewModel::pauseScaleTimer,
+                onStopScaleTimer = viewModel::stopScaleTimer,
+                onClearScaleError = viewModel::clearScaleError,
                 onSaveJournal = viewModel::saveBrewJournalEntry,
                 onDeleteJournal = viewModel::deleteBrewJournalEntry,
                 modifier = Modifier.padding(padding),
@@ -433,6 +450,15 @@ private fun BrewingScreen(
     scanError: String?,
     onScanCoffeeBag: (Uri) -> Unit,
     onClearScan: () -> Unit,
+    scaleState: ScaleUiState,
+    onScanScales: () -> Unit,
+    onConnectScale: (String) -> Unit,
+    onDisconnectScale: () -> Unit,
+    onTareScale: () -> Unit,
+    onStartScaleTimer: () -> Unit,
+    onPauseScaleTimer: () -> Unit,
+    onStopScaleTimer: () -> Unit,
+    onClearScaleError: () -> Unit,
     onSaveJournal: (String, String, Int, Double, Int, Int, Int, String) -> Unit,
     onDeleteJournal: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -493,6 +519,20 @@ private fun BrewingScreen(
             }
         }
         item {
+            CoffeeScaleCard(
+                state = scaleState,
+                targetGrams = recipe.waterGrams,
+                onScan = onScanScales,
+                onConnect = onConnectScale,
+                onDisconnect = onDisconnectScale,
+                onTare = onTareScale,
+                onStartTimer = onStartScaleTimer,
+                onPauseTimer = onPauseScaleTimer,
+                onStopTimer = onStopScaleTimer,
+                onClearError = onClearScaleError,
+            )
+        }
+        item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("%d:%02d".format(elapsed / 60, elapsed % 60), Modifier.weight(1f), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Black)
                 TextButton(onClick = { elapsed = 0; running = false }) { Text(stringResource(R.string.reset)) }
@@ -528,6 +568,107 @@ private fun BrewingScreen(
                 onSave = onSaveJournal,
                 onDelete = onDeleteJournal,
             )
+        }
+    }
+}
+
+@Composable
+private fun CoffeeScaleCard(
+    state: ScaleUiState,
+    targetGrams: Int,
+    onScan: () -> Unit,
+    onConnect: (String) -> Unit,
+    onDisconnect: () -> Unit,
+    onTare: () -> Unit,
+    onStartTimer: () -> Unit,
+    onPauseTimer: () -> Unit,
+    onStopTimer: () -> Unit,
+    onClearError: () -> Unit,
+) {
+    val context = LocalContext.current
+    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+    } else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+    var permissionDenied by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        if (permissions.all { results[it] == true }) {
+            permissionDenied = false
+            onScan()
+        } else permissionDenied = true
+    }
+    val hasPermissions = permissions.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+
+    Card(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Bluetooth, null, tint = Coffee)
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.coffee_scale), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                    Text(stringResource(R.string.coffee_scale_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (state.connectedAddress == null) {
+                    Button(
+                        onClick = { if (hasPermissions) onScan() else permissionLauncher.launch(permissions) },
+                        enabled = !state.scanning,
+                    ) {
+                        if (state.scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Text(stringResource(R.string.scan))
+                    }
+                }
+            }
+
+            if (permissionDenied) Text(stringResource(R.string.bluetooth_permission_required), color = MaterialTheme.colorScheme.error)
+            state.error?.let { message ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(message, Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = onClearError) { Text(stringResource(R.string.dismiss)) }
+                }
+            }
+
+            if (state.connectedAddress != null) {
+                Text(state.connectedName ?: stringResource(R.string.connected_scale), fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.live_weight_grams, state.weightGrams),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Black,
+                    color = Coffee,
+                )
+                LinearProgressIndicator(
+                    progress = { (state.weightGrams / targetGrams.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(stringResource(R.string.target_weight, targetGrams), style = MaterialTheme.typography.labelMedium)
+                    state.flowGramsPerSecond?.let { Text(stringResource(R.string.flow_rate, it), style = MaterialTheme.typography.labelMedium) }
+                    state.timerSeconds?.let { Text("%d:%02d".format(it / 60, it % 60), style = MaterialTheme.typography.labelMedium) }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { Button(onClick = onTare) { Text(stringResource(R.string.tare)) } }
+                    if (state.connectedFamily == ScaleFamily.Bookoo || state.connectedFamily == ScaleFamily.Mantabrew) {
+                        item { TextButton(onClick = onStartTimer) { Text(stringResource(R.string.start_timer)) } }
+                        item { TextButton(onClick = onPauseTimer) { Text(stringResource(R.string.pause_timer)) } }
+                        item { TextButton(onClick = onStopTimer) { Text(stringResource(R.string.stop_timer)) } }
+                    }
+                    item { TextButton(onClick = onDisconnect) { Text(stringResource(R.string.disconnect)) } }
+                }
+            } else if (state.devices.isNotEmpty()) {
+                Text(stringResource(R.string.nearby_scales), fontWeight = FontWeight.Bold)
+                state.devices.forEach { device ->
+                    Card(onClick = { onConnect(device.address) }, colors = CardDefaults.cardColors(containerColor = Sand.copy(alpha = .12f))) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(device.name, fontWeight = FontWeight.Bold)
+                                Text("${device.family.displayName} · ${device.rssi} dBm", style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (state.connectingAddress == device.address) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                            else Text(stringResource(R.string.connect), color = Coffee, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else if (!state.scanning) {
+                Text(stringResource(R.string.supported_scales), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

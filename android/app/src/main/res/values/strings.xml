@@ -117,4 +117,20 @@
     <string name="process">Process</string>
     <string name="scan_added_to_journal">These details have been prepared in the journal below. Review or edit them before saving.</string>
     <string name="clear_scan">Clear scan</string>
+    <string name="coffee_scale">Coffee scale</string>
+    <string name="coffee_scale_detail">Connect a supported Bluetooth scale for live weight, flow, and timer readings.</string>
+    <string name="scan">Scan</string>
+    <string name="bluetooth_permission_required">Bluetooth permission is required to find and connect a coffee scale.</string>
+    <string name="connected_scale">Connected scale</string>
+    <string name="live_weight_grams">%1$.1f g</string>
+    <string name="target_weight">Target %1$d g</string>
+    <string name="flow_rate">%1$.1f g/s</string>
+    <string name="tare">Tare</string>
+    <string name="start_timer">Start timer</string>
+    <string name="pause_timer">Pause timer</string>
+    <string name="stop_timer">Reset timer</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="nearby_scales">Nearby scales</string>
+    <string name="connect">Connect</string>
+    <string name="supported_scales">Supports BOOKOO Themis, MANTABREW WeighMaster 2.0, HIROIA JIMMY, and GOAT STORY GINA. Keep the scale awake and nearby.</string>
 </resources>

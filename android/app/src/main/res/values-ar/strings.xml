@@ -121,4 +121,20 @@
     <string name="process">المعالجة</string>
     <string name="scan_added_to_journal">تم تجهيز هذه التفاصيل في المفكرة أدناه. راجعها أو عدّلها قبل الحفظ.</string>
     <string name="clear_scan">مسح النتيجة</string>
+    <string name="coffee_scale">ميزان القهوة</string>
+    <string name="coffee_scale_detail">اربط ميزان بلوتوث مدعوماً لعرض الوزن والتدفق والمؤقت مباشرة.</string>
+    <string name="scan">بحث</string>
+    <string name="bluetooth_permission_required">يلزم السماح بالبلوتوث للعثور على ميزان القهوة والاتصال به.</string>
+    <string name="connected_scale">الميزان المتصل</string>
+    <string name="live_weight_grams">%1$.1f غ</string>
+    <string name="target_weight">الهدف %1$d غ</string>
+    <string name="flow_rate">%1$.1f غ/ث</string>
+    <string name="tare">تصفير</string>
+    <string name="start_timer">بدء المؤقت</string>
+    <string name="pause_timer">إيقاف المؤقت</string>
+    <string name="stop_timer">إعادة المؤقت</string>
+    <string name="disconnect">قطع الاتصال</string>
+    <string name="nearby_scales">الموازين القريبة</string>
+    <string name="connect">اتصال</string>
+    <string name="supported_scales">يدعم BOOKOO Themis وMANTABREW WeighMaster 2.0 وHIROIA JIMMY وGOAT STORY GINA. أبقِ الميزان يعمل وبالقرب منك.</string>
 </resources>
