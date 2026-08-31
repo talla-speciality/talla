@@ -22,7 +22,7 @@ Android should therefore be a native client of the same commerce and customer pl
 - Guided recipes and timer generated from the existing smart recipe logic.
 - Coffee-bag camera/OCR flow.
 - Brew journal and taste memory.
-- BLE support for Acaia, Bookoo, Hiroia, Goat Story Gina, and Mantabrew—validated individually against Android BLE behaviour and vendor permissions.
+- BLE support for BOOKOO, HIROIA JIMMY, GOAT STORY GINA, and MANTABREW WeighMaster 2.0—validated individually against Android BLE behaviour and vendor permissions.
 
 ### Release 3: Android ecosystem
 

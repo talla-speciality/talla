@@ -61,7 +61,7 @@ Use the AAR and local Maven repository supplied directly by BENEFIT/FOO and Mast
 
 1. Enable the final merchant credentials and provider approvals for BENEFIT, BenefitPay, Click to Pay, native MPGS card, and Google Pay.
 2. Firebase Cloud Messaging and Android Play Integrity verification on sensitive backend routes.
-3. Acaia Android SDK integration, physical scale validation, and enhanced Arabic-script OCR.
+3. Physical validation of the supported Bluetooth scales and enhanced Arabic-script OCR.
 4. Arabic resources and RTL QA, accessibility pass, analytics/privacy review, and Play Store release preparation.
 5. Google Wallet, widgets, and Wear OS surfaces.
 
