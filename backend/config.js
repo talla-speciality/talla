@@ -85,6 +85,12 @@ module.exports = {
         : !isProduction,
     apnsPrivateKeyPath: toAbsolutePath(process.env.APNS_PRIVATE_KEY_PATH),
     apnsPrivateKeyBase64: process.env.APNS_PRIVATE_KEY_BASE64 || "",
+    googleCloudProjectID: process.env.GOOGLE_CLOUD_PROJECT_ID || "",
+    googleServiceAccountJSONBase64: process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || "",
+    playIntegrityPackageName: process.env.PLAY_INTEGRITY_PACKAGE_NAME || "com.talla.speciality",
+    playIntegrityEnforce: process.env.PLAY_INTEGRITY_ENFORCE
+        ? process.env.PLAY_INTEGRITY_ENFORCE === "true"
+        : isProduction,
     passwordResetTokenHours: toNumber(process.env.PASSWORD_RESET_TOKEN_HOURS, 1),
     rateLimitWindowMs: toNumber(process.env.RATE_LIMIT_WINDOW_MS, 60_000),
     rateLimitMaxRequests: toNumber(process.env.RATE_LIMIT_MAX_REQUESTS, 240),

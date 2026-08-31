@@ -83,6 +83,9 @@ Notes:
 
 - `HOST` should stay `0.0.0.0` in containers
 - `NODE_ENV` must be `production` so App Attest and APNs use secure production defaults
+- `GOOGLE_CLOUD_PROJECT_ID` enables Firebase Cloud Messaging delivery to registered Android installations
+- `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64` is the base64-encoded Google service-account JSON used only by the backend for FCM and Play Integrity verification
+- `PLAY_INTEGRITY_PACKAGE_NAME` must remain `com.talla.speciality`, and `PLAY_INTEGRITY_ENFORCE=true` rejects invalid Android integrity verdicts
 - `APP_URL` should be your real public URL
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
 - `DATABASE_URL` should point to your managed Postgres instance

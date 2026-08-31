@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 fun quotedProperty(name: String, fallback: String = ""): String {
     val value = providers.gradleProperty(name).orElse(fallback).get()
     return "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
@@ -22,6 +26,7 @@ android {
         buildConfigField("String", "SHOP_DOMAIN", quotedProperty("TALLA_SHOP_DOMAIN"))
         buildConfigField("String", "STOREFRONT_TOKEN", quotedProperty("TALLA_STOREFRONT_TOKEN"))
         buildConfigField("String", "BACKEND_URL", quotedProperty("TALLA_BACKEND_URL"))
+        buildConfigField("long", "PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER", providers.gradleProperty("TALLA_PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER").orElse("0").get() + "L")
         // The legacy BenefitPay SDK requires this merchant secret in the app.
         // Keep it out of source control and inject it from ~/.gradle/gradle.properties.
         buildConfigField("String", "BENEFITPAY_SDK_SECRET", quotedProperty("TALLA_BENEFITPAY_SDK_SECRET"))
@@ -42,7 +47,9 @@ android {
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
+    val firebaseBom = platform("com.google.firebase:firebase-bom:34.18.0")
     implementation(composeBom)
+    implementation(firebaseBom)
     androidTestImplementation(composeBom)
 
     implementation("androidx.activity:activity-compose:1.13.0")
@@ -58,6 +65,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.android.play:integrity:1.6.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
 
     implementation("com.mastercard.gateway:Mobile_SDK_Android:2.0.17") {
         // gateway-android-3ds still declares the retired support-v7 artifact even

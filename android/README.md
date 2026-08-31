@@ -25,6 +25,8 @@ Native Android foundation for Talla Speciality, built with Kotlin and Jetpack Co
 - Light and dark colour schemes.
 - A responsive English/Arabic home-screen widget for Beans, favourites, bag, brew history, and quick actions.
 - Long-press launcher shortcuts for Shop, Brewing, and Rewards.
+- Firebase Cloud Messaging registration, foreground/background notifications, order/update channels, and notification deep links.
+- Play Integrity standard-request protection for sensitive account, order, and payment calls, bound to the exact HTTP request body.
 
 ## Open the project
 
@@ -43,9 +45,18 @@ Defaults live in `gradle.properties`. For private/local overrides, put these val
 TALLA_SHOP_DOMAIN=duneroastery.myshopify.com
 TALLA_STOREFRONT_TOKEN=your-storefront-token
 TALLA_BACKEND_URL=https://api.tallaspeciality.com
+TALLA_PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER=123456789012
 ```
 
 The Shopify Storefront token is a public client credential. Payment gateway secrets and Shopify Admin credentials must remain exclusively on the backend.
+
+For Android notifications and request integrity:
+
+1. Register `com.talla.speciality` in Firebase and place its downloaded `google-services.json` at `android/app/google-services.json`. The file is ignored by Git.
+2. Link the same Google Cloud project to the app in Play Console under Play Integrity API.
+3. Put the numeric Cloud project number in private Gradle properties as shown above.
+4. Add `GOOGLE_CLOUD_PROJECT_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`, `PLAY_INTEGRITY_PACKAGE_NAME=com.talla.speciality`, and `PLAY_INTEGRITY_ENFORCE=true` to Render. The service-account value is the base64 encoding of the complete JSON credential and must never be added to the repository.
+5. Install an internal-testing Play build on a physical device to validate recognized-app and device-integrity verdicts, registration, delivery, and notification deep links.
 
 ## Local payment SDK setup
 
@@ -62,9 +73,8 @@ Use the AAR and local Maven repository supplied directly by BENEFIT/FOO and Mast
 ## Remaining production milestones
 
 1. Enable the final merchant credentials and provider approvals for BENEFIT, BenefitPay, Click to Pay, native MPGS card, and Google Pay.
-2. Firebase Cloud Messaging and Android Play Integrity verification on sensitive backend routes.
-3. Physical validation of the supported Bluetooth scales and enhanced Arabic-script OCR.
-4. Arabic resources and RTL QA, accessibility pass, analytics/privacy review, and Play Store release preparation.
-5. Google Wallet and Wear OS surfaces.
+2. Physical validation of the supported Bluetooth scales and enhanced Arabic-script OCR.
+3. Arabic resources and RTL QA, accessibility pass, analytics/privacy review, and Play Store release preparation.
+4. Google Wallet and Wear OS surfaces.
 
 The existing iOS source was used as product and platform reference only. It was not modified.

@@ -898,7 +898,7 @@
 
         <section id="push-section" class="panel" data-admin-section="push notification message customers" style="margin-bottom: 20px;">
             <h2>Customer Push</h2>
-            <div class="subcopy" style="margin-bottom: 14px;">Send a normal APNs notification to every saved iOS device token that has granted notification permission.</div>
+            <div class="subcopy" style="margin-bottom: 14px;">Send a notification to every saved iOS or Android device that has granted notification permission.</div>
             <div class="grid">
                 <input id="customer-push-title" type="text" maxlength="120" placeholder="Notification title">
                 <input id="customer-push-url" type="text" placeholder="Optional app link, e.g. talla://shop">
@@ -906,7 +906,7 @@
             <textarea id="customer-push-body" style="width:100%; min-height: 96px; margin-top: 12px; resize: vertical;" maxlength="220" placeholder="Notification message"></textarea>
             <div class="toolbar-row" style="padding: 14px 0 0;">
                 <button id="send-customer-push" class="secondary">Send To All Devices</button>
-                <div class="muted">Only devices with saved APNs tokens can receive this.</div>
+                <div class="muted">Only devices registered through APNs or Firebase Cloud Messaging can receive this.</div>
             </div>
         </section>
 
@@ -2446,7 +2446,7 @@
                 if (!response.ok) throw new Error(payload.error || "Eid push failed.");
                 setStatus(payload.configured
                     ? `Eid push sent to ${payload.sentCount}/${payload.targetCount} devices.`
-                    : "APNs is not configured, so no push notifications were sent.", "success");
+                    : "APNs and Firebase Cloud Messaging are not configured, so no push notifications were sent.", "success");
             } catch (error) {
                 setStatus(error.message, "error");
             } finally {
@@ -2479,7 +2479,7 @@
 
                 setStatus(payload.configured
                     ? `Customer push sent to ${payload.sentCount}/${payload.targetCount} devices.`
-                    : "APNs is not configured, so no push notifications were sent.", "success");
+                    : "APNs and Firebase Cloud Messaging are not configured, so no push notifications were sent.", "success");
             } catch (error) {
                 setStatus(error.message, "error");
             } finally {

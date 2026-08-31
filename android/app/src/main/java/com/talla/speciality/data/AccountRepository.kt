@@ -1,6 +1,8 @@
 package com.talla.speciality.data
 
+import android.content.Context
 import com.talla.speciality.BuildConfig
+import com.talla.speciality.security.PlayIntegrityClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -8,7 +10,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-class AccountRepository {
+class AccountRepository(private val context: Context) {
     suspend fun login(email: String, password: String): AccountSession = withContext(Dispatchers.IO) {
         sessionRequest("/accounts/login", JSONObject().put("email", email).put("password", password))
     }
@@ -117,41 +119,69 @@ class AccountRepository {
         Unit
     }
 
-    private fun sessionRequest(path: String, body: JSONObject): AccountSession {
+    suspend fun registerPushToken(token: String, email: String, deviceToken: String) = withContext(Dispatchers.IO) {
+        request(
+            "POST",
+            "/notifications/push/register",
+            JSONObject().put("email", email).put("deviceToken", deviceToken).put("platform", "android"),
+            token,
+        )
+        Unit
+    }
+
+    suspend fun unregisterPushToken(token: String, email: String, deviceToken: String) = withContext(Dispatchers.IO) {
+        request(
+            "POST",
+            "/notifications/push/unregister",
+            JSONObject().put("email", email).put("deviceToken", deviceToken).put("platform", "android"),
+            token,
+        )
+        Unit
+    }
+
+    private suspend fun sessionRequest(path: String, body: JSONObject): AccountSession {
         val json = request("POST", path, body)
         return AccountSession(parseProfile(json.getJSONObject("profile")), json.getString("accessToken"))
     }
 
-    private fun request(method: String, path: String, body: JSONObject? = null, token: String? = null): JSONObject {
-        val connection = connection(path, method, token)
+    private suspend fun request(method: String, path: String, body: JSONObject? = null, token: String? = null): JSONObject {
+        val rawBody = body?.toString().orEmpty()
+        val connection = connection(path, method, token, rawBody)
         return try {
-            if (body != null) connection.outputStream.use { it.write(body.toString().toByteArray()) }
+            if (body != null) connection.outputStream.use { it.write(rawBody.toByteArray()) }
             val payload = responseText(connection)
             JSONObject(payload.ifBlank { "{}" })
         } finally { connection.disconnect() }
     }
 
-    private fun requestArray(method: String, path: String, token: String): JSONArray {
-        val connection = connection(path, method, token)
+    private suspend fun requestArray(method: String, path: String, token: String): JSONArray {
+        val connection = connection(path, method, token, "")
         return try { JSONArray(responseText(connection)) } finally { connection.disconnect() }
     }
 
-    private fun requestArrayBody(method: String, path: String, body: JSONObject, token: String): JSONArray {
-        val connection = connection(path, method, token)
+    private suspend fun requestArrayBody(method: String, path: String, body: JSONObject, token: String): JSONArray {
+        val rawBody = body.toString()
+        val connection = connection(path, method, token, rawBody)
         return try {
-            connection.outputStream.use { it.write(body.toString().toByteArray()) }
+            connection.outputStream.use { it.write(rawBody.toByteArray()) }
             JSONArray(responseText(connection))
         } finally { connection.disconnect() }
     }
 
-    private fun connection(path: String, method: String, token: String?): HttpURLConnection {
+    private suspend fun connection(path: String, method: String, token: String?, rawBody: String): HttpURLConnection {
         require(BuildConfig.BACKEND_URL.isNotBlank()) { "Talla backend URL is not configured" }
+        val integrityHeaders = if (path in integrityProtectedPaths) {
+            PlayIntegrityClient.headers(context, method, path, rawBody)
+        } else {
+            emptyMap()
+        }
         return (URL(BuildConfig.BACKEND_URL.trimEnd('/') + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 15_000
             readTimeout = 25_000
             setRequestProperty("Accept", "application/json")
             if (token != null) setRequestProperty("Authorization", "Bearer $token")
+            integrityHeaders.forEach(::setRequestProperty)
             if (method == "POST") {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
@@ -196,4 +226,19 @@ class AccountRepository {
 
     private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { optString(it) }
     private fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).map { getJSONObject(it) }
+
+    private companion object {
+        val integrityProtectedPaths = setOf(
+            "/addresses/save",
+            "/addresses/preferred",
+            "/addresses/delete",
+            "/notifications/push/register",
+            "/notifications/push/unregister",
+            "/loyalty/transactions/redeem",
+            "/loyalty/transactions/earn",
+            "/vouchers/consume",
+            "/accounts/profile/update",
+            "/accounts/password/change",
+        )
+    }
 }

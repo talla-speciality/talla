@@ -1,6 +1,6 @@
 # Talla Backend
 
-Backend API for the Talla Speciality iOS app. This service currently backs:
+Backend API shared by the Talla Speciality iOS and Android apps. This service currently backs:
 
 - customer accounts
 - loyalty balances and transactions

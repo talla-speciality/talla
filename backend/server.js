@@ -12,6 +12,7 @@ const benefitGateway = require("./benefit-gateway");
 const mpgsGateway = require("./mpgs-gateway");
 const eazyPay = require("./eazypay");
 const appAttest = require("./app-attest");
+const googleMobileServices = require("./google-mobile-services");
 const { writeWalletStampStrips } = require("./wallet-pass-artwork");
 
 const host = config.host;
@@ -2029,7 +2030,10 @@ function requestBodyTooLargeError() {
     return error;
 }
 
-function readBody(request, maxBytes = 1_048_576) {
+function readRawBody(request, maxBytes = 1_048_576) {
+    if (request.tallaRawBody !== undefined) {
+        return Promise.resolve(request.tallaRawBody);
+    }
     return new Promise((resolve, reject) => {
         let body = "";
         let bodyBytes = 0;
@@ -2053,20 +2057,18 @@ function readBody(request, maxBytes = 1_048_576) {
                 return;
             }
 
-            if (!body) {
-                resolve({});
-                return;
-            }
-
-            try {
-                resolve(JSON.parse(body));
-            } catch (error) {
-                reject(error);
-            }
+            request.tallaRawBody = body;
+            resolve(body);
         });
 
         request.on("error", reject);
     });
+}
+
+async function readBody(request, maxBytes = 1_048_576) {
+    const body = await readRawBody(request, maxBytes);
+    if (!body) return {};
+    return JSON.parse(body);
 }
 
 function readRawBody(request, maxBytes = 1_048_576) {
@@ -6642,16 +6644,11 @@ async function trimAlertInbox(email, maxRecords = 20) {
 }
 
 function normalizeDeviceToken(deviceToken) {
-    const normalized = String(deviceToken || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-f0-9]/g, "");
-
-    if (!normalized || normalized.length < 32 || normalized.length % 2 !== 0) {
-        return "";
-    }
-
-    return normalized;
+    const normalized = String(deviceToken || "").trim();
+    if (normalized.length < 16 || normalized.length > 4096 || !/^[A-Za-z0-9:_-]+$/.test(normalized)) return "";
+    return /^[a-fA-F0-9]+$/.test(normalized) && normalized.length % 2 === 0
+        ? normalized.toLowerCase()
+        : normalized;
 }
 
 function pushDeviceRowToRecord(row) {
@@ -6888,7 +6885,7 @@ function remotePushPayload(notification) {
     };
 }
 
-async function sendRemotePushToDevice(deviceToken, notification) {
+async function sendAPNsPushToDevice(deviceToken, notification) {
     const normalizedToken = normalizeDeviceToken(deviceToken);
     if (!normalizedToken || !remotePushConfigured()) {
         return false;
@@ -6962,14 +6959,27 @@ async function sendRemotePushToDevice(deviceToken, notification) {
     });
 }
 
+async function sendRemotePushToDevice(device, notification) {
+    const platform = String(device?.platform || "ios").toLowerCase();
+    const deviceToken = normalizeDeviceToken(device?.deviceToken);
+    if (!deviceToken) return false;
+    if (platform === "android") {
+        const result = await googleMobileServices.sendFCM(deviceToken, notification).catch(() => ({ sent: false }));
+        if (result.shouldPrune) await prunePushDevice(deviceToken);
+        if (result.sent) await markPushDeviceSent(deviceToken);
+        return Boolean(result.sent);
+    }
+    return sendAPNsPushToDevice(deviceToken, notification);
+}
+
 async function sendStockAlertPush(email, { title, body, productID }) {
-    if (!remotePushConfigured()) {
+    if (!remotePushConfigured() && !googleMobileServices.fcmConfigured()) {
         return;
     }
 
     const devices = await pushDevicesForEmail(email);
     for (const device of devices) {
-        await sendRemotePushToDevice(device.deviceToken, {
+        await sendRemotePushToDevice(device, {
             title,
             body,
             type: "stock_alert",
@@ -6979,14 +6989,14 @@ async function sendStockAlertPush(email, { title, body, productID }) {
 }
 
 async function sendOrderReadyPush(email, order) {
-    if (!remotePushConfigured()) {
+    if (!remotePushConfigured() && !googleMobileServices.fcmConfigured()) {
         return { configured: false, targetCount: 0, sentCount: 0 };
     }
 
     const devices = await pushDevicesForEmail(email);
     let sentCount = 0;
     for (const device of devices) {
-        const didSend = await sendRemotePushToDevice(device.deviceToken, {
+        const didSend = await sendRemotePushToDevice(device, {
             title: "Your Talla order is ready",
             body: `${order.title || "Your order"} is ready for pickup.`,
             type: "order_ready",
@@ -7013,14 +7023,14 @@ async function sendOrderReadyPushIfNeeded(status, order) {
 }
 
 async function sendCampaignPushToAll({ title, body, type = "campaign", url = null }) {
-    if (!remotePushConfigured()) {
+    if (!remotePushConfigured() && !googleMobileServices.fcmConfigured()) {
         return { configured: false, targetCount: 0, sentCount: 0 };
     }
 
     const devices = await allPushDevices();
     let sentCount = 0;
     for (const device of devices) {
-        const didSend = await sendRemotePushToDevice(device.deviceToken, {
+        const didSend = await sendRemotePushToDevice(device, {
             title,
             body,
             type,
@@ -8244,7 +8254,19 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
-    const appAttestResult = await appAttest.verifyRequest(request, url.pathname);
+    let rawProtectedBody = "";
+    try {
+        rawProtectedBody = appAttest.protectedPaths.has(url.pathname)
+            && request.headers["x-talla-play-integrity-token"]
+            ? await readRawBody(request)
+            : "";
+    } catch (error) {
+        sendJSON(response, error?.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400, {
+            error: error?.code === "REQUEST_BODY_TOO_LARGE" ? "Request body too large" : "Invalid request body"
+        });
+        return;
+    }
+    const appAttestResult = await appAttest.verifyRequest(request, url.pathname, rawProtectedBody);
     if (!appAttestResult.allowed) {
         sendJSON(response, 401, { error: appAttestResult.error || "App Attest verification failed" });
         return;
@@ -11699,6 +11721,10 @@ const server = http.createServer(async (request, response) => {
             const platform = String(body.platform || "ios").trim().toLowerCase() || "ios";
             if (!deviceToken) {
                 sendJSON(response, 400, { error: "Invalid push device token" });
+                return;
+            }
+            if (!["ios", "android"].includes(platform)) {
+                sendJSON(response, 400, { error: "Invalid push platform" });
                 return;
             }
 

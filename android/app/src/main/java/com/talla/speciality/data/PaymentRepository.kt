@@ -1,6 +1,8 @@
 package com.talla.speciality.data
 
+import android.content.Context
 import com.talla.speciality.BuildConfig
+import com.talla.speciality.security.PlayIntegrityClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -30,7 +32,7 @@ data class HostedBenefitStatus(val status: String, val paid: Boolean)
 data class ClickToPayCheckout(val paymentUrl: String, val localOrderId: String)
 data class ClickToPayStatus(val status: String, val confirmed: Boolean)
 
-class PaymentRepository {
+class PaymentRepository(private val context: Context) {
     suspend fun prepareBenefitPay(
         token: String,
         email: String,
@@ -99,7 +101,7 @@ class PaymentRepository {
             ?: error("BenefitPay is still confirming your payment. Check your orders again shortly.")
     }
 
-    private fun createPendingOrder(
+    private suspend fun createPendingOrder(
         token: String,
         email: String,
         lines: List<CartLine>,
@@ -122,8 +124,14 @@ class PaymentRepository {
         ).getString("orderID")
     }
 
-    private fun post(path: String, body: JSONObject, token: String): JSONObject {
+    private suspend fun post(path: String, body: JSONObject, token: String): JSONObject {
         require(BuildConfig.BACKEND_URL.isNotBlank()) { "Talla backend URL is not configured" }
+        val rawBody = body.toString()
+        val integrityHeaders = if (path in integrityProtectedPaths) {
+            PlayIntegrityClient.headers(context, "POST", path, rawBody)
+        } else {
+            emptyMap()
+        }
         val connection = (URL(BuildConfig.BACKEND_URL.trimEnd('/') + path).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15_000
@@ -132,9 +140,10 @@ class PaymentRepository {
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Authorization", "Bearer $token")
+            integrityHeaders.forEach(::setRequestProperty)
         }
         return try {
-            connection.outputStream.use { it.write(body.toString().toByteArray()) }
+            connection.outputStream.use { it.write(rawBody.toByteArray()) }
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val payload = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
@@ -146,5 +155,21 @@ class PaymentRepository {
         } finally {
             connection.disconnect()
         }
+    }
+
+    private companion object {
+        val integrityProtectedPaths = setOf(
+            "/orders/checkout-started",
+            "/api/payments/card/session",
+            "/api/payments/card/authentication/initiate",
+            "/api/payments/card/authentication/complete",
+            "/api/payments/card/complete",
+            "/api/payments/click-to-pay/create",
+            "/api/payments/benefitpay/session",
+            "/api/payments/benefitpay/confirm",
+            "/api/payments/benefit/create",
+            "/api/payments/benefit/status",
+            "/api/payments/eazy/shopify/session",
+        )
     }
 }

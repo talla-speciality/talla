@@ -3,6 +3,7 @@ const fs = require("fs");
 const { verifyAttestation, verifyAssertion } = require("appattest-checker-node");
 const config = require("./config");
 const database = require("./database");
+const googleMobileServices = require("./google-mobile-services");
 
 const challengeLifetimeMs = 5 * 60 * 1000;
 const challenges = new Map();
@@ -164,8 +165,17 @@ function header(request, name) {
     return Array.isArray(value) ? value[0] : value;
 }
 
-async function verifyRequest(request, path) {
+async function verifyRequest(request, path, rawBody = "") {
     if (!protectedPaths.has(path)) return { allowed: true };
+    const playIntegrityToken = header(request, "x-talla-play-integrity-token");
+    if (playIntegrityToken) {
+        return googleMobileServices.verifyPlayIntegrity({
+            token: playIntegrityToken,
+            method: request.method,
+            path,
+            rawBody
+        });
+    }
     const keyId = header(request, "x-talla-app-attest-key-id");
     const challenge = header(request, "x-talla-app-attest-challenge");
     const assertion = header(request, "x-talla-app-attest-assertion");

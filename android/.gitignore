@@ -16,3 +16,6 @@ app/build
 *.jks
 *.keystore
 keystore.properties
+
+# Firebase project identifiers are supplied from the Firebase console.
+app/google-services.json

@@ -106,6 +106,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.core.net.toUri
 import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.talla.speciality.R
 import com.talla.speciality.data.CartLine
 import com.talla.speciality.data.BrewRecipeEngine
@@ -151,6 +152,21 @@ fun TallaApp(
     var tab by remember { mutableStateOf(TallaTab.Home) }
     var cartOpen by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(state.profile?.email) {
+        if (state.profile != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val notificationPreferences = context.getSharedPreferences("talla_notifications", 0)
+            val alreadyAsked = notificationPreferences.getBoolean("permission_asked", false)
+            val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            if (!granted && !alreadyAsked) {
+                notificationPreferences.edit { putBoolean("permission_asked", true) }
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     LaunchedEffect(deepLinkDestination) {
         when (deepLinkDestination) {

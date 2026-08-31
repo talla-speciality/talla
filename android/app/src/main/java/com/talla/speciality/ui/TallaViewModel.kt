@@ -29,6 +29,7 @@ import com.talla.speciality.data.ScaleUiState
 import com.talla.speciality.widget.TallaQuickActionsWidget
 import com.talla.speciality.widget.TallaWidgetSnapshot
 import com.talla.speciality.widget.TallaWidgetStateStore
+import com.talla.speciality.notifications.PushRegistrationManager
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,8 +76,8 @@ data class TallaUiState(
 
 class TallaViewModel(application: Application) : AndroidViewModel(application) {
     private val shopify = ShopifyRepository()
-    private val accounts = AccountRepository()
-    private val payments = PaymentRepository()
+    private val accounts = AccountRepository(application)
+    private val payments = PaymentRepository(application)
     private val scales = CoffeeScaleManager(application)
     private val tokenStore = SecureTokenStore(application)
     private val preferences = application.getSharedPreferences("talla_state", 0)
@@ -346,6 +347,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         val token = tokenStore.read()
+        val email = mutableState.value.profile?.email
         tokenStore.clear()
         mutableState.update {
             it.copy(
@@ -353,7 +355,10 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                 stockAlerts = emptyList(), tasteMemory = emptyList(), accountError = null,
             )
         }
-        if (token != null) viewModelScope.launch { accounts.logout(token) }
+        if (token != null) viewModelScope.launch {
+            if (email != null) PushRegistrationManager.unregister(getApplication(), token, email)
+            accounts.logout(token)
+        }
     }
 
     fun refreshAccount() {
@@ -503,6 +508,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                 stockAlerts = stockAlerts, tasteMemory = tasteMemory, accountLoading = false, accountError = null,
             )
         }
+        runCatching { PushRegistrationManager.syncForSession(getApplication(), token, profile.email) }
     }
 
     private fun persistCart(state: TallaUiState) {
