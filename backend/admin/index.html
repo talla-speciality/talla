@@ -3,6 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#9f5f2f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="/admin/manifest.webmanifest">
+    <link rel="icon" href="/admin/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/admin/icon.svg">
     <title>Talla Admin</title>
     <style>
         :root {
@@ -424,6 +430,34 @@
             display: block;
             margin-bottom: 4px;
         }
+        .notification-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 12px 14px;
+            border-radius: 18px;
+            background: var(--accent-soft);
+            border: 1px solid rgba(159, 95, 47, 0.18);
+        }
+        .notification-dot {
+            width: 9px;
+            height: 9px;
+            flex: 0 0 auto;
+            border-radius: 50%;
+            background: var(--muted);
+        }
+        .notification-control.enabled .notification-dot {
+            background: var(--success);
+            box-shadow: 0 0 0 5px var(--success-soft);
+        }
+        .list-item.new-order-flash {
+            animation: new-order-flash 2.4s ease-out;
+        }
+        @keyframes new-order-flash {
+            0% { background: #fff1c9; transform: translateY(-3px); }
+            100% { background: white; transform: translateY(0); }
+        }
         .muted {
             color: var(--muted);
         }
@@ -829,6 +863,14 @@
             </summary>
             <div class="panel-body">
                 <div class="subcopy" style="margin-bottom: 14px;">Manage every customer order from one queue. Update status and send pickup-ready notifications without opening the iOS app.</div>
+                <div id="order-notification-control" class="notification-control" style="margin-bottom:14px;">
+                    <span class="notification-dot" aria-hidden="true"></span>
+                    <div style="flex:1 1 240px;">
+                        <strong style="display:block;">New-order alerts</strong>
+                        <div id="order-notification-note" class="muted" aria-live="polite">Checking notification support...</div>
+                    </div>
+                    <button id="toggle-order-notifications" class="secondary">Enable Alerts</button>
+                </div>
                 <div class="toolbar-row" style="padding: 0 0 14px;">
                     <button id="refresh-orders" class="secondary">Refresh Orders</button>
                     <div id="orders-note" class="muted">Loading orders...</div>
@@ -1117,7 +1159,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -1160,6 +1202,9 @@
         const allOrdersEl = document.getElementById("all-orders");
         const ordersNoteEl = document.getElementById("orders-note");
         const refreshOrdersButton = document.getElementById("refresh-orders");
+        const orderNotificationControlEl = document.getElementById("order-notification-control");
+        const orderNotificationNoteEl = document.getElementById("order-notification-note");
+        const toggleOrderNotificationsButton = document.getElementById("toggle-order-notifications");
         const tasteMemoryEl = document.getElementById("taste-memory");
         const eventsListEl = document.getElementById("events-list");
         const eventsStatusEl = document.getElementById("events-status");
@@ -1741,6 +1786,156 @@
             } finally {
                 setButtonBusy(refreshOrdersButton, false, "Refresh Orders");
             }
+        }
+
+        function applicationServerKey(value) {
+            const padding = "=".repeat((4 - value.length % 4) % 4);
+            const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+            const raw = atob(base64);
+            return Uint8Array.from(raw, (character) => character.charCodeAt(0));
+        }
+
+        function renderOrderNotificationState(message = "") {
+            const permission = "Notification" in window ? Notification.permission : "unsupported";
+            const enabled = state.orderPushSubscribed || state.localOrderAlertsEnabled;
+            orderNotificationControlEl.classList.toggle("enabled", enabled);
+            toggleOrderNotificationsButton.textContent = enabled ? "Disable Alerts" : "Enable Alerts";
+            toggleOrderNotificationsButton.disabled = permission === "unsupported" || permission === "denied";
+
+            if (message) {
+                orderNotificationNoteEl.textContent = message;
+            } else if (permission === "unsupported") {
+                orderNotificationNoteEl.textContent = "This browser does not support order notifications.";
+            } else if (permission === "denied") {
+                orderNotificationNoteEl.textContent = "Notifications are blocked in this browser's settings.";
+            } else if (state.orderPushSubscribed) {
+                orderNotificationNoteEl.textContent = "Background alerts are on for this device.";
+            } else if (state.localOrderAlertsEnabled) {
+                orderNotificationNoteEl.textContent = "Live alerts are on while the admin app is connected.";
+            } else if (!state.orderPushConfigured) {
+                orderNotificationNoteEl.textContent = "Live alerts are available; background push needs server setup.";
+            } else {
+                orderNotificationNoteEl.textContent = "Get an alert as soon as a new order arrives.";
+            }
+        }
+
+        async function serviceWorkerRegistration() {
+            if (!("serviceWorker" in navigator)) throw new Error("Service workers are not supported on this device.");
+            return navigator.serviceWorker.register("/admin/sw.js", { scope: "/admin/" });
+        }
+
+        async function initializeOrderNotifications() {
+            try {
+                const [registration, configResponse] = await Promise.all([
+                    serviceWorkerRegistration(),
+                    fetch("/admin/api/notifications/order-push/config")
+                ]);
+                const configPayload = await configResponse.json();
+                if (!configResponse.ok) throw new Error(configPayload.error || "Could not check notification settings.");
+                state.orderPushConfigured = Boolean(configPayload.configured);
+                state.orderPushPublicKey = configPayload.publicKey || "";
+                const subscription = await registration.pushManager?.getSubscription();
+                state.orderPushSubscribed = Boolean(subscription);
+                if (subscription && state.orderPushConfigured) {
+                    await fetch("/admin/api/notifications/order-push/subscribe", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ subscription: subscription.toJSON() })
+                    });
+                }
+                renderOrderNotificationState();
+            } catch (error) {
+                renderOrderNotificationState(error.message);
+            }
+        }
+
+        async function toggleOrderNotifications() {
+            const enabled = state.orderPushSubscribed || state.localOrderAlertsEnabled;
+            setButtonBusy(toggleOrderNotificationsButton, true, enabled ? "Disable Alerts" : "Enable Alerts", "Saving...");
+            try {
+                const registration = await serviceWorkerRegistration();
+                const existing = await registration.pushManager?.getSubscription();
+                if (enabled) {
+                    if (existing) {
+                        await fetch("/admin/api/notifications/order-push/unsubscribe", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ endpoint: existing.endpoint })
+                        });
+                        await existing.unsubscribe();
+                    }
+                    state.orderPushSubscribed = false;
+                    state.localOrderAlertsEnabled = false;
+                    localStorage.removeItem("talla-admin-order-alerts");
+                    renderOrderNotificationState("Order alerts are off on this device.");
+                    return;
+                }
+
+                const permission = await Notification.requestPermission();
+                if (permission !== "granted") throw new Error("Notification permission was not granted.");
+
+                if (state.orderPushConfigured && registration.pushManager) {
+                    const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: applicationServerKey(state.orderPushPublicKey)
+                    });
+                    const response = await fetch("/admin/api/notifications/order-push/subscribe", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ subscription: subscription.toJSON() })
+                    });
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        await subscription.unsubscribe();
+                        throw new Error(payload.error || "Could not enable background alerts.");
+                    }
+                    state.orderPushSubscribed = true;
+                    state.localOrderAlertsEnabled = false;
+                    localStorage.removeItem("talla-admin-order-alerts");
+                    renderOrderNotificationState("Background alerts are on for this device.");
+                } else {
+                    state.localOrderAlertsEnabled = true;
+                    localStorage.setItem("talla-admin-order-alerts", "true");
+                    renderOrderNotificationState("Live alerts are on while the admin app is connected.");
+                }
+            } catch (error) {
+                renderOrderNotificationState(error.message);
+            } finally {
+                setButtonBusy(toggleOrderNotificationsButton, false, state.orderPushSubscribed || state.localOrderAlertsEnabled ? "Disable Alerts" : "Enable Alerts");
+            }
+        }
+
+        async function showLocalOrderNotification(order) {
+            if (!state.localOrderAlertsEnabled || Notification.permission !== "granted") return;
+            const registration = await serviceWorkerRegistration();
+            await registration.showNotification("New Talla order", {
+                body: `${order.title || order.id} • ${order.total || "Total unavailable"}`,
+                icon: "/admin/icon.svg",
+                tag: `talla-order-${order.id}`,
+                data: { url: "/admin/#orders-section" }
+            });
+        }
+
+        function handleIncomingOrder(order) {
+            if (!order?.id || state.adminOrders.some((entry) => entry.id === order.id)) return;
+            state.adminOrders.unshift(order);
+            renderAllOrders();
+            ordersNoteEl.textContent = `New order received just now • ${state.adminOrders.length} total`;
+            setStatus(`New order: ${order.title || order.id} • ${order.total || "Total unavailable"}`, "success");
+            requestAnimationFrame(() => {
+                allOrdersEl.querySelector(`[data-admin-order-id="${CSS.escape(order.id)}"]`)?.classList.add("new-order-flash");
+            });
+            if (navigator.setAppBadge) navigator.setAppBadge(1).catch(() => {});
+            if (!state.orderPushSubscribed) void showLocalOrderNotification(order).catch(() => {});
+        }
+
+        function connectOrderStream() {
+            state.orderEventSource?.close();
+            const stream = new EventSource("/admin/api/orders/stream");
+            stream.addEventListener("new-order", (event) => {
+                try { handleIncomingOrder(JSON.parse(event.data)); } catch { /* Ignore malformed events. */ }
+            });
+            state.orderEventSource = stream;
         }
 
         function renderTasteMemory() {
@@ -3015,6 +3210,8 @@
                 await loadAppSettings();
                 showApp();
                 await loadAdminOrders();
+                connectOrderStream();
+                void initializeOrderNotifications();
                 await loadTasteMemory();
                 await refreshCustomers();
                 await refreshProducts();
@@ -3029,6 +3226,8 @@
         }
 
         async function logout() {
+            state.orderEventSource?.close();
+            state.orderEventSource = null;
             await fetch("/admin/api/logout", { method: "POST" });
             state.session = null;
             state.currentEmail = "";
@@ -3101,6 +3300,8 @@
                 await loadAppSettings();
                 showApp();
                 await loadAdminOrders();
+                connectOrderStream();
+                void initializeOrderNotifications();
                 await loadTasteMemory();
                 await refreshCustomers();
                 await refreshProducts();
@@ -3704,6 +3905,7 @@
         adjustButton.addEventListener("click", adjustLoyalty);
         refreshCustomersButton.addEventListener("click", refreshCustomers);
         refreshOrdersButton.addEventListener("click", loadAdminOrders);
+        toggleOrderNotificationsButton.addEventListener("click", toggleOrderNotifications);
         refreshProductsButton.addEventListener("click", refreshProducts);
         productSearchInput.addEventListener("input", () => renderProducts());
         productStatusFilterInput.addEventListener("change", () => renderProducts());
@@ -3916,6 +4118,11 @@
         });
         initializeProductCategoryControls();
         initializeAdminNavigation();
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.addEventListener("message", (event) => {
+                if (event.data?.type === "new-order" && event.data.order) handleIncomingOrder(event.data.order);
+            });
+        }
         bootstrap();
     </script>
 </body>

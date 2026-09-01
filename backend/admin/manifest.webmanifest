@@ -1,0 +1,19 @@
+{
+  "name": "Talla Admin",
+  "short_name": "Talla Admin",
+  "description": "Orders, customers, loyalty, products, and app controls for Talla Speciality.",
+  "id": "/admin/",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#f2eadf",
+  "theme_color": "#9f5f2f",
+  "icons": [
+    {
+      "src": "/admin/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

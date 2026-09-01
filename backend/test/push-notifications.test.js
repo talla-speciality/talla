@@ -31,6 +31,18 @@ test("urgent order updates use the time-sensitive interruption level", () => {
     assert.equal(payload.aps["interruption-level"], "time-sensitive");
 });
 
+test("native admin new-order alerts carry the order ID and are time-sensitive", () => {
+    const payload = remotePushPayload({
+        title: "New Talla order",
+        body: "#1842 • BHD 12.500",
+        type: "admin_new_order",
+        orderID: "shopify_1842"
+    });
+
+    assert.equal(payload.aps["interruption-level"], "time-sensitive");
+    assert.equal(payload.orderID, "shopify_1842");
+});
+
 test("campaign and product notifications remain at the standard interruption level", () => {
     for (const type of ["campaign", "eid_campaign", "customer_campaign", "stock_alert"]) {
         const payload = remotePushPayload({

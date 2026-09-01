@@ -10,7 +10,8 @@
     "appattest-checker-node": "^1.0.3",
     "google-auth-library": "^10.3.0",
     "pg": "^8.13.1",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.4",
+    "web-push": "^3.6.7"
   },
   "scripts": {
     "start": "node server.js",

@@ -11,6 +11,7 @@ Backend API shared by the Talla Speciality iOS and Android apps. This service cu
 - Wallet pass download
 - admin customer lookup and loyalty adjustments
 - Shopify product management from the admin console
+- installable admin web app with live and background new-order alerts
 
 ## Run
 
@@ -47,6 +48,10 @@ The server reads configuration from environment variables:
 - `ADMIN_PASSWORD`: admin password for `/admin`
 - `ADMIN_SESSION_SECRET`: secret used to sign admin session cookies
 - `ADMIN_SESSION_HOURS`: admin session lifetime in hours, defaults to `12`
+- `WEB_PUSH_VAPID_PUBLIC_KEY`: public VAPID key for admin browser notifications
+- `WEB_PUSH_VAPID_PRIVATE_KEY`: private VAPID key for admin browser notifications; keep this secret
+- `WEB_PUSH_VAPID_SUBJECT`: VAPID contact URI, defaults to `mailto:admin@tallaspeciality.com`
+- `APNS_ADMIN_BUNDLE_ID`: native Talla Admin app bundle identifier, defaults to `Talla-Speciality.Talla-Admin`
 - `CUSTOMER_TOKEN_SECRET`: secret required to enable customer session issuance
 - `CUSTOMER_TOKEN_HOURS`: customer session lifetime in hours, defaults to `168`
 - `RESEND_API_KEY`: Resend API key used for customer password reset emails
@@ -110,6 +115,20 @@ Current admin capabilities:
 - operations snapshot for recent traffic, 5xx responses, and rate-limit activity
 - Shopify product add, update, and delete controls
 - automated webhook alerts for elevated 5xx or 429 volume
+- installable phone/desktop web app with real-time new-order updates
+- opt-in background Web Push notifications when a new order is first recorded
+
+### Enable admin order notifications
+
+Generate one VAPID key pair and save it in the backend host's environment. Keep the same pair across deploys so existing device subscriptions continue to work:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Set `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, and `WEB_PUSH_VAPID_SUBJECT`, then run migrations and restart the backend. Open `/admin` over HTTPS, install it from the browser's Add to Home Screen/Install action, sign in, and select **Enable Alerts** in the Orders section. Each browser or phone opts in separately.
+
+If VAPID is not configured, the same control enables live notifications while the signed-in admin page remains connected; background alerts require VAPID and HTTPS.
 
 ## Seed Account
 

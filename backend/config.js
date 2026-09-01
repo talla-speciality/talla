@@ -39,6 +39,9 @@ module.exports = {
     adminSessionSecret: process.env.ADMIN_SESSION_SECRET || "",
     adminAppEmails: toList(process.env.ADMIN_APP_EMAILS || process.env.ADMIN_USERNAME || ""),
     adminSessionHours: toNumber(process.env.ADMIN_SESSION_HOURS, 12),
+    webPushVapidPublicKey: process.env.WEB_PUSH_VAPID_PUBLIC_KEY || "",
+    webPushVapidPrivateKey: process.env.WEB_PUSH_VAPID_PRIVATE_KEY || "",
+    webPushVapidSubject: process.env.WEB_PUSH_VAPID_SUBJECT || "mailto:admin@tallaspeciality.com",
     customerTokenSecret: process.env.CUSTOMER_TOKEN_SECRET || process.env.ADMIN_SESSION_SECRET || "",
     customerTokenHours: toNumber(process.env.CUSTOMER_TOKEN_HOURS, 168),
     resendAPIKey: process.env.RESEND_API_KEY || "",
@@ -80,6 +83,7 @@ module.exports = {
     apnsKeyID: process.env.APNS_KEY_ID || "",
     apnsTeamID: process.env.APNS_TEAM_ID || "",
     apnsBundleID: process.env.APNS_BUNDLE_ID || process.env.APPLE_SIGN_IN_CLIENT_ID || "",
+    apnsAdminBundleID: process.env.APNS_ADMIN_BUNDLE_ID || "Talla-Speciality.Talla-Admin",
     apnsUseSandbox: process.env.APNS_USE_SANDBOX
         ? process.env.APNS_USE_SANDBOX !== "false"
         : !isProduction,
@@ -113,6 +117,8 @@ module.exports = {
         vouchers: path.join(dataDirectory, "vouchers.json"),
         alerts: path.join(dataDirectory, "alerts.json"),
         pushDevices: path.join(dataDirectory, "pushDevices.json"),
+        adminPushSubscriptions: path.join(dataDirectory, "adminPushSubscriptions.json"),
+        adminPushDevices: path.join(dataDirectory, "adminPushDevices.json"),
         addresses: path.join(dataDirectory, "addresses.json"),
         alertInbox: path.join(dataDirectory, "alertInbox.json"),
         campaignSettings: path.join(dataDirectory, "campaignSettings.json"),

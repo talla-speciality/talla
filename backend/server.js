@@ -12,6 +12,7 @@ const benefitGateway = require("./benefit-gateway");
 const mpgsGateway = require("./mpgs-gateway");
 const eazyPay = require("./eazypay");
 const appAttest = require("./app-attest");
+const webPush = require("web-push");
 const googleMobileServices = require("./google-mobile-services");
 const { writeWalletStampStrips } = require("./wallet-pass-artwork");
 const {
@@ -30,6 +31,8 @@ const ordersStorePath = config.stores.orders;
 const vouchersStorePath = config.stores.vouchers;
 const alertsStorePath = config.stores.alerts;
 const pushDevicesStorePath = config.stores.pushDevices;
+const adminPushSubscriptionsStorePath = config.stores.adminPushSubscriptions;
+const adminPushDevicesStorePath = config.stores.adminPushDevices;
 const addressesStorePath = config.stores.addresses;
 const alertInboxStorePath = config.stores.alertInbox;
 const campaignSettingsStorePath = config.stores.campaignSettings;
@@ -52,6 +55,9 @@ const adminPassword = config.adminPassword;
 const adminAppEmails = config.adminAppEmails;
 const adminSessionSecret = config.adminSessionSecret;
 const adminSessionHours = config.adminSessionHours;
+const webPushVapidPublicKey = config.webPushVapidPublicKey;
+const webPushVapidPrivateKey = config.webPushVapidPrivateKey;
+const webPushVapidSubject = config.webPushVapidSubject;
 const customerTokenSecret = config.customerTokenSecret;
 const customerTokenHours = config.customerTokenHours;
 const resendAPIKey = config.resendAPIKey;
@@ -91,6 +97,7 @@ const eazyConfiguration = {
 const apnsKeyID = config.apnsKeyID;
 const apnsTeamID = config.apnsTeamID;
 const apnsBundleID = config.apnsBundleID;
+const apnsAdminBundleID = config.apnsAdminBundleID;
 const apnsUseSandbox = config.apnsUseSandbox;
 const apnsPrivateKeyPath = config.apnsPrivateKeyPath;
 const apnsPrivateKeyBase64 = config.apnsPrivateKeyBase64;
@@ -138,6 +145,8 @@ const walletPassWWDRBase64 = config.walletPassWWDRBase64;
 const walletPassWebServiceURL = config.walletPassWebServiceURL;
 const adminSessionCookieName = "talla_admin_session";
 const adminSessions = new Map();
+const adminOrderStreamClients = new Set();
+const announcedAdminOrderIDs = new Map();
 const rateLimitBuckets = new Map();
 const benefitPaymentLocks = new Map();
 const cardPaymentLocks = new Map();
@@ -158,6 +167,8 @@ ensureStoreFile(ordersStorePath, { orders: {} });
 ensureStoreFile(vouchersStorePath, { vouchers: {} });
 ensureStoreFile(alertsStorePath, { alerts: {} });
 ensureStoreFile(pushDevicesStorePath, { devices: [] });
+ensureStoreFile(adminPushSubscriptionsStorePath, { subscriptions: [] });
+ensureStoreFile(adminPushDevicesStorePath, { devices: [] });
 ensureStoreFile(walletPassesStorePath, { passes: {}, devices: {}, registrations: [] });
 ensureStoreFile(addressesStorePath, { addresses: {} });
 ensureStoreFile(alertInboxStorePath, { alerts: {} });
@@ -676,6 +687,132 @@ function sendHTML(response, statusCode, payload, extraHeaders = {}) {
     response.end(payload);
 }
 
+function webPushConfigured() {
+    return Boolean(webPushVapidPublicKey && webPushVapidPrivateKey && webPushVapidSubject);
+}
+
+function configureWebPush() {
+    if (!webPushConfigured()) return false;
+    webPush.setVapidDetails(webPushVapidSubject, webPushVapidPublicKey, webPushVapidPrivateKey);
+    return true;
+}
+
+function normalizeWebPushSubscription(value) {
+    const endpoint = String(value?.endpoint || "").trim();
+    const auth = String(value?.keys?.auth || "").trim();
+    const p256dh = String(value?.keys?.p256dh || "").trim();
+    if (!endpoint.startsWith("https://") || !auth || !p256dh) return null;
+    return { endpoint, expirationTime: value.expirationTime || null, keys: { auth, p256dh } };
+}
+
+async function saveAdminPushSubscription(adminUsername, value) {
+    const subscription = normalizeWebPushSubscription(value);
+    if (!subscription) throw new Error("INVALID_WEB_PUSH_SUBSCRIPTION");
+    const timestamp = new Date().toISOString();
+
+    if (database.isEnabled()) {
+        await database.query(
+            `INSERT INTO admin_push_subscriptions
+             (endpoint, admin_username, subscription, created_at, updated_at, last_sent_at)
+             VALUES ($1, $2, $3::jsonb, $4, $4, NULL)
+             ON CONFLICT (endpoint) DO UPDATE SET
+                admin_username = EXCLUDED.admin_username,
+                subscription = EXCLUDED.subscription,
+                updated_at = EXCLUDED.updated_at`,
+            [subscription.endpoint, adminUsername, JSON.stringify(subscription), timestamp]
+        );
+        return subscription;
+    }
+
+    const store = readJSON(adminPushSubscriptionsStorePath);
+    const subscriptions = Array.isArray(store.subscriptions) ? store.subscriptions : [];
+    const index = subscriptions.findIndex((entry) => entry.subscription?.endpoint === subscription.endpoint);
+    const record = { adminUsername, subscription, createdAt: index >= 0 ? subscriptions[index].createdAt : timestamp, updatedAt: timestamp };
+    if (index >= 0) subscriptions[index] = record;
+    else subscriptions.push(record);
+    store.subscriptions = subscriptions;
+    writeJSON(adminPushSubscriptionsStorePath, store);
+    return subscription;
+}
+
+async function removeAdminPushSubscription(endpoint) {
+    const normalizedEndpoint = String(endpoint || "").trim();
+    if (!normalizedEndpoint) return;
+    if (database.isEnabled()) {
+        await database.query("DELETE FROM admin_push_subscriptions WHERE endpoint = $1", [normalizedEndpoint]);
+        return;
+    }
+    const store = readJSON(adminPushSubscriptionsStorePath);
+    store.subscriptions = (store.subscriptions || []).filter((entry) => entry.subscription?.endpoint !== normalizedEndpoint);
+    writeJSON(adminPushSubscriptionsStorePath, store);
+}
+
+async function adminPushSubscriptions() {
+    if (database.isEnabled()) {
+        const result = await database.query("SELECT subscription FROM admin_push_subscriptions ORDER BY created_at ASC");
+        return result.rows.map((row) => row.subscription).filter(Boolean);
+    }
+    return (readJSON(adminPushSubscriptionsStorePath).subscriptions || []).map((entry) => entry.subscription).filter(Boolean);
+}
+
+function adminOrderNotificationPayload(order) {
+    const itemCount = (order.items || []).reduce((total, item) => total + Math.max(0, Number(item.quantity || 0)), 0);
+    return {
+        title: "New Talla order",
+        body: `${order.title || order.id} • ${order.total || "Total unavailable"}${itemCount ? ` • ${itemCount} item${itemCount === 1 ? "" : "s"}` : ""}`,
+        url: "/admin/#orders-section",
+        order
+    };
+}
+
+function publishAdminOrderEvent(order) {
+    const event = `event: new-order\ndata: ${JSON.stringify(order)}\n\n`;
+    for (const response of adminOrderStreamClients) {
+        try {
+            response.write(event);
+        } catch {
+            adminOrderStreamClients.delete(response);
+        }
+    }
+}
+
+async function sendAdminNewOrderPush(order) {
+    if (!configureWebPush()) return { configured: false, targetCount: 0, sentCount: 0 };
+    const subscriptions = await adminPushSubscriptions();
+    let sentCount = 0;
+    await Promise.all(subscriptions.map(async (subscription) => {
+        try {
+            await webPush.sendNotification(subscription, JSON.stringify(adminOrderNotificationPayload(order)), { TTL: 300, urgency: "high" });
+            sentCount += 1;
+        } catch (error) {
+            if ([404, 410].includes(error.statusCode)) {
+                await removeAdminPushSubscription(subscription.endpoint);
+                return;
+            }
+            console.error("Admin order push failed:", error.statusCode || error.code || error.message || "WEB_PUSH_FAILED");
+        }
+    }));
+    return { configured: true, targetCount: subscriptions.length, sentCount };
+}
+
+function announceNewAdminOrder(order) {
+    const orderID = String(order.id || "");
+    const now = Date.now();
+    for (const [announcedID, announcedAt] of announcedAdminOrderIDs) {
+        if (now - announcedAt > 10 * 60 * 1000) announcedAdminOrderIDs.delete(announcedID);
+    }
+    if (!orderID || announcedAdminOrderIDs.has(orderID)) return;
+    announcedAdminOrderIDs.set(orderID, now);
+    const adminOrder = { ...order, email: normalizeEmail(order.email) };
+    publishAdminOrderEvent(adminOrder);
+    void sendAdminNewOrderPush(adminOrder).catch((error) => {
+        console.error("Admin order notification failed:", error.code || error.message || "ADMIN_ORDER_PUSH_FAILED");
+    });
+    void sendAdminNativeNewOrderPush(adminOrder).catch((error) => {
+        console.error("Native admin order notification failed:", error.code || error.message || "ADMIN_NATIVE_PUSH_FAILED");
+    });
+}
+
 function escapeHTML(value) {
     return String(value || "")
         .replace(/&/g, "&amp;")
@@ -699,8 +836,8 @@ function applePaySettlementConfigured() {
     return Boolean(applePaySettlementProvider);
 }
 
-function remotePushConfigured() {
-    return Boolean(apnsKeyID && apnsTeamID && apnsBundleID && (apnsPrivateKeyPath || apnsPrivateKeyBase64));
+function remotePushConfigured(topic = apnsBundleID) {
+    return Boolean(apnsKeyID && apnsTeamID && topic && (apnsPrivateKeyPath || apnsPrivateKeyBase64));
 }
 
 function base64URLEncode(buffer) {
@@ -4060,6 +4197,8 @@ async function upsertOrderRecord(order) {
         return null;
     }
 
+    const existingOrder = await findOrderByID(order.id);
+
     await deleteMatchingPendingCheckout(order);
 
     if (database.isEnabled()) {
@@ -4077,7 +4216,9 @@ async function upsertOrderRecord(order) {
              RETURNING id, title, total, status, items, created_at`,
             [order.id, order.email, order.title, order.total, order.status, JSON.stringify(order.items), order.createdAt]
         );
-        return orderRowToRecord(result.rows[0]);
+        const recordedOrder = orderRowToRecord(result.rows[0]);
+        if (!existingOrder) announceNewAdminOrder({ ...recordedOrder, email: order.email });
+        return recordedOrder;
     }
 
     const store = readJSON(ordersStorePath);
@@ -4100,6 +4241,7 @@ async function upsertOrderRecord(order) {
 
     store.orders[order.email] = orders;
     writeJSON(ordersStorePath, store);
+    if (!existingOrder) announceNewAdminOrder({ ...nextOrder, email: order.email });
     return nextOrder;
 }
 
@@ -6967,6 +7109,95 @@ async function unregisterPushDevice(email, deviceToken) {
     return store.devices.length < beforeCount;
 }
 
+async function adminNativePushDevices() {
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT device_token, admin_username, platform, created_at, updated_at, last_sent_at
+             FROM admin_push_devices
+             ORDER BY updated_at DESC`
+        );
+        return result.rows.map((row) => ({
+            deviceToken: normalizeDeviceToken(row.device_token),
+            adminUsername: row.admin_username,
+            platform: row.platform,
+            createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+            updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
+            lastSentAt: row.last_sent_at instanceof Date ? row.last_sent_at.toISOString() : (row.last_sent_at || null)
+        })).filter((device) => device.deviceToken);
+    }
+    return (readJSON(adminPushDevicesStorePath).devices || [])
+        .map((device) => ({ ...device, deviceToken: normalizeDeviceToken(device.deviceToken) }))
+        .filter((device) => device.deviceToken);
+}
+
+async function registerAdminNativePushDevice(adminUsername, deviceToken, platform = "ios") {
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+    const username = String(adminUsername || "").trim();
+    if (!normalizedToken || !username) return null;
+    const timestamp = new Date().toISOString();
+    const normalizedPlatform = String(platform || "ios").trim().toLowerCase() || "ios";
+
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `INSERT INTO admin_push_devices
+             (device_token, admin_username, platform, created_at, updated_at, last_sent_at)
+             VALUES ($1, $2, $3, $4, $4, NULL)
+             ON CONFLICT (device_token) DO UPDATE SET
+                admin_username = EXCLUDED.admin_username,
+                platform = EXCLUDED.platform,
+                updated_at = EXCLUDED.updated_at
+             RETURNING device_token`,
+            [normalizedToken, username, normalizedPlatform, timestamp]
+        );
+        return { deviceToken: normalizeDeviceToken(result.rows[0]?.device_token), adminUsername: username, platform: normalizedPlatform };
+    }
+
+    const store = readJSON(adminPushDevicesStorePath);
+    const devices = Array.isArray(store.devices) ? store.devices : [];
+    const index = devices.findIndex((device) => normalizeDeviceToken(device.deviceToken) === normalizedToken);
+    const record = {
+        deviceToken: normalizedToken,
+        adminUsername: username,
+        platform: normalizedPlatform,
+        createdAt: index >= 0 ? devices[index].createdAt : timestamp,
+        updatedAt: timestamp,
+        lastSentAt: index >= 0 ? devices[index].lastSentAt || null : null
+    };
+    if (index >= 0) devices[index] = record;
+    else devices.unshift(record);
+    store.devices = devices;
+    writeJSON(adminPushDevicesStorePath, store);
+    return record;
+}
+
+async function unregisterAdminNativePushDevice(deviceToken) {
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+    if (!normalizedToken) return false;
+    if (database.isEnabled()) {
+        const result = await database.query("DELETE FROM admin_push_devices WHERE device_token = $1 RETURNING device_token", [normalizedToken]);
+        return result.rowCount > 0;
+    }
+    const store = readJSON(adminPushDevicesStorePath);
+    const beforeCount = (store.devices || []).length;
+    store.devices = (store.devices || []).filter((device) => normalizeDeviceToken(device.deviceToken) !== normalizedToken);
+    writeJSON(adminPushDevicesStorePath, store);
+    return store.devices.length < beforeCount;
+}
+
+async function markAdminPushDeviceSent(deviceToken) {
+    const normalizedToken = normalizeDeviceToken(deviceToken);
+    if (!normalizedToken) return;
+    if (database.isEnabled()) {
+        await database.query("UPDATE admin_push_devices SET last_sent_at = NOW(), updated_at = NOW() WHERE device_token = $1", [normalizedToken]);
+        return;
+    }
+    const store = readJSON(adminPushDevicesStorePath);
+    store.devices = (store.devices || []).map((device) => normalizeDeviceToken(device.deviceToken) === normalizedToken
+        ? { ...device, lastSentAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        : device);
+    writeJSON(adminPushDevicesStorePath, store);
+}
+
 async function markPushDeviceSent(deviceToken) {
     const normalizedToken = normalizeDeviceToken(deviceToken);
     if (!normalizedToken) {
@@ -7027,6 +7258,7 @@ async function prunePushDevice(deviceToken) {
 }
 
 const timeSensitiveRemotePushTypes = new Set([
+    "admin_new_order",
     "order_ready",
     "order_out_for_delivery",
     "delivery_arriving"
@@ -7048,14 +7280,16 @@ function remotePushPayload(notification) {
     return {
         aps,
         type: notification.type || "stock_alert",
+        orderID: notification.orderID || null,
         productID: notification.productID || null,
         url: notification.url || null
     };
 }
 
-async function sendAPNsPushToDevice(deviceToken, notification) {
+async function sendAPNsPushToDevice(deviceToken, notification, options = {}) {
     const normalizedToken = normalizeDeviceToken(deviceToken);
-    if (!normalizedToken || !remotePushConfigured()) {
+    const topic = options.topic || apnsBundleID;
+    if (!normalizedToken || !remotePushConfigured(topic)) {
         return false;
     }
 
@@ -7083,7 +7317,7 @@ async function sendAPNsPushToDevice(deviceToken, notification) {
             ":method": "POST",
             ":path": `/3/device/${normalizedToken}`,
             authorization: `bearer ${authorizationToken}`,
-            "apns-topic": apnsBundleID,
+            "apns-topic": topic,
             "apns-push-type": "alert",
             "apns-priority": "10"
         });
@@ -7102,7 +7336,8 @@ async function sendAPNsPushToDevice(deviceToken, notification) {
             client.close();
 
             if (statusCode === 200) {
-                await markPushDeviceSent(normalizedToken);
+                if (options.adminDevice) await markAdminPushDeviceSent(normalizedToken);
+                else await markPushDeviceSent(normalizedToken);
                 resolve(true);
                 return;
             }
@@ -7111,7 +7346,8 @@ async function sendAPNsPushToDevice(deviceToken, notification) {
                 const parsed = responseBody ? JSON.parse(responseBody) : null;
                 const reason = parsed?.reason || "";
                 if (["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(reason)) {
-                    await prunePushDevice(normalizedToken);
+                    if (options.adminDevice) await unregisterAdminNativePushDevice(normalizedToken);
+                    else await prunePushDevice(normalizedToken);
                 }
             } catch (error) {
                 // Ignore malformed APNs error bodies.
@@ -7127,9 +7363,29 @@ async function sendAPNsPushToDevice(deviceToken, notification) {
     });
 }
 
-async function sendRemotePushToDevice(device, notification) {
+async function sendAdminNativeNewOrderPush(order) {
+    if (!remotePushConfigured(apnsAdminBundleID)) {
+        return { configured: false, targetCount: 0, sentCount: 0 };
+    }
+    const devices = await adminNativePushDevices();
+    const itemCount = (order.items || []).reduce((total, item) => total + Math.max(0, Number(item.quantity || 0)), 0);
+    let sentCount = 0;
+    for (const device of devices) {
+        const didSend = await sendRemotePushToDevice(device.deviceToken, {
+            title: "New Talla order",
+            body: `${order.title || order.id} • ${order.total || "Total unavailable"}${itemCount ? ` • ${itemCount} item${itemCount === 1 ? "" : "s"}` : ""}`,
+            type: "admin_new_order",
+            orderID: order.id,
+            url: "talla-admin://orders"
+        }, { topic: apnsAdminBundleID, adminDevice: true });
+        if (didSend) sentCount += 1;
+    }
+    return { configured: true, targetCount: devices.length, sentCount };
+}
+
+async function sendRemotePushToDevice(device, notification, options = {}) {
     const platform = String(device?.platform || "ios").toLowerCase();
-    const deviceToken = normalizeDeviceToken(device?.deviceToken);
+    const deviceToken = normalizeDeviceToken(typeof device === "string" ? device : device?.deviceToken);
     if (!deviceToken) return false;
     if (platform === "android") {
         const result = await googleMobileServices.sendFCM(deviceToken, notification).catch(() => ({ sent: false }));
@@ -7137,7 +7393,7 @@ async function sendRemotePushToDevice(device, notification) {
         if (result.sent) await markPushDeviceSent(deviceToken);
         return Boolean(result.sent);
     }
-    return sendAPNsPushToDevice(deviceToken, notification);
+    return sendAPNsPushToDevice(deviceToken, notification, options);
 }
 
 async function sendStockAlertPush(email, { title, body, productID }) {
@@ -8594,6 +8850,26 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "GET" && ["/admin/manifest.webmanifest", "/admin/sw.js", "/admin/icon.svg"].includes(url.pathname)) {
+        const fileName = path.basename(url.pathname);
+        const filePath = path.join(adminDirectory, fileName);
+        if (!fs.existsSync(filePath)) {
+            sendJSON(response, 404, { error: "Admin app asset not found." });
+            return;
+        }
+        const contentTypes = {
+            ".webmanifest": "application/manifest+json; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".svg": "image/svg+xml; charset=utf-8"
+        };
+        response.writeHead(200, {
+            "Content-Type": contentTypes[path.extname(filePath)] || "application/octet-stream",
+            "Cache-Control": fileName === "sw.js" ? "no-cache" : "public, max-age=3600"
+        });
+        response.end(fs.readFileSync(filePath));
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/campaigns/eid") {
         sendJSON(response, 200, await getCampaignSettings());
         return;
@@ -8970,6 +9246,92 @@ const server = http.createServer(async (request, response) => {
 
         if (request.method === "GET" && url.pathname === "/admin/api/orders") {
             sendJSON(response, 200, { orders: await allOrdersPayload() });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/orders/stream") {
+            response.writeHead(200, {
+                "Content-Type": "text/event-stream; charset=utf-8",
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            });
+            response.write("retry: 5000\n\n");
+            adminOrderStreamClients.add(response);
+            const heartbeat = setInterval(() => response.write(": keepalive\n\n"), 25_000);
+            heartbeat.unref?.();
+            const sessionExpiry = setTimeout(() => response.end(), Math.max(0, new Date(admin.expiresAt).getTime() - Date.now()));
+            sessionExpiry.unref?.();
+            request.on("close", () => {
+                clearInterval(heartbeat);
+                clearTimeout(sessionExpiry);
+                adminOrderStreamClients.delete(response);
+            });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/notifications/order-push/config") {
+            sendJSON(response, 200, {
+                configured: webPushConfigured(),
+                publicKey: webPushConfigured() ? webPushVapidPublicKey : ""
+            });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/notifications/native/register") {
+            try {
+                const body = await readBody(request, 16_384);
+                const device = await registerAdminNativePushDevice(admin.username, body.deviceToken, body.platform);
+                if (!device) {
+                    sendJSON(response, 400, { error: "Invalid native push device token." });
+                    return;
+                }
+                sendJSON(response, 200, { status: "ok", configured: remotePushConfigured(apnsAdminBundleID), device });
+            } catch {
+                sendJSON(response, 400, { error: "Invalid native push registration." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/notifications/native/unregister") {
+            try {
+                const body = await readBody(request, 16_384);
+                const deviceToken = normalizeDeviceToken(body.deviceToken);
+                if (!deviceToken) {
+                    sendJSON(response, 400, { error: "Invalid native push device token." });
+                    return;
+                }
+                await unregisterAdminNativePushDevice(deviceToken);
+                sendJSON(response, 200, { status: "ok" });
+            } catch {
+                sendJSON(response, 400, { error: "Invalid native push unregister request." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/notifications/order-push/subscribe") {
+            try {
+                if (!configureWebPush()) {
+                    sendJSON(response, 503, { error: "Web Push is not configured on the server." });
+                    return;
+                }
+                const body = await readBody(request, 16_384);
+                await saveAdminPushSubscription(admin.username, body.subscription);
+                sendJSON(response, 201, { subscribed: true });
+            } catch {
+                sendJSON(response, 400, { error: "Invalid push subscription." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/notifications/order-push/unsubscribe") {
+            try {
+                const body = await readBody(request, 16_384);
+                await removeAdminPushSubscription(body.endpoint);
+                sendJSON(response, 200, { subscribed: false });
+            } catch {
+                sendJSON(response, 400, { error: "Invalid unsubscribe request." });
+            }
             return;
         }
 
@@ -12588,6 +12950,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+    adminOrderNotificationPayload,
     activeEventSettings,
     applyConfirmedMpgsPayment,
     applyBenefitNotification,
@@ -12609,6 +12972,7 @@ module.exports = {
     defaultAppSettings,
     normalizeAppSettings,
     normalizeCountryCode,
+    normalizeWebPushSubscription,
     normalizeEventSettings,
     normalizeTallaPaymentID,
     prepareShopifyEazyOrder,

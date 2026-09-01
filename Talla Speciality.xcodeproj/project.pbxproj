@@ -146,6 +146,7 @@
 		E08588512FD959E3003B3E9D /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		E08588532FD959E3003B3E9D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		E08D10A92F66FF140092272C /* Talla Speciality.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Talla Speciality.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FAAD000130E0000000000001 /* Talla Admin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Talla Admin.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E08D10BA2F66FF170092272C /* Talla SpecialityTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Talla SpecialityTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E08D10C42F66FF170092272C /* Talla SpecialityUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Talla SpecialityUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E09687A93006F5A8001FBDAD /* Talla Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Talla Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -160,6 +161,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FAAD000230E0000000000002 /* Exceptions for "Talla Admin" folder in "Talla Admin" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FAAD000730E0000000000007 /* Talla Admin */;
+		};
 		E08588692FD959E5003B3E9D /* Exceptions for "Talla Widgets" folder in "Talla WidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -184,6 +192,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		FAAD000330E0000000000003 /* Talla Admin */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FAAD000230E0000000000002 /* Exceptions for "Talla Admin" folder in "Talla Admin" target */,
+			);
+			path = "Talla Admin";
+			sourceTree = "<group>";
+		};
 		E08588552FD959E3003B3E9D /* Talla Widgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -236,6 +252,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		FAAD000430E0000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E085884C2FD959E3003B3E9D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -319,6 +342,7 @@
 		E08D10A02F66FF140092272C = {
 			isa = PBXGroup;
 			children = (
+				FAAD000330E0000000000003 /* Talla Admin */,
 				FC30000130C0000000000001 /* Config/BenefitPay.xcconfig */,
 				E06853D1300593D700D7DBC3 /* Talla WidgetsExtension.entitlements */,
 				E08D10AB2F66FF140092272C /* Talla Speciality */,
@@ -340,6 +364,7 @@
 		E08D10AA2F66FF140092272C /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				FAAD000130E0000000000001 /* Talla Admin.app */,
 				E08D10A92F66FF140092272C /* Talla Speciality.app */,
 				E08D10BA2F66FF170092272C /* Talla SpecialityTests.xctest */,
 				E08D10C42F66FF170092272C /* Talla SpecialityUITests.xctest */,
@@ -355,6 +380,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		FAAD000730E0000000000007 /* Talla Admin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FAAD000A30E000000000000A /* Build configuration list for PBXNativeTarget "Talla Admin" */;
+			buildPhases = (
+				FAAD000530E0000000000005 /* Sources */,
+				FAAD000430E0000000000004 /* Frameworks */,
+				FAAD000630E0000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FAAD000330E0000000000003 /* Talla Admin */,
+			);
+			name = "Talla Admin";
+			packageProductDependencies = (
+			);
+			productName = "Talla Admin";
+			productReference = FAAD000130E0000000000001 /* Talla Admin.app */;
+			productType = "com.apple.product-type.application";
+		};
 		E085884E2FD959E3003B3E9D /* Talla WidgetsExtension */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E08588662FD959E5003B3E9D /* Build configuration list for PBXNativeTarget "Talla WidgetsExtension" */;
@@ -553,6 +600,14 @@
 				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
+					FAAD000730E0000000000007 = {
+						CreatedOnToolsVersion = 26.6;
+						SystemCapabilities = {
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
+					};
 					E085884E2FD959E3003B3E9D = {
 						CreatedOnToolsVersion = 26.5;
 					};
@@ -608,6 +663,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				FAAD000730E0000000000007 /* Talla Admin */,
 				E08D10A82F66FF140092272C /* Talla Speciality */,
 				E08D10B92F66FF170092272C /* Talla SpecialityTests */,
 				E08D10C32F66FF170092272C /* Talla SpecialityUITests */,
@@ -621,6 +677,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		FAAD000630E0000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E085884D2FD959E3003B3E9D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -680,6 +743,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		FAAD000530E0000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E085884B2FD959E3003B3E9D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -780,6 +850,77 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		FAAD000830E0000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APS_ENVIRONMENT = development;
+				CODE_SIGN_ENTITLEMENTS = "Talla Admin/Talla Admin.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TAG9WXY85M;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Talla Admin/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Talla Admin";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Talla-Speciality.Talla-Admin";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FAAD000930E0000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APS_ENVIRONMENT = production;
+				CODE_SIGN_ENTITLEMENTS = "Talla Admin/Talla Admin.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TAG9WXY85M;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Talla Admin/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Talla Admin";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Talla-Speciality.Talla-Admin";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		E08588672FD959E5003B3E9D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1445,6 +1586,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		FAAD000A30E000000000000A /* Build configuration list for PBXNativeTarget "Talla Admin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FAAD000830E0000000000008 /* Debug */,
+				FAAD000930E0000000000009 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E08588662FD959E5003B3E9D /* Build configuration list for PBXNativeTarget "Talla WidgetsExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
