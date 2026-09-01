@@ -31,7 +31,8 @@ const protectedPaths = new Set([
     "/notifications/push/register",
     "/notifications/push/unregister",
     "/accounts/profile/update",
-    "/accounts/password/change"
+    "/accounts/password/change",
+    "/customer-library"
 ]);
 
 function cleanExpiredChallenges() {

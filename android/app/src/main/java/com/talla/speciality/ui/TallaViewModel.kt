@@ -160,10 +160,15 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleFavorite(productId: String) {
+        var isFavorite = false
         mutableState.update { current ->
             val next = if (productId in current.favoriteProductIds) current.favoriteProductIds - productId else current.favoriteProductIds + productId
+            isFavorite = productId in next
             preferences.edit { putStringSet("favorites", next) }
             current.copy(favoriteProductIds = next)
+        }
+        tokenStore.read()?.let { token ->
+            viewModelScope.launch { runCatching { accounts.setFavorite(token, productId, isFavorite) } }
         }
     }
 
@@ -172,6 +177,9 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             val next = (listOf(productId) + current.recentlyViewedProductIds.filterNot { it == productId }).take(20)
             preferences.edit { putString("recent", JSONArray(next).toString()) }
             current.copy(recentlyViewedProductIds = next)
+        }
+        tokenStore.read()?.let { token ->
+            viewModelScope.launch { runCatching { accounts.recordRecentlyViewed(token, productId) } }
         }
     }
 
@@ -372,6 +380,22 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         accountAction { loadAccount(token, accounts.profile(token)) }
     }
 
+    fun refreshCustomerLibrary() {
+        val token = tokenStore.read() ?: return
+        viewModelScope.launch {
+            runCatching { accounts.fetchCustomerLibrary(token) }
+                .onSuccess { library ->
+                    mutableState.update { current ->
+                        current.copy(
+                            favoriteProductIds = library.favorites,
+                            recentlyViewedProductIds = library.recentlyViewed,
+                            brewJournal = library.brewJournal,
+                        ).also(::persistCustomerLibraryCache)
+                    }
+                }
+        }
+    }
+
     fun clearAccountError() = mutableState.update { it.copy(accountError = null) }
 
     fun saveAddress(label: String, fullName: String, phone: String, line1: String, city: String, countryCode: String) {
@@ -439,11 +463,17 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         mutableState.update { current ->
             current.copy(brewJournal = BrewJournalPolicy.add(current.brewJournal, entry)).also(::persistBrewJournal)
         }
+        tokenStore.read()?.let { token ->
+            viewModelScope.launch { runCatching { accounts.saveBrewJournal(token, entry) } }
+        }
     }
 
     fun deleteBrewJournalEntry(id: String) {
         mutableState.update { current ->
             current.copy(brewJournal = BrewJournalPolicy.remove(current.brewJournal, id)).also(::persistBrewJournal)
+        }
+        tokenStore.read()?.let { token ->
+            viewModelScope.launch { runCatching { accounts.deleteBrewJournal(token, id) } }
         }
     }
 
@@ -508,11 +538,26 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val vouchers = accounts.vouchers(token)
         val stockAlerts = accounts.alerts(token)
         val tasteMemory = accounts.tasteMemory(token)
+        val current = mutableState.value
+        val migrationKey = "customer_library_migrated_${profile.id}"
+        val cacheOwner = preferences.getString("customer_library_cache_owner", "").orEmpty()
+        val library = runCatching {
+            if (preferences.getBoolean(migrationKey, false) || (cacheOwner.isNotEmpty() && cacheOwner != profile.id)) {
+                accounts.fetchCustomerLibrary(token)
+            } else {
+                accounts.mergeCustomerLibrary(token, current.favoriteProductIds, current.recentlyViewedProductIds, current.brewJournal)
+                    .also { preferences.edit { putBoolean(migrationKey, true) } }
+            }
+        }.getOrNull()
         mutableState.update {
             it.copy(
                 profile = profile, loyalty = loyalty, orders = orders, addresses = addresses, vouchers = vouchers,
-                stockAlerts = stockAlerts, tasteMemory = tasteMemory, accountLoading = false, accountError = null,
-            )
+                stockAlerts = stockAlerts, tasteMemory = tasteMemory,
+                favoriteProductIds = library?.favorites ?: it.favoriteProductIds,
+                recentlyViewedProductIds = library?.recentlyViewed ?: it.recentlyViewedProductIds,
+                brewJournal = library?.brewJournal ?: it.brewJournal,
+                accountLoading = false, accountError = null,
+            ).also(::persistCustomerLibraryCache)
         }
         runCatching { PushRegistrationManager.syncForSession(getApplication(), token, profile.email) }
     }
@@ -545,6 +590,15 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         preferences.edit { putString("brew_journal", json.toString()) }
+    }
+
+    private fun persistCustomerLibraryCache(state: TallaUiState) {
+        preferences.edit {
+            putStringSet("favorites", state.favoriteProductIds)
+            putString("recent", JSONArray(state.recentlyViewedProductIds).toString())
+            state.profile?.id?.takeIf(String::isNotBlank)?.let { putString("customer_library_cache_owner", it) }
+        }
+        persistBrewJournal(state)
     }
 
     private fun loadBrewJournal(): List<BrewJournalEntry> = runCatching {

@@ -24,6 +24,11 @@ test("App Attest issues 256-bit single-purpose challenges", () => {
         method: "POST",
         path: "/api/payments/benefit/status"
     }));
+    assert.doesNotThrow(() => appAttest.issueChallenge({
+        purpose: "assertion",
+        method: "POST",
+        path: "/customer-library"
+    }));
 });
 
 test("rollout mode permits unsigned calls but rejects invalid signed calls", async () => {

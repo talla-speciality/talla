@@ -9,6 +9,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 
 class AccountRepository(private val context: Context) {
     suspend fun login(email: String, password: String): AccountSession = withContext(Dispatchers.IO) {
@@ -51,6 +52,44 @@ class AccountRepository(private val context: Context) {
 
     suspend fun tasteMemory(token: String): List<TasteMemoryRecord> = withContext(Dispatchers.IO) {
         requestArray("GET", "/taste-memory", token).objects().map(::parseTasteMemory)
+    }
+
+    suspend fun fetchCustomerLibrary(token: String): CustomerLibrary = withContext(Dispatchers.IO) {
+        parseCustomerLibrary(request("GET", "/customer-library", token = token))
+    }
+
+    suspend fun mergeCustomerLibrary(
+        token: String,
+        favorites: Set<String>,
+        recentlyViewed: List<String>,
+        brewJournal: List<BrewJournalEntry>,
+    ): CustomerLibrary = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("action", "merge")
+            .put("favorites", JSONArray(favorites.toList()))
+            .put("recentlyViewed", JSONArray(recentlyViewed))
+            .put("brewJournal", brewJournalJson(brewJournal))
+        parseCustomerLibrary(request("POST", "/customer-library", body, token))
+    }
+
+    suspend fun setFavorite(token: String, productId: String, favorite: Boolean) = withContext(Dispatchers.IO) {
+        request("POST", "/customer-library", JSONObject().put("action", "setFavorite").put("productID", productId).put("favorite", favorite), token)
+        Unit
+    }
+
+    suspend fun recordRecentlyViewed(token: String, productId: String) = withContext(Dispatchers.IO) {
+        request("POST", "/customer-library", JSONObject().put("action", "recordRecent").put("productID", productId), token)
+        Unit
+    }
+
+    suspend fun saveBrewJournal(token: String, entry: BrewJournalEntry) = withContext(Dispatchers.IO) {
+        request("POST", "/customer-library", JSONObject().put("action", "saveJournal").put("journal", brewJournalEntryJson(entry)), token)
+        Unit
+    }
+
+    suspend fun deleteBrewJournal(token: String, id: String) = withContext(Dispatchers.IO) {
+        request("POST", "/customer-library", JSONObject().put("action", "deleteJournal").put("journalID", id), token)
+        Unit
     }
 
     suspend fun saveTasteMemory(
@@ -218,6 +257,43 @@ class AccountRepository(private val context: Context) {
         available = json.optBoolean("isAvailableForSale"), status = json.optString("status"),
     )
 
+    private fun parseCustomerLibrary(json: JSONObject): CustomerLibrary = CustomerLibrary(
+        favorites = json.optJSONArray("favorites").strings().filter(String::isNotBlank).toSet(),
+        recentlyViewed = json.optJSONArray("recentlyViewed").strings().filter(String::isNotBlank).take(20),
+        brewJournal = json.optJSONArray("brewJournal").objects().mapNotNull { entry ->
+            val id = entry.optString("id").trim()
+            if (id.isEmpty()) return@mapNotNull null
+            BrewJournalEntry(
+                id = id,
+                title = entry.optString("title"),
+                method = entry.optString("method"),
+                coffeeGrams = entry.optDouble("coffeeGrams", 0.0).toInt(),
+                ratio = entry.optDouble("ratio", 0.0),
+                waterGrams = entry.optDouble("waterGrams", 0.0).toInt(),
+                brewTimeSeconds = entry.optInt("brewTimeSeconds", 0),
+                rating = entry.optInt("rating", 1).coerceIn(1, 5),
+                notes = entry.optString("notes"),
+                createdAt = runCatching { Instant.parse(entry.optString("createdAt")).toEpochMilli() }.getOrDefault(System.currentTimeMillis()),
+            )
+        }.take(BrewJournalPolicy.MAX_ENTRIES),
+    )
+
+    private fun brewJournalJson(entries: List<BrewJournalEntry>) = JSONArray().apply {
+        entries.take(BrewJournalPolicy.MAX_ENTRIES).forEach { put(brewJournalEntryJson(it)) }
+    }
+
+    private fun brewJournalEntryJson(entry: BrewJournalEntry) = JSONObject()
+        .put("id", entry.id)
+        .put("title", entry.title)
+        .put("method", entry.method)
+        .put("coffeeGrams", entry.coffeeGrams)
+        .put("ratio", entry.ratio)
+        .put("waterGrams", entry.waterGrams)
+        .put("brewTimeSeconds", entry.brewTimeSeconds)
+        .put("rating", entry.rating)
+        .put("notes", entry.notes)
+        .put("createdAt", Instant.ofEpochMilli(entry.createdAt).toString())
+
     private fun parseTasteMemory(json: JSONObject) = TasteMemoryRecord(
         id = json.optString("id"), orderId = json.optString("orderID"), productName = json.optString("productName"),
         reaction = json.optString("reaction"), tags = json.optJSONArray("tags").strings(),
@@ -239,6 +315,7 @@ class AccountRepository(private val context: Context) {
             "/vouchers/consume",
             "/accounts/profile/update",
             "/accounts/password/change",
+            "/customer-library",
         )
     }
 }

@@ -14,6 +14,12 @@ const eazyPay = require("./eazypay");
 const appAttest = require("./app-attest");
 const googleMobileServices = require("./google-mobile-services");
 const { writeWalletStampStrips } = require("./wallet-pass-artwork");
+const {
+    emptyCustomerLibrary,
+    mergeCustomerLibraryRecords,
+    normalizeBrewJournalEntry,
+    normalizeCustomerProductIDs
+} = require("./customer-library");
 
 const host = config.host;
 const port = config.port;
@@ -32,6 +38,7 @@ const homeSettingsStorePath = config.stores.homeSettings;
 const passportSettingsStorePath = config.stores.passportSettings;
 const appSettingsStorePath = config.stores.appSettings;
 const tasteMemoryStorePath = config.stores.tasteMemory;
+const customerLibraryStorePath = config.stores.customerLibrary;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
 const cardPaymentsStorePath = config.stores.cardPayments;
@@ -160,6 +167,7 @@ ensureStoreFile(homeSettingsStorePath, { homeSettings: defaultHomeSettings() });
 ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSettings() });
 ensureStoreFile(appSettingsStorePath, { appSettings: defaultAppSettings() });
 ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
+ensureStoreFile(customerLibraryStorePath, { customerLibrary: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
 ensureStoreFile(cardPaymentsStorePath, { payments: {} });
@@ -2071,38 +2079,6 @@ async function readBody(request, maxBytes = 1_048_576) {
     return JSON.parse(body);
 }
 
-function readRawBody(request, maxBytes = 1_048_576) {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        let bodyBytes = 0;
-        let rejected = false;
-
-        request.on("data", (chunk) => {
-            const buffer = Buffer.from(chunk);
-            bodyBytes += buffer.length;
-            if (bodyBytes > maxBytes) {
-                if (!rejected) {
-                    rejected = true;
-                    reject(requestBodyTooLargeError());
-                }
-                return;
-            }
-
-            chunks.push(buffer);
-        });
-
-        request.on("end", () => {
-            if (rejected) {
-                return;
-            }
-
-            resolve(Buffer.concat(chunks));
-        });
-
-        request.on("error", reject);
-    });
-}
-
 function verifyShopifyWebhook(rawBody, hmacHeader) {
     if (!shopifyWebhookSecret || !hmacHeader) {
         return false;
@@ -2506,6 +2482,13 @@ async function updateAccountRecord(currentEmail, { nextEmail, firstName, lastNam
             writeJSON(alertInboxStorePath, inboxStore);
         }
 
+        const customerLibraryStore = readJSON(customerLibraryStorePath);
+        if (customerLibraryStore.customerLibrary?.[normalizedCurrentEmail]) {
+            customerLibraryStore.customerLibrary[normalizedNextEmail] = customerLibraryStore.customerLibrary[normalizedCurrentEmail];
+            delete customerLibraryStore.customerLibrary[normalizedCurrentEmail];
+            writeJSON(customerLibraryStorePath, customerLibraryStore);
+        }
+
         const vouchersStore = readJSON(vouchersStorePath);
         Object.values(vouchersStore.vouchers || {}).forEach((voucher) => {
             if (voucher.email === normalizedCurrentEmail) {
@@ -2668,6 +2651,12 @@ async function deleteAccountRecord(email) {
         const inboxStore = readJSON(alertInboxStorePath);
         delete inboxStore.alerts[normalizedEmail];
         writeJSON(alertInboxStorePath, inboxStore);
+
+        const customerLibraryStore = readJSON(customerLibraryStorePath);
+        if (customerLibraryStore.customerLibrary) {
+            delete customerLibraryStore.customerLibrary[normalizedEmail];
+            writeJSON(customerLibraryStorePath, customerLibraryStore);
+        }
 
         const vouchersStore = readJSON(vouchersStorePath);
         Object.keys(vouchersStore.vouchers || {}).forEach((code) => {
@@ -3733,6 +3722,185 @@ async function saveTasteMemoryRecord(email, input) {
     store.tasteMemory[normalizedEmail] = nextRecords;
     writeJSON(tasteMemoryStorePath, store);
     return nextRecord;
+}
+
+async function customerLibraryPayload(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) return emptyCustomerLibrary();
+
+    if (database.isEnabled()) {
+        const [favoriteResult, recentResult, journalResult] = await Promise.all([
+            database.query(
+                `SELECT product_id FROM customer_product_library
+                 WHERE email = $1 AND is_favorite = TRUE
+                 ORDER BY favorite_updated_at DESC NULLS LAST, product_id`,
+                [normalizedEmail]
+            ),
+            database.query(
+                `SELECT product_id FROM customer_product_library
+                 WHERE email = $1 AND last_viewed_at IS NOT NULL
+                 ORDER BY last_viewed_at DESC
+                 LIMIT 20`,
+                [normalizedEmail]
+            ),
+            database.query(
+                `SELECT id, title, method, coffee_grams, ratio, water_grams, brew_time_seconds, rating, notes, created_at
+                 FROM brew_journal_entries
+                 WHERE email = $1
+                 ORDER BY created_at DESC
+                 LIMIT 20`,
+                [normalizedEmail]
+            )
+        ]);
+        return {
+            favorites: favoriteResult.rows.map((row) => row.product_id),
+            recentlyViewed: recentResult.rows.map((row) => row.product_id),
+            brewJournal: journalResult.rows.map((row) => ({
+                id: row.id,
+                title: row.title,
+                method: row.method,
+                coffeeGrams: row.coffee_grams,
+                ratio: row.ratio,
+                waterGrams: row.water_grams,
+                brewTimeSeconds: row.brew_time_seconds,
+                rating: row.rating,
+                notes: row.notes,
+                createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+            }))
+        };
+    }
+
+    const store = readJSON(customerLibraryStorePath);
+    return mergeCustomerLibraryRecords(emptyCustomerLibrary(), store.customerLibrary?.[normalizedEmail] || {});
+}
+
+async function saveDatabaseBrewJournalEntry(email, entry) {
+    await database.query(
+        `INSERT INTO brew_journal_entries
+         (email, id, title, method, coffee_grams, ratio, water_grams, brew_time_seconds, rating, notes, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+         ON CONFLICT (email, id)
+         DO UPDATE SET title = EXCLUDED.title,
+                       method = EXCLUDED.method,
+                       coffee_grams = EXCLUDED.coffee_grams,
+                       ratio = EXCLUDED.ratio,
+                       water_grams = EXCLUDED.water_grams,
+                       brew_time_seconds = EXCLUDED.brew_time_seconds,
+                       rating = EXCLUDED.rating,
+                       notes = EXCLUDED.notes,
+                       updated_at = NOW()`,
+        [email, entry.id, entry.title, entry.method, entry.coffeeGrams, entry.ratio, entry.waterGrams,
+            entry.brewTimeSeconds === null ? null : Math.round(entry.brewTimeSeconds), entry.rating, entry.notes, entry.createdAt]
+    );
+}
+
+async function mutateCustomerLibrary(email, body) {
+    const normalizedEmail = normalizeEmail(email);
+    const action = String(body?.action || "").trim();
+    if (!normalizedEmail || !["merge", "setFavorite", "recordRecent", "clearRecent", "saveJournal", "deleteJournal"].includes(action)) {
+        return null;
+    }
+
+    if (!database.isEnabled()) {
+        const store = readJSON(customerLibraryStorePath);
+        const current = mergeCustomerLibraryRecords(emptyCustomerLibrary(), store.customerLibrary?.[normalizedEmail] || {});
+        let next = current;
+        if (action === "merge") {
+            next = mergeCustomerLibraryRecords(current, body);
+        } else if (action === "setFavorite") {
+            const productID = normalizeCustomerProductIDs([body.productID], 1)[0];
+            if (!productID || typeof body.favorite !== "boolean") return null;
+            next = {
+                ...current,
+                favorites: body.favorite
+                    ? normalizeCustomerProductIDs([productID, ...current.favorites])
+                    : current.favorites.filter((id) => id !== productID)
+            };
+        } else if (action === "recordRecent") {
+            const productID = normalizeCustomerProductIDs([body.productID], 1)[0];
+            if (!productID) return null;
+            next = { ...current, recentlyViewed: [productID, ...current.recentlyViewed.filter((id) => id !== productID)].slice(0, 20) };
+        } else if (action === "clearRecent") {
+            next = { ...current, recentlyViewed: [] };
+        } else if (action === "saveJournal") {
+            const entry = normalizeBrewJournalEntry(body.journal);
+            if (!entry) return null;
+            next = {
+                ...current,
+                brewJournal: [entry, ...current.brewJournal.filter((item) => item.id !== entry.id)]
+                    .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
+                    .slice(0, 20)
+            };
+        } else {
+            const journalID = String(body.journalID || "").trim();
+            if (!journalID) return null;
+            next = { ...current, brewJournal: current.brewJournal.filter((entry) => entry.id !== journalID) };
+        }
+        store.customerLibrary = store.customerLibrary || {};
+        store.customerLibrary[normalizedEmail] = next;
+        writeJSON(customerLibraryStorePath, store);
+        return next;
+    }
+
+    if (action === "merge") {
+        for (const productID of normalizeCustomerProductIDs(body.favorites)) {
+            await database.query(
+                `INSERT INTO customer_product_library (email, product_id, is_favorite, favorite_updated_at)
+                 VALUES ($1, $2, TRUE, NOW())
+                 ON CONFLICT (email, product_id)
+                 DO UPDATE SET is_favorite = TRUE, favorite_updated_at = NOW()`,
+                [normalizedEmail, productID]
+            );
+        }
+        const recentIDs = normalizeCustomerProductIDs(body.recentlyViewed, 20);
+        for (const [index, productID] of recentIDs.entries()) {
+            await database.query(
+                `INSERT INTO customer_product_library (email, product_id, last_viewed_at)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (email, product_id)
+                 DO UPDATE SET last_viewed_at = GREATEST(customer_product_library.last_viewed_at, EXCLUDED.last_viewed_at)`,
+                [normalizedEmail, productID, new Date(Date.now() - index * 1000).toISOString()]
+            );
+        }
+        for (const entry of (Array.isArray(body.brewJournal) ? body.brewJournal : []).map(normalizeBrewJournalEntry).filter(Boolean).slice(0, 20)) {
+            await saveDatabaseBrewJournalEntry(normalizedEmail, entry);
+        }
+    } else if (action === "setFavorite") {
+        const productID = normalizeCustomerProductIDs([body.productID], 1)[0];
+        if (!productID || typeof body.favorite !== "boolean") return null;
+        await database.query(
+            `INSERT INTO customer_product_library (email, product_id, is_favorite, favorite_updated_at)
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT (email, product_id)
+             DO UPDATE SET is_favorite = EXCLUDED.is_favorite, favorite_updated_at = NOW()`,
+            [normalizedEmail, productID, body.favorite]
+        );
+    } else if (action === "recordRecent") {
+        const productID = normalizeCustomerProductIDs([body.productID], 1)[0];
+        if (!productID) return null;
+        await database.query(
+            `INSERT INTO customer_product_library (email, product_id, last_viewed_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (email, product_id)
+             DO UPDATE SET last_viewed_at = NOW()`,
+            [normalizedEmail, productID]
+        );
+    } else if (action === "clearRecent") {
+        await database.query(
+            `UPDATE customer_product_library SET last_viewed_at = NULL WHERE email = $1`,
+            [normalizedEmail]
+        );
+    } else if (action === "saveJournal") {
+        const entry = normalizeBrewJournalEntry(body.journal);
+        if (!entry) return null;
+        await saveDatabaseBrewJournalEntry(normalizedEmail, entry);
+    } else {
+        const journalID = String(body.journalID || "").trim();
+        if (!journalID) return null;
+        await database.query(`DELETE FROM brew_journal_entries WHERE email = $1 AND id = $2`, [normalizedEmail, journalID]);
+    }
+
+    return customerLibraryPayload(normalizedEmail);
 }
 
 async function findOrderByID(orderID) {
@@ -11592,6 +11760,38 @@ const server = http.createServer(async (request, response) => {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/customer-library") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+
+        sendJSON(response, 200, await customerLibraryPayload(customer.email));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/customer-library") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+
+            const library = await mutateCustomerLibrary(customer.email, body);
+            if (!library) {
+                sendJSON(response, 400, { error: "Invalid customer library payload." });
+                return;
+            }
+            sendJSON(response, 200, library);
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid customer library payload." });
+        }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/orders/checkout-started") {
         try {
             const body = await readBody(request);
@@ -12417,6 +12617,8 @@ module.exports = {
     normalizeBenefitPayMPQRText,
     parseBenefitCallbackRequest,
     mpgsResultIndicatorMatches,
+    mergeCustomerLibraryRecords,
+    normalizeBrewJournalEntry,
     renderClickToPayLaunch,
     renderBenefitResultPage,
     renderMpgsResultPage,

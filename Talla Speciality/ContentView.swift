@@ -723,7 +723,7 @@ struct ContentView: View {
         let steps: [SmartBrewStep]?
     }
 
-    private struct BrewJournalEntry: Codable, Identifiable {
+    struct BrewJournalEntry: Codable, Identifiable {
         let id: UUID
         let title: String
         let method: String
@@ -734,6 +734,12 @@ struct ContentView: View {
         let rating: Int
         let notes: String
         let createdAt: String
+    }
+
+    struct CustomerLibraryPayload: Codable {
+        let favorites: [String]
+        let recentlyViewed: [String]
+        let brewJournal: [BrewJournalEntry]
     }
 
     private struct ReorderPrompt {
@@ -910,6 +916,8 @@ struct ContentView: View {
     @AppStorage("alerts.productIDs") private var savedAlertProductIDs = ""
     @AppStorage("brewRecipes.saved") private var savedBrewRecipes = ""
     @AppStorage("brewJournal.saved") private var savedBrewJournal = ""
+    @AppStorage("customerLibrary.migratedEmails") private var customerLibraryMigratedEmails = ""
+    @AppStorage("customerLibrary.cacheOwnerEmail") private var customerLibraryCacheOwnerEmail = ""
     @AppStorage("tasteMemory.saved") private var savedTasteMemory = ""
     @AppStorage("carts.saved") private var savedCartsPayload = ""
     @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
@@ -2462,6 +2470,7 @@ struct ContentView: View {
                 await syncRemotePushTokenIfPossible()
                 if customerProfile != nil {
                     await refreshSignedInProfile()
+                    await synchronizeCustomerLibrary()
                     await loadOrderHistory()
                     await loadBackendStockAlerts()
                     await loadAddresses()
@@ -4374,6 +4383,9 @@ struct ContentView: View {
             Menu {
                 Button(role: .destructive) {
                     savedRecentlyViewedProductIDs = ""
+                    if customerProfile != nil {
+                        Task { _ = try? await AccountService.clearRecentlyViewed() }
+                    }
                 } label: {
                     Label(AppLocalization.text("clear_history", fallback: "Clear history"), systemImage: "trash")
                 }
@@ -11365,6 +11377,7 @@ struct ContentView: View {
         Task {
             await refreshWalletPassPresence()
             await syncRemotePushTokenIfPossible()
+            await synchronizeCustomerLibrary()
             if loadLoyalty {
                 await loadLoyaltyAccount()
             }
@@ -12283,6 +12296,38 @@ struct ContentView: View {
         savedBrewJournal = json
     }
 
+    @MainActor
+    private func synchronizeCustomerLibrary() async {
+        guard let email = customerProfile?.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !email.isEmpty else { return }
+
+        let migratedEmails = Set(customerLibraryMigratedEmails.split(separator: ",").map(String.init))
+        do {
+            let library: CustomerLibraryPayload
+            if migratedEmails.contains(email) || (!customerLibraryCacheOwnerEmail.isEmpty && customerLibraryCacheOwnerEmail != email) {
+                library = try await AccountService.fetchCustomerLibrary()
+            } else {
+                library = try await AccountService.mergeCustomerLibrary(
+                    favorites: Array(favoriteProductIDs),
+                    recentlyViewed: recentlyViewedProductIDs,
+                    brewJournal: brewJournalEntries
+                )
+                customerLibraryMigratedEmails = (migratedEmails.union([email])).sorted().joined(separator: ",")
+            }
+            applyCustomerLibrary(library)
+        } catch {
+            // Keep the local cache available while offline and retry on the next activation.
+        }
+    }
+
+    @MainActor
+    private func applyCustomerLibrary(_ library: CustomerLibraryPayload) {
+        savedFavoriteProductIDs = Array(Set(library.favorites)).sorted().joined(separator: ",")
+        savedRecentlyViewedProductIDs = Array(library.recentlyViewed.prefix(20)).joined(separator: ",")
+        persistCoffeeJournalEntries(Array(library.brewJournal.prefix(20)))
+        customerLibraryCacheOwnerEmail = customerProfile?.email.lowercased() ?? customerLibraryCacheOwnerEmail
+    }
+
     private func saveCoffeeJournalEntry() {
         let title = journalTitleInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let method = journalMethodInput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -12307,6 +12352,9 @@ struct ContentView: View {
         )
 
         persistCoffeeJournalEntries(Array(([entry] + brewJournalEntries).prefix(20)))
+        if customerProfile != nil {
+            Task { _ = try? await AccountService.saveBrewJournal(entry) }
+        }
         journalTitleInput = ""
         journalNotesInput = ""
         clearJournalBrewDetails()
@@ -12378,6 +12426,9 @@ struct ContentView: View {
 
     private func deleteCoffeeJournalEntry(_ entry: BrewJournalEntry) {
         persistCoffeeJournalEntries(brewJournalEntries.filter { $0.id != entry.id })
+        if customerProfile != nil {
+            Task { _ = try? await AccountService.deleteBrewJournal(id: entry.id) }
+        }
         showToast(message: AppLocalization.text("journal_deleted_toast", fallback: "Coffee note deleted"))
     }
 
@@ -12518,17 +12569,23 @@ struct ContentView: View {
     private func toggleFavorite(product: Product) {
         var updatedFavorites = favoriteProductIDs
         recordRecentlyViewed(product)
+        let isFavorite: Bool
 
         if updatedFavorites.contains(product.id) {
             updatedFavorites.remove(product.id)
+            isFavorite = false
             showToast(message: AppLocalization.text("removed_from_favorites", fallback: "Removed from favorites"))
         } else {
             updatedFavorites.insert(product.id)
+            isFavorite = true
             showToast(message: AppLocalization.text("saved_to_favorites", fallback: "Saved to favorites"))
         }
 
         delightFeedbackTrigger += 1
         savedFavoriteProductIDs = updatedFavorites.sorted().joined(separator: ",")
+        if customerProfile != nil {
+            Task { _ = try? await AccountService.setFavorite(productID: product.id, favorite: isFavorite) }
+        }
     }
 
     @MainActor
@@ -12576,6 +12633,9 @@ struct ContentView: View {
         updated.insert(product.id, at: 0)
         updated = Array(updated.prefix(12))
         savedRecentlyViewedProductIDs = updated.joined(separator: ",")
+        if customerProfile != nil {
+            Task { _ = try? await AccountService.recordRecentlyViewed(productID: product.id) }
+        }
     }
 
     private func productAlertLabel(for product: Product) -> String {
@@ -13799,6 +13859,17 @@ private enum AccountService {
         let orders: [ContentView.AccountOrder]
     }
 
+    private struct CustomerLibraryMutation: Encodable {
+        let action: String
+        var favorites: [String]? = nil
+        var recentlyViewed: [String]? = nil
+        var brewJournal: [ContentView.BrewJournalEntry]? = nil
+        var productID: String? = nil
+        var favorite: Bool? = nil
+        var journal: ContentView.BrewJournalEntry? = nil
+        var journalID: String? = nil
+    }
+
     private static var accessToken: String {
         TallaAccountCredentialStore.accessToken
     }
@@ -13900,6 +13971,63 @@ private enum AccountService {
         try authorize(&request)
 
         return try await performProfileRequest(request)
+    }
+
+    static func fetchCustomerLibrary() async throws -> ContentView.CustomerLibraryPayload {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The customer library service is unavailable.")
+        }
+        var request = URLRequest(url: baseURL.appending(path: "/customer-library"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
+        return try await performCustomerLibraryRequest(request)
+    }
+
+    static func mergeCustomerLibrary(
+        favorites: [String],
+        recentlyViewed: [String],
+        brewJournal: [ContentView.BrewJournalEntry]
+    ) async throws -> ContentView.CustomerLibraryPayload {
+        try await mutateCustomerLibrary(CustomerLibraryMutation(
+            action: "merge",
+            favorites: favorites,
+            recentlyViewed: recentlyViewed,
+            brewJournal: brewJournal
+        ))
+    }
+
+    static func setFavorite(productID: String, favorite: Bool) async throws -> ContentView.CustomerLibraryPayload {
+        try await mutateCustomerLibrary(CustomerLibraryMutation(action: "setFavorite", productID: productID, favorite: favorite))
+    }
+
+    static func recordRecentlyViewed(productID: String) async throws -> ContentView.CustomerLibraryPayload {
+        try await mutateCustomerLibrary(CustomerLibraryMutation(action: "recordRecent", productID: productID))
+    }
+
+    static func clearRecentlyViewed() async throws -> ContentView.CustomerLibraryPayload {
+        try await mutateCustomerLibrary(CustomerLibraryMutation(action: "clearRecent"))
+    }
+
+    static func saveBrewJournal(_ entry: ContentView.BrewJournalEntry) async throws -> ContentView.CustomerLibraryPayload {
+        try await mutateCustomerLibrary(CustomerLibraryMutation(action: "saveJournal", journal: entry))
+    }
+
+    static func deleteBrewJournal(id: UUID) async throws -> ContentView.CustomerLibraryPayload {
+        try await mutateCustomerLibrary(CustomerLibraryMutation(action: "deleteJournal", journalID: id.uuidString))
+    }
+
+    private static func mutateCustomerLibrary(_ mutation: CustomerLibraryMutation) async throws -> ContentView.CustomerLibraryPayload {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The customer library service is unavailable.")
+        }
+        var request = URLRequest(url: baseURL.appending(path: "/customer-library"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONEncoder().encode(mutation)
+        return try await performCustomerLibraryRequest(request)
     }
 
     static func updateProfile(email: String, firstName: String, lastName: String) async throws -> ContentView.ShopifyCustomerProfile {
@@ -14553,6 +14681,20 @@ private enum AccountService {
         }
 
         throw ContentView.LoyaltyServiceError.operationFailed("The account service could not complete your request.")
+    }
+
+    private static func performCustomerLibraryRequest(_ request: URLRequest) async throws -> ContentView.CustomerLibraryPayload {
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The customer library returned an invalid response.")
+        }
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            return try JSONDecoder().decode(ContentView.CustomerLibraryPayload.self, from: data)
+        }
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+        throw ContentView.LoyaltyServiceError.operationFailed("The customer library could not complete your request.")
     }
 
     private static func performOrdersRequest(_ request: URLRequest) async throws -> [ContentView.AccountOrder] {

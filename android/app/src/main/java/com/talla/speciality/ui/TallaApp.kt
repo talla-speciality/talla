@@ -207,6 +207,7 @@ fun TallaApp(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.checkHostedBenefitStatus()
         viewModel.checkClickToPayStatus()
+        viewModel.refreshCustomerLibrary()
     }
 
     val openProduct: (Product) -> Unit = { product ->
