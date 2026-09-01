@@ -6175,11 +6175,7 @@ struct BrewingSectionView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(scaleBrandLogoAssets, id: \.self) { assetName in
-                    Image(assetName)
-                        .resizable()
-                        .renderingMode(.template)
-                        .scaledToFit()
-                        .foregroundColor(brewAccentColor)
+                    scaleBrandBadge(assetName: assetName)
                         .frame(maxWidth: 74, maxHeight: 18)
                         .frame(maxWidth: .infinity, minHeight: 34)
                         .padding(.horizontal, 8)
@@ -6395,11 +6391,7 @@ struct BrewingSectionView: View {
             scaleManager.connect(to: scale.id)
         } label: {
             HStack(spacing: 13) {
-                Image(scaleBrandLogoAsset(for: scale))
-                    .resizable()
-                    .renderingMode(.template)
-                    .scaledToFit()
-                    .foregroundColor(brewAccentColor)
+                scaleBrandBadge(assetName: scaleBrandLogoAsset(for: scale))
                     .frame(width: 52, height: 22)
                     .frame(width: 68, height: 52)
                     .background(brewAccentColor.opacity(0.10))
@@ -6450,8 +6442,25 @@ struct BrewingSectionView: View {
             "ScaleLogoBookoo",
             "ScaleLogoGoatStory",
             "ScaleLogoHiroia",
-            "ScaleLogoMantabrew"
+            "ScaleLogoMantabrew",
+            "ScaleLogoTimemore"
         ]
+    }
+
+    @ViewBuilder
+    private func scaleBrandBadge(assetName: String) -> some View {
+        if assetName == "ScaleLogoTimemore" {
+            Text("TIMEMORE")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .tracking(0.5)
+                .foregroundColor(brewAccentColor)
+        } else {
+            Image(assetName)
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .foregroundColor(brewAccentColor)
+        }
     }
 
     private func scaleBrandLogoAsset(for scale: DiscoveredCoffeeScale) -> String {
@@ -6459,6 +6468,7 @@ struct BrewingSectionView: View {
         if scale.id.hasPrefix("gina:") { return "ScaleLogoGoatStory" }
         if scale.id.hasPrefix("hiroia:") { return "ScaleLogoHiroia" }
         if scale.id.hasPrefix("mantabrew:") { return "ScaleLogoMantabrew" }
+        if scale.id.hasPrefix("timemore:") { return "ScaleLogoTimemore" }
         return "ScaleLogoAcaia"
     }
 
@@ -6468,6 +6478,7 @@ struct BrewingSectionView: View {
         case "ScaleLogoGoatStory": return "GOAT STORY"
         case "ScaleLogoHiroia": return "HIROIA"
         case "ScaleLogoMantabrew": return "MANTABREW"
+        case "ScaleLogoTimemore": return "TIMEMORE"
         default: return "Acaia"
         }
     }

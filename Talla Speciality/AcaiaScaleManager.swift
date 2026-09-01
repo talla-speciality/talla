@@ -25,6 +25,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case gina
         case hiroia
         case mantabrew
+        case timemore
     }
 
     @Published private(set) var connectionState: ConnectionState = .disconnected
@@ -39,6 +40,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     private var ginaDevicesByID: [String: GinaScaleDriver.Device] = [:]
     private var hiroiaDevicesByID: [String: HiroiaScaleDriver.Device] = [:]
     private var mantabrewDevicesByID: [String: MantabrewScaleDriver.Device] = [:]
+    private var timemoreDevicesByID: [String: TimemoreScaleDriver.Device] = [:]
     private var activeBackend: Backend?
     private var lastWeightSample: (weight: Double, date: Date)?
 
@@ -181,6 +183,33 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         return driver
     }()
 
+    private lazy var timemoreDriver: TimemoreScaleDriver = {
+        let driver = TimemoreScaleDriver()
+        driver.onDevicesChanged = { [weak self] devices in
+            self?.timemoreDevicesByID = Dictionary(uniqueKeysWithValues: devices.map { ($0.id, $0) })
+            self?.refreshDiscoveredScales()
+        }
+        driver.onConnecting = { [weak self] name in
+            self?.connectionState = .connecting(name)
+        }
+        driver.onConnected = { [weak self] name in
+            self?.activeBackend = .timemore
+            self?.lastWeightSample = nil
+            self?.connectionState = .connected(name)
+        }
+        driver.onDisconnected = { [weak self] in
+            self?.resetConnection()
+        }
+        driver.onError = { [weak self] message in
+            self?.activeBackend = nil
+            self?.connectionState = .failed(message)
+        }
+        driver.onWeightChanged = { [weak self] weight in
+            self?.updateComputedWeight(weight)
+        }
+        return driver
+    }()
+
     var isConnected: Bool {
         if case .connected = connectionState { return true }
         return false
@@ -210,6 +239,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         ginaDevicesByID = [:]
         hiroiaDevicesByID = [:]
         mantabrewDevicesByID = [:]
+        timemoreDevicesByID = [:]
         discoveredScales = []
         AcaiaManager.shared().startScan(0.5)
         acaiaUmbraDriver.scan()
@@ -217,6 +247,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         ginaDriver.scan()
         hiroiaDriver.scan()
         mantabrewDriver.scan()
+        timemoreDriver.scan()
     }
 
     func stopScanning() {
@@ -226,6 +257,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         ginaDriver.stopScanning()
         hiroiaDriver.stopScanning()
         mantabrewDriver.stopScanning()
+        timemoreDriver.stopScanning()
         if !isConnected, case .scanning = connectionState {
             connectionState = .disconnected
         }
@@ -240,6 +272,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             ginaDriver.stopScanning()
             hiroiaDriver.stopScanning()
             mantabrewDriver.stopScanning()
+            timemoreDriver.stopScanning()
             scale.connect()
         } else if id.hasPrefix("acaia-umbra:") {
             activeBackend = .acaiaUmbra
@@ -248,6 +281,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             ginaDriver.stopScanning()
             hiroiaDriver.stopScanning()
             mantabrewDriver.stopScanning()
+            timemoreDriver.stopScanning()
             acaiaUmbraDriver.connect(to: String(id.dropFirst("acaia-umbra:".count)))
         } else if id.hasPrefix("bookoo:") {
             activeBackend = .bookoo
@@ -256,6 +290,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             ginaDriver.stopScanning()
             hiroiaDriver.stopScanning()
             mantabrewDriver.stopScanning()
+            timemoreDriver.stopScanning()
             bookooDriver.connect(to: String(id.dropFirst("bookoo:".count)))
         } else if id.hasPrefix("gina:") {
             activeBackend = .gina
@@ -264,6 +299,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             bookooDriver.stopScanning()
             hiroiaDriver.stopScanning()
             mantabrewDriver.stopScanning()
+            timemoreDriver.stopScanning()
             ginaDriver.connect(to: String(id.dropFirst("gina:".count)))
         } else if id.hasPrefix("hiroia:") {
             activeBackend = .hiroia
@@ -272,6 +308,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             bookooDriver.stopScanning()
             ginaDriver.stopScanning()
             mantabrewDriver.stopScanning()
+            timemoreDriver.stopScanning()
             hiroiaDriver.connect(to: String(id.dropFirst("hiroia:".count)))
         } else if id.hasPrefix("mantabrew:") {
             activeBackend = .mantabrew
@@ -280,7 +317,17 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             bookooDriver.stopScanning()
             ginaDriver.stopScanning()
             hiroiaDriver.stopScanning()
+            timemoreDriver.stopScanning()
             mantabrewDriver.connect(to: String(id.dropFirst("mantabrew:".count)))
+        } else if id.hasPrefix("timemore:") {
+            activeBackend = .timemore
+            AcaiaManager.shared().stopScan()
+            acaiaUmbraDriver.stopScanning()
+            bookooDriver.stopScanning()
+            ginaDriver.stopScanning()
+            hiroiaDriver.stopScanning()
+            mantabrewDriver.stopScanning()
+            timemoreDriver.connect(to: String(id.dropFirst("timemore:".count)))
         }
     }
 
@@ -292,6 +339,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case .gina: ginaDriver.disconnect()
         case .hiroia: hiroiaDriver.disconnect()
         case .mantabrew: mantabrewDriver.disconnect()
+        case .timemore: timemoreDriver.disconnect()
         case nil: break
         }
     }
@@ -304,6 +352,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case .gina: ginaDriver.tare()
         case .hiroia: hiroiaDriver.tare()
         case .mantabrew: mantabrewDriver.tare()
+        case .timemore: timemoreDriver.tare()
         case nil: break
         }
         weightGrams = 0
@@ -319,6 +368,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case .gina: break
         case .hiroia: break
         case .mantabrew: mantabrewDriver.startTimer()
+        case .timemore: timemoreDriver.startTimer()
         case nil: break
         }
     }
@@ -331,6 +381,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case .gina: break
         case .hiroia: break
         case .mantabrew: mantabrewDriver.pauseTimer()
+        case .timemore: timemoreDriver.pauseTimer()
         case nil: break
         }
     }
@@ -343,6 +394,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case .gina: break
         case .hiroia: break
         case .mantabrew: mantabrewDriver.stopTimer()
+        case .timemore: timemoreDriver.stopTimer()
         case nil: break
         }
         scaleTimerSeconds = 0
@@ -387,7 +439,10 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         let mantabrew = mantabrewDevicesByID.values.map { device in
             DiscoveredCoffeeScale(id: "mantabrew:\(device.id)", name: device.name, modelName: device.modelName)
         }
-        discoveredScales = (acaia + acaiaUmbra + bookoo + gina + hiroia + mantabrew).sorted {
+        let timemore = timemoreDevicesByID.values.map { device in
+            DiscoveredCoffeeScale(id: "timemore:\(device.id)", name: device.name, modelName: device.modelName)
+        }
+        discoveredScales = (acaia + acaiaUmbra + bookoo + gina + hiroia + mantabrew + timemore).sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
     }
@@ -405,7 +460,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         guard !isConnected else { return }
         refreshAcaiaScales()
         connectionState = discoveredScales.isEmpty
-            ? .failed("No supported scale found. Make sure your Acaia, BOOKOO, GINA, HIROIA, or MANTABREW scale is on and nearby.")
+            ? .failed("No supported scale found. Make sure your Acaia, BOOKOO, GINA, HIROIA, MANTABREW, or TIMEMORE scale is on and nearby.")
             : .disconnected
     }
 
