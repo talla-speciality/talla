@@ -206,4 +206,6 @@
     <string name="passport_reward_hint">Complete your passport to unlock a reward.</string>
     <string name="favorites">Favorites</string>
     <string name="recently_viewed">Recently Viewed</string>
+    <string name="roastery_selection">Roastery Selection</string>
+    <string name="browse_shop">Browse Shop</string>
 </resources>

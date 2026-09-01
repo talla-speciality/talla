@@ -210,4 +210,6 @@
     <string name="passport_reward_hint">أكمل جوازك لتحصل على مكافأة.</string>
     <string name="favorites">المفضلة</string>
     <string name="recently_viewed">شوهد مؤخراً</string>
+    <string name="roastery_selection">مختارات المحمصة</string>
+    <string name="browse_shop">تصفح المتجر</string>
 </resources>

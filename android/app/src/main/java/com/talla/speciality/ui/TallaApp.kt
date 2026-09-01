@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -110,6 +112,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
@@ -221,7 +224,12 @@ fun TallaApp(
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .96f)) {
+            NavigationBar(
+                modifier = Modifier.navigationBarsPadding().height(64.dp),
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .96f),
+                tonalElevation = 0.dp,
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+            ) {
                 TallaTab.entries.forEach { destination ->
                     NavigationBarItem(
                         selected = tab == destination,
@@ -243,7 +251,14 @@ fun TallaApp(
                 openBrewing = { tab = TallaTab.Brewing },
                 modifier = Modifier.padding(padding),
             )
-            TallaTab.Shop -> ShopScreen(state, viewModel::refresh, viewModel::addToCart, openProduct, Modifier.padding(padding))
+            TallaTab.Shop -> ShopScreen(
+                state = state,
+                retry = viewModel::refresh,
+                add = viewModel::addToCart,
+                open = openProduct,
+                toggleFavorite = viewModel::toggleFavorite,
+                modifier = Modifier.padding(padding),
+            )
             TallaTab.Brewing -> BrewingScreen(
                 journalEntries = state.brewJournal,
                 scanResult = state.coffeeBagScan,
@@ -344,7 +359,8 @@ private fun TallaTopBar(cartCount: Int, profileName: String?, showCart: Boolean,
     var settingsOpen by remember { mutableStateOf(false) }
     val languageTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
     Row(
-        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha = .96f)).padding(horizontal = 18.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha = .96f))
+            .statusBarsPadding().padding(horizontal = 18.dp).padding(top = 14.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
@@ -431,11 +447,11 @@ private fun HomeScreen(
         }
         if (app.homeSections.showSignatureRoasts) {
             item {
-                HomeSectionHeader(stringResource(R.string.the_roastery), stringResource(R.string.signature_roasts), stringResource(R.string.shop_all), openShop)
+                HomeSectionHeader(stringResource(R.string.roastery_selection), stringResource(R.string.signature_roasts), stringResource(R.string.browse_shop), openShop)
                 ProductStatus(state, retry) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(signatureRoasts.ifEmpty { state.products.take(4) }, key = { it.id }) { product ->
-                            ProductCard(product, add, open, product.id in state.favoriteProductIds, Modifier.width(190.dp))
+                            SignatureRoastCard(product, add, open)
                         }
                     }
                 }
@@ -573,6 +589,44 @@ private fun QuickDrinkCard(product: Product, add: (Product) -> Unit, open: (Prod
 }
 
 @Composable
+private fun SignatureRoastCard(
+    product: Product,
+    add: (Product) -> Unit,
+    open: (Product) -> Unit,
+) {
+    Column(
+        Modifier.width(176.dp).height(258.dp).clip(RoundedCornerShape(18.dp)).background(TallaCard)
+            .border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp))
+            .clickable { open(product) }.padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        RemoteImage(product.imageUrl, product.name, Modifier.fillMaxWidth().height(122.dp).clip(RoundedCornerShape(14.dp)))
+        Text(product.category.uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = TallaGoldText, maxLines = 1)
+        Text(
+            product.name,
+            modifier = Modifier.fillMaxWidth().height(38.dp),
+            style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+            color = Ink,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(product.priceLabel, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = TallaGoldText, maxLines = 1)
+            Button(
+                onClick = { if (product.variants.size > 1) open(product) else add(product) },
+                enabled = product.defaultVariant?.available == true,
+                modifier = Modifier.width(82.dp).height(30.dp),
+                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
+                shape = CircleShape,
+            ) {
+                Text(stringResource(if (product.variants.size > 1) R.string.options else R.string.add).uppercase(), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
 private fun MoreFromTallaSection(
     state: TallaUiState,
     add: (Product) -> Unit,
@@ -704,7 +758,14 @@ private fun SectionHeading(title: String, action: String? = null) {
 }
 
 @Composable
-private fun ShopScreen(state: TallaUiState, retry: () -> Unit, add: (Product) -> Unit, open: (Product) -> Unit, modifier: Modifier = Modifier) {
+private fun ShopScreen(
+    state: TallaUiState,
+    retry: () -> Unit,
+    add: (Product) -> Unit,
+    open: (Product) -> Unit,
+    toggleFavorite: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf<String?>(null) }
     val categories = state.products.map { it.category }.distinct().sorted()
@@ -715,7 +776,7 @@ private fun ShopScreen(state: TallaUiState, retry: () -> Unit, add: (Product) ->
     Column(modifier.fillMaxSize().padding(horizontal = 18.dp)) {
         Column(Modifier.padding(top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.shop_eyebrow).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
-            Text(stringResource(R.string.shop_heading), style = MaterialTheme.typography.displaySmall, color = Ink)
+            Text(stringResource(R.string.shop_heading), style = MaterialTheme.typography.displaySmall.copy(fontSize = 28.sp, lineHeight = 32.sp), color = Ink)
         }
         OutlinedTextField(
             value = query,
@@ -752,7 +813,7 @@ private fun ShopScreen(state: TallaUiState, retry: () -> Unit, add: (Product) ->
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 items(visibleProducts, key = { it.id }) { product ->
-                    ProductCard(product, add, open, product.id in state.favoriteProductIds)
+                    ProductCard(product, add, open, product.id in state.favoriteProductIds) { toggleFavorite(product.id) }
                 }
             }
         }
@@ -787,33 +848,46 @@ private fun ProductStatus(state: TallaUiState, retry: () -> Unit, content: @Comp
 }
 
 @Composable
-private fun ProductCard(product: Product, add: (Product) -> Unit, open: (Product) -> Unit, favorite: Boolean, modifier: Modifier = Modifier) {
+private fun ProductCard(
+    product: Product,
+    add: (Product) -> Unit,
+    open: (Product) -> Unit,
+    favorite: Boolean,
+    modifier: Modifier = Modifier,
+    onFavorite: (() -> Unit)? = null,
+) {
     Column(
-        modifier.clip(RoundedCornerShape(22.dp)).background(TallaCard)
+        modifier.height(340.dp).clip(RoundedCornerShape(22.dp)).background(TallaCard)
             .border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(22.dp))
             .clickable { open(product) }.padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        RemoteImage(product.imageUrl, product.name, Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp)))
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(product.category.uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText, maxLines = 1)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(product.name, modifier = Modifier.weight(1f).height(44.dp), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium, color = Ink)
-                if (favorite) Icon(Icons.Default.Favorite, null, tint = Sand, modifier = Modifier.size(18.dp))
-            }
-            if (product.description.isNotBlank()) Text(product.description, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f), modifier = Modifier.height(38.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(product.priceLabel, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = if (product.defaultVariant?.available == true) TallaGoldText else Ink.copy(alpha = .5f))
-                Button(
-                    onClick = { if (product.variants.size > 1) open(product) else add(product) },
-                    enabled = product.defaultVariant?.available == true,
-                    colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
-                    contentPadding = PaddingValues(horizontal = 11.dp),
-                    modifier = Modifier.height(34.dp),
-                    shape = CircleShape,
-                ) { Text(stringResource(if (product.variants.size > 1) R.string.options else R.string.add).uppercase(), style = MaterialTheme.typography.labelMedium) }
+        Box(Modifier.fillMaxWidth().height(138.dp)) {
+            RemoteImage(product.imageUrl, product.name, Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)))
+            if (onFavorite != null) {
+                IconButton(
+                    onClick = onFavorite,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(34.dp).clip(CircleShape).background(TallaCard.copy(alpha = .94f)),
+                ) {
+                    Icon(if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, stringResource(R.string.favorites), tint = if (favorite) Sand else Ink, modifier = Modifier.size(17.dp))
+                }
             }
         }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(product.category.uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText, maxLines = 1)
+            Text(product.name, modifier = Modifier.fillMaxWidth().height(40.dp), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp), color = Ink)
+            Text(product.description.ifBlank { " " }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Ink.copy(alpha = .72f), modifier = Modifier.fillMaxWidth().height(16.dp))
+        }
+        Spacer(Modifier.weight(1f))
+        Text(product.priceLabel, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = if (product.defaultVariant?.available == true) TallaGoldText else Ink.copy(alpha = .5f), maxLines = 1)
+        Button(
+            onClick = { if (product.variants.size > 1) open(product) else add(product) },
+            enabled = product.defaultVariant?.available == true,
+            colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
+            contentPadding = PaddingValues(horizontal = 10.dp),
+            modifier = Modifier.fillMaxWidth().height(38.dp),
+            shape = CircleShape,
+        ) { Text(stringResource(if (product.variants.size > 1) R.string.options else R.string.add).uppercase(), style = MaterialTheme.typography.labelMedium) }
     }
 }
 
