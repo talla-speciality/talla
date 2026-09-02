@@ -1,7 +1,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { remotePushPayload, stockAlertStatusFor } = require("../server");
+const { normalizeAPNSEnvironment, remotePushPayload, stockAlertStatusFor } = require("../server");
+
+test("APNs environment defaults safely and recognizes development devices", () => {
+    assert.equal(normalizeAPNSEnvironment("sandbox"), "sandbox");
+    assert.equal(normalizeAPNSEnvironment("SANDBOX"), "sandbox");
+    assert.equal(normalizeAPNSEnvironment("production"), "production");
+    assert.equal(normalizeAPNSEnvironment("unexpected"), "production");
+});
 
 test("availability alerts describe the real product state without watch terminology", () => {
     assert.equal(

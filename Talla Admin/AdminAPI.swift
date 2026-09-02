@@ -77,9 +77,15 @@ struct AdminAPI {
     }
 
     func registerPushToken(_ token: String) async throws -> Bool {
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
         let data = try await request("/admin/api/notifications/native/register", method: "POST", body: [
             "deviceToken": token,
-            "platform": "ios"
+            "platform": "ios",
+            "environment": environment
         ])
         return try JSONDecoder().decode(AdminPushRegistrationResponse.self, from: data).configured ?? false
     }

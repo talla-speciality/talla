@@ -25,12 +25,15 @@ final class AdminSession: ObservableObject {
             if session.authenticated {
                 await api.synchronizeWebCookies()
                 await refreshOrders()
-                await registerStoredPushToken()
             }
         } catch {
             isAuthenticated = false
         }
         await refreshNotificationState()
+        if isAuthenticated, notificationsEnabled {
+            UIApplication.shared.registerForRemoteNotifications()
+            await registerStoredPushToken()
+        }
     }
 
     func login(username: String, password: String) async -> Bool {
@@ -41,7 +44,13 @@ final class AdminSession: ObservableObject {
             self.username = response.username ?? username
             isAuthenticated = true
             await refreshOrders()
-            await registerStoredPushToken()
+            await refreshNotificationState()
+            if notificationsEnabled {
+                UIApplication.shared.registerForRemoteNotifications()
+                await registerStoredPushToken()
+            } else {
+                await enableNotifications()
+            }
             return true
         } catch {
             errorMessage = error.localizedDescription

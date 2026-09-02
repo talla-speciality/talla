@@ -840,6 +840,10 @@ function remotePushConfigured(topic = apnsBundleID) {
     return Boolean(apnsKeyID && apnsTeamID && topic && (apnsPrivateKeyPath || apnsPrivateKeyBase64));
 }
 
+function normalizeAPNSEnvironment(value) {
+    return String(value || "").trim().toLowerCase() === "sandbox" ? "sandbox" : "production";
+}
+
 function base64URLEncode(buffer) {
     return Buffer.from(buffer)
         .toString("base64")
@@ -866,8 +870,8 @@ function readAPNSPrivateKey() {
     return "";
 }
 
-function apnsBearerToken() {
-    if (!remotePushConfigured()) {
+function apnsBearerToken(topic = apnsBundleID) {
+    if (!remotePushConfigured(topic)) {
         throw new Error("APNS_NOT_CONFIGURED");
     }
 
@@ -7112,7 +7116,7 @@ async function unregisterPushDevice(email, deviceToken) {
 async function adminNativePushDevices() {
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT device_token, admin_username, platform, created_at, updated_at, last_sent_at
+            `SELECT device_token, admin_username, platform, environment, created_at, updated_at, last_sent_at
              FROM admin_push_devices
              ORDER BY updated_at DESC`
         );
@@ -7120,36 +7124,48 @@ async function adminNativePushDevices() {
             deviceToken: normalizeDeviceToken(row.device_token),
             adminUsername: row.admin_username,
             platform: row.platform,
+            environment: normalizeAPNSEnvironment(row.environment),
             createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
             updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
             lastSentAt: row.last_sent_at instanceof Date ? row.last_sent_at.toISOString() : (row.last_sent_at || null)
         })).filter((device) => device.deviceToken);
     }
     return (readJSON(adminPushDevicesStorePath).devices || [])
-        .map((device) => ({ ...device, deviceToken: normalizeDeviceToken(device.deviceToken) }))
+        .map((device) => ({
+            ...device,
+            deviceToken: normalizeDeviceToken(device.deviceToken),
+            environment: normalizeAPNSEnvironment(device.environment)
+        }))
         .filter((device) => device.deviceToken);
 }
 
-async function registerAdminNativePushDevice(adminUsername, deviceToken, platform = "ios") {
+async function registerAdminNativePushDevice(adminUsername, deviceToken, platform = "ios", environment = "production") {
     const normalizedToken = normalizeDeviceToken(deviceToken);
     const username = String(adminUsername || "").trim();
     if (!normalizedToken || !username) return null;
     const timestamp = new Date().toISOString();
     const normalizedPlatform = String(platform || "ios").trim().toLowerCase() || "ios";
+    const normalizedEnvironment = normalizeAPNSEnvironment(environment);
 
     if (database.isEnabled()) {
         const result = await database.query(
             `INSERT INTO admin_push_devices
-             (device_token, admin_username, platform, created_at, updated_at, last_sent_at)
-             VALUES ($1, $2, $3, $4, $4, NULL)
+             (device_token, admin_username, platform, environment, created_at, updated_at, last_sent_at)
+             VALUES ($1, $2, $3, $4, $5, $5, NULL)
              ON CONFLICT (device_token) DO UPDATE SET
                 admin_username = EXCLUDED.admin_username,
                 platform = EXCLUDED.platform,
+                environment = EXCLUDED.environment,
                 updated_at = EXCLUDED.updated_at
              RETURNING device_token`,
-            [normalizedToken, username, normalizedPlatform, timestamp]
+            [normalizedToken, username, normalizedPlatform, normalizedEnvironment, timestamp]
         );
-        return { deviceToken: normalizeDeviceToken(result.rows[0]?.device_token), adminUsername: username, platform: normalizedPlatform };
+        return {
+            deviceToken: normalizeDeviceToken(result.rows[0]?.device_token),
+            adminUsername: username,
+            platform: normalizedPlatform,
+            environment: normalizedEnvironment
+        };
     }
 
     const store = readJSON(adminPushDevicesStorePath);
@@ -7159,6 +7175,7 @@ async function registerAdminNativePushDevice(adminUsername, deviceToken, platfor
         deviceToken: normalizedToken,
         adminUsername: username,
         platform: normalizedPlatform,
+        environment: normalizedEnvironment,
         createdAt: index >= 0 ? devices[index].createdAt : timestamp,
         updatedAt: timestamp,
         lastSentAt: index >= 0 ? devices[index].lastSentAt || null : null
@@ -7293,13 +7310,14 @@ async function sendAPNsPushToDevice(deviceToken, notification, options = {}) {
         return false;
     }
 
-    const authority = apnsUseSandbox
+    const useSandbox = options.sandbox ?? apnsUseSandbox;
+    const authority = useSandbox
         ? "https://api.sandbox.push.apple.com"
         : "https://api.push.apple.com";
     let authorizationToken = "";
 
     try {
-        authorizationToken = apnsBearerToken();
+        authorizationToken = apnsBearerToken(topic);
     } catch (error) {
         return false;
     }
@@ -7371,13 +7389,17 @@ async function sendAdminNativeNewOrderPush(order) {
     const itemCount = (order.items || []).reduce((total, item) => total + Math.max(0, Number(item.quantity || 0)), 0);
     let sentCount = 0;
     for (const device of devices) {
-        const didSend = await sendRemotePushToDevice(device.deviceToken, {
+        const didSend = await sendRemotePushToDevice(device, {
             title: "New Talla order",
             body: `${order.title || order.id} • ${order.total || "Total unavailable"}${itemCount ? ` • ${itemCount} item${itemCount === 1 ? "" : "s"}` : ""}`,
             type: "admin_new_order",
             orderID: order.id,
             url: "talla-admin://orders"
-        }, { topic: apnsAdminBundleID, adminDevice: true });
+        }, {
+            topic: apnsAdminBundleID,
+            adminDevice: true,
+            sandbox: device.environment === "sandbox"
+        });
         if (didSend) sentCount += 1;
     }
     return { configured: true, targetCount: devices.length, sentCount };
@@ -9281,7 +9303,12 @@ const server = http.createServer(async (request, response) => {
         if (request.method === "POST" && url.pathname === "/admin/api/notifications/native/register") {
             try {
                 const body = await readBody(request, 16_384);
-                const device = await registerAdminNativePushDevice(admin.username, body.deviceToken, body.platform);
+                const device = await registerAdminNativePushDevice(
+                    admin.username,
+                    body.deviceToken,
+                    body.platform,
+                    body.environment
+                );
                 if (!device) {
                     sendJSON(response, 400, { error: "Invalid native push device token." });
                     return;
@@ -12972,6 +12999,7 @@ module.exports = {
     defaultAppSettings,
     normalizeAppSettings,
     normalizeCountryCode,
+    normalizeAPNSEnvironment,
     normalizeWebPushSubscription,
     normalizeEventSettings,
     normalizeTallaPaymentID,
