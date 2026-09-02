@@ -17,6 +17,12 @@ struct AdminOrder: Codable, Identifiable, Hashable {
         let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return normalized == "cancelled" || normalized == "canceled"
     }
+    var isCompleted: Bool {
+        ["completed", "fulfilled", "delivered"].contains(
+            status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        )
+    }
+    var isActive: Bool { !isCancelled && !isCompleted }
 }
 
 struct AdminOrderItem: Codable, Hashable {

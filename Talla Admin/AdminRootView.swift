@@ -1,17 +1,25 @@
 import SwiftUI
 
 struct AdminRootView: View {
-    enum Tab: Hashable { case orders, console, settings }
+    enum Tab: Hashable { case active, completed, cancelled, console, settings }
 
     @EnvironmentObject private var session: AdminSession
-    @State private var selection: Tab = .orders
+    @State private var selection: Tab = .active
 
     var body: some View {
         TabView(selection: $selection) {
-            OrderQueueView()
-                .tabItem { Label("Orders", systemImage: "shippingbox.fill") }
-                .badge(session.orders.filter { !["Completed", "Fulfilled", "Delivered", "Cancelled"].contains($0.status) }.count)
-                .tag(Tab.orders)
+            OrderQueueView(queue: .active)
+                .tabItem { Label("Active", systemImage: "shippingbox.fill") }
+                .badge(session.orders.filter(\.isActive).count)
+                .tag(Tab.active)
+
+            OrderQueueView(queue: .completed)
+                .tabItem { Label("Completed", systemImage: "checkmark.circle.fill") }
+                .tag(Tab.completed)
+
+            OrderQueueView(queue: .cancelled)
+                .tabItem { Label("Cancelled", systemImage: "archivebox.fill") }
+                .tag(Tab.cancelled)
 
             AdminConsoleView(url: session.api.baseURL.appending(path: "admin/"))
                 .tabItem { Label("Full Admin", systemImage: "rectangle.3.group.fill") }
@@ -29,11 +37,11 @@ struct AdminRootView: View {
             Task { await session.refreshOrders() }
         }
         .onReceive(NotificationCenter.default.publisher(for: AdminPush.openOrders)) { _ in
-            selection = .orders
+            selection = .active
             Task { await session.refreshOrders() }
         }
         .onOpenURL { url in
-            if url.host == "orders" { selection = .orders }
+            if url.host == "orders" { selection = .active }
         }
     }
 }
