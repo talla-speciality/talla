@@ -13,6 +13,10 @@ struct AdminOrder: Codable, Identifiable, Hashable {
 
     var createdDate: Date? { ISO8601DateFormatter().date(from: createdAt) }
     var itemCount: Int { items.reduce(0) { $0 + max(0, $1.quantity) } }
+    var isCancelled: Bool {
+        let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized == "cancelled" || normalized == "canceled"
+    }
 }
 
 struct AdminOrderItem: Codable, Hashable {

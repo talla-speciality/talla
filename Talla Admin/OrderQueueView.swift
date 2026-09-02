@@ -5,9 +5,13 @@ struct OrderQueueView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var searchText = ""
 
+    private var currentOrders: [AdminOrder] {
+        session.orders.filter { !$0.isCancelled }
+    }
+
     private var filteredOrders: [AdminOrder] {
-        guard !searchText.isEmpty else { return session.orders }
-        return session.orders.filter {
+        guard !searchText.isEmpty else { return currentOrders }
+        return currentOrders.filter {
             $0.title.localizedCaseInsensitiveContains(searchText)
                 || $0.email.localizedCaseInsensitiveContains(searchText)
                 || $0.id.localizedCaseInsensitiveContains(searchText)
@@ -17,18 +21,18 @@ struct OrderQueueView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if session.isLoadingOrders && session.orders.isEmpty {
+                if session.isLoadingOrders && currentOrders.isEmpty {
                     ProgressView("Loading orders…")
                 } else if filteredOrders.isEmpty {
                     ContentUnavailableView(
-                        searchText.isEmpty ? "No orders yet" : "No matching orders",
+                        searchText.isEmpty ? "No current orders" : "No matching orders",
                         systemImage: "shippingbox",
-                        description: Text(searchText.isEmpty ? "New backend orders will appear here automatically." : "Try another order number or customer email.")
+                        description: Text(searchText.isEmpty ? "New orders will appear here. Cancelled orders are kept in the archive." : "Try another order number or customer email.")
                     )
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 14) {
-                            OrderSummaryHeader(orders: session.orders)
+                            OrderSummaryHeader(orders: currentOrders)
                             ForEach(filteredOrders) { order in
                                 OrderCard(order: order)
                             }
@@ -42,6 +46,14 @@ struct OrderQueueView: View {
             .navigationTitle("Orders")
             .searchable(text: $searchText, prompt: "Order or customer")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink {
+                        CancelledOrdersView()
+                    } label: {
+                        Label("Cancelled", systemImage: "archivebox.fill")
+                    }
+                    .accessibilityLabel("Cancelled orders")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { Task { await session.refreshOrders() } } label: {
                         Image(systemName: "arrow.clockwise")
@@ -71,6 +83,83 @@ struct OrderQueueView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await session.refreshOrders() } }
+        }
+    }
+}
+
+private struct CancelledOrdersView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var searchText = ""
+
+    private var cancelledOrders: [AdminOrder] {
+        let orders = session.orders.filter(\.isCancelled)
+        guard !searchText.isEmpty else { return orders }
+        return orders.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+                || $0.email.localizedCaseInsensitiveContains(searchText)
+                || $0.id.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+        Group {
+            if session.isLoadingOrders && session.orders.isEmpty {
+                ProgressView("Loading cancelled orders…")
+            } else if cancelledOrders.isEmpty {
+                ContentUnavailableView(
+                    searchText.isEmpty ? "No cancelled orders" : "No matching orders",
+                    systemImage: "archivebox",
+                    description: Text(searchText.isEmpty ? "Orders marked Cancelled will be stored here." : "Try another order number or customer email.")
+                )
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 14) {
+                        ForEach(cancelledOrders) { order in
+                            OrderCard(order: order)
+                        }
+                    }
+                    .padding(16)
+                }
+                .background(TallaAdminStyle.cream.opacity(0.55))
+                .refreshable { await session.refreshOrders() }
+            }
+        }
+        .navigationTitle("Cancelled Orders")
+        .searchable(text: $searchText, prompt: "Order or customer")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { Task { await session.refreshOrders() } } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .disabled(session.isLoadingOrders)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            OrderActionFeedback()
+        }
+    }
+}
+
+private struct OrderActionFeedback: View {
+    @EnvironmentObject private var session: AdminSession
+
+    var body: some View {
+        if let error = session.errorMessage {
+            Text(error)
+                .font(.footnote)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.red, in: Capsule())
+                .padding(.bottom, 6)
+        } else if let message = session.message {
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(TallaAdminStyle.success, in: Capsule())
+                .padding(.bottom, 6)
         }
     }
 }
@@ -164,22 +253,24 @@ private struct OrderCard: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(isSaving || selectedStatus == order.status)
 
-                Button {
-                    isNotifying = true
-                    Task {
-                        await session.notifyReady(order)
-                        isNotifying = false
+                if !order.isCancelled {
+                    Button {
+                        isNotifying = true
+                        Task {
+                            await session.notifyReady(order)
+                            isNotifying = false
+                        }
+                    } label: {
+                        if isNotifying {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "bell.fill")
+                        }
                     }
-                } label: {
-                    if isNotifying {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "bell.fill")
-                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isNotifying)
+                    .accessibilityLabel("Notify customer that order is ready")
                 }
-                .buttonStyle(.bordered)
-                .disabled(isNotifying)
-                .accessibilityLabel("Notify customer that order is ready")
             }
         }
         .padding(16)
