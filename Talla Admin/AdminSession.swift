@@ -92,9 +92,19 @@ final class AdminSession: ObservableObject {
     }
 
     func notifyReady(_ order: AdminOrder) async {
+        message = nil
+        errorMessage = nil
         do {
-            try await api.notifyReady(orderID: order.id)
-            message = "Pickup-ready notification sent for \(order.title)."
+            let result = try await api.notifyReady(orderID: order.id)
+            if !result.configured {
+                errorMessage = "Customer push notifications are not configured on the backend."
+            } else if result.targetCount == 0 {
+                errorMessage = "This customer has no notification-enabled device."
+            } else if result.sentCount == 0 {
+                errorMessage = "Apple did not accept the notification. Please try again."
+            } else {
+                message = "Pickup-ready alert sent to \(result.sentCount) device\(result.sentCount == 1 ? "" : "s") for \(order.title)."
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

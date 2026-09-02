@@ -72,8 +72,9 @@ struct AdminAPI {
         return try await orders()
     }
 
-    func notifyReady(orderID: String) async throws {
-        _ = try await request("/admin/api/orders/notify-ready", method: "POST", body: ["orderID": orderID])
+    func notifyReady(orderID: String) async throws -> AdminPushDeliveryResult {
+        let data = try await request("/admin/api/orders/notify-ready", method: "POST", body: ["orderID": orderID])
+        return try JSONDecoder().decode(AdminNotifyReadyResponse.self, from: data).push
     }
 
     func registerPushToken(_ token: String) async throws -> Bool {

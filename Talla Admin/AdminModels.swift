@@ -35,6 +35,16 @@ struct AdminStatusUpdateResponse: Codable {
     let orders: [AdminOrder]?
 }
 
+struct AdminNotifyReadyResponse: Codable {
+    let push: AdminPushDeliveryResult
+}
+
+struct AdminPushDeliveryResult: Codable {
+    let configured: Bool
+    let targetCount: Int
+    let sentCount: Int
+}
+
 struct AdminPushRegistrationResponse: Codable {
     let status: String
     let configured: Bool?

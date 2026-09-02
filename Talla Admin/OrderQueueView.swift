@@ -50,13 +50,21 @@ struct OrderQueueView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if let message = session.errorMessage {
-                    Text(message)
+                if let error = session.errorMessage {
+                    Text(error)
                         .font(.footnote)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(.red, in: Capsule())
+                        .padding(.bottom, 6)
+                } else if let message = session.message {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(TallaAdminStyle.success, in: Capsule())
                         .padding(.bottom, 6)
                 }
             }
@@ -98,6 +106,7 @@ private struct OrderCard: View {
     let order: AdminOrder
     @State private var selectedStatus: String
     @State private var isSaving = false
+    @State private var isNotifying = false
 
     init(order: AdminOrder) {
         self.order = order
@@ -156,11 +165,20 @@ private struct OrderCard: View {
                 .disabled(isSaving || selectedStatus == order.status)
 
                 Button {
-                    Task { await session.notifyReady(order) }
+                    isNotifying = true
+                    Task {
+                        await session.notifyReady(order)
+                        isNotifying = false
+                    }
                 } label: {
-                    Image(systemName: "bell.fill")
+                    if isNotifying {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "bell.fill")
+                    }
                 }
                 .buttonStyle(.bordered)
+                .disabled(isNotifying)
                 .accessibilityLabel("Notify customer that order is ready")
             }
         }
