@@ -29,6 +29,7 @@ struct AdminAPI {
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AdminAPIError.invalidResponse }
+        if http.statusCode == 401 { throw AdminAPIError.unauthorized }
         guard (200..<300).contains(http.statusCode) else {
             let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             let message = payload?["error"] as? String ?? "Admin request failed (\(http.statusCode))."
@@ -43,10 +44,15 @@ struct AdminAPI {
     }
 
     func login(username: String, password: String) async throws -> AdminLoginResponse {
-        let data = try await request("/admin/api/login", method: "POST", body: [
-            "username": username,
-            "password": password
-        ])
+        let data: Data
+        do {
+            data = try await request("/admin/api/login", method: "POST", body: [
+                "username": username,
+                "password": password
+            ])
+        } catch AdminAPIError.unauthorized {
+            throw AdminAPIError.server("Incorrect admin username or password.")
+        }
         let response = try JSONDecoder().decode(AdminLoginResponse.self, from: data)
         await synchronizeWebCookies()
         return response

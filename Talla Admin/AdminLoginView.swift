@@ -5,11 +5,14 @@ struct AdminLoginView: View {
     @State private var username = ""
     @State private var password = ""
     @State private var isSigningIn = false
+    @FocusState private var focusedField: Field?
+
+    private enum Field { case username, password }
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [TallaAdminStyle.paper, TallaAdminStyle.cream],
+                colors: [TallaAdminStyle.paper, TallaAdminStyle.background],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -23,7 +26,7 @@ struct AdminLoginView: View {
                             .tracking(3)
                             .foregroundStyle(TallaAdminStyle.caramel)
                         Text("Your roastery,\nin your pocket.")
-                            .font(.system(size: 42, weight: .bold, design: .serif))
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
                             .foregroundStyle(TallaAdminStyle.espresso)
                         Text("Manage live orders and open every backend control from one secure admin app.")
                             .foregroundStyle(.secondary)
@@ -36,10 +39,13 @@ struct AdminLoginView: View {
                             .autocorrectionDisabled()
                             .textContentType(.username)
                             .submitLabel(.next)
+                            .focused($focusedField, equals: .username)
                             .adminField()
+                            .onSubmit { focusedField = .password }
                         SecureField("Admin password", text: $password)
                             .textContentType(.password)
                             .submitLabel(.go)
+                            .focused($focusedField, equals: .password)
                             .adminField()
                             .onSubmit { signIn() }
 
@@ -64,15 +70,17 @@ struct AdminLoginView: View {
                             .background(TallaAdminStyle.caramel, in: RoundedRectangle(cornerRadius: 18))
                         }
                         .disabled(isSigningIn || username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty)
+                        .opacity(isSigningIn || username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty ? 0.55 : 1)
                     }
                     .padding(20)
-                    .background(.white.opacity(0.82), in: RoundedRectangle(cornerRadius: 26))
-                    .overlay(RoundedRectangle(cornerRadius: 26).stroke(.brown.opacity(0.12)))
+                    .background(TallaAdminStyle.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 26))
+                    .overlay(RoundedRectangle(cornerRadius: 26).stroke(TallaAdminStyle.border.opacity(0.35)))
                 }
                 .padding(24)
                 .frame(maxWidth: 560)
                 .frame(maxWidth: .infinity)
             }
+            .scrollDismissesKeyboard(.interactively)
         }
     }
 
@@ -91,7 +99,7 @@ private extension View {
     func adminField() -> some View {
         padding(.horizontal, 16)
             .frame(height: 52)
-            .background(.white, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(.brown.opacity(0.16)))
+            .background(TallaAdminStyle.card, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(TallaAdminStyle.border.opacity(0.45)))
     }
 }

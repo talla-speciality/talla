@@ -1,25 +1,27 @@
 import SwiftUI
 
 struct AdminRootView: View {
-    enum Tab: Hashable { case active, completed, cancelled, console, settings }
+    enum Tab: Hashable { case orders, console, settings }
 
     @EnvironmentObject private var session: AdminSession
-    @State private var selection: Tab = .active
+    @State private var selection: Tab = .orders
+
+    init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-admin-preview-settings") {
+            _selection = State(initialValue: .settings)
+        } else if ProcessInfo.processInfo.arguments.contains("-admin-preview-console") {
+            _selection = State(initialValue: .console)
+        }
+        #endif
+    }
 
     var body: some View {
         TabView(selection: $selection) {
-            OrderQueueView(queue: .active)
-                .tabItem { Label("Active", systemImage: "shippingbox.fill") }
+            OrderQueueView()
+                .tabItem { Label("Orders", systemImage: "shippingbox.fill") }
                 .badge(session.orders.filter(\.isActive).count)
-                .tag(Tab.active)
-
-            OrderQueueView(queue: .completed)
-                .tabItem { Label("Completed", systemImage: "checkmark.circle.fill") }
-                .tag(Tab.completed)
-
-            OrderQueueView(queue: .cancelled)
-                .tabItem { Label("Cancelled", systemImage: "archivebox.fill") }
-                .tag(Tab.cancelled)
+                .tag(Tab.orders)
 
             AdminConsoleView(url: session.api.baseURL.appending(path: "admin/"))
                 .tabItem { Label("Full Admin", systemImage: "rectangle.3.group.fill") }
@@ -37,17 +39,24 @@ struct AdminRootView: View {
             Task { await session.refreshOrders() }
         }
         .onReceive(NotificationCenter.default.publisher(for: AdminPush.openOrders)) { _ in
-            selection = .active
+            selection = .orders
             Task { await session.refreshOrders() }
         }
         .onOpenURL { url in
-            if url.host == "orders" { selection = .active }
+            if url.host == "orders" { selection = .orders }
         }
     }
 }
 
 private struct AdminSettingsView: View {
     @EnvironmentObject private var session: AdminSession
+    @State private var isSigningOut = false
+
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "–"
+        return "\(version) (\(build))"
+    }
 
     var body: some View {
         NavigationStack {
@@ -55,6 +64,15 @@ private struct AdminSettingsView: View {
                 Section("Account") {
                     LabeledContent("Signed in as", value: session.username)
                     LabeledContent("Backend", value: session.api.baseURL.host ?? session.api.baseURL.absoluteString)
+                }
+
+                Section("Order overview") {
+                    LabeledContent("Active", value: "\(session.orders.filter(\.isActive).count)")
+                    LabeledContent("Completed", value: "\(session.orders.filter(\.isCompleted).count)")
+                    LabeledContent("Cancelled", value: "\(session.orders.filter(\.isCancelled).count)")
+                    if let refreshed = session.lastRefreshAt {
+                        LabeledContent("Last refreshed", value: refreshed.formatted(date: .omitted, time: .shortened))
+                    }
                 }
 
                 Section("Order notifications") {
@@ -66,12 +84,23 @@ private struct AdminSettingsView: View {
                             .fill(session.notificationsEnabled ? TallaAdminStyle.success : .secondary)
                             .frame(width: 9, height: 9)
                     }
-                    if !session.notificationsEnabled {
+                    if session.notificationAuthorizationStatus == .denied {
+                        Button("Open Notification Settings") {
+                            session.openNotificationSettings()
+                        }
+                    } else if !session.notificationsEnabled {
                         Button("Enable New-Order Alerts") {
                             Task { await session.enableNotifications() }
                         }
                     }
                     Text("Each admin iPhone registers separately. New orders use the Talla Admin bundle and do not affect customer notifications.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("About") {
+                    LabeledContent("Talla Admin", value: appVersion)
+                    Text("Native order management with the full backend available in the Admin tab.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -84,9 +113,24 @@ private struct AdminSettingsView: View {
                 }
 
                 Section {
-                    Button("Sign Out", role: .destructive) { Task { await session.logout() } }
+                    Button(role: .destructive) {
+                        isSigningOut = true
+                        Task {
+                            await session.logout()
+                            isSigningOut = false
+                        }
+                    } label: {
+                        HStack {
+                            Text("Sign Out")
+                            Spacer()
+                            if isSigningOut { ProgressView() }
+                        }
+                    }
+                    .disabled(isSigningOut)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(TallaAdminStyle.background)
             .navigationTitle("Admin Settings")
         }
     }

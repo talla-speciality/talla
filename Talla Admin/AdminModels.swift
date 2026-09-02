@@ -68,11 +68,13 @@ enum AdminOrderStatus {
 }
 
 enum AdminAPIError: LocalizedError {
+    case unauthorized
     case invalidResponse
     case server(String)
 
     var errorDescription: String? {
         switch self {
+        case .unauthorized: "Your admin session expired. Please sign in again."
         case .invalidResponse: "The admin server returned an invalid response."
         case .server(let message): message
         }

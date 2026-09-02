@@ -10,14 +10,26 @@ final class AdminSession: ObservableObject {
     @Published private(set) var username = ""
     @Published private(set) var orders: [AdminOrder] = []
     @Published private(set) var isLoadingOrders = false
+    @Published private(set) var lastRefreshAt: Date?
     @Published var message: String?
     @Published var errorMessage: String?
     @Published private(set) var notificationsEnabled = false
+    @Published private(set) var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
 
     let api = AdminAPI.configured
 
     func bootstrap() async {
         defer { isRestoring = false }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-admin-preview") {
+            isAuthenticated = true
+            username = "Preview Admin"
+            orders = Self.previewOrders
+            lastRefreshAt = .now
+            notificationsEnabled = true
+            return
+        }
+        #endif
         do {
             let session = try await api.restoreSession()
             isAuthenticated = session.authenticated
@@ -38,6 +50,7 @@ final class AdminSession: ObservableObject {
 
     func login(username: String, password: String) async -> Bool {
         errorMessage = nil
+        message = nil
         do {
             let response = try await api.login(username: username, password: password)
             guard response.authenticated else { throw AdminAPIError.server("Admin sign-in failed.") }
@@ -67,6 +80,8 @@ final class AdminSession: ObservableObject {
         username = ""
         orders = []
         message = nil
+        errorMessage = nil
+        lastRefreshAt = nil
     }
 
     func refreshOrders() async {
@@ -74,20 +89,28 @@ final class AdminSession: ObservableObject {
         isLoadingOrders = true
         defer { isLoadingOrders = false }
         do {
-            orders = try await api.orders()
+            orders = try await api.orders().sorted {
+                ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast)
+            }
+            lastRefreshAt = .now
             errorMessage = nil
+            try? await UNUserNotificationCenter.current().setBadgeCount(0)
         } catch {
-            errorMessage = error.localizedDescription
+            handle(error)
         }
     }
 
     func updateOrder(_ order: AdminOrder, status: String) async {
+        message = nil
+        errorMessage = nil
         do {
-            orders = try await api.updateOrder(id: order.id, status: status)
+            orders = try await api.updateOrder(id: order.id, status: status).sorted {
+                ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast)
+            }
+            lastRefreshAt = .now
             message = "\(order.title) updated to \(status)."
-            errorMessage = nil
         } catch {
-            errorMessage = error.localizedDescription
+            handle(error)
         }
     }
 
@@ -106,7 +129,7 @@ final class AdminSession: ObservableObject {
                 message = "Pickup-ready alert sent to \(result.sentCount) device\(result.sentCount == 1 ? "" : "s") for \(order.title)."
             }
         } catch {
-            errorMessage = error.localizedDescription
+            handle(error)
         }
     }
 
@@ -114,7 +137,7 @@ final class AdminSession: ObservableObject {
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
             guard granted else {
-                errorMessage = "Notification permission was not granted."
+                errorMessage = "Notifications are off. Open iOS Settings to enable new-order alerts."
                 await refreshNotificationState()
                 return
             }
@@ -125,6 +148,16 @@ final class AdminSession: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func openNotificationSettings() {
+        guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+
+    func clearFeedback() {
+        message = nil
+        errorMessage = nil
     }
 
     func registerPushToken(_ token: String) async {
@@ -146,6 +179,46 @@ final class AdminSession: ObservableObject {
 
     private func refreshNotificationState() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
-        notificationsEnabled = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+        notificationAuthorizationStatus = settings.authorizationStatus
+        notificationsEnabled = [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus)
     }
+
+    private func handle(_ error: Error) {
+        errorMessage = error.localizedDescription
+        if let apiError = error as? AdminAPIError, case .unauthorized = apiError {
+            isAuthenticated = false
+            username = ""
+            orders = []
+            lastRefreshAt = nil
+        }
+    }
+
+    #if DEBUG
+    private static let previewOrders: [AdminOrder] = [
+        AdminOrder(
+            id: "TALLA-1048", email: "customer@example.com", title: "Pickup order #1048",
+            total: "BHD 12.400", status: "Pending",
+            items: [AdminOrderItem(name: "Ethiopia Guji — Filter Roast", quantity: 2), AdminOrderItem(name: "Glass Cup", quantity: 1)],
+            createdAt: "2026-09-02T14:20:00Z", beansAwarded: false, pointsAwarded: 12
+        ),
+        AdminOrder(
+            id: "TALLA-1047", email: "long.customer.name@example.com", title: "Delivery order #1047",
+            total: "BHD 7.250", status: "Ready",
+            items: [AdminOrderItem(name: "Colombia Huila", quantity: 1)],
+            createdAt: "2026-09-02T13:05:00Z", beansAwarded: true, pointsAwarded: 7
+        ),
+        AdminOrder(
+            id: "TALLA-1046", email: "completed@example.com", title: "Pickup order #1046",
+            total: "BHD 4.800", status: "Completed",
+            items: [AdminOrderItem(name: "House Espresso", quantity: 1)],
+            createdAt: "2026-09-01T11:30:00Z", beansAwarded: true, pointsAwarded: 4
+        ),
+        AdminOrder(
+            id: "TALLA-1045", email: "cancelled@example.com", title: "Delivery order #1045",
+            total: "BHD 9.600", status: "Cancelled",
+            items: [AdminOrderItem(name: "Brazil Fazenda", quantity: 2)],
+            createdAt: "2026-08-31T09:00:00Z", beansAwarded: false, pointsAwarded: 0
+        )
+    ]
+    #endif
 }
