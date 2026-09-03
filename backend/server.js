@@ -21,6 +21,7 @@ const {
     normalizeBrewJournalEntry,
     normalizeCustomerProductIDs
 } = require("./customer-library");
+const { hasRevisionConflict, normalizeCoffeeChange } = require("./coffee-sync");
 
 const host = config.host;
 const port = config.port;
@@ -8644,6 +8645,70 @@ function buildCustomerExportCSV(customers) {
     return [headers.map(csvEscape).join(","), ...rows].join("\n");
 }
 
+function publicCoffeeRecord(row) {
+    return {
+        entityType: row.entity_type,
+        id: String(row.record_id).toLowerCase(),
+        payload: row.payload || {},
+        revision: Number(row.revision),
+        updatedAt: new Date(row.updated_at).toISOString(),
+        deletedAt: row.deleted_at ? new Date(row.deleted_at).toISOString() : null
+    };
+}
+
+async function synchronizeCoffeeRecords(email, deviceID, requestedCursor, submittedChanges) {
+    const cursor = /^\d+$/.test(String(requestedCursor || "")) ? Number(requestedCursor) : 0;
+    const changes = (Array.isArray(submittedChanges) ? submittedChanges : []).map(normalizeCoffeeChange);
+    if (changes.some((change) => !change) || changes.length > 2_000) {
+        const error = new Error("INVALID_COFFEE_SYNC_PAYLOAD"); error.statusCode = 400; throw error;
+    }
+    const client = await database.connect();
+    const conflicts = [];
+    const conflictRecords = new Map();
+    try {
+        await client.query("BEGIN");
+        for (const change of changes) {
+            const currentResult = await client.query(
+                `SELECT entity_type, record_id, payload, revision, updated_at, deleted_at
+                 FROM coffee_records WHERE email=$1 AND entity_type=$2 AND record_id=$3 FOR UPDATE`,
+                [email, change.entityType, change.id]
+            );
+            const current = currentResult.rows[0] || null;
+            if (hasRevisionConflict(current ? current.revision : null, change.baseRevision)) {
+                const key = `${change.entityType}:${change.id}`;
+                conflicts.push({ entityType: change.entityType, id: change.id, serverRevision: Number(current.revision) });
+                conflictRecords.set(key, publicCoffeeRecord(current));
+                continue;
+            }
+            await client.query(
+                `INSERT INTO coffee_records
+                    (email, entity_type, record_id, payload, revision, updated_at, deleted_at, updated_by_device, sync_cursor)
+                 VALUES ($1,$2,$3,$4::jsonb,1,NOW(),$5,$6,nextval('coffee_sync_cursor_seq'))
+                 ON CONFLICT (email, entity_type, record_id) DO UPDATE SET
+                    payload=EXCLUDED.payload, revision=coffee_records.revision+1, updated_at=NOW(),
+                    deleted_at=EXCLUDED.deleted_at, updated_by_device=EXCLUDED.updated_by_device,
+                    sync_cursor=nextval('coffee_sync_cursor_seq')`,
+                [email, change.entityType, change.id, JSON.stringify(change.payload), change.deletedAt, deviceID]
+            );
+        }
+        const delta = await client.query(
+            `SELECT entity_type, record_id, payload, revision, updated_at, deleted_at, sync_cursor
+             FROM coffee_records WHERE email=$1 AND sync_cursor>$2 ORDER BY sync_cursor ASC LIMIT 2000`,
+            [email, cursor]
+        );
+        await client.query("COMMIT");
+        const recordsByKey = new Map(delta.rows.map((row) => [`${row.entity_type}:${String(row.record_id).toLowerCase()}`, publicCoffeeRecord(row)]));
+        for (const [key, record] of conflictRecords) recordsByKey.set(key, record);
+        const nextCursor = delta.rows.length ? String(delta.rows[delta.rows.length - 1].sync_cursor) : String(cursor);
+        return { cursor: nextCursor, records: [...recordsByKey.values()], conflicts, hasMore: delta.rows.length === 2000 };
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 const server = http.createServer(async (request, response) => {
     const startedAt = Date.now();
     response.on("finish", () => {
@@ -12145,6 +12210,24 @@ const server = http.createServer(async (request, response) => {
             });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid taste memory payload." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/coffee-data/sync") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const deviceID = trimText(body.deviceID, 100);
+            if (!deviceID) { sendJSON(response, 400, { error: "deviceID is required." }); return; }
+            const result = await synchronizeCoffeeRecords(customer.email, deviceID, body.cursor, body.changes);
+            sendJSON(response, 200, result);
+        } catch (error) {
+            console.error("Coffee data sync failed:", error);
+            sendJSON(response, error.statusCode || 500, { error: error.statusCode ? "Invalid coffee sync payload." : "Coffee sync unavailable." });
         }
         return;
     }

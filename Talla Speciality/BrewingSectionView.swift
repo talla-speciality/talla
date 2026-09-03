@@ -137,6 +137,7 @@ private struct CoffeeBagCameraPicker: UIViewControllerRepresentable {
 #endif
 
 struct BrewingSectionView: View {
+    @EnvironmentObject private var coffeeData: CoffeeDataStore
     private struct BrewModeStep: Identifiable {
         let id: Int
         let time: Int
@@ -318,12 +319,12 @@ struct BrewingSectionView: View {
     @AppStorage(BrewSessionStorage.profileExperienceKey) private var storedBrewProfileExperience = "basics"
     @AppStorage(BrewSessionStorage.profileBrewerKey) private var storedBrewProfileBrewer = "v60"
     @AppStorage(BrewSessionStorage.profileTasteKey) private var storedBrewProfileTaste = "balanced"
-    @AppStorage(BrewSessionStorage.equipmentGrinderKey) private var storedEquipmentGrinder = ""
+    @State private var storedEquipmentGrinder = ""
     @AppStorage(BrewSessionStorage.equipmentFilterKey) private var storedEquipmentFilter = ""
     @AppStorage(BrewSessionStorage.lastMethodKey) private var storedLastBrewMethodID = ""
     @AppStorage(BrewSessionStorage.lastBrewTimestampKey) private var storedLastBrewTimestamp = 0.0
     @AppStorage(BrewSessionStorage.favoriteMethodsKey) private var storedFavoriteBrewMethodIDs = "v60,solo,kalita"
-    @AppStorage(BrewSessionStorage.coffeeCalibrationsKey) private var storedCoffeeCalibrations = ""
+    @State private var storedCoffeeCalibrations = ""
     @State private var isBrewModeRunning = false
     @State private var brewModeElapsedSeconds = 0
     @State private var brewModeRunID = UUID()
@@ -497,6 +498,8 @@ struct BrewingSectionView: View {
             consumePendingCoffeeIfNeeded()
         }
         .onAppear {
+            storedEquipmentGrinder = coffeeData.equipmentName(kind: .grinder)
+            storedCoffeeCalibrations = coffeeData.calibrationJSON()
             restoreBrewProfileSelections()
             restorePersistedBrewSessionIfNeeded()
             updateBrewIdleTimerState()
@@ -1873,6 +1876,7 @@ struct BrewingSectionView: View {
     private func persistSavedEquipmentSelections() {
         storedBrewProfileBrewer = createRecipeBrewer
         storedEquipmentGrinder = recipeGrinder.trimmingCharacters(in: .whitespacesAndNewlines)
+        try? coffeeData.saveEquipmentName(kind: .grinder, name: storedEquipmentGrinder)
         storedEquipmentFilter = recipeFilterType.trimmingCharacters(in: .whitespacesAndNewlines)
         recipeGrinder = storedEquipmentGrinder
         recipeFilterType = storedEquipmentFilter
@@ -3750,6 +3754,7 @@ struct BrewingSectionView: View {
         guard let data = try? JSONEncoder().encode(Array(records.prefix(50))),
               let payload = String(data: data, encoding: .utf8) else { return }
         storedCoffeeCalibrations = payload
+        try? coffeeData.saveCalibrationJSON(payload)
     }
 
     private func rememberTallaDialInCalibration(from changes: [RecipeRevisionChange]) {

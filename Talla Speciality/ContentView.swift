@@ -167,6 +167,7 @@ private enum TallaWidgetSharedState {
 }
 
 struct ContentView: View {
+    @EnvironmentObject private var coffeeData: CoffeeDataStore
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -914,8 +915,6 @@ struct ContentView: View {
     @AppStorage("recentlyViewed.productIDs") private var savedRecentlyViewedProductIDs = ""
     @AppStorage("recentSearches.queries") private var savedRecentSearchQueries = ""
     @AppStorage("alerts.productIDs") private var savedAlertProductIDs = ""
-    @AppStorage("brewRecipes.saved") private var savedBrewRecipes = ""
-    @AppStorage("brewJournal.saved") private var savedBrewJournal = ""
     @AppStorage("customerLibrary.migratedEmails") private var customerLibraryMigratedEmails = ""
     @AppStorage("customerLibrary.cacheOwnerEmail") private var customerLibraryCacheOwnerEmail = ""
     @AppStorage("tasteMemory.saved") private var savedTasteMemory = ""
@@ -1649,7 +1648,8 @@ struct ContentView: View {
     }
 
     private var brewRecipes: [BrewRecipe] {
-        guard let data = savedBrewRecipes.data(using: .utf8),
+        _ = coffeeData.changeToken
+        guard let data = try? JSONSerialization.data(withJSONObject: coffeeData.legacyObjects(entityType: "recipe")),
               let decoded = try? JSONDecoder().decode([BrewRecipe].self, from: data) else {
             return []
         }
@@ -1658,7 +1658,8 @@ struct ContentView: View {
     }
 
     private var brewJournalEntries: [BrewJournalEntry] {
-        guard let data = savedBrewJournal.data(using: .utf8),
+        _ = coffeeData.changeToken
+        guard let data = try? JSONSerialization.data(withJSONObject: coffeeData.legacyObjects(entityType: "brewSession")),
               let decoded = try? JSONDecoder().decode([BrewJournalEntry].self, from: data) else {
             return []
         }
@@ -7149,8 +7150,7 @@ struct ContentView: View {
             savedRecentlyViewedProductIDs = ""
             savedRecentSearchQueries = ""
             savedAlertProductIDs = ""
-            savedBrewRecipes = ""
-            savedBrewJournal = ""
+            try? coffeeData.removeAllLocalCoffeeData()
             savedTasteMemory = ""
             savedCartsPayload = ""
             selectedSettingsDetail = nil
@@ -12109,11 +12109,10 @@ struct ContentView: View {
 
     private func persistBrewRecipes(_ recipes: [BrewRecipe]) {
         guard let data = try? JSONEncoder().encode(recipes),
-              let json = String(data: data, encoding: .utf8) else {
+              let objects = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             return
         }
-
-        savedBrewRecipes = json
+        try? coffeeData.replaceLegacyRecords(entityType: "recipe", objects: objects)
     }
 
     private var brewTimerFraction: Double {
@@ -12289,11 +12288,10 @@ struct ContentView: View {
 
     private func persistCoffeeJournalEntries(_ entries: [BrewJournalEntry]) {
         guard let data = try? JSONEncoder().encode(entries),
-              let json = String(data: data, encoding: .utf8) else {
+              let objects = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             return
         }
-
-        savedBrewJournal = json
+        try? coffeeData.replaceLegacyRecords(entityType: "brewSession", objects: objects)
     }
 
     @MainActor
@@ -12315,6 +12313,11 @@ struct ContentView: View {
                 customerLibraryMigratedEmails = (migratedEmails.union([email])).sorted().joined(separator: ",")
             }
             applyCustomerLibrary(library)
+            let token = savedCustomerAccessToken.trimmingCharacters(in: .whitespacesAndNewlines)
+            let baseURL = (Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String).flatMap(URL.init(string:))
+            if !token.isEmpty, let baseURL {
+                try await coffeeData.synchronize(ownerID: email, bearerToken: token, baseURL: baseURL)
+            }
         } catch {
             // Keep the local cache available while offline and retry on the next activation.
         }

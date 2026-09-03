@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
@@ -247,6 +248,7 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
 @main
 struct Talla_SpecialityApp: App {
     @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
+    @StateObject private var coffeeData = CoffeeDataStore.shared
     #if canImport(UIKit) && canImport(UserNotifications)
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
@@ -269,6 +271,18 @@ struct Talla_SpecialityApp: App {
             ContentView()
                 .environment(\.layoutDirection, appLanguage.layoutDirection)
                 .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
+                .environmentObject(coffeeData)
+                .task {
+                    try? coffeeData.migrateLegacyJSON()
+                    let defaults = UserDefaults.standard
+                    let token = defaults.string(forKey: "local.customerAccessToken")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    let owner = defaults.string(forKey: "local.customerEmail")?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+                    let baseURL = (Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String).flatMap(URL.init(string:))
+                    if !token.isEmpty, !owner.isEmpty, let baseURL {
+                        try? await coffeeData.synchronize(ownerID: owner, bearerToken: token, baseURL: baseURL)
+                    }
+                }
         }
+        .modelContainer(coffeeData.container)
     }
 }
