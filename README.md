@@ -1,6 +1,6 @@
 # Talla Speciality
 
-Release validation and mobile observability are documented in [docs/RELEASE_PIPELINE.md](docs/RELEASE_PIPELINE.md). The nested Shopify starter is intentionally outside the supported product; see [docs/SHOPIFY_APP_DECISION.md](docs/SHOPIFY_APP_DECISION.md).
+Release validation and mobile observability are documented in [docs/RELEASE_PIPELINE.md](docs/RELEASE_PIPELINE.md). Feature ownership and entry-point boundaries are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The nested Shopify starter is intentionally outside the supported product; see [docs/SHOPIFY_APP_DECISION.md](docs/SHOPIFY_APP_DECISION.md).
 
 The Talla monorepo contains the native Apple clients, native Android client, and shared Node/Postgres backend.
 

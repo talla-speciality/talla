@@ -3,7 +3,14 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
+const repositoryRoot = path.resolve(root, "..");
 const ignored = new Set(["node_modules", "data"]);
+
+const entryPointBudgets = new Map([
+    ["Talla Speciality/ContentView.swift", 3_500],
+    ["Talla Speciality/BrewingSectionView.swift", 750],
+    ["backend/server.js", 9_500]
+]);
 
 function javascriptFiles(directory) {
     return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -21,4 +28,12 @@ for (const file of javascriptFiles(root)) {
     if (/[ \t]+$/m.test(text)) throw new Error(`${path.relative(root, file)} contains trailing whitespace.`);
 }
 
-console.log("Backend JavaScript lint passed.");
+for (const [relativePath, maximumLines] of entryPointBudgets) {
+    const file = path.join(repositoryRoot, relativePath);
+    const lineCount = fs.readFileSync(file, "utf8").split(/\r?\n/).length;
+    if (lineCount > maximumLines) {
+        throw new Error(`${relativePath} has ${lineCount} lines; its composition budget is ${maximumLines}. Move feature code into Modules.`);
+    }
+}
+
+console.log("Backend JavaScript lint and entry-point size checks passed.");

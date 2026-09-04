@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 process.env.APP_ATTEST_ENFORCE = "false";
-const appAttest = require("../app-attest");
+const appAttest = require("../modules/account/app-attest");
 
 test("App Attest issues 256-bit single-purpose challenges", () => {
     const challenge = appAttest.issueChallenge({

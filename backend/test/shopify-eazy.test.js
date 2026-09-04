@@ -14,7 +14,7 @@ process.env.EAZY_SECRET_KEY = "eazy-test-secret";
 process.env.EAZY_API_BASE_URL = "https://eazy.test";
 delete process.env.DATABASE_URL;
 
-const eazyPay = require("../eazypay");
+const eazyPay = require("../modules/commerce/eazypay");
 const {
     confirmShopifyEazyPayment,
     ensureShopifyEazyInvoice,

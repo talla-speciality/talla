@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { hasRevisionConflict, normalizeCoffeeChange } = require("../coffee-sync");
+const { hasRevisionConflict, normalizeCoffeeChange } = require("../modules/brewing/coffee-sync");
 
 test("normalizes a valid coffee sync record", () => {
     const value = normalizeCoffeeChange({ entityType: "recipe", id: "550e8400-e29b-41d4-a716-446655440000", payload: { title: "V60" }, baseRevision: 2 });

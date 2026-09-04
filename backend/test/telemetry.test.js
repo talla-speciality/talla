@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { normalizeTelemetryBatch, normalizeTelemetryEvent, safeProperties } = require("../telemetry");
+const { normalizeTelemetryBatch, normalizeTelemetryEvent, safeProperties } = require("../modules/observability/telemetry");
 
 test("normalizes mobile product and diagnostics events", () => {
     const event = normalizeTelemetryEvent({
