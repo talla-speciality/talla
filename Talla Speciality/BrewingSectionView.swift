@@ -8911,6 +8911,11 @@ struct BrewingSectionView: View {
             brewModeElapsedSeconds = brewModeTotalSeconds
         }
         didCompleteBrewFromScale = completedFromScale
+        TallaTelemetry.shared.track("brew_timer_completed", properties: [
+            "method": selectedBrewModeMethod?.name ?? "custom",
+            "duration_seconds": String(brewModeElapsedSeconds),
+            "scale_assisted": String(completedFromScale)
+        ])
         brewModeRunID = UUID()
         isBrewModeRunning = false
         brewModeBackgroundDate = nil

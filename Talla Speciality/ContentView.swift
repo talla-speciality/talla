@@ -12355,6 +12355,15 @@ struct ContentView: View {
         )
 
         persistCoffeeJournalEntries(Array(([entry] + brewJournalEntries).prefix(20)))
+        var brewTelemetry: [String: String] = [
+            "method": entry.method,
+            "rating": String(entry.rating)
+        ]
+        if let duration = entry.brewTimeSeconds {
+            brewTelemetry["duration_seconds"] = String(duration)
+        }
+        TallaTelemetry.shared.track("brew_completed", properties: brewTelemetry)
+        TallaTelemetry.shared.track("brew_rated", properties: ["rating": String(entry.rating)])
         if customerProfile != nil {
             Task { _ = try? await AccountService.saveBrewJournal(entry) }
         }

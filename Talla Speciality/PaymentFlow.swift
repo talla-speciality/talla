@@ -248,6 +248,7 @@ final class PaymentFlowModel: ObservableObject {
     func select(_ method: TallaPaymentMethod) {
         guard canChangeMethod else { return }
         selectedMethod = method
+        TallaTelemetry.shared.track("payment_method_selected", properties: ["method": method.rawValue])
         if state == .failed || state == .cancelled {
             transition(to: .idle)
         }
@@ -257,6 +258,13 @@ final class PaymentFlowModel: ObservableObject {
         guard nextState != state || error != errorMessage else { return }
         state = nextState
         errorMessage = error
+        if let selectedMethod {
+            TallaTelemetry.shared.track("payment_funnel_stage", properties: [
+                "method": selectedMethod.rawValue,
+                "stage": nextState.rawValue,
+                "has_error": String(error != nil)
+            ])
+        }
     }
 
     func begin() -> Bool {
@@ -1411,12 +1419,21 @@ struct MastercardPaymentSheet: View {
 
     private func succeed() {
         flow.transition(to: .succeeded)
+        TallaTelemetry.shared.track("purchase_completed", properties: [
+            "method": context.kind == .applePay ? "apple_pay" : "card",
+            "amount": context.session.amount,
+            "currency": context.session.currency
+        ])
         dismiss()
     }
 
     private func fail(_ error: Error) {
         validationMessage = error.localizedDescription
         flow.transition(to: .failed, error: error.localizedDescription)
+        TallaTelemetry.shared.track("payment_failed", properties: [
+            "method": context.kind == .applePay ? "apple_pay" : "card",
+            "error_type": String(describing: type(of: error))
+        ])
     }
 }
 

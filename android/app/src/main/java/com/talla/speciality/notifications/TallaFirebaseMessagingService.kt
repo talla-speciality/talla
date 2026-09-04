@@ -1,8 +1,11 @@
 package com.talla.speciality.notifications
 
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -57,6 +60,8 @@ class TallaFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
-        runCatching { NotificationManagerCompat.from(this).notify(pendingIntent.hashCode(), notification) }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            runCatching { NotificationManagerCompat.from(this).notify(pendingIntent.hashCode(), notification) }
+        }
     }
 }

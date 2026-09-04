@@ -134,7 +134,8 @@ module.exports = {
         shopifyEazyPayments: path.join(dataDirectory, "shopifyEazyPayments.json"),
         shopifyOrderExports: path.join(dataDirectory, "shopifyOrderExports.json"),
         walletPasses: path.join(dataDirectory, "walletPasses.json"),
-        appAttest: path.join(dataDirectory, "appAttest.json")
+        appAttest: path.join(dataDirectory, "appAttest.json"),
+        telemetry: path.join(dataDirectory, "telemetry.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,

@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.talla.speciality.ui.TallaApp
 import com.talla.speciality.ui.theme.TallaTheme
+import com.talla.speciality.telemetry.TallaTelemetry
 import mobi.foo.benefitinapp.utils.BenefitInAppHelper
 
 class MainActivity : AppCompatActivity() {
@@ -28,6 +29,17 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+        window.decorView.post { TallaTelemetry.appReady() }
+    }
+
+    override fun onStop() {
+        TallaTelemetry.enteredBackground()
+        super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        TallaTelemetry.enteredForeground()
     }
 
     override fun onNewIntent(intent: Intent) {

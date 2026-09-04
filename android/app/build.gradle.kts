@@ -12,6 +12,8 @@ fun quotedProperty(name: String, fallback: String = ""): String {
     return "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 }
 
+val tallaCiBuild = providers.gradleProperty("talla.ci").orElse("false").map(String::toBoolean).get()
+
 android {
     namespace = "com.talla.speciality"
     compileSdk = 37
@@ -43,6 +45,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    if (tallaCiBuild) {
+        sourceSets.getByName("main").java.srcDir("src/ciStubs/java")
+    }
+
 }
 
 dependencies {
@@ -69,12 +75,14 @@ dependencies {
     implementation("com.google.android.play:integrity:1.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
 
-    implementation("com.mastercard.gateway:Mobile_SDK_Android:2.0.17") {
-        // gateway-android-3ds still declares the retired support-v7 artifact even
-        // though its 6.7.60 bytecode does not reference android.support classes.
-        exclude(group = "com.android.support")
+    if (!tallaCiBuild) {
+        implementation("com.mastercard.gateway:Mobile_SDK_Android:2.0.17") {
+            // gateway-android-3ds still declares the retired support-v7 artifact even
+            // though its 6.7.60 bytecode does not reference android.support classes.
+            exclude(group = "com.android.support")
+        }
+        implementation(files("libs/benefitinappsdk-1.0.27.aar"))
     }
-    implementation(files("libs/benefitinappsdk-1.0.27.aar"))
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")

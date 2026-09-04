@@ -22,6 +22,7 @@ const {
     normalizeCustomerProductIDs
 } = require("./customer-library");
 const { hasRevisionConflict, normalizeCoffeeChange } = require("./coffee-sync");
+const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./telemetry");
 
 const host = config.host;
 const port = config.port;
@@ -50,6 +51,7 @@ const shopifyEazyPaymentsStorePath = config.stores.shopifyEazyPayments;
 const shopifyOrderExportsStorePath = config.stores.shopifyOrderExports;
 const walletPassesStorePath = config.stores.walletPasses;
 const appAttestStorePath = config.stores.appAttest;
+const telemetryStorePath = config.stores.telemetry;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -186,6 +188,14 @@ ensureStoreFile(cardPaymentsStorePath, { payments: {} });
 ensureStoreFile(shopifyEazyPaymentsStorePath, { payments: {} });
 ensureStoreFile(shopifyOrderExportsStorePath, { exports: {} });
 ensureStoreFile(appAttestStorePath, { keys: {} });
+ensureStoreFile(telemetryStorePath, { events: [] });
+
+async function recordTelemetry(payload, accountEmail = null) {
+    const event = normalizeTelemetryEvent(payload);
+    if (!event) return false;
+    await persistTelemetryEvent(event, { database, fallbackPath: telemetryStorePath, accountEmail });
+    return true;
+}
 
 const runtimeAppSettings = {
     value: normalizeAppSettings(readJSON(appSettingsStorePath).appSettings || {})
@@ -8736,6 +8746,23 @@ const server = http.createServer(async (request, response) => {
 
     const url = new URL(request.url, `http://${host}:${port}`);
 
+    if (request.method === "POST" && url.pathname === "/telemetry/events") {
+        try {
+            const body = await readBody(request, 131_072);
+            const events = normalizeTelemetryBatch(body);
+            if (events.length === 0) {
+                sendJSON(response, 400, { error: "No valid telemetry events." });
+                return;
+            }
+            for (const event of events) await persistTelemetryEvent(event, { database, fallbackPath: telemetryStorePath });
+            sendJSON(response, 202, { accepted: events.length });
+        } catch (error) {
+            console.error("Telemetry ingestion failed:", error.code || error.message || "TELEMETRY_FAILED");
+            sendJSON(response, 400, { error: "Invalid telemetry payload." });
+        }
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/app-attest/challenge") {
         try {
             const challenge = appAttest.issueChallenge({
@@ -12315,6 +12342,19 @@ const server = http.createServer(async (request, response) => {
             };
 
             await upsertOrderRecord(pendingOrder);
+            void recordTelemetry({
+                id: `checkout_${pendingOrder.id}`,
+                eventName: "checkout_started",
+                category: "analytics",
+                platform: "backend",
+                anonymousId: `account:${crypto.createHash("sha256").update(customer.email).digest("hex").slice(0, 24)}`,
+                sessionId: pendingOrder.id,
+                appVersion: "server",
+                occurredAt: pendingOrder.createdAt,
+                properties: { itemCount: items.reduce((sum, item) => sum + item.quantity, 0), total: safeTotal }
+            }, customer.email).catch((error) => {
+                console.error("Checkout telemetry failed:", error.code || error.message || "TELEMETRY_FAILED");
+            });
             sendJSON(response, 200, {
                 orderID: pendingOrder.id,
                 orders: await ordersPayload(customer.email)
@@ -13086,6 +13126,7 @@ module.exports = {
     normalizeWebPushSubscription,
     normalizeEventSettings,
     normalizeTallaPaymentID,
+    normalizeTelemetryEvent,
     prepareShopifyEazyOrder,
     preferAddressRecords,
     publicShopifyEazyPayment,
