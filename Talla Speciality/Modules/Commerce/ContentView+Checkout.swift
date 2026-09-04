@@ -250,6 +250,7 @@ extension ContentView {
                     .background(.ultraThinMaterial)
             }
         }
+        .accessibilityIdentifier("checkout.screen")
         .sheet(isPresented: $isPaymentMethodSheetPresented) {
             PaymentMethodSelectionSheet(
                 selectedMethod: paymentFlow.selectedMethod,
@@ -1776,12 +1777,7 @@ extension ContentView {
                     .foregroundColor(product.isAvailableForSale ? Color(hex: 0x0A0804) : tertiaryTextColor)
                     .padding(.horizontal, isCompact ? 10 : 12)
                     .padding(.vertical, 10)
-                    .glassEffect(
-                        product.isAvailableForSale
-                            ? .regular.tint(Color(hex: 0xC8965A)).interactive()
-                            : .clear,
-                        in: .capsule
-                    )
+                    .tallaGlassCapsule(tint: Color(hex: 0xC8965A), enabled: product.isAvailableForSale)
                 }
                 .buttonStyle(.plain)
                 .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
@@ -1874,12 +1870,7 @@ extension ContentView {
                         .foregroundColor(product.isAvailableForSale ? Color(hex: 0x0A0804) : tertiaryTextColor)
                         .frame(width: 82)
                         .padding(.vertical, 7)
-                        .glassEffect(
-                            product.isAvailableForSale
-                                ? .regular.tint(Color(hex: 0xC8965A)).interactive()
-                                : .clear,
-                            in: .capsule
-                        )
+                        .tallaGlassCapsule(tint: Color(hex: 0xC8965A), enabled: product.isAvailableForSale)
                 }
                 .buttonStyle(.plain)
                 .disabled(!product.isAvailableForSale || selectedVariant(for: product) == nil)
@@ -2468,11 +2459,9 @@ extension ContentView {
                             .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? Color(hex: 0x0A0804) : tertiaryTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .glassEffect(
-                                (selectedVariant?.isAvailableForSale ?? product.isAvailableForSale)
-                                    ? .regular.tint(Color(hex: 0xC8965A)).interactive()
-                                    : .clear,
-                                in: .capsule
+                            .tallaGlassCapsule(
+                                tint: Color(hex: 0xC8965A),
+                                enabled: selectedVariant?.isAvailableForSale ?? product.isAvailableForSale
                             )
                     }
                     .buttonStyle(.plain)

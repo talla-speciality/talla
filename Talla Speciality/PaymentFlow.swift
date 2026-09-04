@@ -1003,7 +1003,6 @@ enum TallaPaymentService {
     }
 
     static let applePayMerchantIdentifier = "merchant.talla.me"
-    private static let accessTokenKey = "local.customerAccessToken"
 
     static func createCardSession(orderID: String) async throws -> Session {
         try await post(path: "/api/payments/card/session", payload: ["orderID": orderID])
@@ -1070,7 +1069,7 @@ enum TallaPaymentService {
         guard let baseURL = BackendConfiguration.serviceBaseURL else {
             throw PaymentServiceError.unavailable
         }
-        let token = UserDefaults.standard.string(forKey: accessTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let token = AccountService.accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else { throw PaymentServiceError.authenticationRequired }
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "POST"
@@ -1079,7 +1078,7 @@ enum TallaPaymentService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await AccountService.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PaymentServiceError.unavailable
         }

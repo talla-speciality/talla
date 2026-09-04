@@ -23,6 +23,13 @@ const {
 } = require("./modules/brewing/customer-library");
 const { hasRevisionConflict, normalizeCoffeeChange } = require("./modules/brewing/coffee-sync");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
+const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
+const {
+    authenticateAdmin,
+    hasPermission,
+    mobileAdminPrincipal,
+    permissionForAdminRequest
+} = require("./modules/account/admin-authorization");
 
 const host = config.host;
 const port = config.port;
@@ -56,6 +63,8 @@ const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
 const adminAppEmails = config.adminAppEmails;
+const adminAppRoles = config.adminAppRoles;
+const adminUsers = config.adminUsers;
 const adminSessionSecret = config.adminSessionSecret;
 const adminSessionHours = config.adminSessionHours;
 const webPushVapidPublicKey = config.webPushVapidPublicKey;
@@ -63,6 +72,7 @@ const webPushVapidPrivateKey = config.webPushVapidPrivateKey;
 const webPushVapidSubject = config.webPushVapidSubject;
 const customerTokenSecret = config.customerTokenSecret;
 const customerTokenHours = config.customerTokenHours;
+const customerRefreshTokenDays = config.customerRefreshTokenDays;
 const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
 const appleSignInClientID = config.appleSignInClientID;
@@ -1842,7 +1852,7 @@ function decodeBase64URL(value) {
 }
 
 function adminCredentialsConfigured() {
-    return Boolean(adminUsername && adminPassword && adminSessionSecret);
+    return Boolean(adminUsers.length && adminSessionSecret);
 }
 
 function customerTokensConfigured() {
@@ -1864,10 +1874,7 @@ function signCustomerTokenPayload(value) {
 }
 
 function hashCustomerToken(token) {
-    return crypto
-        .createHash("sha256")
-        .update(String(token))
-        .digest("hex");
+    return hashToken(token);
 }
 
 function parseCookies(headerValue) {
@@ -1919,15 +1926,20 @@ function adminSessionCookieAttributes(expiresAt) {
     return attributes;
 }
 
-function createAdminSession(username) {
+function createAdminSession(principal) {
     pruneAdminSessions();
     const sessionID = crypto.randomBytes(24).toString("hex");
     const expiresAt = Date.now() + adminSessionHours * 60 * 60 * 1000;
-    adminSessions.set(sessionID, { username, expiresAt });
+    const sessionPrincipal = typeof principal === "string"
+        ? { username: principal, role: "owner", permissions: ["*"] }
+        : principal;
+    adminSessions.set(sessionID, { ...sessionPrincipal, expiresAt });
     const signedValue = `${sessionID}.${signSessionValue(sessionID)}`;
 
     return {
-        username,
+        username: sessionPrincipal.username,
+        role: sessionPrincipal.role,
+        permissions: sessionPrincipal.permissions,
         expiresAt,
         cookie: adminSessionCookieAttributes(expiresAt).map((part, index) => (
             index === 0 ? `${adminSessionCookieName}=${encodeURIComponent(signedValue)}` : part
@@ -1972,6 +1984,8 @@ function getAdminSession(request) {
     return {
         id: sessionID,
         username: session.username,
+        role: session.role,
+        permissions: session.permissions,
         expiresAt: session.expiresAt
     };
 }
@@ -1983,14 +1997,8 @@ function parseAdminLogin(body) {
 }
 
 function createCustomerAccessToken(email) {
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + customerTokenHours * 60 * 60 * 1000).toISOString();
-
-    return {
-        accessToken: rawToken,
-        tokenHash: hashCustomerToken(rawToken),
-        expiresAt
-    };
+    const pair = createTokenPair({ accessTokenHours: customerTokenHours, refreshTokenDays: customerRefreshTokenDays });
+    return { ...pair, tokenHash: pair.accessTokenHash, email: normalizeEmail(email) };
 }
 
 function getBearerToken(request) {
@@ -2086,17 +2094,96 @@ async function createCustomerSession(email) {
 
     const session = createCustomerAccessToken(email);
     const id = `custsess_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
-    await database.query(
-        `INSERT INTO customer_sessions
-         (id, email, token_hash, created_at, expires_at, revoked_at)
-         VALUES ($1, $2, $3, $4, $5, NULL)`,
-        [id, email, session.tokenHash, new Date().toISOString(), session.expiresAt]
-    );
+    const familyID = `custfam_${crypto.randomBytes(18).toString("hex")}`;
+    const createdAt = new Date().toISOString();
+    const client = await database.connect();
+    try {
+        await client.query("BEGIN");
+        await client.query(
+            `INSERT INTO customer_sessions
+             (id, email, token_hash, created_at, expires_at, revoked_at, family_id, refresh_expires_at)
+             VALUES ($1, $2, $3, $4, $5, NULL, $6, $7)`,
+            [id, email, session.accessTokenHash, createdAt, session.expiresAt, familyID, session.refreshExpiresAt]
+        );
+        await client.query(
+            `INSERT INTO customer_refresh_tokens
+             (token_hash, session_id, family_id, created_at, expires_at, consumed_at, replaced_by_token_hash)
+             VALUES ($1, $2, $3, $4, $5, NULL, NULL)`,
+            [session.refreshTokenHash, id, familyID, createdAt, session.refreshExpiresAt]
+        );
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+    return publicTokenPair(session);
+}
 
-    return {
-        accessToken: session.accessToken,
-        expiresAt: session.expiresAt
-    };
+async function rotateCustomerSession(refreshToken) {
+    if (!database.isEnabled() || !String(refreshToken || "").trim()) return null;
+    const refreshHash = hashCustomerToken(refreshToken);
+    const client = await database.connect();
+    try {
+        await client.query("BEGIN");
+        const result = await client.query(
+            `SELECT rt.session_id, rt.family_id, rt.expires_at, rt.consumed_at, cs.email
+             FROM customer_refresh_tokens rt
+             JOIN customer_sessions cs ON cs.id = rt.session_id
+             WHERE rt.token_hash = $1
+             FOR UPDATE`,
+            [refreshHash]
+        );
+        if (result.rowCount === 0) {
+            await client.query("ROLLBACK");
+            return null;
+        }
+        const record = result.rows[0];
+        if (record.consumed_at) {
+            await client.query("UPDATE customer_sessions SET revoked_at = COALESCE(revoked_at, NOW()) WHERE family_id = $1", [record.family_id]);
+            await client.query("COMMIT");
+            const error = new Error("REFRESH_TOKEN_REUSED");
+            error.code = "REFRESH_TOKEN_REUSED";
+            error.transactionCommitted = true;
+            throw error;
+        }
+        if (new Date(record.expires_at).getTime() <= Date.now()) {
+            await client.query("UPDATE customer_sessions SET revoked_at = COALESCE(revoked_at, NOW()) WHERE id = $1", [record.session_id]);
+            await client.query("COMMIT");
+            return null;
+        }
+
+        const next = createCustomerAccessToken(record.email);
+        const nextID = `custsess_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
+        const createdAt = new Date().toISOString();
+        await client.query(
+            `INSERT INTO customer_sessions
+             (id, email, token_hash, created_at, expires_at, revoked_at, family_id, rotated_from_session_id, refresh_expires_at)
+             VALUES ($1, $2, $3, $4, $5, NULL, $6, $7, $8)`,
+            [nextID, record.email, next.accessTokenHash, createdAt, next.expiresAt, record.family_id, record.session_id, next.refreshExpiresAt]
+        );
+        await client.query(
+            `UPDATE customer_refresh_tokens SET consumed_at = NOW(), replaced_by_token_hash = $2 WHERE token_hash = $1`,
+            [refreshHash, next.refreshTokenHash]
+        );
+        await client.query(
+            `INSERT INTO customer_refresh_tokens
+             (token_hash, session_id, family_id, created_at, expires_at, consumed_at, replaced_by_token_hash)
+             VALUES ($1, $2, $3, $4, $5, NULL, NULL)`,
+            [next.refreshTokenHash, nextID, record.family_id, createdAt, next.refreshExpiresAt]
+        );
+        await client.query("UPDATE customer_sessions SET revoked_at = COALESCE(revoked_at, NOW()) WHERE id = $1", [record.session_id]);
+        await client.query("COMMIT");
+        return publicTokenPair(next);
+    } catch (error) {
+        if (!error.transactionCommitted) {
+            try { await client.query("ROLLBACK"); } catch {}
+        }
+        throw error;
+    } finally {
+        client.release();
+    }
 }
 
 async function revokeCustomerSession(token) {
@@ -2164,15 +2251,12 @@ async function ensureMobileAdminAccess(request, response) {
         return false;
     }
 
-    if (!adminAppEmails.includes(normalizeEmail(customer.email))) {
+    const principal = mobileAdminPrincipal(customer.email, adminAppRoles);
+    if (!principal) {
         sendJSON(response, 403, { error: "This account does not have admin access." });
         return false;
     }
-
-    return {
-        username: customer.email,
-        email: customer.email
-    };
+    return principal;
 }
 
 function normalizeEmail(email) {
@@ -8753,6 +8837,7 @@ const server = createServer({
     adminSessionSecret,
     adminSessions,
     adminUsername,
+    adminUsers,
     alertInboxFor,
     alertInboxRowToRecord,
     alertInboxStorePath,
@@ -8792,6 +8877,7 @@ const server = createServer({
     applyShopifyEazyLocalEffects,
     approvedProductTypes,
     assertShopifyUserErrors,
+    authenticateAdmin,
     authenticateCustomer,
     awardOrderBeans,
     awardOrderBeansWithClient,
@@ -8922,6 +9008,7 @@ const server = createServer({
     getLoyaltyTransactions,
     getPassportSettings,
     googleMobileServices,
+    hasPermission,
     hasLoyaltyTransaction,
     hasRevisionConflict,
     hashCustomerToken,
@@ -9018,6 +9105,7 @@ const server = createServer({
     port,
     preferAddressRecords,
     prepareShopifyEazyOrder,
+    permissionForAdminRequest,
     previewVoucher,
     processShopifyOrderWebhook,
     productBadgeFromTags,
@@ -9065,6 +9153,7 @@ const server = createServer({
     resendAPIKey,
     resolveCustomerSession,
     revokeCustomerSession,
+    rotateCustomerSession,
     revokeCustomerSessionByID,
     revokeCustomerSessionsForEmail,
     revokeVoucherRecord,
@@ -9239,6 +9328,7 @@ module.exports = {
     benefitClientPaymentStatus,
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
+    createCustomerSession,
     queryBenefitPayTransaction,
     confirmShopifyEazyPayment,
     ensureShopifyEazyInvoice,
@@ -9268,6 +9358,7 @@ module.exports = {
     renderBenefitResultPage,
     renderMpgsResultPage,
     remotePushPayload,
+    rotateCustomerSession,
     server,
     stockAlertStatusFor,
     startServer,

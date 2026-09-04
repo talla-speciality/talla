@@ -1291,7 +1291,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 11)
-                    .glassEffect(.regular.tint(Color(hex: 0xC8965A)).interactive(), in: .capsule)
+                    .tallaGlassCapsule(tint: Color(hex: 0xC8965A))
             }
             .buttonStyle(.plain)
         }

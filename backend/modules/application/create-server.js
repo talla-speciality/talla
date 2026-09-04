@@ -32,6 +32,7 @@ module.exports = function createServer(dependencies) {
         adminSessionSecret,
         adminSessions,
         adminUsername,
+        adminUsers,
         alertInboxFor,
         alertInboxRowToRecord,
         alertInboxStorePath,
@@ -71,6 +72,7 @@ module.exports = function createServer(dependencies) {
         applyShopifyEazyLocalEffects,
         approvedProductTypes,
         assertShopifyUserErrors,
+        authenticateAdmin,
         authenticateCustomer,
         awardOrderBeans,
         awardOrderBeansWithClient,
@@ -201,6 +203,7 @@ module.exports = function createServer(dependencies) {
         getLoyaltyTransactions,
         getPassportSettings,
         googleMobileServices,
+        hasPermission,
         hasLoyaltyTransaction,
         hasRevisionConflict,
         hashCustomerToken,
@@ -297,6 +300,7 @@ module.exports = function createServer(dependencies) {
         port,
         preferAddressRecords,
         prepareShopifyEazyOrder,
+        permissionForAdminRequest,
         previewVoucher,
         processShopifyOrderWebhook,
         productBadgeFromTags,
@@ -344,6 +348,7 @@ module.exports = function createServer(dependencies) {
         resendAPIKey,
         resolveCustomerSession,
         revokeCustomerSession,
+        rotateCustomerSession,
         revokeCustomerSessionByID,
         revokeCustomerSessionsForEmail,
         revokeVoucherRecord,
@@ -691,12 +696,12 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "GET" && url.pathname === "/health") {
-        sendJSON(response, 200, {
-            status: "ok",
-            appURL: config.appURL,
-            host,
-            port
-        });
+        try {
+            if (database.isEnabled()) await database.query("SELECT 1 AS healthy");
+            sendJSON(response, 200, { status: "ok", database: database.isEnabled() ? "ok" : "disabled" });
+        } catch {
+            sendJSON(response, 503, { status: "degraded", database: "unavailable" });
+        }
         return;
     }
 
@@ -899,6 +904,10 @@ module.exports = function createServer(dependencies) {
         if (!admin) {
             return;
         }
+        if (!hasPermission(admin, "admin:read")) {
+            sendJSON(response, 403, { error: "Admin permission required: admin:read." });
+            return;
+        }
 
         sendJSON(response, 200, await allOrdersPayload());
         return;
@@ -907,6 +916,10 @@ module.exports = function createServer(dependencies) {
     if (request.method === "POST" && url.pathname === "/admin/orders/status") {
         const admin = await ensureMobileAdminAccess(request, response);
         if (!admin) {
+            return;
+        }
+        if (!hasPermission(admin, "orders:write")) {
+            sendJSON(response, 403, { error: "Admin permission required: orders:write." });
             return;
         }
 
@@ -948,6 +961,10 @@ module.exports = function createServer(dependencies) {
     if (request.method === "POST" && url.pathname === "/admin/orders/notify-ready") {
         const admin = await ensureMobileAdminAccess(request, response);
         if (!admin) {
+            return;
+        }
+        if (!hasPermission(admin, "orders:write")) {
+            sendJSON(response, 403, { error: "Admin permission required: orders:write." });
             return;
         }
 
@@ -1007,6 +1024,8 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 200, {
                 authenticated: true,
                 username: session.username,
+                role: session.role,
+                permissions: session.permissions,
                 expiresAt: new Date(session.expiresAt).toISOString()
             });
             return;
@@ -1016,15 +1035,18 @@ module.exports = function createServer(dependencies) {
             try {
                 const body = await readBody(request);
                 const credentials = parseAdminLogin(body);
-                if (credentials.username !== adminUsername || credentials.password !== adminPassword) {
+                const principal = authenticateAdmin(adminUsers, credentials.username, credentials.password);
+                if (!principal) {
                     sendJSON(response, 401, { error: "Invalid admin credentials." });
                     return;
                 }
 
-                const session = createAdminSession(credentials.username);
+                const session = createAdminSession(principal);
                 sendJSON(response, 200, {
                     authenticated: true,
                     username: session.username,
+                    role: session.role,
+                    permissions: session.permissions,
                     expiresAt: new Date(session.expiresAt).toISOString()
                 }, {
                     "Set-Cookie": session.cookie
@@ -1049,6 +1071,11 @@ module.exports = function createServer(dependencies) {
 
         const admin = ensureAdminAccess(request, response);
         if (!admin) {
+            return;
+        }
+        const requiredPermission = permissionForAdminRequest(request.method, url.pathname);
+        if (!hasPermission(admin, requiredPermission)) {
+            sendJSON(response, 403, { error: `Admin permission required: ${requiredPermission}.` });
             return;
         }
 
@@ -2372,6 +2399,24 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/accounts/session/refresh") {
+        try {
+            const body = await readBody(request, 16_384);
+            const session = await rotateCustomerSession(body.refreshToken);
+            if (!session) {
+                sendJSON(response, 401, { error: "Refresh token is invalid or expired." });
+                return;
+            }
+            sendJSON(response, 200, session);
+        } catch (error) {
+            const reused = error.code === "REFRESH_TOKEN_REUSED";
+            sendJSON(response, 401, {
+                error: reused ? "Refresh token reuse detected; sign in again." : "Unable to refresh session."
+            });
+        }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/accounts/register") {
         try {
             const body = await readBody(request);
@@ -2406,7 +2451,9 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 201, {
                 profile: profilePayload(account),
                 accessToken: session.accessToken,
-                expiresAt: session.expiresAt
+                expiresAt: session.expiresAt,
+                refreshToken: session.refreshToken,
+                refreshExpiresAt: session.refreshExpiresAt
             });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
@@ -2442,7 +2489,9 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 200, {
                 profile: profilePayload(account),
                 accessToken: session.accessToken,
-                expiresAt: session.expiresAt
+                expiresAt: session.expiresAt,
+                refreshToken: session.refreshToken,
+                refreshExpiresAt: session.refreshExpiresAt
             });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
@@ -2523,7 +2572,9 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 200, {
                 profile: profilePayload(account),
                 accessToken: session.accessToken,
-                expiresAt: session.expiresAt
+                expiresAt: session.expiresAt,
+                refreshToken: session.refreshToken,
+                refreshExpiresAt: session.refreshExpiresAt
             });
         } catch (error) {
             console.error("Apple sign-in failed.", error);

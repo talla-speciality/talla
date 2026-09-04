@@ -92,7 +92,7 @@ enum LoyaltyService {
     }
 
     static func performLoyaltyRequest(_ request: URLRequest) async throws -> ContentView.LoyaltyAccount {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await AccountService.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service returned an invalid response.")

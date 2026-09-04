@@ -270,11 +270,22 @@ struct Talla_SpecialityApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+#if DEBUG
+                if let scenario = ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"], !scenario.isEmpty {
+                    ReleaseHardeningUITestHost(scenario: scenario)
+                } else {
+                    ContentView()
+                }
+#else
+                ContentView()
+#endif
+            }
                 .environment(\.layoutDirection, appLanguage.layoutDirection)
                 .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
                 .environmentObject(coffeeData)
                 .task {
+                    guard ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == nil else { return }
                     TallaTelemetry.shared.appReady()
                     try? coffeeData.migrateLegacyJSON()
                     let defaults = UserDefaults.standard

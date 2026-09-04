@@ -368,7 +368,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     fun login(email: String, password: String) {
         accountAction {
             val session = accounts.login(email.trim(), password)
-            tokenStore.save(session.accessToken)
+            tokenStore.save(session.accessToken, session.refreshToken)
             loadAccount(session.accessToken, session.profile)
         }
     }
@@ -376,7 +376,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     fun register(firstName: String, lastName: String, email: String, password: String) {
         accountAction {
             val session = accounts.register(firstName.trim(), lastName.trim(), email.trim(), password)
-            tokenStore.save(session.accessToken)
+            tokenStore.save(session.accessToken, session.refreshToken)
             loadAccount(session.accessToken, session.profile)
         }
     }
@@ -547,7 +547,15 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun restoreAccount() {
         val token = tokenStore.read() ?: return
-        accountAction { loadAccount(token, accounts.profile(token)) }
+        accountAction {
+            val current = runCatching { token to accounts.profile(token) }.getOrElse {
+                val refreshToken = tokenStore.readRefreshToken() ?: throw it
+                val refreshed = accounts.refreshSession(refreshToken)
+                tokenStore.save(refreshed.accessToken, refreshed.refreshToken)
+                refreshed.accessToken to accounts.profile(refreshed.accessToken)
+            }
+            loadAccount(current.first, current.second)
+        }
     }
 
     private fun accountAction(action: suspend () -> Unit) {

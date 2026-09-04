@@ -108,7 +108,14 @@ jobs:
         run: >-
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality"
           -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}"
-          -derivedDataPath build/apple-tests CODE_SIGNING_ALLOWED=NO test
+          -derivedDataPath build/apple-tests CODE_SIGNING_ALLOWED=NO
+          -only-testing:"Talla SpecialityTests" test
+      - name: Run release-hardening UI journeys
+        run: >-
+          xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality"
+          -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}"
+          -derivedDataPath build/apple-ui-tests CODE_SIGNING_ALLOWED=NO
+          -only-testing:"Talla SpecialityUITests/Talla_SpecialityUITests" test
       - name: Build Watch app
         run: >-
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Watch Watch App"

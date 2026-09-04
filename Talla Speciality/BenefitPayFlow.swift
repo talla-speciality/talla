@@ -48,7 +48,6 @@ enum BenefitPaySDKConfiguration {
 }
 
 enum BenefitPayService {
-    private static let accessTokenKey = "local.customerAccessToken"
 
     static func createSession(orderID: String) async throws -> BenefitPaySession {
         try await post(
@@ -86,8 +85,7 @@ enum BenefitPayService {
         guard let baseURL = BackendConfiguration.serviceBaseURL else {
             throw PaymentServiceError.unavailable
         }
-        let accessToken = UserDefaults.standard.string(forKey: accessTokenKey)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let accessToken = AccountService.accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !accessToken.isEmpty else {
             throw PaymentServiceError.authenticationRequired
         }
@@ -98,7 +96,7 @@ enum BenefitPayService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await AccountService.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PaymentServiceError.unavailable
         }

@@ -445,6 +445,7 @@ extension ContentView {
                 .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("account.delete")
             .disabled(customerProfile == nil || isDeletingAccount)
 
             if let accountDeletionError {
@@ -531,6 +532,7 @@ extension ContentView {
                 .clipShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("language.option.\(language.rawValue)")
     }
 
     var accountWorkspaceColumns: [GridItem] {
@@ -1851,7 +1853,7 @@ extension ContentView {
 
     @MainActor
     func applySignedInSession(_ session: AccountService.CustomerSession, loadLoyalty: Bool = true) {
-        TallaAccountCredentialStore.save(session.accessToken)
+        TallaAccountCredentialStore.save(accessToken: session.accessToken, refreshToken: session.refreshToken)
         savedCustomerAccessToken = session.accessToken
         applySignedInProfile(session.profile, loadLoyalty: loadLoyalty)
     }

@@ -9,6 +9,7 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
+@available(watchOS 26.0, *)
 struct Talla_Watch_WidgetsControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(
@@ -28,6 +29,7 @@ struct Talla_Watch_WidgetsControl: ControlWidget {
     }
 }
 
+@available(watchOS 26.0, *)
 extension Talla_Watch_WidgetsControl {
     struct Provider: ControlValueProvider {
         var previewValue: Bool {
@@ -41,6 +43,7 @@ extension Talla_Watch_WidgetsControl {
     }
 }
 
+@available(watchOS 26.0, *)
 struct StartTimerIntent: SetValueIntent {
     static let title: LocalizedStringResource = "Start a timer"
 

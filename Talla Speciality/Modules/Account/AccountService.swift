@@ -30,8 +30,21 @@ import SafariServices
 import UIKit
 #endif
 
+actor AccountSessionRefreshCoordinator {
+    private var refreshTask: Task<AccountTokenRefreshResponse, Error>?
+
+    func refresh() async throws -> AccountTokenRefreshResponse {
+        if let refreshTask { return try await refreshTask.value }
+        let task = Task { try await AccountService.performRefreshSession() }
+        refreshTask = task
+        defer { refreshTask = nil }
+        return try await task.value
+    }
+}
+
 enum AccountService {
     static let baseURL = BackendConfiguration.serviceBaseURL
+    static let refreshCoordinator = AccountSessionRefreshCoordinator()
 
     enum SessionError: LocalizedError {
         case invalid
@@ -54,6 +67,8 @@ enum AccountService {
         let profile: ContentView.ShopifyCustomerProfile
         let accessToken: String
         let expiresAt: String
+        let refreshToken: String
+        let refreshExpiresAt: String
     }
 
     struct CheckoutStartResult {
@@ -83,6 +98,45 @@ enum AccountService {
         }
 
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+
+    static func data(for request: URLRequest, allowRefresh: Bool = true) async throws -> (Data, URLResponse) {
+        let result = try await TallaSecureSession.data(for: request)
+        guard allowRefresh,
+              (result.1 as? HTTPURLResponse)?.statusCode == 401,
+              request.value(forHTTPHeaderField: "Authorization") != nil,
+              !TallaAccountCredentialStore.refreshToken.isEmpty else {
+            return result
+        }
+
+        let tokens = try await refreshCoordinator.refresh()
+        var retry = request
+        retry.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+        return try await TallaSecureSession.data(for: retry)
+    }
+
+    static func refreshSession() async throws -> AccountTokenRefreshResponse {
+        try await refreshCoordinator.refresh()
+    }
+
+    static func performRefreshSession() async throws -> AccountTokenRefreshResponse {
+        guard let baseURL else { throw SessionError.invalid }
+        let refreshToken = TallaAccountCredentialStore.refreshToken
+        guard !refreshToken.isEmpty else { throw SessionError.invalid }
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/session/refresh"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["refreshToken": refreshToken])
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              200 ..< 300 ~= httpResponse.statusCode,
+              let tokens = try? JSONDecoder().decode(AccountTokenRefreshResponse.self, from: data) else {
+            TallaAccountCredentialStore.clear()
+            throw SessionError.invalid
+        }
+        TallaAccountCredentialStore.save(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken)
+        return tokens
     }
 
     static func register(firstName: String, lastName: String, email: String, password: String) async throws -> CustomerSession {
@@ -442,7 +496,7 @@ enum AccountService {
         try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: ["orderID": orderID])
 
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
         }
@@ -798,7 +852,7 @@ enum AccountService {
         request.httpMethod = "GET"
         try authorize(&request)
 
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The wallet service returned an invalid response.")
@@ -822,7 +876,7 @@ enum AccountService {
 #endif
 
     static func performCustomerSessionRequest(_ request: URLRequest) async throws -> CustomerSession {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service returned an invalid response.")
@@ -838,7 +892,9 @@ enum AccountService {
                     email: decoded.profile.email
                 ),
                 accessToken: decoded.accessToken,
-                expiresAt: decoded.expiresAt
+                expiresAt: decoded.expiresAt,
+                refreshToken: decoded.refreshToken,
+                refreshExpiresAt: decoded.refreshExpiresAt
             )
         }
 
@@ -858,7 +914,7 @@ enum AccountService {
     }
 
     static func performProfileRequest(_ request: URLRequest) async throws -> ContentView.ShopifyCustomerProfile {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service returned an invalid response.")
@@ -886,7 +942,7 @@ enum AccountService {
     }
 
     static func performCustomerLibraryRequest(_ request: URLRequest) async throws -> ContentView.CustomerLibraryPayload {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The customer library returned an invalid response.")
         }
@@ -900,7 +956,7 @@ enum AccountService {
     }
 
     static func performOrdersRequest(_ request: URLRequest) async throws -> [ContentView.AccountOrder] {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service returned an invalid response.")
@@ -918,7 +974,7 @@ enum AccountService {
     }
 
     static func performCheckoutStartRequest(_ request: URLRequest) async throws -> CheckoutStartResult {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service returned an invalid response.")
@@ -937,7 +993,7 @@ enum AccountService {
     }
 
     static func performBenefitPaymentRequest(_ request: URLRequest) async throws -> URL {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
@@ -956,7 +1012,7 @@ enum AccountService {
     }
 
     static func performEazyShopifyPaymentRequest(_ request: URLRequest) async throws -> EazyShopifyPaymentResponse {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The payment service returned an invalid response.")
         }
@@ -970,7 +1026,7 @@ enum AccountService {
     }
 
     static func performTasteMemoryRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service returned an invalid response.")
@@ -988,7 +1044,7 @@ enum AccountService {
     }
 
     static func performTasteMemoryEnvelopeRequest(_ request: URLRequest) async throws -> [ContentView.TasteMemoryRecord] {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The taste memory service returned an invalid response.")
@@ -1006,7 +1062,7 @@ enum AccountService {
     }
 
     static func performVouchersRequest(_ request: URLRequest) async throws -> [ContentView.VoucherRecord] {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The voucher service returned an invalid response.")
@@ -1024,7 +1080,7 @@ enum AccountService {
     }
 
     static func performStockAlertsRequest(_ request: URLRequest) async throws -> [ContentView.StockAlertRecord] {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The alerts service returned an invalid response.")
@@ -1042,7 +1098,7 @@ enum AccountService {
     }
 
     static func performStockAlertRequest(_ request: URLRequest) async throws -> ContentView.StockAlertRecord {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The alerts service returned an invalid response.")
@@ -1060,7 +1116,7 @@ enum AccountService {
     }
 
     static func performAlertInboxRequest(_ request: URLRequest) async throws -> [ContentView.AlertInboxRecord] {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The alerts inbox returned an invalid response.")
@@ -1078,7 +1134,7 @@ enum AccountService {
     }
 
     static func performAddressesRequest(_ request: URLRequest) async throws -> [ContentView.DeliveryAddress] {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The address service returned an invalid response.")
@@ -1096,7 +1152,7 @@ enum AccountService {
     }
 
     static func performVoucherRequest(_ request: URLRequest) async throws -> ContentView.VoucherRecord {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The voucher service returned an invalid response.")
@@ -1114,7 +1170,7 @@ enum AccountService {
     }
 
     static func performEmptyRequest(_ request: URLRequest) async throws -> Bool {
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service returned an invalid response.")

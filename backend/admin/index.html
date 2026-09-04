@@ -1397,7 +1397,7 @@
                 return;
             }
 
-            sessionSummaryEl.textContent = `Signed in as ${state.session.username}`;
+            sessionSummaryEl.textContent = `Signed in as ${state.session.username} · ${state.session.role || "owner"}`;
         }
 
         function initializeAdminNavigation() {

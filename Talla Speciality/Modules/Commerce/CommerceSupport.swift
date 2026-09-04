@@ -995,6 +995,15 @@ struct AccountSessionResponse: Decodable {
     let profile: AccountProfileResponse
     let accessToken: String
     let expiresAt: String
+    let refreshToken: String
+    let refreshExpiresAt: String
+}
+
+struct AccountTokenRefreshResponse: Decodable, Sendable {
+    let accessToken: String
+    let expiresAt: String
+    let refreshToken: String
+    let refreshExpiresAt: String
 }
 
 struct TasteMemoryResponse: Decodable {

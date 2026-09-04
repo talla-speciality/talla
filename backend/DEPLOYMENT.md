@@ -28,8 +28,12 @@ DATABASE_URL=postgres://...
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me
 ADMIN_SESSION_SECRET=replace-with-a-random-secret
+ADMIN_USERS_JSON=[{"username":"owner@example.com","password":"replace-with-a-random-password","role":"owner"}]
+ADMIN_APP_ROLES_JSON={"owner@example.com":"owner"}
 ADMIN_SESSION_HOURS=12
 CUSTOMER_TOKEN_SECRET=replace-with-a-different-random-secret
+CUSTOMER_TOKEN_HOURS=1
+CUSTOMER_REFRESH_TOKEN_DAYS=30
 CUSTOMER_TOKEN_HOURS=168
 RESEND_API_KEY=re_xxx
 EMAIL_FROM_ADDRESS=Talla Speciality <no-reply@your-domain.com>
@@ -193,7 +197,7 @@ The existing Shopify Admin token must include `write_orders`. Mirrored orders ar
 
 ## Backups and restore
 
-Your current durable data lives in Postgres, so backups should target the database directly.
+The scheduled `Database resilience` GitHub Actions workflow creates an encrypted custom-format Postgres dump every night, restores it into an isolated PostgreSQL 18 database, checks the migration and account tables, and retains only the encrypted artifact. Configure protected `PRODUCTION_DATABASE_URL` and `BACKUP_ENCRYPTION_KEY` repository secrets before enabling the schedule.
 
 ### Backup
 

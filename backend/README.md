@@ -53,6 +53,10 @@ The server reads configuration from environment variables:
 - `WEB_PUSH_VAPID_SUBJECT`: VAPID contact URI, defaults to `mailto:admin@tallaspeciality.com`
 - `APNS_ADMIN_BUNDLE_ID`: native Talla Admin app bundle identifier, defaults to `Talla-Speciality.Talla-Admin`
 - `CUSTOMER_TOKEN_SECRET`: secret required to enable customer session issuance
+- `CUSTOMER_TOKEN_HOURS`: access-token lifetime; production default is one hour
+- `CUSTOMER_REFRESH_TOKEN_DAYS`: rotating refresh-token lifetime; production default is 30 days
+- `ADMIN_USERS_JSON`: protected JSON array of `{ "username", "password", "role" }` records; roles are `viewer`, `support`, `operations`, `manager`, and `owner`
+- `ADMIN_APP_ROLES_JSON`: protected JSON object mapping mobile-admin email addresses to roles
 - `CUSTOMER_TOKEN_HOURS`: customer session lifetime in hours, defaults to `168`
 - `RESEND_API_KEY`: Resend API key used for customer password reset emails
 - `EMAIL_FROM_ADDRESS`: verified sender for password reset emails, such as `Talla Speciality <no-reply@your-domain.com>`
@@ -145,6 +149,10 @@ guest@talla.example
 ```http
 GET /health
 ```
+
+`/health` returns `503` when Postgres is configured but unavailable, allowing the external monitor to detect database failures as well as process failures.
+
+Customer login, registration, and Apple sign-in return a one-hour access token and a single-use refresh token. Refresh with `POST /accounts/session/refresh` and `{ "refreshToken": "..." }`. Every successful refresh invalidates both old credentials and returns a replacement pair; reuse of a consumed refresh token revokes the entire session family.
 
 Example response:
 

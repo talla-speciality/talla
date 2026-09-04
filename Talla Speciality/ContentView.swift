@@ -34,17 +34,18 @@ enum TallaAccountCredentialStore {
     static let tokenDefaultsKey = "local.customerAccessToken"
     static let keychainService = "Talla-Speciality.customer-session"
     static let keychainAccount = "current"
+    static let refreshKeychainAccount = "refresh"
 
     static var accessToken: String {
         let localToken = UserDefaults.standard.string(forKey: tokenDefaultsKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         if !localToken.isEmpty {
-            saveToKeychain(localToken)
+            saveToKeychain(localToken, account: keychainAccount)
             return localToken
         }
 
-        guard let syncedToken = readFromKeychain(), !syncedToken.isEmpty else {
+        guard let syncedToken = readFromKeychain(account: keychainAccount), !syncedToken.isEmpty else {
             return ""
         }
 
@@ -60,28 +61,48 @@ enum TallaAccountCredentialStore {
         }
 
         UserDefaults.standard.set(normalizedToken, forKey: tokenDefaultsKey)
-        saveToKeychain(normalizedToken)
+        saveToKeychain(normalizedToken, account: keychainAccount)
+    }
+
+    static var refreshToken: String {
+        readFromKeychain(account: refreshKeychainAccount)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    static func save(accessToken: String, refreshToken: String) {
+        save(accessToken)
+        let normalizedRefreshToken = refreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedRefreshToken.isEmpty {
+            deleteFromKeychain(account: refreshKeychainAccount)
+        } else {
+            saveToKeychain(normalizedRefreshToken, account: refreshKeychainAccount)
+        }
     }
 
     static func clear() {
         UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
+        deleteFromKeychain(account: keychainAccount)
+        deleteFromKeychain(account: refreshKeychainAccount)
+    }
+
+    static func deleteFromKeychain(account: String) {
 #if canImport(Security)
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: keychainService,
-            kSecAttrAccount: keychainAccount,
+            kSecAttrAccount: account,
             kSecAttrSynchronizable: kSecAttrSynchronizableAny
         ]
         SecItemDelete(query as CFDictionary)
 #endif
     }
 
-    static func readFromKeychain() -> String? {
+    static func readFromKeychain(account: String) -> String? {
 #if canImport(Security)
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: keychainService,
-            kSecAttrAccount: keychainAccount,
+            kSecAttrAccount: account,
             kSecAttrSynchronizable: kSecAttrSynchronizableAny,
             kSecMatchLimit: kSecMatchLimitOne,
             kSecReturnData: true
@@ -97,12 +118,12 @@ enum TallaAccountCredentialStore {
 #endif
     }
 
-    static func saveToKeychain(_ token: String) {
+    static func saveToKeychain(_ token: String, account: String) {
 #if canImport(Security)
         let lookup: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: keychainService,
-            kSecAttrAccount: keychainAccount,
+            kSecAttrAccount: account,
             kSecAttrSynchronizable: true
         ]
         let attributes: [CFString: Any] = [
@@ -2749,24 +2770,28 @@ struct ContentView: View {
         TabView(selection: $activeTab) {
             tabScreen(homeView, tab: .home)
                 .tag(Tab.home)
+                .accessibilityIdentifier("tab.home")
                 .tabItem {
                     Label(AppLocalization.text("home", fallback: "Home"), systemImage: Tab.home.systemImage)
                 }
 
             tabScreen(shopView, tab: .shop)
                 .tag(Tab.shop)
+                .accessibilityIdentifier("tab.shop")
                 .tabItem {
                     Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
                 }
 
             tabScreen(brewingView, tab: .brewing)
                 .tag(Tab.brewing)
+                .accessibilityIdentifier("tab.brewing")
                 .tabItem {
                     Label(AppLocalization.text("brewing", fallback: "Brewing"), systemImage: Tab.brewing.systemImage)
                 }
 
             tabScreen(accountView, tab: .account)
                 .tag(Tab.account)
+                .accessibilityIdentifier("tab.account")
                 .tabItem {
                     Label(AppLocalization.text("account", fallback: "Account"), systemImage: Tab.account.systemImage)
                 }
