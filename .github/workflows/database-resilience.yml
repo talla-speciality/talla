@@ -28,7 +28,7 @@ jobs:
       BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
       RESTORE_DATABASE_URL: postgresql://postgres:restore-test@127.0.0.1:5432/talla_restore?sslmode=disable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Require protected backup secrets
         run: test -n "$PRODUCTION_DATABASE_URL" && test -n "$BACKUP_ENCRYPTION_KEY"
       - name: Install PostgreSQL 18 client
@@ -49,7 +49,7 @@ jobs:
         run: openssl enc -aes-256-cbc -salt -pbkdf2 -iter 250000 -in talla-production.dump -out talla-production-${GITHUB_RUN_ID}.dump.enc -pass env:BACKUP_ENCRYPTION_KEY
       - name: Remove plaintext dump
         run: rm talla-production.dump
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: postgres-backup-${{ github.run_id }}
           path: talla-production-${{ github.run_id }}.dump.enc
