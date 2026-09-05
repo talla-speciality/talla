@@ -24,6 +24,8 @@ import com.talla.speciality.data.CoffeeBagTextRecognizer
 import com.talla.speciality.data.CoffeeScaleManager
 import com.talla.speciality.data.CoffeeDataStore
 import com.talla.speciality.data.CoffeeEntityType
+import com.talla.speciality.data.CoffeeConflict
+import com.talla.speciality.data.PurchasedCoffee
 import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.data.ScaleAction
@@ -69,6 +71,8 @@ data class TallaUiState(
     val stockAlerts: List<StockAlert> = emptyList(),
     val tasteMemory: List<TasteMemoryRecord> = emptyList(),
     val brewJournal: List<BrewJournalEntry> = emptyList(),
+    val coffeeInventory: List<PurchasedCoffee> = emptyList(),
+    val coffeeConflicts: List<CoffeeConflict> = emptyList(),
     val coffeeBagScan: CoffeeBagScanResult? = null,
     val coffeeBagScanning: Boolean = false,
     val coffeeBagScanError: String? = null,
@@ -97,6 +101,8 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             hostedBenefitOrderId = preferences.getString("hosted_benefit_order", null),
             clickToPayOrderId = preferences.getString("click_to_pay_order", null),
             brewJournal = loadBrewJournal(),
+            coffeeInventory = coffeeData.purchasedCoffee(),
+            coffeeConflicts = coffeeData.conflicts(),
         )
     )
     val state: StateFlow<TallaUiState> = mutableState.asStateFlow()
@@ -540,6 +546,48 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     fun stopScaleTimer() = scales.perform(ScaleAction.StopTimer)
     fun clearScaleError() = scales.clearError()
 
+    fun deleteAccount() {
+        val token = tokenStore.read() ?: return
+        accountAction {
+            accounts.deleteAccount(token)
+            tokenStore.clear()
+            mutableState.update {
+                TallaUiState(
+                    products = it.products,
+                    loading = it.loading,
+                    error = it.error,
+                    remoteSettings = it.remoteSettings,
+                )
+            }
+        }
+    }
+
+    fun addPurchasedCoffee(name: String, quantityGrams: Double, roastDate: Long?) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.savePurchasedCoffee(
+            PurchasedCoffee(
+                productName = name.trim(),
+                roastDate = roastDate,
+                purchasedAt = System.currentTimeMillis(),
+                initialQuantityGrams = quantityGrams,
+                remainingQuantityGrams = quantityGrams,
+            ),
+            ownerId,
+        )
+        refreshCoffeeDataState(ownerId)
+    }
+
+    fun updateRemainingCoffee(id: String, remainingGrams: Double) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.updateRemainingQuantity(ownerId, id, remainingGrams)
+        refreshCoffeeDataState(ownerId)
+    }
+
+    fun resolveCoffeeConflict(conflict: CoffeeConflict, keepLocal: Boolean) {
+        coffeeData.resolveConflict(conflict, keepLocal)
+        refreshCoffeeDataState(conflict.ownerId)
+    }
+
     override fun onCleared() {
         scales.stopScanning()
         scales.disconnect()
@@ -600,7 +648,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         runCatching { PushRegistrationManager.syncForSession(getApplication(), token, profile.email) }
         runCatching {
             coffeeData.synchronize(profile.id, token)
-            mutableState.update { it.copy(brewJournal = coffeeData.loadJournal(profile.id)) }
+            refreshCoffeeDataState(profile.id)
         }
     }
 
@@ -634,4 +682,14 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun loadBrewJournal(): List<BrewJournalEntry> = coffeeData.loadJournal()
+
+    private fun refreshCoffeeDataState(ownerId: String = mutableState.value.profile?.id.orEmpty()) {
+        mutableState.update {
+            it.copy(
+                brewJournal = coffeeData.loadJournal(ownerId),
+                coffeeInventory = coffeeData.purchasedCoffee(ownerId),
+                coffeeConflicts = coffeeData.conflicts(ownerId),
+            )
+        }
+    }
 }

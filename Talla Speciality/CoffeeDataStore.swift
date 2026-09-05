@@ -11,6 +11,10 @@ final class CoffeeDataStore: ObservableObject {
     @Published private(set) var changeToken = 0
     private var context: ModelContext { container.mainContext }
 
+    func notifyCoffeeChange() {
+        changeToken &+= 1
+    }
+
     private init(inMemory: Bool = false) {
         do {
             let schema = Schema(CoffeeSchema.models)

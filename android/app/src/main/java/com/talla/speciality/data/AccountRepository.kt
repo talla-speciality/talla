@@ -168,6 +168,11 @@ class AccountRepository(private val context: Context) {
         Unit
     }
 
+    suspend fun deleteAccount(token: String) = withContext(Dispatchers.IO) {
+        request("POST", "/accounts/delete", JSONObject(), token)
+        Unit
+    }
+
     suspend fun registerPushToken(token: String, email: String, deviceToken: String) = withContext(Dispatchers.IO) {
         request(
             "POST",

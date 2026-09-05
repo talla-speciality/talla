@@ -9,7 +9,7 @@ const ignored = new Set(["node_modules", "data"]);
 const entryPointBudgets = new Map([
     ["Talla Speciality/ContentView.swift", 3_500],
     ["Talla Speciality/BrewingSectionView.swift", 750],
-    ["backend/server.js", 9_500]
+    ["backend/server.js", 9_350]
 ]);
 
 function javascriptFiles(directory) {

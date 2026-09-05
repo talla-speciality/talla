@@ -640,6 +640,17 @@ extension ContentView {
         )
 
         persistCoffeeJournalEntries(Array(([entry] + brewJournalEntries).prefix(20)))
+        try? coffeeData.recordCompletedBrew(
+            id: entry.id,
+            title: entry.title,
+            method: entry.method,
+            coffeeGrams: entry.coffeeGrams,
+            waterGrams: entry.waterGrams,
+            durationSeconds: entry.brewTimeSeconds,
+            rating: entry.rating,
+            notes: entry.notes,
+            ownerID: customerProfile?.email.lowercased()
+        )
         var brewTelemetry: [String: String] = [
             "method": entry.method,
             "rating": String(entry.rating)

@@ -105,6 +105,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -129,6 +130,8 @@ import com.talla.speciality.data.BrewRecipeEngine
 import com.talla.speciality.data.BrewJournalEntry
 import com.talla.speciality.data.BrewRecipe
 import com.talla.speciality.data.CoffeeBagScanResult
+import com.talla.speciality.data.CoffeeConflict
+import com.talla.speciality.data.PurchasedCoffee
 import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.Product
 import com.talla.speciality.data.ScaleFamily
@@ -235,6 +238,7 @@ fun TallaApp(
                     NavigationBarItem(
                         selected = tab == destination,
                         onClick = { tab = destination },
+                        modifier = Modifier.testTag("tab.${destination.name.lowercase()}"),
                         icon = { Icon(destination.icon, contentDescription = stringResource(destination.labelRes)) },
                         label = { Text(stringResource(destination.labelRes)) },
                     )
@@ -278,6 +282,11 @@ fun TallaApp(
                 onClearScaleError = viewModel::clearScaleError,
                 onSaveJournal = viewModel::saveBrewJournalEntry,
                 onDeleteJournal = viewModel::deleteBrewJournalEntry,
+                inventory = state.coffeeInventory,
+                conflicts = state.coffeeConflicts,
+                onAddCoffee = viewModel::addPurchasedCoffee,
+                onUpdateRemaining = viewModel::updateRemainingCoffee,
+                onResolveConflict = viewModel::resolveCoffeeConflict,
                 modifier = Modifier.padding(padding),
             )
             TallaTab.Account -> AccountScreen(
@@ -285,6 +294,7 @@ fun TallaApp(
                 onLogin = viewModel::login,
                 onRegister = viewModel::register,
                 onLogout = viewModel::logout,
+                onDeleteAccount = viewModel::deleteAccount,
                 onRefresh = viewModel::refreshAccount,
                 onSaveAddress = viewModel::saveAddress,
                 onDeleteAddress = viewModel::deleteAddress,
@@ -924,6 +934,11 @@ private fun BrewingScreen(
     onClearScaleError: () -> Unit,
     onSaveJournal: (String, String, Int, Double, Int, Int, Int, String) -> Unit,
     onDeleteJournal: (String) -> Unit,
+    inventory: List<PurchasedCoffee>,
+    conflicts: List<CoffeeConflict>,
+    onAddCoffee: (String, Double, Long?) -> Unit,
+    onUpdateRemaining: (String, Double) -> Unit,
+    onResolveConflict: (CoffeeConflict, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val methods = listOf("V60", "Kalita", "AeroPress", "French press", "Espresso", "Cold brew")
@@ -966,6 +981,9 @@ private fun BrewingScreen(
                 onScan = onScanCoffeeBag,
                 onClear = onClearScan,
             )
+        }
+        item {
+            CoffeeInventoryCard(inventory, conflicts, onAddCoffee, onUpdateRemaining, onResolveConflict)
         }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1045,6 +1063,85 @@ private fun BrewingScreen(
                 onSave = onSaveJournal,
                 onDelete = onDeleteJournal,
             )
+        }
+    }
+}
+
+@Composable
+internal fun CoffeeInventoryCard(
+    inventory: List<PurchasedCoffee>,
+    conflicts: List<CoffeeConflict>,
+    onAddCoffee: (String, Double, Long?) -> Unit,
+    onUpdateRemaining: (String, Double) -> Unit,
+    onResolveConflict: (CoffeeConflict, Boolean) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var quantity by remember { mutableStateOf("250") }
+    var error by remember { mutableStateOf<String?>(null) }
+    Card(shape = RoundedCornerShape(24.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(18.dp).testTag("coffee.inventory"),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Coffee inventory", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth().testTag("coffee.inventory.name"),
+                label = { Text("Coffee name") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = quantity,
+                onValueChange = { quantity = it.filter { character -> character.isDigit() || character == '.' } },
+                modifier = Modifier.fillMaxWidth().testTag("coffee.inventory.quantity"),
+                label = { Text("Quantity (g)") },
+                singleLine = true,
+            )
+            Button(
+                onClick = {
+                    val grams = quantity.toDoubleOrNull()
+                    if (name.isBlank() || grams == null || grams <= 0) {
+                        error = "Enter a coffee name and quantity."
+                    } else {
+                        onAddCoffee(name.trim(), grams, System.currentTimeMillis())
+                        name = ""
+                        quantity = "250"
+                        error = null
+                    }
+                },
+                modifier = Modifier.testTag("coffee.inventory.save"),
+            ) { Text("Save coffee") }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+            inventory.forEach { coffee ->
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(coffee.productName, fontWeight = FontWeight.Bold)
+                    Text("${coffee.remainingQuantityGrams.toInt()} g remaining", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = { onUpdateRemaining(coffee.id, (coffee.remainingQuantityGrams - 5).coerceAtLeast(0.0)) },
+                            modifier = Modifier.testTag("coffee.inventory.consume.${coffee.id}"),
+                        ) { Text("Use 5 g") }
+                        TextButton(onClick = { onUpdateRemaining(coffee.id, coffee.initialQuantityGrams) }) { Text("Refill") }
+                    }
+                }
+                HorizontalDivider()
+            }
+
+            conflicts.forEach { conflict ->
+                Column(
+                    Modifier.fillMaxWidth().background(Sand.copy(alpha = .15f), RoundedCornerShape(12.dp)).padding(12.dp)
+                        .testTag("coffee.sync.conflict"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Sync conflict · ${conflict.entityType}", fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { onResolveConflict(conflict, false) }) { Text("Keep server") }
+                        TextButton(onClick = { onResolveConflict(conflict, true) }) { Text("Restore local") }
+                    }
+                }
+            }
         }
     }
 }
@@ -1154,7 +1251,7 @@ private fun BrewingDashboard(
 }
 
 @Composable
-private fun CoffeeScaleCard(
+internal fun CoffeeScaleCard(
     state: ScaleUiState,
     targetGrams: Int,
     onScan: () -> Unit,
@@ -1192,6 +1289,7 @@ private fun CoffeeScaleCard(
                     Button(
                         onClick = { if (hasPermissions) onScan() else permissionLauncher.launch(permissions) },
                         enabled = !state.scanning,
+                        modifier = Modifier.testTag("bluetooth.scan"),
                     ) {
                         if (state.scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Text(stringResource(R.string.scan))
@@ -1447,11 +1545,12 @@ private fun BrewJournalCard(
 }
 
 @Composable
-private fun AccountScreen(
+internal fun AccountScreen(
     state: TallaUiState,
     onLogin: (String, String) -> Unit,
     onRegister: (String, String, String, String) -> Unit,
     onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit,
     onRefresh: () -> Unit,
     onSaveAddress: (String, String, String, String, String, String) -> Unit,
     onDeleteAddress: (String) -> Unit,
@@ -1466,6 +1565,7 @@ private fun AccountScreen(
     val profile = state.profile
     val favorites = state.products.filter { it.id in state.favoriteProductIds }
     var addingAddress by remember { mutableStateOf(false) }
+    var confirmingDeletion by remember { mutableStateOf(false) }
     val languageTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
@@ -1586,16 +1686,41 @@ private fun AccountScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = languageTag.isBlank(), onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }, label = { Text(stringResource(R.string.system_language)) })
                 FilterChip(selected = languageTag.startsWith("en"), onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en")) }, label = { Text(stringResource(R.string.english)) })
-                FilterChip(selected = languageTag.startsWith("ar"), onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ar")) }, label = { Text(stringResource(R.string.arabic)) })
+                FilterChip(
+                    selected = languageTag.startsWith("ar"),
+                    onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ar")) },
+                    label = { Text(stringResource(R.string.arabic)) },
+                    modifier = Modifier.testTag("language.arabic"),
+                )
             }
         }
         item { TextButton(onClick = onLogout) { Text(stringResource(R.string.sign_out)) } }
+        item {
+            TextButton(
+                onClick = { confirmingDeletion = true },
+                modifier = Modifier.testTag("account.delete"),
+            ) { Text("Delete account", color = MaterialTheme.colorScheme.error) }
+        }
     }
     if (addingAddress) {
         AddAddressDialog(onDismiss = { addingAddress = false }) { label, name, phone, line1, city, country ->
             onSaveAddress(label, name, phone, line1, city, country)
             addingAddress = false
         }
+    }
+    if (confirmingDeletion) {
+        AlertDialog(
+            onDismissRequest = { confirmingDeletion = false },
+            title = { Text("Delete account?") },
+            text = { Text("Your profile, synced coffee data, loyalty history, and saved preferences will be permanently deleted.") },
+            dismissButton = { TextButton(onClick = { confirmingDeletion = false }) { Text("Cancel") } },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirmingDeletion = false; onDeleteAccount() },
+                    modifier = Modifier.testTag("account.delete.confirm"),
+                ) { Text("Delete permanently", color = MaterialTheme.colorScheme.error) }
+            },
+        )
     }
 }
 
@@ -1867,7 +1992,7 @@ private fun ProductDetailsSheet(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun CartSheet(
+internal fun CartSheet(
     lines: List<CartLine>,
     settings: TallaAppSettings,
     onAdd: (CartLine) -> Unit,
@@ -1880,6 +2005,7 @@ private fun CartSheet(
     onBenefitPay: (String) -> Unit,
     onClearError: () -> Unit,
     onDismiss: () -> Unit,
+    embeddedForTesting: Boolean = false,
 ) {
     val availableFulfillment = buildList {
         if (settings.fulfillment.deliveryEnabled) add("delivery")
@@ -1897,7 +2023,7 @@ private fun CartSheet(
     var checkoutMethod by remember(settings.payments) { mutableStateOf(availableMethods.firstOrNull() ?: CheckoutMethod.CashOnDelivery) }
     val isArabic = LocalConfiguration.current.locales[0].language == "ar"
     val subtotal = lines.sumOf { line -> (line.variant.price.toDoubleOrNull() ?: 0.0) * line.quantity }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.background) {
+    val content: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
             Text("YOUR BAG", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
             Text("A good ritual starts here", style = MaterialTheme.typography.displaySmall, color = Ink)
@@ -1976,7 +2102,7 @@ private fun CartSheet(
                         }
                     },
                     enabled = !loading && availableFulfillment.isNotEmpty() && availableMethods.isNotEmpty() && !settings.release.checkoutMaintenanceEnabled,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("checkout.continue"),
                     colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF0A0804)),
                     shape = CircleShape,
                 ) {
@@ -1985,5 +2111,10 @@ private fun CartSheet(
                 }
             }
         }
+    }
+    if (embeddedForTesting) {
+        content()
+    } else {
+        ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.background) { content() }
     }
 }
