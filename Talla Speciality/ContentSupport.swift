@@ -1,5 +1,25 @@
 import Foundation
 import SwiftUI
+
+extension View {
+    @ViewBuilder
+    func tallaGlassCapsule(tint: Color, enabled: Bool = true) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(enabled ? .regular.tint(tint).interactive() : .clear, in: .capsule)
+        } else {
+            background(enabled ? tint : Color.clear, in: Capsule(style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    func tallaGlassCard(tint: Color, cornerRadius: CGFloat) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular.tint(tint), in: .rect(cornerRadius: cornerRadius))
+        } else {
+            background(tint, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+    }
+}
 #if canImport(UserNotifications)
 import UserNotifications
 #endif

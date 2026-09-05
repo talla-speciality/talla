@@ -1,8 +1,8 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const { verifyAttestation, verifyAssertion } = require("appattest-checker-node");
-const config = require("./config");
-const database = require("./database");
+const config = require("../../config");
+const database = require("../../database");
 const googleMobileServices = require("./google-mobile-services");
 
 const challengeLifetimeMs = 5 * 60 * 1000;
@@ -32,6 +32,7 @@ const protectedPaths = new Set([
     "/notifications/push/unregister",
     "/accounts/profile/update",
     "/accounts/password/change",
+    "/accounts/session/refresh",
     "/customer-library"
 ]);
 

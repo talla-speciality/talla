@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { mergeCustomerLibraryRecords, normalizeBrewJournalEntry } = require("../customer-library");
+const { mergeCustomerLibraryRecords, normalizeBrewJournalEntry } = require("../modules/brewing/customer-library");
 
 test("customer library merge preserves records from iOS and Android without duplicates", () => {
     const merged = mergeCustomerLibraryRecords(

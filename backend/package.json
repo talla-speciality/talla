@@ -17,6 +17,9 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate": "node run-migrations.js",
-    "test": "node --test test/*.test.js"
+    "migrations:validate": "node scripts/validate-migrations.js",
+    "lint": "node scripts/lint.js",
+    "test": "node --test test/*.test.js",
+    "verify": "npm run lint && npm run migrations:validate && npm test"
   }
 }

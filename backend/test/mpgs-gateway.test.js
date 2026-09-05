@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const mpgsGateway = require("../mpgs-gateway");
+const mpgsGateway = require("../modules/commerce/mpgs-gateway");
 
 const configuration = {
     merchantId: "TESTMERCHANT",

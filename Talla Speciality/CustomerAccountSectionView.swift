@@ -81,10 +81,7 @@ struct CustomerAccountSectionView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(accentColor.opacity(0.14), lineWidth: 1)
         )
-        .glassEffect(
-            .regular.tint(Color(hex: 0x3D1F00).opacity(0.18)),
-            in: .rect(cornerRadius: 28)
-        )
+        .tallaGlassCard(tint: Color(hex: 0x3D1F00).opacity(0.18), cornerRadius: 28)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 
@@ -166,7 +163,7 @@ struct CustomerAccountSectionView: View {
                 .foregroundColor(Color(hex: 0x0A0804))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .glassEffect(.regular.tint(accentColor).interactive(), in: .capsule)
+                .tallaGlassCapsule(tint: accentColor)
             }
             .buttonStyle(.plain)
             .disabled(isSubmitDisabled)

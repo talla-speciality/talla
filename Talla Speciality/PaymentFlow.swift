@@ -248,6 +248,7 @@ final class PaymentFlowModel: ObservableObject {
     func select(_ method: TallaPaymentMethod) {
         guard canChangeMethod else { return }
         selectedMethod = method
+        TallaTelemetry.shared.track("payment_method_selected", properties: ["method": method.rawValue])
         if state == .failed || state == .cancelled {
             transition(to: .idle)
         }
@@ -257,6 +258,13 @@ final class PaymentFlowModel: ObservableObject {
         guard nextState != state || error != errorMessage else { return }
         state = nextState
         errorMessage = error
+        if let selectedMethod {
+            TallaTelemetry.shared.track("payment_funnel_stage", properties: [
+                "method": selectedMethod.rawValue,
+                "stage": nextState.rawValue,
+                "has_error": String(error != nil)
+            ])
+        }
     }
 
     func begin() -> Bool {
@@ -995,7 +1003,6 @@ enum TallaPaymentService {
     }
 
     static let applePayMerchantIdentifier = "merchant.talla.me"
-    private static let accessTokenKey = "local.customerAccessToken"
 
     static func createCardSession(orderID: String) async throws -> Session {
         try await post(path: "/api/payments/card/session", payload: ["orderID": orderID])
@@ -1062,7 +1069,7 @@ enum TallaPaymentService {
         guard let baseURL = BackendConfiguration.serviceBaseURL else {
             throw PaymentServiceError.unavailable
         }
-        let token = UserDefaults.standard.string(forKey: accessTokenKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let token = AccountService.accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else { throw PaymentServiceError.authenticationRequired }
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "POST"
@@ -1071,7 +1078,7 @@ enum TallaPaymentService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        let (data, response) = try await TallaSecureSession.data(for: request)
+        let (data, response) = try await AccountService.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PaymentServiceError.unavailable
         }
@@ -1411,12 +1418,21 @@ struct MastercardPaymentSheet: View {
 
     private func succeed() {
         flow.transition(to: .succeeded)
+        TallaTelemetry.shared.track("purchase_completed", properties: [
+            "method": context.kind == .applePay ? "apple_pay" : "card",
+            "amount": context.session.amount,
+            "currency": context.session.currency
+        ])
         dismiss()
     }
 
     private func fail(_ error: Error) {
         validationMessage = error.localizedDescription
         flow.transition(to: .failed, error: error.localizedDescription)
+        TallaTelemetry.shared.track("payment_failed", properties: [
+            "method": context.kind == .applePay ? "apple_pay" : "card",
+            "error_type": String(describing: type(of: error))
+        ])
     }
 }
 

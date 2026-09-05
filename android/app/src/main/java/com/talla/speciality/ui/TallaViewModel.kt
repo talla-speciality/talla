@@ -45,6 +45,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+import com.talla.speciality.telemetry.TallaTelemetry
 
 data class TallaUiState(
     val products: List<Product> = emptyList(),
@@ -190,11 +191,18 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val current = mutableState.value
         val lines = current.cart.values.toList()
         val preferredAddress = current.addresses.firstOrNull { it.isPreferred } ?: current.addresses.firstOrNull()
+        TallaTelemetry.track("checkout_started", properties = mapOf("method" to "shopify", "item_count" to lines.sumOf { it.quantity }))
         viewModelScope.launch {
             mutableState.update { it.copy(checkoutLoading = true, checkoutError = null) }
             runCatching { shopify.checkoutUrl(lines, fulfillmentMethod, current.profile?.email, preferredAddress) }
-                .onSuccess { url -> mutableState.update { it.copy(checkoutLoading = false, checkoutUrl = url) } }
-                .onFailure { failure -> mutableState.update { it.copy(checkoutLoading = false, checkoutError = failure.message ?: "Checkout is unavailable") } }
+                .onSuccess { url ->
+                    TallaTelemetry.track("payment_funnel_stage", properties = mapOf("method" to "shopify", "stage" to "checkout_opened"))
+                    mutableState.update { it.copy(checkoutLoading = false, checkoutUrl = url) }
+                }
+                .onFailure { failure ->
+                    TallaTelemetry.track("payment_failed", properties = mapOf("method" to "shopify", "stage" to "checkout_create"))
+                    mutableState.update { it.copy(checkoutLoading = false, checkoutError = failure.message ?: "Checkout is unavailable") }
+                }
         }
     }
 
@@ -205,6 +213,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val current = mutableState.value
         val token = tokenStore.read()
         val profile = current.profile
+        TallaTelemetry.track("payment_method_selected", properties = mapOf("method" to "benefit"))
         if (token == null || profile == null) {
             mutableState.update { it.copy(checkoutError = "Sign in to pay with BENEFIT") }
             return
@@ -213,6 +222,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             mutableState.update { it.copy(checkoutLoading = true, checkoutError = null, paymentMessage = null) }
             runCatching { payments.prepareHostedBenefit(token, profile.email, current.cart.values.toList(), fulfillmentMethod) }
                 .onSuccess { checkout ->
+                    TallaTelemetry.track("payment_funnel_stage", properties = mapOf("method" to "benefit", "stage" to "checkout_opened"))
                     preferences.edit { putString("hosted_benefit_order", checkout.orderId) }
                     mutableState.update {
                         it.copy(checkoutLoading = false, checkoutUrl = checkout.paymentUrl, hostedBenefitOrderId = checkout.orderId)
@@ -230,6 +240,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { status ->
                     when (status.status) {
                         "succeeded" -> {
+                            TallaTelemetry.track("purchase_completed", properties = mapOf("method" to "benefit"))
                             preferences.edit { remove("hosted_benefit_order") }
                             mutableState.update { current ->
                                 current.copy(
@@ -240,6 +251,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                             refreshAccount()
                         }
                         "failed", "cancelled" -> {
+                            TallaTelemetry.track("payment_failed", properties = mapOf("method" to "benefit", "stage" to status.status))
                             preferences.edit { remove("hosted_benefit_order") }
                             mutableState.update {
                                 it.copy(hostedBenefitOrderId = null, checkoutError = "BENEFIT payment was not completed")
@@ -254,6 +266,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val current = mutableState.value
         val token = tokenStore.read()
         val profile = current.profile
+        TallaTelemetry.track("payment_method_selected", properties = mapOf("method" to "click_to_pay"))
         if (token == null || profile == null) {
             mutableState.update { it.copy(checkoutError = "Sign in to use Click to Pay") }
             return
@@ -262,6 +275,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             mutableState.update { it.copy(checkoutLoading = true, checkoutError = null, paymentMessage = null) }
             runCatching { payments.prepareClickToPay(token, profile.email, current.cart.values.toList(), fulfillmentMethod) }
                 .onSuccess { checkout ->
+                    TallaTelemetry.track("payment_funnel_stage", properties = mapOf("method" to "click_to_pay", "stage" to "checkout_opened"))
                     preferences.edit { putString("click_to_pay_order", checkout.localOrderId) }
                     mutableState.update {
                         it.copy(checkoutLoading = false, checkoutUrl = checkout.paymentUrl, clickToPayOrderId = checkout.localOrderId)
@@ -279,6 +293,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { status ->
                     when {
                         status.confirmed -> {
+                            TallaTelemetry.track("purchase_completed", properties = mapOf("method" to "click_to_pay"))
                             preferences.edit { remove("click_to_pay_order") }
                             mutableState.update { current ->
                                 current.copy(
@@ -289,6 +304,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                             refreshAccount()
                         }
                         status.status.equals("Cancelled", ignoreCase = true) || status.status.equals("Failed", ignoreCase = true) || status.status.equals("Declined", ignoreCase = true) -> {
+                            TallaTelemetry.track("payment_failed", properties = mapOf("method" to "click_to_pay", "stage" to status.status.lowercase()))
                             preferences.edit { remove("click_to_pay_order") }
                             mutableState.update { it.copy(clickToPayOrderId = null, checkoutError = "Click to Pay was not completed") }
                         }
@@ -301,6 +317,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val current = mutableState.value
         val token = tokenStore.read()
         val profile = current.profile
+        TallaTelemetry.track("payment_method_selected", properties = mapOf("method" to "benefit_pay"))
         if (token == null || profile == null) {
             mutableState.update { it.copy(checkoutError = "Sign in to pay with BenefitPay") }
             return
@@ -324,6 +341,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             runCatching { payments.confirmBenefitPay(token, session) }
                 .onSuccess { confirmation ->
                     if (confirmation.status == "succeeded") {
+                        TallaTelemetry.track("purchase_completed", properties = mapOf("method" to "benefit_pay"))
                         mutableState.update { current ->
                             current.copy(
                                 cart = emptyMap(), checkoutLoading = false, benefitPaySession = null,
@@ -332,6 +350,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         refreshAccount()
                     } else {
+                        TallaTelemetry.track("payment_failed", properties = mapOf("method" to "benefit_pay", "stage" to confirmation.status))
                         mutableState.update { it.copy(checkoutLoading = false, benefitPaySession = null, checkoutError = "BenefitPay did not approve the payment") }
                     }
                 }
@@ -349,7 +368,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     fun login(email: String, password: String) {
         accountAction {
             val session = accounts.login(email.trim(), password)
-            tokenStore.save(session.accessToken)
+            tokenStore.save(session.accessToken, session.refreshToken)
             loadAccount(session.accessToken, session.profile)
         }
     }
@@ -357,7 +376,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     fun register(firstName: String, lastName: String, email: String, password: String) {
         accountAction {
             val session = accounts.register(firstName.trim(), lastName.trim(), email.trim(), password)
-            tokenStore.save(session.accessToken)
+            tokenStore.save(session.accessToken, session.refreshToken)
             loadAccount(session.accessToken, session.profile)
         }
     }
@@ -467,6 +486,12 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             current.copy(brewJournal = BrewJournalPolicy.add(current.brewJournal, entry)).also(::persistBrewJournal)
         }
         coffeeData.saveJournal(entry, mutableState.value.profile?.id.orEmpty())
+        TallaTelemetry.track("brew_completed", properties = mapOf(
+            "method" to entry.method,
+            "duration_seconds" to entry.brewTimeSeconds,
+            "rating" to entry.rating,
+        ))
+        TallaTelemetry.track("brew_rated", properties = mapOf("rating" to entry.rating))
         tokenStore.read()?.let { token ->
             viewModelScope.launch { runCatching { accounts.saveBrewJournal(token, entry) } }
         }
@@ -522,7 +547,15 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun restoreAccount() {
         val token = tokenStore.read() ?: return
-        accountAction { loadAccount(token, accounts.profile(token)) }
+        accountAction {
+            val current = runCatching { token to accounts.profile(token) }.getOrElse {
+                val refreshToken = tokenStore.readRefreshToken() ?: throw it
+                val refreshed = accounts.refreshSession(refreshToken)
+                tokenStore.save(refreshed.accessToken, refreshed.refreshToken)
+                refreshed.accessToken to accounts.profile(refreshed.accessToken)
+            }
+            loadAccount(current.first, current.second)
+        }
     }
 
     private fun accountAction(action: suspend () -> Unit) {

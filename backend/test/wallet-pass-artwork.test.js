@@ -9,7 +9,7 @@ const sharp = require("sharp");
 const {
     renderWalletStampStrip,
     walletStampState
-} = require("../wallet-pass-artwork");
+} = require("../modules/loyalty/wallet-pass-artwork");
 
 const artworkDirectory = path.join(__dirname, "..", "assets", "wallet");
 const emptyBottlePath = path.join(artworkDirectory, "al-jahra-empty.png");

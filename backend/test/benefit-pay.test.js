@@ -24,7 +24,7 @@ process.env.BENEFITPAY_MERCHANT_CITY = "Manama";
 process.env.BENEFITPAY_MCC = "5814";
 delete process.env.DATABASE_URL;
 
-const benefitGateway = require("../benefit-gateway");
+const benefitGateway = require("../modules/commerce/benefit-gateway");
 const {
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,

@@ -1,0 +1,31 @@
+name: External uptime
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-health:
+    runs-on: ubuntu-24.04
+    env:
+      HEALTH_URL: ${{ vars.PRODUCTION_HEALTH_URL || 'https://talla-backend.onrender.com/health' }}
+      ALERT_WEBHOOK_URL: ${{ secrets.UPTIME_ALERT_WEBHOOK_URL }}
+    steps:
+      - name: Check service and database health
+        id: health
+        continue-on-error: true
+        run: curl --fail --silent --show-error --max-time 20 --retry 2 --retry-delay 5 "$HEALTH_URL" | jq --exit-status '.status == "ok" and (.database == "ok" or .database == "disabled")'
+      - name: Send external alert
+        if: steps.health.outcome == 'failure' && env.ALERT_WEBHOOK_URL != ''
+        run: >-
+          curl --fail --silent --show-error --max-time 20
+          -H 'Content-Type: application/json'
+          --data "{\"text\":\"Talla production health check failed: ${HEALTH_URL} (run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})\"}"
+          "$ALERT_WEBHOOK_URL"
+      - name: Fail unhealthy check
+        if: steps.health.outcome == 'failure'
+        run: exit 1

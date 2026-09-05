@@ -32,7 +32,20 @@ data class DeliveryAddress(
     val isPreferred: Boolean,
 )
 
-data class AccountSession(val profile: AccountProfile, val accessToken: String)
+data class AccountSession(
+    val profile: AccountProfile,
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresAt: String,
+    val refreshExpiresAt: String,
+)
+
+data class AccountTokens(
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresAt: String,
+    val refreshExpiresAt: String,
+)
 
 data class Voucher(
     val code: String,

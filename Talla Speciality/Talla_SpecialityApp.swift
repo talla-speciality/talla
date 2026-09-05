@@ -249,6 +249,7 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
 struct Talla_SpecialityApp: App {
     @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
     @StateObject private var coffeeData = CoffeeDataStore.shared
+    @Environment(\.scenePhase) private var scenePhase
     #if canImport(UIKit) && canImport(UserNotifications)
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
@@ -264,15 +265,28 @@ struct Talla_SpecialityApp: App {
 #if canImport(WatchConnectivity) && os(iOS)
         TallaWatchPhoneBridge.shared.activate()
 #endif
+        TallaTelemetry.shared.start()
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+#if DEBUG
+                if let scenario = ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"], !scenario.isEmpty {
+                    ReleaseHardeningUITestHost(scenario: scenario)
+                } else {
+                    ContentView()
+                }
+#else
+                ContentView()
+#endif
+            }
                 .environment(\.layoutDirection, appLanguage.layoutDirection)
                 .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
                 .environmentObject(coffeeData)
                 .task {
+                    guard ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == nil else { return }
+                    TallaTelemetry.shared.appReady()
                     try? coffeeData.migrateLegacyJSON()
                     let defaults = UserDefaults.standard
                     let token = defaults.string(forKey: "local.customerAccessToken")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -284,5 +298,8 @@ struct Talla_SpecialityApp: App {
                 }
         }
         .modelContainer(coffeeData.container)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { TallaTelemetry.shared.enteredBackground() }
+        }
     }
 }

@@ -71,7 +71,7 @@ struct ProfileManagementSectionView: View {
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .glassEffect(.regular.tint(accentColor).interactive(), in: .capsule)
+                        .tallaGlassCapsule(tint: accentColor)
                 }
                 .buttonStyle(.plain)
                 .disabled(isSaving || firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

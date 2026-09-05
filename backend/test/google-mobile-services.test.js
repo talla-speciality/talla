@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 
-const { requestHash } = require("../google-mobile-services");
+const { requestHash } = require("../modules/account/google-mobile-services");
 
 test("Play Integrity request hashes bind the method, path, and exact body", () => {
     const rawBody = '{"email":"member@example.com","platform":"android"}';

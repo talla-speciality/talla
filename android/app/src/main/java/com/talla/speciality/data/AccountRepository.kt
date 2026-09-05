@@ -23,6 +23,16 @@ class AccountRepository(private val context: Context) {
         )
     }
 
+    suspend fun refreshSession(refreshToken: String): AccountTokens = withContext(Dispatchers.IO) {
+        val json = request("POST", "/accounts/session/refresh", JSONObject().put("refreshToken", refreshToken))
+        AccountTokens(
+            accessToken = json.getString("accessToken"),
+            refreshToken = json.getString("refreshToken"),
+            expiresAt = json.getString("expiresAt"),
+            refreshExpiresAt = json.getString("refreshExpiresAt"),
+        )
+    }
+
     suspend fun profile(token: String): AccountProfile = withContext(Dispatchers.IO) {
         parseProfile(request("GET", "/accounts/profile", token = token))
     }
@@ -180,7 +190,13 @@ class AccountRepository(private val context: Context) {
 
     private suspend fun sessionRequest(path: String, body: JSONObject): AccountSession {
         val json = request("POST", path, body)
-        return AccountSession(parseProfile(json.getJSONObject("profile")), json.getString("accessToken"))
+        return AccountSession(
+            profile = parseProfile(json.getJSONObject("profile")),
+            accessToken = json.getString("accessToken"),
+            refreshToken = json.getString("refreshToken"),
+            expiresAt = json.getString("expiresAt"),
+            refreshExpiresAt = json.getString("refreshExpiresAt"),
+        )
     }
 
     private suspend fun request(method: String, path: String, body: JSONObject? = null, token: String? = null): JSONObject {
@@ -315,6 +331,7 @@ class AccountRepository(private val context: Context) {
             "/vouchers/consume",
             "/accounts/profile/update",
             "/accounts/password/change",
+            "/accounts/session/refresh",
             "/customer-library",
         )
     }

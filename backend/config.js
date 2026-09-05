@@ -1,4 +1,5 @@
 const path = require("path");
+const { normalizeRole, parseAdminUsers } = require("./modules/account/admin-authorization");
 
 function toNumber(value, fallback) {
     const parsed = Number(value);
@@ -20,6 +21,21 @@ function toList(value) {
         .filter(Boolean);
 }
 
+function toRoleMap(value, fallbackEmails = []) {
+    if (value) {
+        try {
+            const parsed = JSON.parse(value);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+            return Object.fromEntries(Object.entries(parsed)
+                .map(([email, role]) => [String(email).trim().toLowerCase(), normalizeRole(role)])
+                .filter(([email]) => email));
+        } catch {
+            throw new Error("ADMIN_APP_ROLES_JSON_INVALID");
+        }
+    }
+    return Object.fromEntries(fallbackEmails.map((email) => [email, "owner"]));
+}
+
 const host = process.env.HOST || "0.0.0.0";
 const port = toNumber(process.env.PORT, 8787);
 const dataDirectory = toAbsolutePath(process.env.DATA_DIRECTORY) || path.join(__dirname, "data");
@@ -28,22 +44,28 @@ const walletPassTemplateDirectory = toAbsolutePath(process.env.WALLET_PASS_TEMPL
 const adminDirectory = path.join(__dirname, "admin");
 const appURL = process.env.APP_URL || `http://localhost:${port}`;
 const isProduction = process.env.NODE_ENV === "production";
+const adminUsername = process.env.ADMIN_USERNAME || "";
+const adminPassword = process.env.ADMIN_PASSWORD || "";
+const adminAppEmails = toList(process.env.ADMIN_APP_EMAILS || adminUsername);
 module.exports = {
     host,
     port,
     appURL,
     dataDirectory,
     adminDirectory,
-    adminUsername: process.env.ADMIN_USERNAME || "",
-    adminPassword: process.env.ADMIN_PASSWORD || "",
+    adminUsername,
+    adminPassword,
+    adminUsers: parseAdminUsers(process.env.ADMIN_USERS_JSON || "", { username: adminUsername, password: adminPassword }),
     adminSessionSecret: process.env.ADMIN_SESSION_SECRET || "",
-    adminAppEmails: toList(process.env.ADMIN_APP_EMAILS || process.env.ADMIN_USERNAME || ""),
+    adminAppEmails,
+    adminAppRoles: toRoleMap(process.env.ADMIN_APP_ROLES_JSON || "", adminAppEmails),
     adminSessionHours: toNumber(process.env.ADMIN_SESSION_HOURS, 12),
     webPushVapidPublicKey: process.env.WEB_PUSH_VAPID_PUBLIC_KEY || "",
     webPushVapidPrivateKey: process.env.WEB_PUSH_VAPID_PRIVATE_KEY || "",
     webPushVapidSubject: process.env.WEB_PUSH_VAPID_SUBJECT || "mailto:admin@tallaspeciality.com",
     customerTokenSecret: process.env.CUSTOMER_TOKEN_SECRET || process.env.ADMIN_SESSION_SECRET || "",
-    customerTokenHours: toNumber(process.env.CUSTOMER_TOKEN_HOURS, 168),
+    customerTokenHours: toNumber(process.env.CUSTOMER_TOKEN_HOURS, 1),
+    customerRefreshTokenDays: toNumber(process.env.CUSTOMER_REFRESH_TOKEN_DAYS, 30),
     resendAPIKey: process.env.RESEND_API_KEY || "",
     emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "",
     appleSignInClientID: process.env.APPLE_SIGN_IN_CLIENT_ID || "Talla-Speciality.Talla-Speciality",
@@ -134,7 +156,8 @@ module.exports = {
         shopifyEazyPayments: path.join(dataDirectory, "shopifyEazyPayments.json"),
         shopifyOrderExports: path.join(dataDirectory, "shopifyOrderExports.json"),
         walletPasses: path.join(dataDirectory, "walletPasses.json"),
-        appAttest: path.join(dataDirectory, "appAttest.json")
+        appAttest: path.join(dataDirectory, "appAttest.json"),
+        telemetry: path.join(dataDirectory, "telemetry.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,

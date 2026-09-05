@@ -18,7 +18,7 @@ const {
     verifyMpgsAuthenticationForPurchase
 } = require("../server");
 
-const mpgsGateway = require("../mpgs-gateway");
+const mpgsGateway = require("../modules/commerce/mpgs-gateway");
 
 const email = "mpgs.customer@example.com";
 const localOrderID = "checkout_mpgs_lifecycle";

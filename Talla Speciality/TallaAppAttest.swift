@@ -46,6 +46,7 @@ actor TallaAppAttest {
         "/notifications/push/unregister",
         "/accounts/profile/update",
         "/accounts/password/change",
+        "/accounts/session/refresh",
         "/customer-library"
     ]
 

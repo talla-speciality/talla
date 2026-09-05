@@ -306,7 +306,7 @@ struct LoyaltySectionView: View {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .glassEffect(.regular.tint(accentColor).interactive(), in: .capsule)
+                    .tallaGlassCapsule(tint: accentColor)
             }
             .buttonStyle(.plain)
             .disabled(isLoadingLoyalty || loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

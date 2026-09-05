@@ -1,6 +1,6 @@
 const { GoogleAuth } = require("google-auth-library");
 const crypto = require("crypto");
-const config = require("./config");
+const config = require("../../config");
 
 const firebaseMessagingScope = "https://www.googleapis.com/auth/firebase.messaging";
 const playIntegrityScope = "https://www.googleapis.com/auth/playintegrity";
