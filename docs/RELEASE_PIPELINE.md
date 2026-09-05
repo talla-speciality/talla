@@ -5,12 +5,14 @@ The GitHub Actions release pipeline validates the backend, PostgreSQL migrations
 ## Required checks
 
 - `backend`: Node 22 install, JavaScript lint, ordered migration validation, two migration passes against PostgreSQL 18, and the complete test suite.
-- `android`: JDK 17, unit tests, Android lint, and unsigned release APK/AAB artifacts. CI substitutes compile-only BenefitPay interfaces because proprietary merchant SDK binaries must not be committed.
+- `android`: JDK 17, unit tests, Android lint, unsigned release APK/AAB artifacts, and emulator-driven checkout, Arabic, account-deletion, offline inventory, and Bluetooth-interruption journeys. CI substitutes compile-only BenefitPay interfaces because proprietary merchant SDK binaries must not be committed.
 - `apple`: full Xcode 26.6, iPhone Release build, unit tests, deterministic checkout/Arabic/account-deletion/offline/Bluetooth UI journeys, Watch Release build, iPhone widget build, and Watch widget build. The app targets iOS 17 and watchOS 10; iOS/watchOS 26-only presentation enhancements remain availability-gated.
 
 Protect `main` in GitHub and require all three jobs. Create releases from annotated `vMAJOR.MINOR.PATCH` tags only after the QA artifacts pass device testing.
 
 Two scheduled workflows provide production resilience: `External uptime` checks application and database health every five minutes, while `Database resilience` creates an encrypted nightly Postgres backup and proves it can restore into an isolated PostgreSQL 18 service. Configure `PRODUCTION_DATABASE_URL`, `BACKUP_ENCRYPTION_KEY`, and optionally `UPTIME_ALERT_WEBHOOK_URL` as protected GitHub secrets. Set `PRODUCTION_HEALTH_URL` as a repository variable when the production hostname changes.
+
+The backup workflow intentionally fails closed when either required secret is absent. Before calling the system production-ready, manually dispatch both scheduled workflows from the default branch and retain a successful restore run. Configure `OPS_ALERT_WEBHOOK_URL` in Render for backend 5xx and rate-limit error alerts. Never reuse a database URL that has appeared in chat, logs, or tickets; rotate it first.
 
 ## Local verification
 
@@ -20,7 +22,7 @@ The repository pins Xcode in `.xcode-version`. On a Mac with Xcode installed:
 sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -version
 cd backend && npm run verify
-cd ../android && ./gradlew -Ptalla.ci=true testDebugUnitTest lintDebug assembleRelease bundleRelease
+cd ../android && ./gradlew -Ptalla.ci=true testDebugUnitTest lintDebug assembleDebugAndroidTest assembleRelease bundleRelease
 ```
 
 Run each shared Xcode scheme with `CODE_SIGNING_ALLOWED=NO` before a release. Production archive signing still requires the Talla Apple team and the authorized BenefitPay framework.

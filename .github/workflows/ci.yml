@@ -78,6 +78,20 @@ jobs:
       - run: chmod +x gradlew
       - name: Test, lint, and build unsigned release APK
         run: ./gradlew -Ptalla.ci=true testDebugUnitTest lintDebug assembleRelease bundleRelease --stacktrace
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android release-hardening journeys
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          working-directory: android
+          script: ./gradlew -Ptalla.ci=true connectedDebugAndroidTest --stacktrace
       - name: Checksum Android artifacts
         run: sha256sum app/build/outputs/apk/release/*.apk app/build/outputs/bundle/release/*.aab > app/build/outputs/SHA256SUMS
       - uses: actions/upload-artifact@v4

@@ -35,6 +35,7 @@ data class CoffeeTasteFeedback(val id: String = UUID.randomUUID().toString(), va
 data class MaintenanceEvent(val id: String = UUID.randomUUID().toString(), val equipmentId: String, val type: String, val performedAt: Long = System.currentTimeMillis(), val usageCount: Int? = null, val notes: String? = null)
 
 data class CoffeeRecord(val ownerId: String, val entityType: String, val id: String, val payload: JSONObject, val updatedAt: Long, val deletedAt: Long?, val revision: Long, val dirty: Boolean, val conflictPayload: JSONObject? = null)
+data class CoffeeConflict(val ownerId: String, val entityType: String, val id: String, val localPayload: JSONObject, val serverPayload: JSONObject)
 
 class CoffeeDataStore(context: Context) {
     private val appContext = context.applicationContext
@@ -72,6 +73,67 @@ class CoffeeDataStore(context: Context) {
         helper.writableDatabase.execSQL("UPDATE OR IGNORE coffee_records SET owner_id=? WHERE owner_id=''", arrayOf(ownerId))
     }
 
+    fun savePurchasedCoffee(value: PurchasedCoffee, ownerId: String = "") {
+        val lotId = value.lotId ?: UUID.randomUUID().toString()
+        if (value.lotId == null) {
+            upsert(ownerId, CoffeeEntityType.COFFEE_LOT, lotId, JSONObject()
+                .put("id", lotId).put("name", value.productName))
+        }
+        upsert(ownerId, CoffeeEntityType.PURCHASED_COFFEE, value.id, JSONObject()
+            .put("id", value.id).put("lotID", lotId).put("productID", value.productId)
+            .put("productName", value.productName).put("roastDate", value.roastDate)
+            .put("purchasedAt", value.purchasedAt ?: System.currentTimeMillis())
+            .put("initialQuantityGrams", value.initialQuantityGrams)
+            .put("remainingQuantityGrams", value.remainingQuantityGrams)
+            .put("currencyCode", value.currencyCode).put("priceMinor", value.priceMinor))
+    }
+
+    fun purchasedCoffee(ownerId: String = ""): List<PurchasedCoffee> = records(ownerId, CoffeeEntityType.PURCHASED_COFFEE).map { record ->
+        val json = record.payload
+        PurchasedCoffee(
+            id = record.id,
+            lotId = json.optNullableString("lotID"),
+            productId = json.optNullableString("productID"),
+            productName = json.optString("productName", "Coffee"),
+            roastDate = json.optNullableLong("roastDate"),
+            purchasedAt = json.optNullableLong("purchasedAt"),
+            initialQuantityGrams = json.optDouble("initialQuantityGrams", 0.0),
+            remainingQuantityGrams = json.optDouble("remainingQuantityGrams", 0.0),
+            currencyCode = json.optNullableString("currencyCode"),
+            priceMinor = json.optNullableInt("priceMinor"),
+        )
+    }
+
+    fun updateRemainingQuantity(ownerId: String = "", id: String, remainingGrams: Double) {
+        val current = find(ownerId, CoffeeEntityType.PURCHASED_COFFEE.wireName, id) ?: return
+        val payload = JSONObject(current.payload.toString()).put("remainingQuantityGrams", remainingGrams.coerceAtLeast(0.0))
+        upsert(ownerId, CoffeeEntityType.PURCHASED_COFFEE, id, payload, current.revision)
+    }
+
+    fun saveMaintenance(value: MaintenanceEvent, ownerId: String = "") {
+        upsert(ownerId, CoffeeEntityType.MAINTENANCE, value.id, JSONObject()
+            .put("id", value.id).put("equipmentID", value.equipmentId).put("kind", value.type)
+            .put("performedAt", value.performedAt).put("usageCount", value.usageCount).put("notes", value.notes))
+    }
+
+    fun conflicts(ownerId: String = ""): List<CoffeeConflict> = query("owner_id=? AND conflict_payload IS NOT NULL", arrayOf(ownerId)).mapNotNull { record ->
+        record.conflictPayload?.let { CoffeeConflict(ownerId, record.entityType, record.id, it, record.payload) }
+    }
+
+    fun resolveConflict(conflict: CoffeeConflict, keepLocal: Boolean) {
+        val values = ContentValues().apply {
+            put("payload", (if (keepLocal) conflict.localPayload else conflict.serverPayload).toString())
+            put("dirty", if (keepLocal) 1 else 0)
+            putNull("conflict_payload")
+            if (keepLocal) put("updated_at", System.currentTimeMillis())
+        }
+        helper.writableDatabase.update(
+            "coffee_records", values,
+            "owner_id=? AND entity_type=? AND record_id=?",
+            arrayOf(conflict.ownerId, conflict.entityType, conflict.id.lowercase())
+        )
+    }
+
     fun saveJournal(entry: BrewJournalEntry, ownerId: String = "") {
         val payload = JSONObject().put("id", entry.id).put("title", entry.title).put("method", entry.method)
             .put("coffeeGrams", entry.coffeeGrams).put("ratio", entry.ratio).put("waterGrams", entry.waterGrams)
@@ -79,6 +141,11 @@ class CoffeeDataStore(context: Context) {
             .put("notes", entry.notes).put("createdAt", entry.createdAt)
         upsert(ownerId, CoffeeEntityType.BREW_SESSION, entry.id, payload)
         upsert(ownerId, CoffeeEntityType.TASTE_FEEDBACK, entry.id, JSONObject().put("id", entry.id).put("sessionID", entry.id).put("rating", entry.rating.coerceIn(1, 5)).put("notes", entry.notes).put("createdAt", entry.createdAt))
+        val sampleId = UUID.nameUUIDFromBytes("${entry.id}:final-weight".toByteArray()).toString()
+        upsert(ownerId, CoffeeEntityType.SAMPLE, sampleId, JSONObject()
+            .put("id", sampleId).put("sessionID", entry.id).put("kind", SampleType.WEIGHT.name.lowercase())
+            .put("elapsedMilliseconds", entry.brewTimeSeconds.coerceAtLeast(0) * 1_000)
+            .put("value", entry.waterGrams).put("unit", "g"))
     }
 
     fun replaceJournal(entries: List<BrewJournalEntry>, ownerId: String = "") {
@@ -149,6 +216,9 @@ class CoffeeDataStore(context: Context) {
     private fun recordJson(record: CoffeeRecord) = JSONObject().put("entityType", record.entityType).put("id", record.id).put("payload", record.payload).put("updatedAt", record.updatedAt).put("deletedAt", record.deletedAt ?: JSONObject.NULL).put("baseRevision", record.revision)
     private fun deviceId(preferences: android.content.SharedPreferences): String = preferences.getString("device_id", null) ?: UUID.randomUUID().toString().also { preferences.edit().putString("device_id", it).apply() }
     private fun parseTimestamp(value: String): Long = runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
+    private fun JSONObject.optNullableString(name: String) = if (isNull(name)) null else optString(name).takeIf(String::isNotBlank)
+    private fun JSONObject.optNullableLong(name: String) = if (isNull(name) || !has(name)) null else optLong(name)
+    private fun JSONObject.optNullableInt(name: String) = if (isNull(name) || !has(name)) null else optInt(name)
     private fun android.database.Cursor.getLongOrNull(index: Int) = if (isNull(index)) null else getLong(index)
     private fun android.database.Cursor.getStringOrNull(index: Int) = if (isNull(index)) null else getString(index)
 

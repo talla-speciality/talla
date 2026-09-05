@@ -433,6 +433,11 @@ extension BrewingSectionView {
                         activeDashboardDestination = .coffeeJournal
                     }
                     brewDivider
+                    brewingLinkedRow(title: AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory"), detail: AppLocalization.text("coffee_inventory_detail", fallback: "Lots, roast dates, quantities, and sync conflicts."), value: nil) {
+                        isToolsMenuPresented = false
+                        activeDashboardDestination = .coffeeLibrary
+                    }
+                    brewDivider
                     brewingLinkedRow(title: AppLocalization.text("brew_coach", fallback: "Brew Coach"), detail: AppLocalization.text("brew_coach_detail", fallback: "Small adjustments for the next cup."), value: nil) {
                         isToolsMenuPresented = false
                         activeDashboardDestination = .brewCoach
