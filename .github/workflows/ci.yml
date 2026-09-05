@@ -115,6 +115,8 @@ jobs:
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality"
           -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}"
           -derivedDataPath build/apple-ui-tests CODE_SIGNING_ALLOWED=NO
+          -parallel-testing-enabled NO
+          -maximum-concurrent-test-simulator-destinations 1
           -only-testing:"Talla SpecialityUITests/Talla_SpecialityUITests" test
       - name: Build Watch app
         run: >-
