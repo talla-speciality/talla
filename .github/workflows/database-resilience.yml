@@ -34,7 +34,7 @@ jobs:
       - name: Install PostgreSQL 18 client
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
-          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --batch --yes --dearmor --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install --yes postgresql-client-18
