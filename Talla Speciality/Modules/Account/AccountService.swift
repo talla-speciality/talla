@@ -436,7 +436,9 @@ enum AccountService {
         email: String,
         items: [(name: String, quantity: Int, variantID: String)],
         total: Double,
-        fulfillmentMethod: TallaFulfillmentMethod
+        fulfillmentMethod: TallaFulfillmentMethod,
+        address: ContentView.DeliveryAddress?,
+        paymentMethod: TallaPaymentMethod
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -455,13 +457,28 @@ enum AccountService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         try authorize(&request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
+        var payload: [String: Any] = [
             "email": email,
             "title": fulfillmentMethod == .pickup ? "Pickup order" : "Delivery order",
             "total": total,
             "fulfillmentMethod": fulfillmentMethod.rawValue,
+            "paymentMethod": paymentMethod.rawValue,
+            "source": "Talla iOS app",
             "items": orderItems
-        ])
+        ]
+        if let address {
+            payload["customer"] = ["fullName": address.fullName, "phone": address.phone]
+            payload["fulfillment"] = [
+                "method": fulfillmentMethod.rawValue,
+                "fullName": address.fullName,
+                "phone": address.phone,
+                "line1": address.line1,
+                "city": address.city,
+                "countryCode": address.country.rawValue,
+                "notes": address.notes ?? ""
+            ]
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         return try await performCheckoutStartRequest(request)
     }

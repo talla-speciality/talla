@@ -329,9 +329,9 @@ test("approved CAPTURED notification acknowledges first and applies payment once
     assert.ok(payment.effectsAppliedAt);
     const order = JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[customerEmail][0];
     const loyalty = JSON.parse(fs.readFileSync(loyaltyPath, "utf8")).accounts[customerEmail];
-    assert.equal(order.status, "Completed");
-    assert.equal(loyalty.pointsBalance, 64);
-    assert.equal(loyalty.transactions.length, 1);
+    assert.equal(order.status, "Confirmed");
+    assert.equal(loyalty.pointsBalance, 0);
+    assert.equal(loyalty.transactions.length, 0);
 });
 
 test("production CAPTURED notification may omit echoed udf2", async () => {
@@ -342,7 +342,7 @@ test("production CAPTURED notification may omit echoed udf2", async () => {
     const payment = await waitForPaymentStatus("Captured");
     assert.ok(payment.effectsAppliedAt);
     const order = JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[customerEmail][0];
-    assert.equal(order.status, "Completed");
+    assert.equal(order.status, "Confirmed");
 });
 
 test("declined NOT CAPTURED notification does not complete the order", async () => {
@@ -398,7 +398,7 @@ test("unknown order is rejected", async () => {
     assert.equal(response.body, "REDIRECT=https://merchant.test/api/payments/benefit/result");
 });
 
-test("duplicate callback cannot duplicate loyalty or fulfilment effects", async () => {
+test("duplicate callback cannot complete the order or award loyalty", async () => {
     resetStores();
     const [first, duplicate] = await Promise.all([
         postEncryptedNotification(),
@@ -408,8 +408,10 @@ test("duplicate callback cannot duplicate loyalty or fulfilment effects", async 
     assert.equal(duplicate.statusCode, 200);
     await waitForPaymentStatus("Captured");
     const loyalty = JSON.parse(fs.readFileSync(loyaltyPath, "utf8")).accounts[customerEmail];
-    assert.equal(loyalty.pointsBalance, 64);
-    assert.equal(loyalty.transactions.length, 1);
+    const order = JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[customerEmail][0];
+    assert.equal(order.status, "Confirmed");
+    assert.equal(loyalty.pointsBalance, 0);
+    assert.equal(loyalty.transactions.length, 0);
 });
 
 test("malformed encrypted response returns exact safe REDIRECT acknowledgement", async () => {

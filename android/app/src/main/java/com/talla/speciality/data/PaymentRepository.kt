@@ -39,7 +39,7 @@ class PaymentRepository(private val context: Context) {
         lines: List<CartLine>,
         fulfillmentMethod: String,
     ): BenefitPaySession = withContext(Dispatchers.IO) {
-        val orderId = createPendingOrder(token, email, lines, fulfillmentMethod)
+        val orderId = createPendingOrder(token, email, lines, fulfillmentMethod, "benefitPay")
         val session = post("/api/payments/benefitpay/session", JSONObject().put("orderID", orderId), token)
         BenefitPaySession(
             appId = session.getString("appId"), merchantId = session.getString("merchantId"),
@@ -57,7 +57,7 @@ class PaymentRepository(private val context: Context) {
         lines: List<CartLine>,
         fulfillmentMethod: String,
     ): HostedBenefitCheckout = withContext(Dispatchers.IO) {
-        val orderId = createPendingOrder(token, email, lines, fulfillmentMethod)
+        val orderId = createPendingOrder(token, email, lines, fulfillmentMethod, "benefit")
         val result = post("/api/payments/benefit/create", JSONObject().put("orderID", orderId), token)
         HostedBenefitCheckout(result.getString("paymentUrl"), orderId)
     }
@@ -73,7 +73,7 @@ class PaymentRepository(private val context: Context) {
         lines: List<CartLine>,
         fulfillmentMethod: String,
     ): ClickToPayCheckout = withContext(Dispatchers.IO) {
-        val localOrderId = createPendingOrder(token, email, lines, fulfillmentMethod)
+        val localOrderId = createPendingOrder(token, email, lines, fulfillmentMethod, "card")
         val result = post("/api/payments/click-to-pay/create", JSONObject().put("orderID", localOrderId), token)
         ClickToPayCheckout(result.getString("paymentUrl"), localOrderId)
     }
@@ -106,6 +106,7 @@ class PaymentRepository(private val context: Context) {
         email: String,
         lines: List<CartLine>,
         fulfillmentMethod: String,
+        paymentMethod: String,
     ): String {
         require(lines.isNotEmpty()) { "Your bag is empty" }
         val items = JSONArray().apply {
@@ -119,7 +120,8 @@ class PaymentRepository(private val context: Context) {
         return post(
             "/orders/checkout-started",
             JSONObject().put("email", email).put("title", if (fulfillmentMethod == "pickup") "Pickup order" else "Delivery order")
-                .put("total", total).put("fulfillmentMethod", fulfillmentMethod).put("items", items),
+                .put("total", total).put("fulfillmentMethod", fulfillmentMethod).put("paymentMethod", paymentMethod)
+                .put("source", "Talla Android app").put("items", items),
             token,
         ).getString("orderID")
     }

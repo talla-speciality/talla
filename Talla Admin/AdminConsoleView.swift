@@ -12,7 +12,6 @@ struct AdminConsoleView: View {
             ZStack {
                 AdminWebView(url: url, isLoading: $isLoading, errorMessage: $errorMessage)
                     .id(reloadID)
-                    .ignoresSafeArea(edges: .bottom)
 
                 if isLoading {
                     ProgressView("Loading admin…")
@@ -71,6 +70,7 @@ private struct AdminWebView: UIViewRepresentable {
         ))
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.scrollView.keyboardDismissMode = .interactive
         webView.isOpaque = false
@@ -95,7 +95,7 @@ private struct AdminWebView: UIViewRepresentable {
 
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         weak var webView: WKWebView?
         private var isLoading: Binding<Bool>
         private var errorMessage: Binding<String?>
@@ -127,10 +127,66 @@ private struct AdminWebView: UIViewRepresentable {
             finishWithError(error, webView: webView)
         }
 
+        func webView(
+            _ webView: WKWebView,
+            runJavaScriptAlertPanelWithMessage message: String,
+            initiatedByFrame frame: WKFrameInfo,
+            completionHandler: @escaping () -> Void
+        ) {
+            let alert = UIAlertController(title: "Talla Admin", message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler() })
+            present(alert, from: webView, fallback: completionHandler)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            runJavaScriptConfirmPanelWithMessage message: String,
+            initiatedByFrame frame: WKFrameInfo,
+            completionHandler: @escaping (Bool) -> Void
+        ) {
+            let alert = UIAlertController(title: "Talla Admin", message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(false) })
+            alert.addAction(UIAlertAction(title: "Confirm", style: .default) { _ in completionHandler(true) })
+            present(alert, from: webView) { completionHandler(false) }
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            runJavaScriptTextInputPanelWithPrompt prompt: String,
+            defaultText: String?,
+            initiatedByFrame frame: WKFrameInfo,
+            completionHandler: @escaping (String?) -> Void
+        ) {
+            let alert = UIAlertController(title: "Talla Admin", message: prompt, preferredStyle: .alert)
+            alert.addTextField { $0.text = defaultText }
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(nil) })
+            alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
+                completionHandler(alert.textFields?.first?.text)
+            })
+            present(alert, from: webView) { completionHandler(nil) }
+        }
+
+        private func present(_ alert: UIAlertController, from webView: WKWebView, fallback: @escaping () -> Void) {
+            guard let presenter = webView.window?.rootViewController?.topPresenter else {
+                fallback()
+                return
+            }
+            presenter.present(alert, animated: true)
+        }
+
         private func finishWithError(_ error: Error, webView: WKWebView) {
             webView.scrollView.refreshControl?.endRefreshing()
             isLoading.wrappedValue = false
             errorMessage.wrappedValue = error.localizedDescription
         }
+    }
+}
+
+private extension UIViewController {
+    var topPresenter: UIViewController {
+        if let presentedViewController { return presentedViewController.topPresenter }
+        if let navigation = self as? UINavigationController { return navigation.visibleViewController?.topPresenter ?? navigation }
+        if let tab = self as? UITabBarController { return tab.selectedViewController?.topPresenter ?? tab }
+        return self
     }
 }

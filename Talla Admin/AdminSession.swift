@@ -107,8 +107,27 @@ final class AdminSession: ObservableObject {
             orders = try await api.updateOrder(id: order.id, status: status).sorted {
                 ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast)
             }
+            let detailedOrder = try await api.orderDetail(id: order.id)
+            if let index = orders.firstIndex(where: { $0.id == order.id }) {
+                orders[index] = detailedOrder
+            }
             lastRefreshAt = .now
             message = "\(order.title) updated to \(status)."
+        } catch {
+            handle(error)
+        }
+    }
+
+    func refreshOrderDetail(id: String) async {
+        guard isAuthenticated else { return }
+        do {
+            let detailedOrder = try await api.orderDetail(id: id)
+            if let index = orders.firstIndex(where: { $0.id == id }) {
+                orders[index] = detailedOrder
+            } else {
+                orders.insert(detailedOrder, at: 0)
+            }
+            errorMessage = nil
         } catch {
             handle(error)
         }
@@ -199,25 +218,32 @@ final class AdminSession: ObservableObject {
             id: "TALLA-1048", email: "customer@example.com", title: "Pickup order #1048",
             total: "BHD 12.400", status: "Pending",
             items: [AdminOrderItem(name: "Ethiopia Guji — Filter Roast", quantity: 2), AdminOrderItem(name: "Glass Cup", quantity: 1)],
-            createdAt: "2026-09-02T14:20:00Z", beansAwarded: false, pointsAwarded: 12
+            createdAt: "2026-09-02T14:20:00Z", beansAwarded: false, pointsAwarded: 12,
+            customer: AdminOrderCustomer(fullName: "Sara Ahmed", email: "customer@example.com", phone: "+973 3900 0000"),
+            fulfillment: AdminOrderFulfillment(method: "pickup", fullName: "Sara Ahmed", phone: "+973 3900 0000", line1: "Talla, Riffa", city: "Riffa", countryCode: "BH", notes: "Call on arrival"),
+            payment: AdminOrderPayment(method: "BenefitPay", provider: "BENEFIT", status: "Captured", amount: "12.400", currency: "BHD", reference: "BP-1048", paidAt: "2026-09-02T14:21:00Z"),
+            source: "Talla iOS app", updatedAt: "2026-09-02T14:21:00Z"
         ),
         AdminOrder(
             id: "TALLA-1047", email: "long.customer.name@example.com", title: "Delivery order #1047",
             total: "BHD 7.250", status: "Ready",
             items: [AdminOrderItem(name: "Colombia Huila", quantity: 1)],
-            createdAt: "2026-09-02T13:05:00Z", beansAwarded: true, pointsAwarded: 7
+            createdAt: "2026-09-02T13:05:00Z", beansAwarded: true, pointsAwarded: 7,
+            customer: nil, fulfillment: nil, payment: nil, source: "Talla app", updatedAt: nil
         ),
         AdminOrder(
             id: "TALLA-1046", email: "completed@example.com", title: "Pickup order #1046",
             total: "BHD 4.800", status: "Completed",
             items: [AdminOrderItem(name: "House Espresso", quantity: 1)],
-            createdAt: "2026-09-01T11:30:00Z", beansAwarded: true, pointsAwarded: 4
+            createdAt: "2026-09-01T11:30:00Z", beansAwarded: true, pointsAwarded: 4,
+            customer: nil, fulfillment: nil, payment: nil, source: "Talla app", updatedAt: nil
         ),
         AdminOrder(
             id: "TALLA-1045", email: "cancelled@example.com", title: "Delivery order #1045",
             total: "BHD 9.600", status: "Cancelled",
             items: [AdminOrderItem(name: "Brazil Fazenda", quantity: 2)],
-            createdAt: "2026-08-31T09:00:00Z", beansAwarded: false, pointsAwarded: 0
+            createdAt: "2026-08-31T09:00:00Z", beansAwarded: false, pointsAwarded: 0,
+            customer: nil, fulfillment: nil, payment: nil, source: "Talla app", updatedAt: nil
         )
     ]
     #endif

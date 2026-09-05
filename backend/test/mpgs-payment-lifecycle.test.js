@@ -109,17 +109,17 @@ function storedOrder() {
     return JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[email][0];
 }
 
-test("MPGS card success applies order and loyalty exactly once", async () => {
+test("MPGS card success confirms the order without completing or awarding loyalty", async () => {
     seed("CARD");
     verifyMpgsAuthenticationForPurchase(storedPayment(), gatewayOrder());
     const first = await applyConfirmedMpgsPayment(paymentID, gatewayOrder());
     const duplicate = await applyConfirmedMpgsPayment(paymentID, gatewayOrder());
     assert.equal(first.applied, true);
     assert.equal(duplicate.applied, false);
-    assert.equal(storedOrder().status, "Completed");
+    assert.equal(storedOrder().status, "Confirmed");
     const loyalty = JSON.parse(fs.readFileSync(loyaltyPath, "utf8")).accounts[email];
-    assert.equal(loyalty.pointsBalance, 64);
-    assert.equal(loyalty.transactions.length, 1);
+    assert.equal(loyalty.pointsBalance, 0);
+    assert.equal(loyalty.transactions.length, 0);
 });
 
 test("MPGS card decline cannot complete an order", () => {
@@ -150,12 +150,12 @@ test("3DS failure prevents PURCHASE verification", () => {
     );
 });
 
-test("Apple Pay and Click to Pay confirmed orders use the same verified completion", async () => {
+test("Apple Pay and Click to Pay confirmed orders await manual completion", async () => {
     for (const method of ["APPLE_PAY", "CLICK_TO_PAY"]) {
         seed(method);
         const result = await applyConfirmedMpgsPayment(paymentID, gatewayOrder());
         assert.equal(result.applied, true);
-        assert.equal(storedOrder().status, "Completed");
+        assert.equal(storedOrder().status, "Confirmed");
     }
 });
 

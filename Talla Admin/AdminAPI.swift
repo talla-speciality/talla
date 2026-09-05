@@ -5,6 +5,13 @@ struct AdminAPI {
     let baseURL: URL
 
     static var configured: AdminAPI {
+        #if DEBUG
+        if let override = ProcessInfo.processInfo.environment["TALLA_ADMIN_BACKEND_URL"],
+           let url = URL(string: override),
+           !override.isEmpty {
+            return AdminAPI(baseURL: url)
+        }
+        #endif
         let configuredValue = Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String
         let fallback = "https://talla-backend.onrender.com"
         return AdminAPI(baseURL: URL(string: configuredValue ?? fallback)!)
@@ -66,6 +73,15 @@ struct AdminAPI {
     func orders() async throws -> [AdminOrder] {
         let data = try await request("/admin/api/orders")
         return try JSONDecoder().decode(AdminOrdersResponse.self, from: data).orders
+    }
+
+    func orderDetail(id: String) async throws -> AdminOrder {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        guard let encodedID = id.addingPercentEncoding(withAllowedCharacters: allowed) else {
+            throw AdminAPIError.invalidResponse
+        }
+        let data = try await request("/admin/api/orders/detail?orderID=\(encodedID)")
+        return try JSONDecoder().decode(AdminOrderDetailResponse.self, from: data).order
     }
 
     func updateOrder(id: String, status: String) async throws -> [AdminOrder] {

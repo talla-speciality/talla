@@ -3576,7 +3576,9 @@ extension ContentView {
                 email: profile.email,
                 items: checkoutItems,
                 total: cartTotal,
-                fulfillmentMethod: fulfillmentMethod
+                fulfillmentMethod: fulfillmentMethod,
+                address: fulfillmentMethod == .delivery ? preferredAddress : nil,
+                paymentMethod: selectedPaymentMethod
             )
             orderHistory = checkoutStart.orders
             preparePostPaymentContext(orderID: checkoutStart.orderID, method: selectedPaymentMethod)

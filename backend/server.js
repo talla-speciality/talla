@@ -24,6 +24,7 @@ const {
 const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
 const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
+const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail");
 const {
     authenticateAdmin,
     hasPermission,
@@ -3688,9 +3689,29 @@ function orderRowToRecord(row) {
         total: row.total,
         status: row.status,
         items: Array.isArray(row.items) ? row.items : [],
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+        details: row.details && typeof row.details === "object" ? row.details : {},
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+        updatedAt: row.updated_at instanceof Date
+            ? row.updated_at.toISOString()
+            : row.updated_at || row.created_at
     };
 }
+
+const { adminOrderDetailPayload, normalizeOrderDetails, shopifyAdminOrderDetails, shopifyOrderDetails } = createAdminOrderDetailService({
+    addressesFor,
+    completedOrderStatuses,
+    database,
+    findBenefitPaymentByOrderID,
+    findCardPayment,
+    getAccountByEmail,
+    normalizeCountryCode,
+    numericOrderTotal,
+    orderCurrency,
+    orderPayloadWithRewardState,
+    readJSON,
+    shopifyEazyPaymentRowToRecord,
+    shopifyEazyPaymentsStorePath
+});
 
 function completedOrderStatuses() {
     return new Set(["Completed", "Fulfilled", "Delivered"]);
@@ -3758,7 +3779,7 @@ async function ordersPayload(email) {
     let orders;
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, title, total, status, items, created_at
+            `SELECT id, title, total, status, items, details, created_at, updated_at
              FROM orders
              WHERE email = $1
              ORDER BY created_at DESC`,
@@ -3777,7 +3798,7 @@ async function allOrdersPayload() {
     let orders;
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, email, title, total, status, items, created_at
+            `SELECT id, email, title, total, status, items, details, created_at, updated_at
              FROM orders
              ORDER BY created_at DESC`
         );
@@ -4147,7 +4168,7 @@ async function findOrderByID(orderID) {
 
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, email, title, total, status, items, created_at
+            `SELECT id, email, title, total, status, items, details, created_at, updated_at
              FROM orders
              WHERE id = $1
              LIMIT 1`,
@@ -4194,11 +4215,11 @@ function orderStatusFromShopifyOrder(shopifyOrder, topic = "") {
     const fulfillmentStatus = String(shopifyOrder.fulfillment_status || "").toLowerCase();
 
     if (normalizedTopic.includes("fulfilled") || fulfillmentStatus === "fulfilled") {
-        return "Fulfilled";
+        return "Ready";
     }
 
     if (normalizedTopic.includes("paid") || financialStatus === "paid" || financialStatus === "partially_paid") {
-        return "Completed";
+        return "Confirmed";
     }
 
     if (financialStatus === "voided" || financialStatus === "refunded") {
@@ -4218,11 +4239,11 @@ function orderStatusFromShopifyAdminOrder(order) {
     }
 
     if (displayFulfillmentStatus.includes("fulfilled")) {
-        return "Fulfilled";
+        return "Ready";
     }
 
     if (displayFinancialStatus.includes("paid") || displayFinancialStatus.includes("partially_paid")) {
-        return "Completed";
+        return "Confirmed";
     }
 
     if (displayFinancialStatus.includes("pending")) {
@@ -4240,10 +4261,12 @@ function shopifyOrderRecord(shopifyOrder, topic = "") {
     const items = Array.isArray(shopifyOrder.line_items)
         ? shopifyOrder.line_items.map((item) => ({
             name: String(item.name || item.title || "Item"),
-            quantity: Number(item.quantity || 1)
+            quantity: Number(item.quantity || 1),
+            variantId: item.variant_id ? String(item.variant_id) : null,
+            sku: item.sku ? String(item.sku) : null,
+            unitPrice: Number.isFinite(Number(item.price)) ? `${currency} ${Number(item.price).toFixed(3)}` : null
         }))
         : [];
-
     return {
         id,
         email,
@@ -4252,6 +4275,7 @@ function shopifyOrderRecord(shopifyOrder, topic = "") {
         totalNumber: Number.isFinite(totalNumber) ? totalNumber : 0,
         status: orderStatusFromShopifyOrder(shopifyOrder, topic),
         items,
+        details: shopifyOrderDetails(shopifyOrder),
         createdAt: shopifyOrder.created_at || new Date().toISOString()
     };
 }
@@ -4261,9 +4285,10 @@ function shopifyAdminOrderRecord(node, fallbackEmail) {
     const currency = String(node.currentTotalPriceSet?.shopMoney?.currencyCode || node.totalPriceSet?.shopMoney?.currencyCode || "BHD").toUpperCase();
     const items = (node.lineItems?.edges || []).map(({ node: item }) => ({
         name: String(item.name || item.title || "Item"),
-        quantity: Number(item.quantity || 1)
+        quantity: Number(item.quantity || 1),
+        sku: item.sku || null,
+        variantId: item.variant?.id || null
     }));
-
     return {
         id: `shopify_${node.legacyResourceId || node.id || node.name || Date.now()}`,
         email: normalizeEmail(node.email || fallbackEmail),
@@ -4272,6 +4297,7 @@ function shopifyAdminOrderRecord(node, fallbackEmail) {
         totalNumber: Number.isFinite(totalAmount) ? totalAmount : 0,
         status: orderStatusFromShopifyAdminOrder(node),
         items,
+        details: shopifyAdminOrderDetails(node),
         createdAt: node.createdAt || new Date().toISOString()
     };
 }
@@ -4303,17 +4329,22 @@ async function upsertOrderRecord(order) {
     if (database.isEnabled()) {
         const result = await database.query(
             `INSERT INTO orders
-             (id, email, title, total, status, items, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+             (id, email, title, total, status, items, details, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $8)
              ON CONFLICT (id)
              DO UPDATE SET
                 email = EXCLUDED.email,
                 title = EXCLUDED.title,
                 total = EXCLUDED.total,
                 status = EXCLUDED.status,
-                items = EXCLUDED.items
-             RETURNING id, title, total, status, items, created_at`,
-            [order.id, order.email, order.title, order.total, order.status, JSON.stringify(order.items), order.createdAt]
+                items = EXCLUDED.items,
+                details = CASE
+                    WHEN EXCLUDED.details = '{}'::jsonb THEN orders.details
+                    ELSE orders.details || EXCLUDED.details
+                END,
+                updated_at = NOW()
+             RETURNING id, title, total, status, items, details, created_at, updated_at`,
+            [order.id, order.email, order.title, order.total, order.status, JSON.stringify(order.items), JSON.stringify(normalizeOrderDetails(order.details)), order.createdAt]
         );
         const recordedOrder = orderRowToRecord(result.rows[0]);
         if (!existingOrder) announceNewAdminOrder({ ...recordedOrder, email: order.email });
@@ -4329,7 +4360,9 @@ async function upsertOrderRecord(order) {
         total: order.total,
         status: order.status,
         items: order.items,
-        createdAt: order.createdAt
+        details: normalizeOrderDetails(order.details),
+        createdAt: order.createdAt,
+        updatedAt: new Date().toISOString()
     };
 
     if (index >= 0) {
@@ -4362,7 +4395,7 @@ async function deleteMatchingPendingCheckout(order) {
 
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, email, title, total, status, items, created_at
+            `SELECT id, email, title, total, status, items, details, created_at, updated_at
              FROM orders
              WHERE email = $1 AND id LIKE 'checkout_%' AND status = 'Pending'
              ORDER BY created_at DESC
@@ -4772,7 +4805,7 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
             }
             const lockedPayment = cardPaymentRowToRecord(paymentResult.rows[0]);
             const orderResult = await client.query(
-                `SELECT id, email, title, total, status, items, created_at
+                `SELECT id, email, title, total, status, items, details, created_at, updated_at
                  FROM orders WHERE id = $1 FOR UPDATE`,
                 [lockedPayment.localOrderID]
             );
@@ -4788,17 +4821,14 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
                 await client.query("COMMIT");
                 return { applied: false, payment: lockedPayment };
             }
-            const updatedOrder = await client.query(
+            await client.query(
                 `UPDATE orders
-                 SET status = CASE WHEN status IN ('Completed', 'Fulfilled', 'Delivered') THEN status ELSE 'Completed' END
+                 SET status = CASE WHEN status IN ('Completed', 'Fulfilled', 'Delivered') THEN status ELSE 'Confirmed' END,
+                     updated_at = NOW()
                  WHERE id = $1
-                 RETURNING id, email, title, total, status, items, created_at`,
+                 RETURNING id, email, title, total, status, items, details, created_at, updated_at`,
                 [lockedOrder.id]
             );
-            await awardOrderBeansWithClient(client, {
-                ...orderRowToRecord(updatedOrder.rows[0]),
-                email: normalizeEmail(updatedOrder.rows[0].email)
-            });
             await client.query(
                 `UPDATE card_payments
                  SET status = 'Captured', gateway_result = $2, gateway_transaction_result = $3,
@@ -4807,7 +4837,6 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
                 [paymentID, String(gatewayOrder.result || "SUCCESS"), String(transaction.result || "SUCCESS"), completedAt]
             );
             await client.query("COMMIT");
-            queueShopifyOrderExport(lockedOrder.id);
             return { applied: true, payment: { ...lockedPayment, status: "Captured", effectsAppliedAt: completedAt } };
         } catch (error) {
             await client.query("ROLLBACK");
@@ -4837,11 +4866,11 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
         verifyConfirmedMpgsOrder(storedPayment, { ...orders[index], email: storedPayment.email }, gatewayOrder);
         orders[index] = {
             ...orders[index],
-            status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Completed"
+            status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Confirmed",
+            updatedAt: completedAt
         };
         ordersStore.orders[storedPayment.email] = orders;
         writeJSON(ordersStorePath, ordersStore);
-        await awardOrderBeans({ ...orders[index], email: storedPayment.email });
         Object.assign(storedPayment, {
             status: "Captured",
             gatewayResult: String(gatewayOrder.result || "SUCCESS"),
@@ -4852,7 +4881,6 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
             updatedAt: completedAt
         });
         writeJSON(cardPaymentsStorePath, store);
-        queueShopifyOrderExport(storedPayment.localOrderID);
         return { applied: true, payment: storedPayment };
     });
 }
@@ -5598,7 +5626,7 @@ async function applyBenefitNotification(trackID, notification) {
             }
             const lockedPayment = benefitPaymentRowToRecord(paymentResult.rows[0]);
             const orderResult = await client.query(
-                `SELECT id, email, title, total, status, items, created_at
+                `SELECT id, email, title, total, status, items, details, created_at, updated_at
                  FROM orders
                  WHERE id = $1
                  FOR UPDATE`,
@@ -5616,21 +5644,18 @@ async function applyBenefitNotification(trackID, notification) {
             let award = { awarded: false, points: 0, reason: isCaptured ? "ALREADY_APPLIED" : "PAYMENT_NOT_CAPTURED" };
 
             if (isCaptured && !alreadyApplied) {
-                const updatedOrderResult = await client.query(
+                await client.query(
                     `UPDATE orders
                      SET status = CASE
                             WHEN status IN ('Completed', 'Fulfilled', 'Delivered') THEN status
-                            ELSE 'Completed'
-                         END
+                            ELSE 'Confirmed'
+                         END,
+                         updated_at = NOW()
                      WHERE id = $1
-                     RETURNING id, email, title, total, status, items, created_at`,
+                     RETURNING id`,
                     [lockedOrder.id]
                 );
-                const completedOrder = {
-                    ...orderRowToRecord(updatedOrderResult.rows[0]),
-                    email: normalizeEmail(updatedOrderResult.rows[0].email)
-                };
-                award = await awardOrderBeansWithClient(client, completedOrder);
+                award = { awarded: false, points: 0, reason: "MANUAL_COMPLETION_REQUIRED" };
                 await client.query(
                     `UPDATE benefit_payments
                      SET status = 'Captured', processed_at = $2, effects_applied_at = $2, updated_at = $2
@@ -5647,7 +5672,6 @@ async function applyBenefitNotification(trackID, notification) {
             }
 
             await client.query("COMMIT");
-            if (isCaptured) queueShopifyOrderExport(lockedOrder.id);
             return { applied: isCaptured && !alreadyApplied, award };
         } catch (error) {
             await client.query("ROLLBACK");
@@ -5673,14 +5697,12 @@ async function applyBenefitNotification(trackID, notification) {
         }
         orders[index] = {
             ...orders[index],
-            status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Completed"
+            status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Confirmed",
+            updatedAt: processedAt
         };
         ordersStore.orders[payment.email] = orders;
         writeJSON(ordersStorePath, ordersStore);
-        award = await awardOrderBeans({
-            ...orders[index],
-            email: payment.email
-        });
+        award = { awarded: false, points: 0, reason: "MANUAL_COMPLETION_REQUIRED" };
         storedPayment.status = "Captured";
         storedPayment.effectsAppliedAt = processedAt;
     } else if (!isCaptured) {
@@ -5694,7 +5716,6 @@ async function applyBenefitNotification(trackID, notification) {
     storedPayment.processedAt = processedAt;
     storedPayment.updatedAt = processedAt;
     writeJSON(benefitPaymentsStorePath, store);
-    if (isCaptured) queueShopifyOrderExport(payment.orderID);
     return { applied: isCaptured && !alreadyApplied, award };
 }
 
@@ -6267,6 +6288,19 @@ async function syncRecentShopifyOrdersForEmail(email) {
                         cancelledAt
                         displayFinancialStatus
                         displayFulfillmentStatus
+                        paymentGatewayNames
+                        customer {
+                            firstName
+                            lastName
+                            phone
+                        }
+                        shippingAddress {
+                            name
+                            phone
+                            address1
+                            city
+                            countryCodeV2
+                        }
                         currentTotalPriceSet {
                             shopMoney {
                                 amount
@@ -6285,6 +6319,8 @@ async function syncRecentShopifyOrdersForEmail(email) {
                                     name
                                     title
                                     quantity
+                                    sku
+                                    variant { id }
                                 }
                             }
                         }
@@ -6318,9 +6354,9 @@ async function updateOrderStatusRecord(email, orderID, status) {
     if (database.isEnabled()) {
         const result = await database.query(
             `UPDATE orders
-             SET status = $3
+             SET status = $3, updated_at = NOW()
              WHERE email = $1 AND id = $2
-             RETURNING id, title, total, status, items, created_at`,
+             RETURNING id, title, total, status, items, details, created_at, updated_at`,
             [email, orderID, status]
         );
 
@@ -6340,7 +6376,8 @@ async function updateOrderStatusRecord(email, orderID, status) {
 
     orders[index] = {
         ...orders[index],
-        status
+        status,
+        updatedAt: new Date().toISOString()
     };
     store.orders[email] = orders;
     writeJSON(ordersStorePath, store);
@@ -8763,6 +8800,7 @@ const server = createServer({
     adminDirectory,
     adminNativePushDevices,
     adminOperationsSummary,
+    adminOrderDetailPayload,
     adminOrderNotificationPayload,
     adminOrderStreamClients,
     adminPassword,
@@ -8993,6 +9031,7 @@ const server = createServer({
     normalizeEmail,
     normalizeEventSettings,
     normalizeHomeSettings,
+    normalizeOrderDetails,
     normalizeOrderStatus,
     normalizePassportSettings,
     normalizeShopifyOrderPhone,

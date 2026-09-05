@@ -20,6 +20,7 @@ module.exports = function createServer(dependencies) {
         adminDirectory,
         adminNativePushDevices,
         adminOperationsSummary,
+        adminOrderDetailPayload,
         adminOrderNotificationPayload,
         adminOrderStreamClients,
         adminPassword,
@@ -250,6 +251,7 @@ module.exports = function createServer(dependencies) {
         normalizeEmail,
         normalizeEventSettings,
         normalizeHomeSettings,
+        normalizeOrderDetails,
         normalizeOrderStatus,
         normalizePassportSettings,
         normalizeShopifyOrderPhone,
@@ -1145,6 +1147,17 @@ module.exports = function createServer(dependencies) {
 
         if (request.method === "GET" && url.pathname === "/admin/api/orders") {
             sendJSON(response, 200, { orders: await allOrdersPayload() });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/orders/detail") {
+            const orderID = String(url.searchParams.get("orderID") || "").trim();
+            const order = orderID ? await findOrderByID(orderID) : null;
+            if (!order) {
+                sendJSON(response, 404, { error: "Order not found." });
+                return;
+            }
+            sendJSON(response, 200, { order: await adminOrderDetailPayload(order) });
             return;
         }
 
@@ -4147,6 +4160,15 @@ module.exports = function createServer(dependencies) {
                 totalNumber: safeTotal,
                 status: "Pending",
                 items,
+                details: normalizeOrderDetails({
+                    source: trimText(body.source, 60) || "Talla app",
+                    customer: body.customer,
+                    fulfillment: {
+                        ...(body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : {}),
+                        method: body.fulfillmentMethod || body.fulfillment?.method
+                    },
+                    payment: { method: body.paymentMethod }
+                }),
                 createdAt: new Date().toISOString()
             };
 
@@ -4430,8 +4452,9 @@ module.exports = function createServer(dependencies) {
                 id: `ord_${Date.now()}`,
                 title: "Roastery Order",
                 total: `BHD ${sampleOrderTotal.toFixed(3)}`,
-                status: "Completed",
+                status: "Pending",
                 items: sampleOrderItems,
+                details: normalizeOrderDetails({ source: "Talla app", payment: { method: body.paymentMethod } }),
                 createdAt: new Date().toISOString()
             };
 
@@ -4439,9 +4462,9 @@ module.exports = function createServer(dependencies) {
             if (database.isEnabled()) {
                 await database.query(
                     `INSERT INTO orders
-                     (id, email, title, total, status, items, created_at)
-                     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
-                    [newOrder.id, customer.email, newOrder.title, newOrder.total, newOrder.status, JSON.stringify(newOrder.items), newOrder.createdAt]
+                     (id, email, title, total, status, items, details, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $8)`,
+                    [newOrder.id, customer.email, newOrder.title, newOrder.total, newOrder.status, JSON.stringify(newOrder.items), JSON.stringify(newOrder.details), newOrder.createdAt]
                 );
                 orders = await ordersPayload(customer.email);
             } else {
@@ -4451,19 +4474,6 @@ module.exports = function createServer(dependencies) {
                 store.orders[customer.email] = orders;
                 writeJSON(ordersStorePath, store);
             }
-
-            const awardedPoints = Math.round(sampleOrderTotal * runtimeAppSettings.value.loyalty.pointsPerBHD);
-            await updateLoyaltyAccount(customer.email, (account) => {
-                account.pointsBalance += awardedPoints;
-                account.transactions = account.transactions || [];
-                account.transactions.unshift({
-                    id: `txn_${Date.now()}`,
-                    type: "earn",
-                    points: awardedPoints,
-                    note: `Completed order • ${awardedPoints} Beans • BHD ${sampleOrderTotal.toFixed(3)}`,
-                    createdAt: new Date().toISOString()
-                });
-            });
 
             sendJSON(response, 200, orders);
         } catch (error) {
