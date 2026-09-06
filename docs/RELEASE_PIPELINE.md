@@ -14,6 +14,8 @@ Two scheduled workflows provide production resilience: `External uptime` checks 
 
 The backup workflow intentionally fails closed when either required secret is absent. Before calling the system production-ready, manually dispatch both scheduled workflows from the default branch and retain a successful restore run. Configure `OPS_ALERT_WEBHOOK_URL` in Render for backend 5xx and rate-limit error alerts. Never reuse a database URL that has appeared in chat, logs, or tickets; rotate it first.
 
+External alert delivery is a deployment gate, not a local default: this repository deliberately contains no webhook value. After setting `UPTIME_ALERT_WEBHOOK_URL` in GitHub and `OPS_ALERT_WEBHOOK_URL` in Render, dispatch the uptime workflow and exercise a staging 5xx to verify that both alert paths deliver. Until those protected values are supplied, health checks still fail closed but no external notification can be sent.
+
 ## Local verification
 
 The repository pins Xcode in `.xcode-version`. On a Mac with Xcode installed:
