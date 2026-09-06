@@ -95,8 +95,8 @@ class CoffeeDataStore(context: Context) {
             lotId = json.optNullableString("lotID"),
             productId = json.optNullableString("productID"),
             productName = json.optString("productName", "Coffee"),
-            roastDate = json.optNullableLong("roastDate"),
-            purchasedAt = json.optNullableLong("purchasedAt"),
+            roastDate = json.optNullableTimestamp("roastDate"),
+            purchasedAt = json.optNullableTimestamp("purchasedAt"),
             initialQuantityGrams = json.optDouble("initialQuantityGrams", 0.0),
             remainingQuantityGrams = json.optDouble("remainingQuantityGrams", 0.0),
             currencyCode = json.optNullableString("currencyCode"),
@@ -158,7 +158,7 @@ class CoffeeDataStore(context: Context) {
             id = record.id,
             equipmentId = json.optString("equipmentID"),
             type = json.optString("kind", "Maintenance"),
-            performedAt = json.optLong("performedAt", record.updatedAt),
+            performedAt = json.optNullableTimestamp("performedAt") ?: record.updatedAt,
             usageCount = json.optNullableInt("usageCount"),
             notes = json.optNullableString("notes"),
         )
@@ -275,8 +275,15 @@ class CoffeeDataStore(context: Context) {
     private fun deviceId(preferences: android.content.SharedPreferences): String = preferences.getString("device_id", null) ?: UUID.randomUUID().toString().also { preferences.edit().putString("device_id", it).apply() }
     private fun parseTimestamp(value: String): Long = runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
     private fun JSONObject.optNullableString(name: String) = if (isNull(name)) null else optString(name).takeIf(String::isNotBlank)
-    private fun JSONObject.optNullableLong(name: String) = if (isNull(name) || !has(name)) null else optLong(name)
     private fun JSONObject.optNullableInt(name: String) = if (isNull(name) || !has(name)) null else optInt(name)
+    private fun JSONObject.optNullableTimestamp(name: String): Long? {
+        if (isNull(name) || !has(name)) return null
+        return when (val value = opt(name)) {
+            is Number -> value.toLong()
+            is String -> runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrNull()
+            else -> null
+        }
+    }
     private fun android.database.Cursor.getLongOrNull(index: Int) = if (isNull(index)) null else getLong(index)
     private fun android.database.Cursor.getStringOrNull(index: Int) = if (isNull(index)) null else getString(index)
 
