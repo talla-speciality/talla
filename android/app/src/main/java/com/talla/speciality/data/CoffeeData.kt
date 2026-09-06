@@ -279,6 +279,7 @@ class CoffeeDataStore(context: Context) {
     private fun JSONObject.optNullableTimestamp(name: String): Long? {
         if (isNull(name) || !has(name)) return null
         return when (val value = opt(name)) {
+            null -> null
             is Number -> value.toLong()
             is String -> runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrNull()
             else -> null
