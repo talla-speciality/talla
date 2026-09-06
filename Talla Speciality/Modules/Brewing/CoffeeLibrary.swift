@@ -11,6 +11,31 @@ struct CoffeeInventoryRecord: Identifiable {
     let remainingQuantityGrams: Double
 }
 
+struct CoffeeEquipmentRecord: Identifiable {
+    let id: UUID
+    let kind: EquipmentKind
+    let name: String
+    let manufacturer: String
+    let model: String
+}
+
+struct CoffeeCalibrationRecord: Identifiable {
+    let id: UUID
+    let equipmentID: UUID
+    let setting: String
+    let measuredValue: Double?
+    let unit: String
+    let notes: String
+}
+
+struct CoffeeMaintenanceRecord: Identifiable {
+    let id: UUID
+    let equipmentID: UUID
+    let kind: String
+    let performedAt: Date?
+    let notes: String
+}
+
 struct CoffeeDataConflict: Identifiable {
     let entityType: String
     let recordID: UUID
@@ -21,6 +46,81 @@ struct CoffeeDataConflict: Identifiable {
 }
 
 extension CoffeeDataStore {
+    func equipmentRecords() -> [CoffeeEquipmentRecord] {
+        legacyObjects(entityType: "equipment").compactMap { row in
+            guard let id = (row["id"] as? String).flatMap(UUID.init(uuidString:)),
+                  let kind = (row["kind"] as? String).flatMap(EquipmentKind.init(rawValue:)) else { return nil }
+            return CoffeeEquipmentRecord(
+                id: id, kind: kind, name: row["name"] as? String ?? "Equipment",
+                manufacturer: row["manufacturer"] as? String ?? "", model: row["model"] as? String ?? ""
+            )
+        }
+    }
+
+    func calibrationRecords() -> [CoffeeCalibrationRecord] {
+        legacyObjects(entityType: "calibration").compactMap { row in
+            guard let id = (row["id"] as? String).flatMap(UUID.init(uuidString:)),
+                  let equipmentID = (row["equipmentID"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
+            return CoffeeCalibrationRecord(
+                id: id, equipmentID: equipmentID, setting: row["setting"] as? String ?? "",
+                measuredValue: (row["measuredValue"] as? NSNumber)?.doubleValue,
+                unit: row["unit"] as? String ?? "", notes: row["notes"] as? String ?? ""
+            )
+        }
+    }
+
+    func maintenanceRecords() -> [CoffeeMaintenanceRecord] {
+        legacyObjects(entityType: "maintenance").compactMap { row in
+            guard let id = (row["id"] as? String).flatMap(UUID.init(uuidString:)),
+                  let equipmentID = (row["equipmentID"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
+            return CoffeeMaintenanceRecord(
+                id: id, equipmentID: equipmentID, kind: row["kind"] as? String ?? "Maintenance",
+                performedAt: (row["performedAt"] as? String).flatMap(Self.coffeeISO.date(from:)),
+                notes: row["notes"] as? String ?? ""
+            )
+        }
+    }
+
+    func saveEquipment(recordID: UUID? = nil, kind: EquipmentKind, name: String, manufacturer: String, model: String, ownerID: String? = nil) throws {
+        let id = recordID ?? UUID()
+        if let recordID {
+            let descriptor = FetchDescriptor<CoffeeEquipment>(predicate: #Predicate { $0.id == recordID })
+            if let equipment = try container.mainContext.fetch(descriptor).first {
+                equipment.kindRaw = kind.rawValue; equipment.name = name; equipment.manufacturer = manufacturer; equipment.model = model
+                equipment.updatedAt = .now; equipment.syncStateRaw = CoffeeSyncState.dirty.rawValue
+            }
+        } else {
+            container.mainContext.insert(CoffeeEquipment(id: id, kind: kind, name: name, manufacturer: manufacturer, model: model, ownerID: ownerID))
+        }
+        try saveEnvelope(entityType: "equipment", id: id, jsonObject: [
+            "id": id.uuidString, "kind": kind.rawValue, "name": name,
+            "manufacturer": manufacturer, "model": model
+        ])
+        try container.mainContext.save(); notifyCoffeeChange()
+    }
+
+    func saveCalibration(recordID: UUID? = nil, equipmentID: UUID, setting: String, measuredValue: Double?, unit: String, notes: String, ownerID: String? = nil) throws {
+        let calibration: EquipmentCalibration
+        if let recordID, let existing = try container.mainContext.fetch(FetchDescriptor<EquipmentCalibration>(predicate: #Predicate { $0.id == recordID })).first {
+            calibration = existing
+            calibration.equipmentID = equipmentID; calibration.setting = setting; calibration.measuredValue = measuredValue
+            calibration.unit = unit; calibration.notes = notes; calibration.updatedAt = .now; calibration.syncStateRaw = CoffeeSyncState.dirty.rawValue
+        } else {
+            calibration = EquipmentCalibration(id: recordID ?? UUID(), equipmentID: equipmentID, setting: setting, measuredValue: measuredValue, unit: unit, notes: notes, ownerID: ownerID)
+            container.mainContext.insert(calibration)
+        }
+        try saveEnvelope(entityType: "calibration", id: calibration.id, jsonObject: [
+            "id": calibration.id.uuidString, "equipmentID": equipmentID.uuidString, "setting": setting,
+            "measuredValue": measuredValue.map { $0 as Any } ?? NSNull(), "unit": unit, "notes": notes
+        ])
+        try container.mainContext.save(); notifyCoffeeChange()
+    }
+
+    func deleteCoffeeRecord(entityType: String, id: UUID) throws {
+        try tombstone(entityType: entityType, id: id)
+        notifyCoffeeChange()
+    }
+
     func inventory() -> [CoffeeInventoryRecord] {
         let lots = Dictionary(uniqueKeysWithValues: legacyObjects(entityType: "coffeeLot").compactMap { row -> (String, [String: Any])? in
             guard let id = row["id"] as? String else { return nil }
@@ -94,9 +194,15 @@ extension CoffeeDataStore {
         notifyCoffeeChange()
     }
 
-    func recordMaintenance(equipmentID: UUID, kind: String, notes: String, ownerID: String? = nil) throws {
-        let event = MaintenanceEvent(equipmentID: equipmentID, kind: kind, notes: notes, ownerID: ownerID)
-        container.mainContext.insert(event)
+    func recordMaintenance(recordID: UUID? = nil, equipmentID: UUID, kind: String, notes: String, ownerID: String? = nil) throws {
+        let event: MaintenanceEvent
+        if let recordID, let existing = try container.mainContext.fetch(FetchDescriptor<MaintenanceEvent>(predicate: #Predicate { $0.id == recordID })).first {
+            event = existing
+            event.equipmentID = equipmentID; event.kind = kind; event.notes = notes; event.updatedAt = .now; event.syncStateRaw = CoffeeSyncState.dirty.rawValue
+        } else {
+            event = MaintenanceEvent(id: recordID ?? UUID(), equipmentID: equipmentID, kind: kind, notes: notes, ownerID: ownerID)
+            container.mainContext.insert(event)
+        }
         try saveEnvelope(entityType: "maintenance", id: event.id, jsonObject: [
             "id": event.id.uuidString,
             "equipmentID": equipmentID.uuidString,
@@ -195,9 +301,23 @@ struct CoffeeLibraryView: View {
     @State private var quantity = "250"
     @State private var roastDate = Date()
     @State private var hasRoastDate = true
+    @State private var equipmentID: UUID?
+    @State private var equipmentKind = EquipmentKind.brewer
+    @State private var equipmentName = ""
+    @State private var equipmentManufacturer = ""
+    @State private var equipmentModel = ""
+    @State private var calibrationSetting = ""
+    @State private var calibrationID: UUID?
+    @State private var calibrationValue = ""
+    @State private var calibrationUnit = ""
+    @State private var calibrationNotes = ""
+    @State private var maintenanceKind = "Cleaning"
+    @State private var maintenanceNotes = ""
+    @State private var maintenanceID: UUID?
     @State private var errorMessage: String?
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 18) {
             Text(AppLocalization.text("coffee_inventory", fallback: "Coffee inventory"))
                 .font(.system(size: 28, weight: .semibold, design: .serif))
@@ -242,6 +362,10 @@ struct CoffeeLibraryView: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
             }
 
+            equipmentSection
+            calibrationSection
+            maintenanceSection
+
             ForEach(coffeeData.pendingConflicts()) { conflict in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(AppLocalization.text("sync_conflict", fallback: "Sync conflict"))
@@ -263,6 +387,131 @@ struct CoffeeLibraryView: View {
 
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
         }
+        }
+        .onAppear { equipmentID = equipmentID ?? coffeeData.equipmentRecords().first?.id }
+    }
+
+    private var equipmentSection: some View {
+        GroupBox("Equipment") {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Type", selection: $equipmentKind) {
+                    ForEach(EquipmentKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                }
+                TextField("Name", text: $equipmentName).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.equipment.name")
+                TextField("Manufacturer", text: $equipmentManufacturer).textFieldStyle(.roundedBorder)
+                TextField("Model", text: $equipmentModel).textFieldStyle(.roundedBorder)
+                Button(equipmentID == nil ? "Add equipment" : "Save equipment", action: saveEquipment)
+                    .buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.equipment.save")
+                ForEach(coffeeData.equipmentRecords()) { equipment in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(equipment.name).font(.headline)
+                            Text([equipment.kind.rawValue.capitalized, equipment.manufacturer, equipment.model].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption)
+                        }
+                        Spacer()
+                        Button("Edit") { beginEditing(equipment) }
+                        Button(role: .destructive) { delete("equipment", equipment.id) } label: { Image(systemName: "trash") }
+                    }
+                }
+                if equipmentID != nil { Button("Add another") { clearEquipmentEditor() }.buttonStyle(.borderless) }
+            }.padding(.top, 8)
+        }
+    }
+
+    private var equipmentPicker: some View {
+        Picker("Equipment", selection: $equipmentID) {
+            Text("Select equipment").tag(nil as UUID?)
+            ForEach(coffeeData.equipmentRecords()) { Text($0.name).tag(Optional($0.id)) }
+        }
+    }
+
+    private var calibrationSection: some View {
+        GroupBox("Calibrations") {
+            VStack(alignment: .leading, spacing: 10) {
+                equipmentPicker
+                TextField("Setting", text: $calibrationSetting).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.calibration.setting")
+                HStack {
+                    TextField("Measured value", text: $calibrationValue).keyboardType(.decimalPad).textFieldStyle(.roundedBorder)
+                    TextField("Unit", text: $calibrationUnit).textFieldStyle(.roundedBorder)
+                }
+                TextField("Notes", text: $calibrationNotes).textFieldStyle(.roundedBorder)
+                Button("Save calibration", action: saveCalibration).buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.calibration.save")
+                ForEach(coffeeData.calibrationRecords()) { calibration in
+                    HStack {
+                        Text([calibration.setting, calibration.measuredValue.map { String($0) } ?? "", calibration.unit].filter { !$0.isEmpty }.joined(separator: " · "))
+                        Spacer()
+                        Button("Edit") { beginEditing(calibration) }
+                        Button(role: .destructive) { delete("calibration", calibration.id) } label: { Image(systemName: "trash") }
+                    }
+                }
+            }.padding(.top, 8)
+        }
+    }
+
+    private var maintenanceSection: some View {
+        GroupBox("Maintenance") {
+            VStack(alignment: .leading, spacing: 10) {
+                equipmentPicker
+                TextField("Maintenance type", text: $maintenanceKind).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.maintenance.kind")
+                TextField("Notes", text: $maintenanceNotes).textFieldStyle(.roundedBorder)
+                Button("Record maintenance", action: saveMaintenance).buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.maintenance.save")
+                ForEach(coffeeData.maintenanceRecords()) { event in
+                    HStack {
+                        VStack(alignment: .leading) { Text(event.kind); if !event.notes.isEmpty { Text(event.notes).font(.caption) } }
+                        Spacer()
+                        Button("Edit") { beginEditing(event) }
+                        Button(role: .destructive) { delete("maintenance", event.id) } label: { Image(systemName: "trash") }
+                    }
+                }
+            }.padding(.top, 8)
+        }
+    }
+
+    private func beginEditing(_ equipment: CoffeeEquipmentRecord) {
+        equipmentID = equipment.id; equipmentKind = equipment.kind; equipmentName = equipment.name
+        equipmentManufacturer = equipment.manufacturer; equipmentModel = equipment.model
+    }
+
+    private func clearEquipmentEditor() {
+        equipmentID = nil; equipmentName = ""; equipmentManufacturer = ""; equipmentModel = ""
+    }
+
+    private func saveEquipment() {
+        guard !equipmentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { errorMessage = "Enter an equipment name."; return }
+        do {
+            try coffeeData.saveEquipment(recordID: equipmentID, kind: equipmentKind, name: equipmentName, manufacturer: equipmentManufacturer, model: equipmentModel)
+            equipmentID = coffeeData.equipmentRecords().first { $0.name == equipmentName }?.id; errorMessage = nil
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func saveCalibration() {
+        guard let equipmentID, !calibrationSetting.isEmpty else { errorMessage = "Select equipment and enter a setting."; return }
+        do {
+            try coffeeData.saveCalibration(recordID: calibrationID, equipmentID: equipmentID, setting: calibrationSetting, measuredValue: Double(calibrationValue), unit: calibrationUnit, notes: calibrationNotes)
+            calibrationID = nil; calibrationSetting = ""; calibrationValue = ""; calibrationNotes = ""; errorMessage = nil
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func saveMaintenance() {
+        guard let equipmentID, !maintenanceKind.isEmpty else { errorMessage = "Select equipment and enter a maintenance type."; return }
+        do {
+            try coffeeData.recordMaintenance(recordID: maintenanceID, equipmentID: equipmentID, kind: maintenanceKind, notes: maintenanceNotes)
+            maintenanceID = nil; maintenanceNotes = ""; errorMessage = nil
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func beginEditing(_ calibration: CoffeeCalibrationRecord) {
+        calibrationID = calibration.id; equipmentID = calibration.equipmentID; calibrationSetting = calibration.setting
+        calibrationValue = calibration.measuredValue.map { String($0) } ?? ""; calibrationUnit = calibration.unit; calibrationNotes = calibration.notes
+    }
+
+    private func beginEditing(_ event: CoffeeMaintenanceRecord) {
+        maintenanceID = event.id; equipmentID = event.equipmentID; maintenanceKind = event.kind; maintenanceNotes = event.notes
+    }
+
+    private func delete(_ entityType: String, _ id: UUID) {
+        do { try coffeeData.deleteCoffeeRecord(entityType: entityType, id: id); errorMessage = nil }
+        catch { errorMessage = error.localizedDescription }
     }
 
     private func addCoffee() {

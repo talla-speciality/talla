@@ -30,6 +30,6 @@ The backend lint command enforces composition-root budgets:
 
 - `ContentView.swift`: at most 3,500 lines.
 - `BrewingSectionView.swift`: at most 750 lines.
-- `backend/server.js`: at most 9,500 lines.
+- `backend/server.js`: at most 9,250 lines. New behavior belongs in a domain module; the entry point only wires configuration, persistence, and the HTTP application factory.
 
 When a root reaches its budget, extract the complete declaration or route group into the owning feature module rather than increasing the limit.

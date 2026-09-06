@@ -95,8 +95,8 @@ class CoffeeDataStore(context: Context) {
             lotId = json.optNullableString("lotID"),
             productId = json.optNullableString("productID"),
             productName = json.optString("productName", "Coffee"),
-            roastDate = json.optNullableLong("roastDate"),
-            purchasedAt = json.optNullableLong("purchasedAt"),
+            roastDate = json.optNullableTimestamp("roastDate"),
+            purchasedAt = json.optNullableTimestamp("purchasedAt"),
             initialQuantityGrams = json.optDouble("initialQuantityGrams", 0.0),
             remainingQuantityGrams = json.optDouble("remainingQuantityGrams", 0.0),
             currencyCode = json.optNullableString("currencyCode"),
@@ -108,6 +108,64 @@ class CoffeeDataStore(context: Context) {
         val current = find(ownerId, CoffeeEntityType.PURCHASED_COFFEE.wireName, id) ?: return
         val payload = JSONObject(current.payload.toString()).put("remainingQuantityGrams", remainingGrams.coerceAtLeast(0.0))
         upsert(ownerId, CoffeeEntityType.PURCHASED_COFFEE, id, payload, current.revision)
+    }
+
+    fun saveEquipment(value: CoffeeEquipment, ownerId: String = "") {
+        upsert(ownerId, CoffeeEntityType.EQUIPMENT, value.id, JSONObject()
+            .put("id", value.id).put("kind", value.type.name.lowercase())
+            .put("name", value.name).put("manufacturer", value.manufacturer)
+            .put("model", value.model).put("parentEquipmentID", value.parentEquipmentId)
+            .put("notes", value.notes))
+    }
+
+    fun equipment(ownerId: String = ""): List<CoffeeEquipment> = records(ownerId, CoffeeEntityType.EQUIPMENT).map { record ->
+        val json = record.payload
+        CoffeeEquipment(
+            id = record.id,
+            type = runCatching { EquipmentType.valueOf(json.optString("kind").uppercase()) }.getOrDefault(EquipmentType.BREWER),
+            name = json.optString("name", "Equipment"),
+            manufacturer = json.optNullableString("manufacturer"),
+            model = json.optNullableString("model"),
+            parentEquipmentId = json.optNullableString("parentEquipmentID"),
+            notes = json.optNullableString("notes"),
+        )
+    }
+
+    fun saveCalibration(value: EquipmentCalibration, ownerId: String = "") {
+        upsert(ownerId, CoffeeEntityType.CALIBRATION, value.id, JSONObject()
+            .put("id", value.id).put("equipmentID", value.equipmentId)
+            .put("coffeeLotID", value.coffeeLotId).put("setting", value.setting)
+            .put("measuredValue", value.measuredValue).put("unit", value.unit)
+            .put("notes", value.notes))
+    }
+
+    fun calibrations(ownerId: String = ""): List<EquipmentCalibration> = records(ownerId, CoffeeEntityType.CALIBRATION).map { record ->
+        val json = record.payload
+        EquipmentCalibration(
+            id = record.id,
+            equipmentId = json.optString("equipmentID"),
+            coffeeLotId = json.optNullableString("coffeeLotID"),
+            setting = json.optString("setting"),
+            measuredValue = if (json.isNull("measuredValue")) null else json.optDouble("measuredValue"),
+            unit = json.optNullableString("unit"),
+            notes = json.optNullableString("notes"),
+        )
+    }
+
+    fun maintenance(ownerId: String = ""): List<MaintenanceEvent> = records(ownerId, CoffeeEntityType.MAINTENANCE).map { record ->
+        val json = record.payload
+        MaintenanceEvent(
+            id = record.id,
+            equipmentId = json.optString("equipmentID"),
+            type = json.optString("kind", "Maintenance"),
+            performedAt = json.optNullableTimestamp("performedAt") ?: record.updatedAt,
+            usageCount = json.optNullableInt("usageCount"),
+            notes = json.optNullableString("notes"),
+        )
+    }
+
+    fun delete(ownerId: String = "", type: CoffeeEntityType, id: String) {
+        tombstone(ownerId, type, id)
     }
 
     fun saveMaintenance(value: MaintenanceEvent, ownerId: String = "") {
@@ -217,8 +275,15 @@ class CoffeeDataStore(context: Context) {
     private fun deviceId(preferences: android.content.SharedPreferences): String = preferences.getString("device_id", null) ?: UUID.randomUUID().toString().also { preferences.edit().putString("device_id", it).apply() }
     private fun parseTimestamp(value: String): Long = runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
     private fun JSONObject.optNullableString(name: String) = if (isNull(name)) null else optString(name).takeIf(String::isNotBlank)
-    private fun JSONObject.optNullableLong(name: String) = if (isNull(name) || !has(name)) null else optLong(name)
     private fun JSONObject.optNullableInt(name: String) = if (isNull(name) || !has(name)) null else optInt(name)
+    private fun JSONObject.optNullableTimestamp(name: String): Long? {
+        if (isNull(name) || !has(name)) return null
+        return when (val value = opt(name)) {
+            is Number -> value.toLong()
+            is String -> runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrNull()
+            else -> null
+        }
+    }
     private fun android.database.Cursor.getLongOrNull(index: Int) = if (isNull(index)) null else getLong(index)
     private fun android.database.Cursor.getStringOrNull(index: Int) = if (isNull(index)) null else getString(index)
 
