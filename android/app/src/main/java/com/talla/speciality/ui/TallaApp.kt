@@ -132,6 +132,10 @@ import com.talla.speciality.data.BrewRecipe
 import com.talla.speciality.data.CoffeeBagScanResult
 import com.talla.speciality.data.CoffeeConflict
 import com.talla.speciality.data.PurchasedCoffee
+import com.talla.speciality.data.CoffeeEquipment
+import com.talla.speciality.data.EquipmentCalibration
+import com.talla.speciality.data.MaintenanceEvent
+import com.talla.speciality.data.EquipmentType
 import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.Product
 import com.talla.speciality.data.ScaleFamily
@@ -283,9 +287,18 @@ fun TallaApp(
                 onSaveJournal = viewModel::saveBrewJournalEntry,
                 onDeleteJournal = viewModel::deleteBrewJournalEntry,
                 inventory = state.coffeeInventory,
+                equipment = state.coffeeEquipment,
+                calibrations = state.coffeeCalibrations,
+                maintenance = state.coffeeMaintenance,
                 conflicts = state.coffeeConflicts,
                 onAddCoffee = viewModel::addPurchasedCoffee,
                 onUpdateRemaining = viewModel::updateRemainingCoffee,
+                onSaveEquipment = viewModel::saveCoffeeEquipment,
+                onSaveCalibration = viewModel::saveCoffeeCalibration,
+                onSaveMaintenance = viewModel::saveCoffeeMaintenance,
+                onDeleteEquipment = viewModel::deleteCoffeeEquipment,
+                onDeleteCalibration = viewModel::deleteCoffeeCalibration,
+                onDeleteMaintenance = viewModel::deleteCoffeeMaintenance,
                 onResolveConflict = viewModel::resolveCoffeeConflict,
                 modifier = Modifier.padding(padding),
             )
@@ -935,9 +948,18 @@ private fun BrewingScreen(
     onSaveJournal: (String, String, Int, Double, Int, Int, Int, String) -> Unit,
     onDeleteJournal: (String) -> Unit,
     inventory: List<PurchasedCoffee>,
+    equipment: List<CoffeeEquipment>,
+    calibrations: List<EquipmentCalibration>,
+    maintenance: List<MaintenanceEvent>,
     conflicts: List<CoffeeConflict>,
     onAddCoffee: (String, Double, Long?) -> Unit,
     onUpdateRemaining: (String, Double) -> Unit,
+    onSaveEquipment: (String?, EquipmentType, String, String?, String?) -> Unit,
+    onSaveCalibration: (String?, String, String, Double?, String?, String?) -> Unit,
+    onSaveMaintenance: (String?, String, String, String?) -> Unit,
+    onDeleteEquipment: (String) -> Unit,
+    onDeleteCalibration: (String) -> Unit,
+    onDeleteMaintenance: (String) -> Unit,
     onResolveConflict: (CoffeeConflict, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -983,7 +1005,22 @@ private fun BrewingScreen(
             )
         }
         item {
-            CoffeeInventoryCard(inventory, conflicts, onAddCoffee, onUpdateRemaining, onResolveConflict)
+            CoffeeInventoryCard(
+                inventory = inventory,
+                equipment = equipment,
+                calibrations = calibrations,
+                maintenance = maintenance,
+                conflicts = conflicts,
+                onAddCoffee = onAddCoffee,
+                onUpdateRemaining = onUpdateRemaining,
+                onSaveEquipment = onSaveEquipment,
+                onSaveCalibration = onSaveCalibration,
+                onSaveMaintenance = onSaveMaintenance,
+                onDeleteEquipment = onDeleteEquipment,
+                onDeleteCalibration = onDeleteCalibration,
+                onDeleteMaintenance = onDeleteMaintenance,
+                onResolveConflict = onResolveConflict,
+            )
         }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1070,14 +1107,39 @@ private fun BrewingScreen(
 @Composable
 internal fun CoffeeInventoryCard(
     inventory: List<PurchasedCoffee>,
+    equipment: List<CoffeeEquipment>,
+    calibrations: List<EquipmentCalibration>,
+    maintenance: List<MaintenanceEvent>,
     conflicts: List<CoffeeConflict>,
     onAddCoffee: (String, Double, Long?) -> Unit,
     onUpdateRemaining: (String, Double) -> Unit,
+    onSaveEquipment: (String?, EquipmentType, String, String?, String?) -> Unit,
+    onSaveCalibration: (String?, String, String, Double?, String?, String?) -> Unit,
+    onSaveMaintenance: (String?, String, String, String?) -> Unit,
+    onDeleteEquipment: (String) -> Unit,
+    onDeleteCalibration: (String) -> Unit,
+    onDeleteMaintenance: (String) -> Unit,
     onResolveConflict: (CoffeeConflict, Boolean) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("250") }
     var error by remember { mutableStateOf<String?>(null) }
+    var equipmentId by remember { mutableStateOf<String?>(null) }
+    var equipmentType by remember { mutableStateOf(EquipmentType.BREWER) }
+    var equipmentName by remember { mutableStateOf("") }
+    var manufacturer by remember { mutableStateOf("") }
+    var model by remember { mutableStateOf("") }
+    var calibrationId by remember { mutableStateOf<String?>(null) }
+    var calibrationSetting by remember { mutableStateOf("") }
+    var calibrationValue by remember { mutableStateOf("") }
+    var calibrationUnit by remember { mutableStateOf("") }
+    var calibrationNotes by remember { mutableStateOf("") }
+    var maintenanceId by remember { mutableStateOf<String?>(null) }
+    var maintenanceType by remember { mutableStateOf("Cleaning") }
+    var maintenanceNotes by remember { mutableStateOf("") }
+    var equipmentMenuExpanded by remember { mutableStateOf(false) }
+    var typeMenuExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(equipment) { if (equipmentId == null) equipmentId = equipment.firstOrNull()?.id }
     Card(shape = RoundedCornerShape(24.dp)) {
         Column(
             Modifier.fillMaxWidth().padding(18.dp).testTag("coffee.inventory"),
@@ -1127,6 +1189,77 @@ internal fun CoffeeInventoryCard(
                     }
                 }
                 HorizontalDivider()
+            }
+
+            Text("Equipment", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    TextButton(onClick = { typeMenuExpanded = true }) { Text(equipmentType.name.lowercase().replaceFirstChar(Char::uppercase)) }
+                    DropdownMenu(expanded = typeMenuExpanded, onDismissRequest = { typeMenuExpanded = false }) {
+                        EquipmentType.entries.forEach { type ->
+                            DropdownMenuItem(text = { Text(type.name.lowercase().replaceFirstChar(Char::uppercase)) }, onClick = { equipmentType = type; typeMenuExpanded = false })
+                        }
+                    }
+                }
+                OutlinedTextField(value = equipmentName, onValueChange = { equipmentName = it }, modifier = Modifier.weight(1f).testTag("coffee.equipment.name"), label = { Text("Name") }, singleLine = true)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = manufacturer, onValueChange = { manufacturer = it }, modifier = Modifier.weight(1f), label = { Text("Manufacturer") }, singleLine = true)
+                OutlinedTextField(value = model, onValueChange = { model = it }, modifier = Modifier.weight(1f), label = { Text("Model") }, singleLine = true)
+            }
+            Button(onClick = {
+                if (equipmentName.isBlank()) error = "Enter an equipment name."
+                else { onSaveEquipment(equipmentId, equipmentType, equipmentName, manufacturer, model); equipmentId = null; equipmentName = ""; manufacturer = ""; model = ""; error = null }
+            }, modifier = Modifier.testTag("coffee.equipment.save")) { Text("Save equipment") }
+            equipment.forEach { item ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.name, fontWeight = FontWeight.Bold)
+                        Text(listOf(item.type.name.lowercase().replaceFirstChar(Char::uppercase), item.manufacturer, item.model).filterNot { it.isNullOrBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick = { equipmentId = item.id; equipmentType = item.type; equipmentName = item.name; manufacturer = item.manufacturer.orEmpty(); model = item.model.orEmpty() }) { Text("Edit") }
+                    IconButton(onClick = { onDeleteEquipment(item.id) }, modifier = Modifier.testTag("coffee.equipment.delete.${item.id}")) { Icon(Icons.Default.Delete, "Delete equipment") }
+                }
+            }
+
+            Text("Calibrations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Box {
+                TextButton(onClick = { equipmentMenuExpanded = true }) { Text(equipment.firstOrNull { it.id == equipmentId }?.name ?: "Select equipment") }
+                DropdownMenu(expanded = equipmentMenuExpanded, onDismissRequest = { equipmentMenuExpanded = false }) {
+                    equipment.forEach { item -> DropdownMenuItem(text = { Text(item.name) }, onClick = { equipmentId = item.id; equipmentMenuExpanded = false }) }
+                }
+            }
+            OutlinedTextField(value = calibrationSetting, onValueChange = { calibrationSetting = it }, modifier = Modifier.fillMaxWidth().testTag("coffee.calibration.setting"), label = { Text("Setting") }, singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = calibrationValue, onValueChange = { calibrationValue = it }, modifier = Modifier.weight(1f), label = { Text("Measured value") }, singleLine = true)
+                OutlinedTextField(value = calibrationUnit, onValueChange = { calibrationUnit = it }, modifier = Modifier.weight(1f), label = { Text("Unit") }, singleLine = true)
+            }
+            OutlinedTextField(value = calibrationNotes, onValueChange = { calibrationNotes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Notes") }, singleLine = true)
+            Button(onClick = {
+                if (equipmentId == null || calibrationSetting.isBlank()) error = "Select equipment and enter a setting."
+                else { onSaveCalibration(calibrationId, equipmentId!!, calibrationSetting, calibrationValue.toDoubleOrNull(), calibrationUnit, calibrationNotes); calibrationId = null; calibrationSetting = ""; calibrationValue = ""; calibrationNotes = ""; error = null }
+            }, modifier = Modifier.testTag("coffee.calibration.save")) { Text("Save calibration") }
+            calibrations.forEach { item ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(listOf(item.setting, item.measuredValue?.toString(), item.unit).filterNot { it.isNullOrBlank() }.joinToString(" · "), Modifier.weight(1f))
+                    TextButton(onClick = { calibrationId = item.id; equipmentId = item.equipmentId; calibrationSetting = item.setting; calibrationValue = item.measuredValue?.toString().orEmpty(); calibrationUnit = item.unit.orEmpty(); calibrationNotes = item.notes.orEmpty() }) { Text("Edit") }
+                    IconButton(onClick = { onDeleteCalibration(item.id) }, modifier = Modifier.testTag("coffee.calibration.delete.${item.id}")) { Icon(Icons.Default.Delete, "Delete calibration") }
+                }
+            }
+
+            Text("Maintenance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(value = maintenanceType, onValueChange = { maintenanceType = it }, modifier = Modifier.fillMaxWidth().testTag("coffee.maintenance.type"), label = { Text("Maintenance type") }, singleLine = true)
+            OutlinedTextField(value = maintenanceNotes, onValueChange = { maintenanceNotes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Notes") }, singleLine = true)
+            Button(onClick = {
+                if (equipmentId == null || maintenanceType.isBlank()) error = "Select equipment and enter a maintenance type."
+                else { onSaveMaintenance(maintenanceId, equipmentId!!, maintenanceType, maintenanceNotes); maintenanceId = null; maintenanceNotes = ""; error = null }
+            }, modifier = Modifier.testTag("coffee.maintenance.save")) { Text("Record maintenance") }
+            maintenance.forEach { item ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text(item.type, fontWeight = FontWeight.Bold); item.notes?.takeIf(String::isNotBlank)?.let { Text(it, style = MaterialTheme.typography.bodySmall) } }
+                    TextButton(onClick = { maintenanceId = item.id; equipmentId = item.equipmentId; maintenanceType = item.type; maintenanceNotes = item.notes.orEmpty() }) { Text("Edit") }
+                    IconButton(onClick = { onDeleteMaintenance(item.id) }, modifier = Modifier.testTag("coffee.maintenance.delete.${item.id}")) { Icon(Icons.Default.Delete, "Delete maintenance") }
+                }
             }
 
             conflicts.forEach { conflict ->

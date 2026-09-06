@@ -26,6 +26,10 @@ import com.talla.speciality.data.CoffeeDataStore
 import com.talla.speciality.data.CoffeeEntityType
 import com.talla.speciality.data.CoffeeConflict
 import com.talla.speciality.data.PurchasedCoffee
+import com.talla.speciality.data.CoffeeEquipment
+import com.talla.speciality.data.EquipmentCalibration
+import com.talla.speciality.data.MaintenanceEvent
+import com.talla.speciality.data.EquipmentType
 import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.data.ScaleAction
@@ -72,6 +76,9 @@ data class TallaUiState(
     val tasteMemory: List<TasteMemoryRecord> = emptyList(),
     val brewJournal: List<BrewJournalEntry> = emptyList(),
     val coffeeInventory: List<PurchasedCoffee> = emptyList(),
+    val coffeeEquipment: List<CoffeeEquipment> = emptyList(),
+    val coffeeCalibrations: List<EquipmentCalibration> = emptyList(),
+    val coffeeMaintenance: List<MaintenanceEvent> = emptyList(),
     val coffeeConflicts: List<CoffeeConflict> = emptyList(),
     val coffeeBagScan: CoffeeBagScanResult? = null,
     val coffeeBagScanning: Boolean = false,
@@ -102,6 +109,9 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             clickToPayOrderId = preferences.getString("click_to_pay_order", null),
             brewJournal = loadBrewJournal(),
             coffeeInventory = coffeeData.purchasedCoffee(),
+            coffeeEquipment = coffeeData.equipment(),
+            coffeeCalibrations = coffeeData.calibrations(),
+            coffeeMaintenance = coffeeData.maintenance(),
             coffeeConflicts = coffeeData.conflicts(),
         )
     )
@@ -583,6 +593,48 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         refreshCoffeeDataState(ownerId)
     }
 
+    fun saveCoffeeEquipment(id: String?, type: EquipmentType, name: String, manufacturer: String?, model: String?) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.saveEquipment(
+            CoffeeEquipment(
+                id = id ?: UUID.randomUUID().toString(), type = type, name = name.trim(),
+                manufacturer = manufacturer?.trim()?.takeIf(String::isNotBlank),
+                model = model?.trim()?.takeIf(String::isNotBlank),
+            ), ownerId,
+        )
+        refreshCoffeeDataState(ownerId)
+    }
+
+    fun saveCoffeeCalibration(id: String?, equipmentId: String, setting: String, measuredValue: Double?, unit: String?, notes: String?) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.saveCalibration(
+            EquipmentCalibration(
+                id = id ?: UUID.randomUUID().toString(), equipmentId = equipmentId, setting = setting.trim(), measuredValue = measuredValue,
+                unit = unit?.trim()?.takeIf(String::isNotBlank), notes = notes?.trim()?.takeIf(String::isNotBlank),
+            ), ownerId,
+        )
+        refreshCoffeeDataState(ownerId)
+    }
+
+    fun saveCoffeeMaintenance(id: String?, equipmentId: String, type: String, notes: String?) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.saveMaintenance(
+            MaintenanceEvent(id = id ?: UUID.randomUUID().toString(), equipmentId = equipmentId, type = type.trim(), notes = notes?.trim()?.takeIf(String::isNotBlank)),
+            ownerId,
+        )
+        refreshCoffeeDataState(ownerId)
+    }
+
+    fun deleteCoffeeEquipment(id: String) = deleteCoffeeRecord(CoffeeEntityType.EQUIPMENT, id)
+    fun deleteCoffeeCalibration(id: String) = deleteCoffeeRecord(CoffeeEntityType.CALIBRATION, id)
+    fun deleteCoffeeMaintenance(id: String) = deleteCoffeeRecord(CoffeeEntityType.MAINTENANCE, id)
+
+    private fun deleteCoffeeRecord(type: CoffeeEntityType, id: String) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.delete(ownerId, type, id)
+        refreshCoffeeDataState(ownerId)
+    }
+
     fun resolveCoffeeConflict(conflict: CoffeeConflict, keepLocal: Boolean) {
         coffeeData.resolveConflict(conflict, keepLocal)
         refreshCoffeeDataState(conflict.ownerId)
@@ -688,6 +740,9 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(
                 brewJournal = coffeeData.loadJournal(ownerId),
                 coffeeInventory = coffeeData.purchasedCoffee(ownerId),
+                coffeeEquipment = coffeeData.equipment(ownerId),
+                coffeeCalibrations = coffeeData.calibrations(ownerId),
+                coffeeMaintenance = coffeeData.maintenance(ownerId),
                 coffeeConflicts = coffeeData.conflicts(ownerId),
             )
         }

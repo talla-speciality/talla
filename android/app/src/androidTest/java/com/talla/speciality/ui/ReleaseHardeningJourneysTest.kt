@@ -96,9 +96,11 @@ class ReleaseHardeningJourneysTest {
         compose.setContent {
             TallaTheme {
                 CoffeeInventoryCard(
-                    inventory = emptyList(), conflicts = emptyList(),
+                    inventory = emptyList(), equipment = emptyList(), calibrations = emptyList(), maintenance = emptyList(), conflicts = emptyList(),
                     onAddCoffee = { name, _, _ -> savedName = name },
-                    onUpdateRemaining = { _, _ -> }, onResolveConflict = { _, _ -> },
+                    onUpdateRemaining = { _, _ -> }, onSaveEquipment = { _, _, _, _, _ -> },
+                    onSaveCalibration = { _, _, _, _, _, _ -> }, onSaveMaintenance = { _, _, _, _ -> },
+                    onDeleteEquipment = {}, onDeleteCalibration = {}, onDeleteMaintenance = {}, onResolveConflict = { _, _ -> },
                 )
             }
         }

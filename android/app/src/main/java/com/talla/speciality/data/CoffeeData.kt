@@ -110,6 +110,64 @@ class CoffeeDataStore(context: Context) {
         upsert(ownerId, CoffeeEntityType.PURCHASED_COFFEE, id, payload, current.revision)
     }
 
+    fun saveEquipment(value: CoffeeEquipment, ownerId: String = "") {
+        upsert(ownerId, CoffeeEntityType.EQUIPMENT, value.id, JSONObject()
+            .put("id", value.id).put("kind", value.type.name.lowercase())
+            .put("name", value.name).put("manufacturer", value.manufacturer)
+            .put("model", value.model).put("parentEquipmentID", value.parentEquipmentId)
+            .put("notes", value.notes))
+    }
+
+    fun equipment(ownerId: String = ""): List<CoffeeEquipment> = records(ownerId, CoffeeEntityType.EQUIPMENT).map { record ->
+        val json = record.payload
+        CoffeeEquipment(
+            id = record.id,
+            type = runCatching { EquipmentType.valueOf(json.optString("kind").uppercase()) }.getOrDefault(EquipmentType.BREWER),
+            name = json.optString("name", "Equipment"),
+            manufacturer = json.optNullableString("manufacturer"),
+            model = json.optNullableString("model"),
+            parentEquipmentId = json.optNullableString("parentEquipmentID"),
+            notes = json.optNullableString("notes"),
+        )
+    }
+
+    fun saveCalibration(value: EquipmentCalibration, ownerId: String = "") {
+        upsert(ownerId, CoffeeEntityType.CALIBRATION, value.id, JSONObject()
+            .put("id", value.id).put("equipmentID", value.equipmentId)
+            .put("coffeeLotID", value.coffeeLotId).put("setting", value.setting)
+            .put("measuredValue", value.measuredValue).put("unit", value.unit)
+            .put("notes", value.notes))
+    }
+
+    fun calibrations(ownerId: String = ""): List<EquipmentCalibration> = records(ownerId, CoffeeEntityType.CALIBRATION).map { record ->
+        val json = record.payload
+        EquipmentCalibration(
+            id = record.id,
+            equipmentId = json.optString("equipmentID"),
+            coffeeLotId = json.optNullableString("coffeeLotID"),
+            setting = json.optString("setting"),
+            measuredValue = if (json.isNull("measuredValue")) null else json.optDouble("measuredValue"),
+            unit = json.optNullableString("unit"),
+            notes = json.optNullableString("notes"),
+        )
+    }
+
+    fun maintenance(ownerId: String = ""): List<MaintenanceEvent> = records(ownerId, CoffeeEntityType.MAINTENANCE).map { record ->
+        val json = record.payload
+        MaintenanceEvent(
+            id = record.id,
+            equipmentId = json.optString("equipmentID"),
+            type = json.optString("kind", "Maintenance"),
+            performedAt = json.optLong("performedAt", record.updatedAt),
+            usageCount = json.optNullableInt("usageCount"),
+            notes = json.optNullableString("notes"),
+        )
+    }
+
+    fun delete(ownerId: String = "", type: CoffeeEntityType, id: String) {
+        tombstone(ownerId, type, id)
+    }
+
     fun saveMaintenance(value: MaintenanceEvent, ownerId: String = "") {
         upsert(ownerId, CoffeeEntityType.MAINTENANCE, value.id, JSONObject()
             .put("id", value.id).put("equipmentID", value.equipmentId).put("kind", value.type)
