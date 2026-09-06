@@ -4,14 +4,4 @@
    <FileRef
       location = "self:">
    </FileRef>
-   <Group
-      location = "group:Talla Widgets"
-      name = "Talla Widgets">
-      <FileRef
-         location = "group:Info.plist">
-      </FileRef>
-      <FileRef
-         location = "group:TallaWidgetsBundle.swift">
-      </FileRef>
-   </Group>
 </Workspace>
