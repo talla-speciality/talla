@@ -3560,11 +3560,6 @@ extension ContentView {
                 return
             }
 
-            if let appliedVoucher {
-                _ = try await AccountService.consumeVoucher(code: appliedVoucher.code, email: profile.email)
-                await loadAvailableVouchers(for: profile.email)
-            }
-
             let checkoutItems = cartItems.map { item in
                 (
                     name: item.product.name,
@@ -3578,8 +3573,15 @@ extension ContentView {
                 total: cartTotal,
                 fulfillmentMethod: fulfillmentMethod,
                 address: fulfillmentMethod == .delivery ? preferredAddress : nil,
-                paymentMethod: selectedPaymentMethod
+                paymentMethod: selectedPaymentMethod,
+                voucherCode: appliedVoucher?.code
             )
+            if let appliedVoucher {
+                if checkoutStart.pricingVersion != 2 {
+                    _ = try await AccountService.consumeVoucher(code: appliedVoucher.code, email: profile.email)
+                }
+                await loadAvailableVouchers(for: profile.email)
+            }
             orderHistory = checkoutStart.orders
             preparePostPaymentContext(orderID: checkoutStart.orderID, method: selectedPaymentMethod)
 
@@ -3612,6 +3614,12 @@ extension ContentView {
                     session: session,
                     kind: .card
                 )
+            case .clickToPayHosted:
+                let checkout = try await TallaPaymentService.createClickToPay(orderID: checkoutStart.orderID)
+                paymentFlow.transition(to: .awaitingCustomer)
+                cartOpen = false
+                isCheckoutPresented = false
+                checkoutSession = CheckoutSession(url: checkout.paymentUrl, kind: .clickToPay)
             case .applePayGateway:
                 guard isApplePayAvailable else {
                     throw PaymentServiceError.gateway("Apple Pay is unavailable on this device.")
@@ -3655,7 +3663,17 @@ extension ContentView {
     }
 
     func showToast(message: String) {
-        toastMessage = nil
+        let message = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+        withAnimation(.easeOut(duration: 0.2)) {
+            toastMessage = message
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+            guard toastMessage == message else { return }
+            withAnimation(.easeIn(duration: 0.2)) {
+                toastMessage = nil
+            }
+        }
     }
 
     func categoryDefinition(for key: String) -> ShopCategory {

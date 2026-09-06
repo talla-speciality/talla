@@ -44,13 +44,13 @@ struct PaymentFlowTests {
     }
 
     @Test func selectorContainsAllRequiredMethods() {
-        #expect(Set(TallaPaymentMethod.allCases) == Set([.benefitPay, .benefit, .card, .applePay, .cashOnDelivery]))
+        #expect(Set(TallaPaymentMethod.allCases) == Set([.benefitPay, .benefit, .card, .clickToPay, .applePay, .cashOnDelivery]))
         #expect(TallaPaymentService.applePayMerchantIdentifier == "merchant.talla.me")
     }
 
     @Test func paymentMethodsUseTheRequiredDisplayOrder() {
-        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: true) == [.applePay, .benefitPay, .benefit, .card, .cashOnDelivery])
-        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: false) == [.benefitPay, .benefit, .card, .cashOnDelivery])
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: true) == [.applePay, .benefitPay, .benefit, .card, .clickToPay, .cashOnDelivery])
+        #expect(PaymentMethodSelectorView.visibleMethods(applePayAvailable: false) == [.benefitPay, .benefit, .card, .clickToPay, .cashOnDelivery])
         #expect(!PaymentMethodSelectorView.visibleMethods(applePayAvailable: false).contains(.applePay))
     }
 
@@ -58,12 +58,14 @@ struct PaymentFlowTests {
         #expect(TallaPaymentMethod.benefit.route == .benefitHosted)
         #expect(TallaPaymentMethod.benefitPay.route == .benefitPaySDK)
         #expect(TallaPaymentMethod.card.route == .cardGateway)
+        #expect(TallaPaymentMethod.clickToPay.route == .clickToPayHosted)
         #expect(TallaPaymentMethod.applePay.route == .applePayGateway)
         #expect(TallaPaymentMethod.cashOnDelivery.route == .shopifyCashOnDelivery)
     }
 
     @Test func cardMessagingIncludesAmericanExpress() {
         #expect(TallaPaymentMethod.card.subtitle.contains("American Express"))
+        #expect(TallaPaymentMethod.clickToPay.subtitle.contains("Mastercard"))
         #expect(TallaPaymentMethod.cashOnDelivery.supportingText?.contains("cash") == true)
     }
 
@@ -75,6 +77,7 @@ struct PaymentFlowTests {
     @Test func actionCopyMatchesTheSelectedMethod() {
         #expect(TallaPaymentMethod.benefit.actionTitle == "Continue to BENEFIT")
         #expect(TallaPaymentMethod.card.actionTitle == "Enter card details")
+        #expect(TallaPaymentMethod.clickToPay.actionTitle == "Continue to Click to Pay")
         #expect(TallaPaymentMethod.cashOnDelivery.actionTitle == "Continue with Cash on Delivery")
     }
 

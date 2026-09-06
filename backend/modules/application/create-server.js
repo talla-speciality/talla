@@ -448,6 +448,7 @@ module.exports = function createServer(dependencies) {
         validateBenefitHostedPaymentURL,
         verifyAppleIdentityToken,
         verifyBenefitNotification,
+        verifyCheckoutPricing,
         verifyConfirmedMpgsOrder,
         verifyEazyTransactionForShopifyPayment,
         verifyMpgsAuthenticationForPurchase,
@@ -4133,8 +4134,12 @@ module.exports = function createServer(dependencies) {
                 return;
             }
 
+            const pricingVersion = Number(body.pricingVersion) === 2 ? 2 : 1;
+            const verifiedPricing = pricingVersion === 2
+                ? await verifyCheckoutPricing(body, customer.email)
+                : null;
             const submittedItems = Array.isArray(body.items) ? body.items : [];
-            const items = submittedItems
+            const items = verifiedPricing?.items || submittedItems
                 .map((item) => {
                     const variantID = String(item.variantId || item.variantID || "").trim();
                     return {
@@ -4151,7 +4156,8 @@ module.exports = function createServer(dependencies) {
             }
 
             const totalNumber = Number(body.total);
-            const safeTotal = Number.isFinite(totalNumber) && totalNumber >= 0 ? totalNumber : 0;
+            const safeTotal = verifiedPricing?.total
+                ?? (Number.isFinite(totalNumber) && totalNumber >= 0 ? totalNumber : 0);
             const pendingOrder = {
                 id: `checkout_${Date.now()}`,
                 email: customer.email,
@@ -4188,9 +4194,16 @@ module.exports = function createServer(dependencies) {
             });
             sendJSON(response, 200, {
                 orderID: pendingOrder.id,
-                orders: await ordersPayload(customer.email)
+                orders: await ordersPayload(customer.email),
+                ...(verifiedPricing ? { pricingVersion: verifiedPricing.pricingVersion } : {})
             });
         } catch (error) {
+            const statusCode = Number(error.statusCode);
+            if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 600) {
+                console.error("Verified checkout rejected:", error.code || "CHECKOUT_PRICING_FAILED");
+                sendJSON(response, statusCode, { error: error.message || "Checkout could not be verified." });
+                return;
+            }
             sendJSON(response, 400, { error: "Invalid checkout order." });
         }
         return;

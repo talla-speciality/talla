@@ -47,6 +47,7 @@ function createAdminOrderDetailService(dependencies) {
         if (method === "benefitpay" || method === "benefit_pay") return "BenefitPay";
         if (method === "benefit") return "BENEFIT";
         if (["card", "creditcard", "credit_card"].includes(method)) return "Credit or Debit Card";
+        if (["clicktopay", "click_to_pay"].includes(method)) return "Click to Pay";
         if (["cashondelivery", "cash_on_delivery", "cod"].includes(method)) return "Cash on Delivery";
         return trimText(value, 80);
     }

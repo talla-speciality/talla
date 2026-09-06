@@ -1013,6 +1013,7 @@ struct TasteMemoryResponse: Decodable {
 struct CheckoutStartResponse: Decodable {
     let orderID: String
     let orders: [ContentView.AccountOrder]
+    let pricingVersion: Int?
 }
 
 struct BenefitPaymentResponse: Decodable {

@@ -74,6 +74,7 @@ enum AccountService {
     struct CheckoutStartResult {
         let orderID: String
         let orders: [ContentView.AccountOrder]
+        let pricingVersion: Int?
     }
 
     struct CustomerLibraryMutation: Encodable {
@@ -438,7 +439,8 @@ enum AccountService {
         total: Double,
         fulfillmentMethod: TallaFulfillmentMethod,
         address: ContentView.DeliveryAddress?,
-        paymentMethod: TallaPaymentMethod
+        paymentMethod: TallaPaymentMethod,
+        voucherCode: String?
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -463,6 +465,7 @@ enum AccountService {
             "total": total,
             "fulfillmentMethod": fulfillmentMethod.rawValue,
             "paymentMethod": paymentMethod.rawValue,
+            "pricingVersion": 2,
             "source": "Talla iOS app",
             "items": orderItems
         ]
@@ -477,6 +480,9 @@ enum AccountService {
                 "countryCode": address.country.rawValue,
                 "notes": address.notes ?? ""
             ]
+        }
+        if let voucherCode, !voucherCode.isEmpty {
+            payload["voucherCode"] = voucherCode
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
@@ -999,7 +1005,11 @@ enum AccountService {
 
         if 200 ..< 300 ~= httpResponse.statusCode {
             let decoded = try JSONDecoder().decode(CheckoutStartResponse.self, from: data)
-            return CheckoutStartResult(orderID: decoded.orderID, orders: decoded.orders)
+            return CheckoutStartResult(
+                orderID: decoded.orderID,
+                orders: decoded.orders,
+                pricingVersion: decoded.pricingVersion
+            )
         }
 
         if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {

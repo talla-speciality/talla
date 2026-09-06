@@ -508,6 +508,7 @@ struct ContentView: View {
     struct CheckoutSession: Identifiable {
         enum Kind: Equatable {
             case standard
+            case clickToPay
             case shopifyEazy
             case eazyHosted
         }
@@ -2669,6 +2670,16 @@ struct ContentView: View {
             }
             return
         }
+        if paymentFlow.selectedMethod == .clickToPay,
+           !postPaymentOrderID.isEmpty,
+           paymentFlow.state == .awaitingCustomer {
+            paymentFlow.transition(to: .processing)
+            presentPostPayment()
+            Task {
+                await waitForClickToPayProgress()
+            }
+            return
+        }
         if paymentFlow.state == .awaitingCustomer {
             paymentFlow.reset()
         }
@@ -3151,6 +3162,15 @@ struct ContentView: View {
             }
             return
         }
+        if paymentFlow.selectedMethod == .clickToPay, !postPaymentOrderID.isEmpty {
+            paymentFlow.transition(to: .processing)
+            checkoutSession = nil
+            presentPostPayment()
+            Task {
+                await waitForClickToPayProgress()
+            }
+            return
+        }
         let status = queryItems.first {
             ["status", "result", "paymentStatus"].contains($0.name)
         }?.value?.lowercased().replacingOccurrences(of: " ", with: "_") ?? ""
@@ -3185,6 +3205,77 @@ struct ContentView: View {
                 await loadLoyaltyAccount()
             }
         }
+    }
+
+    @MainActor
+    func waitForClickToPayProgress() async {
+        let orderID = postPaymentOrderID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !orderID.isEmpty else {
+            paymentFlow.transition(
+                to: .failed,
+                error: AppLocalization.text(
+                    "payment_verification_unavailable",
+                    fallback: "Payment verification is temporarily unavailable."
+                )
+            )
+            return
+        }
+
+        for attempt in 0 ..< 20 {
+            do {
+                let payment = try await TallaPaymentService.retrieveOrder(orderID: orderID)
+                let status = payment.status.lowercased()
+                if payment.confirmed {
+                    cartItems.removeAll()
+                    appliedVoucher = nil
+                    voucherCodeInput = ""
+                    voucherError = nil
+                    paymentFlow.transition(to: .succeeded)
+                    await loadOrderHistory()
+                    if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        await loadLoyaltyAccount()
+                    }
+                    return
+                }
+                if status.contains("cancel") {
+                    paymentFlow.transition(to: .cancelled)
+                    return
+                }
+                if status.contains("fail") || status.contains("declin") || status.contains("error") {
+                    paymentFlow.transition(
+                        to: .failed,
+                        error: AppLocalization.text(
+                            "payment_failed_detail",
+                            fallback: "Please check your details or try another payment method."
+                        )
+                    )
+                    return
+                }
+            } catch {
+                if attempt == 19 {
+                    checkoutError = customerFacingServiceMessage(
+                        for: error,
+                        fallback: AppLocalization.text(
+                            "payment_verification_unavailable",
+                            fallback: "Payment verification is temporarily unavailable."
+                        )
+                    )
+                }
+            }
+
+            if attempt < 19 {
+                try? await Task.sleep(for: .seconds(1.5))
+            }
+        }
+
+        isPostPaymentPresented = false
+        paymentFlow.reset()
+        await loadOrderHistory()
+        openAccountSection(AccountSectionView.ScrollTarget.customer)
+        showToast(message: AppLocalization.text(
+            "payment_verifying",
+            fallback: "Payment is still being verified. You can safely return later."
+        ))
     }
 
     @MainActor

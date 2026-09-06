@@ -44,6 +44,21 @@
   "payment_card_guidance": {
     "ar": "اختر هذا الخيار لبطاقات فيزا أو ماستركارد أو أمريكان إكسبريس."
   },
+  "payment_click_to_pay_title": {
+    "ar": "Click to Pay"
+  },
+  "payment_click_to_pay_subtitle": {
+    "ar": "ادفع عبر صفحة الدفع الآمنة من ماستركارد"
+  },
+  "payment_click_to_pay_sheet_subtitle": {
+    "ar": "استخدم بطاقة في صفحة الدفع الآمنة من ماستركارد"
+  },
+  "payment_click_to_pay_supporting": {
+    "ar": "لا تحفظ Talla بيانات بطاقتك."
+  },
+  "payment_click_to_pay_guidance": {
+    "ar": "أكمل الدفع في صفحة ماستركارد الآمنة، ثم ارجع إلى Talla."
+  },
   "payment_cash_on_delivery_title": {
     "ar": "الدفع عند الاستلام"
   },
@@ -73,6 +88,9 @@
   },
   "payment_card_action": {
     "ar": "إدخال بيانات البطاقة"
+  },
+  "payment_click_to_pay_action": {
+    "ar": "المتابعة إلى Click to Pay"
   },
   "payment_cash_on_delivery_action": {
     "ar": "المتابعة بالدفع عند الاستلام"

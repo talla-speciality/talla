@@ -93,6 +93,7 @@ enum TallaPaymentRoute: String, Equatable {
     case benefitHosted
     case benefitPaySDK
     case cardGateway
+    case clickToPayHosted
     case applePayGateway
     case shopifyCashOnDelivery
 }
@@ -101,6 +102,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
     case benefit
     case benefitPay
     case card
+    case clickToPay
     case applePay
     case cashOnDelivery
 
@@ -111,6 +113,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit: return .benefitHosted
         case .benefitPay: return .benefitPaySDK
         case .card: return .cardGateway
+        case .clickToPay: return .clickToPayHosted
         case .applePay: return .applePayGateway
         case .cashOnDelivery: return .shopifyCashOnDelivery
         }
@@ -123,6 +126,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit: return AppLocalization.text("payment_benefit_title", fallback: "BENEFIT")
         case .benefitPay: return "BenefitPay"
         case .card: return AppLocalization.text("payment_card_title", fallback: "Credit or Debit Card")
+        case .clickToPay: return AppLocalization.text("payment_click_to_pay_title", fallback: "Click to Pay")
         case .applePay: return "Apple Pay"
         case .cashOnDelivery:
             return AppLocalization.text("payment_cash_on_delivery_title", fallback: "Cash on Delivery")
@@ -139,6 +143,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Pay securely using the BenefitPay app"
         case .card:
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_subtitle", fallback: "Pay in Mastercard secure checkout")
         case .cashOnDelivery:
             return AppLocalization.text("payment_cash_on_delivery_subtitle", fallback: "Pay when your order arrives")
         }
@@ -154,6 +160,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Use cards saved in your BenefitPay wallet"
         case .card:
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_sheet_subtitle", fallback: "Use a card in Mastercard secure checkout")
         case .cashOnDelivery:
             return AppLocalization.text("payment_cash_on_delivery_sheet_subtitle", fallback: "Complete your order through Shopify Checkout")
         }
@@ -169,6 +177,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Requires the BenefitPay app on this device."
         case .card:
             return AppLocalization.text("payment_card_supporting", fallback: "For Bahrain-issued credit cards and cards issued outside Bahrain.")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_supporting", fallback: "Talla never stores your card details.")
         case .cashOnDelivery:
             return AppLocalization.text("payment_cash_on_delivery_supporting", fallback: "Available where cash collection is supported.")
         }
@@ -184,6 +194,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Choose this to approve payment inside BenefitPay."
         case .card:
             return AppLocalization.text("payment_card_guidance", fallback: "Choose this for Visa, Mastercard or American Express credit/debit cards.")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_guidance", fallback: "Complete payment in Mastercard's secure checkout, then return to Talla.")
         case .cashOnDelivery:
             return AppLocalization.text("payment_cash_on_delivery_guidance", fallback: "Choose Cash on Delivery in Shopify Checkout before placing your order.")
         }
@@ -199,6 +211,8 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
             return "Continue with BenefitPay"
         case .card:
             return AppLocalization.text("payment_card_action", fallback: "Enter card details")
+        case .clickToPay:
+            return AppLocalization.text("payment_click_to_pay_action", fallback: "Continue to Click to Pay")
         case .cashOnDelivery:
             return AppLocalization.text("payment_cash_on_delivery_action", fallback: "Continue with Cash on Delivery")
         }
@@ -209,6 +223,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit: return "checkmark.shield.fill"
         case .benefitPay: return "iphone.and.arrow.forward"
         case .card: return "creditcard.fill"
+        case .clickToPay: return "creditcard.and.123"
         case .applePay: return "wallet.pass.fill"
         case .cashOnDelivery: return "banknote.fill"
         }
@@ -315,8 +330,8 @@ struct PaymentMethodSelectorView: View {
         availability: TallaPaymentAvailability = TallaPaymentAvailability()
     ) -> [TallaPaymentMethod] {
         let methods: [TallaPaymentMethod] = applePayAvailable
-            ? [.applePay, .benefitPay, .benefit, .card, .cashOnDelivery]
-            : [.benefitPay, .benefit, .card, .cashOnDelivery]
+            ? [.applePay, .benefitPay, .benefit, .card, .clickToPay, .cashOnDelivery]
+            : [.benefitPay, .benefit, .card, .clickToPay, .cashOnDelivery]
         return methods.filter(availability.isEnabled)
     }
 
@@ -324,6 +339,7 @@ struct PaymentMethodSelectorView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(methods) { method in
                 let enabled = method == .benefit
+                    || method == .clickToPay
                     || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
                     || method == .cashOnDelivery
                     || gatewaySDKAvailable
@@ -422,7 +438,7 @@ struct PaymentMethodBadge: View {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(method == .benefit || method == .benefitPay
                     ? Color(red: 0.78, green: 0.1, blue: 0.18).opacity(0.1)
-                    : method == .card ? Color.white : accentColor.opacity(0.09))
+                    : method == .card || method == .clickToPay ? Color.white : accentColor.opacity(0.09))
             if method == .applePay {
                 HStack(spacing: 1) {
                     Image(systemName: "apple.logo")
@@ -450,7 +466,7 @@ struct PaymentMethodBadge: View {
                     .padding(3)
             }
         }
-        .frame(width: method == .card ? 56 : 38, height: 38)
+        .frame(width: method == .card || method == .clickToPay ? 56 : 38, height: 38)
         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .opacity(enabled ? 1 : 0.45)
         .accessibilityHidden(true)
@@ -563,6 +579,7 @@ struct PaymentMethodSelectionSheet: View {
 
     private func isEnabled(_ method: TallaPaymentMethod) -> Bool {
         method == .benefit
+            || method == .clickToPay
             || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
             || method == .cashOnDelivery
             || gatewaySDKAvailable
@@ -910,6 +927,7 @@ struct TallaPaymentAvailability {
         case .benefitPay: benefitPayEnabled
         case .benefit: benefitEnabled
         case .card: cardEnabled
+        case .clickToPay: cardEnabled
         case .cashOnDelivery: cashOnDeliveryEnabled
         }
     }
@@ -997,6 +1015,15 @@ enum TallaPaymentService {
         let duplicate: Bool
     }
 
+    struct OrderStatus: Decodable {
+        let paymentSessionId: String
+        let orderId: String
+        let status: String
+        let confirmed: Bool
+        let amount: String
+        let currency: String
+    }
+
     struct AuthenticationRegistration: Decodable {
         let authenticationTransactionId: String
         let sdkManaged: Bool
@@ -1014,6 +1041,10 @@ enum TallaPaymentService {
 
     static func createClickToPay(orderID: String) async throws -> HostedCheckout {
         try await post(path: "/api/payments/click-to-pay/create", payload: ["orderID": orderID])
+    }
+
+    static func retrieveOrder(orderID: String) async throws -> OrderStatus {
+        try await post(path: "/api/payments/card/order/retrieve", payload: ["orderID": orderID])
     }
 
     static func initiateAuthentication(orderID: String, sessionID: String) async throws -> Data {
@@ -1522,7 +1553,7 @@ private final class TallaApplePayCoordinator: NSObject, PKPaymentAuthorizationCo
     }
 
     func start() {
-        guard PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard]) else {
+        guard PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard, .amex]) else {
             finish(.failure(TallaApplePayError.unavailable))
             return
         }
@@ -1530,7 +1561,7 @@ private final class TallaApplePayCoordinator: NSObject, PKPaymentAuthorizationCo
         request.merchantIdentifier = TallaPaymentService.applePayMerchantIdentifier
         request.countryCode = "BH"
         request.currencyCode = "BHD"
-        request.supportedNetworks = [.visa, .masterCard]
+        request.supportedNetworks = [.visa, .masterCard, .amex]
         request.merchantCapabilities = [.threeDSecure, .credit, .debit]
         request.paymentSummaryItems = [
             PKPaymentSummaryItem(

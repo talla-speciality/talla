@@ -25,6 +25,7 @@ const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
 const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail");
+const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
 const {
     defaultCampaignSettings,
     normalizeCampaignSettings,
@@ -220,6 +221,12 @@ async function recordTelemetry(payload, accountEmail = null) {
 const runtimeAppSettings = {
     value: normalizeAppSettings(readJSON(appSettingsStorePath).appSettings || {})
 };
+const verifyCheckoutPricing = createCheckoutPricingService({
+    shopifyAdminGraphQLRequest,
+    appSettings: () => runtimeAppSettings.value,
+    previewVoucher,
+    consumeVoucher
+});
 
 function ensureStoreFile(filePath, fallback) {
     if (!fs.existsSync(dataDirectory)) {
@@ -9058,6 +9065,7 @@ const server = createServer({
     validateBenefitHostedPaymentURL,
     verifyAppleIdentityToken,
     verifyBenefitNotification,
+    verifyCheckoutPricing,
     verifyConfirmedMpgsOrder,
     verifyEazyTransactionForShopifyPayment,
     verifyMpgsAuthenticationForPurchase,
