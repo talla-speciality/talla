@@ -438,7 +438,7 @@ struct CoffeeLibraryView: View {
                 Button("Save calibration", action: saveCalibration).buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.calibration.save")
                 ForEach(coffeeData.calibrationRecords()) { calibration in
                     HStack {
-                        Text([calibration.setting, calibration.measuredValue.map(String.init) ?? "", calibration.unit].filter { !$0.isEmpty }.joined(separator: " · "))
+                        Text([calibration.setting, calibration.measuredValue.map { String($0) } ?? "", calibration.unit].filter { !$0.isEmpty }.joined(separator: " · "))
                         Spacer()
                         Button("Edit") { beginEditing(calibration) }
                         Button(role: .destructive) { delete("calibration", calibration.id) } label: { Image(systemName: "trash") }
@@ -502,7 +502,7 @@ struct CoffeeLibraryView: View {
 
     private func beginEditing(_ calibration: CoffeeCalibrationRecord) {
         calibrationID = calibration.id; equipmentID = calibration.equipmentID; calibrationSetting = calibration.setting
-        calibrationValue = calibration.measuredValue.map(String.init) ?? ""; calibrationUnit = calibration.unit; calibrationNotes = calibration.notes
+        calibrationValue = calibration.measuredValue.map { String($0) } ?? ""; calibrationUnit = calibration.unit; calibrationNotes = calibration.notes
     }
 
     private func beginEditing(_ event: CoffeeMaintenanceRecord) {
