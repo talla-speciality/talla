@@ -485,6 +485,8 @@ module.exports = function createServer(dependencies) {
         writeWalletStampStrips
     } = dependencies;
 
+    const trimText = (value, maximumLength) => String(value || "").trim().slice(0, maximumLength);
+
     return http.createServer(async (request, response) => {
     const startedAt = Date.now();
     response.on("finish", () => {
@@ -4204,6 +4206,7 @@ module.exports = function createServer(dependencies) {
                 sendJSON(response, statusCode, { error: error.message || "Checkout could not be verified." });
                 return;
             }
+            console.error("Checkout creation failed:", error.code || error.message || "CHECKOUT_CREATE_FAILED");
             sendJSON(response, 400, { error: "Invalid checkout order." });
         }
         return;
