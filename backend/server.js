@@ -1980,6 +1980,10 @@ async function rotateCustomerSession(refreshToken) {
         const record = result.rows[0];
         if (record.consumed_at) {
             await client.query("UPDATE customer_sessions SET revoked_at = COALESCE(revoked_at, NOW()) WHERE family_id = $1", [record.family_id]);
+            await client.query(
+                "UPDATE customer_refresh_tokens SET consumed_at = COALESCE(consumed_at, NOW()) WHERE family_id = $1",
+                [record.family_id]
+            );
             await client.query("COMMIT");
             const error = new Error("REFRESH_TOKEN_REUSED");
             error.code = "REFRESH_TOKEN_REUSED";
@@ -1987,7 +1991,11 @@ async function rotateCustomerSession(refreshToken) {
             throw error;
         }
         if (new Date(record.expires_at).getTime() <= Date.now()) {
-            await client.query("UPDATE customer_sessions SET revoked_at = COALESCE(revoked_at, NOW()) WHERE id = $1", [record.session_id]);
+            await client.query("UPDATE customer_sessions SET revoked_at = COALESCE(revoked_at, NOW()) WHERE family_id = $1", [record.family_id]);
+            await client.query(
+                "UPDATE customer_refresh_tokens SET consumed_at = COALESCE(consumed_at, NOW()) WHERE family_id = $1",
+                [record.family_id]
+            );
             await client.query("COMMIT");
             return null;
         }

@@ -52,4 +52,8 @@ test("reuse of a consumed refresh credential revokes its whole token family", as
     await assert.rejects(() => rotateCustomerSession("reused-refresh-token"), { code: "REFRESH_TOKEN_REUSED" });
     const revocation = client.statements.find(({ text }) => text.includes("WHERE family_id = $1"));
     assert.deepEqual(revocation.params, ["family-compromised"]);
+    assert.equal(
+        client.statements.some(({ text }) => text.includes("UPDATE customer_refresh_tokens SET consumed_at") && text.includes("family_id")),
+        true
+    );
 });

@@ -270,17 +270,7 @@ struct Talla_SpecialityApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-#if DEBUG
-                if let scenario = ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"], !scenario.isEmpty {
-                    ReleaseHardeningUITestHost(scenario: scenario)
-                } else {
-                    ContentView()
-                }
-#else
-                ContentView()
-#endif
-            }
+            ContentView()
                 .environment(\.layoutDirection, appLanguage.layoutDirection)
                 .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
                 .environmentObject(coffeeData)
@@ -289,7 +279,7 @@ struct Talla_SpecialityApp: App {
                     TallaTelemetry.shared.appReady()
                     try? coffeeData.migrateLegacyJSON()
                     let defaults = UserDefaults.standard
-                    let token = defaults.string(forKey: "local.customerAccessToken")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    let token = TallaAccountCredentialStore.accessToken
                     let owner = defaults.string(forKey: "local.customerEmail")?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
                     let baseURL = (Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String).flatMap(URL.init(string:))
                     if !token.isEmpty, !owner.isEmpty, let baseURL {

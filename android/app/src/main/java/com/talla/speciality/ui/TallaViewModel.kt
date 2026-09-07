@@ -19,6 +19,7 @@ import com.talla.speciality.data.ShopifyRepository
 import com.talla.speciality.data.BenefitPaySession
 import com.talla.speciality.data.BrewJournalEntry
 import com.talla.speciality.data.BrewJournalPolicy
+import com.talla.speciality.data.BrewSample
 import com.talla.speciality.data.CoffeeBagScanResult
 import com.talla.speciality.data.CoffeeBagTextRecognizer
 import com.talla.speciality.data.CoffeeScaleManager
@@ -34,6 +35,7 @@ import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.data.ScaleAction
 import com.talla.speciality.data.ScaleUiState
+import com.talla.speciality.data.SampleType
 import com.talla.speciality.data.TallaRemoteSettings
 import com.talla.speciality.data.TallaRemoteSettingsRepository
 import com.talla.speciality.widget.TallaQuickActionsWidget
@@ -501,7 +503,21 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         mutableState.update { current ->
             current.copy(brewJournal = BrewJournalPolicy.add(current.brewJournal, entry)).also(::persistBrewJournal)
         }
-        coffeeData.saveJournal(entry, mutableState.value.profile?.id.orEmpty())
+        val scale = mutableState.value.scale
+        val elapsedMilliseconds = entry.brewTimeSeconds.coerceAtLeast(0) * 1_000
+        val samples = buildList {
+            add(BrewSample(sessionId = entry.id, type = SampleType.TEMPERATURE, elapsedMilliseconds = 0, value = if (entry.method.contains("espresso", true)) 93.0 else 94.0, unit = "°C"))
+            if (entry.method.contains("espresso", true)) {
+                add(BrewSample(sessionId = entry.id, type = SampleType.PRESSURE, elapsedMilliseconds = 0, value = 9.0, unit = "bar"))
+            }
+            if (scale.connectedAddress != null) {
+                add(BrewSample(sessionId = entry.id, type = SampleType.WEIGHT, elapsedMilliseconds = elapsedMilliseconds, value = scale.weightGrams, unit = "g"))
+                scale.flowGramsPerSecond?.takeIf(Double::isFinite)?.let { flow ->
+                    add(BrewSample(sessionId = entry.id, type = SampleType.FLOW, elapsedMilliseconds = elapsedMilliseconds, value = flow, unit = "g/s"))
+                }
+            }
+        }
+        coffeeData.saveJournal(entry, mutableState.value.profile?.id.orEmpty(), samples)
         TallaTelemetry.track("brew_completed", properties = mapOf(
             "method" to entry.method,
             "duration_seconds" to entry.brewTimeSeconds,

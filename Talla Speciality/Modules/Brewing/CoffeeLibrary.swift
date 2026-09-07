@@ -223,7 +223,8 @@ extension CoffeeDataStore {
         durationSeconds: Int?,
         rating: Int,
         notes: String,
-        ownerID: String? = nil
+        ownerID: String? = nil,
+        samples: [CoffeeSampleInput] = []
     ) throws {
         let kind: BrewSessionKind = method.localizedCaseInsensitiveContains("espresso") ? .espresso : .filter
         let startedAt = Date().addingTimeInterval(-Double(durationSeconds ?? 0))
@@ -241,23 +242,25 @@ extension CoffeeDataStore {
         let feedback = CoffeeTasteFeedback(id: id, sessionID: id, rating: rating, notes: notes, ownerID: ownerID)
         container.mainContext.insert(session)
         container.mainContext.insert(feedback)
-        if let waterGrams {
-            let sample = BrewSample(
-                sessionID: id,
+        var capturedSamples = samples.filter { $0.value.isFinite }
+        if let waterGrams, !capturedSamples.contains(where: { $0.kind == .weight }) {
+            capturedSamples.append(CoffeeSampleInput(
                 kind: .weight,
                 elapsedMilliseconds: max(durationSeconds ?? 0, 0) * 1_000,
                 value: waterGrams,
-                unit: "g",
-                ownerID: ownerID
-            )
+                unit: "g"
+            ))
+        }
+        for captured in capturedSamples {
+            let sample = BrewSample(sessionID: id, kind: captured.kind, elapsedMilliseconds: captured.elapsedMilliseconds, value: captured.value, unit: captured.unit, ownerID: ownerID)
             container.mainContext.insert(sample)
             try saveEnvelope(entityType: "sample", id: sample.id, jsonObject: [
                 "id": sample.id.uuidString,
                 "sessionID": id.uuidString,
-                "kind": SampleKind.weight.rawValue,
+                "kind": captured.kind.rawValue,
                 "elapsedMilliseconds": sample.elapsedMilliseconds,
-                "value": waterGrams,
-                "unit": "g"
+                "value": captured.value,
+                "unit": captured.unit
             ])
         }
         try container.mainContext.save()
@@ -323,6 +326,8 @@ struct CoffeeLibraryView: View {
                 .font(.system(size: 28, weight: .semibold, design: .serif))
                 .accessibilityAddTraits(.isHeader)
 
+            coffeeSyncStatusBanner
+
             GroupBox(AppLocalization.text("add_coffee", fallback: "Add coffee")) {
                 VStack(spacing: 12) {
                     TextField(AppLocalization.text("coffee_name", fallback: "Coffee name"), text: $name)
@@ -360,6 +365,7 @@ struct CoffeeLibraryView: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                .accessibilityIdentifier("offline.cached-brew")
             }
 
             equipmentSection
@@ -389,6 +395,31 @@ struct CoffeeLibraryView: View {
         }
         }
         .onAppear { equipmentID = equipmentID ?? coffeeData.equipmentRecords().first?.id }
+    }
+
+    @ViewBuilder
+    private var coffeeSyncStatusBanner: some View {
+        switch coffeeData.syncStatus {
+        case .idle:
+            EmptyView()
+        case .syncing:
+            Label(AppLocalization.text("syncing", fallback: "Syncing saved coffee data…"), systemImage: "arrow.triangle.2.circlepath")
+                .accessibilityIdentifier("offline.status")
+        case .synced:
+            Label(AppLocalization.text("coffee_sync_recovered", fallback: "Back online. Your saved coffee data is synced."), systemImage: "checkmark.icloud.fill")
+                .foregroundStyle(.green)
+                .accessibilityIdentifier("offline.status")
+        case .offline, .failed(_):
+            VStack(alignment: .leading, spacing: 10) {
+                Label(AppLocalization.text("coffee_offline_cache", fallback: "Offline. Showing saved coffee data."), systemImage: "icloud.slash")
+                    .accessibilityIdentifier("offline.status")
+                Button(AppLocalization.text("retry", fallback: "Retry connection")) {
+                    Task { await coffeeData.retryCurrentAccountSynchronization() }
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("offline.retry")
+            }
+        }
     }
 
     private var equipmentSection: some View {

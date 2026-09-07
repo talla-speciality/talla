@@ -14,7 +14,21 @@ protocol CoffeeSyncedModel: AnyObject {
 enum CoffeeSyncState: String, Codable { case clean, dirty, conflicted }
 enum EquipmentKind: String, Codable, CaseIterable { case brewer, machine, basket, grinder }
 enum BrewSessionKind: String, Codable { case filter, espresso }
-enum SampleKind: String, Codable { case weight, flow, pressure, temperature }
+enum SampleKind: String, Codable, CaseIterable { case weight, flow, pressure, temperature }
+
+struct CoffeeSampleInput: Codable, Equatable {
+    let kind: SampleKind
+    let elapsedMilliseconds: Int
+    let value: Double
+    let unit: String
+
+    init(kind: SampleKind, elapsedMilliseconds: Int, value: Double, unit: String) {
+        self.kind = kind
+        self.elapsedMilliseconds = max(0, elapsedMilliseconds)
+        self.value = value
+        self.unit = unit
+    }
+}
 
 @Model final class CoffeeLot: CoffeeSyncedModel {
     @Attribute(.unique) var id: UUID

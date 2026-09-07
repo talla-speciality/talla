@@ -748,6 +748,7 @@ struct CompactOrderSummary: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(accentColor.opacity(0.12), lineWidth: 1)
         )
+        .accessibilityIdentifier("checkout.summary")
     }
 }
 
@@ -797,6 +798,8 @@ struct PaymentStatusView: View {
             .padding(12)
             .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("checkout.payment-status")
+            .accessibilityLabel(copy.detail.isEmpty ? copy.title : "\(copy.title). \(copy.detail)")
         }
     }
 }
@@ -859,6 +862,7 @@ struct CheckoutActionBar: View {
                 .buttonStyle(.plain)
                 .disabled(!enabled || state.isBusy)
                 .accessibilityLabel("\(method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay")), \(amountText)")
+                .accessibilityIdentifier("checkout.submit")
             }
 
             Text(AppLocalization.text("payment_terms_reassurance", fallback: "By continuing, you agree to the order total shown above. Talla never stores your card details."))

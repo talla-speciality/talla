@@ -307,7 +307,7 @@ struct BrewingSectionView: View {
     let labelFont: Font
     let saveRecipeAction: (BrewRecipeRecord) -> Void
     let openArticleAction: (URL) -> Void
-    let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int) -> Void
+    let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int, [CoffeeSampleInput]) -> Void
     let brewTimerSection: AnyView
     let coffeeJournalSection: AnyView
     let loadingView: AnyView
@@ -414,6 +414,7 @@ struct BrewingSectionView: View {
     @State var restoredApproach: String?
     @State var lastScaleAutoAdvancedStepID: Int?
     @State var scaleStepOverrideIndex: Int?
+    @State var capturedBrewSamples: [CoffeeSampleInput] = []
     @State var didCompleteBrewFromScale = false
 #if canImport(PhotosUI)
     @State var coffeeBagPhotoSelection: PhotosPickerItem?
@@ -483,6 +484,7 @@ struct BrewingSectionView: View {
         }
         .onChange(of: scaleManager.weightGrams) { previousWeight, currentWeight in
             handleSmartScaleWeightChange(previousWeight: previousWeight, currentWeight: currentWeight)
+            captureConnectedScaleSample(weight: currentWeight)
         }
         .onChange(of: scenePhase) { _, newPhase in
             handleBrewScenePhaseChange(newPhase)
@@ -499,6 +501,16 @@ struct BrewingSectionView: View {
             consumePendingCoffeeIfNeeded()
         }
         .onAppear {
+#if DEBUG
+            let releaseScenario = ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"]
+            if releaseScenario == "offline-recovery" {
+                try? coffeeData.configureOfflineRecoveryUITest()
+                activeDashboardDestination = .coffeeLibrary
+            } else if releaseScenario == "bluetooth-interruption" {
+                scaleManager.configureBluetoothInterruptionUITest()
+                isHomeScalePickerPresented = true
+            }
+#endif
             storedEquipmentGrinder = coffeeData.equipmentName(kind: .grinder)
             storedCoffeeCalibrations = coffeeData.calibrationJSON()
             restoreBrewProfileSelections()

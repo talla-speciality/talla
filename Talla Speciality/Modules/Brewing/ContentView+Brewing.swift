@@ -66,13 +66,14 @@ extension ContentView {
             openArticleAction: { url in
                 articleSession = CheckoutSession(url: url)
             },
-            guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime in
+            guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, samples in
                 prepareJournalEntryFromGuidedBrew(
                     method: method,
                     coffeeAmount: coffeeAmount,
                     ratio: ratio,
                     waterAmount: waterAmount,
-                    brewTime: brewTime
+                    brewTime: brewTime,
+                    samples: samples
                 )
             },
             brewTimerSection: AnyView(brewTimerSection),
@@ -649,7 +650,8 @@ extension ContentView {
             durationSeconds: entry.brewTimeSeconds,
             rating: entry.rating,
             notes: entry.notes,
-            ownerID: customerProfile?.email.lowercased()
+            ownerID: customerProfile?.email.lowercased(),
+            samples: pendingBrewSamples
         )
         var brewTelemetry: [String: String] = [
             "method": entry.method,
@@ -669,7 +671,7 @@ extension ContentView {
         showToast(message: AppLocalization.text("journal_saved_toast", fallback: "Coffee note saved"))
     }
 
-    func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int) {
+    func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int, samples: [CoffeeSampleInput]) {
         let methodName = method?.name ?? (activeBrewingCategory == "All" ? selectedBrewTimerName : activeBrewingCategory)
         let recipeName = methodName.isEmpty ? defaultBrewRecipeName() : methodName
 
@@ -679,6 +681,7 @@ extension ContentView {
         journalRatio = ratio
         journalWaterGrams = waterAmount
         journalBrewTimeSeconds = brewTime
+        pendingBrewSamples = samples
         journalNotesInput = ""
         brewRecipeName = recipeName
         showToast(message: AppLocalization.text("guided_brew_journal_ready", fallback: "Journal entry prepared"))
@@ -730,6 +733,7 @@ extension ContentView {
         journalRatio = nil
         journalWaterGrams = nil
         journalBrewTimeSeconds = nil
+        pendingBrewSamples = []
     }
 
     func deleteCoffeeJournalEntry(_ entry: BrewJournalEntry) {

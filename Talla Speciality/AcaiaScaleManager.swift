@@ -43,6 +43,9 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     private var timemoreDevicesByID: [String: TimemoreScaleDriver.Device] = [:]
     private var activeBackend: Backend?
     private var lastWeightSample: (weight: Double, date: Date)?
+#if DEBUG
+    private var isBluetoothInterruptionUITest = false
+#endif
 
     private lazy var acaiaUmbraDriver: AcaiaUmbraScaleDriver = {
         let driver = AcaiaUmbraScaleDriver()
@@ -231,6 +234,14 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     func scan() {
+#if DEBUG
+        if isBluetoothInterruptionUITest {
+            connectionState = .connected("Acaia Pearl")
+            weightGrams = 42
+            flowRateGramsPerSecond = 2.4
+            return
+        }
+#endif
         guard !isConnected else { return }
         connectionState = .scanning
         acaiaScalesByID = [:]
@@ -332,6 +343,13 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     func disconnect() {
+#if DEBUG
+        if isBluetoothInterruptionUITest {
+            activeBackend = nil
+            connectionState = .failed("Scale connection interrupted")
+            return
+        }
+#endif
         switch activeBackend {
         case .acaia: AcaiaManager.shared().connectedScale?.disconnect()
         case .acaiaUmbra: acaiaUmbraDriver.disconnect()
@@ -343,6 +361,15 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case nil: break
         }
     }
+
+#if DEBUG
+    func configureBluetoothInterruptionUITest() {
+        isBluetoothInterruptionUITest = true
+        connectionState = .connected("Acaia Pearl")
+        weightGrams = 42
+        flowRateGramsPerSecond = 2.4
+    }
+#endif
 
     func tare() {
         switch activeBackend {

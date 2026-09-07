@@ -1297,7 +1297,7 @@ extension BrewingSectionView {
 
     func handleBrewModePrimaryAction() {
         if !isBrewModeRunning, (brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale) {
-            guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds)
+            guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds, capturedBrewSamples)
             clearPersistedBrewSession()
             isFocusedBrewPresented = false
             brewModeHapticTrigger += 1
@@ -1363,6 +1363,12 @@ extension BrewingSectionView {
             lastScaleAutoAdvancedStepID = nil
             scaleStepOverrideIndex = nil
             didCompleteBrewFromScale = false
+            capturedBrewSamples = [
+                CoffeeSampleInput(kind: .temperature, elapsedMilliseconds: 0, value: Double(generatedTemperatureC), unit: "°C")
+            ]
+            if selectedBrewModeMethodID == "espresso" {
+                capturedBrewSamples.append(CoffeeSampleInput(kind: .pressure, elapsedMilliseconds: 0, value: 9, unit: "bar"))
+            }
         }
 
         let runID = UUID()
@@ -1382,6 +1388,20 @@ extension BrewingSectionView {
                 guard isBrewModeRunning, brewModeRunID == runID else { return }
                 tickBrewMode()
             }
+        }
+    }
+
+    func captureConnectedScaleSample(weight: Double) {
+        guard isBrewModeRunning, scaleManager.isConnected, weight.isFinite else { return }
+        let elapsed = max(0, brewModeElapsedSeconds) * 1_000
+        guard !capturedBrewSamples.contains(where: { $0.kind == .weight && $0.elapsedMilliseconds == elapsed }) else { return }
+        capturedBrewSamples.append(CoffeeSampleInput(kind: .weight, elapsedMilliseconds: elapsed, value: weight, unit: "g"))
+        let flow = scaleManager.flowRateGramsPerSecond
+        if flow.isFinite {
+            capturedBrewSamples.append(CoffeeSampleInput(kind: .flow, elapsedMilliseconds: elapsed, value: flow, unit: "g/s"))
+        }
+        if capturedBrewSamples.count > 2_000 {
+            capturedBrewSamples.removeSubrange(2..<(capturedBrewSamples.count - 1_998))
         }
     }
 

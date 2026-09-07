@@ -4,18 +4,27 @@ import Combine
 
 @MainActor
 final class CoffeeDataStore: ObservableObject {
+    enum SyncStatus: Equatable {
+        case idle
+        case syncing
+        case synced(Date)
+        case offline
+        case failed(String)
+    }
+
     static let shared = CoffeeDataStore()
     static let migrationKey = "coffeeData.migration.v1.completed"
 
     let container: ModelContainer
     @Published private(set) var changeToken = 0
+    @Published private(set) var syncStatus: SyncStatus = .idle
     private var context: ModelContext { container.mainContext }
 
     func notifyCoffeeChange() {
         changeToken &+= 1
     }
 
-    private init(inMemory: Bool = false) {
+    init(inMemory: Bool = false) {
         do {
             let schema = Schema(CoffeeSchema.models)
             let configuration = ModelConfiguration("TallaCoffee", schema: schema, isStoredInMemoryOnly: inMemory)
@@ -43,21 +52,30 @@ final class CoffeeDataStore: ObservableObject {
     }
 
     func replaceLegacyRecords(entityType: String, objects: [[String: Any]]) throws {
+        if entityType == "recipe" {
+            try replaceRecipeRecords(objects, tombstoneMissing: true)
+            try context.save(); changeToken &+= 1
+            return
+        }
         let activeIDs = Set(objects.compactMap { value in (value["id"] as? String).flatMap(UUID.init(uuidString:)) })
         let existing = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.entityType == entityType && $0.deletedAt == nil }))
         for envelope in existing where !activeIDs.contains(envelope.recordID) { envelope.deletedAt = .now; envelope.updatedAt = .now; envelope.dirty = true }
-        let pairedType = entityType == "recipe" ? "recipeVersion" : (entityType == "brewSession" ? "tasteFeedback" : nil)
+        let pairedType = entityType == "brewSession" ? "tasteFeedback" : nil
         if let pairedType {
             let paired = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.entityType == pairedType && $0.deletedAt == nil }))
             for envelope in paired where !activeIDs.contains(envelope.recordID) { envelope.deletedAt = .now; envelope.updatedAt = .now; envelope.dirty = true }
         }
+        if entityType == "brewSession" {
+            let samples = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.entityType == "sample" && $0.deletedAt == nil }))
+            for envelope in samples {
+                guard let sessionID = sampleSessionID(in: envelope), !activeIDs.contains(sessionID) else { continue }
+                envelope.deletedAt = .now; envelope.updatedAt = .now; envelope.dirty = true
+            }
+        }
         for object in objects {
             let id = (object["id"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
             try saveEnvelope(entityType: entityType, id: id, jsonObject: object)
-            if entityType == "recipe" {
-                var version = object; version["recipeID"] = id.uuidString; version["versionNumber"] = version["versionNumber"] ?? 1
-                try saveEnvelope(entityType: "recipeVersion", id: id, jsonObject: version)
-            } else if entityType == "brewSession" {
+            if entityType == "brewSession" {
                 let feedback: [String: Any] = ["id": id.uuidString, "sessionID": id.uuidString, "rating": object["rating"] ?? 3, "notes": object["notes"] ?? "", "createdAt": object["createdAt"] ?? Self.iso.string(from: .now)]
                 try saveEnvelope(entityType: "tasteFeedback", id: id, jsonObject: feedback)
             }
@@ -100,6 +118,7 @@ final class CoffeeDataStore: ObservableObject {
         let compoundID = "\(entityType):\(id.uuidString.lowercased())"
         let descriptor = FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.compoundID == compoundID })
         if let existing = try context.fetch(descriptor).first {
+            if existing.payload == data && existing.deletedAt == deletedAt { return }
             existing.payload = data; existing.updatedAt = .now; existing.deletedAt = deletedAt; existing.dirty = true
         } else {
             context.insert(CoffeeSyncEnvelope(entityType: entityType, recordID: id, payload: data, deletedAt: deletedAt))
@@ -108,12 +127,32 @@ final class CoffeeDataStore: ObservableObject {
 
     func tombstone(entityType: String, id: UUID) throws {
         try saveEnvelope(entityType: entityType, id: id, jsonObject: [:], deletedAt: .now)
+        if entityType == "brewSession" {
+            let children = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>()).filter {
+                ($0.entityType == "sample" || $0.entityType == "tasteFeedback")
+                    && $0.deletedAt == nil
+                    && sampleSessionID(in: $0) == id
+            }
+            for child in children {
+                child.deletedAt = .now
+                child.updatedAt = .now
+                child.dirty = true
+            }
+        }
         try context.save()
+    }
+
+    private func sampleSessionID(in envelope: CoffeeSyncEnvelope) -> UUID? {
+        guard let payload = try? JSONSerialization.jsonObject(with: envelope.payload) as? [String: Any],
+              let value = payload["sessionID"] as? String else { return nil }
+        return UUID(uuidString: value)
     }
 
     /// Server-wins for two edits based on the same revision. The rejected local
     /// payload is retained in conflictedPayload so the UI can offer recovery.
     func synchronize(ownerID: String, bearerToken: String, baseURL: URL) async throws {
+        syncStatus = .syncing
+        do {
         let cursor = try syncCursor(for: ownerID)
         let dirty = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.dirty }))
         let changes: [[String: Any]] = dirty.compactMap { envelope in
@@ -145,7 +184,46 @@ final class CoffeeDataStore: ObservableObject {
         cursor.lastSyncedAt = .now
         try context.save()
         changeToken &+= 1
+        syncStatus = .synced(.now)
+        } catch {
+            if let urlError = error as? URLError,
+               [.notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .timedOut].contains(urlError.code) {
+                syncStatus = .offline
+            } else {
+                syncStatus = .failed(error.localizedDescription)
+            }
+            throw error
+        }
     }
+
+    func retryCurrentAccountSynchronization() async {
+#if DEBUG
+        if ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == "offline-recovery" {
+            syncStatus = .syncing
+            try? await Task.sleep(for: .milliseconds(150))
+            syncStatus = .synced(.now)
+            return
+        }
+#endif
+        let owner = UserDefaults.standard.string(forKey: "local.customerEmail")?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        let token = TallaAccountCredentialStore.accessToken
+        guard !owner.isEmpty, !token.isEmpty,
+              let baseURL = (Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String).flatMap(URL.init(string:)) else {
+            syncStatus = .offline
+            return
+        }
+        try? await synchronize(ownerID: owner, bearerToken: token, baseURL: baseURL)
+    }
+
+#if DEBUG
+    func configureOfflineRecoveryUITest() throws {
+        if inventory().isEmpty {
+            try addPurchasedCoffee(name: "Cached V60", roaster: "Talla", roastDate: .now, quantityGrams: 250)
+        }
+        syncStatus = .offline
+    }
+#endif
 
     private func syncCursor(for ownerID: String) throws -> CoffeeSyncCursor {
         let descriptor = FetchDescriptor<CoffeeSyncCursor>(predicate: #Predicate { $0.ownerID == ownerID })
@@ -171,18 +249,109 @@ final class CoffeeDataStore: ObservableObject {
 
     private func migrateRecipes(_ json: String?) throws {
         guard let data = json?.data(using: .utf8), let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
-        for row in rows {
-            let id = UUID(uuidString: row["id"] as? String ?? "") ?? UUID()
-            let title = row["name"] as? String ?? "Imported recipe"
-            let kind: BrewSessionKind = ((row["category"] as? String)?.lowercased().contains("espresso") == true) ? .espresso : .filter
-            let recipe = CoffeeRecipe(id: id, title: title, kind: kind)
-            let versionID = id; recipe.currentVersionID = versionID
-            context.insert(recipe)
-            context.insert(RecipeVersion(id: versionID, recipeID: id, versionNumber: 1, coffeeGrams: row["coffeeGrams"] as? Double ?? 0, waterGrams: row["waterGrams"] as? Double, temperatureC: (row["temperatureC"] as? NSNumber)?.doubleValue, grindSetting: row["grind"] as? String, stepsJSON: Self.jsonString(row["steps"]) ))
-            try saveEnvelope(entityType: "recipe", id: id, jsonObject: row)
-            var versionPayload = row; versionPayload["recipeID"] = id.uuidString; versionPayload["versionNumber"] = 1
-            try saveEnvelope(entityType: "recipeVersion", id: versionID, jsonObject: versionPayload)
+        try replaceRecipeRecords(rows, tombstoneMissing: false)
+    }
+
+    /// A recipe is the mutable pointer to its current revision; every content
+    /// change creates a separate immutable recipeVersion record.
+    private func replaceRecipeRecords(_ objects: [[String: Any]], tombstoneMissing: Bool) throws {
+        let recipeEnvelopes = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>()).filter {
+            $0.entityType == "recipe" && $0.deletedAt == nil
         }
+        let versionEnvelopes = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>()).filter {
+            $0.entityType == "recipeVersion" && $0.deletedAt == nil
+        }
+        let activeIDs = Set(objects.compactMap { ($0["id"] as? String).flatMap(UUID.init(uuidString:)) })
+
+        if tombstoneMissing {
+            for envelope in recipeEnvelopes where !activeIDs.contains(envelope.recordID) {
+                envelope.deletedAt = .now
+                envelope.updatedAt = .now
+                envelope.dirty = true
+            }
+        }
+
+        let typedRecipes = try context.fetch(FetchDescriptor<CoffeeRecipe>())
+        for rawObject in objects {
+            let recipeID = (rawObject["id"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
+            let recipeIDString = recipeID.uuidString.lowercased()
+            var recipePayload = rawObject
+            recipePayload["id"] = recipeIDString
+
+            let currentEnvelope = recipeEnvelopes.first { $0.recordID == recipeID }
+            let currentPayload = currentEnvelope.flatMap {
+                try? JSONSerialization.jsonObject(with: $0.payload) as? [String: Any]
+            } ?? nil
+            let recipeVersions = versionEnvelopes.compactMap { envelope -> (CoffeeSyncEnvelope, [String: Any])? in
+                guard let payload = try? JSONSerialization.jsonObject(with: envelope.payload) as? [String: Any],
+                      (payload["recipeID"] as? String)?.lowercased() == recipeIDString else { return nil }
+                return (envelope, payload)
+            }
+            let currentVersionID = (currentPayload?["currentVersionID"] as? String).flatMap(UUID.init(uuidString:))
+            let currentVersion = currentVersionID.flatMap { id in recipeVersions.first { $0.0.recordID == id } }
+                ?? recipeVersions.max { lhs, rhs in
+                    (lhs.1["versionNumber"] as? NSNumber)?.intValue ?? 0 < (rhs.1["versionNumber"] as? NSNumber)?.intValue ?? 0
+                }
+            let contentChanged = currentVersion.map { recipeFingerprint($0.1) != recipeFingerprint(recipePayload) } ?? true
+
+            let versionID: UUID
+            let versionNumber: Int
+            if contentChanged {
+                versionID = UUID()
+                versionNumber = (recipeVersions.compactMap { ($0.1["versionNumber"] as? NSNumber)?.intValue }.max() ?? 0) + 1
+                var versionPayload = recipePayload
+                versionPayload["id"] = versionID.uuidString.lowercased()
+                versionPayload["recipeID"] = recipeIDString
+                versionPayload["versionNumber"] = versionNumber
+                versionPayload["createdAt"] = Self.iso.string(from: .now)
+                try saveEnvelope(entityType: "recipeVersion", id: versionID, jsonObject: versionPayload)
+                context.insert(RecipeVersion(
+                    id: versionID,
+                    recipeID: recipeID,
+                    versionNumber: versionNumber,
+                    coffeeGrams: (recipePayload["coffeeGrams"] as? NSNumber)?.doubleValue ?? 0,
+                    waterGrams: (recipePayload["waterGrams"] as? NSNumber)?.doubleValue,
+                    targetYieldGrams: (recipePayload["targetYieldGrams"] as? NSNumber)?.doubleValue,
+                    temperatureC: (recipePayload["temperatureC"] as? NSNumber)?.doubleValue,
+                    targetSeconds: (recipePayload["targetSeconds"] as? NSNumber)?.intValue,
+                    grindSetting: recipePayload["grind"] as? String,
+                    pressureBar: (recipePayload["pressureBar"] as? NSNumber)?.doubleValue,
+                    stepsJSON: Self.jsonString(recipePayload["steps"]),
+                    notes: recipePayload["notes"] as? String
+                ))
+            } else {
+                versionID = currentVersion?.0.recordID ?? UUID()
+                versionNumber = (currentVersion?.1["versionNumber"] as? NSNumber)?.intValue ?? 1
+            }
+
+            recipePayload["currentVersionID"] = versionID.uuidString.lowercased()
+            recipePayload["versionNumber"] = versionNumber
+            try saveEnvelope(entityType: "recipe", id: recipeID, jsonObject: recipePayload)
+
+            let kind: BrewSessionKind = ((recipePayload["category"] as? String)?.lowercased().contains("espresso") == true) ? .espresso : .filter
+            if let recipe = typedRecipes.first(where: { $0.id == recipeID }) {
+                recipe.title = recipePayload["name"] as? String ?? recipe.title
+                recipe.kindRaw = kind.rawValue
+                recipe.currentVersionID = versionID
+                recipe.updatedAt = .now
+                recipe.syncStateRaw = CoffeeSyncState.dirty.rawValue
+            } else {
+                context.insert(CoffeeRecipe(
+                    id: recipeID,
+                    title: recipePayload["name"] as? String ?? "Recipe",
+                    kind: kind,
+                    currentVersionID: versionID
+                ))
+            }
+        }
+    }
+
+    private func recipeFingerprint(_ payload: [String: Any]) -> Data? {
+        var comparable = payload
+        ["id", "recipeID", "currentVersionID", "versionNumber", "createdAt", "updatedAt"].forEach {
+            comparable.removeValue(forKey: $0)
+        }
+        return try? JSONSerialization.data(withJSONObject: comparable, options: [.sortedKeys])
     }
 
     private func migrateJournal(_ json: String?) throws {

@@ -37,20 +37,19 @@ enum TallaAccountCredentialStore {
     static let refreshKeychainAccount = "refresh"
 
     static var accessToken: String {
-        let localToken = UserDefaults.standard.string(forKey: tokenDefaultsKey)?
+        if let keychainToken = readFromKeychain(account: keychainAccount)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !keychainToken.isEmpty {
+            UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
+            return keychainToken
+        }
+
+        // Migrate the plaintext copy left by earlier builds, then remove it.
+        let legacyToken = UserDefaults.standard.string(forKey: tokenDefaultsKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        if !localToken.isEmpty {
-            saveToKeychain(localToken, account: keychainAccount)
-            return localToken
-        }
-
-        guard let syncedToken = readFromKeychain(account: keychainAccount), !syncedToken.isEmpty else {
-            return ""
-        }
-
-        UserDefaults.standard.set(syncedToken, forKey: tokenDefaultsKey)
-        return syncedToken
+        guard !legacyToken.isEmpty else { return "" }
+        saveToKeychain(legacyToken, account: keychainAccount)
+        UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
+        return legacyToken
     }
 
     static func save(_ token: String) {
@@ -60,8 +59,8 @@ enum TallaAccountCredentialStore {
             return
         }
 
-        UserDefaults.standard.set(normalizedToken, forKey: tokenDefaultsKey)
         saveToKeychain(normalizedToken, account: keychainAccount)
+        UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
     }
 
     static var refreshToken: String {
@@ -896,6 +895,7 @@ struct ContentView: View {
     @State var journalRatio: Double?
     @State var journalWaterGrams: Double?
     @State var journalBrewTimeSeconds: Int?
+    @State var pendingBrewSamples: [CoffeeSampleInput] = []
     @State var journalRating = 4
     @State var cartSaveName = ""
     @State var isCheckingOut = false
@@ -928,7 +928,7 @@ struct ContentView: View {
     @AppStorage("payment.activeEazyShopifyID") var activeEazyShopifyPaymentID = ""
     @AppStorage("app.reviewPromptedVersion") var reviewPromptedVersion = ""
     @AppStorage("local.customerEmail") var savedCustomerEmail = ""
-    @AppStorage("local.customerAccessToken") var savedCustomerAccessToken = ""
+    @State var savedCustomerAccessToken = TallaAccountCredentialStore.accessToken
     @AppStorage("local.pushDeviceToken") var savedPushDeviceToken = ""
     @AppStorage("local.pushDeviceToken.email") var savedRegisteredPushDeviceEmail = ""
     @AppStorage("local.pushDeviceToken.value") var savedRegisteredPushDeviceToken = ""
@@ -1017,6 +1017,7 @@ struct ContentView: View {
     @State var isCartSaveEntryExpanded = false
     @State var isTallaPassportExpanded = false
     @State var selectedSettingsDetail: SettingsDetail?
+    @State var didConfigureReleaseUITest = false
     @State var accountScrollTarget: String?
     @State var tabScrollTarget: Tab?
     @State var accountOrdersPresentationRequest = 0
@@ -2446,6 +2447,9 @@ struct ContentView: View {
                     backgroundColor: Color(hex: 0xC8965A),
                     foregroundColor: Color(hex: 0x0A0804)
                 )
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("toast.banner")
+                    .accessibilityLabel(toastMessage)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -2462,6 +2466,7 @@ struct ContentView: View {
         }
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
         .task {
+            if configureReleaseUITestScenarioIfNeeded() { return }
             syncWidgetSharedState(reload: false)
             await loadAppSettings()
             await loadEventSettings()

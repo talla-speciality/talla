@@ -60,7 +60,11 @@ class CoffeeDataStore(context: Context) {
         upsert(ownerId, type, id, current?.payload ?: JSONObject(), current?.revision ?: 0)
         helper.writableDatabase.execSQL("UPDATE coffee_records SET deleted_at=?, dirty=1 WHERE owner_id=? AND entity_type=? AND record_id=?", arrayOf<Any?>(System.currentTimeMillis(), ownerId, type.wireName, id.lowercase()))
         if (type == CoffeeEntityType.BREW_SESSION) {
-            tombstone(ownerId, CoffeeEntityType.TASTE_FEEDBACK, id)
+            listOf(CoffeeEntityType.SAMPLE, CoffeeEntityType.TASTE_FEEDBACK).forEach { childType ->
+                records(ownerId, childType)
+                    .filter { it.payload.optString("sessionID").equals(id, ignoreCase = true) }
+                    .forEach { tombstone(ownerId, childType, it.id) }
+            }
         }
     }
 
@@ -71,6 +75,23 @@ class CoffeeDataStore(context: Context) {
 
     fun claimLocalRecords(ownerId: String) {
         helper.writableDatabase.execSQL("UPDATE OR IGNORE coffee_records SET owner_id=? WHERE owner_id=''", arrayOf(ownerId))
+    }
+
+    fun saveCoffeeLot(value: CoffeeLot, ownerId: String = "") {
+        upsert(ownerId, CoffeeEntityType.COFFEE_LOT, value.id, JSONObject()
+            .put("id", value.id).put("name", value.name).put("roaster", value.roaster)
+            .put("origin", value.origin).put("producer", value.producer).put("variety", value.variety)
+            .put("process", value.process).put("roastLevel", value.roastLevel).put("notes", value.notes))
+    }
+
+    fun coffeeLots(ownerId: String = ""): List<CoffeeLot> = records(ownerId, CoffeeEntityType.COFFEE_LOT).map { record ->
+        val json = record.payload
+        CoffeeLot(
+            id = record.id, name = json.optString("name", "Coffee"), roaster = json.optString("roaster"),
+            origin = json.optNullableString("origin"), producer = json.optNullableString("producer"),
+            variety = json.optNullableString("variety"), process = json.optNullableString("process"),
+            roastLevel = json.optNullableString("roastLevel"), notes = json.optNullableString("notes"),
+        )
     }
 
     fun savePurchasedCoffee(value: PurchasedCoffee, ownerId: String = "") {
@@ -174,6 +195,80 @@ class CoffeeDataStore(context: Context) {
             .put("performedAt", value.performedAt).put("usageCount", value.usageCount).put("notes", value.notes))
     }
 
+    fun saveRecipe(recipe: CoffeeRecipe, requestedVersion: RecipeVersion, ownerId: String = ""): RecipeVersion {
+        val versions = recipeVersions(ownerId, recipe.id)
+        val latest = versions.maxByOrNull(RecipeVersion::versionNumber)
+        val sameContent = latest?.let { recipeVersionContent(it) == recipeVersionContent(requestedVersion) } == true
+        val version = if (sameContent) requireNotNull(latest) else requestedVersion.copy(
+            id = UUID.randomUUID().toString(),
+            recipeId = recipe.id,
+            versionNumber = (versions.maxOfOrNull(RecipeVersion::versionNumber) ?: 0) + 1,
+        )
+        if (!sameContent) {
+            upsert(ownerId, CoffeeEntityType.RECIPE_VERSION, version.id, recipeVersionPayload(version))
+        }
+        upsert(ownerId, CoffeeEntityType.RECIPE, recipe.id, JSONObject()
+            .put("id", recipe.id).put("title", recipe.title)
+            .put("kind", recipe.type.name.lowercase()).put("currentVersionID", version.id))
+        return version
+    }
+
+    fun recipes(ownerId: String = ""): List<CoffeeRecipe> = records(ownerId, CoffeeEntityType.RECIPE).map { record ->
+        CoffeeRecipe(
+            id = record.id,
+            title = record.payload.optString("title", record.payload.optString("name", "Recipe")),
+            type = runCatching { SessionType.valueOf(record.payload.optString("kind", "filter").uppercase()) }.getOrDefault(SessionType.FILTER),
+            currentVersionId = record.payload.optNullableString("currentVersionID"),
+        )
+    }
+
+    fun recipeVersions(ownerId: String = "", recipeId: String): List<RecipeVersion> =
+        records(ownerId, CoffeeEntityType.RECIPE_VERSION).mapNotNull { record ->
+            val json = record.payload
+            if (!json.optString("recipeID").equals(recipeId, ignoreCase = true)) return@mapNotNull null
+            RecipeVersion(
+                id = record.id, recipeId = recipeId, versionNumber = json.optInt("versionNumber", 1),
+                coffeeGrams = json.optDouble("coffeeGrams", 0.0),
+                waterGrams = json.optNullableDouble("waterGrams"),
+                targetYieldGrams = json.optNullableDouble("targetYieldGrams"),
+                temperatureC = json.optNullableDouble("temperatureC"),
+                targetSeconds = json.optNullableInt("targetSeconds"),
+                grindSetting = json.optNullableString("grindSetting") ?: json.optNullableString("grind"),
+                pressureBar = json.optNullableDouble("pressureBar"),
+                stepsJson = json.optString("stepsJSON", json.optString("stepsJson", "[]")),
+                notes = json.optNullableString("notes"),
+            )
+        }.sortedBy(RecipeVersion::versionNumber)
+
+    fun saveSession(
+        session: CoffeeBrewSession,
+        samples: List<BrewSample>,
+        feedback: CoffeeTasteFeedback?,
+        ownerId: String = "",
+        journalPayload: JSONObject? = null,
+    ) {
+        val sessionPayload = journalPayload ?: JSONObject()
+            .put("id", session.id).put("kind", session.type.name.lowercase())
+            .put("recipeVersionID", session.recipeVersionId).put("purchasedCoffeeID", session.purchasedCoffeeId)
+            .put("grinderID", session.grinderId).put("brewerID", session.brewerId)
+            .put("machineID", session.machineId).put("basketID", session.basketId)
+            .put("startedAt", session.startedAt).put("endedAt", session.endedAt)
+            .put("doseGrams", session.doseGrams).put("yieldGrams", session.yieldGrams)
+            .put("waterGrams", session.waterGrams).put("notes", session.notes)
+        upsert(ownerId, CoffeeEntityType.BREW_SESSION, session.id, sessionPayload)
+        samples.filter { it.value.isFinite() }.forEach { sample ->
+            upsert(ownerId, CoffeeEntityType.SAMPLE, sample.id, JSONObject()
+                .put("id", sample.id).put("sessionID", session.id).put("kind", sample.type.name.lowercase())
+                .put("elapsedMilliseconds", sample.elapsedMilliseconds.coerceAtLeast(0))
+                .put("value", sample.value).put("unit", sample.unit))
+        }
+        feedback?.let { value ->
+            upsert(ownerId, CoffeeEntityType.TASTE_FEEDBACK, value.id, JSONObject()
+                .put("id", value.id).put("sessionID", value.sessionId).put("purchasedCoffeeID", value.purchasedCoffeeId)
+                .put("rating", value.rating.coerceIn(1, 5)).put("tagsJSON", value.tagsJson).put("notes", value.notes))
+        }
+    }
+
     fun conflicts(ownerId: String = ""): List<CoffeeConflict> = query("owner_id=? AND conflict_payload IS NOT NULL", arrayOf(ownerId)).mapNotNull { record ->
         record.conflictPayload?.let { CoffeeConflict(ownerId, record.entityType, record.id, it, record.payload) }
     }
@@ -192,18 +287,36 @@ class CoffeeDataStore(context: Context) {
         )
     }
 
-    fun saveJournal(entry: BrewJournalEntry, ownerId: String = "") {
+    fun saveJournal(entry: BrewJournalEntry, ownerId: String = "", samples: List<BrewSample> = emptyList()) {
         val payload = JSONObject().put("id", entry.id).put("title", entry.title).put("method", entry.method)
             .put("coffeeGrams", entry.coffeeGrams).put("ratio", entry.ratio).put("waterGrams", entry.waterGrams)
             .put("brewTimeSeconds", entry.brewTimeSeconds).put("rating", entry.rating.coerceIn(1, 5))
             .put("notes", entry.notes).put("createdAt", entry.createdAt)
-        upsert(ownerId, CoffeeEntityType.BREW_SESSION, entry.id, payload)
-        upsert(ownerId, CoffeeEntityType.TASTE_FEEDBACK, entry.id, JSONObject().put("id", entry.id).put("sessionID", entry.id).put("rating", entry.rating.coerceIn(1, 5)).put("notes", entry.notes).put("createdAt", entry.createdAt))
-        val sampleId = UUID.nameUUIDFromBytes("${entry.id}:final-weight".toByteArray()).toString()
-        upsert(ownerId, CoffeeEntityType.SAMPLE, sampleId, JSONObject()
-            .put("id", sampleId).put("sessionID", entry.id).put("kind", SampleType.WEIGHT.name.lowercase())
-            .put("elapsedMilliseconds", entry.brewTimeSeconds.coerceAtLeast(0) * 1_000)
-            .put("value", entry.waterGrams).put("unit", "g"))
+        val finalSamples = samples.toMutableList()
+        if (finalSamples.none { it.type == SampleType.WEIGHT }) {
+            finalSamples += BrewSample(
+                id = UUID.nameUUIDFromBytes("${entry.id}:final-weight".toByteArray()).toString(),
+                sessionId = entry.id, type = SampleType.WEIGHT,
+                elapsedMilliseconds = entry.brewTimeSeconds.coerceAtLeast(0) * 1_000,
+                value = entry.waterGrams.toDouble(), unit = "g",
+            )
+        }
+        saveSession(
+            CoffeeBrewSession(
+                id = entry.id,
+                type = if (entry.method.contains("espresso", ignoreCase = true)) SessionType.ESPRESSO else SessionType.FILTER,
+                startedAt = entry.createdAt - entry.brewTimeSeconds.coerceAtLeast(0) * 1_000L,
+                endedAt = entry.createdAt,
+                doseGrams = entry.coffeeGrams.toDouble(),
+                yieldGrams = entry.waterGrams.toDouble().takeIf { entry.method.contains("espresso", ignoreCase = true) },
+                waterGrams = entry.waterGrams.toDouble().takeUnless { entry.method.contains("espresso", ignoreCase = true) },
+                notes = entry.title,
+            ),
+            finalSamples,
+            CoffeeTasteFeedback(id = entry.id, sessionId = entry.id, rating = entry.rating, notes = entry.notes),
+            ownerId,
+            payload,
+        )
     }
 
     fun replaceJournal(entries: List<BrewJournalEntry>, ownerId: String = "") {
@@ -245,14 +358,88 @@ class CoffeeDataStore(context: Context) {
     private fun migrateLegacyJson() {
         if (legacy.getBoolean("coffee_data_migrated_v1", false)) return
         runCatching {
-            val array = JSONArray(legacy.getString("brew_journal", "[]") ?: "[]")
-            for (index in 0 until array.length()) {
-                val json = array.getJSONObject(index); val id = json.optString("id", UUID.randomUUID().toString())
-                upsert(type = CoffeeEntityType.BREW_SESSION, id = id, payload = json)
-            }
+            migrateLegacyJournal(JSONArray(legacy.getString("brew_journal", "[]") ?: "[]"))
+            migrateLegacyRecipes(legacy.getString("brew_recipes", legacy.getString("brewRecipes.saved", "[]")) ?: "[]")
+            migrateLegacyEquipment(legacy.getString("coffee_equipment", "[]") ?: "[]")
+            migrateLegacyCalibrations(legacy.getString("coffee_calibrations", "[]") ?: "[]")
             legacy.edit().putBoolean("coffee_data_migrated_v1", true).apply()
         }
     }
+
+    private fun migrateLegacyJournal(array: JSONArray) {
+        for (index in 0 until array.length()) {
+            val json = array.optJSONObject(index) ?: continue
+            saveJournal(BrewJournalEntry(
+                id = json.optString("id", UUID.randomUUID().toString()),
+                title = json.optString("title", "Imported brew"), method = json.optString("method", "Coffee"),
+                coffeeGrams = json.optInt("coffeeGrams"), ratio = json.optDouble("ratio", 0.0),
+                waterGrams = json.optInt("waterGrams"), brewTimeSeconds = json.optInt("brewTimeSeconds"),
+                rating = json.optInt("rating", 3).coerceIn(1, 5), notes = json.optString("notes"),
+                createdAt = json.optLong("createdAt", System.currentTimeMillis()),
+            ))
+        }
+    }
+
+    private fun migrateLegacyRecipes(raw: String) {
+        val array = JSONArray(raw)
+        for (index in 0 until array.length()) {
+            val json = array.optJSONObject(index) ?: continue
+            val recipeID = json.optString("id", UUID.randomUUID().toString())
+            val type = if (json.optString("category").contains("espresso", ignoreCase = true)) SessionType.ESPRESSO else SessionType.FILTER
+            saveRecipe(
+                CoffeeRecipe(id = recipeID, title = json.optString("name", "Imported recipe"), type = type),
+                RecipeVersion(
+                    recipeId = recipeID, versionNumber = 1,
+                    coffeeGrams = json.optDouble("coffeeGrams", 0.0),
+                    waterGrams = json.optNullableDouble("waterGrams"),
+                    temperatureC = json.optNullableDouble("temperatureC"),
+                    grindSetting = json.optNullableString("grind"),
+                    stepsJson = json.optJSONArray("steps")?.toString() ?: "[]",
+                    notes = json.optNullableString("notes"),
+                )
+            )
+        }
+    }
+
+    private fun migrateLegacyEquipment(raw: String) {
+        val array = JSONArray(raw)
+        for (index in 0 until array.length()) {
+            val json = array.optJSONObject(index) ?: continue
+            saveEquipment(CoffeeEquipment(
+                id = json.optString("id", UUID.randomUUID().toString()),
+                type = runCatching { EquipmentType.valueOf(json.optString("kind", "brewer").uppercase()) }.getOrDefault(EquipmentType.BREWER),
+                name = json.optString("name", "Imported equipment"),
+                manufacturer = json.optNullableString("manufacturer"), model = json.optNullableString("model"),
+            ))
+        }
+    }
+
+    private fun migrateLegacyCalibrations(raw: String) {
+        val array = JSONArray(raw)
+        for (index in 0 until array.length()) {
+            val json = array.optJSONObject(index) ?: continue
+            val equipmentID = json.optString("equipmentID")
+            if (equipmentID.isBlank()) continue
+            saveCalibration(EquipmentCalibration(
+                id = json.optString("id", UUID.randomUUID().toString()), equipmentId = equipmentID,
+                coffeeLotId = json.optNullableString("coffeeLotID"), setting = json.optString("setting", "Imported"),
+                measuredValue = json.optNullableDouble("measuredValue"), unit = json.optNullableString("unit"),
+                notes = json.optNullableString("notes"),
+            ))
+        }
+    }
+
+    private fun recipeVersionPayload(value: RecipeVersion) = JSONObject()
+        .put("id", value.id).put("recipeID", value.recipeId).put("versionNumber", value.versionNumber)
+        .put("coffeeGrams", value.coffeeGrams).put("waterGrams", value.waterGrams)
+        .put("targetYieldGrams", value.targetYieldGrams).put("temperatureC", value.temperatureC)
+        .put("targetSeconds", value.targetSeconds).put("grindSetting", value.grindSetting)
+        .put("pressureBar", value.pressureBar).put("stepsJSON", value.stepsJson).put("notes", value.notes)
+
+    private fun recipeVersionContent(value: RecipeVersion) = listOf(
+        value.coffeeGrams, value.waterGrams, value.targetYieldGrams, value.temperatureC,
+        value.targetSeconds, value.grindSetting, value.pressureBar, value.stepsJson, value.notes,
+    ).joinToString("\u001f")
 
     private fun applyRemote(ownerId: String, json: JSONObject, conflictKeys: Set<String>) {
         val type = json.getString("entityType"); val id = json.getString("id").lowercase(); val existing = find(ownerId, type, id)
@@ -276,6 +463,7 @@ class CoffeeDataStore(context: Context) {
     private fun parseTimestamp(value: String): Long = runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
     private fun JSONObject.optNullableString(name: String) = if (isNull(name)) null else optString(name).takeIf(String::isNotBlank)
     private fun JSONObject.optNullableInt(name: String) = if (isNull(name) || !has(name)) null else optInt(name)
+    private fun JSONObject.optNullableDouble(name: String) = if (isNull(name) || !has(name)) null else optDouble(name)
     private fun JSONObject.optNullableTimestamp(name: String): Long? {
         if (isNull(name) || !has(name)) return null
         return when (val value = opt(name)) {

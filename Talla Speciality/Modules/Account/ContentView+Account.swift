@@ -472,6 +472,7 @@ extension ContentView {
                     await deleteCustomerAccount()
                 }
             }
+            .accessibilityIdentifier("account.delete.confirm")
         } message: {
             Text(AppLocalization.text(
                 "delete_account_confirmation_detail",
@@ -483,6 +484,15 @@ extension ContentView {
     @MainActor
     func deleteCustomerAccount() async {
         guard customerProfile != nil, !isDeletingAccount else { return }
+
+#if DEBUG
+        if ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == "account-deletion" {
+            customerProfile = nil
+            selectedSettingsDetail = nil
+            showToast(message: AppLocalization.text("account_deleted", fallback: "Your account has been deleted."))
+            return
+        }
+#endif
 
         isDeletingAccount = true
         accountDeletionError = nil

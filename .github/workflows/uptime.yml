@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      send_test_alert:
+        description: Send a test notification even when production is healthy
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -15,6 +21,16 @@ jobs:
       HEALTH_URL: ${{ vars.PRODUCTION_HEALTH_URL || 'https://talla-backend.onrender.com/health' }}
       ALERT_WEBHOOK_URL: ${{ secrets.UPTIME_ALERT_WEBHOOK_URL }}
     steps:
+      - name: Require webhook for alert-delivery test
+        if: inputs.send_test_alert
+        run: test -n "$ALERT_WEBHOOK_URL"
+      - name: Prove external alert delivery
+        if: inputs.send_test_alert
+        run: >-
+          curl --fail --silent --show-error --max-time 20
+          -H 'Content-Type: application/json'
+          --data "{\"text\":\"Talla monitoring test succeeded (run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})\"}"
+          "$ALERT_WEBHOOK_URL"
       - name: Check service and database health
         id: health
         continue-on-error: true

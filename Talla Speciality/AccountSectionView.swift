@@ -539,6 +539,7 @@ struct AccountSectionView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(row.detail.map { "account.navigation.\($0.rawValue)" } ?? "account.navigation.action")
     }
 
     private var accountProfileSubtitle: String {

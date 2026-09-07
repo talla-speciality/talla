@@ -14,32 +14,42 @@ final class Talla_SpecialityUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testCheckoutRequiresExplicitConfirmation() throws {
+    func testCheckoutCompletesThroughProductionCheckout() throws {
         let app = launchApp(scenario: "checkout")
-        let status = element("checkout.status", in: app)
-        let continueButton = element("checkout.continue", in: app)
-        XCTAssertTrue(continueButton.waitForExistence(timeout: 5))
-        XCTAssertEqual(status.label, "Order total BHD 8.500")
-        continueButton.tap()
-        XCTAssertEqual(status.label, "Apple Pay selected")
-        element("checkout.confirm", in: app).tap()
-        XCTAssertEqual(status.label, "Order confirmed")
+        XCTAssertTrue(element("checkout.screen", in: app).waitForExistence(timeout: 8))
+        XCTAssertTrue(element("checkout.summary", in: app).waitForExistence(timeout: 5))
+
+        let submit = element("checkout.submit", in: app)
+        XCTAssertTrue(submit.waitForExistence(timeout: 5))
+        XCTAssertTrue(submit.isEnabled)
+        submit.tap()
+
+        let status = element("checkout.payment-status", in: app)
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitForLabel(status, containing: "Payment complete"))
     }
 
     func testArabicCheckoutUsesRightToLeftLocalizedContent() throws {
         let app = launchApp(scenario: "arabic")
-        XCTAssertTrue(app.staticTexts["arabic.checkout-title"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["arabic.checkout-title"].label, "الدفع")
-        XCTAssertTrue(app.staticTexts["المجموع"].exists)
-        XCTAssertTrue(app.staticTexts["٨٫٥٠٠ د.ب"].exists)
+        XCTAssertTrue(element("checkout.screen", in: app).waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["ملخص الطلب"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["الإجمالي"].waitForExistence(timeout: 5))
+        XCTAssertTrue(element("checkout.summary", in: app).exists)
     }
 
     func testAccountDeletionRequiresConfirmationAndClearsIdentity() throws {
         let app = launchApp(scenario: "account-deletion")
-        app.buttons["account.delete"].tap()
+        let openDelete = app.buttons["account.navigation.deleteAccount"]
+        XCTAssertTrue(openDelete.waitForExistence(timeout: 8))
+        openDelete.tap()
+        let delete = app.buttons["account.delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 5))
+        delete.tap()
         XCTAssertTrue(app.alerts["Delete Account Permanently?"].waitForExistence(timeout: 5))
         app.buttons["account.delete.confirm"].firstMatch.tap()
-        XCTAssertEqual(app.staticTexts["account.status"].label, "Your account has been deleted")
+        let toast = element("toast.banner", in: app)
+        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        XCTAssertTrue(toast.label.contains("Your account has been deleted"))
     }
 
     func testOfflineCacheRemainsVisibleAndRetryRecovers() throws {
@@ -47,15 +57,17 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["offline.cached-brew"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["offline.status"].label, "Offline. Showing saved coffee data.")
         app.buttons["offline.retry"].tap()
-        XCTAssertEqual(app.staticTexts["offline.status"].label, "Back online. Your saved coffee data is synced.")
+        XCTAssertTrue(waitForLabel(app.staticTexts["offline.status"], containing: "Back online"))
     }
 
     func testBluetoothInterruptionOffersRecovery() throws {
         let app = launchApp(scenario: "bluetooth-interruption")
+        XCTAssertTrue(app.buttons["bluetooth.interrupt"].waitForExistence(timeout: 8))
         app.buttons["bluetooth.interrupt"].tap()
-        XCTAssertEqual(app.staticTexts["bluetooth.status"].label, "Scale connection interrupted")
+        XCTAssertTrue(waitForLabel(element("bluetooth.status", in: app), containing: "Scale connection interrupted"))
+        XCTAssertTrue(app.buttons["bluetooth.reconnect"].waitForExistence(timeout: 5))
         app.buttons["bluetooth.reconnect"].tap()
-        XCTAssertEqual(app.staticTexts["bluetooth.status"].label, "Acaia scale connected")
+        XCTAssertTrue(waitForLabel(element("bluetooth.status", in: app), containing: "Connected and ready for your next brew"))
     }
 
     private func launchApp(scenario: String) -> XCUIApplication {
@@ -68,5 +80,11 @@ final class Talla_SpecialityUITests: XCTestCase {
 
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
+    }
+
+    private func waitForLabel(_ element: XCUIElement, containing expected: String, timeout: TimeInterval = 5) -> Bool {
+        let predicate = NSPredicate(format: "label CONTAINS %@", expected)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }

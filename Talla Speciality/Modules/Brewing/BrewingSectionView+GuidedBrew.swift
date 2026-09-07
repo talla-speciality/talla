@@ -1451,6 +1451,7 @@ extension BrewingSectionView {
                     .foregroundColor(.red.opacity(0.82))
                     .background(Color.red.opacity(0.07))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityIdentifier("bluetooth.interrupt")
                 }
             }
 
@@ -1568,6 +1569,9 @@ extension BrewingSectionView {
                 .stroke(brewBorderColor, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("bluetooth.status")
+        .accessibilityLabel("\(title). \(detail)")
     }
 
     func scalePickerScanButton(title: String) -> some View {
@@ -1582,6 +1586,7 @@ extension BrewingSectionView {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("bluetooth.reconnect")
     }
 
     func bluetoothScaleDeviceRow(_ scale: DiscoveredCoffeeScale) -> some View {
@@ -2203,7 +2208,7 @@ extension BrewingSectionView {
 
     func saveAfterBrewJournalEntryIfNeeded() {
         guard !isAfterBrewSavedToJournal else { return }
-        guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds)
+        guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds, capturedBrewSamples)
         isAfterBrewSavedToJournal = true
     }
 

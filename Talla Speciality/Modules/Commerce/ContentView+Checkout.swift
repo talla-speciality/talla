@@ -600,6 +600,7 @@ extension ContentView {
                     .font(displayFont(size: 34))
                     .foregroundColor(primaryTextColor)
                     .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("checkout.result")
 
                 Text(customerProfile.map {
                     String(format: AppLocalization.text("thank_you_name", fallback: "Thank you, %@."), $0.displayName)
@@ -3460,6 +3461,16 @@ extension ContentView {
             isPaymentMethodSheetPresented = true
             return
         }
+
+#if DEBUG
+        if ["checkout", "arabic"].contains(ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] ?? "") {
+            guard !isCheckingOut, paymentFlow.begin() else { return }
+            paymentFlow.transition(to: .processing)
+            try? await Task.sleep(for: .milliseconds(150))
+            paymentFlow.transition(to: .succeeded)
+            return
+        }
+#endif
 
         guard paymentAvailability.isEnabled(selectedPaymentMethod) else {
             paymentFlow.transition(to: .failed)

@@ -32,6 +32,54 @@ import UIKit
 
 extension ContentView {
     @MainActor
+    func configureReleaseUITestScenarioIfNeeded() -> Bool {
+#if DEBUG
+        guard !didConfigureReleaseUITest,
+              let scenario = ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"],
+              !scenario.isEmpty else { return false }
+        didConfigureReleaseUITest = true
+        hasSeenWelcome = true
+        hasSeenFeatureTour = true
+        showLaunchSplash = false
+        loadingError = nil
+        hasLoadedProducts = true
+        savedAppLanguage = scenario == "arabic" ? AppLanguage.arabic.rawValue : AppLanguage.english.rawValue
+
+        switch scenario {
+        case "checkout", "arabic":
+            let variant = Product.Variant(
+                id: "gid://shopify/ProductVariant/release-test", title: "Default", price: "8.500",
+                isAvailableForSale: true, requiresShipping: false, weightGrams: 250
+            )
+            let product = Product(
+                id: "gid://shopify/Product/release-test", handle: "release-test-coffee",
+                variantID: variant.id, variants: [variant], name: "Release Test Coffee", price: "8.500",
+                categoryKey: "coffee-beans", categoryLabel: "Coffee Beans", imageURL: nil,
+                desc: "Deterministic checkout fixture", tag: nil, countryOfOrigin: "Bahrain", isAvailableForSale: true
+            )
+            products = [product]
+            cartItems = [CartItem(id: variant.id, product: product, variant: variant, quantity: 1)]
+            fulfillmentMethod = .pickup
+            paymentFlow.select(.benefit)
+            isCheckoutPresented = true
+        case "account-deletion":
+            activeTab = .account
+            customerProfile = ShopifyCustomerProfile(
+                id: "release-test-customer", firstName: "Release", lastName: "Test", email: "release-test@talla.test"
+            )
+            selectedSettingsDetail = .deleteAccount
+        case "offline-recovery", "bluetooth-interruption":
+            activeTab = .brewing
+        default:
+            break
+        }
+        return true
+#else
+        return false
+#endif
+    }
+
+    @MainActor
     func refreshNotificationStatus() async {
 #if canImport(UserNotifications)
         let status = await ProductAlertNotificationService.authorizationStatus()

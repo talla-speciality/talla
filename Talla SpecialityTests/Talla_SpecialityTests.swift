@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Talla_Speciality
 
@@ -412,5 +413,59 @@ struct Talla_SpecialityTests {
     @Test func summarizesProductsWithMultipleOrigins() {
         #expect(ProductCatalogRules.countryOfOriginLabel(from: ["Brazil", "Colombia", "Ethiopia", "Yemen"]) == "Brazil +3")
         #expect(ProductCatalogRules.countryOfOriginLabel(from: ["Colombia", "Yemen"]) == "Colombia +1")
+    }
+
+    @MainActor @Test func coffeeRecipeEditsCreateImmutableVersions() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        let recipeID = UUID()
+        let first: [[String: Any]] = [[
+            "id": recipeID.uuidString, "name": "V60", "category": "Pour Over",
+            "coffeeGrams": 20, "waterGrams": 320
+        ]]
+        var second = first
+        second[0]["waterGrams"] = 300
+
+        try store.replaceLegacyRecords(entityType: "recipe", objects: first)
+        try store.replaceLegacyRecords(entityType: "recipe", objects: second)
+        try store.replaceLegacyRecords(entityType: "recipe", objects: second)
+
+        let versions = store.legacyObjects(entityType: "recipeVersion")
+        #expect(versions.count == 2)
+        #expect(Set(versions.compactMap { ($0["versionNumber"] as? NSNumber)?.intValue }) == Set([1, 2]))
+        #expect(Set(versions.compactMap { $0["id"] as? String }).count == 2)
+    }
+
+    @MainActor @Test func completedSessionPersistsEverySampleKind() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        let sessionID = UUID()
+        let samples = SampleKind.allCases.enumerated().map { index, kind in
+            CoffeeSampleInput(kind: kind, elapsedMilliseconds: index * 250, value: Double(index + 1), unit: kind.rawValue)
+        }
+        try store.recordCompletedBrew(
+            id: sessionID, title: "Espresso", method: "Espresso", coffeeGrams: 18,
+            waterGrams: 36, durationSeconds: 28, rating: 5, notes: "Sweet", samples: samples
+        )
+
+        let kinds = Set(store.legacyObjects(entityType: "sample").compactMap { $0["kind"] as? String })
+        #expect(kinds == Set(SampleKind.allCases.map(\.rawValue)))
+    }
+
+    @MainActor @Test func legacyCoffeeJSONMigratesOnce() throws {
+        let suite = "TallaCoffeeMigrationTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("[{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"name\":\"V60\",\"coffeeGrams\":20,\"waterGrams\":320}]", forKey: "brewRecipes.saved")
+        defaults.set("[{\"id\":\"550e8400-e29b-41d4-a716-446655440001\",\"title\":\"Morning\",\"method\":\"V60\",\"rating\":4}]", forKey: "brewJournal.saved")
+        defaults.set("Ode Gen 2", forKey: "talla.brewing.equipmentGrinder.v1")
+
+        let store = CoffeeDataStore(inMemory: true)
+        try store.migrateLegacyJSON(defaults: defaults)
+        try store.migrateLegacyJSON(defaults: defaults)
+
+        #expect(store.legacyObjects(entityType: "recipe").count == 1)
+        #expect(store.legacyObjects(entityType: "recipeVersion").count == 1)
+        #expect(store.legacyObjects(entityType: "brewSession").count == 1)
+        #expect(store.legacyObjects(entityType: "equipment").count == 1)
+        #expect(defaults.bool(forKey: CoffeeDataStore.migrationKey))
     }
 }
