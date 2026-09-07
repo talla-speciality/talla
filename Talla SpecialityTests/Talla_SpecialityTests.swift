@@ -468,4 +468,132 @@ struct Talla_SpecialityTests {
         #expect(store.legacyObjects(entityType: "equipment").count == 1)
         #expect(defaults.bool(forKey: CoffeeDataStore.migrationKey))
     }
+
+    @MainActor @Test func coffeeSyncBatchesDirtyChangesBelowServerLimit() async throws {
+        final class Recorder {
+            var changeCounts: [Int] = []
+
+            func respond(to request: URLRequest) throws -> (Data, URLResponse) {
+                let body = try #require(request.httpBody)
+                let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+                let changes = json["changes"] as? [[String: Any]] ?? []
+                changeCounts.append(changes.count)
+                let records = changes.map { change -> [String: Any] in
+                    [
+                        "entityType": change["entityType"] as? String ?? "maintenance",
+                        "id": change["id"] as? String ?? UUID().uuidString,
+                        "payload": change["payload"] as? [String: Any] ?? [:],
+                        "revision": 1,
+                        "updatedAt": "2026-09-07T12:00:00.000Z",
+                        "deletedAt": NSNull()
+                    ]
+                }
+                let payload: [String: Any] = [
+                    "cursor": String(changeCounts.count),
+                    "records": records,
+                    "conflicts": [],
+                    "hasMore": false
+                ]
+                let data = try JSONSerialization.data(withJSONObject: payload)
+                let response = try #require(HTTPURLResponse(
+                    url: request.url ?? URL(string: "https://example.test")!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                ))
+                return (data, response)
+            }
+        }
+
+        let recorder = Recorder()
+        let store = CoffeeDataStore(inMemory: true) { request in
+            try recorder.respond(to: request)
+        }
+        let records = (0..<1_201).map { index -> [String: Any] in
+            ["id": UUID().uuidString, "equipmentID": UUID().uuidString, "kind": "Cleaning \(index)"]
+        }
+        try store.replaceLegacyRecords(entityType: "maintenance", objects: records)
+
+        try await store.synchronize(
+            ownerID: "customer@example.test",
+            bearerToken: "access-token",
+            baseURL: URL(string: "https://example.test")!
+        )
+
+        #expect(recorder.changeCounts == [500, 500, 201])
+        #expect(recorder.changeCounts.allSatisfy { $0 <= CoffeeDataStore.maximumChangesPerRequest })
+        #expect(store.syncStatus != .syncing)
+    }
+
+    @MainActor @Test func coffeeSyncConsumesEveryRemotePage() async throws {
+        final class Pager {
+            var cursors: [String] = []
+
+            func respond(to request: URLRequest) throws -> (Data, URLResponse) {
+                let body = try #require(request.httpBody)
+                let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+                cursors.append(json["cursor"] as? String ?? "")
+                let page = cursors.count
+                let recordID = page == 1
+                    ? "550e8400-e29b-41d4-a716-446655440010"
+                    : "550e8400-e29b-41d4-a716-446655440011"
+                let payload: [String: Any] = [
+                    "cursor": String(page),
+                    "records": [[
+                        "entityType": "coffeeLot",
+                        "id": recordID,
+                        "payload": ["id": recordID, "name": "Remote lot \(page)"],
+                        "revision": 1,
+                        "updatedAt": "2026-09-07T12:00:00.000Z",
+                        "deletedAt": NSNull()
+                    ]],
+                    "conflicts": [],
+                    "hasMore": page == 1
+                ]
+                let data = try JSONSerialization.data(withJSONObject: payload)
+                let response = try #require(HTTPURLResponse(
+                    url: request.url ?? URL(string: "https://example.test")!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                ))
+                return (data, response)
+            }
+        }
+
+        let pager = Pager()
+        let store = CoffeeDataStore(inMemory: true) { request in
+            try pager.respond(to: request)
+        }
+        try await store.synchronize(
+            ownerID: "customer@example.test",
+            bearerToken: "access-token",
+            baseURL: URL(string: "https://example.test")!
+        )
+
+        #expect(pager.cursors == ["0", "1"])
+        #expect(store.legacyObjects(entityType: "coffeeLot").count == 2)
+    }
+
+    @MainActor @Test func coffeeCacheCannotCrossAccountBoundary() throws {
+        let suite = "TallaCoffeeOwnerTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = CoffeeDataStore(inMemory: true, storageDefaults: defaults)
+
+        try store.addPurchasedCoffee(
+            name: "Private offline coffee",
+            roaster: "Talla",
+            roastDate: .now,
+            quantityGrams: 250
+        )
+        try store.associateLocalStorage(with: "first@example.test")
+        #expect(store.inventory().count == 1)
+
+        try store.associateLocalStorage(with: "second@example.test")
+
+        #expect(store.inventory().isEmpty)
+        #expect(store.legacyObjects(entityType: "purchasedCoffee").isEmpty)
+        #expect(defaults.string(forKey: CoffeeDataStore.storageOwnerKey) == "second@example.test")
+    }
 }

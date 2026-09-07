@@ -3462,16 +3462,6 @@ extension ContentView {
             return
         }
 
-#if DEBUG
-        if ["checkout", "arabic"].contains(ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] ?? "") {
-            guard !isCheckingOut, paymentFlow.begin() else { return }
-            paymentFlow.transition(to: .processing)
-            try? await Task.sleep(for: .milliseconds(150))
-            paymentFlow.transition(to: .succeeded)
-            return
-        }
-#endif
-
         guard paymentAvailability.isEnabled(selectedPaymentMethod) else {
             paymentFlow.transition(to: .failed)
             checkoutError = isArabicInterface ? "طريقة الدفع هذه غير متاحة حالياً." : "This payment method is currently unavailable."

@@ -278,18 +278,17 @@ struct Talla_SpecialityApp: App {
                     guard ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == nil else { return }
                     TallaTelemetry.shared.appReady()
                     try? coffeeData.migrateLegacyJSON()
-                    let defaults = UserDefaults.standard
-                    let token = TallaAccountCredentialStore.accessToken
-                    let owner = defaults.string(forKey: "local.customerEmail")?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-                    let baseURL = (Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String).flatMap(URL.init(string:))
-                    if !token.isEmpty, !owner.isEmpty, let baseURL {
-                        try? await coffeeData.synchronize(ownerID: owner, bearerToken: token, baseURL: baseURL)
-                    }
+                    await coffeeData.retryCurrentAccountSynchronization()
                 }
         }
         .modelContainer(coffeeData.container)
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { TallaTelemetry.shared.enteredBackground() }
+            if phase == .background {
+                TallaTelemetry.shared.enteredBackground()
+            } else if phase == .active,
+                      ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == nil {
+                Task { await coffeeData.retryCurrentAccountSynchronization() }
+            }
         }
     }
 }

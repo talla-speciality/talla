@@ -108,6 +108,15 @@ enum BackendConfiguration {
     private static let simulatorDefaultURL = URL(string: "http://127.0.0.1:8787")
 
     static var serviceBaseURL: URL? {
+        #if DEBUG && targetEnvironment(simulator)
+        if let override = ProcessInfo.processInfo.environment["TALLA_BACKEND_BASE_URL"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !override.isEmpty,
+           let overrideURL = URL(string: override) {
+            return overrideURL
+        }
+        #endif
+
         if let configuredURL {
             return configuredURL
         }

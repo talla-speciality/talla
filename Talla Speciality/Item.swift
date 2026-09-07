@@ -152,7 +152,7 @@ struct CoffeeSampleInput: Codable, Equatable {
 @Model final class CoffeeSyncCursor {
     @Attribute(.unique) var ownerID: String
     var cursor: String; var deviceID: String; var lastSyncedAt: Date?
-    init(ownerID: String, cursor: String = "1970-01-01T00:00:00.000Z", deviceID: String = UUID().uuidString) { self.ownerID=ownerID; self.cursor=cursor; self.deviceID=deviceID }
+    init(ownerID: String, cursor: String = "0", deviceID: String = UUID().uuidString) { self.ownerID=ownerID; self.cursor=cursor; self.deviceID=deviceID }
 }
 
 enum CoffeeSchema {

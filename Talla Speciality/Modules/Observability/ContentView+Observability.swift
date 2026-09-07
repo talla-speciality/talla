@@ -45,6 +45,14 @@ extension ContentView {
         hasLoadedProducts = true
         savedAppLanguage = scenario == "arabic" ? AppLanguage.arabic.rawValue : AppLanguage.english.rawValue
 
+        let testEmail = "release-test@talla.test"
+        savedCustomerEmail = testEmail
+        savedCustomerAccessToken = "ui-test-access-token"
+        TallaAccountCredentialStore.save(
+            accessToken: savedCustomerAccessToken,
+            refreshToken: "ui-test-refresh-token"
+        )
+
         switch scenario {
         case "checkout", "arabic":
             let variant = Product.Variant(
@@ -61,11 +69,14 @@ extension ContentView {
             cartItems = [CartItem(id: variant.id, product: product, variant: variant, quantity: 1)]
             fulfillmentMethod = .pickup
             paymentFlow.select(.benefit)
+            customerProfile = ShopifyCustomerProfile(
+                id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
+            )
             isCheckoutPresented = true
         case "account-deletion":
             activeTab = .account
             customerProfile = ShopifyCustomerProfile(
-                id: "release-test-customer", firstName: "Release", lastName: "Test", email: "release-test@talla.test"
+                id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
             selectedSettingsDetail = .deleteAccount
         case "offline-recovery", "bluetooth-interruption":
