@@ -4,6 +4,8 @@ import Combine
 
 @MainActor
 final class CoffeeDataStore: ObservableObject {
+    typealias DataLoader = (URLRequest) async throws -> (Data, URLResponse)
+
     enum SyncStatus: Equatable {
         case idle
         case syncing
@@ -12,25 +14,72 @@ final class CoffeeDataStore: ObservableObject {
         case failed(String)
     }
 
+    enum StorageMode: Equatable {
+        case persistent
+        case recoveryPersistent
+        case memoryOnly
+    }
+
     static let shared = CoffeeDataStore()
     static let migrationKey = "coffeeData.migration.v1.completed"
+    static let storageOwnerKey = "coffeeData.storage.owner.v1"
+    static let maximumChangesPerRequest = 500
+    static let maximumRemotePagesPerSync = 1_000
 
     let container: ModelContainer
     @Published private(set) var changeToken = 0
     @Published private(set) var syncStatus: SyncStatus = .idle
+    @Published private(set) var storageMode: StorageMode = .persistent
+    @Published private(set) var storageRecoveryMessage: String?
     private var context: ModelContext { container.mainContext }
+    private let dataLoader: DataLoader
+    private let automaticSyncEnabled: Bool
+    private let storageDefaults: UserDefaults
+    private var automaticSyncTask: Task<Void, Never>?
+    private var activeRequestTask: Task<(Data, URLResponse), Error>?
+    private var isSynchronizing = false
+    private var shouldSynchronizeAgain = false
+    private var storageGeneration = 0
 
-    func notifyCoffeeChange() {
+    func notifyCoffeeChange(scheduleSynchronization: Bool = true) {
         changeToken &+= 1
+        if scheduleSynchronization && automaticSyncEnabled {
+            scheduleAutomaticSynchronization()
+        }
     }
 
-    init(inMemory: Bool = false) {
+    init(
+        inMemory: Bool = false,
+        automaticSyncEnabled: Bool? = nil,
+        storageDefaults: UserDefaults = .standard,
+        dataLoader: @escaping DataLoader = { request in
+            try await AccountService.data(for: request)
+        }
+    ) {
+        self.dataLoader = dataLoader
+        self.automaticSyncEnabled = automaticSyncEnabled ?? !inMemory
+        self.storageDefaults = storageDefaults
+        let schema = Schema(CoffeeSchema.models)
         do {
-            let schema = Schema(CoffeeSchema.models)
             let configuration = ModelConfiguration("TallaCoffee", schema: schema, isStoredInMemoryOnly: inMemory)
             container = try ModelContainer(for: schema, configurations: [configuration])
-        } catch {
-            fatalError("Unable to open the coffee database: \(error.localizedDescription)")
+            storageMode = inMemory ? .memoryOnly : .persistent
+        } catch let primaryError {
+            do {
+                let recoveryConfiguration = ModelConfiguration("TallaCoffeeRecovery", schema: schema, isStoredInMemoryOnly: false)
+                container = try ModelContainer(for: schema, configurations: [recoveryConfiguration])
+                storageMode = .recoveryPersistent
+                storageRecoveryMessage = "The primary coffee database could not be opened. Talla preserved it and switched to a recovery database. (\(primaryError.localizedDescription))"
+            } catch let recoveryError {
+                do {
+                    let memoryConfiguration = ModelConfiguration("TallaCoffeeEmergency", schema: schema, isStoredInMemoryOnly: true)
+                    container = try ModelContainer(for: schema, configurations: [memoryConfiguration])
+                    storageMode = .memoryOnly
+                    storageRecoveryMessage = "Coffee data is temporarily available in memory because persistent storage could not be opened. Primary error: \(primaryError.localizedDescription). Recovery error: \(recoveryError.localizedDescription)."
+                } catch {
+                    preconditionFailure("SwiftData could not create a persistent or in-memory coffee store: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -43,7 +92,7 @@ final class CoffeeDataStore: ObservableObject {
         try migrateEquipment(defaults: defaults)
         try context.save()
         defaults.set(true, forKey: Self.migrationKey)
-        changeToken &+= 1
+        notifyCoffeeChange()
     }
 
     func legacyObjects(entityType: String) -> [[String: Any]] {
@@ -54,7 +103,7 @@ final class CoffeeDataStore: ObservableObject {
     func replaceLegacyRecords(entityType: String, objects: [[String: Any]]) throws {
         if entityType == "recipe" {
             try replaceRecipeRecords(objects, tombstoneMissing: true)
-            try context.save(); changeToken &+= 1
+            try context.save(); notifyCoffeeChange()
             return
         }
         let activeIDs = Set(objects.compactMap { value in (value["id"] as? String).flatMap(UUID.init(uuidString:)) })
@@ -80,14 +129,49 @@ final class CoffeeDataStore: ObservableObject {
                 try saveEnvelope(entityType: "tasteFeedback", id: id, jsonObject: feedback)
             }
         }
-        try context.save(); changeToken &+= 1
+        try context.save(); notifyCoffeeChange()
     }
 
+    /// Permanently removes the local cache after account deletion. This is a
+    /// privacy boundary, so deleted account data must not remain as a pending
+    /// tombstone that could later synchronize into a different account.
     func removeAllLocalCoffeeData() throws {
-        for envelope in try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.deletedAt == nil })) {
-            envelope.deletedAt = .now; envelope.updatedAt = .now; envelope.dirty = true
+        automaticSyncTask?.cancel()
+        automaticSyncTask = nil
+        activeRequestTask?.cancel()
+        storageGeneration &+= 1
+
+        for value in try context.fetch(FetchDescriptor<CoffeeLot>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<PurchasedCoffee>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<CoffeeEquipment>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<EquipmentCalibration>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<CoffeeRecipe>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<RecipeVersion>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<CoffeeBrewSession>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<BrewSample>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<CoffeeTasteFeedback>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<MaintenanceEvent>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>()) { context.delete(value) }
+        for value in try context.fetch(FetchDescriptor<CoffeeSyncCursor>()) { context.delete(value) }
+
+        try context.save()
+        storageDefaults.removeObject(forKey: Self.storageOwnerKey)
+        syncStatus = .idle
+        notifyCoffeeChange(scheduleSynchronization: false)
+    }
+
+    /// The on-device cache belongs to one account at a time. The first signed-in
+    /// account adopts migrated local records; switching accounts clears the old
+    /// cache before any request for the new account can be sent.
+    func associateLocalStorage(with ownerID: String) throws {
+        let normalizedOwner = ownerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedOwner.isEmpty else { throw CoffeeDataError.invalidResponse }
+        let previousOwner = storageDefaults.string(forKey: Self.storageOwnerKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if let previousOwner, !previousOwner.isEmpty, previousOwner != normalizedOwner {
+            try removeAllLocalCoffeeData()
         }
-        try context.save(); changeToken &+= 1
+        storageDefaults.set(normalizedOwner, forKey: Self.storageOwnerKey)
     }
 
     func equipmentName(kind: EquipmentKind) -> String {
@@ -101,7 +185,7 @@ final class CoffeeDataStore: ObservableObject {
         }
         let id = matching?.recordID ?? UUID()
         try saveEnvelope(entityType: "equipment", id: id, jsonObject: ["id": id.uuidString, "kind": kind.rawValue, "name": name])
-        try context.save(); changeToken &+= 1
+        try context.save(); notifyCoffeeChange()
     }
 
     func calibrationJSON() -> String {
@@ -140,6 +224,7 @@ final class CoffeeDataStore: ObservableObject {
             }
         }
         try context.save()
+        notifyCoffeeChange()
     }
 
     private func sampleSessionID(in envelope: CoffeeSyncEnvelope) -> UUID? {
@@ -151,40 +236,77 @@ final class CoffeeDataStore: ObservableObject {
     /// Server-wins for two edits based on the same revision. The rejected local
     /// payload is retained in conflictedPayload so the UI can offer recovery.
     func synchronize(ownerID: String, bearerToken: String, baseURL: URL) async throws {
-        syncStatus = .syncing
-        do {
-        let cursor = try syncCursor(for: ownerID)
-        let dirty = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.dirty }))
-        let changes: [[String: Any]] = dirty.compactMap { envelope in
-            let payload = (try? JSONSerialization.jsonObject(with: envelope.payload)) as? [String: Any] ?? [:]
-            return [
-                "entityType": envelope.entityType,
-                "id": envelope.recordID.uuidString.lowercased(),
-                "payload": payload,
-                "updatedAt": Self.iso.string(from: envelope.updatedAt),
-                "deletedAt": envelope.deletedAt.map(Self.iso.string(from:)) ?? NSNull(),
-                "baseRevision": envelope.baseRevision
-            ]
+        let normalizedOwner = ownerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        try associateLocalStorage(with: normalizedOwner)
+        let expectedGeneration = storageGeneration
+        guard !isSynchronizing else {
+            shouldSynchronizeAgain = true
+            return
         }
-        let body: [String: Any] = ["deviceID": cursor.deviceID, "cursor": cursor.cursor, "changes": changes]
-        var request = URLRequest(url: baseURL.appending(path: "/coffee-data/sync"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw CoffeeDataError.syncFailed }
-        guard let responseJSON = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw CoffeeDataError.invalidResponse }
-        let conflicts = Set((responseJSON["conflicts"] as? [[String: Any]] ?? []).compactMap { value -> String? in
-            guard let type = value["entityType"] as? String, let id = value["id"] as? String else { return nil }
-            return "\(type):\(id.lowercased())"
-        })
-        for record in responseJSON["records"] as? [[String: Any]] ?? [] { try applyRemote(record, conflicts: conflicts) }
-        cursor.cursor = responseJSON["cursor"] as? String ?? cursor.cursor
-        cursor.lastSyncedAt = .now
-        try context.save()
-        changeToken &+= 1
-        syncStatus = .synced(.now)
+        isSynchronizing = true
+        syncStatus = .syncing
+        defer {
+            isSynchronizing = false
+            activeRequestTask = nil
+            if shouldSynchronizeAgain {
+                shouldSynchronizeAgain = false
+                if automaticSyncEnabled { scheduleAutomaticSynchronization() }
+            }
+        }
+        do {
+            let cursor = try syncCursor(for: normalizedOwner)
+            let dirty = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.dirty }))
+            let allChanges = dirty.compactMap(syncChange(from:))
+            var batches = allChanges.chunked(into: Self.maximumChangesPerRequest)
+            if batches.isEmpty { batches = [[]] }
+
+            var batchIndex = 0
+            var hasMore = true
+            var pageCount = 0
+            while batchIndex < batches.count || hasMore {
+                guard pageCount < Self.maximumRemotePagesPerSync else {
+                    throw CoffeeDataError.invalidResponse
+                }
+                let changes = batchIndex < batches.count ? batches[batchIndex] : []
+                if batchIndex < batches.count { batchIndex += 1 }
+                let previousCursor = cursor.cursor
+                let responseJSON = try await performSyncRequest(
+                    deviceID: cursor.deviceID,
+                    cursor: cursor.cursor,
+                    changes: changes,
+                    bearerToken: bearerToken,
+                    baseURL: baseURL
+                )
+                guard storageGeneration == expectedGeneration,
+                      storageDefaults.string(forKey: Self.storageOwnerKey) == normalizedOwner else {
+                    throw CancellationError()
+                }
+                let conflicts = Set((responseJSON["conflicts"] as? [[String: Any]] ?? []).compactMap { value -> String? in
+                    guard let type = value["entityType"] as? String, let id = value["id"] as? String else { return nil }
+                    return "\(type):\(id.lowercased())"
+                })
+                for record in responseJSON["records"] as? [[String: Any]] ?? [] {
+                    try applyRemote(record, conflicts: conflicts)
+                }
+                cursor.cursor = responseJSON["cursor"] as? String ?? cursor.cursor
+                cursor.lastSyncedAt = .now
+                hasMore = responseJSON["hasMore"] as? Bool ?? false
+                if hasMore && changes.isEmpty && cursor.cursor == previousCursor {
+                    throw CoffeeDataError.invalidResponse
+                }
+                try context.save()
+                pageCount += 1
+            }
+            notifyCoffeeChange(scheduleSynchronization: false)
+            syncStatus = .synced(.now)
+
+            let remainingDirty = try context.fetch(FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.dirty }))
+            if !remainingDirty.isEmpty && automaticSyncEnabled {
+                scheduleAutomaticSynchronization()
+            }
+        } catch is CancellationError {
+            syncStatus = .idle
+            throw CancellationError()
         } catch {
             if let urlError = error as? URLError,
                [.notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .timedOut].contains(urlError.code) {
@@ -196,20 +318,57 @@ final class CoffeeDataStore: ObservableObject {
         }
     }
 
-    func retryCurrentAccountSynchronization() async {
-#if DEBUG
-        if ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == "offline-recovery" {
-            syncStatus = .syncing
-            try? await Task.sleep(for: .milliseconds(150))
-            syncStatus = .synced(.now)
-            return
+    private func syncChange(from envelope: CoffeeSyncEnvelope) -> [String: Any]? {
+        let payload = (try? JSONSerialization.jsonObject(with: envelope.payload)) as? [String: Any] ?? [:]
+        return [
+            "entityType": envelope.entityType,
+            "id": envelope.recordID.uuidString.lowercased(),
+            "payload": payload,
+            "updatedAt": Self.iso.string(from: envelope.updatedAt),
+            "deletedAt": envelope.deletedAt.map(Self.iso.string(from:)) ?? NSNull(),
+            "baseRevision": envelope.baseRevision
+        ]
+    }
+
+    private func performSyncRequest(
+        deviceID: String,
+        cursor: String,
+        changes: [[String: Any]],
+        bearerToken: String,
+        baseURL: URL
+    ) async throws -> [String: Any] {
+        let body: [String: Any] = ["deviceID": deviceID, "cursor": cursor, "changes": changes]
+        var request = URLRequest(url: baseURL.appending(path: "/coffee-data/sync"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let requestTask = Task { try await dataLoader(request) }
+        activeRequestTask = requestTask
+        let (data, response) = try await requestTask.value
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+            throw CoffeeDataError.syncFailed
         }
-#endif
+        guard let responseJSON = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw CoffeeDataError.invalidResponse
+        }
+        return responseJSON
+    }
+
+    private func scheduleAutomaticSynchronization() {
+        automaticSyncTask?.cancel()
+        automaticSyncTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(750))
+            guard !Task.isCancelled, let self else { return }
+            await self.retryCurrentAccountSynchronization()
+        }
+    }
+
+    func retryCurrentAccountSynchronization() async {
         let owner = UserDefaults.standard.string(forKey: "local.customerEmail")?
             .trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
         let token = TallaAccountCredentialStore.accessToken
-        guard !owner.isEmpty, !token.isEmpty,
-              let baseURL = (Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String).flatMap(URL.init(string:)) else {
+        guard !owner.isEmpty, !token.isEmpty, let baseURL = BackendConfiguration.serviceBaseURL else {
             syncStatus = .offline
             return
         }
@@ -221,6 +380,8 @@ final class CoffeeDataStore: ObservableObject {
         if inventory().isEmpty {
             try addPurchasedCoffee(name: "Cached V60", roaster: "Talla", roastDate: .now, quantityGrams: 250)
         }
+        automaticSyncTask?.cancel()
+        automaticSyncTask = nil
         syncStatus = .offline
     }
 #endif
@@ -391,6 +552,15 @@ final class CoffeeDataStore: ObservableObject {
     }
 
     private static let iso: ISO8601DateFormatter = { let value = ISO8601DateFormatter(); value.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return value }()
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0, !isEmpty else { return [] }
+        return stride(from: 0, to: count, by: size).map { start in
+            Array(self[start..<Swift.min(start + size, count)])
+        }
+    }
 }
 
 enum CoffeeDataError: Error { case syncFailed, invalidResponse }

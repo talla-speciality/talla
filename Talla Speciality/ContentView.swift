@@ -37,6 +37,13 @@ enum TallaAccountCredentialStore {
     static let refreshKeychainAccount = "refresh"
 
     static var accessToken: String {
+        #if DEBUG
+        if let testToken = ProcessInfo.processInfo.environment["TALLA_UI_TEST_ACCESS_TOKEN"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !testToken.isEmpty {
+            return testToken
+        }
+        #endif
+
         if let keychainToken = readFromKeychain(account: keychainAccount)?
             .trimmingCharacters(in: .whitespacesAndNewlines), !keychainToken.isEmpty {
             UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
@@ -64,7 +71,14 @@ enum TallaAccountCredentialStore {
     }
 
     static var refreshToken: String {
-        readFromKeychain(account: refreshKeychainAccount)?
+        #if DEBUG
+        if let testToken = ProcessInfo.processInfo.environment["TALLA_UI_TEST_REFRESH_TOKEN"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !testToken.isEmpty {
+            return testToken
+        }
+        #endif
+
+        return readFromKeychain(account: refreshKeychainAccount)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 

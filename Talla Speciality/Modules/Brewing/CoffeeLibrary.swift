@@ -118,7 +118,6 @@ extension CoffeeDataStore {
 
     func deleteCoffeeRecord(entityType: String, id: UUID) throws {
         try tombstone(entityType: entityType, id: id)
-        notifyCoffeeChange()
     }
 
     func inventory() -> [CoffeeInventoryRecord] {
@@ -399,6 +398,12 @@ struct CoffeeLibraryView: View {
 
     @ViewBuilder
     private var coffeeSyncStatusBanner: some View {
+        if let recoveryMessage = coffeeData.storageRecoveryMessage {
+            Label(recoveryMessage, systemImage: "externaldrive.badge.exclamationmark")
+                .font(.footnote)
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("coffee.storage.recovery")
+        }
         switch coffeeData.syncStatus {
         case .idle:
             EmptyView()
