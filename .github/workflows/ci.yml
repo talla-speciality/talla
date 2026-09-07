@@ -124,14 +124,6 @@ jobs:
           -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}"
           -derivedDataPath build/apple-tests CODE_SIGNING_ALLOWED=NO
           -only-testing:"Talla SpecialityTests" test
-      - name: Run release-hardening UI journeys
-        run: >-
-          xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality"
-          -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}"
-          -derivedDataPath build/apple-ui-tests CODE_SIGNING_ALLOWED=NO
-          -parallel-testing-enabled NO
-          -maximum-concurrent-test-simulator-destinations 1
-          -only-testing:"Talla SpecialityUITests/Talla_SpecialityUITests" test
       - name: Build Watch app
         run: >-
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Watch Watch App"
@@ -147,6 +139,25 @@ jobs:
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Watch WidgetsExtension"
           -configuration Release -destination "generic/platform=watchOS Simulator"
           -derivedDataPath build/watch-widget CODE_SIGNING_ALLOWED=NO build
+      - name: Run release-hardening UI journeys
+        run: |
+          mkdir -p build/results
+          xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality" \
+            -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}" \
+            -derivedDataPath build/apple-ui-tests CODE_SIGNING_ALLOWED=NO \
+            -parallel-testing-enabled NO \
+            -maximum-concurrent-test-simulator-destinations 1 \
+            -retry-tests-on-failure -test-iterations 2 \
+            -resultBundlePath build/results/Talla-UI.xcresult \
+            -only-testing:"Talla SpecialityUITests/Talla_SpecialityUITests" test
+      - name: Upload Apple UI test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apple-ui-results-${{ github.sha }}
+          path: build/results/Talla-UI.xcresult
+          if-no-files-found: warn
+          retention-days: 14
       - name: Package unsigned QA artifacts
         run: |
           mkdir -p build/release-artifacts

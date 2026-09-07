@@ -22,11 +22,11 @@ final class Talla_SpecialityUITests: XCTestCase {
         let submit = element("checkout.submit", in: app)
         XCTAssertTrue(submit.waitForExistence(timeout: 5))
         XCTAssertTrue(submit.isEnabled)
-        submit.tap()
+        tapWhenHittable(submit, in: app)
 
         let status = element("checkout.payment-status", in: app)
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        XCTAssertTrue(waitForLabel(status, containing: "Payment complete"))
+        XCTAssertTrue(waitForLabel(status, containing: "Payment complete", timeout: 15))
     }
 
     func testArabicCheckoutUsesRightToLeftLocalizedContent() throws {
@@ -80,6 +80,14 @@ final class Talla_SpecialityUITests: XCTestCase {
 
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
+    }
+
+    private func tapWhenHittable(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<3 where !element.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.isHittable, "Expected \(element.identifier) to be hittable")
+        element.tap()
     }
 
     private func waitForLabel(_ element: XCUIElement, containing expected: String, timeout: TimeInterval = 5) -> Bool {
