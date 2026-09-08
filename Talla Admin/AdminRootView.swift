@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AdminRootView: View {
-    enum Tab: Hashable { case orders, console, settings }
+    enum Tab: Hashable { case orders, products, customers, console, settings }
 
     @EnvironmentObject private var session: AdminSession
     @State private var selection: Tab = .orders
@@ -23,8 +23,16 @@ struct AdminRootView: View {
                 .badge(session.orders.filter(\.isActive).count)
                 .tag(Tab.orders)
 
-            AdminConsoleView(url: session.api.baseURL.appending(path: "admin/"))
-                .tabItem { Label("Full Admin", systemImage: "rectangle.3.group.fill") }
+            NavigationStack { AdminProductsView() }
+                .tabItem { Label("Products", systemImage: "bag.fill") }
+                .tag(Tab.products)
+
+            NavigationStack { AdminCustomersView() }
+                .tabItem { Label("Customers", systemImage: "person.2.fill") }
+                .tag(Tab.customers)
+
+            AdminWorkspaceView()
+                .tabItem { Label("Admin", systemImage: "rectangle.3.group.fill") }
                 .tag(Tab.console)
 
             AdminSettingsView()
@@ -100,7 +108,7 @@ private struct AdminSettingsView: View {
 
                 Section("About") {
                     LabeledContent("Talla Admin", value: appVersion)
-                    Text("Native order management with the full backend available in the Admin tab.")
+                    Text("Native tools for orders, products, customers, app content, and reporting.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
