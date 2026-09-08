@@ -202,7 +202,7 @@ final class AdminSession: ObservableObject {
         notificationsEnabled = [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus)
     }
 
-    private func handle(_ error: Error) {
+    func handle(_ error: Error) {
         errorMessage = error.localizedDescription
         if let apiError = error as? AdminAPIError, case .unauthorized = apiError {
             isAuthenticated = false

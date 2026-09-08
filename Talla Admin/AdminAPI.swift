@@ -21,7 +21,7 @@ struct AdminAPI {
         URL(string: path, relativeTo: baseURL)!.absoluteURL
     }
 
-    private func request(
+    func request(
         _ path: String,
         method: String = "GET",
         body: [String: Any]? = nil

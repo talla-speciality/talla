@@ -323,7 +323,7 @@ private struct OrderCard: View {
 
 }
 
-private struct OrderDetailView: View {
+struct OrderDetailView: View {
     @EnvironmentObject private var session: AdminSession
     @Environment(\.openURL) private var openURL
     let orderID: String
@@ -377,7 +377,6 @@ private struct OrderDetailView: View {
                         }
                     }
                 }
-                .task(id: orderID) { await session.refreshOrderDetail(id: orderID) }
                 .onAppear { selectedStatus = order.status }
                 .onChange(of: order.status) { _, value in selectedStatus = value }
                 .confirmationDialog(
@@ -410,6 +409,7 @@ private struct OrderDetailView: View {
                 )
             }
         }
+        .task(id: orderID) { await session.refreshOrderDetail(id: orderID) }
         .safeAreaInset(edge: .bottom) { OrderFeedbackBanner() }
     }
 
