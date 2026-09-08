@@ -4720,7 +4720,7 @@ module.exports = function createServer(dependencies) {
             const body = await readBody(request);
             const requestedReward = String(body.reward || "").trim();
             const loyaltySettings = (await getAppSettings()).loyalty;
-            const catalogReward = loyaltySettings.rewards.find((entry) => entry.enabled && (
+            const catalogReward = loyaltySettings.rewards.find((entry) => entry.enabled && entry.reward.toLowerCase() === "free drink" && (
                 entry.id.toLowerCase() === requestedReward.toLowerCase()
                 || entry.reward.toLowerCase() === requestedReward.toLowerCase()
             ));

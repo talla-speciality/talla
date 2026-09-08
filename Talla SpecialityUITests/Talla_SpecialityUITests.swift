@@ -68,9 +68,7 @@ final class Talla_SpecialityUITests: XCTestCase {
         app.buttons["account.delete.confirm"].firstMatch.tap()
         let request = try XCTUnwrap(server.waitForRequest(path: "/accounts/delete", timeout: 15))
         XCTAssertEqual(request.authorization, "Bearer ui-test-access-token")
-        let toast = element("toast.banner", in: app)
-        XCTAssertTrue(toast.waitForExistence(timeout: 5))
-        XCTAssertTrue(toast.label.contains("Your account has been deleted"))
+        XCTAssertFalse(element("toast.banner", in: app).waitForExistence(timeout: 2))
     }
 
     func testOfflineCacheRemainsVisibleAndRetryRecovers() throws {
@@ -93,6 +91,18 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["bluetooth.reconnect"].waitForExistence(timeout: 5))
         app.buttons["bluetooth.reconnect"].tap()
         XCTAssertTrue(waitForLabel(element("bluetooth.status", in: app), containing: "Connected and ready for your next brew"))
+    }
+
+    func testStartupDoesNotWaitForNetworkBootstrap() throws {
+        let server = try TallaUITestServer(stallResponses: true)
+        defer { server.stop() }
+        let app = launchApp(scenario: "startup-network-stall", backendURL: server.baseURL)
+
+        let splash = element("launch.splash", in: app)
+        let splashGone = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: splashGone, object: splash)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 2))
     }
 
     private func launchApp(scenario: String, backendURL: URL? = nil) -> XCUIApplication {
@@ -148,11 +158,14 @@ private final class TallaUITestServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "TallaUITestServer")
     private let lock = NSLock()
     private var capturedRequests: [Request] = []
+    private var stalledConnections: [NWConnection] = []
     private var startupError: Error?
     private let ready = DispatchSemaphore(value: 0)
+    private let stallResponses: Bool
     private(set) var baseURL: URL!
 
-    init() throws {
+    init(stallResponses: Bool = false) throws {
+        self.stallResponses = stallResponses
         listener = try NWListener(using: .tcp, on: .any)
         listener.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
@@ -184,6 +197,11 @@ private final class TallaUITestServer: @unchecked Sendable {
 
     func stop() {
         listener.cancel()
+        lock.lock()
+        let connections = stalledConnections
+        stalledConnections.removeAll()
+        lock.unlock()
+        connections.forEach { $0.cancel() }
     }
 
     func waitForRequest(path: String, timeout: TimeInterval) -> Request? {
@@ -244,7 +262,12 @@ private final class TallaUITestServer: @unchecked Sendable {
 
         lock.lock()
         capturedRequests.append(Request(method: method, path: path, authorization: authorization))
+        if stallResponses {
+            stalledConnections.append(connection)
+        }
         lock.unlock()
+
+        guard !stallResponses else { return }
 
         let contentType: String
         let body: String

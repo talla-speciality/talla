@@ -120,7 +120,9 @@ enum AccountService {
         try await refreshCoordinator.refresh()
     }
 
-    static func performRefreshSession() async throws -> AccountTokenRefreshResponse {
+    static func performRefreshSession(
+        send: (URLRequest) async throws -> (Data, URLResponse) = TallaSecureSession.data(for:)
+    ) async throws -> AccountTokenRefreshResponse {
         guard let baseURL else { throw SessionError.invalid }
         let refreshToken = TallaAccountCredentialStore.refreshToken
         guard !refreshToken.isEmpty else { throw SessionError.invalid }
@@ -129,12 +131,33 @@ enum AccountService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["refreshToken": refreshToken])
-        let (data, response) = try await TallaSecureSession.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              200 ..< 300 ~= httpResponse.statusCode,
-              let tokens = try? JSONDecoder().decode(AccountTokenRefreshResponse.self, from: data) else {
-            TallaAccountCredentialStore.clear()
+        let (data, response) = try await send(request)
+        // Discard results belonging to a login that has since been replaced.
+        guard TallaAccountCredentialStore.refreshToken == refreshToken else {
+            throw CancellationError()
+        }
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard httpResponse.statusCode != 401 else {
+            // A response for a previous login must not clear a newer session.
+            if TallaAccountCredentialStore.refreshToken == refreshToken {
+                TallaAccountCredentialStore.clear()
+            }
             throw SessionError.invalid
+        }
+        guard 200 ..< 300 ~= httpResponse.statusCode else {
+            throw URLError(.badServerResponse)
+        }
+        let tokens = try JSONDecoder().decode(AccountTokenRefreshResponse.self, from: data)
+        guard !tokens.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !tokens.refreshToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw URLError(.badServerResponse)
+        }
+        // Signing out or switching accounts while this request is in flight
+        // must not restore the old credentials when it finishes.
+        guard TallaAccountCredentialStore.refreshToken == refreshToken else {
+            throw CancellationError()
         }
         TallaAccountCredentialStore.save(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken)
         return tokens

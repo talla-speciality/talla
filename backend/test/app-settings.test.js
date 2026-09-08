@@ -51,5 +51,29 @@ test("unsafe links, invalid rates, and malformed rewards cannot reach the public
     assert.equal(settings.fulfillment.bahrainRate, 0);
     assert.equal(settings.fulfillment.khaleejiTiers.length, 8);
     assert.equal(settings.release.appStoreURL, "");
-    assert.equal(settings.loyalty.rewards.length, 7);
+    assert.equal(settings.loyalty.rewards.length, 1);
+});
+
+
+test("only free drinks remain redeemable from a previously saved mixed catalog", () => {
+    const settings = normalizeAppSettings({ loyalty: { rewards: [
+        { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", points: 50, reward: "Free Drink" },
+        { id: "pastry-pairing", enabled: true, titleEN: "Pastry Pairing", points: 75, reward: "Pastry pairing" },
+        { id: "signature-sip", enabled: true, titleEN: "Signature Sip", points: 100, reward: "Signature sip" },
+        { id: "coffee-bag-credit", enabled: true, titleEN: "Coffee Bag Credit", points: 150, reward: "Coffee bag credit" }
+    ] } });
+    assert.deepEqual(settings.loyalty.rewards.map(({ reward, points }) => ({ reward, points })), [
+        { reward: "Free Drink", points: 50 }
+    ]);
+    assert.equal(settings.loyalty.rewardStep, 50);
+    assert.equal(settings.loyalty.pointsPerBHD, 5);
+});
+
+test("a catalog containing only retired rewards falls back to the free drink", () => {
+    const settings = normalizeAppSettings({ loyalty: { rewards: [
+        { id: "gift", enabled: true, titleEN: "Gift", points: 250, reward: "Gold club gift" }
+    ] } });
+    assert.equal(settings.loyalty.rewards.length, 1);
+    assert.equal(settings.loyalty.rewards[0].reward, "Free Drink");
+    assert.equal(settings.loyalty.rewards[0].points, 50);
 });

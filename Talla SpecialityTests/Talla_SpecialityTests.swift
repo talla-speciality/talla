@@ -506,7 +506,10 @@ struct Talla_SpecialityTests {
         }
 
         let recorder = Recorder()
-        let store = CoffeeDataStore(inMemory: true) { request in
+        let suite = "TallaCoffeeBatchTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = CoffeeDataStore(inMemory: true, storageDefaults: defaults) { request in
             try recorder.respond(to: request)
         }
         let records = (0..<1_201).map { index -> [String: Any] in
@@ -562,7 +565,10 @@ struct Talla_SpecialityTests {
         }
 
         let pager = Pager()
-        let store = CoffeeDataStore(inMemory: true) { request in
+        let suite = "TallaCoffeePagingTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = CoffeeDataStore(inMemory: true, storageDefaults: defaults) { request in
             try pager.respond(to: request)
         }
         try await store.synchronize(

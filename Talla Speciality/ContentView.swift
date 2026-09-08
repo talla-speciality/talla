@@ -46,7 +46,11 @@ enum TallaAccountCredentialStore {
 
         if let keychainToken = readFromKeychain(account: keychainAccount)?
             .trimmingCharacters(in: .whitespacesAndNewlines), !keychainToken.isEmpty {
-            UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
+            // Avoid publishing defaults changes during every SwiftUI view
+            // initialization after the legacy credential has been migrated.
+            if UserDefaults.standard.object(forKey: tokenDefaultsKey) != nil {
+                UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
+            }
             return keychainToken
         }
 
@@ -676,12 +680,12 @@ struct ContentView: View {
                 .filter { $0.count == 2 }
         ).subtracting(["EU", "EZ", "QO", "UN"])
 
-        static var allCases: [Self] {
+        static let allCases: [Self] = {
             preferredCountries + isoCountryCodes
                 .subtracting(preferredCountries.map(\.rawValue))
                 .compactMap(Self.init(rawValue:))
                 .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        }
+        }()
 
         var id: String { rawValue }
         var isKhaleeji: Bool { Self.khaleejiCodes.contains(rawValue) }
@@ -2248,6 +2252,8 @@ struct ContentView: View {
                 .frame(width: isCompact ? 132 : 168, height: isCompact ? 132 : 168)
                 .accessibilityLabel(AppLocalization.text("talla_logo", fallback: "Talla Speciality"))
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("launch.splash")
     }
 
     @MainActor
@@ -2255,9 +2261,6 @@ struct ContentView: View {
         let startTime = Date()
 
         restoreSyncedCustomerCredential()
-        await loadProductsIfNeeded()
-        await refreshNotificationStatus()
-        await syncRemotePushTokenIfPossible()
 
         let minimumSplashDuration: TimeInterval = 1.25
         let elapsed = Date().timeIntervalSince(startTime)
@@ -2271,6 +2274,13 @@ struct ContentView: View {
 
         recordLaunchAndRequestReviewIfReady()
         handleShortcutDestination()
+
+        // Network bootstrap is deliberately performed after the splash is
+        // dismissed. Storefront, notification, and account services are
+        // optional at launch and must never prevent the local UI from opening.
+        await loadProductsIfNeeded()
+        await refreshNotificationStatus()
+        await syncRemotePushTokenIfPossible()
     }
 
     func recordLaunchAndRequestReviewIfReady() {
@@ -2398,73 +2408,61 @@ struct ContentView: View {
             )
                 .ignoresSafeArea()
 
-            appTabView
-
-            if cartOpen {
-                cartDrawer
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
-            if !hasSeenWelcome {
-                WelcomeOverlayView(
-                    primaryTextColor: primaryTextColor,
-                    secondaryTextColor: secondaryTextColor,
-                    cardFillColor: elevatedSurfaceColor,
-                    accentColor: Color(hex: 0xC8965A),
-                    scrimColor: scrimColor,
-                    titleFont: displayFont(size: isCompact ? 34 : 42),
-                    bodyFont: bodyFont(size: 14),
-                    labelFont: labelFont(size: 10, weight: .bold),
-                    startAction: {
-                        startFirstRunAccountSetup()
-                    },
-                    choiceAction: { choice in
-                        handleWelcomeChoice(choice)
-                    },
-                    skipAction: {
-                        hasSeenWelcome = true
-                    }
-                )
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                .zIndex(40)
-            }
-
-            if shouldShowFeatureTour {
-                FeatureTourOverlayView(
-                    highlights: featureTourHighlights,
-                    currentIndex: featureTourIndex,
-                    primaryTextColor: primaryTextColor,
-                    secondaryTextColor: secondaryTextColor,
-                    cardFillColor: elevatedSurfaceColor,
-                    accentColor: Color(hex: 0xC8965A),
-                    scrimColor: scrimColor,
-                    titleFont: displayFont(size: isCompact ? 30 : 36),
-                    bodyFont: bodyFont(size: 14),
-                    labelFont: labelFont(size: 10, weight: .bold),
-                    nextAction: advanceFeatureTour,
-                    skipAction: dismissFeatureTour
-                )
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                .zIndex(45)
-            }
-
             if showLaunchSplash {
                 launchSplashView
                     .transition(.opacity)
                     .zIndex(80)
-            }
+            } else {
+                appTabView
 
-            if let toastMessage {
-                ToastBannerView(
-                    message: toastMessage,
-                    font: .system(size: 11, weight: .medium),
-                    backgroundColor: Color(hex: 0xC8965A),
-                    foregroundColor: Color(hex: 0x0A0804)
-                )
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("toast.banner")
-                    .accessibilityLabel(toastMessage)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                if cartOpen {
+                    cartDrawer
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                if !hasSeenWelcome {
+                    WelcomeOverlayView(
+                        primaryTextColor: primaryTextColor,
+                        secondaryTextColor: secondaryTextColor,
+                        cardFillColor: elevatedSurfaceColor,
+                        accentColor: Color(hex: 0xC8965A),
+                        scrimColor: scrimColor,
+                        titleFont: displayFont(size: isCompact ? 34 : 42),
+                        bodyFont: bodyFont(size: 14),
+                        labelFont: labelFont(size: 10, weight: .bold),
+                        startAction: {
+                            startFirstRunAccountSetup()
+                        },
+                        choiceAction: { choice in
+                            handleWelcomeChoice(choice)
+                        },
+                        skipAction: {
+                            hasSeenWelcome = true
+                        }
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    .zIndex(40)
+                }
+
+                if shouldShowFeatureTour {
+                    FeatureTourOverlayView(
+                        highlights: featureTourHighlights,
+                        currentIndex: featureTourIndex,
+                        primaryTextColor: primaryTextColor,
+                        secondaryTextColor: secondaryTextColor,
+                        cardFillColor: elevatedSurfaceColor,
+                        accentColor: Color(hex: 0xC8965A),
+                        scrimColor: scrimColor,
+                        titleFont: displayFont(size: isCompact ? 30 : 36),
+                        bodyFont: bodyFont(size: 14),
+                        labelFont: labelFont(size: 10, weight: .bold),
+                        nextAction: advanceFeatureTour,
+                        skipAction: dismissFeatureTour
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    .zIndex(45)
+                }
+
             }
         }
     }
@@ -2482,8 +2480,6 @@ struct ContentView: View {
         .task {
             if configureReleaseUITestScenarioIfNeeded() { return }
             syncWidgetSharedState(reload: false)
-            await loadAppSettings()
-            await loadEventSettings()
             await runInitialLaunchSequence()
             syncWidgetSharedState(reload: true)
         }
@@ -2798,28 +2794,36 @@ struct ContentView: View {
 
     var baseTabView: some View {
         TabView(selection: $activeTab) {
-            tabScreen(homeView, tab: .home)
+            tabScreen(tab: .home) {
+                homeView
+            }
                 .tag(Tab.home)
                 .accessibilityIdentifier("tab.home")
                 .tabItem {
                     Label(AppLocalization.text("home", fallback: "Home"), systemImage: Tab.home.systemImage)
                 }
 
-            tabScreen(shopView, tab: .shop)
+            tabScreen(tab: .shop) {
+                shopView
+            }
                 .tag(Tab.shop)
                 .accessibilityIdentifier("tab.shop")
                 .tabItem {
                     Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
                 }
 
-            tabScreen(brewingView, tab: .brewing)
+            tabScreen(tab: .brewing) {
+                brewingView
+            }
                 .tag(Tab.brewing)
                 .accessibilityIdentifier("tab.brewing")
                 .tabItem {
                     Label(AppLocalization.text("brewing", fallback: "Brewing"), systemImage: Tab.brewing.systemImage)
                 }
 
-            tabScreen(accountView, tab: .account)
+            tabScreen(tab: .account) {
+                accountView
+            }
                 .tag(Tab.account)
                 .accessibilityIdentifier("tab.account")
                 .tabItem {
@@ -2831,7 +2835,7 @@ struct ContentView: View {
         .toolbarBackground(tabBarBackgroundColor, for: .tabBar)
     }
 
-    func tabScreen<Content: View>(_ content: Content, tab: Tab) -> some View {
+    func tabScreen<Content: View>(tab: Tab, @ViewBuilder content: @escaping () -> Content) -> some View {
         VStack(spacing: 0) {
             header
                 .frame(maxWidth: .infinity)
@@ -2843,7 +2847,9 @@ struct ContentView: View {
                         Color.clear
                             .frame(height: 0)
                             .id("tab-top")
-                        content
+                        if activeTab == tab {
+                            content()
+                        }
                         Color.clear
                             .frame(height: bottomScrollPadding(for: tab))
                     }

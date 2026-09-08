@@ -37,6 +37,10 @@ extension ContentView {
         guard !didConfigureReleaseUITest,
               let scenario = ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"],
               !scenario.isEmpty else { return false }
+        // Exercise the real launch sequence while the UI-test service keeps
+        // every response open. This scenario verifies that network bootstrap
+        // can never hold the splash screen.
+        if scenario == "startup-network-stall" { return false }
         didConfigureReleaseUITest = true
         hasSeenWelcome = true
         hasSeenFeatureTour = true

@@ -1766,20 +1766,17 @@ extension ContentView {
     @MainActor
     @discardableResult
     func restoreSyncedCustomerCredential() -> Bool {
-        guard savedCustomerAccessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            TallaAccountCredentialStore.save(savedCustomerAccessToken)
-            return false
-        }
-
+        // Refresh rotation updates the credential store while the view may
+        // still hold the previous token. Always read the authoritative copy.
         let syncedToken = TallaAccountCredentialStore.accessToken
-        guard !syncedToken.isEmpty else { return false }
+        guard savedCustomerAccessToken != syncedToken else { return false }
         savedCustomerAccessToken = syncedToken
-        return true
+        return !syncedToken.isEmpty
     }
 
     func signOutCustomer(clearError: Bool = true, unregisterBackend: Bool = true) {
         let emailToUnregister = customerProfile?.email ?? (!savedCustomerEmail.isEmpty ? savedCustomerEmail : nil)
-        let accessTokenToUnregister = savedCustomerAccessToken
+        let accessTokenToUnregister = TallaAccountCredentialStore.accessToken
         if unregisterBackend {
             unregisterRemotePushToken(email: emailToUnregister, accessToken: accessTokenToUnregister)
         }

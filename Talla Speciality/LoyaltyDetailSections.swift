@@ -25,7 +25,7 @@ struct LoyaltyRewardsActionsView: View {
 
     private var rewardOptions: [RewardOption] {
         if let configuration {
-            return configuration.rewards.filter(\.enabled).map { reward in
+            return configuration.rewards.filter { $0.enabled && $0.reward.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "free drink" }.map { reward in
                 RewardOption(
                     id: reward.id,
                     title: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? reward.titleAR : reward.titleEN,
@@ -42,48 +42,6 @@ struct LoyaltyRewardsActionsView: View {
                 detail: AppLocalization.text("reward_espresso_pour_detail", fallback: "Choose any eligible drink"),
                 points: 50,
                 reward: "Free Drink"
-            ),
-            RewardOption(
-                id: "pastry-pairing",
-                title: AppLocalization.text("reward_pastry_pairing", fallback: "Pastry Pairing"),
-                detail: AppLocalization.text("reward_pastry_pairing_detail", fallback: "Pastry with coffee"),
-                points: 75,
-                reward: "Pastry pairing"
-            ),
-            RewardOption(
-                id: "signature-sip",
-                title: AppLocalization.text("reward_signature_sip", fallback: "Signature Sip"),
-                detail: AppLocalization.text("reward_signature_sip_detail", fallback: "One signature drink"),
-                points: 100,
-                reward: "Signature sip"
-            ),
-            RewardOption(
-                id: "majlis-hosting",
-                title: AppLocalization.text("reward_majlis_hosting", fallback: "Majlis Hosting"),
-                detail: AppLocalization.text("reward_majlis_hosting_detail", fallback: "Arabic coffee service"),
-                points: 120,
-                reward: "Majlis hosting reward"
-            ),
-            RewardOption(
-                id: "bag-credit",
-                title: AppLocalization.text("reward_bag_credit", fallback: "Bag Credit"),
-                detail: AppLocalization.text("reward_bag_credit_detail", fallback: "Coffee bag discount"),
-                points: 150,
-                reward: "Coffee bag credit"
-            ),
-            RewardOption(
-                id: "talla-box-treat",
-                title: AppLocalization.text("reward_talla_box_treat", fallback: "Talla Box Treat"),
-                detail: AppLocalization.text("reward_talla_box_treat_detail", fallback: "Gift box credit"),
-                points: 200,
-                reward: "Talla box treat"
-            ),
-            RewardOption(
-                id: "gold-club-gift",
-                title: AppLocalization.text("reward_gold_club_gift", fallback: "Gold Club Gift"),
-                detail: AppLocalization.text("reward_gold_club_gift_detail", fallback: "Exclusive Talla Club gift"),
-                points: 250,
-                reward: "Gold club gift"
             )
         ]
     }

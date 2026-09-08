@@ -321,13 +321,8 @@ function defaultAppSettings() {
             goldThreshold: 300,
             rewardStep: 50,
             rewards: [
-                { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" },
-                { id: "pastry-pairing", enabled: true, titleEN: "Pastry Pairing", titleAR: "حلوى مع القهوة", detailEN: "Pastry with coffee", detailAR: "حلوى مع القهوة", points: 75, reward: "Pastry pairing" },
-                { id: "signature-sip", enabled: true, titleEN: "Signature Sip", titleAR: "مشروب تالة المميز", detailEN: "One signature drink", detailAR: "مشروب مميز واحد", points: 100, reward: "Signature sip" },
-                { id: "majlis-hosting", enabled: true, titleEN: "Majlis Hosting Reward", titleAR: "مكافأة ضيافة المجلس", detailEN: "Hosting credit", detailAR: "رصيد للضيافة", points: 120, reward: "Majlis hosting reward" },
-                { id: "coffee-bag-credit", enabled: true, titleEN: "Coffee Bag Credit", titleAR: "رصيد كيس قهوة", detailEN: "Credit toward a coffee bag", detailAR: "رصيد لشراء كيس قهوة", points: 150, reward: "Coffee bag credit" },
-                { id: "talla-box-treat", enabled: true, titleEN: "Talla Box Treat", titleAR: "هدية صندوق تالة", detailEN: "Gift box credit", detailAR: "رصيد لصندوق هدايا", points: 200, reward: "Talla box treat" },
-                { id: "gold-club-gift", enabled: true, titleEN: "Gold Club Gift", titleAR: "هدية النادي الذهبي", detailEN: "Exclusive Talla Club gift", detailAR: "هدية حصرية من نادي تالة", points: 250, reward: "Gold club gift" }
+                { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" }
+
             ]
         },
         updatedAt: null
@@ -396,7 +391,7 @@ function normalizeAppSettings(value = {}) {
             detailAR: trimText(reward?.detailAR, 160),
             points: Math.round(boundedNumber(reward?.points, 50, 1, 1_000_000)),
             reward: trimText(reward?.reward, 100)
-        })).filter((reward) => reward.titleEN && reward.reward).slice(0, 30)
+        })).filter((reward) => reward.titleEN && reward.reward.toLowerCase() === "free drink").slice(0, 30)
         : fallback.loyalty.rewards;
     const silverThreshold = Math.round(boundedNumber(loyalty.silverThreshold, fallback.loyalty.silverThreshold, 1, 1_000_000));
     const goldThreshold = Math.max(

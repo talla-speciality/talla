@@ -3102,7 +3102,12 @@ extension ContentView {
         if updatedAlerts.contains(product.id) {
             updatedAlerts.remove(product.id)
             if let email = customerProfile?.email {
-                try? await AccountService.removeStockAlert(email: email, productID: product.id)
+                do {
+                    try await AccountService.removeStockAlert(email: email, productID: product.id)
+                } catch {
+                    showToast(message: isArabicInterface ? "تعذر تحديث التنبيه. حاول مرة أخرى." : "Could not update the alert. Please try again.")
+                    return
+                }
                 backendStockAlerts.removeAll { $0.productID == product.id }
             }
             showToast(message: AppLocalization.text("removed_from_alerts", fallback: "Removed from alerts"))
@@ -3118,9 +3123,13 @@ extension ContentView {
                     status: product.isAvailableForSale ? "Available now" : "Waiting for availability",
                     updatedAt: ISO8601DateFormatter().string(from: Date())
                 )
-                if let stored = try? await AccountService.watchStockAlert(email: email, alert: record) {
+                do {
+                    let stored = try await AccountService.watchStockAlert(email: email, alert: record)
                     backendStockAlerts.removeAll { $0.productID == stored.productID }
                     backendStockAlerts.insert(stored, at: 0)
+                } catch {
+                    showToast(message: isArabicInterface ? "تعذر حفظ التنبيه. حاول مرة أخرى." : "Could not save the alert. Please try again.")
+                    return
                 }
             }
             let granted = await requestNotificationAccessIfNeeded()
