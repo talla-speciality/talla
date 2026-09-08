@@ -37,19 +37,48 @@ struct AdminOrderItem: Codable, Hashable {
     let variantID: String?
     let sku: String?
     let unitPrice: String?
+    let productTitle: String?
+    let variantTitle: String?
+    let selectedOptions: [AdminOrderItemOption]?
 
-    init(name: String, quantity: Int, variantID: String? = nil, sku: String? = nil, unitPrice: String? = nil) {
+    var displayName: String {
+        let title = productTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return title.isEmpty ? name : title
+    }
+
+    var variantDescription: String? {
+        let options = (selectedOptions ?? []).compactMap { option -> String? in
+            let name = option.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = option.value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, !value.isEmpty else { return nil }
+            if name.lowercased() == "title" { return value.lowercased() == "default title" ? nil : value }
+            return "\(name): \(value)"
+        }
+        if !options.isEmpty { return options.joined(separator: " · ") }
+        let title = variantTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return title.isEmpty || title.lowercased() == "default title" ? nil : title
+    }
+
+    init(name: String, quantity: Int, variantID: String? = nil, sku: String? = nil, unitPrice: String? = nil, productTitle: String? = nil, variantTitle: String? = nil, selectedOptions: [AdminOrderItemOption]? = nil) {
         self.name = name
         self.quantity = quantity
         self.variantID = variantID
         self.sku = sku
         self.unitPrice = unitPrice
+        self.productTitle = productTitle
+        self.variantTitle = variantTitle
+        self.selectedOptions = selectedOptions
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, quantity, sku, unitPrice
+        case name, quantity, sku, unitPrice, productTitle, variantTitle, selectedOptions
         case variantID = "variantId"
     }
+}
+
+struct AdminOrderItemOption: Codable, Hashable {
+    let name: String
+    let value: String
 }
 
 struct AdminOrderCustomer: Codable, Hashable {

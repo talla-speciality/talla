@@ -25,3 +25,26 @@ xcodebuild -project 'Talla Speciality.xcodeproj' -scheme 'Talla Admin' \
 ```
 
 No backend deployment or App Store/TestFlight release is included. Catalog enumeration retains the backend's existing 250-product limit.
+let oldItem = try JSONDecoder().decode(AdminOrderItem.self, from: Data(#"{"name":"Coffee - Large","quantity":1}"#.utf8))
+expect(oldItem.displayName == "Coffee - Large", "Legacy order names remain visible")
+expect(oldItem.variantDescription == nil, "Do not invent variants for old orders")
+
+let sizedItem = try JSONDecoder().decode(AdminOrderItem.self, from: Data(#"{"name":"Cup - Large","productTitle":"Cup","quantity":2,"variantTitle":"Large","selectedOptions":[{"name":"Size","value":"Large"}]}"#.utf8))
+expect(sizedItem.displayName == "Cup", "Product name does not repeat variant")
+expect(sizedItem.variantDescription == "Size: Large", "Show purchased size by name")
+
+let coffee = AdminOrderItem(name: "Coffee", quantity: 1, variantTitle: "250g / Whole Bean")
+expect(coffee.variantDescription == "250g / Whole Bean", "Shopify order snapshot title is displayed")
+
+let plain = AdminOrderItem(name: "Coffee", quantity: 1, variantTitle: "Default Title", selectedOptions: [.init(name: "Title", value: "Default Title")])
+expect(plain.variantDescription == nil, "Hide default variant placeholders")
+
+let options = AdminOrderItem(
+    name: "Coffee",
+    quantity: 1,
+    selectedOptions: [
+        .init(name: "Weight", value: "250g"),
+        .init(name: "Grind", value: "Whole Bean")
+    ]
+)
+expect(options.variantDescription == "Weight: 250g · Grind: Whole Bean", "Show all purchased options")

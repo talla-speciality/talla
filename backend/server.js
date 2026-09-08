@@ -25,6 +25,7 @@ const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
 const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail");
+const { orderItemOptions } = require("./modules/commerce/order-item-options");
 const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
 const {
     defaultCampaignSettings,
@@ -4106,6 +4107,7 @@ function shopifyOrderRecord(shopifyOrder, topic = "") {
     const items = Array.isArray(shopifyOrder.line_items)
         ? shopifyOrder.line_items.map((item) => ({
             name: String(item.name || item.title || "Item"),
+            ...orderItemOptions({ productTitle: item.title, variantTitle: item.variant_title }),
             quantity: Number(item.quantity || 1),
             variantId: item.variant_id ? String(item.variant_id) : null,
             sku: item.sku ? String(item.sku) : null,
@@ -4130,6 +4132,7 @@ function shopifyAdminOrderRecord(node, fallbackEmail) {
     const currency = String(node.currentTotalPriceSet?.shopMoney?.currencyCode || node.totalPriceSet?.shopMoney?.currencyCode || "BHD").toUpperCase();
     const items = (node.lineItems?.edges || []).map(({ node: item }) => ({
         name: String(item.name || item.title || "Item"),
+        ...orderItemOptions({ productTitle: item.title, variantTitle: item.variantTitle }),
         quantity: Number(item.quantity || 1),
         sku: item.sku || null,
         variantId: item.variant?.id || null
@@ -6163,6 +6166,7 @@ async function syncRecentShopifyOrdersForEmail(email) {
                                 node {
                                     name
                                     title
+                                    variantTitle
                                     quantity
                                     sku
                                     variant { id }
@@ -9138,6 +9142,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+    shopifyOrderRecord,
+    shopifyAdminOrderRecord,
     adminOrderNotificationPayload,
     activeEventSettings,
     applyConfirmedMpgsPayment,

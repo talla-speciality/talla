@@ -1,3 +1,4 @@
+const { snapshotCheckoutOptions } = require("../commerce/order-item-options");
 module.exports = function createServer(dependencies) {
     const {
         URL,
@@ -4141,7 +4142,7 @@ module.exports = function createServer(dependencies) {
                 ? await verifyCheckoutPricing(body, customer.email)
                 : null;
             const submittedItems = Array.isArray(body.items) ? body.items : [];
-            const items = verifiedPricing?.items || submittedItems
+            let items = verifiedPricing?.items || submittedItems
                 .map((item) => {
                     const variantID = String(item.variantId || item.variantID || "").trim();
                     return {
@@ -4155,6 +4156,10 @@ module.exports = function createServer(dependencies) {
             if (items.length === 0) {
                 sendJSON(response, 400, { error: "Order items are required." });
                 return;
+            }
+
+            if (!verifiedPricing && shopifyAdminConfigured()) {
+                items = await snapshotCheckoutOptions(items, shopifyAdminGraphQLRequest);
             }
 
             const totalNumber = Number(body.total);
