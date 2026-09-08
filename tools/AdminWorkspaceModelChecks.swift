@@ -49,6 +49,18 @@ struct AdminWorkspaceModelChecks {
         rejects(.object(["accentHex": .string("blue")]), .init("accentHex", "Accent"))
         expect(adminCustomerPath(email: "coffee+test@example.com").contains("%2B"), "Plus-addressed emails survive URLSearchParams decoding")
         expect(!adminCustomerPath(email: "a&b@example.com").contains("&b"), "Customer emails cannot inject query parameters")
+        let oldItem = try JSONDecoder().decode(AdminOrderItem.self, from: Data(#"{"name":"Coffee - Large","quantity":1}"#.utf8))
+        expect(oldItem.displayName == "Coffee - Large", "Legacy order names remain visible")
+        expect(oldItem.variantDescription == nil, "Do not invent variants for old orders")
+        let sizedItem = try JSONDecoder().decode(AdminOrderItem.self, from: Data(#"{"name":"Cup - Large","productTitle":"Cup","quantity":2,"variantTitle":"Large","selectedOptions":[{"name":"Size","value":"Large"}]}"#.utf8))
+        expect(sizedItem.displayName == "Cup", "Product name does not repeat variant")
+        expect(sizedItem.variantDescription == "Size: Large", "Show purchased size by name")
+        let coffee = AdminOrderItem(name: "Coffee", quantity: 1, variantTitle: "250g / Whole Bean")
+        expect(coffee.variantDescription == "250g / Whole Bean", "Shopify order snapshot title is displayed")
+        let plain = AdminOrderItem(name: "Coffee", quantity: 1, variantTitle: "Default Title", selectedOptions: [.init(name: "Title", value: "Default Title")])
+        expect(plain.variantDescription == nil, "Hide default variant placeholders")
+        let options = AdminOrderItem(name: "Coffee", quantity: 1, selectedOptions: [.init(name: "Weight", value: "250g"), .init(name: "Grind", value: "Whole Bean")])
+        expect(options.variantDescription == "Weight: 250g · Grind: Whole Bean", "Show all purchased options")
         print("Passed \(checks) native admin model checks.")
     }
 }

@@ -1,3 +1,5 @@
+const { orderItemOptions } = require("./order-item-options");
+
 class CheckoutPricingError extends Error {
     constructor(code, statusCode, message) {
         super(message);
@@ -143,9 +145,10 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 `query CheckoutVariants($ids: [ID!]!) {
                     nodes(ids: $ids) {
                         ... on ProductVariant {
-                            id displayName price availableForSale inventoryPolicy inventoryQuantity
+                            id displayName title price availableForSale inventoryPolicy inventoryQuantity
+                            selectedOptions { name value }
                             inventoryItem { requiresShipping measurement { weight { value unit } } }
-                            product { productType collections(first: 20) { nodes { handle } } }
+                            product { title productType collections(first: 20) { nodes { handle } } }
                         }
                     }
                 }`,
@@ -169,6 +172,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
             return {
                 ...line,
                 name: String(node.displayName || "Item").trim().slice(0, 180) || "Item",
+                ...orderItemOptions({ productTitle: node.product?.title, variantTitle: node.title, selectedOptions: node.selectedOptions }),
                 unitPriceFils: toFils(node.price),
                 requiresShipping: node.inventoryItem?.requiresShipping !== false,
                 weightGrams: weightInGrams(node.inventoryItem?.measurement?.weight),
@@ -210,6 +214,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
             pricingVersion: 2,
             items: lines.map((line) => ({
                 name: line.name,
+                ...orderItemOptions(line),
                 quantity: line.quantity,
                 variantId: line.variantId,
                 unitPrice: `BHD ${(line.unitPriceFils / 1000).toFixed(3)}`

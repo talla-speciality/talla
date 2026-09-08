@@ -25,3 +25,9 @@ xcodebuild -project 'Talla Speciality.xcodeproj' -scheme 'Talla Admin' \
 ```
 
 No backend deployment or App Store/TestFlight release is included. Catalog enumeration retains the backend's existing 250-product limit.
+
+## Purchased product variants
+
+Order cards and details show the product name with the purchased variant/options underneath, and order search also matches variants and SKU. Verified checkout snapshots obtain these fields from Shopify alongside authoritative pricing. Legacy checkout clients use a best-effort catalog lookup at checkout time. Shopify webhook/sync imports retain the line item's purchase-time variant title, including when its catalog variant was deleted. Default Title placeholders are suppressed. Historical orders without recorded variant data keep their original item names; no current-catalog guesses are made.
+
+This addition requires deploying the backend changes and installing the rebuilt admin app. No database migration is required because item metadata is stored in the existing order JSON. Coverage includes Shopify import mapping, checkout snapshot metadata, default/missing variants, and native display compatibility.

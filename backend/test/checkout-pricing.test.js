@@ -145,3 +145,16 @@ test("Shopify weight units are normalized to grams", () => {
     assert.equal(Math.round(weightInGrams({ value: 1, unit: "POUNDS" })), 454);
     assert.equal(weightInGrams(null), null);
 });
+
+test("checkout records authoritative purchased options instead of client-supplied labels", async () => {
+    const verify = service({ nodes: [node(coffeeID, "4.500", {
+        title: "250g / Whole Bean",
+        selectedOptions: [{ name: "Weight", value: "250g" }, { name: "Grind", value: "Whole Bean" }],
+        product: { title: "Ethiopia Guji", productType: "Coffee Beans" }
+    })] });
+    const result = await verify(body([{ variantId: coffeeID, quantity: 1, variantTitle: "Fake size" }], 6.5), "customer@example.com");
+    assert.equal(result.items[0].productTitle, "Ethiopia Guji");
+    assert.equal(result.items[0].variantTitle, "250g / Whole Bean");
+    assert.deepEqual(result.items[0].selectedOptions, [{ name: "Weight", value: "250g" }, { name: "Grind", value: "Whole Bean" }]);
+    assert.equal(result.items[0].unitPrice, "BHD 4.500");
+});

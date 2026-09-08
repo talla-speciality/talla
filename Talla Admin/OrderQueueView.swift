@@ -71,7 +71,11 @@ struct OrderQueueView: View {
             order.title.localizedCaseInsensitiveContains(searchText)
                 || order.email.localizedCaseInsensitiveContains(searchText)
                 || order.id.localizedCaseInsensitiveContains(searchText)
-                || order.items.contains { $0.name.localizedCaseInsensitiveContains(searchText) }
+                || order.items.contains {
+                    $0.displayName.localizedCaseInsensitiveContains(searchText)
+                        || ($0.variantDescription?.localizedCaseInsensitiveContains(searchText) ?? false)
+                        || ($0.sku?.localizedCaseInsensitiveContains(searchText) ?? false)
+                }
         }
     }
 
@@ -270,7 +274,12 @@ private struct OrderCard: View {
                 VStack(alignment: .leading, spacing: 7) {
                     ForEach(Array(order.items.enumerated()), id: \.offset) { _, item in
                         HStack(alignment: .firstTextBaseline) {
-                            Text(item.name)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.displayName)
+                                if let variant = item.variantDescription {
+                                    Text(variant).font(.caption).foregroundStyle(TallaAdminStyle.caramel)
+                                }
+                            }
                             Spacer()
                             Text("×\(item.quantity)")
                                 .fontWeight(.semibold)
@@ -510,7 +519,10 @@ struct OrderDetailView: View {
                         .foregroundStyle(TallaAdminStyle.caramel)
                         .frame(minWidth: 30, alignment: .leading)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(item.name).fontWeight(.semibold)
+                        Text(item.displayName).fontWeight(.semibold)
+                        if let variant = item.variantDescription {
+                            Text(variant).font(.subheadline).foregroundStyle(TallaAdminStyle.caramel)
+                        }
                         if let sku = item.sku, !sku.isEmpty { Text("SKU \(sku)").font(.caption).foregroundStyle(.secondary) }
                         if let price = item.unitPrice, !price.isEmpty { Text(price).font(.caption).foregroundStyle(.secondary) }
                     }
