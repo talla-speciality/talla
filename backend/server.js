@@ -272,6 +272,7 @@ function defaultAppSettings() {
             benefitPayEnabled: true,
             benefitEnabled: true,
             cardEnabled: true,
+            clickToPayEnabled: true,
             cashOnDeliveryEnabled: true,
             noticeEN: "",
             noticeAR: ""
@@ -423,6 +424,9 @@ function normalizeAppSettings(value = {}) {
             benefitPayEnabled: payments.benefitPayEnabled === undefined ? fallback.payments.benefitPayEnabled : Boolean(payments.benefitPayEnabled),
             benefitEnabled: payments.benefitEnabled === undefined ? fallback.payments.benefitEnabled : Boolean(payments.benefitEnabled),
             cardEnabled: payments.cardEnabled === undefined ? fallback.payments.cardEnabled : Boolean(payments.cardEnabled),
+            clickToPayEnabled: payments.clickToPayEnabled === undefined
+                ? (payments.cardEnabled === undefined ? fallback.payments.cardEnabled : Boolean(payments.cardEnabled))
+                : Boolean(payments.clickToPayEnabled),
             cashOnDeliveryEnabled: payments.cashOnDeliveryEnabled === undefined ? fallback.payments.cashOnDeliveryEnabled : Boolean(payments.cashOnDeliveryEnabled),
             noticeEN: trimText(payments.noticeEN, 220),
             noticeAR: trimText(payments.noticeAR, 220)

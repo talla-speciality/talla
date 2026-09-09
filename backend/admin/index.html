@@ -788,6 +788,7 @@
                         <label><input id="app-pay-benefitpay" type="checkbox" style="width:auto; margin-right:8px;">BenefitPay app</label>
                         <label><input id="app-pay-benefit" type="checkbox" style="width:auto; margin-right:8px;">BENEFIT hosted</label>
                         <label><input id="app-pay-card" type="checkbox" style="width:auto; margin-right:8px;">Credit/debit card</label>
+                        <label><input id="app-pay-click-to-pay" type="checkbox" style="width:auto; margin-right:8px;">Click to Pay</label>
                         <label><input id="app-pay-cod" type="checkbox" style="width:auto; margin-right:8px;">Cash on delivery</label>
                     </div>
                     <div class="grid" style="margin-top:12px;">
@@ -994,6 +995,16 @@
                 </div>
                 <input id="home-hero-title" type="text" maxlength="80" style="width:100%; margin-bottom: 12px;" placeholder="Hero title">
                 <textarea id="home-hero-subtitle" maxlength="180" style="width:100%; min-height: 82px; resize: vertical; margin-bottom: 12px;" placeholder="Hero subtitle"></textarea>
+                <h3>Arabic hero / الواجهة بالعربية</h3>
+                <p class="muted">Shown when the app language is Arabic. Leave a field blank to use its Arabic app default.</p>
+                <div class="grid" style="margin-bottom: 14px;">
+                    <label>Eyebrow / النص العلوي<input id="home-hero-eyebrow-ar" maxlength="40" dir="rtl" lang="ar" style="width:100%;" type="text"></label>
+                    <label>Badge / الشارة<input id="home-hero-badge-ar" maxlength="40" dir="rtl" lang="ar" style="width:100%;" type="text"></label>
+                    <label>Title / العنوان<textarea id="home-hero-title-ar" maxlength="80" dir="rtl" lang="ar" style="width:100%;" rows="2"></textarea></label>
+                    <label>Subtitle / الوصف<textarea id="home-hero-subtitle-ar" maxlength="180" dir="rtl" lang="ar" style="width:100%;" rows="2"></textarea></label>
+                    <label>Primary button / الزر الرئيسي<input id="home-primary-button-ar" maxlength="28" dir="rtl" lang="ar" style="width:100%;" type="text"></label>
+                    <label>Secondary button / الزر الثانوي<input id="home-secondary-button-ar" maxlength="28" dir="rtl" lang="ar" style="width:100%;" type="text"></label>
+                </div>
                 <select id="home-fun-pick" style="width:100%; margin-bottom: 14px;">
                     <option value="">Today's fun pick: automatic daily pick</option>
                 </select>
@@ -1252,11 +1263,17 @@
         const signatureRoastsStatusEl = document.getElementById("signature-roasts-status");
         const saveSignatureRoastsButton = document.getElementById("save-signature-roasts");
         const homeHeroEyebrowInput = document.getElementById("home-hero-eyebrow");
+        const homeHeroEyebrowARInput = document.getElementById("home-hero-eyebrow-ar");
         const homeHeroBadgeInput = document.getElementById("home-hero-badge");
+        const homeHeroBadgeARInput = document.getElementById("home-hero-badge-ar");
         const homeHeroTitleInput = document.getElementById("home-hero-title");
+        const homeHeroTitleARInput = document.getElementById("home-hero-title-ar");
         const homeHeroSubtitleInput = document.getElementById("home-hero-subtitle");
+        const homeHeroSubtitleARInput = document.getElementById("home-hero-subtitle-ar");
         const homePrimaryButtonInput = document.getElementById("home-primary-button");
+        const homePrimaryButtonARInput = document.getElementById("home-primary-button-ar");
         const homeSecondaryButtonInput = document.getElementById("home-secondary-button");
+        const homeSecondaryButtonARInput = document.getElementById("home-secondary-button-ar");
         const homeFunPickInput = document.getElementById("home-fun-pick");
         const passportRewardTitleInput = document.getElementById("passport-reward-title");
         const passportRewardDetailInput = document.getElementById("passport-reward-detail");
@@ -1475,6 +1492,7 @@
             input("app-pay-benefitpay").checked = payments.benefitPayEnabled !== false;
             input("app-pay-benefit").checked = payments.benefitEnabled !== false;
             input("app-pay-card").checked = payments.cardEnabled !== false;
+            input("app-pay-click-to-pay").checked = (payments.clickToPayEnabled ?? payments.cardEnabled) !== false;
             input("app-pay-cod").checked = payments.cashOnDeliveryEnabled !== false;
             input("app-payment-notice-en").value = payments.noticeEN || "";
             input("app-payment-notice-ar").value = payments.noticeAR || "";
@@ -1612,6 +1630,7 @@
                             benefitPayEnabled: input("app-pay-benefitpay").checked,
                             benefitEnabled: input("app-pay-benefit").checked,
                             cardEnabled: input("app-pay-card").checked,
+                            clickToPayEnabled: input("app-pay-click-to-pay").checked,
                             cashOnDeliveryEnabled: input("app-pay-cod").checked,
                             noticeEN: input("app-payment-notice-en").value.trim(),
                             noticeAR: input("app-payment-notice-ar").value.trim()
@@ -2289,11 +2308,17 @@
             const products = state.products || [];
             const selectedCount = selectedIDs.size;
             homeHeroEyebrowInput.value = state.signatureRoasts?.heroEyebrow || "";
+            homeHeroEyebrowARInput.value = state.signatureRoasts?.heroEyebrowAR || "";
             homeHeroBadgeInput.value = state.signatureRoasts?.heroBadge || "";
+            homeHeroBadgeARInput.value = state.signatureRoasts?.heroBadgeAR || "";
             homeHeroTitleInput.value = state.signatureRoasts?.heroTitle || "";
+            homeHeroTitleARInput.value = state.signatureRoasts?.heroTitleAR || "";
             homeHeroSubtitleInput.value = state.signatureRoasts?.heroSubtitle || "";
+            homeHeroSubtitleARInput.value = state.signatureRoasts?.heroSubtitleAR || "";
             homePrimaryButtonInput.value = state.signatureRoasts?.primaryButtonTitle || "";
+            homePrimaryButtonARInput.value = state.signatureRoasts?.primaryButtonTitleAR || "";
             homeSecondaryButtonInput.value = state.signatureRoasts?.secondaryButtonTitle || "";
+            homeSecondaryButtonARInput.value = state.signatureRoasts?.secondaryButtonTitleAR || "";
             homeFunPickInput.innerHTML = `<option value="">Today's fun pick: automatic daily pick</option>${products.map((product) => `<option value="${escapeHTML(product.id)}" ${(state.signatureRoasts?.funPickProductID || "") === product.id ? "selected" : ""}>${escapeHTML(product.title)}</option>`).join("")}`;
 
             if (!products.length) {
@@ -2373,6 +2398,12 @@
                         signatureRoastProductIDs: selectedProductIDs,
                         quickDrinkProductIDs: selectedDrinkProductIDs,
                         funPickProductID: homeFunPickInput.value,
+                        heroEyebrowAR: homeHeroEyebrowARInput.value,
+                        heroBadgeAR: homeHeroBadgeARInput.value,
+                        heroTitleAR: homeHeroTitleARInput.value,
+                        heroSubtitleAR: homeHeroSubtitleARInput.value,
+                        primaryButtonTitleAR: homePrimaryButtonARInput.value,
+                        secondaryButtonTitleAR: homeSecondaryButtonARInput.value,
                         heroEyebrow: homeHeroEyebrowInput.value,
                         heroTitle: homeHeroTitleInput.value,
                         heroSubtitle: homeHeroSubtitleInput.value,

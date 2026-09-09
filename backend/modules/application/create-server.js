@@ -1523,10 +1523,17 @@ module.exports = function createServer(dependencies) {
                     }
                 }
 
+                const currentSettings = await getHomeSettings();
                 const settings = normalizeHomeSettings({
                     signatureRoastProductIDs: body.signatureRoastProductIDs,
                     quickDrinkProductIDs,
                     funPickProductID: body.funPickProductID,
+                    heroEyebrowAR: body.heroEyebrowAR ?? currentSettings.heroEyebrowAR,
+                    heroBadgeAR: body.heroBadgeAR ?? currentSettings.heroBadgeAR,
+                    heroTitleAR: body.heroTitleAR ?? currentSettings.heroTitleAR,
+                    heroSubtitleAR: body.heroSubtitleAR ?? currentSettings.heroSubtitleAR,
+                    primaryButtonTitleAR: body.primaryButtonTitleAR ?? currentSettings.primaryButtonTitleAR,
+                    secondaryButtonTitleAR: body.secondaryButtonTitleAR ?? currentSettings.secondaryButtonTitleAR,
                     heroEyebrow: body.heroEyebrow,
                     heroTitle: body.heroTitle,
                     heroSubtitle: body.heroSubtitle,
@@ -3376,7 +3383,7 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "POST" && url.pathname === "/api/payments/click-to-pay/create") {
-        if (!await requireOperationalPayment("cardEnabled", response)) return;
+        if (!await requireOperationalPayment("clickToPayEnabled", response)) return;
         let body;
         try {
             body = await readBody(request, 16_384);

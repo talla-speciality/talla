@@ -92,7 +92,7 @@ function activeEventSettings(settings, now = new Date()) {
 function defaultHomeSettings() {
     return {
         signatureRoastProductIDs: [], quickDrinkProductIDs: [], funPickProductID: "", heroEyebrow: "", heroTitle: "",
-        heroSubtitle: "", heroBadge: "", primaryButtonTitle: "", secondaryButtonTitle: "", updatedAt: null,
+        heroSubtitle: "", heroEyebrowAR: "", heroBadgeAR: "", heroTitleAR: "", heroSubtitleAR: "", primaryButtonTitleAR: "", secondaryButtonTitleAR: "", heroBadge: "", primaryButtonTitle: "", secondaryButtonTitle: "", updatedAt: null,
     };
 }
 
@@ -113,6 +113,12 @@ function normalizeHomeSettings(value = {}) {
         signatureRoastProductIDs, quickDrinkProductIDs, funPickProductID: trimText(value.funPickProductID, 180),
         heroEyebrow: trimText(value.heroEyebrow, 40), heroTitle: trimText(value.heroTitle, 80), heroSubtitle: trimText(value.heroSubtitle, 180),
         heroBadge: trimText(value.heroBadge, 40), primaryButtonTitle: trimText(value.primaryButtonTitle, 28), secondaryButtonTitle: trimText(value.secondaryButtonTitle, 28),
+        heroEyebrowAR: trimText(value.heroEyebrowAR, 40),
+        heroBadgeAR: trimText(value.heroBadgeAR, 40),
+        heroTitleAR: trimText(value.heroTitleAR, 80),
+        heroSubtitleAR: trimText(value.heroSubtitleAR, 180),
+        primaryButtonTitleAR: trimText(value.primaryButtonTitleAR, 28),
+        secondaryButtonTitleAR: trimText(value.secondaryButtonTitleAR, 28),
         updatedAt: value.updatedAt || fallback.updatedAt,
     };
 }

@@ -3,6 +3,19 @@ const assert = require("node:assert/strict");
 
 const { normalizeAppSettings } = require("../server");
 
+test("Click to Pay has an independent switch and preserves legacy availability", () => {
+    assert.equal(normalizeAppSettings({}).payments.clickToPayEnabled, true);
+    assert.equal(normalizeAppSettings({ payments: { cardEnabled: false } }).payments.clickToPayEnabled, false);
+    for (const cardEnabled of [true, false]) {
+        for (const clickToPayEnabled of [true, false]) {
+            const settings = normalizeAppSettings({ payments: { cardEnabled, clickToPayEnabled } });
+            assert.equal(settings.payments.cardEnabled, cardEnabled);
+            assert.equal(settings.payments.clickToPayEnabled, clickToPayEnabled);
+            assert.equal(normalizeAppSettings(JSON.parse(JSON.stringify(settings))).payments.clickToPayEnabled, clickToPayEnabled);
+        }
+    }
+});
+
 test("production app controls preserve safe defaults and validate operational values", () => {
     const settings = normalizeAppSettings({
         payments: { benefitPayEnabled: false, cardEnabled: false },

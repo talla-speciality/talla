@@ -22,3 +22,20 @@ test("content settings normalize safely outside the HTTP entry point", () => {
     const home = normalizeHomeSettings({ signatureRoastProductIDs: ["a", "a", "b"] });
     assert.deepEqual(home.signatureRoastProductIDs, ["a", "b"]);
 });
+
+
+test("Arabic hero fields survive normalization independently of English", () => {
+    const input = { heroTitle: "English title", heroTitleAR: "  قهوة مختصة  ",
+        heroSubtitleAR: "وصف القهوة", heroEyebrowAR: "المحمصة", heroBadgeAR: "تحميص طازج",
+        primaryButtonTitleAR: "تسوق القهوة", secondaryButtonTitleAR: "دليل التحضير" };
+    const settings = normalizeHomeSettings(input);
+    assert.equal(settings.heroTitle, "English title");
+    for (const key of Object.keys(input)) assert.equal(settings[key], input[key].trim());
+    assert.deepEqual(normalizeHomeSettings(JSON.parse(JSON.stringify(settings))), settings);
+    assert.equal(normalizeHomeSettings({}).heroTitleAR, "");
+    assert.equal(normalizeHomeSettings({ ...settings, heroTitleAR: " " }).heroTitleAR, "");
+    for (const [key, limit] of Object.entries({ heroTitleAR: 80, heroSubtitleAR: 180,
+        heroEyebrowAR: 40, heroBadgeAR: 40, primaryButtonTitleAR: 28, secondaryButtonTitleAR: 28 })) {
+        assert.equal(normalizeHomeSettings({ [key]: "ق".repeat(250) })[key].length, limit);
+    }
+});
