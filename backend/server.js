@@ -6090,7 +6090,36 @@ function publicShopifyEazyPayment(payment) {
     };
 }
 
+// App exports already exist locally. Treat Shopify callbacks as acknowledgements,
+// not new purchases: keep fulfillment, item snapshots and loyalty on the local ID.
+async function localOrderForShopifyExport(shopifyOrder) {
+    const rawID = String(shopifyOrder.admin_graphql_api_id || shopifyOrder.id || "");
+    const gid = rawID.startsWith("gid://shopify/Order/") ? rawID : (/^\d+$/.test(rawID) ? `gid://shopify/Order/${rawID}` : "");
+    let mapping = null;
+    if (gid) {
+        if (database.isEnabled()) {
+            const result = await database.query("SELECT * FROM shopify_order_exports WHERE shopify_order_gid = $1 LIMIT 1", [gid]);
+            mapping = result.rows[0] ? shopifyOrderExportRowToRecord(result.rows[0]) : null;
+        } else {
+            mapping = Object.values(readJSON(shopifyOrderExportsStorePath).exports || {}).find((entry) => entry.shopifyOrderGID === gid);
+        }
+    }
+    if (mapping) return findOrderByID(mapping.localOrderID);
+
+    // A create webhook may arrive before the export response is saved locally.
+    const sourceID = String(shopifyOrder.source_identifier || shopifyOrder.sourceIdentifier || "").trim();
+    const tags = (Array.isArray(shopifyOrder.tags) ? shopifyOrder.tags : String(shopifyOrder.tags || "").split(",")).map((tag) => tag.trim());
+    if (!sourceID || sourceID.startsWith("shopify_") || !tags.includes(shopifyOrderExportTag(sourceID))) return null;
+    const localOrder = await findOrderByID(sourceID);
+    const email = normalizeEmail(shopifyOrder.email || shopifyOrder.contact_email || shopifyOrder.customer?.email);
+    return localOrder && normalizeEmail(localOrder.email) === email && completedOrderStatuses().has(localOrder.status) ? localOrder : null;
+}
+
 async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
+    const localOrder = await localOrderForShopifyExport(shopifyOrder);
+    if (localOrder) {
+        return { recorded: true, order: await orderPayloadWithRewardState(localOrder.email, localOrder), award: null, eazyTallaPaymentId: null };
+    }
     const eazyPayment = await prepareShopifyEazyOrder(shopifyOrder);
     const order = shopifyOrderRecord(shopifyOrder, topic);
     if (!order.email) {
@@ -6125,6 +6154,8 @@ async function syncRecentShopifyOrdersForEmail(email) {
                     node {
                         id
                         legacyResourceId
+                        sourceIdentifier
+                        tags
                         name
                         email
                         createdAt
@@ -6179,6 +6210,10 @@ async function syncRecentShopifyOrdersForEmail(email) {
     let syncedCount = 0;
 
     for (const { node } of edges) {
+        if (await localOrderForShopifyExport(node)) {
+            syncedCount += 1;
+            continue;
+        }
         const order = shopifyAdminOrderRecord(node, normalizedEmail);
         const recordedOrder = await upsertOrderRecord(order);
         if (!recordedOrder) {
@@ -9137,6 +9172,9 @@ if (require.main === module) {
 }
 
 module.exports = {
+    localOrderForShopifyExport,
+    processShopifyOrderWebhook,
+    syncRecentShopifyOrdersForEmail,
     shopifyOrderRecord,
     shopifyAdminOrderRecord,
     adminOrderNotificationPayload,

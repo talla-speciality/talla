@@ -56,6 +56,12 @@ expect(options.variantDescription == "Weight: 250g · Grind: Whole Bean", "Show 
 
 ## Purchased product variants
 
+Shopify callbacks and customer order refreshes recognise completed app exports by
+their saved Shopify order ID, or by the original source ID and export tag while
+creation is still in flight. They retain the existing local order, fulfillment
+status, purchased items and loyalty identity instead of importing a second order.
+This backend fix prevents new duplicates; it does not delete historical duplicates.
+
 Order cards and details show the product name with the purchased variant/options underneath, and order search also matches variants and SKU. Verified checkout snapshots obtain these fields from Shopify alongside authoritative pricing. Legacy checkout clients use a best-effort catalog lookup at checkout time. Shopify webhook/sync imports retain the line item's purchase-time variant title, including when its catalog variant was deleted. Default Title placeholders are suppressed. Historical orders without recorded variant data keep their original item names; no current-catalog guesses are made.
 
 This addition requires deploying the backend changes and installing the rebuilt admin app. No database migration is required because item metadata is stored in the existing order JSON. Coverage includes Shopify import mapping, checkout snapshot metadata, default/missing variants, and native display compatibility.
