@@ -2269,8 +2269,7 @@ extension ContentView {
 
         return ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 22)
-                    .frame(height: 280)
+                productImageGallery(product)
 
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -2472,6 +2471,25 @@ extension ContentView {
         }
         .background(backgroundGradientColors[0].ignoresSafeArea())
         .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    func productImageGallery(_ product: Product) -> some View {
+        let images = product.imageURLs
+        if images.count > 1 {
+            TabView {
+                ForEach(Array(images.enumerated()), id: \.element) { index, imageURL in
+                    ProductThumbnail(imageURL: imageURL, size: nil, cornerRadius: 22)
+                        .accessibilityLabel("\(product.name), photo \(index + 1) of \(images.count)")
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            .frame(height: 280)
+        } else {
+            ProductThumbnail(imageURL: images.first, size: nil, cornerRadius: 22)
+                .frame(height: 280)
+                .accessibilityLabel(product.name)
+        }
     }
 
     func isBrewableCoffee(_ product: Product) -> Bool {

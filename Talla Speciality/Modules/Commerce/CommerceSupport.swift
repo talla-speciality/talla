@@ -558,6 +558,11 @@ enum ShopifyStorefrontClient {
                     featuredImage {
                       url
                     }
+                    images(first: 12) {
+                      nodes {
+                        url
+                      }
+                    }
                     variants(first: 12) {
                       edges {
                         node {
@@ -778,11 +783,16 @@ struct ShopifyProductNode: Decodable {
     let productType: String
     let countryOfOrigin: Metafield?
     let featuredImage: FeaturedImage?
+    let images: ImageConnection?
     let variants: VariantConnection
     let priceRange: PriceRange
 
     struct FeaturedImage: Decodable {
         let url: URL
+    }
+
+    struct ImageConnection: Decodable {
+        let nodes: [FeaturedImage]
     }
 
     struct Metafield: Decodable {
@@ -1334,6 +1344,7 @@ extension ContentView.Product {
             categoryKey: categoryKey,
             categoryLabel: ProductCatalogRules.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
             imageURL: shopifyNode.featuredImage?.url,
+            additionalImageURLs: shopifyNode.images?.nodes.map(\.url) ?? [],
             desc: AppLocalization.catalogText(localizedNode?.description ?? shopifyNode.description, source: shopifyNode.description, key: "catalog_\(shopifyNode.handle)_description"),
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
             countryOfOrigin: countryOfOrigin,

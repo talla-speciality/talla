@@ -303,6 +303,7 @@ struct ContentView: View {
         let categoryKey: String
         let categoryLabel: String
         let imageURL: URL?
+        var additionalImageURLs: [URL] = []
         let desc: String
         let tag: String?
         let countryOfOrigin: String?
@@ -311,6 +312,12 @@ struct ContentView: View {
 
         var catalogClassificationText: String {
             catalogSourceText ?? "\(name) \(desc) \(categoryLabel)"
+        }
+
+        var imageURLs: [URL] {
+            ([imageURL].compactMap { $0 } + additionalImageURLs).reduce(into: []) { result, url in
+                if !result.contains(url) { result.append(url) }
+            }
         }
 
         var defaultVariant: Variant? {

@@ -18,6 +18,7 @@ class ShopifyRepository {
                   node {
                     id handle title description productType tags
                     featuredImage { url }
+                    images(first: 12) { nodes { url } }
                     variants(first: 50) {
                       edges { node {
                         id title availableForSale requiresShipping weight weightUnit
@@ -131,12 +132,21 @@ class ShopifyRepository {
                 )
             }
         }
+        val featuredImageUrl = node.optJSONObject("featuredImage")?.optString("url")?.takeIf(String::isNotBlank)
+        val imageUrls = buildList {
+            featuredImageUrl?.let(::add)
+            val images = node.optJSONObject("images")?.optJSONArray("nodes") ?: JSONArray()
+            for (index in 0 until images.length()) {
+                images.optJSONObject(index)?.optString("url")?.takeIf(String::isNotBlank)?.let(::add)
+            }
+        }.distinct()
         return Product(
             id = node.getString("id"),
             handle = node.getString("handle"),
             name = node.getString("title"),
             description = node.optString("description"),
-            imageUrl = node.optJSONObject("featuredImage")?.optString("url")?.takeIf(String::isNotBlank),
+            imageUrl = featuredImageUrl,
+            imageUrls = imageUrls,
             category = node.optString("productType").ifBlank { "Coffee" },
             variants = variants,
         )

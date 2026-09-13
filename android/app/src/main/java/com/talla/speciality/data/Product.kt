@@ -6,6 +6,7 @@ data class Product(
     val name: String,
     val description: String,
     val imageUrl: String?,
+    val imageUrls: List<String> = imageUrl?.let(::listOf) ?: emptyList(),
     val category: String,
     val variants: List<ProductVariant>,
 ) {

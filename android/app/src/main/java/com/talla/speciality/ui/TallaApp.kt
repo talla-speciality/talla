@@ -2074,7 +2074,21 @@ private fun ProductDetailsSheet(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item { RemoteImage(product.imageUrl, product.name, Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(24.dp))) }
+            item {
+                if (product.imageUrls.size > 1) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(product.imageUrls, key = { it }) { imageUrl ->
+                            RemoteImage(
+                                imageUrl,
+                                "${product.name}, photo ${product.imageUrls.indexOf(imageUrl) + 1} of ${product.imageUrls.size}",
+                                Modifier.fillParentMaxWidth(.92f).height(260.dp).clip(RoundedCornerShape(24.dp)),
+                            )
+                        }
+                    }
+                } else {
+                    RemoteImage(product.imageUrls.firstOrNull(), product.name, Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(24.dp)))
+                }
+            }
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
