@@ -1,6 +1,44 @@
 import Foundation
 import SwiftUI
 
+extension ContentView {
+    func homeSettingText(_ value: String?, arabicValue: String? = nil, localizationKey: String, fallback: String) -> String {
+        AppLocalization.homeText(value, arabicValue: arabicValue, key: localizationKey, fallback: fallback)
+    }
+
+    var homeHeroSubtitleText: String {
+        let subtitle = homeSettingText(
+            remoteHomeSettings?.heroSubtitle,
+            arabicValue: remoteHomeSettings?.heroSubtitleAR,
+            localizationKey: "hero_subtitle",
+            fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals."
+        )
+
+        if subtitle.localizedCaseInsensitiveContains("without digging through the app") {
+            return AppLocalization.text("hero_subtitle_refined", fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals.")
+        }
+
+        return subtitle
+    }
+
+    func managedURL(_ value: String?, fallback: String) -> URL {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return URL(string: trimmedValue.isEmpty ? fallback : trimmedValue) ?? URL(string: fallback)!
+    }
+
+    var managedWhatsAppURL: URL {
+        managedURL(remoteAppSettings?.support.whatsappURL, fallback: "https://wa.me/97339392414")
+    }
+
+    var managedPrivacyURL: URL {
+        managedURL(remoteAppSettings?.support.privacyURL, fallback: "https://duneroastery.myshopify.com/policies/privacy-policy")
+    }
+
+    var managedTermsURL: URL {
+        managedURL(remoteAppSettings?.support.termsURL, fallback: "https://duneroastery.myshopify.com/policies/terms-of-service")
+    }
+}
+
 extension View {
     @ViewBuilder
     func tallaGlassCapsule(tint: Color, enabled: Bool = true) -> some View {
@@ -91,6 +129,43 @@ enum AppLocalization {
 
         return decoded
     }()
+
+    // Use bundled catalog copy only while it still matches the source product.
+    // New Shopify translations win; changed English copy never gets an outdated translation.
+    static func catalogText(_ value: String, source: String, key: String) -> String {
+        func normalized(_ text: String) -> String {
+            text.components(separatedBy: .whitespacesAndNewlines).joined()
+        }
+        guard currentLanguage.effectiveLanguageCode == "ar",
+              normalized(value) == normalized(source),
+              let entry = translations[key], let original = entry["en"],
+              normalized(original) == normalized(source), let arabic = entry["ar"] else { return value }
+        return arabic
+    }
+
+    static func catalogOption(_ value: String) -> String {
+        value.components(separatedBy: " / ").map {
+            text("catalog_term_" + $0.trimmingCharacters(in: .whitespaces).lowercased(), fallback: $0)
+        }.joined(separator: " / ")
+    }
+
+    static func letterSpacing(_ value: CGFloat) -> CGFloat {
+        currentLanguage.effectiveLanguageCode == "ar" ? 0 : value
+    }
+
+    static func homeText(_ value: String?, arabicValue: String? = nil, key: String, fallback: String) -> String {
+        if currentLanguage.effectiveLanguageCode == "ar",
+           let arabic = arabicValue?.trimmingCharacters(in: .whitespacesAndNewlines), !arabic.isEmpty {
+            return arabic
+        }
+        let remote = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !remote.isEmpty else { return text(key, fallback: fallback) }
+        if currentLanguage.effectiveLanguageCode == "ar",
+           !remote.unicodeScalars.contains(where: { (0x0600...0x06FF).contains(Int($0.value)) }) {
+            return text(key, fallback: fallback)
+        }
+        return remote
+    }
 
     static var currentLanguage: AppLanguage {
         let rawValue = UserDefaults.standard.string(forKey: "app.language") ?? AppLanguage.system.rawValue

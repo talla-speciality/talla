@@ -141,7 +141,7 @@ enum TallaAccountCredentialStore {
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: keychainService,
             kSecAttrAccount: account,
-            kSecAttrSynchronizable: true
+            kSecAttrSynchronizable: kSecAttrSynchronizableAny
         ]
         let attributes: [CFString: Any] = [
             kSecValueData: Data(token.utf8),
@@ -151,8 +151,13 @@ enum TallaAccountCredentialStore {
         let status = SecItemUpdate(lookup as CFDictionary, attributes as CFDictionary)
         guard status == errSecItemNotFound else { return }
 
-        var item = lookup
-        attributes.forEach { item[$0.key] = $0.value }
+        let item: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: keychainService,
+            kSecAttrAccount: account,
+            kSecValueData: Data(token.utf8),
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock
+        ]
         SecItemAdd(item as CFDictionary, nil)
 #endif
     }
@@ -207,6 +212,7 @@ enum AppWidgetSharedState {
 struct ContentView: View {
     @EnvironmentObject var coffeeData: CoffeeDataStore
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.verticalSizeClass) var verticalSizeClass
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.scenePhase) var scenePhase
@@ -218,6 +224,7 @@ struct ContentView: View {
         case shop
         case brewing
         case account
+        case search
 
         var systemImage: String {
             switch self {
@@ -229,6 +236,8 @@ struct ContentView: View {
                 return "drop"
             case .account:
                 return "person"
+            case .search:
+                return "magnifyingglass"
             }
         }
     }
@@ -298,6 +307,11 @@ struct ContentView: View {
         let tag: String?
         let countryOfOrigin: String?
         let isAvailableForSale: Bool
+        var catalogSourceText: String? = nil
+
+        var catalogClassificationText: String {
+            catalogSourceText ?? "\(name) \(desc) \(categoryLabel)"
+        }
 
         var defaultVariant: Variant? {
             variants.first(where: \.isAvailableForSale) ?? variants.first
@@ -305,43 +319,6 @@ struct ContentView: View {
 
         var hasVariantChoices: Bool {
             variants.count > 1
-        }
-    }
-
-    struct HomeSettings: Decodable {
-        let signatureRoastProductIDs: [String]
-        let quickDrinkProductIDs: [String]
-        let funPickProductID: String?
-        let heroEyebrow: String?
-        let heroTitle: String?
-        let heroSubtitle: String?
-        let heroBadge: String?
-        let primaryButtonTitle: String?
-        let secondaryButtonTitle: String?
-
-        enum CodingKeys: String, CodingKey {
-            case signatureRoastProductIDs
-            case quickDrinkProductIDs
-            case funPickProductID
-            case heroEyebrow
-            case heroTitle
-            case heroSubtitle
-            case heroBadge
-            case primaryButtonTitle
-            case secondaryButtonTitle
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            signatureRoastProductIDs = try container.decodeIfPresent([String].self, forKey: .signatureRoastProductIDs) ?? []
-            quickDrinkProductIDs = try container.decodeIfPresent([String].self, forKey: .quickDrinkProductIDs) ?? []
-            funPickProductID = try container.decodeIfPresent(String.self, forKey: .funPickProductID)
-            heroEyebrow = try container.decodeIfPresent(String.self, forKey: .heroEyebrow)
-            heroTitle = try container.decodeIfPresent(String.self, forKey: .heroTitle)
-            heroSubtitle = try container.decodeIfPresent(String.self, forKey: .heroSubtitle)
-            heroBadge = try container.decodeIfPresent(String.self, forKey: .heroBadge)
-            primaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .primaryButtonTitle)
-            secondaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .secondaryButtonTitle)
         }
     }
 
@@ -386,6 +363,7 @@ struct ContentView: View {
             let benefitPayEnabled: Bool
             let benefitEnabled: Bool
             let cardEnabled: Bool
+            let clickToPayEnabled: Bool?
             let cashOnDeliveryEnabled: Bool
             let noticeEN: String
             let noticeAR: String
@@ -594,6 +572,35 @@ struct ContentView: View {
         let createdAt: String
         let beansAwarded: Bool?
         let pointsAwarded: Int?
+
+        struct Details: Decodable {
+            struct Fulfillment: Decodable {
+                let method: String?
+            }
+            let fulfillment: Fulfillment?
+        }
+
+        var details: Details? = nil
+
+        var isPickup: Bool {
+            let method = details?.fulfillment?.method?
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if method == "pickup" { return true }
+            if method == "delivery" { return false }
+            // Older orders can predate the fulfillment snapshot.
+            return title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "pickup order"
+                || status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "ready"
+        }
+
+        var historyStatus: String {
+            let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard isPickup else { return normalized }
+            switch normalized {
+            case "completed", "fulfilled", "delivered": return "collected"
+            case "shipped", "on its way", "out for delivery": return "packed"
+            default: return normalized
+            }
+        }
     }
 
     struct TasteMemoryRecord: Codable, Hashable {
@@ -964,6 +971,7 @@ struct ContentView: View {
     @AppStorage("shortcut.searchQuery") var shortcutSearchQuery = ""
     @State var notificationAuthorizationStatus: Int = 0
     @State var showLaunchSplash = true
+    @State var didStartInitialLaunchSequence = false
     @State var featureTourIndex = 0
     @State var accountAuthMode: AccountAuthMode = .signIn
     @State var accountFirstName = ""
@@ -1393,6 +1401,10 @@ struct ContentView: View {
         horizontalSizeClass != .regular
     }
 
+    var isShortHeight: Bool {
+        verticalSizeClass == .compact
+    }
+
     var shouldShowHeaderCartButton: Bool {
         activeTab == .home || activeTab == .shop
     }
@@ -1410,16 +1422,12 @@ struct ContentView: View {
         if isCompact {
             [GridItem(.flexible(), spacing: 0)]
         } else {
-            [
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16)
-            ]
+            Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
         }
     }
 
     var shopProductGridColumns: [GridItem] {
-        let count = isCompact ? 2 : 3
+        let count = isCompact ? 2 : 4
         return Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
     }
 
@@ -1427,11 +1435,7 @@ struct ContentView: View {
         if isCompact {
             [GridItem(.flexible(), spacing: 0)]
         } else {
-            [
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12)
-            ]
+            Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
         }
     }
 
@@ -1439,11 +1443,7 @@ struct ContentView: View {
         if isCompact {
             [GridItem(.flexible(), spacing: 0)]
         } else {
-            [
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16)
-            ]
+            Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
         }
     }
 
@@ -2227,24 +2227,32 @@ struct ContentView: View {
 
     var launchSplashView: some View {
         ZStack {
-            LinearGradient(
-                colors: isOLEDAppearance
-                    ? [.black, .black, .black]
-                    : [
-                        Color(hex: 0x100B07),
-                        Color(hex: 0x1A120C),
-                        Color(hex: 0x0A0804)
-                    ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Group {
+                if isLightAppearance {
+                    Color.white
+                } else {
+                    LinearGradient(
+                        colors: isOLEDAppearance
+                            ? [.black, .black, .black]
+                            : [
+                                Color(hex: 0x100B07),
+                                Color(hex: 0x1A120C),
+                                Color(hex: 0x0A0804)
+                            ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            }
             .ignoresSafeArea()
 
-            Circle()
-                .fill(Color(hex: 0xC8965A).opacity(0.12))
-                .blur(radius: 90)
-                .frame(width: 240, height: 240)
-                .offset(x: 90, y: -160)
+            if !isLightAppearance {
+                Circle()
+                    .fill(Color(hex: 0xC8965A).opacity(0.12))
+                    .blur(radius: 90)
+                    .frame(width: 240, height: 240)
+                    .offset(x: 90, y: -160)
+            }
 
             Image("Logo")
                 .resizable()
@@ -2265,8 +2273,13 @@ struct ContentView: View {
         let minimumSplashDuration: TimeInterval = 1.25
         let elapsed = Date().timeIntervalSince(startTime)
         if elapsed < minimumSplashDuration {
-            try? await Task.sleep(nanoseconds: UInt64((minimumSplashDuration - elapsed) * 1_000_000_000))
+            do {
+                try await Task.sleep(nanoseconds: UInt64((minimumSplashDuration - elapsed) * 1_000_000_000))
+            } catch {
+                return
+            }
         }
+        guard !Task.isCancelled else { return }
 
         withAnimation(.easeInOut(duration: 0.28)) {
             showLaunchSplash = false
@@ -2279,7 +2292,9 @@ struct ContentView: View {
         // dismissed. Storefront, notification, and account services are
         // optional at launch and must never prevent the local UI from opening.
         await loadProductsIfNeeded()
+        guard !Task.isCancelled else { return }
         await refreshNotificationStatus()
+        guard !Task.isCancelled else { return }
         await syncRemotePushTokenIfPossible()
     }
 
@@ -2332,6 +2347,7 @@ struct ContentView: View {
             benefitPayEnabled: payments.benefitPayEnabled,
             benefitEnabled: payments.benefitEnabled,
             cardEnabled: payments.cardEnabled,
+            clickToPayEnabled: payments.clickToPayEnabled ?? payments.cardEnabled,
             cashOnDeliveryEnabled: payments.cashOnDeliveryEnabled
         )
     }
@@ -2478,9 +2494,12 @@ struct ContentView: View {
         }
         .sensoryFeedback(.success, trigger: delightFeedbackTrigger)
         .task {
+            guard !didStartInitialLaunchSequence else { return }
+            didStartInitialLaunchSequence = true
             if configureReleaseUITestScenarioIfNeeded() { return }
             syncWidgetSharedState(reload: false)
             await runInitialLaunchSequence()
+            guard !Task.isCancelled else { return }
             syncWidgetSharedState(reload: true)
         }
         .onChange(of: activeTab) { _, newTab in
@@ -2547,6 +2566,11 @@ struct ContentView: View {
         }
         .onChange(of: savedAppLanguage) { _, _ in
             syncWidgetSharedState(reload: true)
+            guard !didConfigureReleaseUITest else { return }
+            Task {
+                await loadProducts(force: true)
+                await loadBrewingMethods(force: true)
+            }
         }
         .onChange(of: shortcutDestination) { _, _ in
             handleShortcutDestination()
@@ -2792,43 +2816,95 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
     var baseTabView: some View {
+        if #available(iOS 18.0, *) {
+            modernTabView
+        } else {
+            legacyTabView
+        }
+    }
+
+    @available(iOS 18.0, *)
+    var modernTabView: some View {
         TabView(selection: $activeTab) {
-            tabScreen(tab: .home) {
-                homeView
+            SwiftUI.Tab(
+                AppLocalization.text("home", fallback: "Home"),
+                systemImage: Tab.home.systemImage,
+                value: Tab.home
+            ) {
+                tabScreen(tab: .home) {
+                    homeView
+                }
+                .accessibilityIdentifier("tab.home")
             }
+
+            SwiftUI.Tab(
+                AppLocalization.text("shop", fallback: "Shop"),
+                systemImage: Tab.shop.systemImage,
+                value: Tab.shop
+            ) {
+                tabScreen(tab: .shop) {
+                    shopView
+                }
+                .accessibilityIdentifier("tab.shop")
+            }
+
+            SwiftUI.Tab(
+                AppLocalization.text("brewing", fallback: "Brewing"),
+                systemImage: Tab.brewing.systemImage,
+                value: Tab.brewing
+            ) {
+                tabScreen(tab: .brewing) {
+                    brewingView
+                }
+                .accessibilityIdentifier("tab.brewing")
+            }
+
+            SwiftUI.Tab(
+                AppLocalization.text("account", fallback: "Account"),
+                systemImage: Tab.account.systemImage,
+                value: Tab.account
+            ) {
+                tabScreen(tab: .account) {
+                    accountView
+                }
+                .accessibilityIdentifier("tab.account")
+            }
+
+        }
+    }
+
+    var legacyTabView: some View {
+        TabView(selection: $activeTab) {
+            tabScreen(tab: .home) { homeView }
                 .tag(Tab.home)
                 .accessibilityIdentifier("tab.home")
                 .tabItem {
                     Label(AppLocalization.text("home", fallback: "Home"), systemImage: Tab.home.systemImage)
                 }
 
-            tabScreen(tab: .shop) {
-                shopView
-            }
+            tabScreen(tab: .shop) { shopView }
                 .tag(Tab.shop)
                 .accessibilityIdentifier("tab.shop")
                 .tabItem {
                     Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
                 }
 
-            tabScreen(tab: .brewing) {
-                brewingView
-            }
+            tabScreen(tab: .brewing) { brewingView }
                 .tag(Tab.brewing)
                 .accessibilityIdentifier("tab.brewing")
                 .tabItem {
                     Label(AppLocalization.text("brewing", fallback: "Brewing"), systemImage: Tab.brewing.systemImage)
                 }
 
-            tabScreen(tab: .account) {
-                accountView
-            }
+            tabScreen(tab: .account) { accountView }
                 .tag(Tab.account)
                 .accessibilityIdentifier("tab.account")
                 .tabItem {
                     Label(AppLocalization.text("account", fallback: "Account"), systemImage: Tab.account.systemImage)
                 }
+
         }
         .toolbar(.visible, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
@@ -3404,42 +3480,6 @@ struct ContentView: View {
                 paymentFlow.transition(to: .failed, error: error.localizedDescription)
             }
         }
-    }
-
-    func homeSettingText(_ value: String?, localizationKey: String, fallback: String) -> String {
-        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmedValue.isEmpty ? AppLocalization.text(localizationKey, fallback: fallback) : trimmedValue
-    }
-
-    var homeHeroSubtitleText: String {
-        let subtitle = homeSettingText(
-            remoteHomeSettings?.heroSubtitle,
-            localizationKey: "hero_subtitle",
-            fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals."
-        )
-
-        if subtitle.localizedCaseInsensitiveContains("without digging through the app") {
-            return AppLocalization.text("hero_subtitle_refined", fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals.")
-        }
-
-        return subtitle
-    }
-
-    func managedURL(_ value: String?, fallback: String) -> URL {
-        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return URL(string: trimmedValue.isEmpty ? fallback : trimmedValue) ?? URL(string: fallback)!
-    }
-
-    var managedWhatsAppURL: URL {
-        managedURL(remoteAppSettings?.support.whatsappURL, fallback: "https://wa.me/97339392414")
-    }
-
-    var managedPrivacyURL: URL {
-        managedURL(remoteAppSettings?.support.privacyURL, fallback: "https://duneroastery.myshopify.com/policies/privacy-policy")
-    }
-
-    var managedTermsURL: URL {
-        managedURL(remoteAppSettings?.support.termsURL, fallback: "https://duneroastery.myshopify.com/policies/terms-of-service")
     }
 
 }

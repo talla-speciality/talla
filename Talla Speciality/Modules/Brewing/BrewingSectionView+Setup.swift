@@ -21,7 +21,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("the_craft", fallback: "THE CRAFT"))
                 .font(brewEyebrowFont)
-                .tracking(3)
+                .tracking(AppLocalization.letterSpacing(3))
                 .textCase(.uppercase)
                 .foregroundColor(brewAccentColor)
 
@@ -79,7 +79,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 10) {
             Text(brewProfileProgressLabel)
                 .font(brewEyebrowFont)
-                .tracking(2.4)
+                .tracking(AppLocalization.letterSpacing(2.4))
                 .textCase(.uppercase)
                 .foregroundColor(brewAccentColor)
 
@@ -846,7 +846,7 @@ extension BrewingSectionView {
     func brewSectionLabel(_ title: String) -> some View {
         Text(title)
             .font(brewEyebrowFont)
-            .tracking(2)
+            .tracking(AppLocalization.letterSpacing(2))
             .textCase(.uppercase)
             .foregroundColor(brewAccentColor)
     }
@@ -1276,7 +1276,7 @@ extension BrewingSectionView {
             } label: {
                 Text(brewProfileStep == .experience ? AppLocalization.text("skip", fallback: "Skip") : AppLocalization.text("back", fallback: "Back"))
                     .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.1)
+                    .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
                     .foregroundColor(brewPrimaryTextColor)
                     .frame(maxWidth: .infinity)
@@ -1295,7 +1295,7 @@ extension BrewingSectionView {
             } label: {
                 Text(brewProfileStep == .tasteGoal ? AppLocalization.text("finish_setup", fallback: "Finish Setup") : AppLocalization.text("continue", fallback: "Continue"))
                     .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.1)
+                    .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x1C1A17))
                     .frame(maxWidth: .infinity)

@@ -90,7 +90,7 @@ struct WelcomeOverlayView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(AppLocalization.text("welcome_eyebrow", fallback: "Welcome to Talla"))
                         .font(labelFont)
-                        .tracking(2.4)
+                        .tracking(AppLocalization.letterSpacing(2.4))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
@@ -136,7 +136,7 @@ struct WelcomeOverlayView: View {
                     Button(action: startAction) {
                         Text(AppLocalization.text("set_up_account", fallback: "Set Up Account"))
                             .font(labelFont)
-                            .tracking(2)
+                            .tracking(AppLocalization.letterSpacing(2))
                             .textCase(.uppercase)
                             .foregroundColor(Color(hex: 0x0A0804))
                             .frame(maxWidth: .infinity)
@@ -258,7 +258,7 @@ struct FeatureTourOverlayView: View {
                         VStack(alignment: .leading, spacing: 7) {
                             Text(AppLocalization.text("talla_tour", fallback: "Talla tour"))
                                 .font(labelFont)
-                                .tracking(2.4)
+                                .tracking(AppLocalization.letterSpacing(2.4))
                                 .textCase(.uppercase)
                                 .foregroundColor(accentColor)
 
@@ -299,7 +299,7 @@ struct FeatureTourOverlayView: View {
                         Button(action: nextAction) {
                             Text(isLastHighlight ? AppLocalization.text("done", fallback: "Done") : AppLocalization.text("next", fallback: "Next"))
                                 .font(labelFont)
-                                .tracking(1.8)
+                                .tracking(AppLocalization.letterSpacing(1.8))
                                 .textCase(.uppercase)
                                 .foregroundColor(Color(hex: 0x0A0804))
                                 .frame(maxWidth: .infinity)
@@ -610,7 +610,7 @@ struct ToastBannerView: View {
     var body: some View {
         Text(message)
             .font(font)
-            .tracking(1)
+            .tracking(AppLocalization.letterSpacing(1))
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
             .background(backgroundColor)

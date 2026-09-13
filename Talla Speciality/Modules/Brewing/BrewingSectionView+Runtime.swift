@@ -21,7 +21,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("continue_or_saved_recipes", fallback: "Continue Last Brew"))
                 .font(sectionTitleFont)
-                .tracking(2.2)
+                .tracking(AppLocalization.letterSpacing(2.2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -35,7 +35,7 @@ extension BrewingSectionView {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(AppLocalization.text("recent_brews", fallback: "Recent Brews"))
                         .font(Font.custom("AvenirNext-Bold", size: 10))
-                        .tracking(1.8)
+                        .tracking(AppLocalization.letterSpacing(1.8))
                         .textCase(.uppercase)
                         .foregroundColor(tertiaryTextColor)
 
@@ -58,7 +58,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("choose_your_strength", fallback: "Choose your strength"))
                 .font(sectionTitleFont)
-                .tracking(2.2)
+                .tracking(AppLocalization.letterSpacing(2.2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -88,7 +88,7 @@ extension BrewingSectionView {
                     } label: {
                         Text(category)
                             .font(Font.custom("AvenirNext-Bold", size: 11))
-                            .tracking(1.6)
+                            .tracking(AppLocalization.letterSpacing(1.6))
                             .textCase(.uppercase)
                             .foregroundColor(activeCategory == category ? Color(hex: 0x0A0804) : secondaryTextColor)
                             .padding(.horizontal, 14)
@@ -115,7 +115,7 @@ extension BrewingSectionView {
 
             Text(method.name)
                 .font(.system(size: isCompact ? 20 : 22, weight: .bold, design: .serif))
-                .tracking(1)
+                .tracking(AppLocalization.letterSpacing(1))
                 .foregroundColor(primaryTextColor)
                 .lineLimit(2)
                 .minimumScaleFactor(0.82)
@@ -142,7 +142,7 @@ extension BrewingSectionView {
                 } label: {
                     Text(AppLocalization.text("read_guide", fallback: "Read Guide"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(1.2)
+                        .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
                 }
@@ -156,7 +156,7 @@ extension BrewingSectionView {
                     HStack(spacing: 6) {
                         Text(AppLocalization.text("brew_now", fallback: "Brew Now"))
                             .font(Font.custom("AvenirNext-Bold", size: 10))
-                            .tracking(1.2)
+                            .tracking(AppLocalization.letterSpacing(1.2))
                             .textCase(.uppercase)
                             .lineLimit(1)
                             .minimumScaleFactor(0.78)
@@ -390,7 +390,7 @@ extension BrewingSectionView {
     func methodTag(_ title: String) -> some View {
         Text(title)
             .font(Font.custom("AvenirNext-Bold", size: 10))
-            .tracking(1.4)
+            .tracking(AppLocalization.letterSpacing(1.4))
             .textCase(.uppercase)
             .foregroundColor(accentColor)
             .padding(.horizontal, 10)
@@ -1224,7 +1224,7 @@ extension BrewingSectionView {
 
                 Text(AppLocalization.text("brew_again", fallback: "Brew Again"))
                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(isPrimary ? Color(hex: 0x0A0804) : accentColor)
                     .padding(.horizontal, 10)
@@ -1826,7 +1826,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("ratio_calculator", fallback: "RATIO CALCULATOR"))
                 .font(sectionTitleFont)
-                .tracking(2.2)
+                .tracking(AppLocalization.letterSpacing(2.2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -1865,7 +1865,7 @@ extension BrewingSectionView {
                 Button(action: saveCurrentRecipe) {
                     Text(AppLocalization.text("save_recipe", fallback: "Save Recipe"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(2)
+                        .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
@@ -1889,7 +1889,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.system(size: 9, weight: .light))
-                .tracking(3)
+                .tracking(AppLocalization.letterSpacing(3))
                 .textCase(.uppercase)
                 .foregroundColor(tertiaryTextColor)
 
@@ -1932,7 +1932,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(Font.custom("AvenirNext-DemiBold", size: 10))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(tertiaryTextColor)
 

@@ -82,7 +82,7 @@ struct LoyaltySectionView: View {
 
                     Text(account.tier)
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(2)
+                        .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
                 }
@@ -96,7 +96,7 @@ struct LoyaltySectionView: View {
 
                     Text(AppLocalization.text("until_reward", fallback: "until reward"))
                         .font(Font.custom("AvenirNext-Bold", size: 9))
-                        .tracking(1.2)
+                        .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
                         .foregroundColor(secondaryTextColor)
                 }
@@ -110,7 +110,7 @@ struct LoyaltySectionView: View {
                 } label: {
                     Label(AppLocalization.text("view_rewards", fallback: "View Rewards"), systemImage: "gift.fill")
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(1.4)
+                        .tracking(AppLocalization.letterSpacing(1.4))
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
@@ -278,7 +278,7 @@ struct LoyaltySectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("lookup_rewards", fallback: "Lookup Rewards"))
                 .font(sectionTitleFont)
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -302,7 +302,7 @@ struct LoyaltySectionView: View {
                     ? AppLocalization.text("checking", fallback: "CHECKING...")
                     : AppLocalization.text("check_rewards", fallback: "CHECK REWARDS"))
                     .font(Font.custom("AvenirNext-Bold", size: 12))
-                    .tracking(2.5)
+                    .tracking(AppLocalization.letterSpacing(2.5))
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -315,7 +315,7 @@ struct LoyaltySectionView: View {
                 Button(action: signOutAction) {
                     Text(AppLocalization.text("disconnect_rewards", fallback: "DISCONNECT REWARDS"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(2)
+                        .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
                         .foregroundColor(secondaryTextColor)
                 }
@@ -343,7 +343,7 @@ struct LoyaltySectionView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(AppLocalization.text("rewards_connected", fallback: "Rewards connected"))
                     .font(sectionTitleFont)
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
                     .foregroundColor(primaryTextColor)
 
@@ -361,7 +361,7 @@ struct LoyaltySectionView: View {
                     ? AppLocalization.text("refreshing", fallback: "Refreshing...")
                     : AppLocalization.text("refresh", fallback: "Refresh"))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.4)
+                    .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
             }
@@ -382,7 +382,7 @@ struct LoyaltySectionView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.8)
+                .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -406,7 +406,7 @@ struct LoyaltySectionView: View {
             HStack {
                 Text(title)
                     .font(sectionTitleFont)
-                    .tracking(2)
+                    .tracking(AppLocalization.letterSpacing(2))
                     .textCase(.uppercase)
                     .foregroundColor(primaryTextColor)
 

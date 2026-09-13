@@ -43,7 +43,7 @@ struct CustomerAccountSectionView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text(AppLocalization.text("account_title", fallback: "Account"))
                 .font(labelFont)
-                .tracking(4)
+                .tracking(AppLocalization.letterSpacing(4))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -97,7 +97,7 @@ struct CustomerAccountSectionView: View {
                     toggleModeAction(.changePassword)
                 }
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(1.6)
+                .tracking(AppLocalization.letterSpacing(1.6))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
                 .buttonStyle(.plain)
@@ -158,7 +158,7 @@ struct CustomerAccountSectionView: View {
 
                     Text(primaryActionTitle)
                         .font(Font.custom("AvenirNext-Bold", size: 12))
-                        .tracking(2.5)
+                        .tracking(AppLocalization.letterSpacing(2.5))
                 }
                 .foregroundColor(Color(hex: 0x0A0804))
                 .frame(maxWidth: .infinity)
@@ -208,7 +208,7 @@ struct CustomerAccountSectionView: View {
                 if accountAuthMode == .signIn {
                     Text(AppLocalization.text("fast_access_checkout", fallback: "Fast access for checkout and rewards"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(1.8)
+                        .tracking(AppLocalization.letterSpacing(1.8))
                         .foregroundColor(secondaryTextColor)
 
                     Spacer(minLength: 0)
@@ -217,7 +217,7 @@ struct CustomerAccountSectionView: View {
                         requestPasswordResetLinkAction()
                     }
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
                     .buttonStyle(.plain)
@@ -227,7 +227,7 @@ struct CustomerAccountSectionView: View {
                         toggleModeAction(.signIn)
                     }
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
                     .buttonStyle(.plain)
@@ -281,7 +281,7 @@ struct CustomerAccountSectionView: View {
         } label: {
             Text(title)
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.8)
+                .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
                 .foregroundColor(isSelected ? Color(hex: 0x0A0804) : secondaryTextColor)
                 .frame(maxWidth: .infinity)

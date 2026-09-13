@@ -135,7 +135,7 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("language", fallback: "Language"))
                         .font(labelFont(size: 11, weight: .bold))
-                        .tracking(1.8)
+                        .tracking(AppLocalization.letterSpacing(1.8))
                         .textCase(.uppercase)
                         .foregroundColor(primaryTextColor)
 
@@ -166,7 +166,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 14) {
             Text(AppLocalization.text("settings_and_help", fallback: "SETTINGS & HELP"))
                 .font(displayFont(size: 22))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
             VStack(spacing: 0) {
@@ -387,7 +387,7 @@ extension ContentView {
                         ? AppLocalization.text("open_settings", fallback: "Open Settings")
                         : AppLocalization.text("enable_notifications", fallback: "Enable Notifications")))
                     .font(labelFont(size: 11, weight: .bold))
-                    .tracking(1.6)
+                    .tracking(AppLocalization.letterSpacing(1.6))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
@@ -436,7 +436,7 @@ extension ContentView {
                     Text(AppLocalization.text("delete_account_permanently", fallback: "Delete Account Permanently"))
                 }
                 .font(labelFont(size: 11, weight: .bold))
-                .tracking(1.6)
+                .tracking(AppLocalization.letterSpacing(1.6))
                 .textCase(.uppercase)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -580,7 +580,7 @@ extension ContentView {
             Button(action: action) {
                 Text(actionTitle)
                     .font(labelFont(size: 10, weight: .bold))
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 16)
@@ -604,7 +604,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("favorites", fallback: "FAVORITES"))
                 .font(displayFont(size: 22))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
             if favoriteProducts.isEmpty {
@@ -628,7 +628,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("recommended_for_you", fallback: "RECOMMENDED FOR YOU"))
                 .font(displayFont(size: 22))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
             if recommendedProducts.isEmpty {
@@ -660,7 +660,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("back_in_stock_reminders", fallback: "BACK IN STOCK REMINDERS"))
                 .font(displayFont(size: 22))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
             if alertProducts.isEmpty {
@@ -682,7 +682,7 @@ extension ContentView {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(AppLocalization.text("recent_alert_updates", fallback: "Recent Alert Updates"))
                                 .font(labelFont(size: 10, weight: .bold))
-                                .tracking(1.6)
+                                .tracking(AppLocalization.letterSpacing(1.6))
                                 .textCase(.uppercase)
                                 .foregroundColor(readableBrandGoldColor)
 
@@ -720,7 +720,7 @@ extension ContentView {
 
                                 Text(stockAlertLabel(for: product))
                                     .font(labelFont(size: 10, weight: .bold))
-                                    .tracking(1.6)
+                                    .tracking(AppLocalization.letterSpacing(1.6))
                                     .textCase(.uppercase)
                                     .foregroundColor(readableBrandGoldColor)
                             }
@@ -759,7 +759,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("delivery_country", fallback: "Delivery country"))
                 .font(labelFont(size: 10, weight: .bold))
-                .tracking(1.5)
+                .tracking(AppLocalization.letterSpacing(1.5))
                 .textCase(.uppercase)
                 .foregroundColor(tertiaryTextColor)
 
@@ -792,7 +792,7 @@ extension ContentView {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(AppLocalization.text("complete_your_profile", fallback: "COMPLETE YOUR PROFILE"))
                             .font(labelFont(size: 10, weight: .bold))
-                            .tracking(2.4)
+                            .tracking(AppLocalization.letterSpacing(2.4))
                             .foregroundColor(readableBrandGoldColor)
 
                         Text(AppLocalization.text("where_should_we_deliver", fallback: "Where should we deliver?"))
@@ -874,7 +874,7 @@ extension ContentView {
                                 ? AppLocalization.text("saving", fallback: "Saving...")
                                 : AppLocalization.text("save_and_continue", fallback: "Save & Continue"))
                                 .font(labelFont(size: 11, weight: .bold))
-                                .tracking(1.8)
+                                .tracking(AppLocalization.letterSpacing(1.8))
                                 .textCase(.uppercase)
                         }
                         .foregroundColor(Color(hex: 0x0A0804))
@@ -929,7 +929,7 @@ extension ContentView {
             VStack(alignment: .leading, spacing: 6) {
                 Text(AppLocalization.text("delivery_details", fallback: "DELIVERY DETAILS"))
                     .font(displayFont(size: 22))
-                    .tracking(2)
+                    .tracking(AppLocalization.letterSpacing(2))
                     .foregroundColor(primaryTextColor)
 
                 Text(addresses.isEmpty
@@ -949,7 +949,7 @@ extension ContentView {
                     HStack(alignment: .firstTextBaseline) {
                         Text(AppLocalization.text("saved_addresses", fallback: "SAVED ADDRESSES"))
                             .font(labelFont(size: 11, weight: .bold))
-                            .tracking(1.8)
+                            .tracking(AppLocalization.letterSpacing(1.8))
                             .foregroundColor(primaryTextColor)
 
                         Spacer()
@@ -972,7 +972,7 @@ extension ContentView {
             Label {
                 Text(AppLocalization.text("add_new_address", fallback: "ADD A NEW ADDRESS"))
                     .font(labelFont(size: 11, weight: .bold))
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
             } icon: {
                 Image(systemName: "location.badge.plus")
                     .font(.system(size: 14, weight: .bold))
@@ -1042,7 +1042,7 @@ extension ContentView {
                         ? AppLocalization.text("saving", fallback: "Saving...")
                         : AppLocalization.text("save_address", fallback: "Save Address"))
                         .font(labelFont(size: 11, weight: .bold))
-                        .tracking(1.8)
+                        .tracking(AppLocalization.letterSpacing(1.8))
                         .textCase(.uppercase)
                 }
                 .foregroundColor(Color(hex: 0x0A0804))
@@ -1096,7 +1096,7 @@ extension ContentView {
                     if address.isPreferred {
                         Text(AppLocalization.text("preferred", fallback: "Preferred"))
                             .font(labelFont(size: 9, weight: .bold))
-                            .tracking(1.2)
+                            .tracking(AppLocalization.letterSpacing(1.2))
                             .textCase(.uppercase)
                             .foregroundColor(readableBrandGoldColor)
                             .padding(.horizontal, 8)
@@ -1190,7 +1190,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("saved_brew_recipes", fallback: "SAVED BREW RECIPES"))
                 .font(displayFont(size: 22))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
             if brewRecipes.isEmpty {
@@ -1217,7 +1217,7 @@ extension ContentView {
 
                                 Text(recipe.category)
                                     .font(labelFont(size: 10, weight: .bold))
-                                    .tracking(1.4)
+                                    .tracking(AppLocalization.letterSpacing(1.4))
                                     .textCase(.uppercase)
                                     .foregroundColor(readableBrandGoldColor)
                             }
@@ -1230,7 +1230,7 @@ extension ContentView {
                                 } label: {
                                     Text(AppLocalization.text("apply", fallback: "Apply"))
                                         .font(labelFont(size: 10, weight: .bold))
-                                        .tracking(1.8)
+                                        .tracking(AppLocalization.letterSpacing(1.8))
                                         .textCase(.uppercase)
                                         .foregroundColor(Color(hex: 0x0A0804))
                                         .padding(.horizontal, 14)
@@ -1271,7 +1271,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("saved_carts", fallback: "SAVED BAGS"))
                 .font(displayFont(size: 22))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
             if savedCarts.isEmpty {
@@ -1305,7 +1305,7 @@ extension ContentView {
                                 } label: {
                                     Text(AppLocalization.text("load", fallback: "Load"))
                                         .font(labelFont(size: 10, weight: .bold))
-                                        .tracking(1.8)
+                                        .tracking(AppLocalization.letterSpacing(1.8))
                                         .textCase(.uppercase)
                                         .foregroundColor(Color(hex: 0x0A0804))
                                         .padding(.horizontal, 14)
@@ -1346,7 +1346,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 16) {
             Text(AppLocalization.text("recently_viewed", fallback: "RECENTLY VIEWED"))
                 .font(displayFont(size: 22))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
             if recentlyViewedProducts.isEmpty {
@@ -1385,7 +1385,7 @@ extension ContentView {
                     Image(systemName: "arrow.forward")
                 }
                 .font(labelFont(size: 11, weight: .bold))
-                .tracking(1.4)
+                .tracking(AppLocalization.letterSpacing(1.4))
                 .textCase(.uppercase)
                 .foregroundColor(readableBrandGoldColor)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1435,7 +1435,7 @@ extension ContentView {
                     ? AppLocalization.text("options", fallback: "Options")
                     : AppLocalization.text("add", fallback: "Add"))
                     .font(labelFont(size: 10, weight: .bold))
-                    .tracking(1.4)
+                    .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
@@ -2277,9 +2277,24 @@ extension ContentView {
         isLoadingProducts = true
         loadingError = nil
 
+        let requestedLanguage = AppLocalization.currentLanguage.effectiveLanguageCode
         do {
-            let fetchedProducts = try await ShopifyStorefrontClient.fetchAllProducts()
+            let fetchedProducts = try await ShopifyStorefrontClient.fetchAllProducts(languageCode: requestedLanguage)
+            guard requestedLanguage == AppLocalization.currentLanguage.effectiveLanguageCode else {
+                isLoadingProducts = false
+                await loadProducts(force: true)
+                return
+            }
             products = fetchedProducts
+            cartItems = cartItems.map { item in
+                guard let product = fetchedProducts.first(where: { $0.id == item.product.id }),
+                      let variant = product.variants.first(where: { $0.id == item.variant.id }) else { return item }
+                return CartItem(id: item.id, product: product, variant: variant, quantity: item.quantity)
+            }
+            if let current = selectedProduct,
+               let refreshed = fetchedProducts.first(where: { $0.id == current.id }) {
+                selectedProduct = refreshed
+            }
             hasLoadedProducts = true
             lastProductsRefreshAt = Date()
             await loadHomeSettings()

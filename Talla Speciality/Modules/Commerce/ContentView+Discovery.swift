@@ -32,7 +32,7 @@ import UIKit
 
 extension ContentView {
     var header: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: isShortHeight ? 8 : 14) {
             HStack {
                 Button {
                     openTab(.home)
@@ -41,25 +41,28 @@ extension ContentView {
                         Image("Logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: customerProfile == nil ? 52 : 44, height: customerProfile == nil ? 52 : 44)
+                            .frame(
+                                width: isShortHeight ? 38 : (customerProfile == nil ? 52 : 44),
+                                height: isShortHeight ? 38 : (customerProfile == nil ? 52 : 44)
+                            )
 
                         if let customerProfile {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(AppLocalization.text("welcome_back", fallback: "Welcome back,"))
                                     .font(labelFont(size: 10, weight: .bold))
-                                    .tracking(1.5)
+                                    .tracking(AppLocalization.letterSpacing(1.5))
                                     .textCase(.uppercase)
                                     .foregroundColor(readableBrandGoldColor)
 
                                 Text(customerFirstName(for: customerProfile))
-                                    .font(displayFont(size: isCompact ? 25 : 26))
+                                    .font(displayFont(size: isShortHeight ? 21 : (isCompact ? 25 : 26)))
                                     .foregroundColor(primaryTextColor)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.7)
                             }
                         } else {
                             Text("TALLA")
-                                .font(displayFont(size: isCompact ? 32 : 28))
+                                .font(displayFont(size: isShortHeight ? 25 : (isCompact ? 32 : 28)))
                                 .tracking(isCompact ? 2 : 3)
                                 .foregroundColor(primaryTextColor)
                                 .lineLimit(1)
@@ -122,9 +125,9 @@ extension ContentView {
                 .accessibilityLabel(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"))
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
+        .padding(.horizontal, isShortHeight ? 12 : 18)
+        .padding(.top, isShortHeight ? 8 : 14)
+        .padding(.bottom, isShortHeight ? 7 : 12)
         .background(headerOverlayColor)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -135,13 +138,32 @@ extension ContentView {
     }
 
     var headerCartButton: some View {
-        Button {
+        HeaderCartButton(
+            cartCount: cartCount,
+            showingCelebration: showingCartCelebration,
+            celebrationID: cartCelebrationID,
+            isLightAppearance: isLightAppearance,
+            cardFillColor: cardFillColor
+        ) {
             withAnimation(.easeInOut(duration: 0.18)) {
                 cartOpen = true
             }
-        } label: {
+        }
+    }
+}
+
+private struct HeaderCartButton: View {
+    let cartCount: Int
+    let showingCelebration: Bool
+    let celebrationID: Int
+    let isLightAppearance: Bool
+    let cardFillColor: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
             ZStack(alignment: .topTrailing) {
-                if showingCartCelebration {
+                if showingCelebration {
                     Circle()
                         .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.32 : 0.42), lineWidth: 2)
                         .frame(width: 44, height: 44)
@@ -154,7 +176,7 @@ extension ContentView {
                 Image(systemName: cartCount > 0 ? "bag.fill" : "bag")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(cartCount > 0 ? Color(hex: 0x0A0804) : Color(hex: 0xC8965A))
-                    .symbolEffect(.bounce, value: cartCelebrationID)
+                    .symbolEffect(.bounce, value: celebrationID)
                     .frame(width: 40, height: 40)
                     .background(cartCount > 0 ? Color(hex: 0xC8965A) : cardFillColor)
                     .clipShape(Circle())
@@ -181,9 +203,9 @@ extension ContentView {
                 }
             }
             .frame(width: 44, height: 44, alignment: .center)
-            .scaleEffect(showingCartCelebration ? 1.16 : 1)
-            .rotationEffect(.degrees(showingCartCelebration ? -4 : 0))
-            .animation(.spring(response: 0.26, dampingFraction: 0.48), value: showingCartCelebration)
+            .scaleEffect(showingCelebration ? 1.16 : 1)
+            .rotationEffect(.degrees(showingCelebration ? -4 : 0))
+            .animation(.spring(response: 0.26, dampingFraction: 0.48), value: showingCelebration)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -194,6 +216,9 @@ extension ContentView {
                 : AppLocalization.text("empty_bag", fallback: "Empty bag")
         )
     }
+}
+
+extension ContentView {
 
     var homeView: some View {
         VStack(spacing: 0) {
@@ -903,7 +928,7 @@ extension ContentView {
     }
 
     func surprisePickReason(for product: Product) -> String {
-        let source = "\(product.name) \(product.desc) \(product.categoryLabel)".lowercased()
+        let source = product.catalogClassificationText.lowercased()
 
         if source.contains("ethiopia") || source.contains("guji") || source.contains("floral") || source.contains("berry") {
             return AppLocalization.text("surprise_reason_floral", fallback: "It brings a bright, expressive cup with floral and berry-like energy.")
@@ -925,7 +950,7 @@ extension ContentView {
     }
 
     func surprisePickBrewMethod(for product: Product) -> String {
-        let source = "\(product.name) \(product.desc) \(product.categoryLabel)".lowercased()
+        let source = product.catalogClassificationText.lowercased()
 
         if source.contains("arabic") || source.contains("shamali") || source.contains("qahwa") || source.contains("cardamom") {
             return AppLocalization.text("brew_method_arabic", fallback: "Arabic coffee")
@@ -962,7 +987,7 @@ extension ContentView {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(AppLocalization.text("favorites_shelf", fallback: "Your Shelf"))
                                     .font(labelFont(size: 10, weight: .bold))
-                                    .tracking(2.2)
+                                    .tracking(AppLocalization.letterSpacing(2.2))
                                     .textCase(.uppercase)
                                     .foregroundColor(readableBrandGoldColor)
 
@@ -1220,7 +1245,7 @@ extension ContentView {
             } label: {
                 Text(AppLocalization.text("sign_in", fallback: "Sign In"))
                     .font(labelFont(size: 10, weight: .bold))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 14)
@@ -1286,7 +1311,7 @@ extension ContentView {
             } label: {
                 Text(AppLocalization.text("reorder", fallback: "Reorder"))
                     .font(labelFont(size: 11, weight: .bold))
-                    .tracking(1.4)
+                    .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 16)
@@ -1374,7 +1399,7 @@ extension ContentView {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(AppLocalization.text("favorites_shelf", fallback: "Your shelf"))
                                 .font(displayFont(size: isCompact ? 30 : 34))
-                                .tracking(1.4)
+                                .tracking(AppLocalization.letterSpacing(1.4))
                                 .foregroundColor(primaryTextColor)
 
                             Text(AppLocalization.text("favorites_shelf_stand_detail", fallback: "A stand for the coffees and goods you heart."))
@@ -1423,7 +1448,7 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(AppLocalization.text("favorites_stand", fallback: "Favorites stand"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
+                        .tracking(AppLocalization.letterSpacing(2.2))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
@@ -1488,7 +1513,7 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(product.categoryLabel)
                         .font(labelFont(size: 9, weight: .bold))
-                        .tracking(2)
+                        .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
@@ -1525,7 +1550,7 @@ extension ContentView {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(AppLocalization.text("talla_passport", fallback: "Talla Passport"))
                             .font(labelFont(size: 10, weight: .bold))
-                            .tracking(2.2)
+                            .tracking(AppLocalization.letterSpacing(2.2))
                             .textCase(.uppercase)
                             .foregroundColor(readableBrandGoldColor)
 
@@ -1571,7 +1596,7 @@ extension ContentView {
                     systemImage: isTallaPassportExpanded ? "chevron.up" : "arrow.right"
                 )
                 .font(labelFont(size: 10, weight: .bold))
-                .tracking(1.2)
+                .tracking(AppLocalization.letterSpacing(1.2))
                 .textCase(.uppercase)
                 .foregroundColor(readableBrandGoldColor)
             }
@@ -1657,7 +1682,7 @@ extension ContentView {
                 if isStamped {
                     Text(AppLocalization.text("passport_stamp_mark", fallback: "STAMPED"))
                         .font(labelFont(size: 7, weight: .black))
-                        .tracking(0.8)
+                        .tracking(AppLocalization.letterSpacing(0.8))
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0x0A0804))
                         .padding(.horizontal, 7)
@@ -1677,7 +1702,7 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("start_here", fallback: "Start here"))
                 .font(labelFont(size: 10, weight: .bold))
-                .tracking(2.2)
+                .tracking(AppLocalization.letterSpacing(2.2))
                 .textCase(.uppercase)
                 .foregroundColor(readableBrandGoldColor)
 
@@ -1762,7 +1787,7 @@ extension ContentView {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(AppLocalization.text("the_talla_club", fallback: "The Talla Club"))
                                 .font(labelFont(size: 10, weight: .bold))
-                                .tracking(2.2)
+                                .tracking(AppLocalization.letterSpacing(2.2))
                                 .textCase(.uppercase)
                                 .foregroundColor(readableBrandGoldColor)
 
@@ -1779,7 +1804,7 @@ extension ContentView {
                         } label: {
                             Text(AppLocalization.text("rewards_button", fallback: "Rewards"))
                                 .font(labelFont(size: 10, weight: .bold))
-                                .tracking(1.8)
+                                .tracking(AppLocalization.letterSpacing(1.8))
                                 .textCase(.uppercase)
                                 .foregroundColor(Color(hex: 0x0A0804))
                                 .padding(.horizontal, 12)
@@ -1794,7 +1819,7 @@ extension ContentView {
                         HStack {
                             Text(AppLocalization.text("reward_progress_home", fallback: "Reward Progress"))
                                 .font(labelFont(size: 10, weight: .bold))
-                                .tracking(1.8)
+                                .tracking(AppLocalization.letterSpacing(1.8))
                                 .textCase(.uppercase)
                                 .foregroundColor(tertiaryTextColor)
                             Spacer()
@@ -1852,9 +1877,9 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(homeSettingText(remoteHomeSettings?.heroEyebrow, localizationKey: "roastery", fallback: "Roastery"))
+                    Text(homeSettingText(remoteHomeSettings?.heroEyebrow, arabicValue: remoteHomeSettings?.heroEyebrowAR, localizationKey: "roastery", fallback: "Roastery"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .tracking(3)
+                        .tracking(AppLocalization.letterSpacing(3))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
@@ -1868,9 +1893,9 @@ extension ContentView {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 12, weight: .semibold))
-                    Text(homeSettingText(remoteHomeSettings?.heroBadge, localizationKey: "fresh_roast", fallback: "Fresh Roast"))
+                    Text(homeSettingText(remoteHomeSettings?.heroBadge, arabicValue: remoteHomeSettings?.heroBadgeAR, localizationKey: "fresh_roast", fallback: "Fresh Roast"))
                         .font(labelFont(size: 9, weight: .bold))
-                        .tracking(1.5)
+                        .tracking(AppLocalization.letterSpacing(1.5))
                         .textCase(.uppercase)
                 }
                 .foregroundColor(Color(hex: 0x8B5B2A))
@@ -1887,7 +1912,7 @@ extension ContentView {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(homeSettingText(remoteHomeSettings?.heroTitle, localizationKey: "hero_title", fallback: "Specialty coffee,\nroasted with intention"))
+                Text(homeSettingText(remoteHomeSettings?.heroTitle, arabicValue: remoteHomeSettings?.heroTitleAR, localizationKey: "hero_title", fallback: "Specialty coffee,\nroasted with intention"))
                     .font(displayFont(size: isCompact ? 24 : 30))
                     .lineSpacing(1)
                     .foregroundColor(primaryTextColor)
@@ -1902,9 +1927,9 @@ extension ContentView {
                 Button {
                     openShop()
                 } label: {
-                    Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, localizationKey: "explore_coffees", fallback: "EXPLORE COFFEES").uppercased())
+                    Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, arabicValue: remoteHomeSettings?.primaryButtonTitleAR, localizationKey: "explore_coffees", fallback: "EXPLORE COFFEES").uppercased())
                         .font(labelFont(size: 11, weight: .bold))
-                        .tracking(2)
+                        .tracking(AppLocalization.letterSpacing(2))
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 9)
@@ -1916,9 +1941,9 @@ extension ContentView {
                 Button {
                     openBrewing()
                 } label: {
-                    Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, localizationKey: "brewing_guide", fallback: "BREWING GUIDE").uppercased())
+                    Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, arabicValue: remoteHomeSettings?.secondaryButtonTitleAR, localizationKey: "brewing_guide", fallback: "BREWING GUIDE").uppercased())
                         .font(labelFont(size: 11, weight: .bold))
-                        .tracking(2)
+                        .tracking(AppLocalization.letterSpacing(2))
                         .foregroundColor(primaryTextColor)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 9)
@@ -2252,13 +2277,13 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(AppLocalization.text("roastery_selection", fallback: "Roastery Selection"))
                         .font(labelFont(size: 10, weight: .semibold))
-                        .tracking(3)
+                        .tracking(AppLocalization.letterSpacing(3))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
                     Text(AppLocalization.text("signature_roasts", fallback: "Signature Roasts"))
                         .font(displayFont(size: 24))
-                        .tracking(0.5)
+                        .tracking(AppLocalization.letterSpacing(0.5))
                         .foregroundColor(primaryTextColor)
                 }
 
@@ -2267,7 +2292,7 @@ extension ContentView {
                 Button {
                     openShop()
                 } label: {
-                    Label(AppLocalization.text("browse_shop", fallback: "Browse Shop"), systemImage: "arrow.right")
+                    Label(AppLocalization.text("browse_shop", fallback: "Browse Shop"), systemImage: "arrow.forward")
                         .font(labelFont(size: 11, weight: .bold))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
@@ -2315,13 +2340,13 @@ extension ContentView {
             VStack(alignment: .leading, spacing: 6) {
                 Text("")
                     .font(labelFont(size: 10, weight: .semibold))
-                    .tracking(4)
+                    .tracking(AppLocalization.letterSpacing(4))
                     .textCase(.uppercase)
                     .foregroundColor(readableBrandGoldColor)
 
                 Text(AppLocalization.text("from_the_roastery", fallback: "FROM THE ROASTERY"))
                     .font(displayFont(size: 28))
-                    .tracking(1)
+                    .tracking(AppLocalization.letterSpacing(1))
                     .foregroundColor(primaryTextColor)
 
                 Text(AppLocalization.text("from_the_roastery_detail", fallback: "A tighter selection of coffees, tools, and gifts shaped around the daily ritual of the roastery."))
@@ -2704,7 +2729,7 @@ extension ContentView {
     }
 
     func quizScore(for product: Product) -> Int {
-        let text = "\(product.name) \(product.desc) \(product.categoryLabel)".lowercased()
+        let text = product.catalogClassificationText.lowercased()
         var score = 0
 
         switch quizBrewMethod {
@@ -2847,7 +2872,7 @@ extension ContentView {
                 Button {
                     Task { await runCoffeeConcierge() }
                 } label: {
-                    Image(systemName: isRunningConcierge ? "hourglass" : "arrow.right")
+                    Image(systemName: isRunningConcierge ? "hourglass" : "arrow.forward")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(width: 38, height: 38)

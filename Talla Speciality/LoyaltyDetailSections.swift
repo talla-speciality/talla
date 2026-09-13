@@ -50,7 +50,7 @@ struct LoyaltyRewardsActionsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("earn_beans", fallback: "Earn Beans"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -59,7 +59,7 @@ struct LoyaltyRewardsActionsView: View {
                     String(format: AppLocalization.text("earn_beans_rate_dynamic", fallback: "Completed orders earn %.1f Beans for every 1 BHD spent."), $0.pointsPerBHD)
                 } ?? AppLocalization.text("earn_beans_rate", fallback: "Completed orders earn 5 Beans for every 1 BHD spent."))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.3)
+                    .tracking(AppLocalization.letterSpacing(1.3))
                     .foregroundColor(primaryTextColor)
 
                 Text(AppLocalization.text("earn_beans_detail", fallback: "Completed purchases update your rewards balance automatically once they are recorded."))
@@ -78,7 +78,7 @@ struct LoyaltyRewardsActionsView: View {
 
             Text(AppLocalization.text("redeem_rewards", fallback: "Redeem Rewards"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -114,7 +114,7 @@ struct LoyaltyRewardsActionsView: View {
 
                     Text(reward.title)
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(1.6)
+                        .tracking(AppLocalization.letterSpacing(1.6))
                         .textCase(.uppercase)
                         .lineLimit(2)
                         .minimumScaleFactor(0.78)
@@ -163,7 +163,7 @@ struct ExpiringRewardsSectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("expiring_rewards", fallback: "Expiring Rewards"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -177,7 +177,7 @@ struct ExpiringRewardsSectionView: View {
                         HStack {
                             Text(voucher.reward)
                                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                                .tracking(1.5)
+                                .tracking(AppLocalization.letterSpacing(1.5))
                                 .textCase(.uppercase)
                                 .foregroundColor(primaryTextColor)
 
@@ -185,7 +185,7 @@ struct ExpiringRewardsSectionView: View {
 
                             Text(expiryLabel(voucher))
                                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                                .tracking(1.2)
+                                .tracking(AppLocalization.letterSpacing(1.2))
                                 .textCase(.uppercase)
                                 .foregroundColor(expiresSoon(voucher) ? Color.red.opacity(0.85) : accentColor)
                         }
@@ -225,7 +225,7 @@ struct LoyaltyTransactionsSectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("recent_activity", fallback: "Recent Activity"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -244,13 +244,13 @@ struct LoyaltyTransactionsSectionView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(transaction.note)
                                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                                .tracking(1.5)
+                                .tracking(AppLocalization.letterSpacing(1.5))
                                 .foregroundColor(primaryTextColor)
 
                             if let voucherCode = transaction.voucherCode, !voucherCode.isEmpty {
                                 Text("\(AppLocalization.text("voucher", fallback: "Voucher")): \(voucherCode)")
                                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                                    .tracking(1.2)
+                                    .tracking(AppLocalization.letterSpacing(1.2))
                                     .foregroundColor(accentColor)
                             }
 
@@ -351,7 +351,7 @@ struct LoyaltyWalletCallToActionView: View {
                         ? AppLocalization.text("loading_wallet_pass", fallback: "LOADING WALLET PASS...")
                         : AppLocalization.text("add_to_apple_wallet", fallback: "ADD TO APPLE WALLET"))
                         .font(Font.custom("AvenirNext-Bold", size: 12))
-                        .tracking(2.5)
+                        .tracking(AppLocalization.letterSpacing(2.5))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)

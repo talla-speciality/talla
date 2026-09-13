@@ -158,3 +158,18 @@ test("checkout records authoritative purchased options instead of client-supplie
     assert.deepEqual(result.items[0].selectedOptions, [{ name: "Weight", value: "250g" }, { name: "Grind", value: "Whole Bean" }]);
     assert.equal(result.items[0].unitPrice, "BHD 4.500");
 });
+
+
+test("ineligible free-drink vouchers are rejected without consuming the reward", async () => {
+    let consumed = false;
+    const verify = service({
+        nodes: [node(coffeeID, "4.500")],
+        voucher: { code: "FREE-DRINK", reward: "Free Drink" },
+        onConsume: () => { consumed = true; }
+    });
+    await assert.rejects(
+        verify(body([{ variantId: coffeeID, quantity: 1 }], 6.5, { voucherCode: "FREE-DRINK" }), "customer@example.com"),
+        (error) => error.code === "VOUCHER_NOT_APPLICABLE" && error.statusCode === 409
+    );
+    assert.equal(consumed, false);
+});

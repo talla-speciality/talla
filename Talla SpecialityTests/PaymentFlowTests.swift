@@ -6,6 +6,31 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct PaymentFlowTests {
+    @Test func clickToPayCanBeSwitchedIndependentlyOfCards() {
+        var availability = TallaPaymentAvailability()
+        availability.clickToPayEnabled = false
+        var methods = PaymentMethodSelectorView.visibleMethods(applePayAvailable: true, availability: availability)
+        #expect(methods.contains(.card))
+        #expect(!methods.contains(.clickToPay))
+        availability.cardEnabled = false
+        availability.clickToPayEnabled = true
+        methods = PaymentMethodSelectorView.visibleMethods(applePayAvailable: true, availability: availability)
+        #expect(!methods.contains(.card))
+        #expect(methods.contains(.clickToPay))
+    }
+
+    @Test func paymentSettingsAcceptClickToPayAndLegacyPayloads() throws {
+        let legacy = Data(#"{"applePayEnabled":true,"benefitPayEnabled":true,"benefitEnabled":true,"cardEnabled":false,"cashOnDeliveryEnabled":true,"noticeEN":"","noticeAR":""}"#.utf8)
+        let payments = try JSONDecoder().decode(ContentView.AppSettings.Payments.self, from: legacy)
+        #expect(payments.clickToPayEnabled == nil)
+        #expect((payments.clickToPayEnabled ?? payments.cardEnabled) == false)
+        var payload = try JSONSerialization.jsonObject(with: legacy) as! [String: Any]
+        payload["clickToPayEnabled"] = true
+        let enabled = try JSONDecoder().decode(ContentView.AppSettings.Payments.self, from: JSONSerialization.data(withJSONObject: payload))
+        #expect(enabled.clickToPayEnabled == true)
+        #expect(!enabled.cardEnabled)
+    }
+
     @Test func stateModelPreventsRepeatedStarts() {
         let model = PaymentFlowModel()
         #expect(model.state == .idle)
@@ -143,5 +168,123 @@ struct PaymentFlowTests {
             #expect(!state.canPresentConfirmedSuccess)
         }
         #expect(TallaPaymentState.succeeded.canPresentConfirmedSuccess)
+    }
+}
+
+@MainActor
+struct OrderHistoryFulfillmentTests {
+    private func order(status: String, title: String = "Order #123", method: String? = nil) throws -> ContentView.AccountOrder {
+        var payload: [String: Any] = [
+            "id": "123", "title": title, "total": "BHD 5.000",
+            "status": status, "createdAt": "2026-09-09"
+        ]
+        if let method { payload["details"] = ["fulfillment": ["method": method]] }
+        return try JSONDecoder().decode(ContentView.AccountOrder.self, from: JSONSerialization.data(withJSONObject: payload))
+    }
+
+    @Test func pickupSnapshotIsUsedBeforeReady() throws {
+        for status in ["Pending", "Confirmed", "Preparing", "Packed", "Cancelled"] {
+            #expect(try order(status: status, method: "pickup").isPickup)
+        }
+    }
+
+    @Test func completedPickupIsCollectedAndNeverInTransit() throws {
+        for status in ["Completed", "Fulfilled", "Delivered"] {
+            #expect(try order(status: status, method: "pickup").historyStatus == "collected")
+        }
+        for status in ["Shipped", "On its way", "Out for delivery"] {
+            #expect(try order(status: status, method: "pickup").historyStatus == "packed")
+        }
+    }
+
+    @Test func deliverySnapshotTakesPrecedenceOverLegacyHints() throws {
+        let delivery = try order(status: "Delivered", title: "Pickup order", method: "delivery")
+        #expect(!delivery.isPickup)
+        #expect(delivery.historyStatus == "delivered")
+        #expect(try !order(status: "Ready", method: "delivery").isPickup)
+    }
+
+    @Test func legacyOrdersStillDecode() throws {
+        #expect(try order(status: "Pending", title: "Pickup order").isPickup)
+        #expect(try order(status: "Ready").isPickup)
+        #expect(try !order(status: "Pending").isPickup)
+        #expect(try order(status: "Pending", method: " PICKUP ").isPickup)
+    }
+}
+
+
+@MainActor
+@Suite(.serialized)
+struct ArabicLocalizationTests {
+    private func inArabic(_ action: () -> Void) {
+        let previous = UserDefaults.standard.object(forKey: "app.language")
+        UserDefaults.standard.set(AppLanguage.arabic.rawValue, forKey: "app.language")
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: "app.language") }
+            else { UserDefaults.standard.removeObject(forKey: "app.language") }
+        }
+        action()
+    }
+
+    @Test func arabicHeroOverridesAndEmptyFallback() throws {
+        let data = Data(#"{"heroTitle":"English title","heroTitleAR":"  قهوتك اليومية  ","heroSubtitleAR":"وصف","heroBadgeAR":"طازج","heroEyebrowAR":"المحمصة","primaryButtonTitleAR":"تسوق","secondaryButtonTitleAR":"حضّر"}"#.utf8)
+        let settings = try JSONDecoder().decode(ContentView.HomeSettings.self, from: data)
+        #expect(settings.heroSubtitleAR == "وصف")
+        #expect(settings.heroBadgeAR == "طازج")
+        #expect(settings.heroEyebrowAR == "المحمصة")
+        #expect(settings.primaryButtonTitleAR == "تسوق")
+        #expect(settings.secondaryButtonTitleAR == "حضّر")
+        inArabic {
+            #expect(AppLocalization.homeText(settings.heroTitle, arabicValue: settings.heroTitleAR, key: "hero_title", fallback: "Coffee") == "قهوتك اليومية")
+            #expect(AppLocalization.homeText("English", arabicValue: "  ", key: "hero_title", fallback: "Coffee") == AppLocalization.text("hero_title", fallback: "Coffee"))
+        }
+        let legacy = try JSONDecoder().decode(ContentView.HomeSettings.self, from: Data(#"{"heroTitle":"Coffee"}"#.utf8))
+        #expect(legacy.heroTitleAR == nil)
+        let previous = UserDefaults.standard.object(forKey: "app.language")
+        UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: "app.language")
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: "app.language") }
+            else { UserDefaults.standard.removeObject(forKey: "app.language") }
+        }
+        #expect(AppLocalization.homeText(settings.heroTitle, arabicValue: settings.heroTitleAR, key: "hero_title", fallback: "Coffee") == "English title")
+    }
+
+    @Test func englishRemoteHeroDoesNotOverrideArabic() {
+        inArabic {
+            #expect(AppLocalization.homeText("Fresh coffee today", key: "hero_title", fallback: "Coffee") == "قهوة مختصة،\nنحمّصها بعناية")
+            #expect(AppLocalization.homeText("محصول جديد", key: "hero_title", fallback: "Coffee") == "محصول جديد")
+            #expect(AppLocalization.letterSpacing(2) == 0)
+        }
+    }
+
+    @Test func catalogFallbackKeepsPublishedArabicAndRejectsStaleCopy() {
+        inArabic {
+            #expect(AppLocalization.catalogText("Riffa", source: "Riffa", key: "catalog_riffa_name") == "الرفاع")
+            #expect(AppLocalization.catalogText("رفاع جديد", source: "Riffa", key: "catalog_riffa_name") == "رفاع جديد")
+            #expect(AppLocalization.catalogText("Riffa Reserve", source: "Riffa Reserve", key: "catalog_riffa_name") == "Riffa Reserve")
+        }
+    }
+
+    @Test func variantsAndCategoriesAreArabicWithoutChangingTechnicalSizes() {
+        inArabic {
+            #expect(AppLocalization.catalogOption("250 G / Whole bean") == "٢٥٠ غ / حبوب كاملة")
+            #expect(AppLocalization.catalogOption("Hawar islands / Riffa") == "جزر حوار / الرفاع")
+            #expect(AppLocalization.catalogOption("50 / 02") == "50 / 02")
+            #expect(ProductCatalogRules.categoryLabel(productType: "Coffee", fallbackKey: "coffee-beans") == "البن")
+        }
+    }
+
+    @Test func checkoutAndEquipmentLabelsHaveArabicCopy() {
+        inArabic {
+            #expect(AppLocalization.text("checkout", fallback: "Checkout") == "إتمام الطلب")
+            #expect(AppLocalization.text("library_save_calibration", fallback: "Save calibration") == "حفظ المعايرة")
+            #expect(AppLocalization.text("delivery_address", fallback: "Delivery address") == "عنوان التوصيل")
+        }
+    }
+    @Test func arabicCatalogDoesNotChangeNumericCheckoutPrices() {
+        inArabic {
+            let price = ContentView.Product.formattedPrice(from: ShopifyProductNode.Money(amount: "8.500", currencyCode: "BHD"))
+            #expect(ContentView().priceValue(from: price) == 8.5)
+        }
     }
 }

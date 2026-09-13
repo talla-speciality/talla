@@ -4173,7 +4173,7 @@ module.exports = function createServer(dependencies) {
             const safeTotal = verifiedPricing?.total
                 ?? (Number.isFinite(totalNumber) && totalNumber >= 0 ? totalNumber : 0);
             const pendingOrder = {
-                id: `checkout_${Date.now()}`,
+                id: `checkout_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`,
                 email: customer.email,
                 title: String(body.title || "Checkout started").trim() || "Checkout started",
                 total: `BHD ${safeTotal.toFixed(3)}`,

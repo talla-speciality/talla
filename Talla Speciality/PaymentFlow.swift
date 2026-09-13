@@ -443,7 +443,7 @@ struct PaymentMethodBadge: View {
                 HStack(spacing: 1) {
                     Image(systemName: "apple.logo")
                         .font(.system(size: 15, weight: .medium))
-                    Text("Pay")
+                    Text(AppLocalization.text("pay_action", fallback: "Pay"))
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                 }
                 .foregroundStyle(.primary)
@@ -923,6 +923,7 @@ struct TallaPaymentAvailability {
     var benefitPayEnabled = true
     var benefitEnabled = true
     var cardEnabled = true
+    var clickToPayEnabled = true
     var cashOnDeliveryEnabled = true
 
     func isEnabled(_ method: TallaPaymentMethod) -> Bool {
@@ -931,7 +932,7 @@ struct TallaPaymentAvailability {
         case .benefitPay: benefitPayEnabled
         case .benefit: benefitEnabled
         case .card: cardEnabled
-        case .clickToPay: cardEnabled
+        case .clickToPay: clickToPayEnabled
         case .cashOnDelivery: cashOnDeliveryEnabled
         }
     }

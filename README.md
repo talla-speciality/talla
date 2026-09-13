@@ -21,6 +21,10 @@ cd android
 
 Authorized vendor payment SDKs are installed locally according to `android/README.md` and are intentionally excluded from Git.
 
+## Apple compatibility
+
+Use Xcode 27.0 (pinned in `.xcode-version`) with the iOS 27 SDK. Minimum deployment versions remain iOS 17 and watchOS 10. CI requires an iOS 27 iPhone simulator for unit and UI tests; it fails instead of silently testing an older runtime. See [iOS 27 readiness](docs/IOS_27_READINESS.md) for verification evidence and remaining device checks.
+
 ## Delivery rates
 
 The iOS bag calculates delivery from the preferred address and Shopify variant weights:

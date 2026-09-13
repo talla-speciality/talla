@@ -30,7 +30,7 @@ extension BrewingSectionView {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(AppLocalization.text("start_guided_brew", fallback: "Start a Guided Brew"))
                         .font(sectionTitleFont)
-                        .tracking(2.2)
+                        .tracking(AppLocalization.letterSpacing(2.2))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
@@ -68,7 +68,7 @@ extension BrewingSectionView {
                     HStack(spacing: 8) {
                         Text("\(AppLocalization.text("method", fallback: "Method")): \(currentBrewRecipeTitle)")
                             .font(Font.custom("AvenirNext-Bold", size: 11))
-                            .tracking(1.1)
+                            .tracking(AppLocalization.letterSpacing(1.1))
                             .textCase(.uppercase)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -98,7 +98,7 @@ extension BrewingSectionView {
             VStack(alignment: .leading, spacing: 10) {
                 Text(AppLocalization.text("choose_your_strength", fallback: "Choose your strength"))
                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
@@ -125,7 +125,7 @@ extension BrewingSectionView {
 
                         Text(AppLocalization.text("guided_brew_live_timer", fallback: "Live brew timer"))
                             .font(Font.custom("AvenirNext-Bold", size: 10))
-                            .tracking(1.4)
+                            .tracking(AppLocalization.letterSpacing(1.4))
                             .textCase(.uppercase)
                             .foregroundColor(accentColor)
                     }
@@ -153,7 +153,7 @@ extension BrewingSectionView {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(AppLocalization.text("current_target", fallback: "Current target:"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(1.2)
+                        .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
                         .foregroundColor(tertiaryTextColor)
 
@@ -186,7 +186,7 @@ extension BrewingSectionView {
                         systemImage: brewModePrimaryActionIcon
                     )
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.5)
+                    .tracking(AppLocalization.letterSpacing(1.5))
                     .textCase(.uppercase)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
@@ -272,7 +272,7 @@ extension BrewingSectionView {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.text("smart_brew_guide", fallback: "Smart Brew Guide"))
                         .font(sectionTitleFont)
-                        .tracking(2.2)
+                        .tracking(AppLocalization.letterSpacing(2.2))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
@@ -307,7 +307,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("your_recipes", fallback: "Your recipes"))
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.8)
+                .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -326,7 +326,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("best_recipes", fallback: "Best recipes"))
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.8)
+                .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -350,7 +350,7 @@ extension BrewingSectionView {
 
                     Text(AppLocalization.text("saved", fallback: "Saved"))
                         .font(Font.custom("AvenirNext-Bold", size: 9))
-                        .tracking(1.1)
+                        .tracking(AppLocalization.letterSpacing(1.1))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
                 }
@@ -409,7 +409,7 @@ extension BrewingSectionView {
 
                 Text("\(formattedRatioValue(profile.coffeeGrams)) g · 1:\(formattedRatioValue(profile.ratio)) · \(profile.time)")
                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(0.8)
+                    .tracking(AppLocalization.letterSpacing(0.8))
                     .textCase(.uppercase)
                     .foregroundColor(isSelected ? Color(hex: 0x0A0804).opacity(0.75) : accentColor)
                     .lineLimit(1)
@@ -468,7 +468,7 @@ extension BrewingSectionView {
             VStack(alignment: .leading, spacing: 8) {
                 Text(AppLocalization.text("learn_why", fallback: "Learn why"))
                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
@@ -507,7 +507,7 @@ extension BrewingSectionView {
             } label: {
                 Text(AppLocalization.text("show_brew_steps", fallback: "Show brew steps"))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
             }
@@ -529,7 +529,7 @@ extension BrewingSectionView {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(Font.custom("AvenirNext-Bold", size: 9))
-                    .tracking(1.1)
+                    .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
                     .foregroundColor(tertiaryTextColor)
                     .lineLimit(1)
@@ -562,7 +562,7 @@ extension BrewingSectionView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("ai_brew_coach", fallback: "AI Brew Coach"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(1.6)
+                        .tracking(AppLocalization.letterSpacing(1.6))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
@@ -643,7 +643,7 @@ extension BrewingSectionView {
 
                 Text(suggestion)
                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(0.7)
+                    .tracking(AppLocalization.letterSpacing(0.7))
                     .textCase(.uppercase)
                     .lineLimit(2)
                     .minimumScaleFactor(0.72)
@@ -729,7 +729,7 @@ extension BrewingSectionView {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(Font.custom("AvenirNext-Bold", size: 9))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(tertiaryTextColor)
 
@@ -1355,7 +1355,7 @@ extension BrewingSectionView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("brew_companion", fallback: "Brew companion"))
                         .font(brewEyebrowFont)
-                        .tracking(1.8)
+                        .tracking(AppLocalization.letterSpacing(1.8))
                         .foregroundColor(brewAccentColor)
 
                     Text(AppLocalization.text("live_measurements_less_guesswork", fallback: "Live measurements, less guesswork"))
@@ -1505,7 +1505,7 @@ extension BrewingSectionView {
         VStack(spacing: 4) {
             Text(label.uppercased())
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .tracking(0.8)
+                .tracking(AppLocalization.letterSpacing(0.8))
                 .foregroundColor(brewSecondaryTextColor)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -1655,7 +1655,7 @@ extension BrewingSectionView {
         if assetName == "ScaleLogoTimemore" {
             Text("TIMEMORE")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                .tracking(0.5)
+                .tracking(AppLocalization.letterSpacing(0.5))
                 .foregroundColor(brewAccentColor)
         } else {
             Image(assetName)
@@ -1706,7 +1706,7 @@ extension BrewingSectionView {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                .tracking(1.0)
+                .tracking(AppLocalization.letterSpacing(1.0))
                 .textCase(.uppercase)
                 .foregroundColor(brewSecondaryTextColor)
 
@@ -1947,7 +1947,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("tasting_notes_optional", fallback: "Tasting notes optional"))
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.8)
+                .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 

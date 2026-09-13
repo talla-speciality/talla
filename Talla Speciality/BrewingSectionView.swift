@@ -114,8 +114,8 @@ struct CoffeeBagCameraPicker: UIViewControllerRepresentable {
 #endif
 
 #if canImport(ActivityKit)
-    struct TallaBrewActivityAttributes: ActivityAttributes {
-        struct ContentState: Codable, Hashable {
+    nonisolated struct TallaBrewActivityAttributes: ActivityAttributes, Sendable {
+        nonisolated struct ContentState: Codable, Hashable, Sendable {
             let elapsedSeconds: Int
             let timerStartDate: Date
             let currentStep: String

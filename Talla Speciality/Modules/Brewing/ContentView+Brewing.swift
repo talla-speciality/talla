@@ -106,7 +106,7 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.text("brew_timer", fallback: "Brew Timer"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
+                        .tracking(AppLocalization.letterSpacing(2.2))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
@@ -146,7 +146,7 @@ extension ContentView {
 
             Text(brewTimerCueText)
                 .font(labelFont(size: 11, weight: .bold))
-                .tracking(1.2)
+                .tracking(AppLocalization.letterSpacing(1.2))
                 .textCase(.uppercase)
                 .foregroundColor(readableBrandGoldColor)
                 .lineLimit(2)
@@ -213,7 +213,7 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.text("coffee_journal", fallback: "Coffee Journal"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .tracking(2.2)
+                        .tracking(AppLocalization.letterSpacing(2.2))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
@@ -245,7 +245,7 @@ extension ContentView {
             if let journalBrewDetailLine {
                 Text(journalBrewDetailLine)
                     .font(labelFont(size: 10, weight: .bold))
-                    .tracking(1.1)
+                    .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
                     .foregroundColor(readableBrandGoldColor)
                     .padding(.horizontal, 14)
@@ -288,7 +288,7 @@ extension ContentView {
             } label: {
                 Text(AppLocalization.text("save_journal_entry", fallback: "Save Journal Entry"))
                     .font(labelFont(size: 11, weight: .bold))
-                    .tracking(1.8)
+                    .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
@@ -302,7 +302,7 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(AppLocalization.text("recent_notes", fallback: "Recent Notes"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .tracking(1.8)
+                        .tracking(AppLocalization.letterSpacing(1.8))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
@@ -315,14 +315,14 @@ extension ContentView {
 
                                 Text("\(entry.method) • \(entry.rating)/5")
                                     .font(labelFont(size: 10, weight: .bold))
-                                    .tracking(1.2)
+                                    .tracking(AppLocalization.letterSpacing(1.2))
                                     .textCase(.uppercase)
                                     .foregroundColor(readableBrandGoldColor)
 
                                 if let detail = brewJournalDetailLine(for: entry) {
                                     Text(detail)
                                         .font(labelFont(size: 9, weight: .bold))
-                                        .tracking(0.9)
+                                        .tracking(AppLocalization.letterSpacing(0.9))
                                         .textCase(.uppercase)
                                         .foregroundColor(tertiaryTextColor)
                                         .fixedSize(horizontal: false, vertical: true)

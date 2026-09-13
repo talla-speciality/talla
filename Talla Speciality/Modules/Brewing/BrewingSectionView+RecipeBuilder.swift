@@ -57,7 +57,7 @@ extension BrewingSectionView {
                 } label: {
                     Label(AppLocalization.text("create_recipe", fallback: "Create Recipe"), systemImage: "plus")
                         .font(Font.custom("AvenirNext-Bold", size: 12))
-                        .tracking(1.2)
+                        .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
                         .lineLimit(1)
                         .minimumScaleFactor(0.76)
@@ -74,7 +74,7 @@ extension BrewingSectionView {
                 } label: {
                     Text(AppLocalization.text("scan_coffee_bag", fallback: "Scan Coffee Bag"))
                         .font(Font.custom("AvenirNext-Bold", size: 12))
-                        .tracking(1.2)
+                        .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
@@ -236,7 +236,7 @@ extension BrewingSectionView {
     func dashboardSectionTitle(_ title: String) -> some View {
         Text(title)
             .font(sectionTitleFont)
-            .tracking(2.2)
+            .tracking(AppLocalization.letterSpacing(2.2))
             .textCase(.uppercase)
             .foregroundColor(accentColor)
             .accessibilityAddTraits(.isHeader)
@@ -245,7 +245,7 @@ extension BrewingSectionView {
     func dashboardPill(_ title: String) -> some View {
         Text(title)
             .font(Font.custom("AvenirNext-Bold", size: 10))
-            .tracking(0.8)
+            .tracking(AppLocalization.letterSpacing(0.8))
             .textCase(.uppercase)
             .lineLimit(1)
             .minimumScaleFactor(0.74)
@@ -313,7 +313,7 @@ extension BrewingSectionView {
                 Text("\(time) · ★ \(rating)")
             }
             .font(Font.custom("AvenirNext-Bold", size: 10))
-            .tracking(0.8)
+            .tracking(AppLocalization.letterSpacing(0.8))
             .textCase(.uppercase)
             .foregroundColor(accentColor)
             .lineLimit(1)
@@ -323,7 +323,7 @@ extension BrewingSectionView {
 
             Text(AppLocalization.text("brew", fallback: "Brew"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(1.2)
+                .tracking(AppLocalization.letterSpacing(1.2))
                 .textCase(.uppercase)
                 .foregroundColor(Color(hex: 0x2B170F))
                 .padding(.horizontal, 14)
@@ -563,7 +563,7 @@ extension BrewingSectionView {
             HStack(spacing: 10) {
                 Text(createRecipeJourneyProgressText)
                     .font(brewEyebrowFont)
-                    .tracking(1.4)
+                    .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
                     .foregroundColor(brewAccentColor)
 
@@ -672,7 +672,7 @@ extension BrewingSectionView {
 
                 Text(displayCoffeeName)
                     .font(Font.custom("AvenirNext-Bold", size: 14))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
                     .lineLimit(2)
@@ -693,7 +693,7 @@ extension BrewingSectionView {
 
                 Text("\(Int(recipeGenerationProgress * 100))%")
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(tertiaryTextColor)
                     .monospacedDigit()
@@ -824,7 +824,7 @@ extension BrewingSectionView {
 
             Text(generatedConfidenceLabel)
                 .font(brewEyebrowFont)
-                .tracking(1.4)
+                .tracking(AppLocalization.letterSpacing(1.4))
                 .textCase(.uppercase)
                 .foregroundColor(brewAccentColor)
                 .padding(.horizontal, 10)
@@ -955,7 +955,7 @@ extension BrewingSectionView {
             } label: {
                 Text(AppLocalization.text("start_guided_brew", fallback: "Start Guided Brew"))
                     .font(.system(size: 13, weight: .semibold))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x1C1A17))
                     .frame(maxWidth: .infinity)
@@ -1044,7 +1044,7 @@ extension BrewingSectionView {
                     .foregroundColor(accentColor)
 
                     if !calibration.calibration.lastFeedback.isEmpty {
-                        Text("Latest feedback: \(calibration.calibration.lastFeedback.joined(separator: ", "))")
+                        Text(String(format: AppLocalization.text("latest_feedback_format", fallback: "Latest feedback: %@"), calibration.calibration.lastFeedback.joined(separator: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "، " : ", ")))
                             .font(bodyFont)
                             .foregroundColor(secondaryTextColor)
                     }
@@ -1151,7 +1151,7 @@ extension BrewingSectionView {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 12, weight: .semibold))
-                .tracking(1.1)
+                .tracking(AppLocalization.letterSpacing(1.1))
                 .textCase(.uppercase)
                 .foregroundColor(brewAccentColor)
         }
@@ -1178,7 +1178,7 @@ extension BrewingSectionView {
     func recipeSectionHeading(_ title: String) -> some View {
         Text(title)
             .font(brewEyebrowFont)
-            .tracking(1.8)
+            .tracking(AppLocalization.letterSpacing(1.8))
             .textCase(.uppercase)
             .foregroundColor(brewAccentColor)
     }
@@ -1206,7 +1206,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(brewEyebrowFont)
-                .tracking(1.2)
+                .tracking(AppLocalization.letterSpacing(1.2))
                 .textCase(.uppercase)
                 .foregroundColor(brewSecondaryTextColor)
                 .lineLimit(1)
@@ -1259,7 +1259,7 @@ extension BrewingSectionView {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
             Text(title)
                 .font(brewEyebrowFont)
-                .tracking(1.0)
+                .tracking(AppLocalization.letterSpacing(1.0))
                 .textCase(.uppercase)
                 .foregroundColor(brewSecondaryTextColor)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1291,7 +1291,7 @@ extension BrewingSectionView {
     func tableHeaderText(_ text: String, width: CGFloat, alignment: Alignment = .trailing) -> some View {
         Text(text)
             .font(brewEyebrowFont)
-            .tracking(0.7)
+            .tracking(AppLocalization.letterSpacing(0.7))
             .textCase(.uppercase)
             .foregroundColor(brewSecondaryTextColor)
             .frame(width: width, alignment: alignment)
@@ -1368,7 +1368,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .tracking(0.8)
+                .tracking(AppLocalization.letterSpacing(0.8))
                 .textCase(.uppercase)
                 .foregroundColor(brewSecondaryTextColor)
             Text(value)
@@ -1391,7 +1391,7 @@ extension BrewingSectionView {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-                .tracking(1.0)
+                .tracking(AppLocalization.letterSpacing(1.0))
                 .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.70)
@@ -1430,7 +1430,7 @@ extension BrewingSectionView {
 
                 Text(title)
                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(tertiaryTextColor)
 
@@ -1462,7 +1462,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.1)
+                .tracking(AppLocalization.letterSpacing(1.1))
                 .textCase(.uppercase)
                 .foregroundColor(tertiaryTextColor)
                 .lineLimit(1)
@@ -1528,7 +1528,7 @@ extension BrewingSectionView {
         HStack(spacing: 5) {
             Text(title)
                 .font(Font.custom("AvenirNext-Bold", size: 9))
-                .tracking(0.8)
+                .tracking(AppLocalization.letterSpacing(0.8))
                 .textCase(.uppercase)
                 .foregroundColor(tertiaryTextColor)
             Text(value)
@@ -1547,7 +1547,7 @@ extension BrewingSectionView {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.0)
+                .tracking(AppLocalization.letterSpacing(1.0))
                 .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.70)
@@ -2321,7 +2321,7 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("scan_bag_review_title", fallback: "Scan, then review"))
                 .font(brewEyebrowFont)
-                .tracking(1.4)
+                .tracking(AppLocalization.letterSpacing(1.4))
                 .textCase(.uppercase)
                 .foregroundColor(brewAccentColor)
 
@@ -2393,7 +2393,7 @@ extension BrewingSectionView {
     func scanActionLabel(title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
             .font(.system(size: 12, weight: .semibold))
-            .tracking(1.1)
+            .tracking(AppLocalization.letterSpacing(1.1))
             .textCase(.uppercase)
             .lineLimit(1)
             .minimumScaleFactor(0.72)
@@ -2498,7 +2498,7 @@ extension BrewingSectionView {
                     }
                 }
                 Divider()
-                Button("Other / Custom") { selection.wrappedValue = "" }
+                Button(AppLocalization.text("other_custom", fallback: "Other / Custom")) { selection.wrappedValue = "" }
             } label: {
                 HStack {
                     Text(selection.wrappedValue.isEmpty ? "Choose \(title.lowercased())" : selection.wrappedValue)
@@ -2558,7 +2558,7 @@ extension BrewingSectionView {
                     } label: {
                         Text(option)
                             .font(.system(size: 10, weight: .semibold))
-                            .tracking(0.8)
+                            .tracking(AppLocalization.letterSpacing(0.8))
                             .textCase(.uppercase)
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
@@ -2589,7 +2589,7 @@ extension BrewingSectionView {
             } label: {
                 Text(AppLocalization.text("back", fallback: "Back"))
                     .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.1)
+                    .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
                     .foregroundColor(brewPrimaryTextColor)
                     .frame(maxWidth: .infinity)
@@ -2608,7 +2608,7 @@ extension BrewingSectionView {
             } label: {
                 Text(createRecipeStep == .equipment ? AppLocalization.text("build_my_recipe", fallback: "Build My Recipe") : AppLocalization.text("continue", fallback: "Continue"))
                     .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.1)
+                    .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)

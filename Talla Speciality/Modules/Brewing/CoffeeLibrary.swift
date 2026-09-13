@@ -51,7 +51,7 @@ extension CoffeeDataStore {
             guard let id = (row["id"] as? String).flatMap(UUID.init(uuidString:)),
                   let kind = (row["kind"] as? String).flatMap(EquipmentKind.init(rawValue:)) else { return nil }
             return CoffeeEquipmentRecord(
-                id: id, kind: kind, name: row["name"] as? String ?? "Equipment",
+                id: id, kind: kind, name: row["name"] as? String ?? AppLocalization.text("library_equipment", fallback: "Equipment"),
                 manufacturer: row["manufacturer"] as? String ?? "", model: row["model"] as? String ?? ""
             )
         }
@@ -74,7 +74,7 @@ extension CoffeeDataStore {
             guard let id = (row["id"] as? String).flatMap(UUID.init(uuidString:)),
                   let equipmentID = (row["equipmentID"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
             return CoffeeMaintenanceRecord(
-                id: id, equipmentID: equipmentID, kind: row["kind"] as? String ?? "Maintenance",
+                id: id, equipmentID: equipmentID, kind: row["kind"] as? String ?? AppLocalization.text("library_maintenance", fallback: "Maintenance"),
                 performedAt: (row["performedAt"] as? String).flatMap(Self.coffeeISO.date(from:)),
                 notes: row["notes"] as? String ?? ""
             )
@@ -428,55 +428,55 @@ struct CoffeeLibraryView: View {
     }
 
     private var equipmentSection: some View {
-        GroupBox("Equipment") {
+        GroupBox(AppLocalization.text("library_equipment", fallback: "Equipment")) {
             VStack(alignment: .leading, spacing: 10) {
-                Picker("Type", selection: $equipmentKind) {
-                    ForEach(EquipmentKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                Picker(AppLocalization.text("library_type", fallback: "Type"), selection: $equipmentKind) {
+                    ForEach(EquipmentKind.allCases, id: \.self) { Text(AppLocalization.text("library_\($0.rawValue)", fallback: $0.rawValue.capitalized)).tag($0) }
                 }
-                TextField("Name", text: $equipmentName).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.equipment.name")
-                TextField("Manufacturer", text: $equipmentManufacturer).textFieldStyle(.roundedBorder)
-                TextField("Model", text: $equipmentModel).textFieldStyle(.roundedBorder)
-                Button(equipmentID == nil ? "Add equipment" : "Save equipment", action: saveEquipment)
+                TextField(AppLocalization.text("library_name", fallback: "Name"), text: $equipmentName).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.equipment.name")
+                TextField(AppLocalization.text("library_manufacturer", fallback: "Manufacturer"), text: $equipmentManufacturer).textFieldStyle(.roundedBorder)
+                TextField(AppLocalization.text("library_model", fallback: "Model"), text: $equipmentModel).textFieldStyle(.roundedBorder)
+                Button(equipmentID == nil ? AppLocalization.text("library_add_equipment", fallback: "Add equipment") : AppLocalization.text("library_save_equipment", fallback: "Save equipment"), action: saveEquipment)
                     .buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.equipment.save")
                 ForEach(coffeeData.equipmentRecords()) { equipment in
                     HStack {
                         VStack(alignment: .leading) {
                             Text(equipment.name).font(.headline)
-                            Text([equipment.kind.rawValue.capitalized, equipment.manufacturer, equipment.model].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption)
+                            Text([AppLocalization.text("library_\(equipment.kind.rawValue)", fallback: equipment.kind.rawValue.capitalized), equipment.manufacturer, equipment.model].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption)
                         }
                         Spacer()
-                        Button("Edit") { beginEditing(equipment) }
+                        Button(AppLocalization.text("library_edit", fallback: "Edit")) { beginEditing(equipment) }
                         Button(role: .destructive) { delete("equipment", equipment.id) } label: { Image(systemName: "trash") }
                     }
                 }
-                if equipmentID != nil { Button("Add another") { clearEquipmentEditor() }.buttonStyle(.borderless) }
+                if equipmentID != nil { Button(AppLocalization.text("library_add_another", fallback: "Add another")) { clearEquipmentEditor() }.buttonStyle(.borderless) }
             }.padding(.top, 8)
         }
     }
 
     private var equipmentPicker: some View {
-        Picker("Equipment", selection: $equipmentID) {
-            Text("Select equipment").tag(nil as UUID?)
+        Picker(AppLocalization.text("library_equipment", fallback: "Equipment"), selection: $equipmentID) {
+            Text(AppLocalization.text("library_select_equipment", fallback: "Select equipment")).tag(nil as UUID?)
             ForEach(coffeeData.equipmentRecords()) { Text($0.name).tag(Optional($0.id)) }
         }
     }
 
     private var calibrationSection: some View {
-        GroupBox("Calibrations") {
+        GroupBox(AppLocalization.text("library_calibrations", fallback: "Calibrations")) {
             VStack(alignment: .leading, spacing: 10) {
                 equipmentPicker
-                TextField("Setting", text: $calibrationSetting).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.calibration.setting")
+                TextField(AppLocalization.text("library_setting", fallback: "Setting"), text: $calibrationSetting).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.calibration.setting")
                 HStack {
-                    TextField("Measured value", text: $calibrationValue).keyboardType(.decimalPad).textFieldStyle(.roundedBorder)
-                    TextField("Unit", text: $calibrationUnit).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("library_measured_value", fallback: "Measured value"), text: $calibrationValue).keyboardType(.decimalPad).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("library_unit", fallback: "Unit"), text: $calibrationUnit).textFieldStyle(.roundedBorder)
                 }
-                TextField("Notes", text: $calibrationNotes).textFieldStyle(.roundedBorder)
-                Button("Save calibration", action: saveCalibration).buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.calibration.save")
+                TextField(AppLocalization.text("library_notes", fallback: "Notes"), text: $calibrationNotes).textFieldStyle(.roundedBorder)
+                Button(AppLocalization.text("library_save_calibration", fallback: "Save calibration"), action: saveCalibration).buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.calibration.save")
                 ForEach(coffeeData.calibrationRecords()) { calibration in
                     HStack {
                         Text(calibrationDescription(calibration))
                         Spacer()
-                        Button("Edit") { beginEditing(calibration) }
+                        Button(AppLocalization.text("library_edit", fallback: "Edit")) { beginEditing(calibration) }
                         Button(role: .destructive) { delete("calibration", calibration.id) } label: { Image(systemName: "trash") }
                     }
                 }
@@ -485,17 +485,17 @@ struct CoffeeLibraryView: View {
     }
 
     private var maintenanceSection: some View {
-        GroupBox("Maintenance") {
+        GroupBox(AppLocalization.text("library_maintenance", fallback: "Maintenance")) {
             VStack(alignment: .leading, spacing: 10) {
                 equipmentPicker
-                TextField("Maintenance type", text: $maintenanceKind).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.maintenance.kind")
-                TextField("Notes", text: $maintenanceNotes).textFieldStyle(.roundedBorder)
-                Button("Record maintenance", action: saveMaintenance).buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.maintenance.save")
+                TextField(AppLocalization.text("library_maintenance_type", fallback: "Maintenance type"), text: $maintenanceKind).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.maintenance.kind")
+                TextField(AppLocalization.text("library_notes", fallback: "Notes"), text: $maintenanceNotes).textFieldStyle(.roundedBorder)
+                Button(AppLocalization.text("library_record_maintenance", fallback: "Record maintenance"), action: saveMaintenance).buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.maintenance.save")
                 ForEach(coffeeData.maintenanceRecords()) { event in
                     HStack {
                         VStack(alignment: .leading) { Text(event.kind); if !event.notes.isEmpty { Text(event.notes).font(.caption) } }
                         Spacer()
-                        Button("Edit") { beginEditing(event) }
+                        Button(AppLocalization.text("library_edit", fallback: "Edit")) { beginEditing(event) }
                         Button(role: .destructive) { delete("maintenance", event.id) } label: { Image(systemName: "trash") }
                     }
                 }
@@ -513,7 +513,7 @@ struct CoffeeLibraryView: View {
     }
 
     private func saveEquipment() {
-        guard !equipmentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { errorMessage = "Enter an equipment name."; return }
+        guard !equipmentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { errorMessage = AppLocalization.text("library_enter_equipment", fallback: "Enter an equipment name."); return }
         do {
             try coffeeData.saveEquipment(recordID: equipmentID, kind: equipmentKind, name: equipmentName, manufacturer: equipmentManufacturer, model: equipmentModel)
             equipmentID = coffeeData.equipmentRecords().first { $0.name == equipmentName }?.id; errorMessage = nil
@@ -521,7 +521,7 @@ struct CoffeeLibraryView: View {
     }
 
     private func saveCalibration() {
-        guard let equipmentID, !calibrationSetting.isEmpty else { errorMessage = "Select equipment and enter a setting."; return }
+        guard let equipmentID, !calibrationSetting.isEmpty else { errorMessage = AppLocalization.text("library_enter_calibration", fallback: "Select equipment and enter a setting."); return }
         do {
             try coffeeData.saveCalibration(recordID: calibrationID, equipmentID: equipmentID, setting: calibrationSetting, measuredValue: Double(calibrationValue), unit: calibrationUnit, notes: calibrationNotes)
             calibrationID = nil; calibrationSetting = ""; calibrationValue = ""; calibrationNotes = ""; errorMessage = nil
@@ -529,7 +529,7 @@ struct CoffeeLibraryView: View {
     }
 
     private func saveMaintenance() {
-        guard let equipmentID, !maintenanceKind.isEmpty else { errorMessage = "Select equipment and enter a maintenance type."; return }
+        guard let equipmentID, !maintenanceKind.isEmpty else { errorMessage = AppLocalization.text("library_enter_maintenance", fallback: "Select equipment and enter a maintenance type."); return }
         do {
             try coffeeData.recordMaintenance(recordID: maintenanceID, equipmentID: equipmentID, kind: maintenanceKind, notes: maintenanceNotes)
             maintenanceID = nil; maintenanceNotes = ""; errorMessage = nil

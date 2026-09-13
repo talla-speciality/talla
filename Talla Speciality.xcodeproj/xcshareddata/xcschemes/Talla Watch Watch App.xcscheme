@@ -85,7 +85,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E09687A83006F5A8001FBDAD"
             BuildableName = "Talla Watch Watch App.app"
-            BlueprintName = "Talla Watch Watch App"
             ReferencedContainer = "container:Talla Speciality.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -102,7 +101,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E09687A83006F5A8001FBDAD"
             BuildableName = "Talla Watch Watch App.app"
-            BlueprintName = "Talla Watch Watch App"
             ReferencedContainer = "container:Talla Speciality.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

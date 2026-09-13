@@ -2,14 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
 	<key>BackendBaseURL</key>
 	<string>https://talla-backend.onrender.com</string>
 	<key>BenefitPaySDKSecretKey</key>
 	<string>$(BENEFITPAY_SDK_SECRET_KEY)</string>
-	<key>TallaAppAttestEnvironment</key>
-	<string>$(APP_ATTEST_ENVIRONMENT)</string>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -60,6 +58,13 @@
 				<true/>
 			</dict>
 		</dict>
+	</dict>
+	<key>TallaAppAttestEnvironment</key>
+	<string>$(APP_ATTEST_ENVIRONMENT)</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
 	</dict>
 </dict>
 </plist>

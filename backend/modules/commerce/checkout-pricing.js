@@ -190,6 +190,9 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
         }
         const subtotalFils = lines.reduce((total, line) => total + line.unitPriceFils * line.quantity, 0);
         const discountFils = voucherDiscountFils(voucher, lines, subtotalFils);
+        if (voucher && discountFils <= 0) {
+            fail("VOUCHER_NOT_APPLICABLE", 409, "This voucher does not apply to the items in your bag. Add an eligible item or remove the voucher.");
+        }
         const fulfillmentMethod = String(body?.fulfillmentMethod || body?.fulfillment?.method || "").trim().toLowerCase();
         const countryCode = String(body?.fulfillment?.countryCode || "").trim().toUpperCase();
         const deliveryFils = shippingFils({

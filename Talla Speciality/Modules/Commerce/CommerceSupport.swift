@@ -254,26 +254,24 @@ enum ShopifyStorefrontClient {
     static let endpoint = URL(string: "https://\(ShopifyConfiguration.shopDomain)/api/2025-10/graphql.json")!
     static let brewingArticlePageSize = 50
 
-    static func fetchAllProducts() async throws -> [ContentView.Product] {
-        var products: [ContentView.Product] = []
-        var cursor: String?
-        var hasNextPage = true
-
-        while hasNextPage {
-            let response = try await fetchPage(after: cursor)
-
-            products.append(contentsOf: response.products.edges.compactMap { edge in
-                guard ContentView.Product.shouldInclude(shopifyNode: edge.node) else {
-                    return nil
-                }
-                return ContentView.Product(shopifyNode: edge.node)
-            })
-
-            hasNextPage = response.products.pageInfo.hasNextPage
-            cursor = response.products.pageInfo.endCursor
+    static func fetchAllProducts(languageCode: String? = nil) async throws -> [ContentView.Product] {
+        func nodes(language: String) async throws -> [ShopifyProductNode] {
+            var result: [ShopifyProductNode] = []
+            var cursor: String?
+            while true {
+                let response = try await fetchPage(after: cursor, languageCode: language)
+                result.append(contentsOf: response.products.edges.map(\.node))
+                guard response.products.pageInfo.hasNextPage else { return result }
+                cursor = response.products.pageInfo.endCursor
+            }
         }
-
-        return products
+        let languageCode = languageCode ?? AppLocalization.currentLanguage.effectiveLanguageCode
+        let originals = try await nodes(language: "EN")
+        let translated = languageCode == "ar" ? try await nodes(language: "AR") : []
+        let translations = Dictionary(translated.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return originals.filter { ContentView.Product.shouldInclude(shopifyNode: $0) }.map {
+            ContentView.Product(shopifyNode: $0, localizedNode: translations[$0.id])
+        }
     }
 
     static func fetchBrewingMethods() async throws -> [ContentView.BrewingMethod] {
@@ -296,7 +294,8 @@ enum ShopifyStorefrontClient {
         while hasNextPage {
             var variables: [String: Any] = [
                 "handle": ShopifyConfiguration.brewingBlogHandle,
-                "first": brewingArticlePageSize
+                "first": brewingArticlePageSize,
+                "language": AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "AR" : "EN"
             ]
             if let cursor {
                 variables["cursor"] = cursor
@@ -304,7 +303,7 @@ enum ShopifyStorefrontClient {
 
             let body = ShopifyGraphQLRequest(
                 query: """
-                query BrewingBlogArticles($handle: String!, $first: Int!, $cursor: String) {
+                query BrewingBlogArticles($handle: String!, $first: Int!, $cursor: String, $language: LanguageCode!) @inContext(language: $language) {
                   blog(handle: $handle) {
                     articles(first: $first, after: $cursor) {
                       pageInfo {
@@ -359,7 +358,8 @@ enum ShopifyStorefrontClient {
         while hasNextPage {
             var variables: [String: Any] = [
                 "query": ShopifyConfiguration.brewingArticlesQuery,
-                "first": brewingArticlePageSize
+                "first": brewingArticlePageSize,
+                "language": AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "AR" : "EN"
             ]
             if let cursor {
                 variables["cursor"] = cursor
@@ -367,7 +367,7 @@ enum ShopifyStorefrontClient {
 
             let body = ShopifyGraphQLRequest(
                 query: """
-                query BrewingSearchArticles($query: String!, $first: Int!, $cursor: String) {
+                query BrewingSearchArticles($query: String!, $first: Int!, $cursor: String, $language: LanguageCode!) @inContext(language: $language) {
                   articles(first: $first, after: $cursor, sortKey: PUBLISHED_AT, reverse: true, query: $query) {
                     pageInfo {
                       hasNextPage
@@ -535,10 +535,10 @@ enum ShopifyStorefrontClient {
         )
     }
 
-    static func fetchPage(after cursor: String?) async throws -> ShopifyProductsResponse.DataPayload {
+    static func fetchPage(after cursor: String?, languageCode: String = "EN") async throws -> ShopifyProductsResponse.DataPayload {
         let body = ShopifyGraphQLRequest(
             query: """
-            query Products($cursor: String) {
+            query Products($cursor: String, $language: LanguageCode!) @inContext(language: $language) {
               products(first: 50, after: $cursor, sortKey: TITLE) {
                 pageInfo {
                   hasNextPage
@@ -585,7 +585,7 @@ enum ShopifyStorefrontClient {
               }
             }
             """,
-            variables: ["cursor": cursor as Any]
+            variables: ["cursor": cursor as Any, "language": languageCode]
         )
 
         let decoded: ShopifyProductsResponse = try await performRequest(body)
@@ -685,7 +685,7 @@ enum ShopifyStorefrontClient {
     static func createCart(input: [String: Any]) async throws -> ShopifyCartCreateResponse {
         let body = ShopifyGraphQLRequest(
             query: """
-            mutation CreateCart($input: CartInput) {
+            mutation CreateCart($input: CartInput, $language: LanguageCode!) @inContext(language: $language) {
               cartCreate(input: $input) {
                 cart {
                   checkoutUrl
@@ -697,7 +697,8 @@ enum ShopifyStorefrontClient {
             }
             """,
             variables: [
-                "input": input
+                "input": input,
+                "language": AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "AR" : "EN"
             ]
         )
         return try await performRequest(body)
@@ -1138,27 +1139,27 @@ enum ProductCatalogRules {
     static func categoryLabel(productType: String, fallbackKey: String) -> String {
         switch fallbackKey {
         case "summer-drinks":
-            return "Summer Boxes"
+            return AppLocalization.text("category_summer_drinks", fallback: "Summer Boxes")
         case "coffee-beans":
-            return "Coffee Beans"
+            return AppLocalization.text("category_coffee_beans", fallback: "Coffee Beans")
         case "arabic-coffee-beans", "arabic-coffee", "northern-coffee", "other":
-            return "Arabic & Shamali Coffee"
+            return AppLocalization.text("category_arabic_coffee", fallback: "Arabic & Shamali Coffee")
         case "drip-bags":
-            return "Drip Bags"
+            return AppLocalization.text("category_drip_bags", fallback: "Drip Bags")
         case "coffee-equipment":
-            return "Equipment"
+            return AppLocalization.text("category_equipment", fallback: "Equipment")
         case "ready-made-drinks", "tea", "drinks":
-            return "Drinks"
+            return AppLocalization.text("category_ready_drinks", fallback: "Drinks")
         case "drink-cups", "cups", "mugs", "drinkware":
-            return "Cups"
+            return AppLocalization.text("category_cups", fallback: "Cups")
         case "crmb-tallas-speciality-bakery", "desserts", "bread", "bakery":
-            return "CRMB"
+            return AppLocalization.text("category_desserts", fallback: "CRMB")
         case "spreads":
-            return "Spreads"
+            return AppLocalization.text("category_spreads", fallback: "Spreads")
         case "hot-chocolate":
-            return "Hot Chocolate"
+            return AppLocalization.text("category_hot_chocolate", fallback: "Hot Chocolate")
         case "gifts", "eid-gifts":
-            return "Talla Boxes"
+            return AppLocalization.text("category_gifts", fallback: "Talla Boxes")
         default:
             return fallbackKey
                 .split(separator: "-")
@@ -1171,7 +1172,7 @@ enum ProductCatalogRules {
         let preferred = ["STAFF PICK", "BESTSELLER", "LIMITED", "NEW", "LOCAL", "PREMIUM", "GIFT"]
         let uppercased = tags.map { $0.uppercased() }
         guard let tag = preferred.first(where: uppercased.contains) else { return nil }
-        return tag == "BESTSELLER" ? "BEST SELLER" : tag
+        return AppLocalization.catalogOption(tag == "BESTSELLER" ? "BEST SELLER" : tag)
     }
 
     static func countryOfOriginLabel(from tags: [String]) -> String? {
@@ -1299,16 +1300,17 @@ extension ContentView.Product {
         )
     }
 
-    init(shopifyNode: ShopifyProductNode) {
+    init(shopifyNode: ShopifyProductNode, localizedNode: ShopifyProductNode? = nil) {
         let categoryKey = ProductCatalogRules.categoryKey(
             productType: shopifyNode.productType,
             tags: shopifyNode.tags,
             title: shopifyNode.title
         )
+        let translatedVariants = Dictionary((localizedNode?.variants.edges ?? []).map { ($0.node.id, $0.node.title) }, uniquingKeysWith: { first, _ in first })
         let variants = shopifyNode.variants.edges.map { edge in
             Variant(
                 id: edge.node.id,
-                title: edge.node.title.isEmpty ? "Default" : edge.node.title,
+                title: AppLocalization.catalogOption(translatedVariants[edge.node.id] ?? (edge.node.title.isEmpty ? "Default" : edge.node.title)),
                 price: Self.formattedPrice(from: edge.node.price),
                 isAvailableForSale: edge.node.availableForSale,
                 requiresShipping: edge.node.requiresShipping,
@@ -1327,15 +1329,16 @@ extension ContentView.Product {
             handle: shopifyNode.handle,
             variantID: defaultVariant?.id,
             variants: variants,
-            name: shopifyNode.title,
+            name: AppLocalization.catalogText(localizedNode?.title ?? shopifyNode.title, source: shopifyNode.title, key: "catalog_\(shopifyNode.handle)_name"),
             price: defaultVariant?.price ?? Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
             categoryKey: categoryKey,
             categoryLabel: ProductCatalogRules.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
             imageURL: shopifyNode.featuredImage?.url,
-            desc: shopifyNode.description,
+            desc: AppLocalization.catalogText(localizedNode?.description ?? shopifyNode.description, source: shopifyNode.description, key: "catalog_\(shopifyNode.handle)_description"),
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
             countryOfOrigin: countryOfOrigin,
-            isAvailableForSale: defaultVariant?.isAvailableForSale ?? false
+            isAvailableForSale: defaultVariant?.isAvailableForSale ?? false,
+            catalogSourceText: "\(shopifyNode.title) \(shopifyNode.description) \(shopifyNode.productType)"
         )
     }
 
@@ -1346,6 +1349,7 @@ extension ContentView.Product {
 
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.currencyCode = money.currencyCode
         formatter.maximumFractionDigits = 3
         formatter.minimumFractionDigits = money.currencyCode == "BHD" ? 3 : 2
@@ -1537,6 +1541,63 @@ extension Array where Element: Identifiable {
         var seenIDs = Set<Element.ID>()
         return filter { element in
             seenIDs.insert(element.id).inserted
+        }
+    }
+}
+
+extension ContentView {
+    struct HomeSettings: Decodable {
+        let signatureRoastProductIDs: [String]
+        let quickDrinkProductIDs: [String]
+        let funPickProductID: String?
+        let heroEyebrowAR: String?
+        let heroEyebrow: String?
+        let heroTitleAR: String?
+        let heroTitle: String?
+        let heroSubtitleAR: String?
+        let heroSubtitle: String?
+        let heroBadgeAR: String?
+        let heroBadge: String?
+        let primaryButtonTitleAR: String?
+        let primaryButtonTitle: String?
+        let secondaryButtonTitleAR: String?
+        let secondaryButtonTitle: String?
+
+        enum CodingKeys: String, CodingKey {
+            case signatureRoastProductIDs
+            case quickDrinkProductIDs
+            case funPickProductID
+            case heroEyebrowAR
+            case heroEyebrow
+            case heroTitleAR
+            case heroTitle
+            case heroSubtitleAR
+            case heroSubtitle
+            case heroBadgeAR
+            case heroBadge
+            case primaryButtonTitleAR
+            case primaryButtonTitle
+            case secondaryButtonTitleAR
+            case secondaryButtonTitle
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            signatureRoastProductIDs = try container.decodeIfPresent([String].self, forKey: .signatureRoastProductIDs) ?? []
+            quickDrinkProductIDs = try container.decodeIfPresent([String].self, forKey: .quickDrinkProductIDs) ?? []
+            funPickProductID = try container.decodeIfPresent(String.self, forKey: .funPickProductID)
+            heroEyebrowAR = try container.decodeIfPresent(String.self, forKey: .heroEyebrowAR)
+            heroEyebrow = try container.decodeIfPresent(String.self, forKey: .heroEyebrow)
+            heroTitleAR = try container.decodeIfPresent(String.self, forKey: .heroTitleAR)
+            heroTitle = try container.decodeIfPresent(String.self, forKey: .heroTitle)
+            heroSubtitleAR = try container.decodeIfPresent(String.self, forKey: .heroSubtitleAR)
+            heroSubtitle = try container.decodeIfPresent(String.self, forKey: .heroSubtitle)
+            heroBadgeAR = try container.decodeIfPresent(String.self, forKey: .heroBadgeAR)
+            heroBadge = try container.decodeIfPresent(String.self, forKey: .heroBadge)
+            primaryButtonTitleAR = try container.decodeIfPresent(String.self, forKey: .primaryButtonTitleAR)
+            primaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .primaryButtonTitle)
+            secondaryButtonTitleAR = try container.decodeIfPresent(String.self, forKey: .secondaryButtonTitleAR)
+            secondaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .secondaryButtonTitle)
         }
     }
 }

@@ -43,7 +43,7 @@ struct SignedInCustomerSectionView: View {
 
                     Label(AppLocalization.text("rewards_connected", fallback: "Rewards connected"), systemImage: "checkmark.circle.fill")
                         .font(labelFont)
-                        .tracking(1.3)
+                        .tracking(AppLocalization.letterSpacing(1.3))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
                 }
@@ -62,7 +62,7 @@ struct SignedInCustomerSectionView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("profile_workspace", fallback: "Profile Workspace"))
                         .font(labelFont)
-                        .tracking(1.8)
+                        .tracking(AppLocalization.letterSpacing(1.8))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
 
@@ -87,7 +87,7 @@ struct SignedInCustomerSectionView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.8)
+                .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 

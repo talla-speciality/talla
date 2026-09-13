@@ -152,7 +152,7 @@ struct AccountSectionView: View {
 
                     Text(String(format: AppLocalization.text("membership_tier_format", fallback: "Membership: %@"), membershipTier))
                         .font(Font.custom("AvenirNext-Bold", size: 12))
-                        .tracking(1.2)
+                        .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
                         .lineLimit(1)
@@ -239,7 +239,7 @@ struct AccountSectionView: View {
 
             Text(label)
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.3)
+                .tracking(AppLocalization.letterSpacing(1.3))
                 .textCase(.uppercase)
                 .foregroundColor(secondaryTextColor)
                 .lineLimit(1)
@@ -301,7 +301,7 @@ struct AccountSectionView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(eyebrow)
                         .font(labelFont)
-                        .tracking(1.6)
+                        .tracking(AppLocalization.letterSpacing(1.6))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
                         .lineLimit(1)
@@ -472,7 +472,7 @@ struct AccountSectionView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(sectionTitleFont)
-                .tracking(1.8)
+                .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 

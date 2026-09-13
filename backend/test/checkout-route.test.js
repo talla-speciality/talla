@@ -66,7 +66,8 @@ async function request(server, body) {
     }
 }
 
-test("verified checkout creates an order after sanitizing its source", async () => {
+test("verified checkout creates an order after sanitizing its source", async (t) => {
+    t.mock.method(Date, "now", () => 1786200000000);
     let savedOrder = null;
     const server = createServer({
         URL,
@@ -119,4 +120,14 @@ test("verified checkout creates an order after sanitizing its source", async () 
     assert.equal(result.body.pricingVersion, 2);
     assert.equal(savedOrder.details.source, "Talla iOS app");
     assert.equal(savedOrder.total, "BHD 4.000");
+
+    const second = await request(server, {
+        email: "customer@example.com",
+        pricingVersion: 2,
+        total: 4,
+        fulfillmentMethod: "pickup",
+        items: [{ variantId: "gid://shopify/ProductVariant/101", quantity: 1 }]
+    });
+    assert.equal(second.status, 200, JSON.stringify(second.body));
+    assert.notEqual(second.body.orderID, result.body.orderID, "checkouts in the same millisecond need distinct IDs");
 });

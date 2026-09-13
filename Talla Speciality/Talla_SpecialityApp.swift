@@ -259,9 +259,6 @@ struct Talla_SpecialityApp: App {
     }
 
     init() {
-#if canImport(AppIntents)
-        TallaAppShortcuts.updateAppShortcutParameters()
-#endif
 #if canImport(WatchConnectivity) && os(iOS)
         TallaWatchPhoneBridge.shared.activate()
 #endif
@@ -276,6 +273,9 @@ struct Talla_SpecialityApp: App {
                 .environmentObject(coffeeData)
                 .task {
                     guard ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == nil else { return }
+#if canImport(AppIntents)
+                    TallaAppShortcuts.updateAppShortcutParameters()
+#endif
                     TallaTelemetry.shared.appReady()
                     try? coffeeData.migrateLegacyJSON()
                     await coffeeData.retryCurrentAccountSynchronization()

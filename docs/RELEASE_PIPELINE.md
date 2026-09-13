@@ -6,7 +6,7 @@ The GitHub Actions release pipeline validates the backend, PostgreSQL migrations
 
 - `backend`: Node 22 install, JavaScript lint, ordered migration validation, two migration passes against PostgreSQL 18, and the complete test suite.
 - `android`: JDK 17, unit tests, Android lint, unsigned release APK/AAB artifacts, and emulator-driven checkout, Arabic, account-deletion, offline inventory, and Bluetooth-interruption journeys. CI substitutes compile-only BenefitPay interfaces because proprietary merchant SDK binaries must not be committed.
-- `apple`: full Xcode 26.6, iPhone Release build, unit tests, deterministic checkout/Arabic/account-deletion/offline/Bluetooth UI journeys, Watch Release build, iPhone widget build, and Watch widget build. The app targets iOS 17 and watchOS 10; iOS/watchOS 26-only presentation enhancements remain availability-gated.
+- `apple`: full Xcode 27.0, iOS 27 SDK and simulator, iPhone Release build, unit tests, deterministic checkout/Arabic/account-deletion/offline/Bluetooth UI journeys, Watch Release build, iPhone widget build, and Watch widget build. The app targets iOS 17 and watchOS 10; iOS/watchOS 26-only presentation enhancements remain availability-gated.
 
 Protect `main` in GitHub and require all three jobs. Create releases from annotated `vMAJOR.MINOR.PATCH` tags only after the QA artifacts pass device testing.
 

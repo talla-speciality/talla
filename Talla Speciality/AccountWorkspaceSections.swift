@@ -31,7 +31,7 @@ struct ProfileManagementSectionView: View {
                     ? AppLocalization.text("profile", fallback: "Profile")
                     : AppLocalization.text("complete_profile", fallback: "Complete Profile"))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(2)
+                    .tracking(AppLocalization.letterSpacing(2))
                     .textCase(.uppercase)
                     .foregroundColor(accentColor)
 
@@ -66,7 +66,7 @@ struct ProfileManagementSectionView: View {
                         ? AppLocalization.text("saving", fallback: "SAVING...")
                         : AppLocalization.text("save_profile", fallback: "SAVE PROFILE"))
                         .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(2)
+                        .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
@@ -135,7 +135,7 @@ struct PasswordResetSectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("password", fallback: "Password"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -151,7 +151,7 @@ struct PasswordResetSectionView: View {
                     ? AppLocalization.text("updating", fallback: "UPDATING...")
                     : AppLocalization.text("update_password", fallback: "UPDATE PASSWORD"))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .tracking(2)
+                    .tracking(AppLocalization.letterSpacing(2))
                     .textCase(.uppercase)
                     .foregroundColor(primaryTextColor)
                     .frame(maxWidth: .infinity)
@@ -204,7 +204,7 @@ struct OrderHistorySectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AppLocalization.text("order_history", fallback: "Order History"))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .tracking(2)
+                .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
                 .foregroundColor(accentColor)
 
@@ -227,7 +227,7 @@ struct OrderHistorySectionView: View {
                     Button(action: browseProductsAction) {
                         Text(AppLocalization.text("browse_products", fallback: "Browse Products"))
                             .font(Font.custom("AvenirNext-Bold", size: 10))
-                            .tracking(1.5)
+                            .tracking(AppLocalization.letterSpacing(1.5))
                             .textCase(.uppercase)
                             .foregroundColor(Color(hex: 0x0A0804))
                             .padding(.horizontal, 14)
@@ -250,9 +250,9 @@ struct OrderHistorySectionView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(orderStatusTitle(order.status))
+                                Text(orderStatusTitle(order.historyStatus))
                                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                                    .tracking(1.5)
+                                    .tracking(AppLocalization.letterSpacing(1.5))
                                     .foregroundColor(primaryTextColor)
 
                                 Text(formattedOrderDate(order.createdAt))
@@ -267,7 +267,7 @@ struct OrderHistorySectionView: View {
                                     .font(Font.custom("AvenirNext-Bold", size: 11))
                                     .foregroundColor(accentColor)
 
-                                orderStatusBadge(order.status)
+                                orderStatusBadge(order.historyStatus)
                             }
                         }
 
@@ -288,9 +288,22 @@ struct OrderHistorySectionView: View {
                                 .foregroundColor(secondaryTextColor)
                         }
 
-                        orderProgressRow(status: order.status)
+                        Label(
+                            order.isPickup
+                                ? AppLocalization.text("order_method_pickup", fallback: "Pickup at Talla")
+                                : AppLocalization.text("order_method_delivery", fallback: "Delivery"),
+                            systemImage: order.isPickup ? "storefront.fill" : "shippingbox.fill"
+                        )
+                        .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                        .foregroundColor(accentColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.16))
+                        .clipShape(Capsule(style: .continuous))
 
-                        if isReadyForPickup(status: order.status) {
+                        orderProgressRow(status: order.historyStatus, isPickup: order.isPickup)
+
+                        if order.isPickup && isReadyForPickup(status: order.historyStatus) {
                             pickupDirectionsCard
                         }
 
@@ -318,7 +331,7 @@ struct OrderHistorySectionView: View {
                             } label: {
                                 Text(AppLocalization.text("buy_again", fallback: "Buy Again"))
                                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                                    .tracking(1.5)
+                                    .tracking(AppLocalization.letterSpacing(1.5))
                                     .textCase(.uppercase)
                                     .foregroundColor(Color(hex: 0x0A0804))
                                     .padding(.horizontal, 14)
@@ -366,7 +379,7 @@ struct OrderHistorySectionView: View {
             Button(action: pickupDirectionsAction) {
                 Label(AppLocalization.text("open_directions", fallback: "Open Directions"), systemImage: "map.fill")
                     .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(1.2)
+                    .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
@@ -465,7 +478,7 @@ struct OrderHistorySectionView: View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(1.0)
+                .tracking(AppLocalization.letterSpacing(1.0))
                 .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -482,7 +495,7 @@ struct OrderHistorySectionView: View {
         Button(action: action) {
             Text(tag)
                 .font(Font.custom("AvenirNext-Bold", size: 9))
-                .tracking(0.8)
+                .tracking(AppLocalization.letterSpacing(0.8))
                 .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -495,9 +508,9 @@ struct OrderHistorySectionView: View {
         .buttonStyle(.plain)
     }
 
-    private func orderProgressRow(status: String) -> some View {
+    private func orderProgressRow(status: String, isPickup: Bool) -> some View {
         let currentIndex = orderStatusStepIndex(status)
-        let steps = orderStatusSteps(for: status)
+        let steps = orderStatusSteps(for: status, isPickup: isPickup)
 
         return VStack(alignment: .leading, spacing: 10) {
             GeometryReader { proxy in
@@ -564,7 +577,7 @@ struct OrderHistorySectionView: View {
         .accessibilityValue(orderStatusTitle(status))
     }
 
-    private func orderStatusSteps(for status: String) -> [(key: String, title: String)] {
+    private func orderStatusSteps(for status: String, isPickup: Bool) -> [(key: String, title: String)] {
         var steps = [
             ("received", AppLocalization.text("order_step_received", fallback: "Received")),
             ("roasting", AppLocalization.text("order_step_roasting", fallback: "Roasting")),
@@ -573,10 +586,13 @@ struct OrderHistorySectionView: View {
             ("on-the-way", AppLocalization.text("order_step_on_the_way", fallback: "On its way"))
         ]
 
-        if isReadyForPickup(status: status) {
+        if isPickup {
             steps[4] = ("pickup-ready", AppLocalization.text("order_status_ready_pickup", fallback: "Ready for pickup"))
         }
 
+        if isPickup && status == "collected" {
+            steps[4] = ("collected", AppLocalization.text("order_status_collected", fallback: "Collected"))
+        }
         return steps
     }
 
@@ -588,7 +604,7 @@ struct OrderHistorySectionView: View {
             return 2
         case "packed":
             return 3
-        case "ready", "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered":
+        case "collected", "ready", "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered":
             return 4
         case "cancelled", "canceled":
             return 0
@@ -644,7 +660,7 @@ struct OrderHistorySectionView: View {
 
         return Text(orderStatusTitle(normalized))
             .font(Font.custom("AvenirNext-Bold", size: 10))
-            .tracking(1.2)
+            .tracking(AppLocalization.letterSpacing(1.2))
             .textCase(.uppercase)
             .foregroundColor(color)
             .padding(.horizontal, 9)
@@ -655,6 +671,8 @@ struct OrderHistorySectionView: View {
 
     private func orderStatusTitle(_ status: String) -> String {
         switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "collected":
+            return AppLocalization.text("order_status_collected", fallback: "Collected")
         case "pending":
             return AppLocalization.text("order_status_placed", fallback: "Order placed")
         case "confirmed":
@@ -705,8 +723,8 @@ struct OrderHistorySectionView: View {
 
     private func displayOrderDate(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "d MMMM yyyy · h:mm a"
+        formatter.locale = Locale(identifier: AppLocalization.currentLanguage.localeIdentifier)
+        formatter.setLocalizedDateFormatFromTemplate("d MMMM yyyy h:mm a")
         return formatter.string(from: date)
     }
 
@@ -722,8 +740,17 @@ struct OrderHistorySectionView: View {
     }
 
     private func orderTimingLabel(for order: ContentView.AccountOrder) -> String {
-        if isReadyForPickup(status: order.status) {
-            return AppLocalization.text("pickup_ready_now", fallback: "Pickup available now")
+        if order.isPickup {
+            switch order.historyStatus {
+            case "ready":
+                return AppLocalization.text("pickup_ready_now", fallback: "Pickup available now")
+            case "collected":
+                return AppLocalization.text("order_pickup_collected", fallback: "Collected from Talla")
+            case "cancelled", "canceled":
+                return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
+            default:
+                return AppLocalization.text("order_pickup_wait", fallback: "We'll let you know when your order is ready for pickup.")
+            }
         }
 
         return String(
@@ -745,7 +772,7 @@ struct OrderHistorySectionView: View {
 
     private func orderStatusColor(_ status: String) -> Color {
         switch status.lowercased() {
-        case "completed", "fulfilled":
+        case "collected", "completed", "fulfilled":
             return Color(hex: 0x4F8A5B)
         case "ready":
             return Color(hex: 0x2F7E8B)
