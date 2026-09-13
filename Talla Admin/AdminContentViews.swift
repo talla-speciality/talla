@@ -17,7 +17,22 @@ enum AdminContentArea: String, CaseIterable, Identifiable {
     var groups: [AdminFieldGroup] {
         switch self {
         case .home: return [
-            .init("Hero", [.init("heroEyebrow", "Eyebrow"), .init("heroTitle", "Title"), .init("heroSubtitle", "Subtitle", .multiline), .init("heroBadge", "Badge"), .init("primaryButtonTitle", "Primary button"), .init("secondaryButtonTitle", "Secondary button")]),
+            .init("English hero", [
+                .init("heroEyebrow", "Eyebrow"),
+                .init("heroTitle", "Title"),
+                .init("heroSubtitle", "Subtitle", .multiline),
+                .init("heroBadge", "Badge"),
+                .init("primaryButtonTitle", "Primary button"),
+                .init("secondaryButtonTitle", "Secondary button")
+            ]),
+            .init("Arabic hero", [
+                .init("heroEyebrowAR", "Eyebrow"),
+                .init("heroTitleAR", "Title"),
+                .init("heroSubtitleAR", "Subtitle", .multiline),
+                .init("heroBadgeAR", "Badge"),
+                .init("primaryButtonTitleAR", "Primary button"),
+                .init("secondaryButtonTitleAR", "Secondary button")
+            ]),
             .init("Featured products", [.init("signatureRoastProductIDs", "Signature roasts", .products(4, false)), .init("quickDrinkProductIDs", "Talla Express drinks", .products(6, true)), .init("funPickProductID", "Today's fun pick", .product)])
         ]
         case .passport: return [.init("Completion reward", [.init("completionRewardTitle", "Reward title"), .init("completionRewardDetail", "Reward detail", .multiline)])]
@@ -236,6 +251,7 @@ extension AdminContentArea {
             .init("payments.benefitPayEnabled", "BenefitPay", .toggle),
             .init("payments.benefitEnabled", "Benefit", .toggle),
             .init("payments.cardEnabled", "Card", .toggle),
+            .init("payments.clickToPayEnabled", "Click to Pay", .toggle),
             .init("payments.cashOnDeliveryEnabled", "Cash on delivery", .toggle),
             .init("payments.noticeEN", "English payment notice", .multiline),
             .init("payments.noticeAR", "Arabic payment notice", .multiline)
