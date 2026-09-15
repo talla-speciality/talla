@@ -41,7 +41,8 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
             source: "Talla iOS app",
             customer: { fullName: "A Customer", phone: "+97312345678" },
             fulfillment: { method: "delivery", line1: "Road 1", city: "Manama", countryCode: "bh" },
-            payment: { method: "applePay" }
+            payment: { method: "applePay" },
+            coffeeClub: { shipmentCount: 3, intervalWeeks: 4, discountPercent: 10 }
         }
     });
 
@@ -51,6 +52,7 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
     assert.equal(order.payment.method, "Apple Pay");
     assert.equal(order.payment.status, "Captured");
     assert.equal(order.payment.reference, "PAY-123");
+    assert.deepEqual(order.coffeeClub, { shipmentCount: 3, intervalWeeks: 4, discountPercent: 10 });
     assert.equal(order.status, "Confirmed");
 });
 

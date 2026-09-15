@@ -44,14 +44,14 @@ function node(id, price, overrides = {}) {
     };
 }
 
-function service({ nodes, voucher = null, onConsume = () => {} }) {
+function service({ nodes, voucher = null, onConsume = () => {}, configuredSettings = settings() }) {
     return createCheckoutPricingService({
         shopifyAdminGraphQLRequest: async (query, variables) => {
             assert.match(query, /CheckoutVariants/);
             assert.deepEqual(variables.ids, nodes.map((entry) => entry.id));
             return { nodes };
         },
-        appSettings: settings,
+        appSettings: () => configuredSettings,
         previewVoucher: async () => voucher,
         consumeVoucher: async (code) => {
             onConsume(code);
@@ -85,6 +85,82 @@ test("verified checkout uses Shopify prices and backend Bahrain delivery", async
         variantId: coffeeID,
         unitPrice: "BHD 4.500"
     }]);
+});
+
+test("prepaid Coffee Club prices three shipments with a 10 percent saving and paid delivery each time", async () => {
+    const verify = service({ nodes: [node(coffeeID, "4.000")] });
+    const result = await verify(body(
+        [{ variantId: coffeeID, quantity: 1 }],
+        16.8,
+        { coffeeClub: { shipmentCount: 3, intervalWeeks: 4 } }
+    ), "customer@example.com");
+
+    assert.equal(result.subtotal, 12);
+    assert.equal(result.discount, 1.2);
+    assert.equal(result.shipping, 6);
+    assert.equal(result.total, 16.8);
+    assert.deepEqual(result.coffeeClub, { shipmentCount: 3, intervalWeeks: 4, discountPercent: 10 });
+    assert.equal(result.items[0].quantity, 3);
+});
+
+test("Coffee Club uses admin-controlled plan values and can be switched off", async () => {
+    const configuredSettings = {
+        ...settings(),
+        coffeeClub: { enabled: true, shipmentCount: 4, intervalWeeks: 3, discountPercent: 15 }
+    };
+    const result = await service({ nodes: [node(coffeeID, "4.000")], configuredSettings })(body(
+        [{ variantId: coffeeID, quantity: 1 }],
+        21.6,
+        { coffeeClub: { shipmentCount: 4, intervalWeeks: 3 } }
+    ), "customer@example.com");
+    assert.deepEqual(result.coffeeClub, { shipmentCount: 4, intervalWeeks: 3, discountPercent: 15 });
+    assert.equal(result.shipping, 8);
+    assert.equal(result.total, 21.6);
+
+    configuredSettings.coffeeClub.enabled = false;
+    await assert.rejects(
+        service({ nodes: [node(coffeeID, "4.000")], configuredSettings })(body(
+            [{ variantId: coffeeID, quantity: 1 }],
+            21.6,
+            { coffeeClub: { shipmentCount: 4, intervalWeeks: 3 } }
+        ), "customer@example.com"),
+        (error) => error.code === "COFFEE_CLUB_UNAVAILABLE"
+    );
+});
+
+test("Coffee Club rejects non-coffee products, vouchers, cash on delivery, and insufficient inventory", async () => {
+    const coffee = node(coffeeID, "4.000");
+    const drink = node(drinkID, "2.200");
+    const coffeeClub = { shipmentCount: 3, intervalWeeks: 4 };
+
+    await assert.rejects(
+        service({ nodes: [drink] })(body([{ variantId: drinkID, quantity: 1 }], 11.94, { coffeeClub }), "customer@example.com"),
+        (error) => error.code === "COFFEE_CLUB_ITEMS_INVALID"
+    );
+    await assert.rejects(
+        service({ nodes: [coffee], voucher: { code: "BAG", reward: "Bag Discount" } })(body(
+            [{ variantId: coffeeID, quantity: 1 }],
+            16.8,
+            { coffeeClub, voucherCode: "BAG" }
+        ), "customer@example.com"),
+        (error) => error.code === "COFFEE_CLUB_VOUCHER_UNSUPPORTED"
+    );
+    await assert.rejects(
+        service({ nodes: [coffee] })(body(
+            [{ variantId: coffeeID, quantity: 1 }],
+            16.8,
+            { coffeeClub, paymentMethod: "cashOnDelivery" }
+        ), "customer@example.com"),
+        (error) => error.code === "COFFEE_CLUB_PREPAYMENT_REQUIRED"
+    );
+    await assert.rejects(
+        service({ nodes: [node(coffeeID, "4.000", { inventoryQuantity: 2 })] })(body(
+            [{ variantId: coffeeID, quantity: 1 }],
+            16.8,
+            { coffeeClub }
+        ), "customer@example.com"),
+        (error) => error.code === "CHECKOUT_PRODUCT_UNAVAILABLE"
+    );
 });
 
 test("tampered or stale client totals are rejected before payment", async () => {

@@ -22,6 +22,7 @@ function createAdminOrderDetailService(dependencies) {
         const customer = details.customer && typeof details.customer === "object" ? details.customer : {};
         const fulfillment = details.fulfillment && typeof details.fulfillment === "object" ? details.fulfillment : {};
         const payment = details.payment && typeof details.payment === "object" ? details.payment : {};
+        const coffeeClub = details.coffeeClub && typeof details.coffeeClub === "object" ? details.coffeeClub : null;
         return {
             source: trimText(details.source, 60),
             customer: {
@@ -37,7 +38,12 @@ function createAdminOrderDetailService(dependencies) {
                 countryCode: normalizeCountryCode(fulfillment.countryCode, ""),
                 notes: trimText(fulfillment.notes, 500)
             },
-            payment: { method: trimText(payment.method, 80) }
+            payment: { method: trimText(payment.method, 80) },
+            coffeeClub: coffeeClub ? {
+                shipmentCount: Math.max(1, Math.min(12, Math.round(Number(coffeeClub.shipmentCount) || 1))),
+                intervalWeeks: Math.max(1, Math.min(52, Math.round(Number(coffeeClub.intervalWeeks) || 4))),
+                discountPercent: Math.max(0, Math.min(100, Math.round(Number(coffeeClub.discountPercent) || 0)))
+            } : null
         };
     }
 
@@ -158,6 +164,7 @@ function createAdminOrderDetailService(dependencies) {
                 countryCode: fulfillment.countryCode || preferredAddress.countryCode || "",
                 notes: fulfillment.notes || preferredAddress.notes || ""
             },
+            coffeeClub: snapshot.coffeeClub,
             payment,
             source: snapshot.source || (String(order.id).startsWith("shopify_") ? "Shopify" : "Talla app")
         });

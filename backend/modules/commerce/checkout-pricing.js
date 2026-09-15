@@ -75,6 +75,35 @@ function isEligibleDrink(node) {
     return handles.includes("ready-made-drinks") || ["drinks", "summer drinks"].includes(productType);
 }
 
+function isCoffeeBag(node) {
+    const handles = (node?.product?.collections?.nodes || [])
+        .map((collection) => String(collection?.handle || "").trim().toLowerCase());
+    const productType = String(node?.product?.productType || "").trim().toLowerCase();
+    return handles.some((handle) => ["coffee-beans", "arabic-coffee-beans"].includes(handle))
+        || ["coffee beans", "arabic coffee beans"].includes(productType);
+}
+
+function normalizeCoffeeClub(value, settings = {}) {
+    if (value === undefined || value === null) return null;
+    const configured = settings?.coffeeClub || {};
+    if (configured.enabled === false) {
+        fail("COFFEE_CLUB_UNAVAILABLE", 409, "Coffee Club is temporarily unavailable.");
+    }
+    const shipmentCount = Number(value?.shipmentCount);
+    const intervalWeeks = Number(value?.intervalWeeks);
+    const configuredShipmentCount = Number(configured.shipmentCount) || 3;
+    const configuredIntervalWeeks = Number(configured.intervalWeeks) || 4;
+    const discountPercent = Number(configured.discountPercent);
+    if (shipmentCount !== configuredShipmentCount || intervalWeeks !== configuredIntervalWeeks) {
+        fail("COFFEE_CLUB_INVALID", 400, "The Coffee Club plan changed. Refresh your bag and review it again.");
+    }
+    return {
+        shipmentCount,
+        intervalWeeks,
+        discountPercent: Number.isFinite(discountPercent) ? Math.max(0, Math.min(30, discountPercent)) : 10
+    };
+}
+
 function voucherDiscountFils(voucher, lines, subtotalFils) {
     const reward = String(voucher?.reward || "").trim().toLowerCase();
     switch (reward) {
@@ -139,6 +168,8 @@ function voucherError(error) {
 function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings, previewVoucher, consumeVoucher }) {
     return async function verifyCheckoutPricing(body, email) {
         const submitted = normalizeSubmittedItems(body?.items);
+        const settings = appSettings();
+        const coffeeClub = normalizeCoffeeClub(body?.coffeeClub, settings);
         let data;
         try {
             data = await shopifyAdminGraphQLRequest(
@@ -163,10 +194,11 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
         const lines = submitted.map((line) => {
             const node = nodes.get(line.variantId);
             if (!node) fail("CHECKOUT_PRODUCT_NOT_FOUND", 409, "A product in your bag is no longer available.");
+            const requiredQuantity = line.quantity * (coffeeClub?.shipmentCount || 1);
             if (node.availableForSale === false
                 || (String(node.inventoryPolicy).toUpperCase() === "DENY"
                     && Number.isFinite(Number(node.inventoryQuantity))
-                    && Number(node.inventoryQuantity) < line.quantity)) {
+                    && Number(node.inventoryQuantity) < requiredQuantity)) {
                 fail("CHECKOUT_PRODUCT_UNAVAILABLE", 409, `${node.displayName || "A product"} is no longer available in that quantity.`);
             }
             return {
@@ -176,11 +208,18 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 unitPriceFils: toFils(node.price),
                 requiresShipping: node.inventoryItem?.requiresShipping !== false,
                 weightGrams: weightInGrams(node.inventoryItem?.measurement?.weight),
-                eligibleDrink: isEligibleDrink(node)
+                eligibleDrink: isEligibleDrink(node),
+                coffeeBag: isCoffeeBag(node)
             };
         });
+        if (coffeeClub && !lines.every((line) => line.coffeeBag)) {
+            fail("COFFEE_CLUB_ITEMS_INVALID", 409, "Coffee Club can contain coffee bags only.");
+        }
         let voucher = null;
         const voucherCode = String(body?.voucherCode || "").trim().toUpperCase();
+        if (coffeeClub && voucherCode) {
+            fail("COFFEE_CLUB_VOUCHER_UNSUPPORTED", 409, "Coffee Club's 10% saving cannot be combined with another voucher.");
+        }
         if (voucherCode) {
             try {
                 voucher = await previewVoucher(voucherCode, email);
@@ -188,20 +227,29 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 throw voucherError(error);
             }
         }
-        const subtotalFils = lines.reduce((total, line) => total + line.unitPriceFils * line.quantity, 0);
-        const discountFils = voucherDiscountFils(voucher, lines, subtotalFils);
+        const shipmentCount = coffeeClub?.shipmentCount || 1;
+        const subtotalFils = lines.reduce((total, line) => total + line.unitPriceFils * line.quantity, 0) * shipmentCount;
+        const discountFils = coffeeClub
+            ? Math.round(subtotalFils * coffeeClub.discountPercent / 100)
+            : voucherDiscountFils(voucher, lines, subtotalFils);
         if (voucher && discountFils <= 0) {
             fail("VOUCHER_NOT_APPLICABLE", 409, "This voucher does not apply to the items in your bag. Add an eligible item or remove the voucher.");
         }
         const fulfillmentMethod = String(body?.fulfillmentMethod || body?.fulfillment?.method || "").trim().toLowerCase();
         const countryCode = String(body?.fulfillment?.countryCode || "").trim().toUpperCase();
+        if (coffeeClub && String(body?.paymentMethod || "").trim().toLowerCase() === "cashondelivery") {
+            fail("COFFEE_CLUB_PREPAYMENT_REQUIRED", 409, "Coffee Club must be paid in full before its first shipment.");
+        }
+        if (coffeeClub && fulfillmentMethod === "delivery" && countryCode !== "BH") {
+            fail("COFFEE_CLUB_BAHRAIN_ONLY", 409, "Coffee Club delivery is currently available in Bahrain only.");
+        }
         const deliveryFils = shippingFils({
             lines,
             fulfillmentMethod,
             countryCode,
             paymentMethod: body?.paymentMethod,
-            settings: appSettings()
-        });
+            settings
+        }) * shipmentCount;
         const totalFils = Math.max(subtotalFils - discountFils, 0) + deliveryFils;
         if (toFils(body?.total, "CHECKOUT_TOTAL_INVALID") !== totalFils) {
             fail("CHECKOUT_TOTAL_CHANGED", 409, "Your price changed. Refresh your bag and review the total before paying.");
@@ -218,7 +266,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
             items: lines.map((line) => ({
                 name: line.name,
                 ...orderItemOptions(line),
-                quantity: line.quantity,
+                quantity: line.quantity * shipmentCount,
                 variantId: line.variantId,
                 unitPrice: `BHD ${(line.unitPriceFils / 1000).toFixed(3)}`
             })),
@@ -226,7 +274,8 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
             discount: discountFils / 1000,
             shipping: deliveryFils / 1000,
             total: totalFils / 1000,
-            voucherCode: voucher?.code || null
+            voucherCode: voucher?.code || null,
+            coffeeClub
         };
     };
 }
@@ -234,7 +283,9 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
 module.exports = {
     CheckoutPricingError,
     createCheckoutPricingService,
+    isCoffeeBag,
     normalizeSubmittedItems,
+    normalizeCoffeeClub,
     toFils,
     voucherDiscountFils,
     weightInGrams

@@ -277,6 +277,12 @@ function defaultAppSettings() {
             noticeEN: "",
             noticeAR: ""
         },
+        coffeeClub: {
+            enabled: false,
+            shipmentCount: 3,
+            intervalWeeks: 4,
+            discountPercent: 10
+        },
         fulfillment: {
             deliveryEnabled: true,
             pickupEnabled: true,
@@ -351,6 +357,7 @@ function normalizeAppSettings(value = {}) {
     const support = value.support || {};
     const homeSections = value.homeSections || {};
     const payments = value.payments || {};
+    const coffeeClub = value.coffeeClub || {};
     const fulfillment = value.fulfillment || {};
     const release = value.release || {};
     const loyalty = value.loyalty || {};
@@ -430,6 +437,12 @@ function normalizeAppSettings(value = {}) {
             cashOnDeliveryEnabled: payments.cashOnDeliveryEnabled === undefined ? fallback.payments.cashOnDeliveryEnabled : Boolean(payments.cashOnDeliveryEnabled),
             noticeEN: trimText(payments.noticeEN, 220),
             noticeAR: trimText(payments.noticeAR, 220)
+        },
+        coffeeClub: {
+            enabled: coffeeClub.enabled === undefined ? fallback.coffeeClub.enabled : Boolean(coffeeClub.enabled),
+            shipmentCount: Math.round(boundedNumber(coffeeClub.shipmentCount, fallback.coffeeClub.shipmentCount, 2, 12)),
+            intervalWeeks: Math.round(boundedNumber(coffeeClub.intervalWeeks, fallback.coffeeClub.intervalWeeks, 1, 12)),
+            discountPercent: Math.round(boundedNumber(coffeeClub.discountPercent, fallback.coffeeClub.discountPercent, 0, 30))
         },
         fulfillment: {
             deliveryEnabled: hasFulfillmentMethod ? requestedDeliveryEnabled : fallback.fulfillment.deliveryEnabled,
@@ -3609,6 +3622,7 @@ async function orderPayloadWithRewardState(email, order) {
 
     return {
         ...order,
+        coffeeClub: normalizeOrderDetails(order.details).coffeeClub,
         beansAwarded,
         pointsAwarded: beansAwarded ? pointsAwarded : 0
     };

@@ -774,7 +774,7 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "GET" && url.pathname === "/app/settings") {
-        sendJSON(response, 200, await getAppSettings());
+        sendJSON(response, 200, await getAppSettings(), { "Cache-Control": "no-store, no-cache, must-revalidate" });
         return;
     }
 
@@ -1438,7 +1438,7 @@ module.exports = function createServer(dependencies) {
         }
 
         if (request.method === "GET" && url.pathname === "/admin/api/app-settings") {
-            sendJSON(response, 200, await getAppSettings());
+            sendJSON(response, 200, await getAppSettings(), { "Cache-Control": "no-store, no-cache, must-revalidate" });
             return;
         }
 
@@ -1453,7 +1453,7 @@ module.exports = function createServer(dependencies) {
                     detail: "Updated live app controls",
                     metadata: savedSettings
                 });
-                sendJSON(response, 200, savedSettings);
+                sendJSON(response, 200, savedSettings, { "Cache-Control": "no-store, no-cache, must-revalidate" });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Could not save app settings." });
             }
@@ -4187,7 +4187,8 @@ module.exports = function createServer(dependencies) {
                         ...(body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : {}),
                         method: body.fulfillmentMethod || body.fulfillment?.method
                     },
-                    payment: { method: body.paymentMethod }
+                    payment: { method: body.paymentMethod },
+                    coffeeClub: verifiedPricing?.coffeeClub || null
                 }),
                 createdAt: new Date().toISOString()
             };
