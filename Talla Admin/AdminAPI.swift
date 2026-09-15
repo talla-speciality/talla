@@ -96,6 +96,16 @@ struct AdminAPI {
         return try await orders()
     }
 
+    func updateCoffeeClubShipment(id: String, action: String) async throws -> [AdminOrder] {
+        let data = try await request("/admin/api/orders/coffee-club/shipment", method: "POST", body: [
+            "orderID": id,
+            "action": action
+        ])
+        let response = try JSONDecoder().decode(AdminStatusUpdateResponse.self, from: data)
+        if let updatedOrders = response.orders { return updatedOrders }
+        return try await orders()
+    }
+
     func notifyReady(orderID: String) async throws -> AdminPushDeliveryResult {
         let data = try await request("/admin/api/orders/notify-ready", method: "POST", body: ["orderID": orderID])
         return try JSONDecoder().decode(AdminNotifyReadyResponse.self, from: data).push

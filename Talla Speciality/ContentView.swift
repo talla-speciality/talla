@@ -601,6 +601,16 @@ struct ContentView: View {
                 let shipmentCount: Int
                 let intervalWeeks: Int
                 let discountPercent: Int
+                let deliveredShipments: Int?
+                let remainingShipments: Int?
+
+                var deliveredCount: Int {
+                    min(shipmentCount, max(0, deliveredShipments ?? 0))
+                }
+
+                var remainingCount: Int {
+                    min(shipmentCount, max(0, remainingShipments ?? (shipmentCount - deliveredCount)))
+                }
             }
             let fulfillment: Fulfillment?
             let coffeeClub: CoffeeClub?

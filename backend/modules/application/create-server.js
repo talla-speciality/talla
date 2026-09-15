@@ -439,6 +439,7 @@ module.exports = function createServer(dependencies) {
         updateOpsAlertState,
         updateOrderStatusAndAward,
         updateOrderStatusByID,
+        updateCoffeeClubShipmentByID,
         updateOrderStatusRecord,
         updateShopifyAdminProduct,
         updateShopifyProductInventory,
@@ -1292,6 +1293,51 @@ module.exports = function createServer(dependencies) {
                 sendJSON(response, 200, { order, orders: await allOrdersPayload(), push: pushResult });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid order update payload." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/orders/coffee-club/shipment") {
+            try {
+                const body = await readBody(request);
+                const orderID = String(body.orderID || body.id || "").trim();
+                const action = String(body.action || "").trim().toLowerCase();
+                if (!orderID || !["deliver", "undo"].includes(action)) {
+                    sendJSON(response, 400, { error: "Provide an orderID and a deliver or undo action." });
+                    return;
+                }
+
+                const result = await updateCoffeeClubShipmentByID(orderID, action, admin.username);
+                if (!result.order) {
+                    const errors = {
+                        not_found: [404, "Order not found."],
+                        not_coffee_club: [409, "This is not a Coffee Club order."],
+                        all_delivered: [409, "All Coffee Club shipments are already delivered."],
+                        none_delivered: [409, "No delivered Coffee Club shipment is available to undo."]
+                    };
+                    const [statusCode, message] = errors[result.reason] || [400, "Unable to update shipment progress."];
+                    sendJSON(response, statusCode, { error: message });
+                    return;
+                }
+
+                const club = result.order.coffeeClub;
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: action === "deliver" ? "coffee_club_shipment_delivered" : "coffee_club_shipment_delivery_undone",
+                    targetEmail: result.order.email,
+                    detail: action === "deliver"
+                        ? `Marked Coffee Club shipment ${club.deliveredShipments} of ${club.shipmentCount} delivered for order ${orderID}`
+                        : `Undid the latest Coffee Club shipment delivery for order ${orderID}`,
+                    metadata: {
+                        orderID,
+                        action,
+                        deliveredShipments: club.deliveredShipments,
+                        remainingShipments: club.remainingShipments
+                    }
+                });
+                sendJSON(response, 200, { order: result.order, orders: await allOrdersPayload() });
+            } catch (error) {
+                sendJSON(response, 400, { error: "Invalid Coffee Club shipment update." });
             }
             return;
         }

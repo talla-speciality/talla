@@ -17,12 +17,62 @@ function createAdminOrderDetailService(dependencies) {
 
     const trimText = (value, maximumLength) => String(value || "").trim().slice(0, maximumLength);
 
+    function normalizeCoffeeClub(value) {
+        if (!value || typeof value !== "object") return null;
+        const shipmentCount = Math.max(1, Math.min(12, Math.round(Number(value.shipmentCount) || 1)));
+        const rawShipments = Array.isArray(value.shipments) ? value.shipments : [];
+        const shipments = rawShipments.slice(0, shipmentCount).map((shipment, index) => ({
+            number: Math.max(1, Math.min(shipmentCount, Math.round(Number(shipment?.number) || index + 1))),
+            deliveredAt: trimText(shipment?.deliveredAt, 40),
+            deliveredBy: trimText(shipment?.deliveredBy, 120)
+        })).filter((shipment) => shipment.deliveredAt);
+        const deliveredShipments = Math.max(0, Math.min(
+            shipmentCount,
+            Math.round(Number(value.deliveredShipments) || shipments.length)
+        ));
+        return {
+            shipmentCount,
+            intervalWeeks: Math.max(1, Math.min(52, Math.round(Number(value.intervalWeeks) || 4))),
+            discountPercent: Math.max(0, Math.min(100, Math.round(Number(value.discountPercent) || 0))),
+            deliveredShipments,
+            remainingShipments: shipmentCount - deliveredShipments,
+            shipments: shipments.slice(0, deliveredShipments)
+        };
+    }
+
+    function updateCoffeeClubProgress(value, action, deliveredBy, deliveredAt = new Date().toISOString()) {
+        const coffeeClub = normalizeCoffeeClub(value);
+        if (!coffeeClub || !["deliver", "undo"].includes(action)) return null;
+        const shipments = [...coffeeClub.shipments];
+        let deliveredShipments = coffeeClub.deliveredShipments;
+        if (action === "deliver") {
+            if (deliveredShipments >= coffeeClub.shipmentCount) return null;
+            deliveredShipments += 1;
+            shipments.push({
+                number: deliveredShipments,
+                deliveredAt: trimText(deliveredAt, 40),
+                deliveredBy: trimText(deliveredBy, 120)
+            });
+        } else {
+            if (deliveredShipments <= 0) return null;
+            deliveredShipments -= 1;
+            const retainedShipments = shipments.filter((shipment) => shipment.number <= deliveredShipments);
+            shipments.splice(0, shipments.length, ...retainedShipments);
+        }
+        return {
+            ...coffeeClub,
+            deliveredShipments,
+            remainingShipments: coffeeClub.shipmentCount - deliveredShipments,
+            shipments
+        };
+    }
+
     function normalizeOrderDetails(value = {}) {
         const details = value && typeof value === "object" ? value : {};
         const customer = details.customer && typeof details.customer === "object" ? details.customer : {};
         const fulfillment = details.fulfillment && typeof details.fulfillment === "object" ? details.fulfillment : {};
         const payment = details.payment && typeof details.payment === "object" ? details.payment : {};
-        const coffeeClub = details.coffeeClub && typeof details.coffeeClub === "object" ? details.coffeeClub : null;
+        const coffeeClub = normalizeCoffeeClub(details.coffeeClub);
         return {
             source: trimText(details.source, 60),
             customer: {
@@ -39,11 +89,7 @@ function createAdminOrderDetailService(dependencies) {
                 notes: trimText(fulfillment.notes, 500)
             },
             payment: { method: trimText(payment.method, 80) },
-            coffeeClub: coffeeClub ? {
-                shipmentCount: Math.max(1, Math.min(12, Math.round(Number(coffeeClub.shipmentCount) || 1))),
-                intervalWeeks: Math.max(1, Math.min(52, Math.round(Number(coffeeClub.intervalWeeks) || 4))),
-                discountPercent: Math.max(0, Math.min(100, Math.round(Number(coffeeClub.discountPercent) || 0)))
-            } : null
+            coffeeClub
         };
     }
 
@@ -212,7 +258,13 @@ function createAdminOrderDetailService(dependencies) {
         });
     }
 
-    return { adminOrderDetailPayload, normalizeOrderDetails, shopifyAdminOrderDetails, shopifyOrderDetails };
+    return {
+        adminOrderDetailPayload,
+        normalizeOrderDetails,
+        shopifyAdminOrderDetails,
+        shopifyOrderDetails,
+        updateCoffeeClubProgress
+    };
 }
 
 module.exports = { createAdminOrderDetailService };

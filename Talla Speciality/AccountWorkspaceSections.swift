@@ -279,21 +279,58 @@ struct OrderHistorySectionView: View {
                         }
 
                         if let club = order.details?.coffeeClub {
-                            Label(
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label(
+                                    String(
+                                        format: AppLocalization.text(
+                                            "coffee_club_order_summary",
+                                            fallback: "%d prepaid shipments · every %d weeks · %d%% saved"
+                                        ),
+                                        club.shipmentCount,
+                                        club.intervalWeeks,
+                                        club.discountPercent
+                                    ),
+                                    systemImage: "checkmark.seal.fill"
+                                )
+                                .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                                .foregroundColor(accentColor)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                                ProgressView(value: Double(club.deliveredCount), total: Double(max(1, club.shipmentCount)))
+                                    .tint(accentColor)
+
+                                HStack {
+                                    Label(
+                                        String(
+                                            format: AppLocalization.text("coffee_club_delivered_count", fallback: "%d delivered"),
+                                            club.deliveredCount
+                                        ),
+                                        systemImage: "checkmark.circle.fill"
+                                    )
+                                    Spacer()
+                                    Label(
+                                        String(
+                                            format: AppLocalization.text("coffee_club_remaining_count", fallback: "%d remaining"),
+                                            club.remainingCount
+                                        ),
+                                        systemImage: "shippingbox"
+                                    )
+                                }
+                                .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                                .foregroundColor(secondaryTextColor)
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(
                                 String(
                                     format: AppLocalization.text(
-                                        "coffee_club_order_summary",
-                                        fallback: "%d prepaid shipments · every %d weeks · %d%% saved"
+                                        "coffee_club_progress_accessibility",
+                                        fallback: "Coffee Club: %d of %d shipments delivered, %d remaining"
                                     ),
+                                    club.deliveredCount,
                                     club.shipmentCount,
-                                    club.intervalWeeks,
-                                    club.discountPercent
-                                ),
-                                systemImage: "checkmark.seal.fill"
+                                    club.remainingCount
+                                )
                             )
-                            .font(Font.custom("AvenirNext-DemiBold", size: 12))
-                            .foregroundColor(accentColor)
-                            .fixedSize(horizontal: false, vertical: true)
                         }
 
                         VStack(alignment: .leading, spacing: 4) {

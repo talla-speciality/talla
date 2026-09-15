@@ -204,6 +204,35 @@ struct OrderHistoryFulfillmentTests {
         #expect(try !order(status: "Ready", method: "delivery").isPickup)
     }
 
+    @Test func coffeeClubProgressDecodesCurrentAndLegacyOrders() throws {
+        let base: [String: Any] = [
+            "id": "club-1", "title": "Talla Coffee Club", "total": "BHD 16.800",
+            "status": "Confirmed", "createdAt": "2026-09-15"
+        ]
+        var current = base
+        current["details"] = ["coffeeClub": [
+            "shipmentCount": 3, "intervalWeeks": 4, "discountPercent": 10,
+            "deliveredShipments": 1, "remainingShipments": 2
+        ]]
+        let currentOrder = try JSONDecoder().decode(
+            ContentView.AccountOrder.self,
+            from: JSONSerialization.data(withJSONObject: current)
+        )
+        #expect(currentOrder.details?.coffeeClub?.deliveredCount == 1)
+        #expect(currentOrder.details?.coffeeClub?.remainingCount == 2)
+
+        var legacy = base
+        legacy["details"] = ["coffeeClub": [
+            "shipmentCount": 3, "intervalWeeks": 4, "discountPercent": 10
+        ]]
+        let legacyOrder = try JSONDecoder().decode(
+            ContentView.AccountOrder.self,
+            from: JSONSerialization.data(withJSONObject: legacy)
+        )
+        #expect(legacyOrder.details?.coffeeClub?.deliveredCount == 0)
+        #expect(legacyOrder.details?.coffeeClub?.remainingCount == 3)
+    }
+
     @Test func legacyOrdersStillDecode() throws {
         #expect(try order(status: "Pending", title: "Pickup order").isPickup)
         #expect(try order(status: "Ready").isPickup)

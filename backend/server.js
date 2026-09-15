@@ -25,6 +25,7 @@ const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
 const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail");
+const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments");
 const { orderItemOptions } = require("./modules/commerce/order-item-options");
 const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
 const {
@@ -3555,7 +3556,7 @@ function orderRowToRecord(row) {
     };
 }
 
-const { adminOrderDetailPayload, normalizeOrderDetails, shopifyAdminOrderDetails, shopifyOrderDetails } = createAdminOrderDetailService({
+const { adminOrderDetailPayload, normalizeOrderDetails, shopifyAdminOrderDetails, shopifyOrderDetails, updateCoffeeClubProgress } = createAdminOrderDetailService({
     addressesFor,
     completedOrderStatuses,
     database,
@@ -3570,6 +3571,8 @@ const { adminOrderDetailPayload, normalizeOrderDetails, shopifyAdminOrderDetails
     shopifyEazyPaymentRowToRecord,
     shopifyEazyPaymentsStorePath
 });
+
+const updateCoffeeClubShipmentByID = createCoffeeClubShipmentService({ adminOrderDetailPayload, database, findOrderByID, normalizeEmail, normalizeOrderDetails, orderRowToRecord, ordersStorePath, readJSON, updateCoffeeClubProgress, writeJSON });
 
 function completedOrderStatuses() {
     return new Set(["Completed", "Fulfilled", "Delivered"]);
@@ -4061,11 +4064,7 @@ async function findOrderByID(orderID) {
 
 async function updateOrderStatusByID(orderID, status) {
     const order = await findOrderByID(orderID);
-    if (!order) {
-        return null;
-    }
-
-    return updateOrderStatusAndAward(order.email, orderID, status);
+    return order ? updateOrderStatusAndAward(order.email, orderID, status) : null;
 }
 
 function orderStatusFromShopifyOrder(shopifyOrder, topic = "") {
@@ -9115,6 +9114,7 @@ const server = createServer({
     updateOpsAlertState,
     updateOrderStatusAndAward,
     updateOrderStatusByID,
+    updateCoffeeClubShipmentByID,
     updateOrderStatusRecord,
     updateShopifyAdminProduct,
     updateShopifyProductInventory,

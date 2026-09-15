@@ -52,8 +52,59 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
     assert.equal(order.payment.method, "Apple Pay");
     assert.equal(order.payment.status, "Captured");
     assert.equal(order.payment.reference, "PAY-123");
-    assert.deepEqual(order.coffeeClub, { shipmentCount: 3, intervalWeeks: 4, discountPercent: 10 });
+    assert.deepEqual(order.coffeeClub, {
+        shipmentCount: 3,
+        intervalWeeks: 4,
+        discountPercent: 10,
+        deliveredShipments: 0,
+        remainingShipments: 3,
+        shipments: []
+    });
     assert.equal(order.status, "Confirmed");
+});
+
+test("Coffee Club progress records deliveries, remaining shipments, and supports undo", () => {
+    const detailService = service();
+    const first = detailService.updateCoffeeClubProgress(
+        { shipmentCount: 3, intervalWeeks: 4, discountPercent: 10 },
+        "deliver",
+        "manager",
+        "2026-09-15T10:00:00.000Z"
+    );
+    assert.equal(first.deliveredShipments, 1);
+    assert.equal(first.remainingShipments, 2);
+    assert.deepEqual(first.shipments, [{
+        number: 1,
+        deliveredAt: "2026-09-15T10:00:00.000Z",
+        deliveredBy: "manager"
+    }]);
+
+    const second = detailService.updateCoffeeClubProgress(
+        first,
+        "deliver",
+        "manager",
+        "2026-10-13T10:00:00.000Z"
+    );
+    assert.equal(second.deliveredShipments, 2);
+    assert.equal(second.remainingShipments, 1);
+
+    const undone = detailService.updateCoffeeClubProgress(second, "undo", "manager");
+    assert.equal(undone.deliveredShipments, 1);
+    assert.equal(undone.remainingShipments, 2);
+    assert.equal(undone.shipments.length, 1);
+});
+
+test("Coffee Club progress refuses delivery beyond plan bounds", () => {
+    const detailService = service();
+    const complete = {
+        shipmentCount: 2,
+        intervalWeeks: 4,
+        discountPercent: 10,
+        deliveredShipments: 2,
+        shipments: []
+    };
+    assert.equal(detailService.updateCoffeeClubProgress(complete, "deliver", "manager"), null);
+    assert.equal(detailService.updateCoffeeClubProgress({ ...complete, deliveredShipments: 0 }, "undo", "manager"), null);
 });
 
 test("Shopify order snapshots retain operational customer and delivery data", () => {

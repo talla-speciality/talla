@@ -118,6 +118,28 @@ final class AdminSession: ObservableObject {
         }
     }
 
+    func updateCoffeeClubShipment(_ order: AdminOrder, action: String) async {
+        message = nil
+        errorMessage = nil
+        do {
+            orders = try await api.updateCoffeeClubShipment(id: order.id, action: action).sorted {
+                ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast)
+            }
+            let detailedOrder = try await api.orderDetail(id: order.id)
+            if let index = orders.firstIndex(where: { $0.id == order.id }) {
+                orders[index] = detailedOrder
+            }
+            lastRefreshAt = .now
+            if action == "deliver", let club = detailedOrder.coffeeClub {
+                message = "Shipment \(club.deliveredShipments) of \(club.shipmentCount) marked delivered."
+            } else {
+                message = "Latest shipment delivery was undone."
+            }
+        } catch {
+            handle(error)
+        }
+    }
+
     func refreshOrderDetail(id: String) async {
         guard isAuthenticated else { return }
         do {
@@ -222,7 +244,18 @@ final class AdminSession: ObservableObject {
             customer: AdminOrderCustomer(fullName: "Sara Ahmed", email: "customer@example.com", phone: "+973 3900 0000"),
             fulfillment: AdminOrderFulfillment(method: "delivery", fullName: "Sara Ahmed", phone: "+973 3900 0000", line1: "Road 1307", city: "Riffa", countryCode: "BH", notes: "Call on arrival"),
             payment: AdminOrderPayment(method: "BenefitPay", provider: "BENEFIT", status: "Captured", amount: "16.800", currency: "BHD", reference: "BP-1048", paidAt: "2026-09-02T14:21:00Z"),
-            coffeeClub: AdminCoffeeClub(shipmentCount: 3, intervalWeeks: 4, discountPercent: 10),
+            coffeeClub: AdminCoffeeClub(
+                shipmentCount: 3,
+                intervalWeeks: 4,
+                discountPercent: 10,
+                deliveredShipments: 1,
+                remainingShipments: 2,
+                shipments: [AdminCoffeeClubShipment(
+                    number: 1,
+                    deliveredAt: "2026-09-15T10:00:00Z",
+                    deliveredBy: "manager"
+                )]
+            ),
             source: "Talla iOS app", updatedAt: "2026-09-02T14:21:00Z"
         ),
         AdminOrder(

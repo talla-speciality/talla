@@ -272,11 +272,14 @@ private struct OrderCard: View {
 
             if let club = order.coffeeClub {
                 Label(
-                    "Coffee Club · \(club.shipmentCount) prepaid shipments · every \(club.intervalWeeks) weeks",
+                    "Coffee Club · \(club.deliveredShipments) delivered · \(club.remainingShipments) remaining",
                     systemImage: "checkmark.seal.fill"
                 )
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(TallaAdminStyle.caramel)
+
+                ProgressView(value: Double(club.deliveredShipments), total: Double(max(1, club.shipmentCount)))
+                    .tint(TallaAdminStyle.caramel)
             }
 
             if !order.items.isEmpty {
@@ -352,6 +355,8 @@ struct OrderDetailView: View {
     @State private var isNotifying = false
     @State private var showStatusConfirmation = false
     @State private var showNotifyConfirmation = false
+    @State private var pendingShipmentAction: String?
+    @State private var isUpdatingShipment = false
 
     private var order: AdminOrder? { session.orders.first { $0.id == orderID } }
 
@@ -419,6 +424,25 @@ struct OrderDetailView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("This sends a notification to \(order.customer?.fullName ?? order.email). It does not change the order status.")
+                }
+                .confirmationDialog(
+                    pendingShipmentAction == "deliver" ? "Mark this shipment delivered?" : "Undo the latest delivery?",
+                    isPresented: Binding(
+                        get: { pendingShipmentAction != nil },
+                        set: { if !$0 { pendingShipmentAction = nil } }
+                    ),
+                    titleVisibility: .visible
+                ) {
+                    Button(pendingShipmentAction == "deliver" ? "Mark Delivered" : "Undo Delivery") {
+                        updateShipment(order, action: pendingShipmentAction ?? "")
+                    }
+                    Button("Cancel", role: .cancel) { pendingShipmentAction = nil }
+                } message: {
+                    if let club = order.coffeeClub {
+                        Text(pendingShipmentAction == "deliver"
+                             ? "Shipment \(club.deliveredShipments + 1) of \(club.shipmentCount) will be recorded as delivered."
+                             : "Shipment \(club.deliveredShipments) will return to the remaining count.")
+                    }
                 }
             } else {
                 ContentUnavailableView(
@@ -488,8 +512,45 @@ struct OrderDetailView: View {
                 detailRow("Plan", "\(club.shipmentCount) prepaid shipments")
                 detailRow("Schedule", "Every \(club.intervalWeeks) weeks")
                 detailRow("Coffee saving", "\(club.discountPercent)%")
+                detailRow("Delivered", "\(club.deliveredShipments)")
+                detailRow("Remaining", "\(club.remainingShipments)")
                 detailRow("Renewal", "No automatic renewal")
-                Text("Delivery is charged separately for every shipment. Use the order status controls as each shipment moves through fulfilment.")
+
+                ProgressView(value: Double(club.deliveredShipments), total: Double(max(1, club.shipmentCount)))
+                    .tint(TallaAdminStyle.caramel)
+
+                Button {
+                    pendingShipmentAction = "deliver"
+                } label: {
+                    if isUpdatingShipment { ProgressView().frame(maxWidth: .infinity) }
+                    else {
+                        Label(
+                            club.remainingShipments == 1 ? "Mark Final Shipment Delivered" : "Mark Next Shipment Delivered",
+                            systemImage: "shippingbox.and.arrow.backward.fill"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(isUpdatingShipment || club.remainingShipments == 0)
+
+                if club.deliveredShipments > 0 {
+                    Button("Undo Last Delivery", systemImage: "arrow.uturn.backward") {
+                        pendingShipmentAction = "undo"
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isUpdatingShipment)
+                }
+
+                if let latest = club.shipments.max(by: { $0.number < $1.number }) {
+                    detailRow(
+                        "Latest delivery",
+                        latest.deliveredDate?.formatted(date: .abbreviated, time: .shortened) ?? latest.deliveredAt
+                    )
+                }
+
+                Text("Delivery is charged separately for every shipment. Shipment progress is visible to the customer in their order history.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -615,6 +676,16 @@ struct OrderDetailView: View {
         Task {
             await session.notifyReady(order)
             isNotifying = false
+        }
+    }
+
+    private func updateShipment(_ order: AdminOrder, action: String) {
+        guard ["deliver", "undo"].contains(action) else { return }
+        pendingShipmentAction = nil
+        isUpdatingShipment = true
+        Task {
+            await session.updateCoffeeClubShipment(order, action: action)
+            isUpdatingShipment = false
         }
     }
 

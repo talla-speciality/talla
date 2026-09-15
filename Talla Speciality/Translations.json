@@ -38,6 +38,15 @@
   "coffee_club_order_summary": {
     "ar": "%d شحنات مدفوعة مسبقًا · كل %d أسابيع · توفير %d٪"
   },
+  "coffee_club_delivered_count": {
+    "ar": "تم توصيل %d"
+  },
+  "coffee_club_remaining_count": {
+    "ar": "متبقي %d"
+  },
+  "coffee_club_progress_accessibility": {
+    "ar": "نادي القهوة: تم توصيل %d من أصل %d شحنات، والمتبقي %d"
+  },
   "payment_apple_pay_subtitle": {
     "ar": "دفع سريع وآمن"
   },

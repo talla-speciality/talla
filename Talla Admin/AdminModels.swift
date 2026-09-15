@@ -36,6 +36,49 @@ struct AdminCoffeeClub: Codable, Hashable {
     let shipmentCount: Int
     let intervalWeeks: Int
     let discountPercent: Int
+    let deliveredShipments: Int
+    let remainingShipments: Int
+    let shipments: [AdminCoffeeClubShipment]
+
+    init(
+        shipmentCount: Int,
+        intervalWeeks: Int,
+        discountPercent: Int,
+        deliveredShipments: Int = 0,
+        remainingShipments: Int? = nil,
+        shipments: [AdminCoffeeClubShipment] = []
+    ) {
+        self.shipmentCount = shipmentCount
+        self.intervalWeeks = intervalWeeks
+        self.discountPercent = discountPercent
+        self.deliveredShipments = min(shipmentCount, max(0, deliveredShipments))
+        self.remainingShipments = min(
+            shipmentCount,
+            max(0, remainingShipments ?? (shipmentCount - self.deliveredShipments))
+        )
+        self.shipments = shipments
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let count = try values.decode(Int.self, forKey: .shipmentCount)
+        self.init(
+            shipmentCount: count,
+            intervalWeeks: try values.decode(Int.self, forKey: .intervalWeeks),
+            discountPercent: try values.decode(Int.self, forKey: .discountPercent),
+            deliveredShipments: try values.decodeIfPresent(Int.self, forKey: .deliveredShipments) ?? 0,
+            remainingShipments: try values.decodeIfPresent(Int.self, forKey: .remainingShipments),
+            shipments: try values.decodeIfPresent([AdminCoffeeClubShipment].self, forKey: .shipments) ?? []
+        )
+    }
+}
+
+struct AdminCoffeeClubShipment: Codable, Hashable {
+    let number: Int
+    let deliveredAt: String
+    let deliveredBy: String
+
+    var deliveredDate: Date? { ISO8601DateFormatter().date(from: deliveredAt) }
 }
 
 struct AdminOrderItem: Codable, Hashable {
