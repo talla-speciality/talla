@@ -213,6 +213,11 @@ struct ContentView: View {
     @EnvironmentObject var coffeeData: CoffeeDataStore
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.verticalSizeClass) var verticalSizeClass
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
+    @ScaledMetric(relativeTo: .largeTitle) var displayFontScale = 1.0
+    @ScaledMetric(relativeTo: .title3) var titleFontScale = 1.0
+    @ScaledMetric(relativeTo: .body) var bodyFontScale = 1.0
+    @ScaledMetric(relativeTo: .caption) var labelFontScale = 1.0
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.scenePhase) var scenePhase
@@ -376,6 +381,13 @@ struct ContentView: View {
             let noticeAR: String
         }
 
+        struct CoffeeClub: Decodable {
+            let enabled: Bool
+            let shipmentCount: Int
+            let intervalWeeks: Int
+            let discountPercent: Int
+        }
+
         struct Fulfillment: Decodable {
             struct ShippingTier: Decodable {
                 let maximumWeightGrams: Double
@@ -436,6 +448,7 @@ struct ContentView: View {
         let support: Support
         let homeSections: HomeSections
         let payments: Payments?
+        let coffeeClub: CoffeeClub?
         let fulfillment: Fulfillment?
         let release: Release?
         let loyalty: Loyalty?
@@ -584,7 +597,13 @@ struct ContentView: View {
             struct Fulfillment: Decodable {
                 let method: String?
             }
+            struct CoffeeClub: Decodable {
+                let shipmentCount: Int
+                let intervalWeeks: Int
+                let discountPercent: Int
+            }
             let fulfillment: Fulfillment?
+            let coffeeClub: CoffeeClub?
         }
 
         var details: Details? = nil
@@ -889,7 +908,15 @@ struct ContentView: View {
     @State var pendingUniversalLinkProductHandle = ""
     @State var pendingBrewingCoffeeName = ""
     @State var cartItems: [CartItem] = []
+    @State var isCoffeeClubPrepaid = false
     @State var cartOpen = false
+    enum PaymentPresentation {
+        case hosted(CheckoutSession)
+        case benefitPay(BenefitPaySession)
+        case mastercard(MastercardPaymentContext)
+    }
+
+    @State var pendingPaymentPresentation: PaymentPresentation?
     @State var isCheckoutPresented = false
     @State var isCheckoutAddressSheetPresented = false
     @State var isPostPaymentPresented = false
@@ -1102,10 +1129,6 @@ struct ContentView: View {
         }
     }
 
-    var cartCount: Int {
-        cartItems.reduce(0) { $0 + $1.quantity }
-    }
-
     var isApplePayAvailable: Bool {
 #if canImport(PassKit)
         PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard, .amex])
@@ -1122,13 +1145,8 @@ struct ContentView: View {
 #endif
     }
 
-    var cartSubtotal: Double {
-        cartItems.reduce(0) { partialResult, item in
-            partialResult + (priceValue(from: item.product.price) * Double(item.quantity))
-        }
-    }
-
     var cartDiscount: Double {
+        if isCoffeeClubActive { return coffeeClubDiscount }
         guard let appliedVoucher else { return 0 }
 
         switch appliedVoucher.reward.lowercased() {
@@ -1176,7 +1194,7 @@ struct ContentView: View {
         }
         guard let countryCode = preferredAddress?.country.rawValue else { return nil }
         if countryCode == SupportedDeliveryCountry.bahrain.rawValue {
-            return shippingConfiguration.bahrainRate
+            return shippingConfiguration.bahrainRate * Double(coffeeClubShipmentCount)
         }
         guard let weightGrams = cartShipmentWeightGrams else { return nil }
         return TallaShippingRates.rate(
@@ -1184,7 +1202,7 @@ struct ContentView: View {
             weightGrams: weightGrams,
             cashOnDelivery: paymentFlow.selectedMethod == .cashOnDelivery,
             configuration: shippingConfiguration
-        )
+        ).map { $0 * Double(coffeeClubShipmentCount) }
     }
 
     var usesShopifyCalculatedShipping: Bool {
@@ -1224,44 +1242,6 @@ struct ContentView: View {
             return AppLocalization.text("shipping_weight_missing", fallback: "Product weight required")
         }
         return AppLocalization.text("shipping_weight_over_limit", fallback: "Over 4 kg — contact us")
-    }
-
-    var cartDeliveryTitle: String {
-        if fulfillmentMethod == .pickup {
-            return AppLocalization.text("pickup", fallback: "Pickup")
-        }
-        let isKhaleejiCashOnDelivery = preferredAddress.map { $0.country.isKhaleeji && $0.country != .bahrain } == true
-            && paymentFlow.selectedMethod == .cashOnDelivery
-        return isKhaleejiCashOnDelivery
-            ? AppLocalization.text("delivery_with_cod", fallback: "Delivery + COD fee")
-            : AppLocalization.text("delivery", fallback: "Delivery")
-    }
-
-    var cartOrderSummaryRows: [(title: String, value: String, emphasized: Bool)] {
-        var rows: [(title: String, value: String, emphasized: Bool)] = [
-            (AppLocalization.text("subtotal", fallback: "Subtotal"), formattedBHD(cartSubtotal), false),
-            (cartDeliveryTitle, cartShippingLabel, false)
-        ]
-        if fulfillmentMethod == .pickup {
-            rows.append((
-                AppLocalization.text("pickup_location", fallback: "Pickup location"),
-                managedPickupName,
-                false
-            ))
-        } else if preferredAddress.map({ $0.country.isKhaleeji && $0.country != .bahrain }) == true {
-            rows.append((
-                AppLocalization.text("transit_time", fallback: "Transit time"),
-                AppLocalization.text("khaleeji_transit_time", fallback: shippingConfiguration.khaleejiTransitTime),
-                false
-            ))
-        }
-        rows.append((
-            AppLocalization.text("discount", fallback: "Discount"),
-            cartDiscount > 0 ? "-\(formattedBHD(cartDiscount))" : AppLocalization.text("none_dash", fallback: "—"),
-            false
-        ))
-        rows.append((AppLocalization.text("total", fallback: "Total"), formattedBHD(cartTotal), true))
-        return rows
     }
 
     var signatureRoastProducts: [Product] {
@@ -1421,7 +1401,7 @@ struct ContentView: View {
     }
 
     var homeQuickActionColumns: [GridItem] {
-        let count = isCompact ? 2 : 4
+        let count = dynamicTypeSize.isAccessibilitySize ? (isCompact ? 1 : 2) : (isCompact ? 2 : 4)
         return Array(repeating: GridItem(.flexible(), spacing: 10), count: count)
     }
 
@@ -1429,20 +1409,22 @@ struct ContentView: View {
         if isCompact {
             [GridItem(.flexible(), spacing: 0)]
         } else {
-            Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
+            [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 300 : 200), spacing: 16)]
         }
     }
 
     var shopProductGridColumns: [GridItem] {
-        let count = isCompact ? 2 : 4
-        return Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
+        if isCompact {
+            return Array(repeating: GridItem(.flexible(), spacing: 16), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2)
+        }
+        return [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 300 : 200), spacing: 16)]
     }
 
     var collectionGridColumns: [GridItem] {
         if isCompact {
             [GridItem(.flexible(), spacing: 0)]
         } else {
-            Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+            [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 300 : 200), spacing: 12)]
         }
     }
 
@@ -1450,7 +1432,7 @@ struct ContentView: View {
         if isCompact {
             [GridItem(.flexible(), spacing: 0)]
         } else {
-            Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
+            [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 300 : 200), spacing: 16)]
         }
     }
 
@@ -2298,6 +2280,8 @@ struct ContentView: View {
         // Network bootstrap is deliberately performed after the splash is
         // dismissed. Storefront, notification, and account services are
         // optional at launch and must never prevent the local UI from opening.
+        await loadAppSettings()
+        guard !Task.isCancelled else { return }
         await loadProductsIfNeeded()
         guard !Task.isCancelled else { return }
         await refreshNotificationStatus()
@@ -2509,8 +2493,18 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
             syncWidgetSharedState(reload: true)
         }
+        .task {
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 30_000_000_000)
+                } catch {
+                    return
+                }
+                await loadAppSettings()
+            }
+        }
         .onChange(of: activeTab) { _, newTab in
-            guard newTab == .shop, hasLoadedProducts else { return }
+            guard newTab == .shop, hasLoadedProducts, !didConfigureReleaseUITest else { return }
             Task {
                 await refreshProductsIfNeeded()
             }
@@ -2523,9 +2517,9 @@ struct ContentView: View {
                 if restoredCredential, customerProfile == nil {
                     await loadCustomerProfile()
                 }
-                guard hasLoadedProducts else { return }
                 await loadAppSettings()
                 await loadEventSettings()
+                guard hasLoadedProducts else { return }
                 if activeTab == .shop {
                     await refreshProductsIfNeeded()
                 }
@@ -2633,8 +2627,10 @@ struct ContentView: View {
         .sheet(isPresented: $isCoffeeConciergePresented) {
             coffeeConciergeSheet
         }
-        .fullScreenCover(isPresented: $isCheckoutPresented) {
+        .fullScreenCover(isPresented: $isCheckoutPresented, onDismiss: presentPendingPayment) {
             checkoutView
+                .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
+                .environment(\.layoutDirection, appLanguage.layoutDirection)
         }
         .fullScreenCover(isPresented: $isPostPaymentPresented) {
             postPaymentView

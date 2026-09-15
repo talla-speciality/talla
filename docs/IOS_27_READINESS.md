@@ -1,5 +1,7 @@
 # iOS 27 readiness
 
+For the subsequent conventional iPhone/iPad layout changes and device matrix, see [iOS 27 device optimization](IOS_27_DEVICE_OPTIMIZATION.md). iPhone Duo validation remains deferred to 27.1.
+
 ## Compatibility changes
 
 - Pin Xcode 27.0 in `.xcode-version` and build with the iOS 27 SDK.
@@ -21,7 +23,7 @@ Before store submission, verify payment handoff and callbacks (BenefitPay, hoste
 
 ## iPhone Duo preparation
 
-The app already targets both iPhone and iPad, uses SwiftUI size classes, standard `TabView`, scroll views, sheets, menus, and safe-area-aware foreground content. The root layout now also responds to compact height for the shorter outer display, and regular-width grids use an even number of columns so they divide cleanly around the inner-display fold.
+The app already targets both iPhone and iPad, uses SwiftUI size classes, standard `TabView`, scroll views, sheets, menus, and safe-area-aware foreground content. The root layout also responds to compact height. Regular-width grids now adapt to available width and text size; fold-specific behavior has not been validated.
 
 Full iPhone Duo validation requires Xcode 27.1 and its Device Hub simulator. When that SDK is available, test the outer display, fully open inner display, partially folded book and tabletop poses, rotation, and Split View. Confirm the system places the tab bar vertically, foreground controls avoid asymmetric safe areas and reserved camera/hinge regions, and state remains unchanged while opening and closing the device.
 

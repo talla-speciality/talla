@@ -463,7 +463,10 @@ enum AccountService {
         fulfillmentMethod: TallaFulfillmentMethod,
         address: ContentView.DeliveryAddress?,
         paymentMethod: TallaPaymentMethod,
-        voucherCode: String?
+        voucherCode: String?,
+        prepaidCoffeeClub: Bool = false,
+        coffeeClubShipmentCount: Int = 3,
+        coffeeClubIntervalWeeks: Int = 4
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -492,6 +495,13 @@ enum AccountService {
             "source": "Talla iOS app",
             "items": orderItems
         ]
+        if prepaidCoffeeClub {
+            payload["title"] = "Talla Coffee Club"
+            payload["coffeeClub"] = [
+                "shipmentCount": coffeeClubShipmentCount,
+                "intervalWeeks": coffeeClubIntervalWeeks
+            ]
+        }
         if let address {
             payload["customer"] = ["fullName": address.fullName, "phone": address.phone]
             payload["fulfillment"] = [

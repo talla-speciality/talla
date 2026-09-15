@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AccountSectionView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var presentedDetail: AccountDetail?
     @State private var handledOrdersPresentationRequest = 0
 
@@ -760,7 +761,7 @@ struct AccountSectionView: View {
     }
 
     private var accountQuickActionColumns: [GridItem] {
-        let count = horizontalSizeClass == .regular ? 4 : 2
+        let count = dynamicTypeSize.isAccessibilitySize ? (horizontalSizeClass == .regular ? 2 : 1) : (horizontalSizeClass == .regular ? 4 : 2)
         return Array(repeating: GridItem(.flexible(), spacing: 10), count: count)
     }
 

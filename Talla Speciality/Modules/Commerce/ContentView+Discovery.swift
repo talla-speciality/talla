@@ -535,7 +535,7 @@ extension ContentView {
     }
 
     func quickDrinkCard(_ product: Product) -> some View {
-        let cardWidth: CGFloat = isCompact ? 154 : 170
+        let cardWidth: CGFloat = dynamicTypeSize.isAccessibilitySize ? 280 : (isCompact ? 154 : 170)
 
         return VStack(alignment: .leading, spacing: 8) {
             Button {
@@ -553,7 +553,7 @@ extension ContentView {
                 .foregroundColor(primaryTextColor)
                 .lineLimit(2)
                 .minimumScaleFactor(0.78)
-                .frame(height: 38, alignment: .topLeading)
+                .frame(minHeight: 38, alignment: .topLeading)
 
             Text(product.price)
                 .font(labelFont(size: 10, weight: .bold))
@@ -700,7 +700,7 @@ extension ContentView {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .padding(.horizontal, 12)
-                        .frame(height: 38)
+                        .frame(minHeight: 44)
                         .background(Color(hex: 0xC8965A))
                         .clipShape(Capsule())
                 }

@@ -7,6 +7,7 @@
 
 import Network
 import XCTest
+import UIKit
 
 final class Talla_SpecialityUITests: XCTestCase {
     private let launchTimeout: TimeInterval = 20
@@ -293,5 +294,98 @@ private final class TallaUITestServer: @unchecked Sendable {
         var response = Data(headers.utf8)
         response.append(bodyData)
         connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
+    }
+}
+
+/// Run on every destination in tools/check-ios-device-matrix.py.
+final class TallaDeviceLayoutTests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    override func tearDownWithError() throws {
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    func testCheckoutSurvivesRotation() throws {
+        try verifyCheckout(scenario: "checkout", largeText: false)
+    }
+
+    func testArabicCheckoutWithLargestTextSurvivesRotation() throws {
+        try verifyCheckout(scenario: "arabic", largeText: true)
+    }
+
+    func testNavigationAndSearchSurviveRotation() throws {
+        let server = try TallaUITestServer()
+        defer { server.stop() }
+        let app = XCUIApplication()
+        app.launchEnvironment["TALLA_UI_TEST_SCENARIO"] = "layout"
+        app.launchEnvironment["TALLA_UI_TEST_ACCESS_TOKEN"] = "ui-test-access-token"
+        app.launchEnvironment["TALLA_UI_TEST_REFRESH_TOKEN"] = "ui-test-refresh-token"
+        app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        let shop = app.buttons["Shop"].firstMatch
+        XCTAssertTrue(shop.waitForExistence(timeout: 20))
+        shop.tap()
+        let search = app.textFields["shop.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        search.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 8), "Tapping search must open the keyboard")
+        search.typeText("Release\n")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertEqual(search.value as? String, "Release", "Search must survive rotation")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "shop-landscape"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        for title in ["Brewing", "Account", "Home", "Shop"] {
+            let button = app.buttons[title].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 8))
+            button.tap()
+        }
+        XCTAssertEqual(search.value as? String, "Release", "Search must survive tab navigation")
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(search.isHittable)
+        app.terminate()
+    }
+
+    private func verifyCheckout(scenario: String, largeText: Bool) throws {
+        let server = try TallaUITestServer()
+        defer { server.stop() }
+        let app = XCUIApplication()
+        app.launchEnvironment["TALLA_UI_TEST_SCENARIO"] = scenario
+        app.launchEnvironment["TALLA_UI_TEST_ACCESS_TOKEN"] = "ui-test-access-token"
+        app.launchEnvironment["TALLA_UI_TEST_REFRESH_TOKEN"] = "ui-test-refresh-token"
+        app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
+        app.launch()
+        let screen = app.descendants(matching: .any)["checkout.screen"].firstMatch
+        XCTAssertTrue(screen.waitForExistence(timeout: 20))
+        for (name, orientation) in [("portrait", UIDeviceOrientation.portrait), ("landscape", .landscapeLeft), ("portrait-return", .portrait)] {
+            XCUIDevice.shared.orientation = orientation
+            let submit = app.buttons["checkout.submit"]
+            XCTAssertTrue(submit.waitForExistence(timeout: 8))
+            for _ in 0..<12 {
+                if submit.isHittable && app.windows.firstMatch.frame.contains(submit.frame) { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(submit.isHittable, "Checkout must remain reachable in \(name)")
+            XCTAssertTrue(submit.isEnabled, "Rotation must preserve the cart and selected payment method")
+            let bounds = app.windows.firstMatch.frame
+            XCTAssertTrue(bounds.insetBy(dx: -1, dy: -1).contains(submit.frame), "Payment action must fit inside the window")
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "\(scenario)-\(largeText ? "AX5" : "default")-\(name)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+        // Complete a real app handoff to the local mock after all size changes.
+        app.buttons["checkout.submit"].tap()
+        XCTAssertNotNil(server.waitForRequest(path: "/orders/checkout-started", timeout: 15))
+        XCTAssertNotNil(server.waitForRequest(path: "/api/payments/benefit/create", timeout: 15))
+        XCTAssertTrue(app.webViews.staticTexts["Secure payment handoff"].waitForExistence(timeout: 60), "The payment provider page must become visible")
+        XCTAssertNotNil(server.waitForRequest(path: "/hosted-payment", timeout: 1))
+        app.terminate()
     }
 }

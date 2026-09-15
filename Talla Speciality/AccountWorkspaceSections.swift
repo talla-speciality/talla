@@ -278,6 +278,24 @@ struct OrderHistorySectionView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
+                        if let club = order.details?.coffeeClub {
+                            Label(
+                                String(
+                                    format: AppLocalization.text(
+                                        "coffee_club_order_summary",
+                                        fallback: "%d prepaid shipments · every %d weeks · %d%% saved"
+                                    ),
+                                    club.shipmentCount,
+                                    club.intervalWeeks,
+                                    club.discountPercent
+                                ),
+                                systemImage: "checkmark.seal.fill"
+                            )
+                            .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                            .foregroundColor(accentColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+
                         VStack(alignment: .leading, spacing: 4) {
                             Text(orderNumberLabel(for: order))
                                 .font(Font.custom("AvenirNext-Bold", size: 12))

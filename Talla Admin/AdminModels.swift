@@ -13,6 +13,7 @@ struct AdminOrder: Codable, Identifiable, Hashable {
     let customer: AdminOrderCustomer?
     let fulfillment: AdminOrderFulfillment?
     let payment: AdminOrderPayment?
+    let coffeeClub: AdminCoffeeClub?
     let source: String?
     let updatedAt: String?
 
@@ -29,6 +30,12 @@ struct AdminOrder: Codable, Identifiable, Hashable {
         )
     }
     var isActive: Bool { !isCancelled && !isCompleted }
+}
+
+struct AdminCoffeeClub: Codable, Hashable {
+    let shipmentCount: Int
+    let intervalWeeks: Int
+    let discountPercent: Int
 }
 
 struct AdminOrderItem: Codable, Hashable {

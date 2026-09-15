@@ -500,7 +500,7 @@ struct CompactPaymentMethodRow: View {
                             Text(selectedMethod.sheetSubtitle)
                                 .font(.footnote)
                                 .foregroundStyle(secondaryColor)
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     } else {
                         Image(systemName: "wallet.bifold")
@@ -613,7 +613,7 @@ struct PaymentMethodSelectionSheet: View {
                                     Text(method.sheetSubtitle)
                                         .font(.footnote)
                                         .foregroundStyle(secondaryColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer(minLength: 8)
                                 if !enabled {
@@ -805,6 +805,7 @@ struct PaymentStatusView: View {
 }
 
 struct CheckoutActionBar: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let method: TallaPaymentMethod?
     let amountText: String
     let state: TallaPaymentState
@@ -815,11 +816,14 @@ struct CheckoutActionBar: View {
 
     var body: some View {
         VStack(spacing: 9) {
-            HStack(alignment: .firstTextBaseline) {
+            let totalLayout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+            totalLayout {
                 Text(AppLocalization.text("total", fallback: "Total"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 Text(amountText)
                     .font(.headline)
                     .monospacedDigit()
@@ -849,13 +853,17 @@ struct CheckoutActionBar: View {
                             ? AppLocalization.text("payment_preparing", fallback: "Preparing secure checkout…")
                             : method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
                             .font(.headline)
-                        Spacer()
-                        Text(amountText)
-                            .font(.subheadline.weight(.semibold))
-                            .monospacedDigit()
+                        if !dynamicTypeSize.isAccessibilitySize {
+                            Spacer()
+                            Text(amountText)
+                                .font(.subheadline.weight(.semibold))
+                                .monospacedDigit()
+                        }
                     }
                     .foregroundStyle(Color(red: 0.08, green: 0.065, blue: 0.04))
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 17)
+                    .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(accentColor, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                 }

@@ -28,8 +28,10 @@ struct AdminAPI {
     ) async throws -> Data {
         var request = URLRequest(url: url(path))
         request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         if let body {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

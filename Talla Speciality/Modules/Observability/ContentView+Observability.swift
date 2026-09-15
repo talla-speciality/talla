@@ -58,7 +58,7 @@ extension ContentView {
         )
 
         switch scenario {
-        case "checkout", "arabic":
+        case "checkout", "arabic", "layout":
             let variant = Product.Variant(
                 id: "gid://shopify/ProductVariant/release-test", title: "Default", price: "8.500",
                 isAvailableForSale: true, requiresShipping: false, weightGrams: 250
@@ -76,7 +76,7 @@ extension ContentView {
             customerProfile = ShopifyCustomerProfile(
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
-            isCheckoutPresented = true
+            isCheckoutPresented = scenario != "layout"
         case "account-deletion":
             activeTab = .account
             customerProfile = ShopifyCustomerProfile(

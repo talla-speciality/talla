@@ -31,6 +31,123 @@ import UIKit
 #endif
 
 extension ContentView {
+    var cartCount: Int {
+        cartItems.reduce(0) { $0 + $1.quantity }
+    }
+
+    var cartSingleShipmentSubtotal: Double {
+        cartItems.reduce(0) { partialResult, item in
+            partialResult + (priceValue(from: item.product.price) * Double(item.quantity))
+        }
+    }
+
+    var cartSubtotal: Double {
+        cartSingleShipmentSubtotal * Double(coffeeClubShipmentCount)
+    }
+
+    var configuredCoffeeClubShipmentCount: Int {
+        remoteAppSettings?.coffeeClub?.shipmentCount ?? 3
+    }
+
+    var configuredCoffeeClubIntervalWeeks: Int {
+        remoteAppSettings?.coffeeClub?.intervalWeeks ?? 4
+    }
+
+    var configuredCoffeeClubDiscountPercent: Int {
+        remoteAppSettings?.coffeeClub?.discountPercent ?? 10
+    }
+
+    var coffeeClubShipmentCount: Int {
+        isCoffeeClubActive ? configuredCoffeeClubShipmentCount : 1
+    }
+
+    var isCoffeeClubEligible: Bool {
+        (remoteAppSettings?.coffeeClub?.enabled ?? false) && !cartItems.isEmpty && cartItems.allSatisfy {
+            ["coffee-beans", "arabic-coffee-beans"].contains($0.product.categoryKey)
+        }
+    }
+
+    var isCoffeeClubActive: Bool {
+        isCoffeeClubPrepaid && isCoffeeClubEligible
+    }
+
+    var coffeeClubDiscount: Double {
+        isCoffeeClubActive ? (cartSubtotal * Double(configuredCoffeeClubDiscountPercent) / 100) : 0
+    }
+
+    var cartDeliveryTitle: String {
+        if fulfillmentMethod == .pickup {
+            return AppLocalization.text("pickup", fallback: "Pickup")
+        }
+        let isKhaleejiCashOnDelivery = preferredAddress.map { $0.country.isKhaleeji && $0.country != .bahrain } == true
+            && paymentFlow.selectedMethod == .cashOnDelivery
+        let baseTitle = isKhaleejiCashOnDelivery
+            ? AppLocalization.text("delivery_with_cod", fallback: "Delivery + COD fee")
+            : AppLocalization.text("delivery", fallback: "Delivery")
+        return isCoffeeClubActive
+            ? String(format: AppLocalization.text("coffee_club_delivery_count", fallback: "%@ · %d shipments"), baseTitle, configuredCoffeeClubShipmentCount)
+            : baseTitle
+    }
+
+    var cartOrderSummaryRows: [(title: String, value: String, emphasized: Bool)] {
+        var rows: [(title: String, value: String, emphasized: Bool)] = [
+            (AppLocalization.text("subtotal", fallback: "Subtotal"), formattedBHD(cartSubtotal), false),
+            (cartDeliveryTitle, cartShippingLabel, false)
+        ]
+        if isCoffeeClubActive {
+            rows.insert((
+                AppLocalization.text("coffee_club_plan", fallback: "Talla Coffee Club"),
+                String(
+                    format: AppLocalization.text("coffee_club_three_shipments", fallback: "%d shipments · every %d weeks"),
+                    configuredCoffeeClubShipmentCount,
+                    configuredCoffeeClubIntervalWeeks
+                ),
+                false
+            ), at: 0)
+        }
+        if fulfillmentMethod == .pickup {
+            rows.append((
+                AppLocalization.text("pickup_location", fallback: "Pickup location"),
+                managedPickupName,
+                false
+            ))
+        } else if preferredAddress.map({ $0.country.isKhaleeji && $0.country != .bahrain }) == true {
+            rows.append((
+                AppLocalization.text("transit_time", fallback: "Transit time"),
+                AppLocalization.text("khaleeji_transit_time", fallback: shippingConfiguration.khaleejiTransitTime),
+                false
+            ))
+        }
+        rows.append((
+            AppLocalization.text("discount", fallback: "Discount"),
+            cartDiscount > 0 ? "-\(formattedBHD(cartDiscount))" : AppLocalization.text("none_dash", fallback: "—"),
+            false
+        ))
+        rows.append((AppLocalization.text("total", fallback: "Total"), formattedBHD(cartTotal), true))
+        return rows
+    }
+
+    // Present provider UI only after checkout's full-screen dismissal finishes.
+    // Updating both presentations in one render can drop the provider sheet.
+    func presentPayment(_ presentation: PaymentPresentation) {
+        pendingPaymentPresentation = presentation
+        if isCheckoutPresented {
+            isCheckoutPresented = false
+        } else {
+            presentPendingPayment()
+        }
+    }
+
+    func presentPendingPayment() {
+        guard let presentation = pendingPaymentPresentation else { return }
+        pendingPaymentPresentation = nil
+        switch presentation {
+        case .hosted(let session): checkoutSession = session
+        case .benefitPay(let session): benefitPaySession = session
+        case .mastercard(let context): mastercardPaymentContext = context
+        }
+    }
+
     var cartDrawer: some View {
         CartDrawerView(
             scrimColor: scrimColor,
@@ -81,8 +198,75 @@ extension ContentView {
     var cartReviewContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             cartItemsListSection
-            cartPromoSection
+            if isCoffeeClubEligible {
+                coffeeClubOfferSection
+            }
+            if !isCoffeeClubActive {
+                cartPromoSection
+            }
         }
+    }
+
+    var coffeeClubOfferSection: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                isCoffeeClubPrepaid.toggle()
+                if isCoffeeClubPrepaid {
+                    appliedVoucher = nil
+                    voucherCodeInput = ""
+                    voucherError = nil
+                    if paymentFlow.selectedMethod == .cashOnDelivery {
+                        paymentFlow.select(.benefit)
+                    }
+                }
+            }
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: isCoffeeClubActive ? "checkmark.seal.fill" : "cup.and.saucer.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(readableBrandGoldColor)
+                    .frame(width: 40, height: 40)
+                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.16))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(String(
+                        format: AppLocalization.text("coffee_club_prepaid_title", fallback: "Prepay %d Coffee Club shipments"),
+                        configuredCoffeeClubShipmentCount
+                    ))
+                        .font(labelFont(size: 11, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                    Text(String(
+                        format: AppLocalization.text(
+                            "coffee_club_prepaid_detail",
+                            fallback: "Save %d%% on every bag. One shipment every %d weeks; delivery is charged for all %d shipments. No renewal."
+                        ),
+                        configuredCoffeeClubDiscountPercent,
+                        configuredCoffeeClubIntervalWeeks,
+                        configuredCoffeeClubShipmentCount
+                    ))
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: isCoffeeClubActive ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(readableBrandGoldColor)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(isCoffeeClubActive ? 0.45 : 0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("cart.coffeeClubPrepaid")
+        .accessibilityValue(isCoffeeClubActive ? "Selected" : "Not selected")
     }
 
     var cartPromoSection: some View {
@@ -190,64 +374,78 @@ extension ContentView {
 
     var checkoutView: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    SecurityReassurance(
-                        text: AppLocalization.text(
-                            "payment_encrypted_secure",
-                            fallback: "Your payment is encrypted and processed securely."
-                        ),
-                        accentColor: Color(hex: 0xC8965A),
-                        textColor: secondaryTextColor
-                    )
-
-                    if let payments = remoteAppSettings?.payments {
-                        let notice = isArabicInterface ? payments.noticeAR : payments.noticeEN
-                        if !notice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Label(notice, systemImage: "info.circle.fill")
-                                .font(bodyFont(size: 13))
-                                .foregroundColor(secondaryTextColor)
-                                .padding(14)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                    }
-
-                    cartFulfillmentMethodSection
-                    checkoutDestinationSection
-                    cartPaymentMethodsSection
-                    cartOrderSummarySection
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
-            }
-            .background(pageBackgroundColor.ignoresSafeArea())
-            .navigationTitle(AppLocalization.text("checkout", fallback: "Checkout"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        isCheckoutPresented = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            cartOpen = true
-                        }
-                    } label: {
-                        Label(
-                            AppLocalization.text("your_cart", fallback: "Bag"),
-                            systemImage: appLanguage.layoutDirection == .rightToLeft ? "chevron.right" : "chevron.left"
+            GeometryReader { geometry in
+                // A pinned footer can consume the entire viewport at accessibility
+                // sizes or in a short window. Keep all checkout content scrollable.
+                let scrollsFooter = dynamicTypeSize.isAccessibilitySize || geometry.size.height < 450
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        SecurityReassurance(
+                            text: AppLocalization.text(
+                                "payment_encrypted_secure",
+                                fallback: "Your payment is encrypted and processed securely."
+                            ),
+                            accentColor: Color(hex: 0xC8965A),
+                            textColor: secondaryTextColor
                         )
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(readableBrandGoldColor)
+
+                        if let payments = remoteAppSettings?.payments {
+                            let notice = isArabicInterface ? payments.noticeAR : payments.noticeEN
+                            if !notice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Label(notice, systemImage: "info.circle.fill")
+                                    .font(bodyFont(size: 13))
+                                    .foregroundColor(secondaryTextColor)
+                                    .padding(14)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                        }
+
+                        cartFulfillmentMethodSection
+                        checkoutDestinationSection
+                        cartPaymentMethodsSection
+                        cartOrderSummarySection
+                        if scrollsFooter {
+                            cartFooterContent
+                        }
                     }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                cartFooterContent
                     .padding(.horizontal, 18)
                     .padding(.top, 12)
-                    .padding(.bottom, 8)
-                    .background(.ultraThinMaterial)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: 720)
+                    .frame(maxWidth: .infinity)
+                }
+                .background(pageBackgroundColor.ignoresSafeArea())
+                .navigationTitle(AppLocalization.text("checkout", fallback: "Checkout"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            isCheckoutPresented = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                cartOpen = true
+                            }
+                        } label: {
+                            Label(
+                                AppLocalization.text("your_cart", fallback: "Bag"),
+                                systemImage: appLanguage.layoutDirection == .rightToLeft ? "chevron.right" : "chevron.left"
+                            )
+                            .font(bodyFont(size: 13))
+                            .foregroundColor(readableBrandGoldColor)
+                        }
+                    }
+                }
+                .safeAreaInset(edge: .bottom) {
+                    if !scrollsFooter {
+                        cartFooterContent
+                            .padding(.horizontal, 18)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: 720)
+                            .frame(maxWidth: .infinity)
+                            .background(.ultraThinMaterial)
+                    }
+                }
             }
         }
         .accessibilityIdentifier("checkout.screen")
@@ -915,12 +1113,25 @@ extension ContentView {
                     .monospacedDigit()
             }
 
+            if isCoffeeClubActive {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(AppLocalization.text("coffee_club_saving", fallback: "Coffee Club saving"))
+                        .font(.footnote)
+                        .foregroundColor(secondaryTextColor)
+                    Spacer()
+                    Text("-\(formattedBHD(coffeeClubDiscount))")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(readableBrandGoldColor)
+                        .monospacedDigit()
+                }
+            }
+
             Button(action: prepareCheckout) {
                 HStack {
                     Text(AppLocalization.text("checkout", fallback: "Checkout"))
                         .font(.headline)
                     Spacer()
-                    Text(formattedBHD(cartSubtotal))
+                    Text(formattedBHD(max(cartSubtotal - cartDiscount, 0)))
                         .font(.subheadline.weight(.semibold))
                         .monospacedDigit()
                 }
@@ -1027,6 +1238,19 @@ extension ContentView {
                     "international_checkout_payment_hint",
                     fallback: "For destinations outside the GCC, choose Cash on Delivery to continue to Shopify Checkout. Shopify will show the shipping rate and payment methods available for your country."
                 ))
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if isCoffeeClubActive {
+                Label(
+                    AppLocalization.text(
+                        "coffee_club_payment_note",
+                        fallback: "This is one prepaid purchase, not an automatic renewal. Cash on Delivery is unavailable."
+                    ),
+                    systemImage: "checkmark.shield.fill"
+                )
                 .font(bodyFont(size: 12))
                 .foregroundColor(secondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1707,7 +1931,7 @@ extension ContentView {
                             .accessibilityLabel("\(AppLocalization.text("country_of_origin", fallback: "Country of origin")): \(countryOfOrigin)")
                     }
                 }
-                .frame(height: 13, alignment: .leading)
+                .frame(minHeight: 13, alignment: .leading)
 
                 Text(product.name)
                     .font(titleFont(size: showDescription ? (isCompact ? 16 : 18) : (isCompact ? 18 : 20)))
@@ -1715,7 +1939,7 @@ extension ContentView {
                     .lineLimit(2)
                     .lineSpacing(1)
                     .minimumScaleFactor(0.78)
-                    .frame(height: showDescription ? 40 : 48, alignment: .topLeading)
+                    .frame(minHeight: showDescription ? 40 : 48, alignment: .topLeading)
 
                 if showDescription {
                     Text(tasteSummary)
@@ -2902,19 +3126,19 @@ extension ContentView {
     }
 
     func displayFont(size: CGFloat) -> Font {
-        isArabicInterface ? .system(size: size, weight: .bold) : .custom("Georgia-Bold", size: size, relativeTo: .largeTitle)
+        isArabicInterface ? .system(size: size * displayFontScale, weight: .bold) : .custom("Georgia-Bold", size: size, relativeTo: .largeTitle)
     }
 
     func titleFont(size: CGFloat) -> Font {
-        isArabicInterface ? .system(size: size, weight: .bold) : .custom("Georgia-Bold", size: size, relativeTo: .title3)
+        isArabicInterface ? .system(size: size * titleFontScale, weight: .bold) : .custom("Georgia-Bold", size: size, relativeTo: .title3)
     }
 
     func bodyFont(size: CGFloat) -> Font {
-        isArabicInterface ? .system(size: size) : .custom("AvenirNext-Regular", size: size, relativeTo: .body)
+        isArabicInterface ? .system(size: size * bodyFontScale) : .custom("AvenirNext-Regular", size: size, relativeTo: .body)
     }
 
     func labelFont(size: CGFloat, weight: Font.Weight) -> Font {
-        if isArabicInterface { return .system(size: size, weight: weight) }
+        if isArabicInterface { return .system(size: size * labelFontScale, weight: weight) }
         switch weight {
         case .bold:
             return .custom("AvenirNext-Bold", size: size, relativeTo: .caption)
@@ -2929,6 +3153,10 @@ extension ContentView {
         guard let variant = selectedVariant(for: product), variant.isAvailableForSale else {
             showToast(message: String(format: AppLocalization.text("product_unavailable_toast", fallback: "%@ is unavailable"), product.name))
             return
+        }
+
+        if cartItems.isEmpty || !["coffee-beans", "arabic-coffee-beans"].contains(product.categoryKey) {
+            isCoffeeClubPrepaid = false
         }
 
         recordRecentlyViewed(product)
@@ -2967,6 +3195,9 @@ extension ContentView {
 
     func removeFromCart(id: String) {
         cartItems.removeAll { $0.id == id }
+        if cartItems.isEmpty || !isCoffeeClubEligible {
+            isCoffeeClubPrepaid = false
+        }
         checkoutError = nil
     }
 
@@ -3528,6 +3759,25 @@ extension ContentView {
             return
         }
 
+        if isCoffeeClubActive {
+            guard selectedPaymentMethod != .cashOnDelivery else {
+                paymentFlow.transition(to: .failed)
+                checkoutError = AppLocalization.text(
+                    "coffee_club_online_payment_required",
+                    fallback: "Coffee Club is prepaid. Choose BenefitPay, BENEFIT, card, Click to Pay, or Apple Pay."
+                )
+                return
+            }
+            guard fulfillmentMethod == .pickup || preferredAddress?.country == .bahrain else {
+                paymentFlow.transition(to: .failed)
+                checkoutError = AppLocalization.text(
+                    "coffee_club_bahrain_only",
+                    fallback: "Coffee Club delivery is currently available in Bahrain. Choose pickup or use a Bahrain delivery address."
+                )
+                return
+            }
+        }
+
         isCheckingOut = true
         checkoutError = nil
         preparePostPaymentContext(orderID: "", method: selectedPaymentMethod)
@@ -3572,8 +3822,7 @@ extension ContentView {
                 )
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                isCheckoutPresented = false
-                checkoutSession = CheckoutSession(url: checkoutURL)
+                presentPayment(.hosted(CheckoutSession(url: checkoutURL)))
                 let checkoutPrompt = fulfillmentMethod == .pickup
                     ? AppLocalization.text(
                         "cash_on_pickup_shopify_prompt",
@@ -3602,7 +3851,10 @@ extension ContentView {
                 fulfillmentMethod: fulfillmentMethod,
                 address: fulfillmentMethod == .delivery ? preferredAddress : nil,
                 paymentMethod: selectedPaymentMethod,
-                voucherCode: appliedVoucher?.code
+                voucherCode: appliedVoucher?.code,
+                prepaidCoffeeClub: isCoffeeClubActive,
+                coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
+                coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks
             )
             if let appliedVoucher {
                 if checkoutStart.pricingVersion != 2 {
@@ -3618,8 +3870,7 @@ extension ContentView {
                 let paymentURL = try await AccountService.createBenefitPayment(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                isCheckoutPresented = false
-                checkoutSession = CheckoutSession(url: paymentURL)
+                presentPayment(.hosted(CheckoutSession(url: paymentURL)))
             case .benefitPaySDK:
                 guard BenefitPaySDKConfiguration.isAvailable else {
                     throw PaymentServiceError.gateway("BenefitPay is not configured in this build.")
@@ -3627,8 +3878,7 @@ extension ContentView {
                 let session = try await BenefitPayService.createSession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                isCheckoutPresented = false
-                benefitPaySession = session
+                presentPayment(.benefitPay(session))
             case .cardGateway:
                 guard MastercardSDKAvailability.isAvailable else {
                     throw PaymentServiceError.gateway("Gateway.xcframework and uSDK.xcframework are required for card entry and 3-D Secure.")
@@ -3636,18 +3886,16 @@ extension ContentView {
                 let session = try await TallaPaymentService.createCardSession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                isCheckoutPresented = false
-                mastercardPaymentContext = MastercardPaymentContext(
+                presentPayment(.mastercard(MastercardPaymentContext(
                     localOrderID: checkoutStart.orderID,
                     session: session,
                     kind: .card
-                )
+                )))
             case .clickToPayHosted:
                 let checkout = try await TallaPaymentService.createClickToPay(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                isCheckoutPresented = false
-                checkoutSession = CheckoutSession(url: checkout.paymentUrl, kind: .clickToPay)
+                presentPayment(.hosted(CheckoutSession(url: checkout.paymentUrl, kind: .clickToPay)))
             case .applePayGateway:
                 guard isApplePayAvailable else {
                     throw PaymentServiceError.gateway("Apple Pay is unavailable on this device.")
@@ -3658,12 +3906,11 @@ extension ContentView {
                 let session = try await TallaPaymentService.createApplePaySession(orderID: checkoutStart.orderID)
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
-                isCheckoutPresented = false
-                mastercardPaymentContext = MastercardPaymentContext(
+                presentPayment(.mastercard(MastercardPaymentContext(
                     localOrderID: checkoutStart.orderID,
                     session: session,
                     kind: .applePay
-                )
+                )))
             case .shopifyCashOnDelivery:
                 break
             }

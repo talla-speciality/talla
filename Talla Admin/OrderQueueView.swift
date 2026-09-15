@@ -270,6 +270,15 @@ private struct OrderCard: View {
                     .foregroundStyle(.secondary)
             }
 
+            if let club = order.coffeeClub {
+                Label(
+                    "Coffee Club · \(club.shipmentCount) prepaid shipments · every \(club.intervalWeeks) weeks",
+                    systemImage: "checkmark.seal.fill"
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(TallaAdminStyle.caramel)
+            }
+
             if !order.items.isEmpty {
                 VStack(alignment: .leading, spacing: 7) {
                     ForEach(Array(order.items.enumerated()), id: \.offset) { _, item in
@@ -352,6 +361,7 @@ struct OrderDetailView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         overview(order)
+                        if order.coffeeClub != nil { coffeeClubSection(order) }
                         customerSection(order)
                         fulfillmentSection(order)
                         paymentSection(order)
@@ -468,6 +478,20 @@ struct OrderDetailView: View {
                     Button { openURL(phoneURL) } label: { Label("Call", systemImage: "phone.fill") }
                         .buttonStyle(.bordered)
                 }
+            }
+        }
+    }
+
+    private func coffeeClubSection(_ order: AdminOrder) -> some View {
+        AdminDetailCard(title: "Coffee Club", icon: "cup.and.saucer.fill") {
+            if let club = order.coffeeClub {
+                detailRow("Plan", "\(club.shipmentCount) prepaid shipments")
+                detailRow("Schedule", "Every \(club.intervalWeeks) weeks")
+                detailRow("Coffee saving", "\(club.discountPercent)%")
+                detailRow("Renewal", "No automatic renewal")
+                Text("Delivery is charged separately for every shipment. Use the order status controls as each shipment moves through fulfilment.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

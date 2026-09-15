@@ -159,6 +159,9 @@ struct AdminContentView: View {
                 guard body.at("fulfillment.deliveryEnabled").flag || body.at("fulfillment.pickupEnabled").flag else { throw AdminAPIError.server("Keep delivery or pickup enabled.") }
                 guard body.at("loyalty.goldThreshold").number > body.at("loyalty.silverThreshold").number else { throw AdminAPIError.server("Gold must have a higher points threshold than Silver.") }
                 guard !body.at("fulfillment.khaleejiTiers").array.isEmpty, !body.at("loyalty.rewards").array.isEmpty else { throw AdminAPIError.server("Keep at least one shipping tier and loyalty reward.") }
+                guard (2...12).contains(Int(body.at("coffeeClub.shipmentCount").number)) else { throw AdminAPIError.server("Coffee Club shipments must be between 2 and 12.") }
+                guard (1...12).contains(Int(body.at("coffeeClub.intervalWeeks").number)) else { throw AdminAPIError.server("Coffee Club interval must be between 1 and 12 weeks.") }
+                guard (0...30).contains(Int(body.at("coffeeClub.discountPercent").number)) else { throw AdminAPIError.server("Coffee Club discount must be between 0% and 30%.") }
             }
             if area == .controls {
                 let tiers = body.at("fulfillment.khaleejiTiers").array
@@ -255,6 +258,12 @@ extension AdminContentArea {
             .init("payments.cashOnDeliveryEnabled", "Cash on delivery", .toggle),
             .init("payments.noticeEN", "English payment notice", .multiline),
             .init("payments.noticeAR", "Arabic payment notice", .multiline)
+        ]),
+        .init("Coffee Club", [
+            .init("coffeeClub.enabled", "Available in customer app", .toggle),
+            .init("coffeeClub.shipmentCount", "Prepaid shipments", .integer),
+            .init("coffeeClub.intervalWeeks", "Weeks between shipments", .integer),
+            .init("coffeeClub.discountPercent", "Coffee discount (%)", .integer)
         ]),
         .init("Delivery and pickup", [
             .init("fulfillment.deliveryEnabled", "Delivery enabled", .toggle),

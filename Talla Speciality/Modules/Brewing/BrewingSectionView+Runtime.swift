@@ -1693,7 +1693,7 @@ extension BrewingSectionView {
 
     func startOrUpdateBrewLiveActivity() {
 #if canImport(ActivityKit)
-        guard shouldUseBrewLiveActivity, #available(iOS 16.1, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard #available(iOS 16.1, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         if brewLiveActivity == nil {
             let attributes = TallaBrewActivityAttributes(
@@ -1727,7 +1727,7 @@ extension BrewingSectionView {
 
     func updateBrewLiveActivity(isPaused: Bool) {
 #if canImport(ActivityKit)
-        guard shouldUseBrewLiveActivity, #available(iOS 16.1, *), let brewLiveActivity else { return }
+        guard #available(iOS 16.1, *), let brewLiveActivity else { return }
 
         let content = ActivityContent(
             state: brewLiveActivityState(isPaused: isPaused),
@@ -1743,7 +1743,7 @@ extension BrewingSectionView {
 
     func endBrewLiveActivity(after seconds: Double = 0) {
 #if canImport(ActivityKit)
-        guard shouldUseBrewLiveActivity, #available(iOS 16.1, *), let brewLiveActivity else { return }
+        guard #available(iOS 16.1, *), let brewLiveActivity else { return }
 
         let finalContent = ActivityContent(
             state: brewLiveActivityState(isPaused: true),
@@ -1763,14 +1763,6 @@ extension BrewingSectionView {
     }
 
 #if canImport(ActivityKit)
-    var shouldUseBrewLiveActivity: Bool {
-#if canImport(UIKit)
-        UIDevice.current.userInterfaceIdiom == .phone
-#else
-        false
-#endif
-    }
-
     @available(iOS 16.1, *)
     func brewLiveActivityState(isPaused: Bool) -> TallaBrewActivityAttributes.ContentState {
         TallaBrewActivityAttributes.ContentState(

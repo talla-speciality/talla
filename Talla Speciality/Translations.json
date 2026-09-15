@@ -8,6 +8,36 @@
   "payment_encrypted_secure": {
     "ar": "عملية الدفع مشفرة وآمنة"
   },
+  "coffee_club_plan": {
+    "ar": "نادي قهوة تلة"
+  },
+  "coffee_club_prepaid_title": {
+    "ar": "ادفع مسبقًا مقابل %d شحنات من نادي القهوة"
+  },
+  "coffee_club_prepaid_detail": {
+    "ar": "وفّر %d٪ على كل كيس. شحنة كل %d أسابيع، وتُحتسب رسوم التوصيل لكل الشحنات وعددها %d. من دون تجديد تلقائي."
+  },
+  "coffee_club_three_shipments": {
+    "ar": "%d شحنات · كل %d أسابيع"
+  },
+  "coffee_club_delivery_count": {
+    "ar": "%@ · %d شحنات"
+  },
+  "coffee_club_saving": {
+    "ar": "توفير نادي القهوة"
+  },
+  "coffee_club_payment_note": {
+    "ar": "خطة مدفوعة مسبقًا لثلاث شحنات، من دون تجديد تلقائي. الدفع عند الاستلام غير متاح."
+  },
+  "coffee_club_online_payment_required": {
+    "ar": "يجب دفع قيمة نادي القهوة كاملة قبل الشحنة الأولى. اختر طريقة دفع إلكترونية."
+  },
+  "coffee_club_bahrain_only": {
+    "ar": "توصيل نادي القهوة متاح حاليًا داخل البحرين فقط."
+  },
+  "coffee_club_order_summary": {
+    "ar": "%d شحنات مدفوعة مسبقًا · كل %d أسابيع · توفير %d٪"
+  },
   "payment_apple_pay_subtitle": {
     "ar": "دفع سريع وآمن"
   },

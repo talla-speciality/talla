@@ -136,7 +136,7 @@ jobs:
         run: >-
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality"
           -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}"
-          -derivedDataPath build/apple-tests CODE_SIGNING_ALLOWED=NO
+          -derivedDataPath build/apple-tests
           -only-testing:"Talla SpecialityTests" test
       - name: Build Watch app
         run: >-
@@ -158,12 +158,22 @@ jobs:
           mkdir -p build/results
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality" \
             -destination "platform=iOS Simulator,id=${IOS_SIMULATOR_ID}" \
-            -derivedDataPath build/apple-ui-tests CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath build/apple-ui-tests \
             -parallel-testing-enabled NO \
             -maximum-concurrent-test-simulator-destinations 1 \
             -retry-tests-on-failure -test-iterations 2 \
             -resultBundlePath build/results/Talla-UI.xcresult \
             -only-testing:"Talla SpecialityUITests/Talla_SpecialityUITests" test
+      - name: Run iPhone and iPad screen-size matrix
+        run: python3 tools/check-ios-device-matrix.py --layout-only --skip-build --derived-data build/apple-ui-tests
+      - name: Upload device matrix diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apple-device-results-${{ github.sha }}
+          path: build/results/devices
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload Apple UI test diagnostics
         if: always()
         uses: actions/upload-artifact@v7

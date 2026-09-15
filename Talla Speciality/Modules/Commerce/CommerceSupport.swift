@@ -184,7 +184,9 @@ enum HomeSettingsService {
 
         var request = URLRequest(url: baseURL.appending(path: "/app/settings"))
         request.httpMethod = "GET"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
 
         let (data, response) = try await TallaSecureSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {

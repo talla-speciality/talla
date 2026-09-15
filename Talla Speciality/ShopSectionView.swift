@@ -126,6 +126,7 @@ struct ShopSectionView: View {
                 .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
                 .submitLabel(.search)
+                .accessibilityIdentifier("shop.search")
                 .onSubmit {
                     submitSearch(searchQuery)
                     isSearchFocused = false
@@ -145,6 +146,8 @@ struct ShopSectionView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
+        .contentShape(Rectangle())
+        .onTapGesture { isSearchFocused = true }
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -434,7 +437,7 @@ struct ShopSectionView: View {
                         .foregroundColor(accentColor)
                 }
             }
-            .frame(height: 38, alignment: .leading)
+            .frame(minHeight: 44, alignment: .leading)
             .padding(.horizontal, 11)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
