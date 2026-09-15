@@ -4,7 +4,6 @@ struct AccountSectionView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var presentedDetail: AccountDetail?
-    @State private var handledOrdersPresentationRequest = 0
 
     private enum AccountDetail: String, Identifiable {
         case personalDetails
@@ -74,6 +73,7 @@ struct AccountSectionView: View {
     @Binding var isBrewingSectionExpanded: Bool
     @Binding var isSupportSectionExpanded: Bool
     let ordersPresentationRequest: Int
+    let consumeOrdersPresentationRequest: () -> Void
     let openOrdersAction: () -> Void
     let signOutAction: () -> Void
     let customerAccountSection: AnyView
@@ -110,11 +110,11 @@ struct AccountSectionView: View {
     }
 
     private func handleOrdersPresentationRequest(_ request: Int) {
-        guard request > 0, request != handledOrdersPresentationRequest else { return }
-        handledOrdersPresentationRequest = request
+        guard request > 0 else { return }
         isCustomerSectionExpanded = true
         presentedDetail = .orders
         openOrdersAction()
+        consumeOrdersPresentationRequest()
     }
 
     @ViewBuilder
@@ -600,6 +600,7 @@ struct AccountSectionView: View {
                 }
             }
         }
+        .accessibilityIdentifier("account.detail.\(detail.rawValue)")
     }
 
     private func activeDetailTitle(_ detail: AccountDetail) -> String {

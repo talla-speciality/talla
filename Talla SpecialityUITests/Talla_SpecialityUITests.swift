@@ -72,6 +72,26 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertFalse(element("toast.banner", in: app).waitForExistence(timeout: 2))
     }
 
+    func testAccountTabDoesNotReplayConsumedOrdersRequest() {
+        let app = launchApp(scenario: "account-orders-replay")
+        let orders = element("account.detail.orders", in: app)
+        XCTAssertTrue(orders.waitForExistence(timeout: 8))
+
+        let close = app.buttons["Close"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        XCTAssertFalse(orders.waitForExistence(timeout: 2))
+
+        let home = app.buttons["Home"].firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 5))
+        home.tap()
+        let account = app.buttons["Account"].firstMatch
+        XCTAssertTrue(account.waitForExistence(timeout: 5))
+        account.tap()
+
+        XCTAssertFalse(orders.waitForExistence(timeout: 2), "A consumed Orders request must not reopen when Account is tapped")
+    }
+
     func testOfflineCacheRemainsVisibleAndRetryRecovers() throws {
         let server = try TallaUITestServer()
         defer { server.stop() }

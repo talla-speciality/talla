@@ -95,6 +95,9 @@ extension ContentView {
             isBrewingSectionExpanded: $isBrewingSectionExpanded,
             isSupportSectionExpanded: $isSupportSectionExpanded,
             ordersPresentationRequest: accountOrdersPresentationRequest,
+            consumeOrdersPresentationRequest: {
+                accountOrdersPresentationRequest = 0
+            },
             openOrdersAction: {
                 Task {
                     await loadOrderHistory()

@@ -83,6 +83,12 @@ extension ContentView {
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
             selectedSettingsDetail = .deleteAccount
+        case "account-orders-replay":
+            activeTab = .account
+            customerProfile = ShopifyCustomerProfile(
+                id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
+            )
+            accountOrdersPresentationRequest = 1
         case "offline-recovery", "bluetooth-interruption":
             activeTab = .brewing
         default:
