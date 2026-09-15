@@ -216,7 +216,7 @@ extension ContentView {
                     voucherCodeInput = ""
                     voucherError = nil
                     if paymentFlow.selectedMethod == .cashOnDelivery {
-                        paymentFlow.select(.benefit)
+                        paymentFlow.clearSelection()
                     }
                 }
             }
@@ -455,11 +455,13 @@ extension ContentView {
                 applePayAvailable: isApplePaySupported,
                 gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
                 availability: paymentAvailability,
+                disabledMethods: isCoffeeClubActive ? [.cashOnDelivery] : [],
                 primaryColor: primaryTextColor,
                 secondaryColor: secondaryTextColor,
                 accentColor: Color(hex: 0xC8965A),
                 surfaceColor: elevatedSurfaceColor
             ) { method in
+                guard !(isCoffeeClubActive && method == .cashOnDelivery) else { return }
                 paymentFlow.select(method)
             }
             .presentationDetents([.medium, .large])

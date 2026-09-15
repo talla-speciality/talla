@@ -269,6 +269,11 @@ final class PaymentFlowModel: ObservableObject {
         }
     }
 
+    func clearSelection() {
+        guard canChangeMethod else { return }
+        selectedMethod = nil
+    }
+
     func transition(to nextState: TallaPaymentState, error: String? = nil) {
         guard nextState != state || error != errorMessage else { return }
         state = nextState
@@ -314,6 +319,7 @@ struct PaymentMethodSelectorView: View {
     let applePayAvailable: Bool
     let gatewaySDKAvailable: Bool
     var availability = TallaPaymentAvailability()
+    var disabledMethods: Set<TallaPaymentMethod> = []
     let primaryColor: Color
     let secondaryColor: Color
     let accentColor: Color
@@ -335,14 +341,27 @@ struct PaymentMethodSelectorView: View {
         return methods.filter(availability.isEnabled)
     }
 
+    static func isMethodEnabled(
+        _ method: TallaPaymentMethod,
+        gatewaySDKAvailable: Bool,
+        disabledMethods: Set<TallaPaymentMethod> = []
+    ) -> Bool {
+        guard !disabledMethods.contains(method) else { return false }
+        return method == .benefit
+            || method == .clickToPay
+            || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
+            || method == .cashOnDelivery
+            || gatewaySDKAvailable
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(methods) { method in
-                let enabled = method == .benefit
-                    || method == .clickToPay
-                    || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
-                    || method == .cashOnDelivery
-                    || gatewaySDKAvailable
+                let enabled = Self.isMethodEnabled(
+                    method,
+                    gatewaySDKAvailable: gatewaySDKAvailable,
+                    disabledMethods: disabledMethods
+                )
                 Button {
                     guard enabled, !state.isBusy else { return }
                     if reduceMotion {
@@ -374,7 +393,15 @@ struct PaymentMethodSelectorView: View {
                                 .font(.footnote)
                                 .foregroundStyle(secondaryColor)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if let supportingText = method.supportingText {
+                            if disabledMethods.contains(method), method == .cashOnDelivery {
+                                Text(AppLocalization.text(
+                                    "coffee_club_cod_disabled",
+                                    fallback: "Coffee Club is prepaid, so Cash on Delivery cannot be selected."
+                                ))
+                                    .font(.caption)
+                                    .foregroundStyle(secondaryColor.opacity(0.86))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if let supportingText = method.supportingText {
                                 Text(supportingText)
                                     .font(.caption)
                                     .foregroundStyle(secondaryColor.opacity(0.86))
@@ -540,6 +567,7 @@ struct PaymentMethodSelectionSheet: View {
     let applePayAvailable: Bool
     let gatewaySDKAvailable: Bool
     let availability: TallaPaymentAvailability
+    let disabledMethods: Set<TallaPaymentMethod>
     let primaryColor: Color
     let secondaryColor: Color
     let accentColor: Color
@@ -554,6 +582,7 @@ struct PaymentMethodSelectionSheet: View {
         applePayAvailable: Bool,
         gatewaySDKAvailable: Bool,
         availability: TallaPaymentAvailability = TallaPaymentAvailability(),
+        disabledMethods: Set<TallaPaymentMethod> = [],
         primaryColor: Color,
         secondaryColor: Color,
         accentColor: Color,
@@ -563,26 +592,33 @@ struct PaymentMethodSelectionSheet: View {
         self.applePayAvailable = applePayAvailable
         self.gatewaySDKAvailable = gatewaySDKAvailable
         self.availability = availability
+        self.disabledMethods = disabledMethods
         self.primaryColor = primaryColor
         self.secondaryColor = secondaryColor
         self.accentColor = accentColor
         self.surfaceColor = surfaceColor
         self.onConfirm = onConfirm
         let visibleMethods = PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable, availability: availability)
-        _draftMethod = State(initialValue: selectedMethod.flatMap { visibleMethods.contains($0) ? $0 : nil })
+        _draftMethod = State(initialValue: selectedMethod.flatMap {
+            visibleMethods.contains($0) && !disabledMethods.contains($0) ? $0 : nil
+        })
     }
 
     private var methods: [TallaPaymentMethod] {
         PaymentMethodSelectorView.visibleMethods(applePayAvailable: applePayAvailable, availability: availability)
-            .filter(isEnabled)
+            .filter { isPlatformEnabled($0) || disabledMethods.contains($0) }
     }
 
-    private func isEnabled(_ method: TallaPaymentMethod) -> Bool {
+    private func isPlatformEnabled(_ method: TallaPaymentMethod) -> Bool {
         method == .benefit
             || method == .clickToPay
             || (method == .benefitPay && BenefitPaySDKConfiguration.isAvailable)
             || method == .cashOnDelivery
             || gatewaySDKAvailable
+    }
+
+    private func isEnabled(_ method: TallaPaymentMethod) -> Bool {
+        isPlatformEnabled(method) && !disabledMethods.contains(method)
     }
 
     var body: some View {
@@ -610,7 +646,12 @@ struct PaymentMethodSelectionSheet: View {
                                                 .foregroundStyle(accentColor)
                                         }
                                     }
-                                    Text(method.sheetSubtitle)
+                                    Text(disabledMethods.contains(method) && method == .cashOnDelivery
+                                         ? AppLocalization.text(
+                                            "coffee_club_cod_disabled",
+                                            fallback: "Coffee Club is prepaid, so Cash on Delivery cannot be selected."
+                                         )
+                                         : method.sheetSubtitle)
                                         .font(.footnote)
                                         .foregroundStyle(secondaryColor)
                                         .fixedSize(horizontal: false, vertical: true)

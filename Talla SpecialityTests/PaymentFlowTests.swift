@@ -68,6 +68,20 @@ struct PaymentFlowTests {
         #expect(model.selectedMethod == .benefit)
     }
 
+    @Test func coffeeClubDisablesAndClearsCashOnDelivery() {
+        #expect(!PaymentMethodSelectorView.isMethodEnabled(
+            .cashOnDelivery,
+            gatewaySDKAvailable: true,
+            disabledMethods: [.cashOnDelivery]
+        ))
+        #expect(PaymentMethodSelectorView.isMethodEnabled(.card, gatewaySDKAvailable: true))
+
+        let model = PaymentFlowModel(selectedMethod: .cashOnDelivery)
+        model.clearSelection()
+        #expect(model.selectedMethod == nil)
+        #expect(!model.canStart)
+    }
+
     @Test func selectorContainsAllRequiredMethods() {
         #expect(Set(TallaPaymentMethod.allCases) == Set([.benefitPay, .benefit, .card, .clickToPay, .applePay, .cashOnDelivery]))
         #expect(TallaPaymentService.applePayMerchantIdentifier == "merchant.talla.me")
