@@ -8,6 +8,10 @@ struct ShopSectionView: View {
     let allProductsAreEmpty: Bool
     let isLoadingProducts: Bool
     let loadingError: String?
+    let showsCoffeeClubIntroduction: Bool
+    let coffeeClubShipmentCount: Int
+    let coffeeClubIntervalWeeks: Int
+    let coffeeClubDiscountPercent: Int
     @Binding var activeCategory: String
     @Binding var searchQuery: String
     @Binding var sortMode: ContentView.ShopSortMode
@@ -68,6 +72,10 @@ struct ShopSectionView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
+            if showsCoffeeClubIntroduction {
+                coffeeClubIntroduction
+            }
+
             shopCategoriesSection
             shopSortSection
 
@@ -111,6 +119,128 @@ struct ShopSectionView: View {
 
             Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) { }
         }
+    }
+
+    private var coffeeClubIntroduction: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "cup.and.saucer.fill")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(accentColor)
+                    .frame(width: 46, height: 46)
+                    .background(accentColor.opacity(isLightAppearance ? 0.13 : 0.18), in: Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("coffee_club_intro_eyebrow", fallback: "Talla Coffee Club"))
+                        .font(labelFont)
+                        .tracking(localizedTracking(1.8))
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
+
+                    Text(AppLocalization.text("coffee_club_intro_title", fallback: "Your coffee, already planned"))
+                        .font(sectionTitleFont)
+                        .foregroundColor(primaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Text(String(
+                format: AppLocalization.text(
+                    "coffee_club_intro_detail",
+                    fallback: "Prepay for %d shipments, delivered every %d weeks, and save %d%% on your coffee."
+                ),
+                coffeeClubShipmentCount,
+                coffeeClubIntervalWeeks,
+                coffeeClubDiscountPercent
+            ))
+            .font(bodyFont)
+            .foregroundColor(secondaryTextColor)
+            .fixedSize(horizontal: false, vertical: true)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    coffeeClubPrepaidFact
+                    coffeeClubRenewalFact
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    coffeeClubPrepaidFact
+                    coffeeClubRenewalFact
+                }
+            }
+
+            Text(AppLocalization.text(
+                "coffee_club_intro_delivery_note",
+                fallback: "Choose delivery in Bahrain or pickup at Talla. Delivery is charged for each shipment."
+            ))
+            .font(categoryBodyFont)
+            .foregroundColor(tertiaryTextColor)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                activeCategory = "coffee-beans"
+                searchQuery = ""
+                categorySelected()
+            } label: {
+                HStack {
+                    Text(AppLocalization.text("coffee_club_intro_cta", fallback: "Choose your coffee"))
+                        .font(categoryLabelFont)
+                        .tracking(localizedTracking(1.1))
+                        .textCase(.uppercase)
+                    Spacer()
+                    Image(systemName: "arrow.forward")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundColor(isLightAppearance ? Color(hex: 0x24180E) : .black)
+                .padding(.horizontal, 15)
+                .frame(minHeight: 48)
+                .background(accentColor, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("shop.coffeeClub.chooseCoffee")
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [
+                    accentColor.opacity(isLightAppearance ? 0.13 : 0.19),
+                    cardFillColor
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(accentColor.opacity(isLightAppearance ? 0.25 : 0.16), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("shop.coffeeClub.introduction")
+    }
+
+    private var coffeeClubPrepaidFact: some View {
+        coffeeClubFact(
+            AppLocalization.text("coffee_club_intro_prepaid", fallback: "Prepaid"),
+            systemImage: "checkmark.shield.fill"
+        )
+    }
+
+    private var coffeeClubRenewalFact: some View {
+        coffeeClubFact(
+            AppLocalization.text("coffee_club_intro_no_renewal_short", fallback: "No auto-renewal"),
+            systemImage: "calendar.badge.checkmark"
+        )
+    }
+
+    private func coffeeClubFact(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(categoryLabelFont)
+            .foregroundColor(primaryTextColor)
+            .padding(.horizontal, 11)
+            .frame(minHeight: 36)
+            .background(cardFillColor.opacity(0.78), in: Capsule())
+            .overlay(Capsule().stroke(accentColor.opacity(0.14), lineWidth: 1))
     }
 
     private var shopSearchField: some View {

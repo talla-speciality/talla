@@ -58,7 +58,7 @@ extension ContentView {
         )
 
         switch scenario {
-        case "checkout", "arabic", "layout":
+        case "checkout", "arabic", "layout", "coffee-club-intro":
             let variant = Product.Variant(
                 id: "gid://shopify/ProductVariant/release-test", title: "Default", price: "8.500",
                 isAvailableForSale: true, requiresShipping: false, weightGrams: 250
@@ -76,7 +76,12 @@ extension ContentView {
             customerProfile = ShopifyCustomerProfile(
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
-            isCheckoutPresented = scenario != "layout"
+            isCheckoutPresented = scenario == "checkout" || scenario == "arabic"
+            if scenario == "coffee-club-intro" {
+                activeTab = .shop
+                let settingsJSON = #"{"announcement":{"enabled":false,"title":"","message":"","actionLabel":"","actionURL":""},"support":{"whatsappURL":"","privacyURL":"","termsURL":""},"homeSections":{"showQuickDrinks":true,"showFunPick":true,"showSignatureRoasts":true,"showPassport":true},"coffeeClub":{"enabled":true,"shipmentCount":3,"intervalWeeks":4,"discountPercent":10}}"#
+                remoteAppSettings = try? JSONDecoder().decode(AppSettings.self, from: Data(settingsJSON.utf8))
+            }
         case "account-deletion":
             activeTab = .account
             customerProfile = ShopifyCustomerProfile(

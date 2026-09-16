@@ -92,6 +92,20 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertFalse(orders.waitForExistence(timeout: 2), "A consumed Orders request must not reopen when Account is tapped")
     }
 
+    func testCoffeeClubIntroductionExplainsThePlanBeforeCheckout() {
+        let app = launchApp(scenario: "coffee-club-intro")
+        let introduction = element("shop.coffeeClub.introduction", in: app)
+        XCTAssertTrue(introduction.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Your coffee, already planned"].exists)
+        XCTAssertTrue(app.staticTexts["Prepay for 3 shipments, delivered every 4 weeks, and save 10% on your coffee."].exists)
+        XCTAssertTrue(app.staticTexts["Choose delivery in Bahrain or pickup at Talla. Delivery is charged for each shipment."].exists)
+
+        let chooseCoffee = app.buttons["shop.coffeeClub.chooseCoffee"]
+        XCTAssertTrue(chooseCoffee.isHittable)
+        chooseCoffee.tap()
+        XCTAssertTrue(app.textFields["shop.search"].exists)
+    }
+
     func testOfflineCacheRemainsVisibleAndRetryRecovers() throws {
         let server = try TallaUITestServer()
         defer { server.stop() }

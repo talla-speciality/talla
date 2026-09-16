@@ -11,6 +11,27 @@
   "coffee_club_plan": {
     "ar": "نادي قهوة تلة"
   },
+  "coffee_club_intro_eyebrow": {
+    "ar": "نادي قهوة تلة"
+  },
+  "coffee_club_intro_title": {
+    "ar": "قهوتك مخططة وجاهزة"
+  },
+  "coffee_club_intro_detail": {
+    "ar": "ادفع مسبقًا مقابل %d شحنات، شحنة كل %d أسابيع، ووفّر %d٪ على قهوتك."
+  },
+  "coffee_club_intro_prepaid": {
+    "ar": "مدفوع مسبقًا"
+  },
+  "coffee_club_intro_no_renewal_short": {
+    "ar": "من دون تجديد تلقائي"
+  },
+  "coffee_club_intro_delivery_note": {
+    "ar": "اختر التوصيل داخل البحرين أو الاستلام من تلة. تُحتسب رسوم التوصيل لكل شحنة."
+  },
+  "coffee_club_intro_cta": {
+    "ar": "اختر قهوتك"
+  },
   "coffee_club_prepaid_title": {
     "ar": "ادفع مسبقًا مقابل %d شحنات من نادي القهوة"
   },
