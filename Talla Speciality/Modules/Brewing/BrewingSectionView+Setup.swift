@@ -438,6 +438,11 @@ extension BrewingSectionView {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .coffeeLibrary
                         }
+                        brewDivider
+                        brewingLinkedRow(title: "Water & Temperature", detail: "Water mineral profiles and brewing temperature presets.", value: nil) {
+                            isToolsMenuPresented = false
+                            activeDashboardDestination = .waterProfiles
+                        }
                     }
                     brewDivider
                     brewingLinkedRow(title: AppLocalization.text("brew_coach", fallback: "Brew Coach"), detail: AppLocalization.text("brew_coach_detail", fallback: "Small adjustments for the next cup."), value: nil) {

@@ -84,6 +84,7 @@ extension ContentView {
         )
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
+        .task { try? coffeeData.ensureDefaultProfiles() }
     }
 
     var brewTimerPresets: [(name: String, seconds: Int, symbol: String)] {

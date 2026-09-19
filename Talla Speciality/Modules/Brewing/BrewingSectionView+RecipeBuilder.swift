@@ -450,6 +450,8 @@ extension BrewingSectionView {
                         coffeeJournalSection
                     case .coffeeLibrary:
                         CoffeeLibraryView()
+                    case .waterProfiles:
+                        CoffeeMemoryProfilesView()
                     case .brewCoach:
                         if let selectedGuideProfile {
                             brewCoachCard(for: selectedGuideProfile)
@@ -491,6 +493,8 @@ extension BrewingSectionView {
             return AppLocalization.text("coffee_journal", fallback: "Coffee Journal")
         case .coffeeLibrary:
             return AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory")
+        case .waterProfiles:
+            return "Water & Temperature"
         case .brewCoach:
             return AppLocalization.text("brew_coach", fallback: "Brew Coach")
         }

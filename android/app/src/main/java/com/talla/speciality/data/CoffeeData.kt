@@ -228,6 +228,24 @@ class CoffeeDataStore(context: Context) {
         TemperaturePreset(it.id, it.payload.optString("name"), it.payload.optDouble("celsius"))
     }
 
+    fun ensureDefaultProfiles(ownerId: String = "") {
+        fun stableId(key: String) = UUID.nameUUIDFromBytes(key.toByteArray()).toString()
+        if (waterProfiles(ownerId).isEmpty()) {
+            listOf(
+                WaterProfile(stableId("water:talla-balanced"), "Talla Balanced", 70.0, 40.0),
+                WaterProfile(stableId("water:soft-filter"), "Soft Filter", 40.0, 20.0),
+                WaterProfile(stableId("water:espresso"), "Espresso", 90.0, 50.0),
+            ).forEach { saveWaterProfile(it, ownerId) }
+        }
+        if (temperaturePresets(ownerId).isEmpty()) {
+            listOf(
+                TemperaturePreset(stableId("temperature:light"), "Light roast", 96.0),
+                TemperaturePreset(stableId("temperature:medium"), "Medium roast", 93.0),
+                TemperaturePreset(stableId("temperature:dark"), "Dark roast", 90.0),
+            ).forEach { saveTemperaturePreset(it, ownerId) }
+        }
+    }
+
     fun doseUsage(ownerId: String = "") = records(ownerId, CoffeeEntityType.DOSE_USAGE).map {
         DoseUsage(it.id, it.payload.optString("purchasedCoffeeID"), it.payload.optDouble("grams"), it.payload.optLong("createdAt", it.updatedAt))
     }

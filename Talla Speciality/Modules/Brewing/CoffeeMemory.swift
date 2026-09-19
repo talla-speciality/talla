@@ -192,6 +192,23 @@ extension CoffeeDataStore {
         try saveRecord(preset, id: preset.id, entity: "temperaturePreset")
     }
 
+    func ensureDefaultProfiles() throws {
+        if records(WaterProfileRecord.self, entity: "waterProfile").isEmpty {
+            for profile in [
+                WaterProfileRecord(id: Self.stableID("water:talla-balanced"), name: "Talla Balanced", hardnessPPM: 70, alkalinityPPM: 40),
+                WaterProfileRecord(id: Self.stableID("water:soft-filter"), name: "Soft Filter", hardnessPPM: 40, alkalinityPPM: 20),
+                WaterProfileRecord(id: Self.stableID("water:espresso"), name: "Espresso", hardnessPPM: 90, alkalinityPPM: 50)
+            ] { try saveWater(profile) }
+        }
+        if records(TemperaturePresetRecord.self, entity: "temperaturePreset").isEmpty {
+            for preset in [
+                TemperaturePresetRecord(id: Self.stableID("temperature:light"), name: "Light roast", celsius: 96),
+                TemperaturePresetRecord(id: Self.stableID("temperature:medium"), name: "Medium roast", celsius: 93),
+                TemperaturePresetRecord(id: Self.stableID("temperature:dark"), name: "Dark roast", celsius: 90)
+            ] { try saveTemperature(preset) }
+        }
+    }
+
     func recommendation(for lot: BeanLotRecord, in catalog: [ContentView.Product]) -> (product: ContentView.Product, exact: Bool, reason: String)? {
         let available = catalog.filter { ["coffee-beans", "arabic-coffee-beans"].contains($0.categoryKey) && $0.isAvailableForSale
             && $0.variants.contains(where: \.isAvailableForSale)
@@ -277,6 +294,7 @@ struct CoffeeMemoryProfilesView: View {
                 if let error { Text(error).foregroundStyle(.red) }
             }.textFieldStyle(.roundedBorder)
         }
+        .task { try? store.ensureDefaultProfiles() }
     }
     private func perform(_ action: () throws -> Void) {
         do { try action(); error = nil } catch { self.error = "Enter a name and valid numeric values." }

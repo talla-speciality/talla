@@ -792,6 +792,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadBrewJournal(): List<BrewJournalEntry> = coffeeData.loadJournal()
 
     private fun refreshCoffeeDataState(ownerId: String = mutableState.value.profile?.id.orEmpty()) {
+        coffeeData.ensureDefaultProfiles(ownerId)
         mutableState.update {
             it.copy(
                 brewJournal = coffeeData.loadJournal(ownerId),
