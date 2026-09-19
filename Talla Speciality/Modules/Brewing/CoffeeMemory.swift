@@ -135,7 +135,7 @@ extension CoffeeDataStore {
 
     func importPurchasedCoffee(from orders: [ContentView.AccountOrder], catalog: [ContentView.Product], ownerID: String?) throws {
         let existing = Set(inventory().map(\.id))
-        for order in orders {
+        for order in orders where Self.isPurchasedOrderStatus(order.status) {
             for (index, item) in (order.items ?? []).enumerated() {
                 let variantID = item.variantId ?? ""
                 guard let product = catalog.first(where: { product in
@@ -148,19 +148,58 @@ extension CoffeeDataStore {
                 let variant = product.variants.first { $0.id == variantID || $0.id.hasSuffix("/\(variantID)") } ?? product.defaultVariant
                 let grams = max(variant?.weightGrams ?? 250, 1) * Double(max(item.quantity, 1))
                 let lotID = Self.stableID("shopify-lot:\(product.id):\(variant?.id ?? variantID)")
-                let lot = BeanLotRecord(id: lotID, name: product.name, origin: product.countryOfOrigin ?? "", productID: product.id, variantID: variant?.id ?? variantID)
+                let metadata = Self.coffeeMetadata(from: product)
+                let lot = BeanLotRecord(
+                    id: lotID, name: product.name, roaster: metadata["roaster"] ?? "",
+                    origin: metadata["origin"] ?? product.countryOfOrigin ?? "",
+                    region: metadata["region"] ?? metadata["producer"] ?? "",
+                    variety: metadata["variety"] ?? "", process: metadata["process"] ?? "",
+                    roastLevel: metadata["roastLevel"] ?? "", tastingNotes: metadata["tastingNotes"] ?? "",
+                    productID: product.id, variantID: variant?.id ?? variantID,
+                    replacementProductID: metadata["replacementProductID"]
+                )
                 try saveLot(lot)
-                let payload: [String: Any] = [
+                var payload: [String: Any] = [
                     "id": purchaseID.uuidString.lowercased(), "lotID": lotID.uuidString.lowercased(),
                     "productID": product.id, "variantID": variant?.id ?? variantID,
                     "productName": product.name, "purchasedAt": order.createdAt,
                     "initialQuantityGrams": grams, "remainingQuantityGrams": grams
                 ]
+                if let roastDate = metadata["roastDate"], !roastDate.isEmpty { payload["roastDate"] = roastDate }
                 try saveEnvelope(entityType: "purchasedCoffee", id: purchaseID, jsonObject: payload)
             }
         }
         try container.mainContext.save()
         notifyCoffeeChange()
+    }
+
+    private static func isPurchasedOrderStatus(_ value: String) -> Bool {
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "confirmed", "preparing", "roasting", "in progress", "resting", "packed", "collected", "ready",
+             "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func coffeeMetadata(from product: ContentView.Product) -> [String: String] {
+        let fields = [
+            "origin": "Talla Origin:", "region": "Talla Region:", "producer": "Talla Producer:",
+            "variety": "Talla Variety:", "process": "Talla Process:", "roastLevel": "Talla Roast:",
+            "tastingNotes": "Talla Notes:", "roastDate": "Talla Roast Date:",
+            "replacementProductID": "Talla Replacement:", "roaster": "Talla Roaster:"
+        ]
+        let source = product.catalogClassificationText
+        var result: [String: String] = [:]
+        for component in source.components(separatedBy: CharacterSet(charactersIn: ",\n|")) {
+            let text = component.trimmingCharacters(in: .whitespacesAndNewlines)
+            for (field, prefix) in fields where text.lowercased().hasPrefix(prefix.lowercased()) {
+                let value = text.dropFirst(prefix.count).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !value.isEmpty { result[field] = value }
+            }
+        }
+        return result
     }
 
     func markOpened(_ id: UUID, date: Date) throws {

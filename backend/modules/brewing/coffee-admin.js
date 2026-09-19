@@ -72,7 +72,10 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
     async function deleteRecord(email, entityType, recordID) {
         if (!database.isEnabled()) return false;
         const result = await database.query(
-            `DELETE FROM coffee_records WHERE email = $1 AND entity_type = $2 AND record_id = $3 RETURNING record_id`,
+            `UPDATE coffee_records SET payload='{}'::jsonb, revision=revision+1, updated_at=NOW(),
+                deleted_at=NOW(), updated_by_device='admin', sync_cursor=nextval('coffee_sync_cursor_seq')
+             WHERE email = $1 AND entity_type = $2 AND record_id = $3 AND deleted_at IS NULL
+             RETURNING record_id`,
             [normalizeEmail(email), String(entityType || ""), String(recordID || "")]
         );
         return result.rows.length > 0;

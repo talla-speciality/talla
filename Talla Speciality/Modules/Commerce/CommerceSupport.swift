@@ -1351,7 +1351,8 @@ extension ContentView.Product {
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
             countryOfOrigin: countryOfOrigin,
             isAvailableForSale: defaultVariant?.isAvailableForSale ?? false,
-            catalogSourceText: "\(shopifyNode.title) \(shopifyNode.description) \(shopifyNode.productType)"
+            catalogSourceText: ([shopifyNode.title, shopifyNode.description, shopifyNode.productType] + shopifyNode.tags)
+                .joined(separator: "\n")
         )
     }
 

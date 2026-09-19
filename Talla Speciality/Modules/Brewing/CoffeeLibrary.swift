@@ -221,6 +221,14 @@ extension CoffeeDataStore {
         notifyCoffeeChange()
     }
 
+    func updateRoastDate(recordID: UUID, roastDate: Date?) throws {
+        guard var row = legacyObjects(entityType: "purchasedCoffee").first(where: { ($0["id"] as? String)?.lowercased() == recordID.uuidString.lowercased() }) else { return }
+        row["roastDate"] = roastDate.map { Self.coffeeISO.string(from: $0) as Any } ?? NSNull()
+        try saveEnvelope(entityType: "purchasedCoffee", id: recordID, jsonObject: row)
+        try container.mainContext.save()
+        notifyCoffeeChange()
+    }
+
     func recordMaintenance(recordID: UUID? = nil, equipmentID: UUID, kind: String, notes: String, ownerID: String? = nil) throws {
         let event: MaintenanceEvent
         if let recordID, let existing = try container.mainContext.fetch(FetchDescriptor<MaintenanceEvent>(predicate: #Predicate { $0.id == recordID })).first {
@@ -361,6 +369,7 @@ struct CoffeeLibraryView: View {
     @State private var maintenanceKind = "Cleaning"
     @State private var maintenanceNotes = ""
     @State private var maintenanceID: UUID?
+    @State private var editingLot: BeanLotRecord?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -401,6 +410,26 @@ struct CoffeeLibraryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(coffee.productName).font(.headline)
                     if !coffee.roaster.isEmpty { Text(coffee.roaster).font(.subheadline) }
+                    if let roastDate = coffee.roastDate {
+                        DatePicker(
+                            "Roasted",
+                            selection: Binding(
+                                get: { roastDate },
+                                set: { try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: $0) }
+                            ),
+                            displayedComponents: .date
+                        )
+                        .font(.caption)
+                        Button("Remove roast date", role: .destructive) {
+                            try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: nil)
+                        }
+                        .font(.caption)
+                    } else {
+                        Button("Add roast date") {
+                            try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: .now)
+                        }
+                        .buttonStyle(.borderless)
+                    }
                     if let openedAt = coffee.openedAt {
                         Text("Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))")
                             .font(.caption)
@@ -409,6 +438,8 @@ struct CoffeeLibraryView: View {
                             .buttonStyle(.borderless)
                     }
                     Text("\(coffee.estimatedBrews()) estimated brews · \(coffee.usedQuantityGrams, specifier: "%.0f") g logged")
+                        .font(.caption)
+                    Text("Original bag weight: \(coffee.initialQuantityGrams, specifier: "%.0f") g")
                         .font(.caption)
                     Stepper(
                         "\(Int(coffee.remainingQuantityGrams.rounded())) g remaining",
@@ -425,6 +456,30 @@ struct CoffeeLibraryView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityIdentifier("offline.cached-brew")
+            }
+
+            GroupBox("Bean library") {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(coffeeData.beanLots()) { lot in
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(lot.name).font(.headline)
+                                if !lot.roaster.isEmpty { Text(lot.roaster).font(.subheadline) }
+                                let details = [lot.origin, lot.region, lot.variety, lot.process, lot.roastLevel]
+                                    .filter { !$0.isEmpty }.joined(separator: " · ")
+                                if !details.isEmpty { Text(details).font(.caption) }
+                                if !lot.tastingNotes.isEmpty { Text(lot.tastingNotes).font(.caption).foregroundStyle(.secondary) }
+                            }
+                            Spacer()
+                            Button("Edit") { editingLot = lot }
+                            Button(role: .destructive) { delete("coffeeLot", lot.id) } label: { Image(systemName: "trash") }
+                        }
+                    }
+                    if coffeeData.beanLots().isEmpty {
+                        Text("Add a coffee above to create your first bean lot.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 8)
             }
 
             CoffeeMemoryProfilesView()
@@ -456,6 +511,10 @@ struct CoffeeLibraryView: View {
         }
         }
         .onAppear { equipmentID = equipmentID ?? coffeeData.equipmentRecords().first?.id }
+        .sheet(item: $editingLot) { lot in
+            CoffeeLotEditorView(lot: lot)
+                .environmentObject(coffeeData)
+        }
     }
 
     @ViewBuilder
@@ -654,6 +713,63 @@ struct CoffeeLibraryView: View {
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct CoffeeLotEditorView: View {
+    @EnvironmentObject private var coffeeData: CoffeeDataStore
+    @Environment(\.dismiss) private var dismiss
+    let lot: BeanLotRecord
+    @State private var name: String
+    @State private var roaster: String
+    @State private var origin: String
+    @State private var region: String
+    @State private var variety: String
+    @State private var process: String
+    @State private var roastLevel: String
+    @State private var tastingNotes: String
+    @State private var errorMessage: String?
+
+    init(lot: BeanLotRecord) {
+        self.lot = lot
+        _name = State(initialValue: lot.name); _roaster = State(initialValue: lot.roaster)
+        _origin = State(initialValue: lot.origin); _region = State(initialValue: lot.region)
+        _variety = State(initialValue: lot.variety); _process = State(initialValue: lot.process)
+        _roastLevel = State(initialValue: lot.roastLevel); _tastingNotes = State(initialValue: lot.tastingNotes)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Coffee name", text: $name)
+                TextField("Roaster", text: $roaster)
+                TextField("Origin", text: $origin)
+                TextField("Region or producer", text: $region)
+                TextField("Variety", text: $variety)
+                TextField("Process", text: $process)
+                TextField("Roast level", text: $roastLevel)
+                TextField("Tasting notes", text: $tastingNotes)
+                if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+            }
+            .navigationTitle("Edit bean lot")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        do {
+                            try coffeeData.saveLot(BeanLotRecord(
+                                id: lot.id, name: name, roaster: roaster, origin: origin, region: region,
+                                variety: variety, process: process, roastLevel: roastLevel, tastingNotes: tastingNotes,
+                                productID: lot.productID, variantID: lot.variantID,
+                                replacementProductID: lot.replacementProductID,
+                                excludeFromReplacements: lot.excludeFromReplacements
+                            ))
+                            dismiss()
+                        } catch { errorMessage = error.localizedDescription }
+                    }
+                }
+            }
         }
     }
 }

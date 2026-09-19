@@ -35,4 +35,6 @@ test("admin coffee memory service summarizes and deletes records", async () => {
     assert.equal(summary.recentRecords[0].title, "Guji");
     assert.equal(await service.deleteRecord(" A@Example.com ", "coffeeLot", "lot-1"), true);
     assert.deepEqual(calls.at(-1).values, ["a@example.com", "coffeeLot", "lot-1"]);
+    assert.match(calls.at(-1).sql, /deleted_at=NOW\(\)/);
+    assert.doesNotMatch(calls.at(-1).sql, /DELETE FROM/);
 });

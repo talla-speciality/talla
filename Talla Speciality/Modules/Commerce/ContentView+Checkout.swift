@@ -3900,11 +3900,6 @@ extension ContentView {
                 await loadAvailableVouchers(for: profile.email)
             }
             orderHistory = checkoutStart.orders
-            try? coffeeData.importPurchasedCoffee(
-                from: orderHistory,
-                catalog: products,
-                ownerID: customerProfile?.email.lowercased()
-            )
             preparePostPaymentContext(orderID: checkoutStart.orderID, method: selectedPaymentMethod)
 
             switch selectedPaymentMethod.route {
