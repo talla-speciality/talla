@@ -284,6 +284,8 @@ struct BrewingSectionView: View {
 
     let isCompact: Bool
     let isCustomerSignedIn: Bool
+    let coffeeMemoryEnabled: Bool
+    let roastDateOCREnabled: Bool
     let primaryTextColor: Color
     let secondaryTextColor: Color
     let tertiaryTextColor: Color

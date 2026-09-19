@@ -265,6 +265,12 @@ extension AdminContentArea {
             .init("coffeeClub.intervalWeeks", "Weeks between shipments", .integer),
             .init("coffeeClub.discountPercent", "Coffee discount (%)", .integer)
         ]),
+        .init("Coffee memory", [
+            .init("coffeeMemory.enabled", "Coffee memory enabled", .toggle),
+            .init("coffeeMemory.automaticPurchaseImport", "Import Shopify coffee purchases", .toggle),
+            .init("coffeeMemory.roastDateOCR", "Roast-date scanning", .toggle),
+            .init("coffeeMemory.replacementRecommendations", "Replacement recommendations", .toggle)
+        ]),
         .init("Delivery and pickup", [
             .init("fulfillment.deliveryEnabled", "Delivery enabled", .toggle),
             .init("fulfillment.pickupEnabled", "Pickup enabled", .toggle),

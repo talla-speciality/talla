@@ -59,7 +59,10 @@ struct AdminProductsView: View {
         }
         .sheet(isPresented: $create) {
             NavigationStack {
-                AdminActionForm(title: "Add Product", endpoint: "/admin/api/products", groups: [.init("Product", [.init("title", "Title", required: true), .init("productType", "Category", .choice(AdminProductDetailView.categories), required: true), .init("price", "Price", .number, required: true)])], confirmation: "Create this product in the live catalog. Storefront visibility depends on your Shopify publication settings.", onSaved: { _ in Task { await load() } }, document: .object(["price": .string(""), "productType": .string("Coffee Beans")]))
+                AdminActionForm(title: "Add Product", endpoint: "/admin/api/products", groups: [
+                    .init("Product", [.init("title", "Title", required: true), .init("productType", "Category", .choice(AdminProductDetailView.categories), required: true), .init("price", "Price", .number, required: true)]),
+                    .init("Coffee metadata", [.init("origin", "Country of origin"), .init("region", "Region"), .init("producer", "Producer or farm"), .init("variety", "Variety"), .init("process", "Process"), .init("roastLevel", "Roast level"), .init("tastingNotes", "Tasting notes"), .init("roastDate", "Roast date (YYYY-MM-DD)"), .init("bagWeightGrams", "Bag weight (grams)", .number)])
+                ], confirmation: "Create this product in the live catalog. Storefront visibility depends on your Shopify publication settings.", onSaved: { _ in Task { await load() } }, document: .object(["price": .string(""), "bagWeightGrams": .number(250), "productType": .string("Coffee Beans")]))
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { create = false } } }
             }
         }
@@ -112,13 +115,27 @@ struct AdminProductDetailView: View {
         } message: { Text("This removes the product from Shopify and cannot be undone.") }
     }
     private var editPayload: AdminValue {
-        var result = product.selecting(["id", "title", "productType", "status", "badge", "descriptionHTML", "defaultVariantID"])
+        var result = product.selecting(["id", "title", "productType", "status", "badge", "descriptionHTML", "defaultVariantID",
+            "origin", "region", "producer", "variety", "process", "roastLevel", "tastingNotes", "roastDate", "bagWeightGrams",
+            "replacementProductID", "excludeFromReplacements"])
         result["existingTags"] = product["tags"]
+        if result["bagWeightGrams"].text.isEmpty { result["bagWeightGrams"] = .number(250) }
         if !product["defaultVariantID"].text.isEmpty { result["price"] = product["price"] }
         return result
     }
     private var productFields: [AdminField] {
         var fields: [AdminField] = [.init("title", "Title", required: true), .init("productType", "Category", .choice(Self.categories)), .init("status", "Status", .choice(["ACTIVE", "DRAFT", "ARCHIVED"])), .init("badge", "Badge", .choice(["", "NEW", "BESTSELLER", "LIMITED", "STAFF PICK"])), .init("descriptionHTML", "Description (HTML)", .multiline)]
+        if ["Coffee Beans", "Arabic Coffee"].contains(product["productType"].text) {
+            fields += [
+                .init("origin", "Country of origin"), .init("region", "Region"), .init("producer", "Producer or farm"),
+                .init("variety", "Variety"), .init("process", "Process"),
+                .init("roastLevel", "Roast level", .choice(["", "Light", "Light-Medium", "Medium", "Medium-Dark", "Dark"])),
+                .init("tastingNotes", "Tasting notes"), .init("roastDate", "Roast date (YYYY-MM-DD)"),
+                .init("bagWeightGrams", "Bag weight (grams)", .number),
+                .init("replacementProductID", "Manual replacement Shopify product ID"),
+                .init("excludeFromReplacements", "Exclude from replacement suggestions", .toggle)
+            ]
+        }
         if !product["defaultVariantID"].text.isEmpty { fields.append(.init("price", "Price", .number)) }
         return fields
     }

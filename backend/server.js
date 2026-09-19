@@ -21,6 +21,7 @@ const {
     normalizeCustomerProductIDs
 } = require("./modules/brewing/customer-library");
 const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync"); const { importShopifyCoffeePurchases } = require("./modules/brewing/shopify-coffee-memory");
+const { coffeeMetadataFromTags, createCoffeeAdminService, defaultCoffeeMemorySettings, nextCoffeeTags, normalizeCoffeeMemorySettings } = require("./modules/brewing/coffee-admin");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
 const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail");
@@ -282,6 +283,7 @@ function defaultAppSettings() {
             intervalWeeks: 4,
             discountPercent: 10
         },
+        coffeeMemory: { ...defaultCoffeeMemorySettings },
         fulfillment: {
             deliveryEnabled: true,
             pickupEnabled: true,
@@ -328,13 +330,11 @@ function defaultAppSettings() {
             rewardStep: 50,
             rewards: [
                 { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" }
-
             ]
         },
         updatedAt: null
     };
 }
-
 function normalizeAppSettings(value = {}) {
     const fallback = defaultAppSettings();
     const trimText = (text, maxLength) => String(text || "").trim().slice(0, maxLength);
@@ -405,7 +405,6 @@ function normalizeAppSettings(value = {}) {
         Math.round(boundedNumber(loyalty.goldThreshold, fallback.loyalty.goldThreshold, 1, 1_000_000)),
         silverThreshold + 1
     );
-
     return {
         announcement: {
             enabled: Boolean(announcement.enabled),
@@ -443,6 +442,7 @@ function normalizeAppSettings(value = {}) {
             intervalWeeks: Math.round(boundedNumber(coffeeClub.intervalWeeks, fallback.coffeeClub.intervalWeeks, 1, 12)),
             discountPercent: Math.round(boundedNumber(coffeeClub.discountPercent, fallback.coffeeClub.discountPercent, 0, 30))
         },
+        coffeeMemory: normalizeCoffeeMemorySettings(value.coffeeMemory),
         fulfillment: {
             deliveryEnabled: hasFulfillmentMethod ? requestedDeliveryEnabled : fallback.fulfillment.deliveryEnabled,
             pickupEnabled: hasFulfillmentMethod ? requestedPickupEnabled : fallback.fulfillment.pickupEnabled,
@@ -483,7 +483,6 @@ function normalizeAppSettings(value = {}) {
         updatedAt: value.updatedAt || fallback.updatedAt
     };
 }
-
 function defaultPassportSettings() {
     return {
         origins: [
@@ -1238,14 +1237,12 @@ async function exportCompletedOrderToShopify(localOrderID) {
         }
     });
 }
-
 function queueShopifyOrderExport(localOrderID) {
     if (!shopifyAdminConfigured()) return;
     setImmediate(() => {
         void exportCompletedOrderToShopify(localOrderID).catch(() => {});
     });
 }
-
 function shopifyAdminProductPayload(node) {
     const firstVariant = node?.variants?.edges?.[0]?.node || null;
     const firstInventoryLevel = firstVariant?.inventoryItem?.inventoryLevels?.edges?.[0]?.node || null;
@@ -1273,7 +1270,8 @@ function shopifyAdminProductPayload(node) {
         price: firstVariant?.price || "",
         availableForSale: firstVariant?.availableForSale ?? false,
         inventoryPolicy: firstVariant?.inventoryPolicy || "",
-        inventoryTracked: Boolean(firstVariant?.inventoryItem?.tracked)
+        inventoryTracked: Boolean(firstVariant?.inventoryItem?.tracked),
+        ...coffeeMetadataFromTags(node.tags)
     };
 }
 
@@ -1282,7 +1280,7 @@ function productBadgeFromTags(tags = []) {
     return managedProductBadgeTags.find((tag) => uppercasedTags.has(tag)) || "";
 }
 
-function nextProductTags(existingTags = [], badge = "") {
+function nextProductTags(existingTags = [], badge = "", coffeeMetadata) {
     const normalizedBadge = String(badge || "").trim().toUpperCase();
     if (normalizedBadge && !managedProductBadgeTags.includes(normalizedBadge)) {
         throw new Error("Choose one of the approved product badges.");
@@ -1297,7 +1295,7 @@ function nextProductTags(existingTags = [], badge = "") {
         nextTags.push(normalizedBadge);
     }
 
-    return Array.from(new Set(nextTags));
+    return coffeeMetadata ? nextCoffeeTags(Array.from(new Set(nextTags)), coffeeMetadata) : Array.from(new Set(nextTags));
 }
 
 async function listShopifyAdminProducts(first = 250) {
@@ -6147,7 +6145,7 @@ async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
     if (!recordedOrder) {
         return { recorded: false, awarded: false, reason: "CUSTOMER_ACCOUNT_NOT_FOUND", email: order.email, eazyTallaPaymentId: eazyPayment?.tallaPaymentId || null };
     }
-    await importShopifyCoffeePurchases(database, order);
+    if (runtimeAppSettings.value.coffeeMemory.enabled && runtimeAppSettings.value.coffeeMemory.automaticPurchaseImport) await importShopifyCoffeePurchases(database, order);
     const award = await awardOrderBeans(order);
     const rewardAwareOrder = await orderPayloadWithRewardState(order.email, recordedOrder);
     return {
@@ -6236,7 +6234,7 @@ async function syncRecentShopifyOrdersForEmail(email) {
         if (!recordedOrder) {
             continue;
         }
-        await importShopifyCoffeePurchases(database, order);
+        if (runtimeAppSettings.value.coffeeMemory.enabled && runtimeAppSettings.value.coffeeMemory.automaticPurchaseImport) await importShopifyCoffeePurchases(database, order);
         syncedCount += 1;
         if (completedOrderStatuses().has(order.status)) {
             await awardOrderBeans(order);
@@ -8673,7 +8671,7 @@ function buildCustomerExportCSV(customers) {
 }
 
 const synchronizeCoffeeRecords = createCoffeeSyncService(database);
-
+const { summary: adminCoffeeMemorySummary, deleteRecord: deleteAdminCoffeeMemoryRecord } = createCoffeeAdminService(database, normalizeEmail);
 const createServer = require("./modules/application/create-server");
 const server = createServer({
     URL,
@@ -8693,6 +8691,7 @@ const server = createServer({
     adminCredentialsConfigured,
     adminCustomerDirectory,
     adminCustomerSummary,
+    adminCoffeeMemorySummary,
     adminDirectory,
     adminNativePushDevices,
     adminOperationsSummary,
@@ -8829,6 +8828,7 @@ const server = createServer({
     defaultLoyaltyPerks,
     defaultPassportSettings,
     deleteAccountRecord,
+    deleteAdminCoffeeMemoryRecord,
     deleteAddress,
     deleteMatchingPendingCheckout,
     deleteShopifyAdminProduct,

@@ -90,6 +90,14 @@ data class TallaAppSettings(
     val fulfillment: FulfillmentSettings = FulfillmentSettings(),
     val support: SupportSettings = SupportSettings(),
     val release: ReleaseSettings = ReleaseSettings(),
+    val coffeeMemory: CoffeeMemorySettings = CoffeeMemorySettings(),
+)
+
+data class CoffeeMemorySettings(
+    val enabled: Boolean = true,
+    val automaticPurchaseImport: Boolean = true,
+    val roastDateOcr: Boolean = true,
+    val replacementRecommendations: Boolean = true,
 )
 
 data class SeasonalEvent(
@@ -161,6 +169,7 @@ class TallaRemoteSettingsRepository {
         val fulfillment = json.optJSONObject("fulfillment") ?: JSONObject()
         val support = json.optJSONObject("support") ?: JSONObject()
         val release = json.optJSONObject("release") ?: JSONObject()
+        val coffeeMemory = json.optJSONObject("coffeeMemory") ?: JSONObject()
         return TallaAppSettings(
             announcement = TallaAnnouncement(
                 enabled = announcement.optBoolean("enabled"),
@@ -205,6 +214,12 @@ class TallaRemoteSettingsRepository {
                 titleAr = release.optString("titleAR", "سنعود قريباً"),
                 messageEn = release.optString("messageEN", "Talla is being updated. Please try again shortly."),
                 messageAr = release.optString("messageAR", "يتم تحديث تالة. يرجى المحاولة بعد قليل."),
+            ),
+            coffeeMemory = CoffeeMemorySettings(
+                enabled = coffeeMemory.optBoolean("enabled", true),
+                automaticPurchaseImport = coffeeMemory.optBoolean("automaticPurchaseImport", true),
+                roastDateOcr = coffeeMemory.optBoolean("roastDateOCR", true),
+                replacementRecommendations = coffeeMemory.optBoolean("replacementRecommendations", true),
             ),
         )
     }

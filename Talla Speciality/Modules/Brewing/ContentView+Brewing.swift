@@ -35,6 +35,8 @@ extension ContentView {
         BrewingSectionView(
             isCompact: isCompact,
             isCustomerSignedIn: customerProfile != nil,
+            coffeeMemoryEnabled: remoteAppSettings?.coffeeMemory?.enabled != false,
+            roastDateOCREnabled: remoteAppSettings?.coffeeMemory?.roastDateOCR != false,
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,

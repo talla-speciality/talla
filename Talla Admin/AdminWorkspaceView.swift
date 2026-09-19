@@ -21,6 +21,7 @@ struct AdminWorkspaceView: View {
                 }
                 Section("Store") {
                     if includes("Products catalog inventory") { NavigationLink { AdminProductsView() } label: { row("Products & Inventory", "Catalog, pricing, images, and stock", "bag.fill") } }
+                    if includes("Coffee memory beans lots sync recommendations") { NavigationLink { AdminCoffeeMemoryView() } label: { row("Coffee Memory", "Lots, imports, sync health, and customer support", "cup.and.saucer.fill") } }
                     if includes("Customers loyalty vouchers addresses") { NavigationLink { AdminCustomersView() } label: { row("Customers & Loyalty", "Accounts, Beans, vouchers, and addresses", "person.2.fill") } }
                 }
                 Section("Customer app") {

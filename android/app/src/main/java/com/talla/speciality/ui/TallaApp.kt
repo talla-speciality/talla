@@ -271,6 +271,8 @@ fun TallaApp(
                 modifier = Modifier.padding(padding),
             )
             TallaTab.Brewing -> BrewingScreen(
+                coffeeMemoryEnabled = state.remoteSettings.app.coffeeMemory.enabled,
+                roastDateOcrEnabled = state.remoteSettings.app.coffeeMemory.roastDateOcr,
                 journalEntries = state.brewJournal,
                 scanResult = state.coffeeBagScan,
                 scanning = state.coffeeBagScanning,
@@ -937,6 +939,8 @@ private fun RemoteImage(url: String?, description: String, modifier: Modifier = 
 
 @Composable
 private fun BrewingScreen(
+    coffeeMemoryEnabled: Boolean,
+    roastDateOcrEnabled: Boolean,
     journalEntries: List<BrewJournalEntry>,
     scanResult: CoffeeBagScanResult?,
     scanning: Boolean,
@@ -998,6 +1002,7 @@ private fun BrewingScreen(
             onCreateRecipe = { showBrewWorkspace = true },
             onScanBag = { showBrewWorkspace = true },
             onOpenTool = { showBrewWorkspace = true },
+            showScanBag = coffeeMemoryEnabled && roastDateOcrEnabled,
             modifier = modifier,
         )
         return
@@ -1007,7 +1012,7 @@ private fun BrewingScreen(
         item {
             TextButton(onClick = { showBrewWorkspace = false }, contentPadding = PaddingValues(0.dp)) { Text("←  BREWING METHODS", style = MaterialTheme.typography.labelMedium, color = TallaGoldText) }
         }
-        item {
+        if (coffeeMemoryEnabled && roastDateOcrEnabled) item {
             CoffeeBagScannerCard(
                 result = scanResult,
                 scanning = scanning,
@@ -1016,7 +1021,7 @@ private fun BrewingScreen(
                 onClear = onClearScan,
             )
         }
-        item {
+        if (coffeeMemoryEnabled) item {
             CoffeeInventoryCard(
                 inventory = inventory,
                 equipment = equipment,
@@ -1333,6 +1338,7 @@ private fun BrewingDashboard(
     onCreateRecipe: () -> Unit,
     onScanBag: () -> Unit,
     onOpenTool: () -> Unit,
+    showScanBag: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val tools = listOf(
@@ -1372,7 +1378,7 @@ private fun BrewingDashboard(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = onCreateRecipe, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Color(0xFF2B170F)), shape = CircleShape) { Text("＋ ${stringResource(R.string.create_recipe).uppercase()}", style = MaterialTheme.typography.labelMedium) }
-                    Button(onClick = onScanBag, modifier = Modifier.weight(1f).border(1.dp, Sand.copy(alpha = .22f), CircleShape), colors = ButtonDefaults.buttonColors(containerColor = TallaCard, contentColor = Ink), shape = CircleShape) { Text(stringResource(R.string.scan_coffee_bag).uppercase(), style = MaterialTheme.typography.labelMedium) }
+                    if (showScanBag) Button(onClick = onScanBag, modifier = Modifier.weight(1f).border(1.dp, Sand.copy(alpha = .22f), CircleShape), colors = ButtonDefaults.buttonColors(containerColor = TallaCard, contentColor = Ink), shape = CircleShape) { Text(stringResource(R.string.scan_coffee_bag).uppercase(), style = MaterialTheme.typography.labelMedium) }
                 }
             }
         }

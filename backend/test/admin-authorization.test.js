@@ -27,6 +27,7 @@ test("admin request permissions distinguish reads from sensitive mutations", () 
     assert.equal(permissionForAdminRequest("POST", "/admin/api/customer/delete"), "customers:write");
     assert.equal(permissionForAdminRequest("POST", "/admin/api/loyalty/adjust"), "loyalty:write");
     assert.equal(permissionForAdminRequest("POST", "/admin/api/products/update"), "catalog:write");
+    assert.equal(permissionForAdminRequest("POST", "/admin/api/coffee-memory/delete"), "catalog:write");
 });
 
 test("legacy admin credentials retain owner access during migration", () => {

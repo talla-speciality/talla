@@ -17,6 +17,7 @@ module.exports = function createServer(dependencies) {
         adminAuditRowToRecord,
         adminCredentialsConfigured,
         adminCustomerDirectory,
+        adminCoffeeMemorySummary,
         adminCustomerSummary,
         adminDirectory,
         adminNativePushDevices,
@@ -154,6 +155,7 @@ module.exports = function createServer(dependencies) {
         defaultLoyaltyPerks,
         defaultPassportSettings,
         deleteAccountRecord,
+        deleteAdminCoffeeMemoryRecord,
         deleteAddress,
         deleteMatchingPendingCheckout,
         deleteShopifyAdminProduct,
@@ -1108,6 +1110,36 @@ module.exports = function createServer(dependencies) {
             return;
         }
 
+        if (request.method === "GET" && url.pathname === "/admin/api/coffee-memory") {
+            sendJSON(response, 200, await adminCoffeeMemorySummary(), { "Cache-Control": "no-store" });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/coffee-memory/reimport") {
+            const body = await readBody(request);
+            const email = normalizeEmail(body.email);
+            if (!email) { sendJSON(response, 400, { error: "Provide a customer email." }); return; }
+            const result = await syncRecentShopifyOrdersForEmail(email);
+            await createAdminAuditLog({ adminUser: admin.username, action: "coffee_memory_reimported", targetEmail: email,
+                detail: `Re-imported ${result.syncedCount} Shopify orders into coffee memory`, metadata: result });
+            sendJSON(response, 200, result);
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/coffee-memory/delete") {
+            const body = await readBody(request);
+            const email = normalizeEmail(body.email);
+            const entityType = String(body.entityType || "").trim();
+            const recordID = String(body.recordID || "").trim();
+            if (!email || !entityType || !recordID) { sendJSON(response, 400, { error: "Provide the customer, record type, and record ID." }); return; }
+            const deleted = await deleteAdminCoffeeMemoryRecord(email, entityType, recordID);
+            if (!deleted) { sendJSON(response, 404, { error: "Coffee-memory record not found." }); return; }
+            await createAdminAuditLog({ adminUser: admin.username, action: "coffee_memory_record_deleted", targetEmail: email,
+                detail: `Deleted ${entityType} record ${recordID}`, metadata: { entityType, recordID } });
+            sendJSON(response, 200, { deleted: true });
+            return;
+        }
+
         if (request.method === "POST" && url.pathname === "/admin/api/customers/export") {
             try {
                 const body = await readBody(request);
@@ -1642,6 +1674,11 @@ module.exports = function createServer(dependencies) {
                 }
 
                 const result = await createShopifyAdminProduct({ title, productType, price });
+                const coffeeFields = ["origin", "region", "producer", "variety", "process", "roastLevel", "tastingNotes", "roastDate", "bagWeightGrams"];
+                if (["Coffee Beans", "Arabic Coffee"].includes(productType) && result.product?.id) {
+                    const metadata = Object.fromEntries(coffeeFields.map((field) => [field, body[field]]));
+                    result.product = await updateShopifyAdminProduct({ productID: result.product.id, tags: nextProductTags([], "", metadata) });
+                }
                 await createAdminAuditLog({
                     adminUser: admin.username,
                     action: "product_created",
@@ -1694,7 +1731,10 @@ module.exports = function createServer(dependencies) {
                     ? undefined
                     : String(body.badge || "").trim().toUpperCase();
                 const existingTags = Array.isArray(body.existingTags) ? body.existingTags : [];
-                const tags = badge === undefined ? undefined : nextProductTags(existingTags, badge);
+                const coffeeFields = ["origin", "region", "producer", "variety", "process", "roastLevel", "tastingNotes", "roastDate", "bagWeightGrams", "replacementProductID", "excludeFromReplacements"];
+                const hasCoffeeMetadata = coffeeFields.some((field) => body[field] !== undefined);
+                const coffeeMetadata = Object.fromEntries(coffeeFields.map((field) => [field, body[field]]));
+                const tags = badge === undefined && !hasCoffeeMetadata ? undefined : nextProductTags(existingTags, badge, coffeeMetadata);
                 const defaultVariantID = String(body.defaultVariantID || "").trim() || null;
                 const hasPrice = body.price !== undefined && body.price !== null && String(body.price).trim() !== "";
                 const price = hasPrice ? Number(body.price) : undefined;

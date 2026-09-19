@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { coffeeMetadataFromTags } = require("./coffee-admin");
 
 function stableUUID(value) {
     const bytes = Buffer.from(crypto.createHash("sha256").update(String(value)).digest().subarray(0, 16));
@@ -28,21 +29,25 @@ async function importShopifyCoffeePurchases(database, order) {
     let imported = 0;
     for (const [index, item] of (order.items || []).entries()) {
         if (!isCoffeeItem(item)) continue;
+        const metadata = coffeeMetadataFromTags(item.tags);
         const productID = String(item.productId || item.productID || "");
         const variantID = String(item.variantId || item.variantID || "");
         const lotID = stableUUID(`shopify-lot:${productID}:${variantID || item.name}`);
         const purchaseID = stableUUID(`shopify-purchase:${order.id}:${variantID}:${index}`);
         const quantity = Math.max(1, Number(item.quantity || 1));
-        const grams = gramsForItem(item) * quantity;
+        const grams = gramsForItem({ ...item, grams: item.grams || metadata.bagWeightGrams }) * quantity;
         const lot = {
             id: lotID, name: String(item.productTitle || item.name || "Coffee"), roaster: String(item.vendor || ""),
-            productID, variantID, origin: String(item.origin || ""), process: String(item.process || ""),
-            roastLevel: String(item.roastLevel || "")
+            productID, variantID, origin: String(item.origin || metadata.origin || ""),
+            region: String(item.region || metadata.region || ""), producer: String(item.producer || metadata.producer || ""),
+            variety: String(item.variety || metadata.variety || ""), process: String(item.process || metadata.process || ""),
+            roastLevel: String(item.roastLevel || metadata.roastLevel || ""), tastingNotes: String(item.tastingNotes || metadata.tastingNotes || ""),
+            replacementProductID: String(metadata.replacementProductID || ""), excludeFromReplacements: metadata.excludeFromReplacements === true
         };
         const purchase = {
             id: purchaseID, lotID, productID, variantID, productName: lot.name,
             purchasedAt: order.createdAt || new Date().toISOString(),
-            initialQuantityGrams: grams, remainingQuantityGrams: grams
+            initialQuantityGrams: grams, remainingQuantityGrams: grams, roastDate: metadata.roastDate || null
         };
         for (const [entityType, id, payload] of [["coffeeLot", lotID, lot], ["purchasedCoffee", purchaseID, purchase]]) {
             await database.query(

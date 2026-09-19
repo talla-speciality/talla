@@ -62,6 +62,8 @@ struct BeanLotRecord: Codable, Identifiable {
     var tastingNotes: String = ""
     var productID: String?
     var variantID: String?
+    var replacementProductID: String?
+    var excludeFromReplacements: Bool = false
 }
 
 struct WaterProfileRecord: Codable, Identifiable {
@@ -120,7 +122,9 @@ extension CoffeeDataStore {
             return BeanLotRecord(id: id, name: row["name"] as? String ?? "Coffee", roaster: row["roaster"] as? String ?? "",
                 origin: row["origin"] as? String ?? "", region: row["region"] as? String ?? "", variety: row["variety"] as? String ?? "",
                 process: row["process"] as? String ?? "", roastLevel: row["roastLevel"] as? String ?? "", tastingNotes: row["tastingNotes"] as? String ?? "",
-                productID: row["productID"] as? String, variantID: row["variantID"] as? String)
+                productID: row["productID"] as? String, variantID: row["variantID"] as? String,
+                replacementProductID: row["replacementProductID"] as? String,
+                excludeFromReplacements: row["excludeFromReplacements"] as? Bool ?? false)
         }
     }
 
@@ -189,10 +193,16 @@ extension CoffeeDataStore {
     }
 
     func recommendation(for lot: BeanLotRecord, in catalog: [ContentView.Product]) -> (product: ContentView.Product, exact: Bool, reason: String)? {
-        let available = catalog.filter { ["coffee-beans", "arabic-coffee-beans"].contains($0.categoryKey) && $0.isAvailableForSale && $0.variants.contains(where: \.isAvailableForSale) }
+        let available = catalog.filter { ["coffee-beans", "arabic-coffee-beans"].contains($0.categoryKey) && $0.isAvailableForSale
+            && $0.variants.contains(where: \.isAvailableForSale)
+            && !$0.catalogClassificationText.localizedCaseInsensitiveContains("Talla Replacement Excluded") }
         if let exact = available.first(where: { $0.id == lot.productID }) {
             let sameVariant = exact.variants.contains { $0.id == lot.variantID && $0.isAvailableForSale }
             return (exact, true, sameVariant ? "Same Shopify coffee variant" : "Same coffee lot in an available size")
+        }
+        if let replacementID = lot.replacementProductID,
+           let replacement = available.first(where: { $0.id == replacementID }) {
+            return (replacement, false, "Replacement selected by Talla")
         }
         var ranked: [(product: ContentView.Product, score: Int, reasons: [String])] = []
         for product in available where product.id != lot.productID {

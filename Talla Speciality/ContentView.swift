@@ -388,6 +388,13 @@ struct ContentView: View {
             let discountPercent: Int
         }
 
+        struct CoffeeMemory: Decodable {
+            let enabled: Bool
+            let automaticPurchaseImport: Bool
+            let roastDateOCR: Bool
+            let replacementRecommendations: Bool
+        }
+
         struct Fulfillment: Decodable {
             struct ShippingTier: Decodable {
                 let maximumWeightGrams: Double
@@ -449,6 +456,7 @@ struct ContentView: View {
         let homeSections: HomeSections
         let payments: Payments?
         let coffeeClub: CoffeeClub?
+        let coffeeMemory: CoffeeMemory?
         let fulfillment: Fulfillment?
         let release: Release?
         let loyalty: Loyalty?
@@ -1937,7 +1945,9 @@ struct ContentView: View {
     }
 
     var coffeeLotRecommendations: [CoffeeLotRecommendation] {
-        coffeeData.beanLots().compactMap { lot in
+        guard remoteAppSettings?.coffeeMemory?.enabled != false,
+              remoteAppSettings?.coffeeMemory?.replacementRecommendations != false else { return [] }
+        return coffeeData.beanLots().compactMap { lot in
             coffeeData.recommendation(for: lot, in: products).map {
                 CoffeeLotRecommendation(lot: lot, product: $0.product, exact: $0.exact, reason: $0.reason)
             }

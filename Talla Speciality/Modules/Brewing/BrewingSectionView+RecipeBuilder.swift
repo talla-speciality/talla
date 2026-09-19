@@ -69,9 +69,10 @@ extension BrewingSectionView {
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    activeDashboardDestination = .scanCoffeeBag
-                } label: {
+                if coffeeMemoryEnabled && roastDateOCREnabled {
+                    Button {
+                        activeDashboardDestination = .scanCoffeeBag
+                    } label: {
                     Text(AppLocalization.text("scan_coffee_bag", fallback: "Scan Coffee Bag"))
                         .font(Font.custom("AvenirNext-Bold", size: 12))
                         .tracking(AppLocalization.letterSpacing(1.2))
@@ -87,8 +88,9 @@ extension BrewingSectionView {
                                 .stroke(accentColor.opacity(0.22), lineWidth: 1)
                         )
                         .clipShape(Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(20)
@@ -2008,7 +2010,9 @@ extension BrewingSectionView {
             createRecipeStepTitle(AppLocalization.text("coffee_input_title", fallback: "Tell us about the coffee"))
 
             VStack(spacing: 0) {
-                coffeeDetailsModeButton(.scan, title: AppLocalization.text("scan_coffee_bag", fallback: "Scan Coffee Bag"), detail: AppLocalization.text("scan_bag_detail", fallback: "Use camera or photo library, then review every detail."))
+                if coffeeMemoryEnabled && roastDateOCREnabled {
+                    coffeeDetailsModeButton(.scan, title: AppLocalization.text("scan_coffee_bag", fallback: "Scan Coffee Bag"), detail: AppLocalization.text("scan_bag_detail", fallback: "Use camera or photo library, then review every detail."))
+                }
                 brewDivider
                 coffeeDetailsModeButton(.manual, title: AppLocalization.text("enter_manually", fallback: "Enter Manually"), detail: AppLocalization.text("manual_details_detail", fallback: "Type the bag details you know. Only the name is required."))
             }
