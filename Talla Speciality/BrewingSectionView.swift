@@ -174,7 +174,6 @@ struct BrewingSectionView: View {
         case brewTimer
         case coffeeJournal
         case coffeeLibrary
-        case waterProfiles
         case brewCoach
 
         var id: String { rawValue }

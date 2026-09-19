@@ -344,6 +344,7 @@ extension CoffeeDataStore {
 struct CoffeeLibraryView: View {
     @EnvironmentObject private var coffeeData: CoffeeDataStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var name = ""
     @State private var roaster = ""
     @State private var origin = ""
@@ -454,7 +455,11 @@ struct CoffeeLibraryView: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                .background(coffeeCardColor, in: RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color(hex: 0xC8965A).opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
+                )
                 .accessibilityIdentifier("offline.cached-brew")
             }
 
@@ -482,8 +487,6 @@ struct CoffeeLibraryView: View {
                 .padding(.top, 8)
             }
 
-            CoffeeMemoryProfilesView()
-
             equipmentSection
             calibrationSection
             maintenanceSection
@@ -510,11 +513,16 @@ struct CoffeeLibraryView: View {
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
         }
         }
+        .groupBoxStyle(TallaCoffeeGroupBoxStyle())
         .onAppear { equipmentID = equipmentID ?? coffeeData.equipmentRecords().first?.id }
         .sheet(item: $editingLot) { lot in
             CoffeeLotEditorView(lot: lot)
                 .environmentObject(coffeeData)
         }
+    }
+
+    private var coffeeCardColor: Color {
+        colorScheme == .dark ? Color(hex: 0x17120D) : Color(hex: 0xFFFCF5)
     }
 
     @ViewBuilder
@@ -720,6 +728,7 @@ struct CoffeeLibraryView: View {
 private struct CoffeeLotEditorView: View {
     @EnvironmentObject private var coffeeData: CoffeeDataStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     let lot: BeanLotRecord
     @State private var name: String
     @State private var roaster: String
@@ -752,6 +761,8 @@ private struct CoffeeLotEditorView: View {
                 TextField("Tasting notes", text: $tastingNotes)
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             }
+            .scrollContentBackground(.hidden)
+            .background((colorScheme == .dark ? Color(hex: 0x0A0804) : Color(hex: 0xFBF8F1)).ignoresSafeArea())
             .navigationTitle("Edit bean lot")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -771,6 +782,26 @@ private struct CoffeeLotEditorView: View {
                 }
             }
         }
+    }
+}
+
+private struct TallaCoffeeGroupBoxStyle: GroupBoxStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            configuration.label
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+            configuration.content
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(colorScheme == .dark ? Color(hex: 0x17120D) : Color(hex: 0xFFFCF5))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: 0xC8965A).opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
