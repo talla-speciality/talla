@@ -254,6 +254,7 @@ struct BrewingSectionView: View {
         let totalSeconds: Int
         let selectedMethodID: String?
         let activeSmartRecipeID: String?
+        let selectedPurchasedCoffeeID: UUID?
         let selectedGuideProfileID: String
         let brewRecipeName: String
         let ratioCoffeeInput: String
@@ -313,7 +314,7 @@ struct BrewingSectionView: View {
     let labelFont: Font
     let saveRecipeAction: (BrewRecipeRecord) -> Void
     let openArticleAction: (URL) -> Void
-    let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int, [CoffeeSampleInput]) -> Void
+    let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int, UUID?, [CoffeeSampleInput]) -> Void
     let brewTimerSection: AnyView
     let coffeeJournalSection: AnyView
     let loadingView: AnyView
@@ -359,6 +360,7 @@ struct BrewingSectionView: View {
     @State var createRecipeBrewer = "v60"
     @State var createRecipeTasteGoal = "balanced"
     @State var coffeeDetailsMode: CoffeeDetailsMode?
+    @State var selectedPurchasedCoffeeID: UUID?
     @State var coffeeName = ""
     @State var coffeeRoaster = ""
     @State var coffeeOrigin = ""

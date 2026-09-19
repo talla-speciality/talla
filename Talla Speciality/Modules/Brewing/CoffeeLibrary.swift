@@ -6,6 +6,12 @@ struct CoffeeInventoryRecord: Identifiable {
     let lotID: UUID?
     let productName: String
     let roaster: String
+    let origin: String
+    let region: String
+    let variety: String
+    let process: String
+    let roastLevel: String
+    let tastingNotes: String
     let roastDate: Date?
     let initialQuantityGrams: Double
     let remainingQuantityGrams: Double
@@ -143,6 +149,12 @@ extension CoffeeDataStore {
                 lotID: lotID,
                 productName: row["productName"] as? String ?? lot?["name"] as? String ?? "Coffee",
                 roaster: lot?["roaster"] as? String ?? "",
+                origin: lot?["origin"] as? String ?? "",
+                region: lot?["region"] as? String ?? lot?["producer"] as? String ?? "",
+                variety: lot?["variety"] as? String ?? "",
+                process: lot?["process"] as? String ?? "",
+                roastLevel: lot?["roastLevel"] as? String ?? "",
+                tastingNotes: lot?["notes"] as? String ?? "",
                 roastDate: (row["roastDate"] as? String).flatMap(Self.coffeeISO.date(from:)),
                 initialQuantityGrams: (row["initialQuantityGrams"] as? NSNumber)?.doubleValue ?? 0,
                 remainingQuantityGrams: (row["remainingQuantityGrams"] as? NSNumber)?.doubleValue ?? 0

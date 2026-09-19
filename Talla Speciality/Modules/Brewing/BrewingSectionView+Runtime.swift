@@ -1297,7 +1297,7 @@ extension BrewingSectionView {
 
     func handleBrewModePrimaryAction() {
         if !isBrewModeRunning, (brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale) {
-            guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds, capturedBrewSamples)
+            guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds, selectedPurchasedCoffeeID, capturedBrewSamples)
             clearPersistedBrewSession()
             isFocusedBrewPresented = false
             brewModeHapticTrigger += 1
@@ -1564,6 +1564,7 @@ extension BrewingSectionView {
             totalSeconds: brewModeTotalSeconds,
             selectedMethodID: selectedBrewModeMethodID,
             activeSmartRecipeID: activeSmartRecipeID,
+            selectedPurchasedCoffeeID: selectedPurchasedCoffeeID,
             selectedGuideProfileID: selectedGuideProfileID,
             brewRecipeName: brewRecipeName,
             ratioCoffeeInput: ratioCoffeeInput,
@@ -1601,6 +1602,7 @@ extension BrewingSectionView {
 
         selectedBrewModeMethodID = snapshot.selectedMethodID
         activeSmartRecipeID = snapshot.activeSmartRecipeID
+        selectedPurchasedCoffeeID = snapshot.selectedPurchasedCoffeeID
         selectedGuideProfileID = snapshot.selectedGuideProfileID
         brewRecipeName = snapshot.brewRecipeName
         ratioCoffeeInput = snapshot.ratioCoffeeInput

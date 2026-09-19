@@ -2208,7 +2208,7 @@ extension BrewingSectionView {
 
     func saveAfterBrewJournalEntryIfNeeded() {
         guard !isAfterBrewSavedToJournal else { return }
-        guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds, capturedBrewSamples)
+        guidedBrewCompletedAction(selectedBrewModeMethod, validCoffeeAmount, validRatioValue, validWaterAmount, brewModeElapsedSeconds, selectedPurchasedCoffeeID, capturedBrewSamples)
         isAfterBrewSavedToJournal = true
     }
 

@@ -68,13 +68,14 @@ extension ContentView {
             openArticleAction: { url in
                 articleSession = CheckoutSession(url: url)
             },
-            guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, samples in
+            guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, purchasedCoffeeID, samples in
                 prepareJournalEntryFromGuidedBrew(
                     method: method,
                     coffeeAmount: coffeeAmount,
                     ratio: ratio,
                     waterAmount: waterAmount,
                     brewTime: brewTime,
+                    purchasedCoffeeID: purchasedCoffeeID,
                     samples: samples
                 )
             },
@@ -704,7 +705,7 @@ extension ContentView {
         showToast(message: AppLocalization.text("journal_saved_toast", fallback: "Coffee note saved"))
     }
 
-    func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int, samples: [CoffeeSampleInput]) {
+    func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int, purchasedCoffeeID: UUID?, samples: [CoffeeSampleInput]) {
         let methodName = method?.name ?? (activeBrewingCategory == "All" ? selectedBrewTimerName : activeBrewingCategory)
         let recipeName = methodName.isEmpty ? defaultBrewRecipeName() : methodName
 
@@ -714,6 +715,7 @@ extension ContentView {
         journalRatio = ratio
         journalWaterGrams = waterAmount
         journalBrewTimeSeconds = brewTime
+        selectedJournalCoffeeID = purchasedCoffeeID
         pendingBrewSamples = samples
         journalNotesInput = ""
         brewRecipeName = recipeName

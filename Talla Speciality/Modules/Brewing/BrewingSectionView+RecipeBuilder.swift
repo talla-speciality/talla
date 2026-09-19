@@ -2009,6 +2009,8 @@ extension BrewingSectionView {
         VStack(alignment: .leading, spacing: 18) {
             createRecipeStepTitle(AppLocalization.text("coffee_input_title", fallback: "Tell us about the coffee"))
 
+            purchasedCoffeePicker
+
             VStack(spacing: 0) {
                 if coffeeMemoryEnabled && roastDateOCREnabled {
                     coffeeDetailsModeButton(.scan, title: AppLocalization.text("scan_coffee_bag", fallback: "Scan Coffee Bag"), detail: AppLocalization.text("scan_bag_detail", fallback: "Use camera or photo library, then review every detail."))
@@ -2484,6 +2486,64 @@ extension BrewingSectionView {
             )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+    }
+
+    @ViewBuilder
+    var purchasedCoffeePicker: some View {
+        let bags = coffeeData.inventory()
+            .filter { $0.remainingQuantityGrams > 0 }
+            .sorted { ($0.openedAt ?? .distantPast) > ($1.openedAt ?? .distantPast) }
+
+        if !bags.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(AppLocalization.text("purchased_bag", fallback: "Purchased bag"))
+                    .font(brewEyebrowFont)
+                    .foregroundColor(brewSecondaryTextColor)
+
+                Picker(AppLocalization.text("purchased_bag", fallback: "Purchased bag"), selection: $selectedPurchasedCoffeeID) {
+                    Text(AppLocalization.text("enter_new_coffee", fallback: "Enter a different coffee"))
+                        .tag(nil as UUID?)
+                    ForEach(bags) { bag in
+                        Text("\(bag.productName) · \(bag.remainingQuantityGrams.formatted(.number.precision(.fractionLength(0...1)))) g left")
+                            .tag(Optional(bag.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(brewAccentColor)
+                .onChange(of: selectedPurchasedCoffeeID) { _, id in
+                    guard let id, let bag = bags.first(where: { $0.id == id }) else { return }
+                    applyPurchasedCoffee(bag)
+                }
+
+                if let id = selectedPurchasedCoffeeID,
+                   let bag = bags.first(where: { $0.id == id }) {
+                    Text("\(bag.remainingQuantityGrams.formatted(.number.precision(.fractionLength(0...1)))) g available · about \(bag.estimatedBrews(doseGrams: Double(recipeCoffeeDose) ?? 18)) brews")
+                        .font(.system(size: 13))
+                        .foregroundColor(brewSecondaryTextColor)
+                }
+            }
+            .padding(14)
+            .background(brewSurfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(brewBorderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    func applyPurchasedCoffee(_ bag: CoffeeInventoryRecord) {
+        coffeeName = bag.productName
+        coffeeRoaster = bag.roaster
+        coffeeOrigin = bag.origin
+        coffeeRegion = bag.region
+        coffeeVariety = bag.variety
+        coffeeProcess = bag.process
+        if !bag.roastLevel.isEmpty { coffeeRoastLevel = bag.roastLevel }
+        coffeeTastingNotes = bag.tastingNotes
+        if let roastDate = bag.roastDate { coffeeRoastDate = roastDate }
+        coffeeDetailsMode = .manual
+        createRecipeValidationMessage = nil
     }
 
     func createRecipeTextField(title: String, placeholder: String, text: Binding<String>) -> some View {
