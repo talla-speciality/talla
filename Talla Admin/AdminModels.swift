@@ -39,6 +39,19 @@ struct AdminCoffeeClub: Codable, Hashable {
     let deliveredShipments: Int
     let remainingShipments: Int
     let shipments: [AdminCoffeeClubShipment]
+    let status: String
+    let startedAt: String?
+    let nextShipmentAt: String?
+    let nextShipmentNumber: Int?
+    let changesEffectiveFromShipment: Int?
+    let isOverdue: Bool
+    let cancellationRequestedAt: String?
+    let cancellationReason: String?
+    let refundStatus: String
+    let refundAmount: Double
+    let refundNote: String?
+    let preference: AdminCoffeeClubPreference?
+    let fulfillmentOverride: AdminCoffeeClubFulfillment?
 
     init(
         shipmentCount: Int,
@@ -46,7 +59,20 @@ struct AdminCoffeeClub: Codable, Hashable {
         discountPercent: Int,
         deliveredShipments: Int = 0,
         remainingShipments: Int? = nil,
-        shipments: [AdminCoffeeClubShipment] = []
+        shipments: [AdminCoffeeClubShipment] = [],
+        status: String = "active",
+        startedAt: String? = nil,
+        nextShipmentAt: String? = nil,
+        nextShipmentNumber: Int? = nil,
+        changesEffectiveFromShipment: Int? = nil,
+        isOverdue: Bool = false,
+        cancellationRequestedAt: String? = nil,
+        cancellationReason: String? = nil,
+        refundStatus: String = "none",
+        refundAmount: Double = 0,
+        refundNote: String? = nil,
+        preference: AdminCoffeeClubPreference? = nil,
+        fulfillmentOverride: AdminCoffeeClubFulfillment? = nil
     ) {
         self.shipmentCount = shipmentCount
         self.intervalWeeks = intervalWeeks
@@ -57,6 +83,19 @@ struct AdminCoffeeClub: Codable, Hashable {
             max(0, remainingShipments ?? (shipmentCount - self.deliveredShipments))
         )
         self.shipments = shipments
+        self.status = status
+        self.startedAt = startedAt
+        self.nextShipmentAt = nextShipmentAt
+        self.nextShipmentNumber = nextShipmentNumber
+        self.changesEffectiveFromShipment = changesEffectiveFromShipment
+        self.isOverdue = isOverdue
+        self.cancellationRequestedAt = cancellationRequestedAt
+        self.cancellationReason = cancellationReason
+        self.refundStatus = refundStatus
+        self.refundAmount = refundAmount
+        self.refundNote = refundNote
+        self.preference = preference
+        self.fulfillmentOverride = fulfillmentOverride
     }
 
     init(from decoder: Decoder) throws {
@@ -68,17 +107,64 @@ struct AdminCoffeeClub: Codable, Hashable {
             discountPercent: try values.decode(Int.self, forKey: .discountPercent),
             deliveredShipments: try values.decodeIfPresent(Int.self, forKey: .deliveredShipments) ?? 0,
             remainingShipments: try values.decodeIfPresent(Int.self, forKey: .remainingShipments),
-            shipments: try values.decodeIfPresent([AdminCoffeeClubShipment].self, forKey: .shipments) ?? []
+            shipments: try values.decodeIfPresent([AdminCoffeeClubShipment].self, forKey: .shipments) ?? [],
+            status: try values.decodeIfPresent(String.self, forKey: .status) ?? "active",
+            startedAt: try values.decodeIfPresent(String.self, forKey: .startedAt),
+            nextShipmentAt: try values.decodeIfPresent(String.self, forKey: .nextShipmentAt),
+            nextShipmentNumber: try values.decodeIfPresent(Int.self, forKey: .nextShipmentNumber),
+            changesEffectiveFromShipment: try values.decodeIfPresent(Int.self, forKey: .changesEffectiveFromShipment),
+            isOverdue: try values.decodeIfPresent(Bool.self, forKey: .isOverdue) ?? false,
+            cancellationRequestedAt: try values.decodeIfPresent(String.self, forKey: .cancellationRequestedAt),
+            cancellationReason: try values.decodeIfPresent(String.self, forKey: .cancellationReason),
+            refundStatus: try values.decodeIfPresent(String.self, forKey: .refundStatus) ?? "none",
+            refundAmount: try values.decodeIfPresent(Double.self, forKey: .refundAmount) ?? 0,
+            refundNote: try values.decodeIfPresent(String.self, forKey: .refundNote),
+            preference: try values.decodeIfPresent(AdminCoffeeClubPreference.self, forKey: .preference),
+            fulfillmentOverride: try values.decodeIfPresent(AdminCoffeeClubFulfillment.self, forKey: .fulfillmentOverride)
         )
     }
+
+    var nextShipmentDate: Date? { nextShipmentAt.flatMap { ISO8601DateFormatter().date(from: $0) } }
 }
 
 struct AdminCoffeeClubShipment: Codable, Hashable {
     let number: Int
-    let deliveredAt: String
-    let deliveredBy: String
+    let scheduledAt: String?
+    let preparedAt: String?
+    let preparedBy: String?
+    let deliveredAt: String?
+    let deliveredBy: String?
 
-    var deliveredDate: Date? { ISO8601DateFormatter().date(from: deliveredAt) }
+    init(number: Int, scheduledAt: String? = nil, preparedAt: String? = nil, preparedBy: String? = nil, deliveredAt: String? = nil, deliveredBy: String? = nil) {
+        self.number = number
+        self.scheduledAt = scheduledAt
+        self.preparedAt = preparedAt
+        self.preparedBy = preparedBy
+        self.deliveredAt = deliveredAt
+        self.deliveredBy = deliveredBy
+    }
+
+    var deliveredDate: Date? { deliveredAt.flatMap { ISO8601DateFormatter().date(from: $0) } }
+    var preparedDate: Date? { preparedAt.flatMap { ISO8601DateFormatter().date(from: $0) } }
+}
+
+struct AdminCoffeeClubPreference: Codable, Hashable {
+    let coffeeName: String?
+    let variantId: String?
+}
+
+struct AdminCoffeeClubFulfillment: Codable, Hashable {
+    let fullName: String?
+    let phone: String?
+    let line1: String?
+    let city: String?
+    let countryCode: String?
+    let notes: String?
+
+    var addressText: String? {
+        let text = [line1, city, countryCode].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+        return text.isEmpty ? nil : text
+    }
 }
 
 struct AdminOrderItem: Codable, Hashable {

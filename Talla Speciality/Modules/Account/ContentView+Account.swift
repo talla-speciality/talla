@@ -1987,6 +1987,36 @@ extension ContentView {
     }
 
     @MainActor
+    func manageCoffeeClub(
+        order: AccountOrder,
+        action: String,
+        note: String?,
+        coffeeName: String?,
+        variantID: String?,
+        address: DeliveryAddress?
+    ) async -> Bool {
+        do {
+            orderHistory = try await AccountService.manageCoffeeClub(
+                orderID: order.id,
+                action: action,
+                reason: action == "request_cancel" ? note : nil,
+                note: action == "request_refund" ? note : nil,
+                coffeeName: coffeeName,
+                variantID: variantID,
+                address: address
+            )
+            showToast(message: AppLocalization.text("coffee_club_updated", fallback: "Coffee Club updated"))
+            return true
+        } catch {
+            showToast(message: customerFacingServiceMessage(
+                for: error,
+                fallback: AppLocalization.text("coffee_club_update_failed", fallback: "Coffee Club could not be updated right now.")
+            ))
+            return false
+        }
+    }
+
+    @MainActor
     func loadOrderHistory() async {
         guard let profile = customerProfile, !isLoadingOrders else { return }
 

@@ -1029,6 +1029,28 @@ struct CheckoutStartResponse: Decodable {
     let pricingVersion: Int?
 }
 
+struct CoffeeClubManageResponse: Decodable {
+    let orders: [ContentView.AccountOrder]
+}
+
+struct CustomerCoffeeClub: Decodable {
+    struct Preference: Decodable { let coffeeName, variantId: String? }
+    struct FulfillmentOverride: Decodable { let fullName, phone, line1, city, countryCode, notes: String? }
+
+    let shipmentCount, intervalWeeks, discountPercent: Int
+    let deliveredShipments, remainingShipments, nextShipmentNumber, changesEffectiveFromShipment: Int?
+    let isOverdue: Bool?
+    let status, startedAt, nextShipmentAt: String?
+    let cancellationRequestedAt, cancellationReason, refundStatus, refundNote: String?
+    let refundAmount: Double?
+    let preference: Preference?
+    let fulfillmentOverride: FulfillmentOverride?
+
+    var deliveredCount: Int { min(shipmentCount, max(0, deliveredShipments ?? 0)) }
+    var remainingCount: Int { min(shipmentCount, max(0, remainingShipments ?? (shipmentCount - deliveredCount))) }
+    var lifecycleStatus: String { status ?? (remainingCount == 0 ? "completed" : "active") }
+}
+
 struct BenefitPaymentResponse: Decodable {
     let paymentUrl: URL
     let trackId: String

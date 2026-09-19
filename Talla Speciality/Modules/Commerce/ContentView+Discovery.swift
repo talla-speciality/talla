@@ -2295,6 +2295,10 @@ extension ContentView {
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
             tasteMemoryLookup: tasteMemoryLookup,
+            coffeeClubProducts: products.filter {
+                ["coffee-beans", "arabic-coffee-beans"].contains($0.categoryKey)
+            },
+            deliveryAddresses: addresses,
             buyAgainAction: { order in
                 buyAgain(order: order)
             },
@@ -2307,6 +2311,16 @@ extension ContentView {
             },
             browseProductsAction: {
                 openShop()
+            },
+            manageCoffeeClubAction: { order, action, note, coffeeName, variantID, address in
+                await manageCoffeeClub(
+                    order: order,
+                    action: action,
+                    note: note,
+                    coffeeName: coffeeName,
+                    variantID: variantID,
+                    address: address
+                )
             }
         )
     }

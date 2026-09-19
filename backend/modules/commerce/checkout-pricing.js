@@ -97,6 +97,9 @@ function normalizeCoffeeClub(value, settings = {}) {
     if (shipmentCount !== configuredShipmentCount || intervalWeeks !== configuredIntervalWeeks) {
         fail("COFFEE_CLUB_INVALID", 400, "The Coffee Club plan changed. Refresh your bag and review it again.");
     }
+    if (value?.termsAccepted !== true) {
+        fail("COFFEE_CLUB_TERMS_REQUIRED", 409, "Accept the Coffee Club prepaid plan terms before checkout.");
+    }
     return {
         shipmentCount,
         intervalWeeks,

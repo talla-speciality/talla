@@ -118,11 +118,23 @@ final class AdminSession: ObservableObject {
         }
     }
 
-    func updateCoffeeClubShipment(_ order: AdminOrder, action: String) async {
+    func updateCoffeeClubShipment(
+        _ order: AdminOrder,
+        action: String,
+        reason: String? = nil,
+        note: String? = nil,
+        amount: Double? = nil
+    ) async {
         message = nil
         errorMessage = nil
         do {
-            orders = try await api.updateCoffeeClubShipment(id: order.id, action: action).sorted {
+            orders = try await api.updateCoffeeClubShipment(
+                id: order.id,
+                action: action,
+                reason: reason,
+                note: note,
+                amount: amount
+            ).sorted {
                 ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast)
             }
             let detailedOrder = try await api.orderDetail(id: order.id)
@@ -132,8 +144,10 @@ final class AdminSession: ObservableObject {
             lastRefreshAt = .now
             if action == "deliver", let club = detailedOrder.coffeeClub {
                 message = "Shipment \(club.deliveredShipments) of \(club.shipmentCount) marked delivered."
+            } else if action == "prepare", let club = detailedOrder.coffeeClub {
+                message = "Shipment \(club.nextShipmentNumber ?? club.deliveredShipments + 1) marked as preparing."
             } else {
-                message = "Latest shipment delivery was undone."
+                message = "Coffee Club updated."
             }
         } catch {
             handle(error)

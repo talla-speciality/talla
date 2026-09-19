@@ -12,14 +12,19 @@ function createCoffeeClubShipmentService(dependencies) {
         writeJSON
     } = dependencies;
 
-    return async function updateCoffeeClubShipmentByID(orderID, action, adminUser) {
+    return async function updateCoffeeClubShipmentByID(orderID, action, actor, changes = {}, expectedEmail = "") {
         const order = await findOrderByID(orderID);
         if (!order) return { reason: "not_found" };
+        if (expectedEmail && normalizeEmail(order.email) !== normalizeEmail(expectedEmail)) {
+            return { reason: "not_found" };
+        }
         const currentCoffeeClub = normalizeOrderDetails(order.details).coffeeClub;
         if (!currentCoffeeClub) return { reason: "not_coffee_club" };
-        const coffeeClub = updateCoffeeClubProgress(currentCoffeeClub, action, adminUser);
+        const coffeeClub = updateCoffeeClubProgress(currentCoffeeClub, action, actor, new Date().toISOString(), changes);
         if (!coffeeClub) {
-            return { reason: action === "deliver" ? "all_delivered" : "none_delivered" };
+            if (action === "deliver" || action === "prepare") return { reason: "all_delivered" };
+            if (action === "undo") return { reason: "none_delivered" };
+            return { reason: "invalid_transition" };
         }
 
         const details = {

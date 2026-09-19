@@ -22,10 +22,8 @@ const {
 } = require("./modules/brewing/customer-library");
 const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync"); const { importShopifyCoffeePurchases } = require("./modules/brewing/shopify-coffee-memory");
 const { coffeeMetadataFromTags, createCoffeeAdminService, defaultCoffeeMemorySettings, nextCoffeeTags, normalizeCoffeeMemorySettings } = require("./modules/brewing/coffee-admin");
-const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
-const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
-const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail");
-const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments");
+const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry"); const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
+const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail"); const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments"); const { createCoffeeClubNotificationService } = require("./modules/commerce/coffee-club-notifications");
 const { orderItemOptions } = require("./modules/commerce/order-item-options"); const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
 const {
     defaultCampaignSettings,
@@ -3568,12 +3566,11 @@ const { adminOrderDetailPayload, normalizeOrderDetails, shopifyAdminOrderDetails
     shopifyEazyPaymentsStorePath
 });
 
-const updateCoffeeClubShipmentByID = createCoffeeClubShipmentService({ adminOrderDetailPayload, database, findOrderByID, normalizeEmail, normalizeOrderDetails, orderRowToRecord, ordersStorePath, readJSON, updateCoffeeClubProgress, writeJSON });
-
+const updateCoffeeClubShipmentByID = createCoffeeClubShipmentService({ adminOrderDetailPayload, database, findOrderByID, normalizeEmail, normalizeOrderDetails, orderRowToRecord, ordersStorePath, readJSON, updateCoffeeClubProgress, writeJSON }); const coffeeClubNotifications = createCoffeeClubNotificationService({ adminNativePushDevices, allOrdersPayload, apnsAdminBundleID, googleMobileServices, pushDevicesForEmail, remotePushConfigured, sendRemotePushToDevice, updateCoffeeClubShipmentByID });
+const { sendStatusPush: sendCoffeeClubStatusPush, startReminderMonitor: startCoffeeClubReminderMonitor } = coffeeClubNotifications;
 function completedOrderStatuses() {
     return new Set(["Completed", "Fulfilled", "Delivered"]);
 }
-
 function allowedOrderStatuses() {
     return new Set([
         "Pending",
@@ -9049,6 +9046,7 @@ const server = createServer({
     sendAdminNewOrderPush,
     sendBenefitRedirectAcknowledgement,
     sendCampaignPushToAll,
+    sendCoffeeClubStatusPush,
     sendHTML,
     sendJSON,
     sendOpsAlert,
@@ -9165,6 +9163,7 @@ const server = createServer({
 async function startServer() {
     if (!database.isEnabled()) {
         await getAppSettings();
+        startCoffeeClubReminderMonitor();
         server.listen(port, host, () => {
             console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
         });
@@ -9176,6 +9175,7 @@ async function startServer() {
         await getAppSettings();
         console.log("Postgres storage enabled for accounts and loyalty.");
         startOpsAlertMonitor();
+        startCoffeeClubReminderMonitor();
         server.listen(port, host, () => {
             console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
         });

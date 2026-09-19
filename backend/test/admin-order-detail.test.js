@@ -52,14 +52,12 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
     assert.equal(order.payment.method, "Apple Pay");
     assert.equal(order.payment.status, "Captured");
     assert.equal(order.payment.reference, "PAY-123");
-    assert.deepEqual(order.coffeeClub, {
-        shipmentCount: 3,
-        intervalWeeks: 4,
-        discountPercent: 10,
-        deliveredShipments: 0,
-        remainingShipments: 3,
-        shipments: []
-    });
+    assert.equal(order.coffeeClub.shipmentCount, 3);
+    assert.equal(order.coffeeClub.intervalWeeks, 4);
+    assert.equal(order.coffeeClub.discountPercent, 10);
+    assert.equal(order.coffeeClub.deliveredShipments, 0);
+    assert.equal(order.coffeeClub.remainingShipments, 3);
+    assert.equal(order.coffeeClub.status, "active");
     assert.equal(order.status, "Confirmed");
 });
 
@@ -73,11 +71,10 @@ test("Coffee Club progress records deliveries, remaining shipments, and supports
     );
     assert.equal(first.deliveredShipments, 1);
     assert.equal(first.remainingShipments, 2);
-    assert.deepEqual(first.shipments, [{
-        number: 1,
-        deliveredAt: "2026-09-15T10:00:00.000Z",
-        deliveredBy: "manager"
-    }]);
+    assert.equal(first.shipments[0].number, 1);
+    assert.equal(first.shipments[0].preparedAt, "2026-09-15T10:00:00.000Z");
+    assert.equal(first.shipments[0].deliveredAt, "2026-09-15T10:00:00.000Z");
+    assert.equal(first.shipments[0].deliveredBy, "manager");
 
     const second = detailService.updateCoffeeClubProgress(
         first,
@@ -91,7 +88,7 @@ test("Coffee Club progress records deliveries, remaining shipments, and supports
     const undone = detailService.updateCoffeeClubProgress(second, "undo", "manager");
     assert.equal(undone.deliveredShipments, 1);
     assert.equal(undone.remainingShipments, 2);
-    assert.equal(undone.shipments.length, 1);
+    assert.equal(undone.shipments.filter((shipment) => shipment.deliveredAt).length, 1);
 });
 
 test("Coffee Club progress refuses delivery beyond plan bounds", () => {
@@ -105,6 +102,46 @@ test("Coffee Club progress refuses delivery beyond plan bounds", () => {
     };
     assert.equal(detailService.updateCoffeeClubProgress(complete, "deliver", "manager"), null);
     assert.equal(detailService.updateCoffeeClubProgress({ ...complete, deliveredShipments: 0 }, "undo", "manager"), null);
+});
+
+test("Coffee Club lifecycle supports preparing, pause/resume, cancellation, preferences, and refunds", () => {
+    const detailService = service();
+    const plan = {
+        shipmentCount: 3,
+        intervalWeeks: 4,
+        discountPercent: 10,
+        startedAt: "2026-09-01T10:00:00.000Z"
+    };
+    const prepared = detailService.updateCoffeeClubProgress(plan, "prepare", "manager", "2026-09-01T12:00:00.000Z");
+    assert.equal(prepared.shipments[0].preparedBy, "manager");
+    assert.equal(prepared.deliveredShipments, 0);
+
+    const paused = detailService.updateCoffeeClubProgress(prepared, "pause", "member", "2026-09-15T10:00:00.000Z");
+    assert.equal(paused.status, "paused");
+    const resumed = detailService.updateCoffeeClubProgress(paused, "resume", "member", "2026-09-22T10:00:00.000Z");
+    assert.equal(resumed.status, "active");
+    assert.equal(resumed.startedAt, "2026-09-08T10:00:00.000Z");
+
+    const preferences = detailService.updateCoffeeClubProgress(resumed, "update_preferences", "member", undefined, {
+        coffeeName: "Colombia",
+        variantId: "gid://shopify/ProductVariant/101",
+        fulfillment: { line1: "Road 10", city: "Riffa", countryCode: "BH" }
+    });
+    assert.equal(preferences.preference.coffeeName, "Colombia");
+    assert.equal(preferences.fulfillmentOverride.city, "Riffa");
+    assert.equal(preferences.changesEffectiveFromShipment, 2);
+
+    const requested = detailService.updateCoffeeClubProgress(preferences, "request_cancel", "member", undefined, { reason: "Travelling" });
+    assert.equal(requested.status, "cancel_requested");
+    const cancelled = detailService.updateCoffeeClubProgress(requested, "cancel", "manager");
+    assert.equal(cancelled.status, "cancelled");
+
+    const refunded = detailService.updateCoffeeClubProgress(cancelled, "record_refund", "manager", undefined, {
+        amount: 8.4,
+        note: "Confirmed in gateway"
+    });
+    assert.equal(refunded.refundStatus, "recorded");
+    assert.equal(refunded.refundAmount, 8.4);
 });
 
 test("Shopify order snapshots retain operational customer and delivery data", () => {

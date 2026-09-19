@@ -357,6 +357,8 @@ struct OrderDetailView: View {
     @State private var showNotifyConfirmation = false
     @State private var pendingShipmentAction: String?
     @State private var isUpdatingShipment = false
+    @State private var coffeeClubNote = ""
+    @State private var refundAmount = ""
 
     private var order: AdminOrder? { session.orders.first { $0.id == orderID } }
 
@@ -426,22 +428,20 @@ struct OrderDetailView: View {
                     Text("This sends a notification to \(order.customer?.fullName ?? order.email). It does not change the order status.")
                 }
                 .confirmationDialog(
-                    pendingShipmentAction == "deliver" ? "Mark this shipment delivered?" : "Undo the latest delivery?",
+                    coffeeClubConfirmationTitle,
                     isPresented: Binding(
                         get: { pendingShipmentAction != nil },
                         set: { if !$0 { pendingShipmentAction = nil } }
                     ),
                     titleVisibility: .visible
                 ) {
-                    Button(pendingShipmentAction == "deliver" ? "Mark Delivered" : "Undo Delivery") {
+                    Button(coffeeClubConfirmationActionTitle, role: pendingShipmentAction == "cancel" ? .destructive : nil) {
                         updateShipment(order, action: pendingShipmentAction ?? "")
                     }
                     Button("Cancel", role: .cancel) { pendingShipmentAction = nil }
                 } message: {
                     if let club = order.coffeeClub {
-                        Text(pendingShipmentAction == "deliver"
-                             ? "Shipment \(club.deliveredShipments + 1) of \(club.shipmentCount) will be recorded as delivered."
-                             : "Shipment \(club.deliveredShipments) will return to the remaining count.")
+                        Text(coffeeClubConfirmationMessage(club))
                     }
                 }
             } else {
@@ -514,26 +514,57 @@ struct OrderDetailView: View {
                 detailRow("Coffee saving", "\(club.discountPercent)%")
                 detailRow("Delivered", "\(club.deliveredShipments)")
                 detailRow("Remaining", "\(club.remainingShipments)")
+                detailRow("Status", club.status.replacingOccurrences(of: "_", with: " ").capitalized)
+                if let nextDate = club.nextShipmentDate, club.remainingShipments > 0 {
+                    detailRow(
+                        club.isOverdue ? "Overdue shipment" : "Next shipment",
+                        "#\(club.nextShipmentNumber ?? club.deliveredShipments + 1) · \(nextDate.formatted(date: .abbreviated, time: .omitted))"
+                    )
+                }
                 detailRow("Renewal", "No automatic renewal")
+                if let coffee = club.preference?.coffeeName, !coffee.isEmpty { detailRow("Future coffee", coffee) }
+                if let address = club.fulfillmentOverride?.addressText { detailRow("Future address", address) }
+                if let effectiveShipment = club.changesEffectiveFromShipment {
+                    detailRow("Changes start", "Shipment #\(effectiveShipment)")
+                }
+                if club.isOverdue {
+                    Label("This shipment is overdue", systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.orange)
+                }
 
                 ProgressView(value: Double(club.deliveredShipments), total: Double(max(1, club.shipmentCount)))
                     .tint(TallaAdminStyle.caramel)
 
-                Button {
-                    pendingShipmentAction = "deliver"
-                } label: {
-                    if isUpdatingShipment { ProgressView().frame(maxWidth: .infinity) }
-                    else {
-                        Label(
-                            club.remainingShipments == 1 ? "Mark Final Shipment Delivered" : "Mark Next Shipment Delivered",
-                            systemImage: "shippingbox.and.arrow.backward.fill"
-                        )
-                        .frame(maxWidth: .infinity)
+                if ["active", "cancel_requested"].contains(club.status), club.remainingShipments > 0 {
+                    let nextIsPrepared = club.shipments.contains {
+                        $0.number == (club.nextShipmentNumber ?? club.deliveredShipments + 1)
+                            && $0.preparedAt != nil && $0.deliveredAt == nil
                     }
+                    if !nextIsPrepared {
+                        Button("Mark Next Shipment Preparing", systemImage: "flame.fill") {
+                            pendingShipmentAction = "prepare"
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isUpdatingShipment)
+                    }
+
+                    Button {
+                        pendingShipmentAction = "deliver"
+                    } label: {
+                        if isUpdatingShipment { ProgressView().frame(maxWidth: .infinity) }
+                        else {
+                            Label(
+                                club.remainingShipments == 1 ? "Mark Final Shipment Delivered" : "Mark Next Shipment Delivered",
+                                systemImage: "shippingbox.and.arrow.backward.fill"
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(isUpdatingShipment)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(isUpdatingShipment || club.remainingShipments == 0)
 
                 if club.deliveredShipments > 0 {
                     Button("Undo Last Delivery", systemImage: "arrow.uturn.backward") {
@@ -543,12 +574,46 @@ struct OrderDetailView: View {
                     .disabled(isUpdatingShipment)
                 }
 
-                if let latest = club.shipments.max(by: { $0.number < $1.number }) {
+                if let latest = club.shipments.filter({ $0.deliveredAt != nil }).max(by: { $0.number < $1.number }) {
                     detailRow(
                         "Latest delivery",
-                        latest.deliveredDate?.formatted(date: .abbreviated, time: .shortened) ?? latest.deliveredAt
+                        latest.deliveredDate?.formatted(date: .abbreviated, time: .shortened) ?? latest.deliveredAt ?? "Recorded"
                     )
                 }
+
+                Divider()
+                TextField("Cancellation or refund note", text: $coffeeClubNote, axis: .vertical)
+
+                HStack {
+                    if club.status == "paused" {
+                        Button("Resume", systemImage: "play.fill") { pendingShipmentAction = "resume" }
+                    } else if club.status == "active" {
+                        Button("Pause", systemImage: "pause.fill") { pendingShipmentAction = "pause" }
+                    }
+                    if !["cancelled", "completed"].contains(club.status) {
+                        Button("Cancel Plan", systemImage: "xmark.circle", role: .destructive) {
+                            pendingShipmentAction = "cancel"
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+
+                if club.refundStatus != "recorded" {
+                    HStack {
+                        TextField("Refund BHD", text: $refundAmount)
+                            .keyboardType(.decimalPad)
+                        Button(club.refundStatus == "none" ? "Review Refund" : "Mark Refund Recorded") {
+                            pendingShipmentAction = club.refundStatus == "none" ? "refund_pending" : "record_refund"
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                } else {
+                    detailRow("Refund", "BHD \(club.refundAmount.formatted(.number.precision(.fractionLength(3)))) recorded")
+                }
+
+                Text("Refund controls record the provider-confirmed refund. They do not move money automatically; complete the refund in the original payment provider first.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Text("Delivery is charged separately for every shipment. Shipment progress is visible to the customer in their order history.")
                     .font(.caption)
@@ -680,12 +745,66 @@ struct OrderDetailView: View {
     }
 
     private func updateShipment(_ order: AdminOrder, action: String) {
-        guard ["deliver", "undo"].contains(action) else { return }
+        let actions = ["prepare", "deliver", "undo", "pause", "resume", "cancel", "refund_pending", "record_refund"]
+        guard actions.contains(action) else { return }
+        let amount = Double(refundAmount.replacingOccurrences(of: ",", with: "."))
+        if action == "record_refund", amount == nil {
+            session.errorMessage = "Enter the confirmed refund amount in BHD."
+            pendingShipmentAction = nil
+            return
+        }
         pendingShipmentAction = nil
         isUpdatingShipment = true
         Task {
-            await session.updateCoffeeClubShipment(order, action: action)
+            await session.updateCoffeeClubShipment(
+                order,
+                action: action,
+                reason: action == "cancel" ? coffeeClubNote : nil,
+                note: action.hasPrefix("refund") ? coffeeClubNote : nil,
+                amount: action == "record_refund" ? amount : nil
+            )
             isUpdatingShipment = false
+        }
+    }
+
+    private var coffeeClubConfirmationTitle: String {
+        switch pendingShipmentAction {
+        case "prepare": "Mark shipment as preparing?"
+        case "deliver": "Mark this shipment delivered?"
+        case "undo": "Undo the latest delivery?"
+        case "pause": "Pause this Coffee Club plan?"
+        case "resume": "Resume this Coffee Club plan?"
+        case "cancel": "Cancel this Coffee Club plan?"
+        case "refund_pending": "Start refund review?"
+        case "record_refund": "Record the confirmed refund?"
+        default: "Update Coffee Club?"
+        }
+    }
+
+    private var coffeeClubConfirmationActionTitle: String {
+        switch pendingShipmentAction {
+        case "prepare": "Mark Preparing"
+        case "deliver": "Mark Delivered"
+        case "undo": "Undo Delivery"
+        case "pause": "Pause Plan"
+        case "resume": "Resume Plan"
+        case "cancel": "Cancel Plan"
+        case "refund_pending": "Start Review"
+        case "record_refund": "Record Refund"
+        default: "Update"
+        }
+    }
+
+    private func coffeeClubConfirmationMessage(_ club: AdminCoffeeClub) -> String {
+        switch pendingShipmentAction {
+        case "prepare": "Shipment \(club.nextShipmentNumber ?? club.deliveredShipments + 1) will be marked as preparing and the customer will be notified."
+        case "deliver": "Shipment \(club.deliveredShipments + 1) of \(club.shipmentCount) will be recorded as delivered and the customer will be notified."
+        case "undo": "Shipment \(club.deliveredShipments) will return to the remaining count."
+        case "pause": "The schedule stops until this plan is resumed."
+        case "resume": "Future due dates will move forward by the paused duration."
+        case "cancel": "Remaining shipments will be cancelled. Record any provider refund separately."
+        case "record_refund": "This records a BHD \(refundAmount) refund already completed in the payment provider."
+        default: "This Coffee Club plan will be updated."
         }
     }
 

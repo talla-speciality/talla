@@ -415,6 +415,53 @@ enum AccountService {
         return try await performOrdersRequest(request)
     }
 
+    static func manageCoffeeClub(
+        orderID: String,
+        action: String,
+        reason: String? = nil,
+        note: String? = nil,
+        coffeeName: String? = nil,
+        variantID: String? = nil,
+        address: ContentView.DeliveryAddress? = nil
+    ) async throws -> [ContentView.AccountOrder] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The Coffee Club service is unavailable.")
+        }
+        var payload: [String: Any] = ["orderID": orderID, "action": action]
+        if let reason, !reason.isEmpty { payload["reason"] = reason }
+        if let note, !note.isEmpty { payload["note"] = note }
+        if let coffeeName, !coffeeName.isEmpty { payload["coffeeName"] = coffeeName }
+        if let variantID, !variantID.isEmpty { payload["variantId"] = variantID }
+        if let address {
+            payload["fulfillment"] = [
+                "fullName": address.fullName,
+                "phone": address.phone,
+                "line1": address.line1,
+                "city": address.city,
+                "countryCode": address.country.rawValue,
+                "notes": address.notes ?? ""
+            ]
+        }
+        var request = URLRequest(url: baseURL.appending(path: "/orders/coffee-club/manage"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (data, response) = try await data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The Coffee Club service returned an invalid response.")
+        }
+        if 200 ..< 300 ~= http.statusCode {
+            return try JSONDecoder().decode(CoffeeClubManageResponse.self, from: data).orders
+        }
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+        throw ContentView.LoyaltyServiceError.operationFailed("The Coffee Club update could not be completed.")
+    }
+
     static func fetchTasteMemory(email: String) async throws -> [ContentView.TasteMemoryRecord] {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
@@ -466,7 +513,8 @@ enum AccountService {
         voucherCode: String?,
         prepaidCoffeeClub: Bool = false,
         coffeeClubShipmentCount: Int = 3,
-        coffeeClubIntervalWeeks: Int = 4
+        coffeeClubIntervalWeeks: Int = 4,
+        coffeeClubTermsAccepted: Bool = false
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -499,7 +547,8 @@ enum AccountService {
             payload["title"] = "Talla Coffee Club"
             payload["coffeeClub"] = [
                 "shipmentCount": coffeeClubShipmentCount,
-                "intervalWeeks": coffeeClubIntervalWeeks
+                "intervalWeeks": coffeeClubIntervalWeeks,
+                "termsAccepted": coffeeClubTermsAccepted
             ]
         }
         if let address {

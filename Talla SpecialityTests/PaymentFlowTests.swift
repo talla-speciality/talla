@@ -226,7 +226,11 @@ struct OrderHistoryFulfillmentTests {
         var current = base
         current["details"] = ["coffeeClub": [
             "shipmentCount": 3, "intervalWeeks": 4, "discountPercent": 10,
-            "deliveredShipments": 1, "remainingShipments": 2
+            "deliveredShipments": 1, "remainingShipments": 2,
+            "status": "paused", "nextShipmentAt": "2026-10-13T10:00:00.000Z",
+            "nextShipmentNumber": 2, "isOverdue": false,
+            "refundStatus": "requested",
+            "preference": ["coffeeName": "Colombia", "variantId": "variant-1"]
         ]]
         let currentOrder = try JSONDecoder().decode(
             ContentView.AccountOrder.self,
@@ -234,6 +238,10 @@ struct OrderHistoryFulfillmentTests {
         )
         #expect(currentOrder.details?.coffeeClub?.deliveredCount == 1)
         #expect(currentOrder.details?.coffeeClub?.remainingCount == 2)
+        #expect(currentOrder.details?.coffeeClub?.lifecycleStatus == "paused")
+        #expect(currentOrder.details?.coffeeClub?.nextShipmentNumber == 2)
+        #expect(currentOrder.details?.coffeeClub?.preference?.coffeeName == "Colombia")
+        #expect(currentOrder.details?.coffeeClub?.refundStatus == "requested")
 
         var legacy = base
         legacy["details"] = ["coffeeClub": [

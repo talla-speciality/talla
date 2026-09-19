@@ -32,6 +32,84 @@
   "coffee_club_intro_cta": {
     "ar": "اختر قهوتك"
   },
+  "coffee_club_terms_consent": {
+    "ar": "أوافق على أن نادي القهوة مدفوع مسبقًا ولا يتجدد تلقائيًا، وأن رسوم التوصيل تُحتسب لكل شحنة، وأن التغييرات تسري على الشحنات غير المسلّمة فقط، وأن الإلغاء أو الاسترداد يتطلب موافقة تلة."
+  },
+  "coffee_club_terms_required": {
+    "ar": "وافق على شروط خطة نادي القهوة المدفوعة مسبقًا قبل الدفع."
+  },
+  "coffee_club_next_shipment": {
+    "ar": "الشحنة التالية %d · %@"
+  },
+  "coffee_club_overdue": {
+    "ar": "الشحنة %d متأخرة · %@"
+  },
+  "coffee_club_status_active": {
+    "ar": "الخطة فعّالة"
+  },
+  "coffee_club_status_paused": {
+    "ar": "الخطة متوقفة مؤقتًا — سيتغير الجدول عند استئنافها"
+  },
+  "coffee_club_status_cancel_requested": {
+    "ar": "تم طلب الإلغاء — ستراجعه تلة"
+  },
+  "coffee_club_status_cancelled": {
+    "ar": "تم إلغاء الخطة"
+  },
+  "coffee_club_status_completed": {
+    "ar": "اكتملت جميع الشحنات"
+  },
+  "manage_coffee_club": {
+    "ar": "إدارة نادي القهوة"
+  },
+  "coffee_club_schedule": {
+    "ar": "الجدول"
+  },
+  "next_shipment": {
+    "ar": "الشحنة التالية"
+  },
+  "future_shipments": {
+    "ar": "الشحنات القادمة"
+  },
+  "keep_current_coffee": {
+    "ar": "الاحتفاظ بالاختيار الحالي"
+  },
+  "coffee_club_future_changes_note": {
+    "ar": "تسري تغييرات القهوة والعنوان فقط على الشحنات التي لم يبدأ تجهيزها."
+  },
+  "coffee_club_changes_effective": {
+    "ar": "تسري خياراتك المحفوظة ابتداءً من الشحنة %d."
+  },
+  "save_future_choices": {
+    "ar": "حفظ خيارات الشحنات القادمة"
+  },
+  "plan_controls": {
+    "ar": "التحكم بالخطة"
+  },
+  "resume_plan": {
+    "ar": "استئناف الخطة"
+  },
+  "pause_plan": {
+    "ar": "إيقاف الخطة مؤقتًا"
+  },
+  "request_reason": {
+    "ar": "السبب أو الملاحظة"
+  },
+  "request_cancellation": {
+    "ar": "طلب الإلغاء"
+  },
+  "request_refund": {
+    "ar": "طلب استرداد المبلغ"
+  },
+  "refund_status": {
+    "ar": "حالة الاسترداد"
+  },
+  "coffee_club_updated": {
+    "ar": "تم تحديث نادي القهوة"
+  },
+  "coffee_club_update_failed": {
+    "ar": "تعذر تحديث نادي القهوة الآن."
+  },
   "coffee_club_prepaid_title": {
     "ar": "ادفع مسبقًا مقابل %d شحنات من نادي القهوة"
   },

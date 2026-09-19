@@ -376,6 +376,7 @@ module.exports = function createServer(dependencies) {
         sendAdminNewOrderPush,
         sendBenefitRedirectAcknowledgement,
         sendCampaignPushToAll,
+        sendCoffeeClubStatusPush,
         sendHTML,
         sendJSON,
         sendOpsAlert,
@@ -1334,18 +1335,30 @@ module.exports = function createServer(dependencies) {
                 const body = await readBody(request);
                 const orderID = String(body.orderID || body.id || "").trim();
                 const action = String(body.action || "").trim().toLowerCase();
-                if (!orderID || !["deliver", "undo"].includes(action)) {
-                    sendJSON(response, 400, { error: "Provide an orderID and a deliver or undo action." });
+                const allowedActions = new Set([
+                    "prepare", "deliver", "undo", "pause", "resume", "cancel",
+                    "refund_pending", "record_refund", "update_preferences"
+                ]);
+                if (!orderID || !allowedActions.has(action)) {
+                    sendJSON(response, 400, { error: "Provide an orderID and a valid Coffee Club action." });
                     return;
                 }
 
-                const result = await updateCoffeeClubShipmentByID(orderID, action, admin.username);
+                const result = await updateCoffeeClubShipmentByID(orderID, action, admin.username, {
+                    reason: body.reason,
+                    note: body.note,
+                    amount: body.amount,
+                    coffeeName: body.coffeeName,
+                    variantId: body.variantId,
+                    fulfillment: body.fulfillment
+                });
                 if (!result.order) {
                     const errors = {
                         not_found: [404, "Order not found."],
                         not_coffee_club: [409, "This is not a Coffee Club order."],
                         all_delivered: [409, "All Coffee Club shipments are already delivered."],
-                        none_delivered: [409, "No delivered Coffee Club shipment is available to undo."]
+                        none_delivered: [409, "No delivered Coffee Club shipment is available to undo."],
+                        invalid_transition: [409, "That Coffee Club action is not available in the current state."]
                     };
                     const [statusCode, message] = errors[result.reason] || [400, "Unable to update shipment progress."];
                     sendJSON(response, statusCode, { error: message });
@@ -1355,11 +1368,9 @@ module.exports = function createServer(dependencies) {
                 const club = result.order.coffeeClub;
                 await createAdminAuditLog({
                     adminUser: admin.username,
-                    action: action === "deliver" ? "coffee_club_shipment_delivered" : "coffee_club_shipment_delivery_undone",
+                    action: `coffee_club_${action}`,
                     targetEmail: result.order.email,
-                    detail: action === "deliver"
-                        ? `Marked Coffee Club shipment ${club.deliveredShipments} of ${club.shipmentCount} delivered for order ${orderID}`
-                        : `Undid the latest Coffee Club shipment delivery for order ${orderID}`,
+                    detail: `Coffee Club action ${action} applied to order ${orderID}`,
                     metadata: {
                         orderID,
                         action,
@@ -1367,7 +1378,11 @@ module.exports = function createServer(dependencies) {
                         remainingShipments: club.remainingShipments
                     }
                 });
-                sendJSON(response, 200, { order: result.order, orders: await allOrdersPayload() });
+                const shipmentNumber = action === "deliver" ? club.deliveredShipments : club.nextShipmentNumber;
+                const push = ["prepare", "deliver"].includes(action)
+                    ? await sendCoffeeClubStatusPush(result.order.email, result.order, action === "prepare" ? "prepared" : "delivered", shipmentNumber)
+                    : null;
+                sendJSON(response, 200, { order: result.order, orders: await allOrdersPayload(), push });
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid Coffee Club shipment update." });
             }
@@ -4114,6 +4129,59 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/orders/coffee-club/manage") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+
+            const orderID = String(body.orderID || body.id || "").trim();
+            const action = String(body.action || "").trim().toLowerCase();
+            const allowedActions = new Set(["pause", "resume", "request_cancel", "request_refund", "update_preferences"]);
+            if (!orderID || !allowedActions.has(action)) {
+                sendJSON(response, 400, { error: "Provide an orderID and a valid Coffee Club action." });
+                return;
+            }
+            if (action === "update_preferences") {
+                const fulfillment = body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : null;
+                if (fulfillment && String(fulfillment.countryCode || "").trim().toUpperCase() !== "BH") {
+                    sendJSON(response, 409, { error: "Coffee Club delivery changes must use a Bahrain address." });
+                    return;
+                }
+            }
+            const result = await updateCoffeeClubShipmentByID(orderID, action, customer.email, {
+                reason: body.reason,
+                note: body.note,
+                coffeeName: body.coffeeName,
+                variantId: body.variantId,
+                fulfillment: body.fulfillment
+            }, customer.email);
+            if (!result.order) {
+                const errors = {
+                    not_found: [404, "Order not found."],
+                    not_coffee_club: [409, "This is not a Coffee Club order."],
+                    invalid_transition: [409, "That Coffee Club action is not available in the current state."]
+                };
+                const [statusCode, message] = errors[result.reason] || [400, "Unable to update Coffee Club."];
+                sendJSON(response, statusCode, { error: message });
+                return;
+            }
+            await createAdminAuditLog({
+                adminUser: "customer",
+                action: `coffee_club_customer_${action}`,
+                targetEmail: customer.email,
+                detail: `Customer requested Coffee Club action ${action} for order ${orderID}`,
+                metadata: { orderID, action }
+            });
+            sendJSON(response, 200, { order: result.order, orders: await ordersPayload(customer.email) });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid Coffee Club update." });
+        }
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/taste-memory") {
         const requestedEmail = normalizeEmail(url.searchParams.get("email"));
         const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
@@ -4258,6 +4326,7 @@ module.exports = function createServer(dependencies) {
             const totalNumber = Number(body.total);
             const safeTotal = verifiedPricing?.total
                 ?? (Number.isFinite(totalNumber) && totalNumber >= 0 ? totalNumber : 0);
+            const createdAt = new Date().toISOString();
             const pendingOrder = {
                 id: `checkout_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`,
                 email: customer.email,
@@ -4274,9 +4343,14 @@ module.exports = function createServer(dependencies) {
                         method: body.fulfillmentMethod || body.fulfillment?.method
                     },
                     payment: { method: body.paymentMethod },
-                    coffeeClub: verifiedPricing?.coffeeClub || null
+                    coffeeClub: verifiedPricing?.coffeeClub ? {
+                        ...verifiedPricing.coffeeClub,
+                        startedAt: createdAt,
+                        termsAcceptedAt: createdAt,
+                        status: "active"
+                    } : null
                 }),
-                createdAt: new Date().toISOString()
+                createdAt
             };
 
             await upsertOrderRecord(pendingOrder);

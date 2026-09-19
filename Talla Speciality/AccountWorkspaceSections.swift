@@ -195,10 +195,20 @@ struct OrderHistorySectionView: View {
     let cardFillColor: Color
     let isLightAppearance: Bool
     let tasteMemoryLookup: [String: ContentView.TasteMemoryRecord]
+    let coffeeClubProducts: [ContentView.Product]
+    let deliveryAddresses: [ContentView.DeliveryAddress]
     let buyAgainAction: (ContentView.AccountOrder) -> Void
     let saveTasteMemoryAction: (ContentView.AccountOrder, ContentView.AccountOrder.Item, String, [String]) -> Void
     let pickupDirectionsAction: () -> Void
     let browseProductsAction: () -> Void
+    let manageCoffeeClubAction: (ContentView.AccountOrder, String, String?, String?, String?, ContentView.DeliveryAddress?) async -> Bool
+
+    @State private var managedCoffeeClubOrder: ContentView.AccountOrder?
+    @State private var selectedCoffeeName = ""
+    @State private var selectedCoffeeVariantID = ""
+    @State private var selectedAddressID = ""
+    @State private var managementNote = ""
+    @State private var isManagingCoffeeClub = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -318,8 +328,54 @@ struct OrderHistorySectionView: View {
                                 }
                                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
                                 .foregroundColor(secondaryTextColor)
+
+                                if let nextShipmentAt = club.nextShipmentAt,
+                                   club.remainingCount > 0,
+                                   club.lifecycleStatus != "cancelled" {
+                                    Label(
+                                        String(
+                                            format: AppLocalization.text(
+                                                club.isOverdue == true ? "coffee_club_overdue" : "coffee_club_next_shipment",
+                                                fallback: club.isOverdue == true ? "Shipment %d is overdue · %@" : "Next shipment %d · %@"
+                                            ),
+                                            club.nextShipmentNumber ?? (club.deliveredCount + 1),
+                                            formattedOrderDate(nextShipmentAt)
+                                        ),
+                                        systemImage: club.isOverdue == true ? "exclamationmark.triangle.fill" : "calendar.badge.clock"
+                                    )
+                                    .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                                    .foregroundColor(club.isOverdue == true ? .orange : secondaryTextColor)
+                                }
+
+                                Text(coffeeClubStatusText(club))
+                                    .font(Font.custom("AvenirNext-DemiBold", size: 10))
+                                    .foregroundColor(accentColor)
+
+                                if let coffeeName = club.preference?.coffeeName, !coffeeName.isEmpty {
+                                    Label(coffeeName, systemImage: "cup.and.saucer.fill")
+                                        .font(Font.custom("AvenirNext-Regular", size: 11))
+                                        .foregroundColor(secondaryTextColor)
+                                }
+
+                                if !["cancelled", "completed"].contains(club.lifecycleStatus) {
+                                    Button {
+                                        prepareCoffeeClubManagement(order)
+                                    } label: {
+                                        Label(
+                                            AppLocalization.text("manage_coffee_club", fallback: "Manage Coffee Club"),
+                                            systemImage: "slider.horizontal.3"
+                                        )
+                                        .font(Font.custom("AvenirNext-Bold", size: 10))
+                                        .tracking(AppLocalization.letterSpacing(1.1))
+                                        .textCase(.uppercase)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(accentColor)
+                                }
                             }
-                            .accessibilityElement(children: .combine)
+                            .accessibilityElement(children: .contain)
                             .accessibilityLabel(
                                 String(
                                     format: AppLocalization.text(
@@ -405,6 +461,161 @@ struct OrderHistorySectionView: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
+            }
+        }
+        .sheet(item: $managedCoffeeClubOrder) { order in
+            coffeeClubManagementSheet(order)
+        }
+    }
+
+    private func coffeeClubStatusText(_ club: CustomerCoffeeClub) -> String {
+        switch club.lifecycleStatus {
+        case "paused": return AppLocalization.text("coffee_club_status_paused", fallback: "Plan paused — schedule will move when resumed")
+        case "cancel_requested": return AppLocalization.text("coffee_club_status_cancel_requested", fallback: "Cancellation requested — Talla will review it")
+        case "cancelled": return AppLocalization.text("coffee_club_status_cancelled", fallback: "Plan cancelled")
+        case "completed": return AppLocalization.text("coffee_club_status_completed", fallback: "All shipments completed")
+        default: return AppLocalization.text("coffee_club_status_active", fallback: "Plan active")
+        }
+    }
+
+    private func prepareCoffeeClubManagement(_ order: ContentView.AccountOrder) {
+        guard let club = order.details?.coffeeClub else { return }
+        selectedCoffeeName = club.preference?.coffeeName ?? ""
+        selectedCoffeeVariantID = club.preference?.variantId ?? ""
+        selectedAddressID = deliveryAddresses.first(where: { address in
+            address.line1 == club.fulfillmentOverride?.line1 && address.city == club.fulfillmentOverride?.city
+        })?.id ?? deliveryAddresses.first(where: \.isPreferred)?.id ?? deliveryAddresses.first?.id ?? ""
+        managementNote = club.cancellationReason ?? club.refundNote ?? ""
+        managedCoffeeClubOrder = order
+    }
+
+    private func coffeeClubManagementSheet(_ order: ContentView.AccountOrder) -> some View {
+        NavigationStack {
+            Form {
+                if let club = order.details?.coffeeClub {
+                    Section(AppLocalization.text("coffee_club_schedule", fallback: "Schedule")) {
+                        LabeledContent(AppLocalization.text("status", fallback: "Status"), value: coffeeClubStatusText(club))
+                        if let next = club.nextShipmentAt, club.remainingCount > 0 {
+                            LabeledContent(
+                                AppLocalization.text("next_shipment", fallback: "Next shipment"),
+                                value: formattedOrderDate(next)
+                            )
+                        }
+                    }
+
+                    Section(AppLocalization.text("future_shipments", fallback: "Future shipments")) {
+                        Picker(AppLocalization.text("coffee", fallback: "Coffee"), selection: $selectedCoffeeVariantID) {
+                            Text(AppLocalization.text("keep_current_coffee", fallback: "Keep current selection")).tag("")
+                            ForEach(coffeeClubProducts) { product in
+                                ForEach(product.variants.filter(\.isAvailableForSale)) { variant in
+                                    Text(product.hasVariantChoices ? "\(product.name) · \(variant.title)" : product.name)
+                                        .tag(variant.id)
+                                }
+                            }
+                        }
+                        .onChange(of: selectedCoffeeVariantID) { _, value in
+                            selectedCoffeeName = coffeeClubProducts.first(where: { product in
+                                product.variants.contains(where: { $0.id == value })
+                            })?.name ?? ""
+                        }
+
+                        if !deliveryAddresses.isEmpty {
+                            Picker(AppLocalization.text("delivery_address", fallback: "Delivery address"), selection: $selectedAddressID) {
+                                ForEach(deliveryAddresses.filter { $0.country == .bahrain }) { address in
+                                    Text("\(address.label) · \(address.line1)").tag(address.id)
+                                }
+                            }
+                        }
+
+                        Text(AppLocalization.text(
+                            "coffee_club_future_changes_note",
+                            fallback: "Coffee and address changes apply only to shipments that have not been prepared yet."
+                        ))
+                        .font(.caption)
+
+                        if let effectiveShipment = club.changesEffectiveFromShipment {
+                            Text(
+                                String(
+                                    format: AppLocalization.text(
+                                        "coffee_club_changes_effective",
+                                        fallback: "Your saved choices apply from shipment %d."
+                                    ),
+                                    effectiveShipment
+                                )
+                            )
+                            .font(.caption.bold())
+                            .foregroundColor(accentColor)
+                        }
+
+                        Button(AppLocalization.text("save_future_choices", fallback: "Save Future Choices")) {
+                            performCoffeeClubAction(order, action: "update_preferences")
+                        }
+                        .disabled(isManagingCoffeeClub)
+                    }
+
+                    Section(AppLocalization.text("plan_controls", fallback: "Plan controls")) {
+                        if club.lifecycleStatus == "paused" {
+                            Button(AppLocalization.text("resume_plan", fallback: "Resume Plan")) {
+                                performCoffeeClubAction(order, action: "resume")
+                            }
+                        } else if club.lifecycleStatus == "active" {
+                            Button(AppLocalization.text("pause_plan", fallback: "Pause Plan")) {
+                                performCoffeeClubAction(order, action: "pause")
+                            }
+                        }
+
+                        TextField(
+                            AppLocalization.text("request_reason", fallback: "Reason or note"),
+                            text: $managementNote,
+                            axis: .vertical
+                        )
+
+                        Button(AppLocalization.text("request_cancellation", fallback: "Request Cancellation"), role: .destructive) {
+                            performCoffeeClubAction(order, action: "request_cancel")
+                        }
+                        .disabled(club.lifecycleStatus == "cancel_requested" || isManagingCoffeeClub)
+
+                        Button(AppLocalization.text("request_refund", fallback: "Request Refund")) {
+                            performCoffeeClubAction(order, action: "request_refund")
+                        }
+                        .disabled(club.refundStatus == "requested" || club.refundStatus == "pending" || club.refundStatus == "recorded" || isManagingCoffeeClub)
+
+                        if let refundStatus = club.refundStatus, refundStatus != "none" {
+                            LabeledContent(
+                                AppLocalization.text("refund_status", fallback: "Refund status"),
+                                value: refundStatus.replacingOccurrences(of: "_", with: " ").capitalized
+                            )
+                        }
+                    }
+                }
+            }
+            .navigationTitle(AppLocalization.text("manage_coffee_club", fallback: "Manage Coffee Club"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(AppLocalization.text("done", fallback: "Done")) { managedCoffeeClubOrder = nil }
+                }
+            }
+            .overlay { if isManagingCoffeeClub { ProgressView() } }
+        }
+    }
+
+    private func performCoffeeClubAction(_ order: ContentView.AccountOrder, action: String) {
+        guard !isManagingCoffeeClub else { return }
+        isManagingCoffeeClub = true
+        let address = deliveryAddresses.first { $0.id == selectedAddressID }
+        Task {
+            let succeeded = await manageCoffeeClubAction(
+                order,
+                action,
+                managementNote,
+                selectedCoffeeName,
+                selectedCoffeeVariantID,
+                address
+            )
+            await MainActor.run {
+                isManagingCoffeeClub = false
+                if succeeded { managedCoffeeClubOrder = nil }
             }
         }
     }

@@ -96,11 +96,27 @@ struct AdminAPI {
         return try await orders()
     }
 
-    func updateCoffeeClubShipment(id: String, action: String) async throws -> [AdminOrder] {
-        let data = try await request("/admin/api/orders/coffee-club/shipment", method: "POST", body: [
+    func updateCoffeeClubShipment(
+        id: String,
+        action: String,
+        reason: String? = nil,
+        note: String? = nil,
+        amount: Double? = nil,
+        coffeeName: String? = nil,
+        variantID: String? = nil,
+        fulfillment: [String: Any]? = nil
+    ) async throws -> [AdminOrder] {
+        var payload: [String: Any] = [
             "orderID": id,
             "action": action
-        ])
+        ]
+        if let reason { payload["reason"] = reason }
+        if let note { payload["note"] = note }
+        if let amount { payload["amount"] = amount }
+        if let coffeeName { payload["coffeeName"] = coffeeName }
+        if let variantID { payload["variantId"] = variantID }
+        if let fulfillment { payload["fulfillment"] = fulfillment }
+        let data = try await request("/admin/api/orders/coffee-club/shipment", method: "POST", body: payload)
         let response = try JSONDecoder().decode(AdminStatusUpdateResponse.self, from: data)
         if let updatedOrders = response.orders { return updatedOrders }
         return try await orders()

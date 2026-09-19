@@ -200,6 +200,9 @@ extension ContentView {
             cartItemsListSection
             if isCoffeeClubEligible {
                 coffeeClubOfferSection
+                if isCoffeeClubActive {
+                    coffeeClubTermsSection
+                }
             }
             if !isCoffeeClubActive {
                 cartPromoSection
@@ -218,6 +221,8 @@ extension ContentView {
                     if paymentFlow.selectedMethod == .cashOnDelivery {
                         paymentFlow.clearSelection()
                     }
+                } else {
+                    coffeeClubTermsAccepted = false
                 }
             }
         } label: {
@@ -267,6 +272,36 @@ extension ContentView {
         .buttonStyle(.plain)
         .accessibilityIdentifier("cart.coffeeClubPrepaid")
         .accessibilityValue(isCoffeeClubActive ? "Selected" : "Not selected")
+    }
+
+    var coffeeClubTermsSection: some View {
+        Button {
+            coffeeClubTermsAccepted.toggle()
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: coffeeClubTermsAccepted ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(readableBrandGoldColor)
+                Text(AppLocalization.text(
+                    "coffee_club_terms_consent",
+                    fallback: "I agree that Coffee Club is prepaid, does not renew automatically, delivery is charged for every shipment, future changes apply only to undelivered shipments, and cancellations or refunds require Talla approval."
+                ))
+                .font(bodyFont(size: 11))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: 0xC8965A).opacity(coffeeClubTermsAccepted ? 0.42 : 0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("cart.coffeeClubTerms")
+        .accessibilityValue(coffeeClubTermsAccepted ? "Accepted" : "Not accepted")
     }
 
     var cartPromoSection: some View {
@@ -3159,6 +3194,7 @@ extension ContentView {
 
         if cartItems.isEmpty || !["coffee-beans", "arabic-coffee-beans"].contains(product.categoryKey) {
             isCoffeeClubPrepaid = false
+            coffeeClubTermsAccepted = false
         }
 
         recordRecentlyViewed(product)
@@ -3199,6 +3235,7 @@ extension ContentView {
         cartItems.removeAll { $0.id == id }
         if cartItems.isEmpty || !isCoffeeClubEligible {
             isCoffeeClubPrepaid = false
+            coffeeClubTermsAccepted = false
         }
         checkoutError = nil
     }
@@ -3797,6 +3834,14 @@ extension ContentView {
         }
 
         if isCoffeeClubActive {
+            guard coffeeClubTermsAccepted else {
+                paymentFlow.transition(to: .failed)
+                checkoutError = AppLocalization.text(
+                    "coffee_club_terms_required",
+                    fallback: "Accept the Coffee Club prepaid plan terms before checkout."
+                )
+                return
+            }
             guard selectedPaymentMethod != .cashOnDelivery else {
                 paymentFlow.transition(to: .failed)
                 checkoutError = AppLocalization.text(
@@ -3891,7 +3936,8 @@ extension ContentView {
                 voucherCode: appliedVoucher?.code,
                 prepaidCoffeeClub: isCoffeeClubActive,
                 coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
-                coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks
+                coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks,
+                coffeeClubTermsAccepted: coffeeClubTermsAccepted
             )
             if let appliedVoucher {
                 if checkoutStart.pricingVersion != 2 {

@@ -608,23 +608,8 @@ struct ContentView: View {
             struct Fulfillment: Decodable {
                 let method: String?
             }
-            struct CoffeeClub: Decodable {
-                let shipmentCount: Int
-                let intervalWeeks: Int
-                let discountPercent: Int
-                let deliveredShipments: Int?
-                let remainingShipments: Int?
-
-                var deliveredCount: Int {
-                    min(shipmentCount, max(0, deliveredShipments ?? 0))
-                }
-
-                var remainingCount: Int {
-                    min(shipmentCount, max(0, remainingShipments ?? (shipmentCount - deliveredCount)))
-                }
-            }
             let fulfillment: Fulfillment?
-            let coffeeClub: CoffeeClub?
+            let coffeeClub: CustomerCoffeeClub?
         }
 
         var details: Details? = nil
@@ -905,6 +890,7 @@ struct ContentView: View {
     @State var pendingBrewingCoffeeName = ""
     @State var cartItems: [CartItem] = []
     @State var isCoffeeClubPrepaid = false
+    @State var coffeeClubTermsAccepted = false
     @State var cartOpen = false
     enum PaymentPresentation {
         case hosted(CheckoutSession)

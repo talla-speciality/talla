@@ -17,54 +17,202 @@ function createAdminOrderDetailService(dependencies) {
 
     const trimText = (value, maximumLength) => String(value || "").trim().slice(0, maximumLength);
 
+    const validISODate = (value) => {
+        const text = trimText(value, 40);
+        return text && Number.isFinite(Date.parse(text)) ? new Date(text).toISOString() : "";
+    };
+
+    const shiftedISODate = (value, days) => {
+        const timestamp = Date.parse(value);
+        return Number.isFinite(timestamp) ? new Date(timestamp + days * 86_400_000).toISOString() : "";
+    };
+
     function normalizeCoffeeClub(value) {
         if (!value || typeof value !== "object") return null;
         const shipmentCount = Math.max(1, Math.min(12, Math.round(Number(value.shipmentCount) || 1)));
         const rawShipments = Array.isArray(value.shipments) ? value.shipments : [];
-        const shipments = rawShipments.slice(0, shipmentCount).map((shipment, index) => ({
-            number: Math.max(1, Math.min(shipmentCount, Math.round(Number(shipment?.number) || index + 1))),
-            deliveredAt: trimText(shipment?.deliveredAt, 40),
-            deliveredBy: trimText(shipment?.deliveredBy, 120)
-        })).filter((shipment) => shipment.deliveredAt);
+        const startedAt = validISODate(value.startedAt || value.termsAcceptedAt) || new Date().toISOString();
+        const intervalWeeks = Math.max(1, Math.min(52, Math.round(Number(value.intervalWeeks) || 4)));
+        const shipments = rawShipments.slice(0, shipmentCount).map((shipment, index) => {
+            const number = Math.max(1, Math.min(shipmentCount, Math.round(Number(shipment?.number) || index + 1)));
+            return {
+                number,
+                scheduledAt: validISODate(shipment?.scheduledAt) || shiftedISODate(startedAt, (number - 1) * intervalWeeks * 7),
+                preparedAt: validISODate(shipment?.preparedAt),
+                preparedBy: trimText(shipment?.preparedBy, 120),
+                deliveredAt: validISODate(shipment?.deliveredAt),
+                deliveredBy: trimText(shipment?.deliveredBy, 120)
+            };
+        }).filter((shipment) => shipment.preparedAt || shipment.deliveredAt);
         const deliveredShipments = Math.max(0, Math.min(
             shipmentCount,
-            Math.round(Number(value.deliveredShipments) || shipments.length)
+            Math.round(Number(value.deliveredShipments) || shipments.filter((shipment) => shipment.deliveredAt).length)
         ));
+        const statusValues = new Set(["active", "paused", "cancel_requested", "cancelled", "completed"]);
+        const inferredStatus = deliveredShipments >= shipmentCount ? "completed" : "active";
+        const status = statusValues.has(String(value.status || "").toLowerCase())
+            ? String(value.status).toLowerCase()
+            : inferredStatus;
+        const nextShipmentNumber = deliveredShipments < shipmentCount ? deliveredShipments + 1 : null;
+        const rawChangesEffectiveFromShipment = Math.round(Number(value.changesEffectiveFromShipment));
+        const changesEffectiveFromShipment = Number.isFinite(rawChangesEffectiveFromShipment)
+            ? Math.max(1, Math.min(shipmentCount, rawChangesEffectiveFromShipment))
+            : null;
+        const nextShipmentAt = nextShipmentNumber
+            ? shiftedISODate(startedAt, (nextShipmentNumber - 1) * intervalWeeks * 7)
+            : "";
+        const pausedAt = validISODate(value.pausedAt);
+        const cancelledAt = validISODate(value.cancelledAt);
+        const activeForSchedule = status === "active" || status === "cancel_requested";
         return {
             shipmentCount,
-            intervalWeeks: Math.max(1, Math.min(52, Math.round(Number(value.intervalWeeks) || 4))),
+            intervalWeeks,
             discountPercent: Math.max(0, Math.min(100, Math.round(Number(value.discountPercent) || 0))),
             deliveredShipments,
             remainingShipments: shipmentCount - deliveredShipments,
-            shipments: shipments.slice(0, deliveredShipments)
+            shipments,
+            status: deliveredShipments >= shipmentCount ? "completed" : status,
+            startedAt,
+            nextShipmentAt,
+            nextShipmentNumber,
+            changesEffectiveFromShipment,
+            isOverdue: Boolean(activeForSchedule && nextShipmentAt && Date.now() > Date.parse(nextShipmentAt) + 86_400_000),
+            pausedAt: pausedAt || null,
+            cancelledAt: cancelledAt || null,
+            cancellationRequestedAt: validISODate(value.cancellationRequestedAt) || null,
+            cancellationReason: trimText(value.cancellationReason, 500) || null,
+            refundStatus: ["none", "requested", "pending", "recorded"].includes(String(value.refundStatus || "").toLowerCase())
+                ? String(value.refundStatus).toLowerCase()
+                : "none",
+            refundAmount: Math.max(0, Number(value.refundAmount) || 0),
+            refundNote: trimText(value.refundNote, 500) || null,
+            refundedAt: validISODate(value.refundedAt) || null,
+            termsAcceptedAt: validISODate(value.termsAcceptedAt) || null,
+            lastReminderAt: validISODate(value.lastReminderAt) || null,
+            preference: {
+                coffeeName: trimText(value.preference?.coffeeName, 180) || null,
+                variantId: trimText(value.preference?.variantId, 180) || null
+            },
+            fulfillmentOverride: value.fulfillmentOverride && typeof value.fulfillmentOverride === "object" ? {
+                fullName: trimText(value.fulfillmentOverride.fullName, 160),
+                phone: trimText(value.fulfillmentOverride.phone, 32),
+                line1: trimText(value.fulfillmentOverride.line1, 240),
+                city: trimText(value.fulfillmentOverride.city, 100),
+                countryCode: normalizeCountryCode(value.fulfillmentOverride.countryCode, ""),
+                notes: trimText(value.fulfillmentOverride.notes, 500)
+            } : null
         };
     }
 
-    function updateCoffeeClubProgress(value, action, deliveredBy, deliveredAt = new Date().toISOString()) {
+    function updateCoffeeClubProgress(value, action, deliveredBy, deliveredAt = new Date().toISOString(), changes = {}) {
         const coffeeClub = normalizeCoffeeClub(value);
-        if (!coffeeClub || !["deliver", "undo"].includes(action)) return null;
+        if (!coffeeClub) return null;
+        const now = validISODate(deliveredAt) || new Date().toISOString();
         const shipments = [...coffeeClub.shipments];
         let deliveredShipments = coffeeClub.deliveredShipments;
-        if (action === "deliver") {
+        if (action === "prepare" || action === "deliver") {
+            if (!["active", "cancel_requested"].includes(coffeeClub.status)) return null;
             if (deliveredShipments >= coffeeClub.shipmentCount) return null;
-            deliveredShipments += 1;
-            shipments.push({
-                number: deliveredShipments,
-                deliveredAt: trimText(deliveredAt, 40),
-                deliveredBy: trimText(deliveredBy, 120)
-            });
-        } else {
+            const number = deliveredShipments + 1;
+            const existingIndex = shipments.findIndex((shipment) => shipment.number === number);
+            const shipment = existingIndex >= 0 ? shipments[existingIndex] : {
+                number,
+                scheduledAt: shiftedISODate(coffeeClub.startedAt, (number - 1) * coffeeClub.intervalWeeks * 7),
+                preparedAt: "",
+                preparedBy: "",
+                deliveredAt: "",
+                deliveredBy: ""
+            };
+            shipment.preparedAt = shipment.preparedAt || now;
+            shipment.preparedBy = shipment.preparedBy || trimText(deliveredBy, 120);
+            if (action === "deliver") {
+                shipment.deliveredAt = now;
+                shipment.deliveredBy = trimText(deliveredBy, 120);
+                deliveredShipments += 1;
+            }
+            if (existingIndex >= 0) shipments[existingIndex] = shipment;
+            else shipments.push(shipment);
+        } else if (action === "undo") {
             if (deliveredShipments <= 0) return null;
+            const shipment = shipments.find((entry) => entry.number === deliveredShipments);
+            if (shipment) {
+                shipment.deliveredAt = "";
+                shipment.deliveredBy = "";
+            }
             deliveredShipments -= 1;
-            const retainedShipments = shipments.filter((shipment) => shipment.number <= deliveredShipments);
-            shipments.splice(0, shipments.length, ...retainedShipments);
+        } else if (action === "pause") {
+            if (coffeeClub.status !== "active") return null;
+            return normalizeCoffeeClub({ ...coffeeClub, status: "paused", pausedAt: now });
+        } else if (action === "resume") {
+            if (coffeeClub.status !== "paused") return null;
+            const pausedForDays = Math.max(0, (Date.parse(now) - Date.parse(coffeeClub.pausedAt || now)) / 86_400_000);
+            return normalizeCoffeeClub({
+                ...coffeeClub,
+                status: "active",
+                startedAt: shiftedISODate(coffeeClub.startedAt, pausedForDays),
+                pausedAt: null
+            });
+        } else if (action === "request_cancel") {
+            if (["cancelled", "completed"].includes(coffeeClub.status)) return null;
+            return normalizeCoffeeClub({
+                ...coffeeClub,
+                status: "cancel_requested",
+                cancellationRequestedAt: now,
+                cancellationReason: changes.reason
+            });
+        } else if (action === "cancel") {
+            if (coffeeClub.status === "completed") return null;
+            return normalizeCoffeeClub({
+                ...coffeeClub,
+                status: "cancelled",
+                cancelledAt: now,
+                cancellationReason: changes.reason || coffeeClub.cancellationReason
+            });
+        } else if (action === "request_refund") {
+            if (coffeeClub.refundStatus === "recorded") return null;
+            return normalizeCoffeeClub({ ...coffeeClub, refundStatus: "requested", refundNote: changes.note });
+        } else if (action === "refund_pending") {
+            return normalizeCoffeeClub({ ...coffeeClub, refundStatus: "pending", refundNote: changes.note });
+        } else if (action === "record_refund") {
+            const amount = Number(changes.amount);
+            if (!Number.isFinite(amount) || amount < 0) return null;
+            return normalizeCoffeeClub({
+                ...coffeeClub,
+                refundStatus: "recorded",
+                refundAmount: amount,
+                refundNote: changes.note,
+                refundedAt: now
+            });
+        } else if (action === "update_preferences") {
+            if (["cancelled", "completed"].includes(coffeeClub.status)) return null;
+            const currentShipment = coffeeClub.shipments.find((shipment) => (
+                shipment.number === coffeeClub.nextShipmentNumber && shipment.preparedAt && !shipment.deliveredAt
+            ));
+            const changesEffectiveFromShipment = Math.min(
+                coffeeClub.shipmentCount,
+                coffeeClub.deliveredShipments + (currentShipment ? 2 : 1)
+            );
+            return normalizeCoffeeClub({
+                ...coffeeClub,
+                changesEffectiveFromShipment,
+                preference: {
+                    coffeeName: changes.coffeeName,
+                    variantId: changes.variantId
+                },
+                fulfillmentOverride: changes.fulfillment
+            });
+        } else if (action === "reminded") {
+            return normalizeCoffeeClub({ ...coffeeClub, lastReminderAt: now });
+        } else {
+            return null;
         }
-        return {
+        return normalizeCoffeeClub({
             ...coffeeClub,
             deliveredShipments,
             remainingShipments: coffeeClub.shipmentCount - deliveredShipments,
-            shipments
-        };
+            shipments,
+            status: deliveredShipments >= coffeeClub.shipmentCount ? "completed" : coffeeClub.status
+        });
     }
 
     function normalizeOrderDetails(value = {}) {
