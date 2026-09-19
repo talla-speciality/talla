@@ -1987,7 +1987,10 @@ extension BrewingSectionView {
             approach: generatedApproachNotes,
             steps: generatedPourRows.map {
                 SmartBrewStep(id: $0.id, title: $0.title, waterAdded: $0.waterAdded, cumulativeWater: $0.cumulativeWater, startTime: $0.startTime, flowRate: $0.flowRate, instruction: $0.instruction)
-            }
+            },
+            grinderID: coffeeData.equipmentRecords().first(where: { $0.kind == .grinder && $0.name == recipeGrinder })?.id,
+            waterProfileID: selectedWaterProfileID,
+            temperaturePresetID: selectedTemperaturePresetID
         )
     }
 
@@ -2064,6 +2067,27 @@ extension BrewingSectionView {
                 brewerSetupSelector
                 catalogPicker(title: AppLocalization.text("filter", fallback: "Filter"), selection: $recipeFilterType, options: filterCatalog, customPlaceholder: "Other filter")
                 catalogPicker(title: AppLocalization.text("grinder", fallback: "Grinder"), selection: $recipeGrinder, options: grinderCatalog, customPlaceholder: "Other grinder")
+
+                Picker("Water profile", selection: $selectedWaterProfileID) {
+                    Text("No water profile").tag(nil as UUID?)
+                    ForEach(coffeeData.records(WaterProfileRecord.self, entity: "waterProfile")) { profile in
+                        Text(profile.name).tag(Optional(profile.id))
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Temperature preset", selection: $selectedTemperaturePresetID) {
+                    Text("Automatic temperature").tag(nil as UUID?)
+                    ForEach(coffeeData.records(TemperaturePresetRecord.self, entity: "temperaturePreset")) { preset in
+                        Text("\(preset.name) · \(preset.celsius, specifier: "%.0f") °C").tag(Optional(preset.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: selectedTemperaturePresetID) { _, id in
+                    guard let id,
+                          let preset = coffeeData.records(TemperaturePresetRecord.self, entity: "temperaturePreset").first(where: { $0.id == id }) else { return }
+                    generatedTemperatureC = Int(preset.celsius.rounded())
+                }
 
                 creamGoldSegmentedControl(
                     title: AppLocalization.text("brew_mode", fallback: "Brew mode"),
@@ -2529,7 +2553,11 @@ extension BrewingSectionView {
     }
 
     var grinderCatalog: [String] {
-        ["Fellow Ode Gen 2", "Comandante C40", "1Zpresso ZP6", "1Zpresso K-Ultra", "Timemore C3", "Timemore Sculptor", "DF64", "Mahlkönig EK43", "Microns only"]
+        let savedProfiles = coffeeData.equipmentRecords()
+            .filter { $0.kind == .grinder }
+            .map(\.name)
+        let defaults = ["Fellow Ode Gen 2", "Comandante C40", "1Zpresso ZP6", "1Zpresso K-Ultra", "Timemore C3", "Timemore Sculptor", "DF64", "Mahlkönig EK43", "Microns only"]
+        return savedProfiles + defaults.filter { !savedProfiles.contains($0) }
     }
 
     var filterCatalog: [String] {
@@ -2859,6 +2887,7 @@ extension BrewingSectionView {
 
     @MainActor
     func applyCoffeeBagScanResult(_ result: CoffeeBagScanResult) {
+        if let value = result.roastDate { coffeeRoastDate = value }
         if let value = result.name { coffeeName = value }
         if let value = result.roaster { coffeeRoaster = value }
         if let value = result.origin { coffeeOrigin = value }

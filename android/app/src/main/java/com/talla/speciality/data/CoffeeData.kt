@@ -17,15 +17,18 @@ enum class CoffeeEntityType(val wireName: String) {
     COFFEE_LOT("coffeeLot"), PURCHASED_COFFEE("purchasedCoffee"), EQUIPMENT("equipment"),
     CALIBRATION("calibration"), RECIPE("recipe"), RECIPE_VERSION("recipeVersion"),
     BREW_SESSION("brewSession"), SAMPLE("sample"), TASTE_FEEDBACK("tasteFeedback"),
-    MAINTENANCE("maintenance")
+    MAINTENANCE("maintenance"), WATER_PROFILE("waterProfile"), TEMPERATURE_PRESET("temperaturePreset"),
+    DOSE_USAGE("doseUsage"), FAVORITE("favorite"), SAVED_CART("savedCart"), ACTIVE_CART("activeCart")
 }
 enum class EquipmentType { BREWER, MACHINE, BASKET, GRINDER }
 enum class SessionType { FILTER, ESPRESSO }
 enum class SampleType { WEIGHT, FLOW, PRESSURE, TEMPERATURE }
 
 data class CoffeeLot(val id: String = UUID.randomUUID().toString(), val name: String, val roaster: String = "", val origin: String? = null, val producer: String? = null, val variety: String? = null, val process: String? = null, val roastLevel: String? = null, val notes: String? = null)
-data class PurchasedCoffee(val id: String = UUID.randomUUID().toString(), val lotId: String? = null, val productId: String? = null, val productName: String, val roastDate: Long? = null, val purchasedAt: Long? = null, val initialQuantityGrams: Double, val remainingQuantityGrams: Double, val currencyCode: String? = null, val priceMinor: Int? = null)
-data class CoffeeEquipment(val id: String = UUID.randomUUID().toString(), val type: EquipmentType, val name: String, val manufacturer: String? = null, val model: String? = null, val parentEquipmentId: String? = null, val notes: String? = null)
+data class PurchasedCoffee(val id: String = UUID.randomUUID().toString(), val lotId: String? = null, val productId: String? = null, val productName: String, val roastDate: Long? = null, val openedAt: Long? = null, val purchasedAt: Long? = null, val initialQuantityGrams: Double, val remainingQuantityGrams: Double, val currencyCode: String? = null, val priceMinor: Int? = null) {
+    fun estimatedBrews(doseGrams: Double = 18.0) = if (doseGrams > 0) (remainingQuantityGrams / doseGrams).toInt().coerceAtLeast(0) else 0
+}
+data class CoffeeEquipment(val id: String = UUID.randomUUID().toString(), val type: EquipmentType, val name: String, val manufacturer: String? = null, val model: String? = null, val burrSet: String? = null, val parentEquipmentId: String? = null, val notes: String? = null)
 data class EquipmentCalibration(val id: String = UUID.randomUUID().toString(), val equipmentId: String, val coffeeLotId: String? = null, val setting: String, val measuredValue: Double? = null, val unit: String? = null, val notes: String? = null)
 data class CoffeeRecipe(val id: String = UUID.randomUUID().toString(), val title: String, val type: SessionType, val currentVersionId: String? = null)
 data class RecipeVersion(val id: String = UUID.randomUUID().toString(), val recipeId: String, val versionNumber: Int, val coffeeGrams: Double, val waterGrams: Double? = null, val targetYieldGrams: Double? = null, val temperatureC: Double? = null, val targetSeconds: Int? = null, val grindSetting: String? = null, val pressureBar: Double? = null, val stepsJson: String = "[]", val notes: String? = null)
@@ -33,11 +36,15 @@ data class CoffeeBrewSession(val id: String = UUID.randomUUID().toString(), val 
 data class BrewSample(val id: String = UUID.randomUUID().toString(), val sessionId: String, val type: SampleType, val elapsedMilliseconds: Int, val value: Double, val unit: String)
 data class CoffeeTasteFeedback(val id: String = UUID.randomUUID().toString(), val sessionId: String? = null, val purchasedCoffeeId: String? = null, val rating: Int, val tagsJson: String = "[]", val notes: String = "")
 data class MaintenanceEvent(val id: String = UUID.randomUUID().toString(), val equipmentId: String, val type: String, val performedAt: Long = System.currentTimeMillis(), val usageCount: Int? = null, val notes: String? = null)
+data class WaterProfile(val id: String = UUID.randomUUID().toString(), val name: String, val hardnessPPM: Double, val alkalinityPPM: Double)
+data class TemperaturePreset(val id: String = UUID.randomUUID().toString(), val name: String, val celsius: Double)
+data class DoseUsage(val id: String, val purchasedCoffeeId: String, val grams: Double, val createdAt: Long = System.currentTimeMillis())
 
 data class CoffeeRecord(val ownerId: String, val entityType: String, val id: String, val payload: JSONObject, val updatedAt: Long, val deletedAt: Long?, val revision: Long, val dirty: Boolean, val conflictPayload: JSONObject? = null)
 data class CoffeeConflict(val ownerId: String, val entityType: String, val id: String, val localPayload: JSONObject, val serverPayload: JSONObject)
 
 class CoffeeDataStore(context: Context) {
+    private val activeCartID = "00000000-0000-5000-8000-000000000001"
     private val appContext = context.applicationContext
     private val helper = Helper(appContext)
     private val legacy = appContext.getSharedPreferences("talla_state", Context.MODE_PRIVATE)
@@ -103,6 +110,7 @@ class CoffeeDataStore(context: Context) {
         upsert(ownerId, CoffeeEntityType.PURCHASED_COFFEE, value.id, JSONObject()
             .put("id", value.id).put("lotID", lotId).put("productID", value.productId)
             .put("productName", value.productName).put("roastDate", value.roastDate)
+            .put("openedAt", value.openedAt)
             .put("purchasedAt", value.purchasedAt ?: System.currentTimeMillis())
             .put("initialQuantityGrams", value.initialQuantityGrams)
             .put("remainingQuantityGrams", value.remainingQuantityGrams)
@@ -117,6 +125,7 @@ class CoffeeDataStore(context: Context) {
             productId = json.optNullableString("productID"),
             productName = json.optString("productName", "Coffee"),
             roastDate = json.optNullableTimestamp("roastDate"),
+            openedAt = json.optNullableTimestamp("openedAt"),
             purchasedAt = json.optNullableTimestamp("purchasedAt"),
             initialQuantityGrams = json.optDouble("initialQuantityGrams", 0.0),
             remainingQuantityGrams = json.optDouble("remainingQuantityGrams", 0.0),
@@ -131,11 +140,16 @@ class CoffeeDataStore(context: Context) {
         upsert(ownerId, CoffeeEntityType.PURCHASED_COFFEE, id, payload, current.revision)
     }
 
+    fun markOpened(ownerId: String = "", id: String, openedAt: Long = System.currentTimeMillis()) {
+        val current = find(ownerId, CoffeeEntityType.PURCHASED_COFFEE.wireName, id) ?: return
+        upsert(ownerId, CoffeeEntityType.PURCHASED_COFFEE, id, JSONObject(current.payload.toString()).put("openedAt", openedAt), current.revision)
+    }
+
     fun saveEquipment(value: CoffeeEquipment, ownerId: String = "") {
         upsert(ownerId, CoffeeEntityType.EQUIPMENT, value.id, JSONObject()
             .put("id", value.id).put("kind", value.type.name.lowercase())
             .put("name", value.name).put("manufacturer", value.manufacturer)
-            .put("model", value.model).put("parentEquipmentID", value.parentEquipmentId)
+            .put("model", value.model).put("burrSet", value.burrSet).put("parentEquipmentID", value.parentEquipmentId)
             .put("notes", value.notes))
     }
 
@@ -147,6 +161,7 @@ class CoffeeDataStore(context: Context) {
             name = json.optString("name", "Equipment"),
             manufacturer = json.optNullableString("manufacturer"),
             model = json.optNullableString("model"),
+            burrSet = json.optNullableString("burrSet"),
             parentEquipmentId = json.optNullableString("parentEquipmentID"),
             notes = json.optNullableString("notes"),
         )
@@ -194,6 +209,42 @@ class CoffeeDataStore(context: Context) {
             .put("id", value.id).put("equipmentID", value.equipmentId).put("kind", value.type)
             .put("performedAt", value.performedAt).put("usageCount", value.usageCount).put("notes", value.notes))
     }
+
+    fun saveWaterProfile(value: WaterProfile, ownerId: String = "") {
+        require(value.name.isNotBlank() && value.hardnessPPM in 0.0..1000.0 && value.alkalinityPPM in 0.0..1000.0)
+        upsert(ownerId, CoffeeEntityType.WATER_PROFILE, value.id, JSONObject().put("id", value.id).put("name", value.name).put("hardnessPPM", value.hardnessPPM).put("alkalinityPPM", value.alkalinityPPM))
+    }
+
+    fun waterProfiles(ownerId: String = "") = records(ownerId, CoffeeEntityType.WATER_PROFILE).map {
+        WaterProfile(it.id, it.payload.optString("name"), it.payload.optDouble("hardnessPPM"), it.payload.optDouble("alkalinityPPM"))
+    }
+
+    fun saveTemperaturePreset(value: TemperaturePreset, ownerId: String = "") {
+        require(value.name.isNotBlank() && value.celsius in 0.0..100.0)
+        upsert(ownerId, CoffeeEntityType.TEMPERATURE_PRESET, value.id, JSONObject().put("id", value.id).put("name", value.name).put("celsius", value.celsius))
+    }
+
+    fun temperaturePresets(ownerId: String = "") = records(ownerId, CoffeeEntityType.TEMPERATURE_PRESET).map {
+        TemperaturePreset(it.id, it.payload.optString("name"), it.payload.optDouble("celsius"))
+    }
+
+    fun doseUsage(ownerId: String = "") = records(ownerId, CoffeeEntityType.DOSE_USAGE).map {
+        DoseUsage(it.id, it.payload.optString("purchasedCoffeeID"), it.payload.optDouble("grams"), it.payload.optLong("createdAt", it.updatedAt))
+    }
+
+    fun recordDose(ownerId: String = "", sessionId: String, purchasedCoffeeId: String, grams: Double) {
+        if (!grams.isFinite() || grams <= 0 || find(ownerId, CoffeeEntityType.DOSE_USAGE.wireName, sessionId) != null) return
+        upsert(ownerId, CoffeeEntityType.DOSE_USAGE, sessionId, JSONObject().put("id", sessionId).put("purchasedCoffeeID", purchasedCoffeeId).put("grams", grams).put("createdAt", System.currentTimeMillis()))
+        purchasedCoffee(ownerId).firstOrNull { it.id == purchasedCoffeeId }?.let { updateRemainingQuantity(ownerId, it.id, it.remainingQuantityGrams - grams) }
+    }
+
+    fun saveActiveCart(ownerId: String = "", items: JSONArray) {
+        upsert(ownerId, CoffeeEntityType.ACTIVE_CART, activeCartID, JSONObject()
+            .put("id", activeCartID).put("items", items).put("updatedAt", System.currentTimeMillis()))
+    }
+
+    fun activeCart(ownerId: String = ""): JSONArray = records(ownerId, CoffeeEntityType.ACTIVE_CART)
+        .firstOrNull()?.payload?.optJSONArray("items") ?: JSONArray()
 
     fun saveRecipe(recipe: CoffeeRecipe, requestedVersion: RecipeVersion, ownerId: String = ""): RecipeVersion {
         val versions = recipeVersions(ownerId, recipe.id)
@@ -288,6 +339,9 @@ class CoffeeDataStore(context: Context) {
     }
 
     fun saveJournal(entry: BrewJournalEntry, ownerId: String = "", samples: List<BrewSample> = emptyList()) {
+        val available = purchasedCoffee(ownerId).filter { it.remainingQuantityGrams > 0 }
+        val activePurchase = available.filter { it.openedAt != null }.maxByOrNull { it.openedAt ?: 0L }
+            ?: available.singleOrNull()
         val payload = JSONObject().put("id", entry.id).put("title", entry.title).put("method", entry.method)
             .put("coffeeGrams", entry.coffeeGrams).put("ratio", entry.ratio).put("waterGrams", entry.waterGrams)
             .put("brewTimeSeconds", entry.brewTimeSeconds).put("rating", entry.rating.coerceIn(1, 5))
@@ -305,6 +359,7 @@ class CoffeeDataStore(context: Context) {
             CoffeeBrewSession(
                 id = entry.id,
                 type = if (entry.method.contains("espresso", ignoreCase = true)) SessionType.ESPRESSO else SessionType.FILTER,
+                purchasedCoffeeId = activePurchase?.id,
                 startedAt = entry.createdAt - entry.brewTimeSeconds.coerceAtLeast(0) * 1_000L,
                 endedAt = entry.createdAt,
                 doseGrams = entry.coffeeGrams.toDouble(),
@@ -317,6 +372,7 @@ class CoffeeDataStore(context: Context) {
             ownerId,
             payload,
         )
+        activePurchase?.let { recordDose(ownerId, entry.id, it.id, entry.coffeeGrams.toDouble()) }
     }
 
     fun replaceJournal(entries: List<BrewJournalEntry>, ownerId: String = "") {

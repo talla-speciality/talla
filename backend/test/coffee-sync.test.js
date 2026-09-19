@@ -12,6 +12,13 @@ test("normalizes a valid coffee sync record", () => {
     assert.equal(value.baseRevision, 2);
 });
 
+test("accepts the phase two coffee memory records", () => {
+    const id = "550e8400-e29b-41d4-a716-446655440000";
+    for (const entityType of ["waterProfile", "temperaturePreset", "doseUsage", "favorite", "savedCart", "activeCart"]) {
+        assert.equal(normalizeCoffeeChange({ entityType, id, payload: {}, baseRevision: 0 })?.entityType, entityType);
+    }
+});
+
 test("rejects unknown models and malformed IDs", () => {
     assert.equal(normalizeCoffeeChange({ entityType: "order", id: "nope", payload: {} }), null);
 });

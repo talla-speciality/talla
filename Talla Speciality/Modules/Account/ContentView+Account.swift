@@ -1995,6 +1995,7 @@ extension ContentView {
 
         do {
             orderHistory = try await AccountService.fetchOrders(email: profile.email)
+            try? coffeeData.importPurchasedCoffee(from: orderHistory, catalog: products, ownerID: profile.email.lowercased())
             if let remoteTasteMemory = try? await AccountService.fetchTasteMemory(email: profile.email) {
                 persistTasteMemoryRecords(remoteTasteMemory)
             }

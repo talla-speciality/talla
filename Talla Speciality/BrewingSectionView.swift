@@ -44,8 +44,11 @@ struct BrewRecipeRecord: Identifiable {
     let expectedCup: String?
     let approach: String?
     let steps: [SmartBrewStep]?
+    let grinderID: UUID?
+    let waterProfileID: UUID?
+    let temperaturePresetID: UUID?
 
-    init(id: UUID, title: String, detail: String, coffeeGrams: Double?, ratio: Double?, totalWaterGrams: Double?, brewingWaterGrams: Double?, iceGrams: Double?, methodID: String?, brewerID: String?, brewMode: String?, bloomRatio: String?, pourCount: Int?, grind: String?, temperatureC: Int?, controlMode: String?, process: String? = nil, roast: String? = nil, grinder: String? = nil, filter: String? = nil, altitudeMeters: Int? = nil, tastingNotes: String? = nil, targetTimeRange: String? = nil, temperatureReason: String? = nil, expectedCup: String? = nil, approach: String? = nil, steps: [SmartBrewStep]? = nil) {
+    init(id: UUID, title: String, detail: String, coffeeGrams: Double?, ratio: Double?, totalWaterGrams: Double?, brewingWaterGrams: Double?, iceGrams: Double?, methodID: String?, brewerID: String?, brewMode: String?, bloomRatio: String?, pourCount: Int?, grind: String?, temperatureC: Int?, controlMode: String?, process: String? = nil, roast: String? = nil, grinder: String? = nil, filter: String? = nil, altitudeMeters: Int? = nil, tastingNotes: String? = nil, targetTimeRange: String? = nil, temperatureReason: String? = nil, expectedCup: String? = nil, approach: String? = nil, steps: [SmartBrewStep]? = nil, grinderID: UUID? = nil, waterProfileID: UUID? = nil, temperaturePresetID: UUID? = nil) {
         self.id = id; self.title = title; self.detail = detail; self.coffeeGrams = coffeeGrams; self.ratio = ratio
         self.totalWaterGrams = totalWaterGrams; self.brewingWaterGrams = brewingWaterGrams; self.iceGrams = iceGrams
         self.methodID = methodID; self.brewerID = brewerID; self.brewMode = brewMode; self.bloomRatio = bloomRatio
@@ -53,6 +56,7 @@ struct BrewRecipeRecord: Identifiable {
         self.process = process; self.roast = roast; self.grinder = grinder; self.filter = filter; self.altitudeMeters = altitudeMeters
         self.tastingNotes = tastingNotes; self.targetTimeRange = targetTimeRange; self.temperatureReason = temperatureReason
         self.expectedCup = expectedCup; self.approach = approach; self.steps = steps
+        self.grinderID = grinderID; self.waterProfileID = waterProfileID; self.temperaturePresetID = temperaturePresetID
     }
 }
 
@@ -365,6 +369,8 @@ struct BrewingSectionView: View {
     @State var coffeeTastingNotes = ""
     @State var coffeeBrewNotes = ""
     @State var recipeGrinder = ""
+    @State var selectedWaterProfileID: UUID?
+    @State var selectedTemperaturePresetID: UUID?
     @State var recipeFilterType = ""
     @State var recipeBrewTemperatureMode = "Hot"
     @State var recipeCoffeeDose = "20"

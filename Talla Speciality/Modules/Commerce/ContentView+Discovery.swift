@@ -973,8 +973,8 @@ extension ContentView {
 
     @ViewBuilder
     var homeFavoritesShelf: some View {
-        if !favoriteProducts.isEmpty || !reorderPrompts.isEmpty {
-            let shelfItemCount = favoriteProducts.count + reorderPrompts.count
+        if !favoriteProducts.isEmpty || !reorderPrompts.isEmpty || !coffeeLotRecommendations.isEmpty {
+            let shelfItemCount = favoriteProducts.count + reorderPrompts.count + coffeeLotRecommendations.count
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center, spacing: 10) {
@@ -1040,6 +1040,20 @@ extension ContentView {
 
                                     if let recommendation = orderBasedRecommendation {
                                         orderRecommendationCard(source: recommendation.source, recommended: recommendation.recommended)
+                                    }
+                                }
+                            }
+                        }
+
+                        if !coffeeLotRecommendations.isEmpty {
+                            personalizedShelfSection(
+                                title: "From your coffee library",
+                                detail: "Reorder the same lot when it is available, or use the closest current replacement.",
+                                systemImage: "shippingbox.fill"
+                            ) {
+                                VStack(spacing: 10) {
+                                    ForEach(coffeeLotRecommendations.prefix(3)) { recommendation in
+                                        coffeeLotRecommendationCard(recommendation)
                                     }
                                 }
                             }
@@ -1327,6 +1341,32 @@ extension ContentView {
                 .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    func coffeeLotRecommendationCard(_ recommendation: CoffeeLotRecommendation) -> some View {
+        HStack(spacing: 14) {
+            ProductThumbnail(imageURL: recommendation.product.imageURL, size: 72, cornerRadius: 16)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(recommendation.exact ? "Reorder \(recommendation.lot.name)" : "Closest replacement for \(recommendation.lot.name)")
+                    .font(titleFont(size: 16)).foregroundColor(primaryTextColor)
+                Text("\(customerFacingProductName(for: recommendation.product)) · \(recommendation.reason)")
+                    .font(bodyFont(size: 12)).foregroundColor(secondaryTextColor)
+            }
+            Spacer()
+            Button {
+                if recommendation.product.hasVariantChoices {
+                    recordRecentlyViewed(recommendation.product)
+                    selectedProduct = recommendation.product
+                } else {
+                    addToCart(product: recommendation.product)
+                }
+            } label: {
+                Image(systemName: recommendation.product.hasVariantChoices ? "slider.horizontal.3" : "cart.badge.plus")
+                    .frame(width: 38, height: 38).background(Color(hex: 0xC8965A)).clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14).background(cardFillColor).clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     func orderRecommendationCard(source: Product, recommended: Product) -> some View {

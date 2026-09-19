@@ -2,6 +2,19 @@ import Testing
 @testable import Talla_Speciality
 
 struct CoffeeBagLabelParserTests {
+    @Test func extractsLabelledRoastDatesWithoutGuessingBestBeforeDates() {
+        let labelled = CoffeeBagLabelParser.parse(lines: ["Roasted on: 14 Sep 2026", "Best before: 14 Sep 2027"])
+        let components = Calendar(identifier: .gregorian).dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: labelled.roastDate!)
+        #expect(components.year == 2026)
+        #expect(components.month == 9)
+        #expect(components.day == 14)
+
+        let ambiguous = CoffeeBagLabelParser.parse(lines: ["Roast date: 04/05/2026"])
+        #expect(ambiguous.roastDate == nil)
+        let expiryOnly = CoffeeBagLabelParser.parse(lines: ["Best before: 2027-09-14"])
+        #expect(expiryOnly.roastDate == nil)
+    }
+
     @Test func extractsInlineAndFollowingLineDetails() {
         let result = CoffeeBagLabelParser.parse(lines: [
             "TALLA SPECIALITY ROASTERY",

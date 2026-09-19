@@ -242,6 +242,18 @@ extension ContentView {
                 .background(elevatedSurfaceColor)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
+            if !coffeeData.inventory().isEmpty {
+                Picker("Coffee bag", selection: $selectedJournalCoffeeID) {
+                    Text("Do not deduct a bag").tag(nil as UUID?)
+                    ForEach(coffeeData.inventory().filter { $0.remainingQuantityGrams > 0 }) { coffee in
+                        Text("\(coffee.productName) · \(coffee.remainingQuantityGrams, specifier: "%.0f") g")
+                            .tag(Optional(coffee.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("journal.coffee-bag")
+            }
+
             if let journalBrewDetailLine {
                 Text(journalBrewDetailLine)
                     .font(labelFont(size: 10, weight: .bold))
@@ -603,6 +615,8 @@ extension ContentView {
             let baseURL = (Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String).flatMap(URL.init(string:))
             if !token.isEmpty, let baseURL {
                 try await coffeeData.synchronize(ownerID: email, bearerToken: token, baseURL: baseURL)
+                mergeSyncedSavedCarts()
+                restoreSyncedActiveCart()
             }
         } catch {
             // Keep the local cache available while offline and retry on the next activation.
@@ -610,10 +624,24 @@ extension ContentView {
     }
 
     @MainActor
+    func mergeSyncedSavedCarts() {
+        let remote: [SavedCart] = coffeeData.records(SavedCart.self, entity: "savedCart")
+        guard !remote.isEmpty else { return }
+        var merged = Dictionary(uniqueKeysWithValues: savedCarts.map { ($0.id, $0) })
+        remote.forEach { merged[$0.id] = $0 }
+        persistSavedCarts(merged.values.sorted { $0.createdAt > $1.createdAt })
+    }
+
+    @MainActor
     func applyCustomerLibrary(_ library: CustomerLibraryPayload) {
         savedFavoriteProductIDs = Array(Set(library.favorites)).sorted().joined(separator: ",")
         savedRecentlyViewedProductIDs = Array(library.recentlyViewed.prefix(20)).joined(separator: ",")
-        persistCoffeeJournalEntries(Array(library.brewJournal.prefix(20)))
+        for entry in library.brewJournal where !brewJournalEntries.contains(where: { $0.id == entry.id }) {
+            if let data = try? JSONEncoder().encode(entry), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                try? coffeeData.saveEnvelope(entityType: "brewSession", id: entry.id, jsonObject: object)
+            }
+        }
+        try? coffeeData.commitPendingCoffeeChanges()
         customerLibraryCacheOwnerEmail = customerProfile?.email.lowercased() ?? customerLibraryCacheOwnerEmail
     }
 
@@ -640,7 +668,7 @@ extension ContentView {
             createdAt: ISO8601DateFormatter().string(from: Date())
         )
 
-        persistCoffeeJournalEntries(Array(([entry] + brewJournalEntries).prefix(20)))
+        persistCoffeeJournalEntries([entry] + brewJournalEntries)
         try? coffeeData.recordCompletedBrew(
             id: entry.id,
             title: entry.title,
@@ -650,6 +678,7 @@ extension ContentView {
             durationSeconds: entry.brewTimeSeconds,
             rating: entry.rating,
             notes: entry.notes,
+            purchasedCoffeeID: selectedJournalCoffeeID,
             ownerID: customerProfile?.email.lowercased(),
             samples: pendingBrewSamples
         )
@@ -666,6 +695,7 @@ extension ContentView {
             Task { _ = try? await AccountService.saveBrewJournal(entry) }
         }
         journalTitleInput = ""
+        selectedJournalCoffeeID = nil
         journalNotesInput = ""
         clearJournalBrewDetails()
         showToast(message: AppLocalization.text("journal_saved_toast", fallback: "Coffee note saved"))
@@ -775,6 +805,9 @@ extension ContentView {
             process: record.process,
             roast: record.roast,
             grinder: record.grinder,
+            grinderID: record.grinderID,
+            waterProfileID: record.waterProfileID,
+            temperaturePresetID: record.temperaturePresetID,
             filter: record.filter,
             altitudeMeters: record.altitudeMeters,
             tastingNotes: record.tastingNotes,

@@ -582,6 +582,9 @@ struct ContentView: View {
 
             let name: String
             let quantity: Int
+            let productTitle: String?
+            let variantTitle: String?
+            let variantId: String?
         }
 
         let id: String
@@ -661,21 +664,6 @@ struct ContentView: View {
         let status: String
         let createdAt: String
         let expiresAt: String
-    }
-
-    struct SavedCart: Codable, Identifiable {
-        struct Item: Codable, Identifiable {
-            var id: String { productID }
-
-            let productID: String
-            let productName: String
-            let quantity: Int
-        }
-
-        let id: UUID
-        let name: String
-        let items: [Item]
-        let createdAt: String
     }
 
     struct StockAlertRecord: Codable, Identifiable {
@@ -796,6 +784,9 @@ struct ContentView: View {
         let process: String?
         let roast: String?
         let grinder: String?
+        let grinderID: UUID?
+        let waterProfileID: UUID?
+        let temperaturePresetID: UUID?
         let filter: String?
         let altitudeMeters: Int?
         let tastingNotes: String?
@@ -823,19 +814,6 @@ struct ContentView: View {
         let favorites: [String]
         let recentlyViewed: [String]
         let brewJournal: [BrewJournalEntry]
-    }
-
-    struct ReorderPrompt {
-        let order: AccountOrder
-        let product: Product
-        let daysAgo: Int
-    }
-
-    struct CoffeePassportOrigin: Identifiable, Hashable {
-        let id: String
-        let title: String
-        let detail: String
-        let symbol: String
     }
 
     enum AccountAuthMode: String {
@@ -1010,6 +988,7 @@ struct ContentView: View {
     @AppStorage("customerLibrary.cacheOwnerEmail") var customerLibraryCacheOwnerEmail = ""
     @AppStorage("tasteMemory.saved") var savedTasteMemory = ""
     @AppStorage("carts.saved") var savedCartsPayload = ""
+    @State var selectedJournalCoffeeID: UUID?
     @AppStorage("app.language") var savedAppLanguage = AppLanguage.system.rawValue
     @AppStorage("shortcut.destination") var shortcutDestination = ""
     @AppStorage("shortcut.searchQuery") var shortcutSearchQuery = ""
@@ -1957,6 +1936,14 @@ struct ContentView: View {
         return prompts
     }
 
+    var coffeeLotRecommendations: [CoffeeLotRecommendation] {
+        coffeeData.beanLots().compactMap { lot in
+            coffeeData.recommendation(for: lot, in: products).map {
+                CoffeeLotRecommendation(lot: lot, product: $0.product, exact: $0.exact, reason: $0.reason)
+            }
+        }
+    }
+
     var reorderPrompt: ReorderPrompt? {
         reorderPrompts.first
     }
@@ -2574,6 +2561,9 @@ struct ContentView: View {
         }
         .onChange(of: savedCartsPayload) { _, _ in
             syncWidgetSharedState(reload: true)
+        }
+        .onChange(of: cartItems.map { "\($0.id):\($0.quantity)" }.joined(separator: "|")) { _, _ in
+            persistActiveCartForSync()
         }
         .onChange(of: savedAppLanguage) { _, _ in
             syncWidgetSharedState(reload: true)

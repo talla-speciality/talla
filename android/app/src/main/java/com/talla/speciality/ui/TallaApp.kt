@@ -136,6 +136,8 @@ import com.talla.speciality.data.CoffeeEquipment
 import com.talla.speciality.data.EquipmentCalibration
 import com.talla.speciality.data.MaintenanceEvent
 import com.talla.speciality.data.EquipmentType
+import com.talla.speciality.data.WaterProfile
+import com.talla.speciality.data.TemperaturePreset
 import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.Product
 import com.talla.speciality.data.ScaleFamily
@@ -290,9 +292,14 @@ fun TallaApp(
                 equipment = state.coffeeEquipment,
                 calibrations = state.coffeeCalibrations,
                 maintenance = state.coffeeMaintenance,
+                waterProfiles = state.waterProfiles,
+                temperaturePresets = state.temperaturePresets,
                 conflicts = state.coffeeConflicts,
                 onAddCoffee = viewModel::addPurchasedCoffee,
                 onUpdateRemaining = viewModel::updateRemainingCoffee,
+                onMarkOpened = viewModel::markCoffeeOpened,
+                onSaveWaterProfile = viewModel::saveWaterProfile,
+                onSaveTemperaturePreset = viewModel::saveTemperaturePreset,
                 onSaveEquipment = viewModel::saveCoffeeEquipment,
                 onSaveCalibration = viewModel::saveCoffeeCalibration,
                 onSaveMaintenance = viewModel::saveCoffeeMaintenance,
@@ -951,9 +958,14 @@ private fun BrewingScreen(
     equipment: List<CoffeeEquipment>,
     calibrations: List<EquipmentCalibration>,
     maintenance: List<MaintenanceEvent>,
+    waterProfiles: List<WaterProfile>,
+    temperaturePresets: List<TemperaturePreset>,
     conflicts: List<CoffeeConflict>,
     onAddCoffee: (String, Double, Long?) -> Unit,
     onUpdateRemaining: (String, Double) -> Unit,
+    onMarkOpened: (String) -> Unit,
+    onSaveWaterProfile: (String, Double, Double) -> Unit,
+    onSaveTemperaturePreset: (String, Double) -> Unit,
     onSaveEquipment: (String?, EquipmentType, String, String?, String?) -> Unit,
     onSaveCalibration: (String?, String, String, Double?, String?, String?) -> Unit,
     onSaveMaintenance: (String?, String, String, String?) -> Unit,
@@ -1010,9 +1022,14 @@ private fun BrewingScreen(
                 equipment = equipment,
                 calibrations = calibrations,
                 maintenance = maintenance,
+                waterProfiles = waterProfiles,
+                temperaturePresets = temperaturePresets,
                 conflicts = conflicts,
                 onAddCoffee = onAddCoffee,
                 onUpdateRemaining = onUpdateRemaining,
+                onMarkOpened = onMarkOpened,
+                onSaveWaterProfile = onSaveWaterProfile,
+                onSaveTemperaturePreset = onSaveTemperaturePreset,
                 onSaveEquipment = onSaveEquipment,
                 onSaveCalibration = onSaveCalibration,
                 onSaveMaintenance = onSaveMaintenance,
@@ -1110,9 +1127,14 @@ internal fun CoffeeInventoryCard(
     equipment: List<CoffeeEquipment>,
     calibrations: List<EquipmentCalibration>,
     maintenance: List<MaintenanceEvent>,
+    waterProfiles: List<WaterProfile>,
+    temperaturePresets: List<TemperaturePreset>,
     conflicts: List<CoffeeConflict>,
     onAddCoffee: (String, Double, Long?) -> Unit,
     onUpdateRemaining: (String, Double) -> Unit,
+    onMarkOpened: (String) -> Unit,
+    onSaveWaterProfile: (String, Double, Double) -> Unit,
+    onSaveTemperaturePreset: (String, Double) -> Unit,
     onSaveEquipment: (String?, EquipmentType, String, String?, String?) -> Unit,
     onSaveCalibration: (String?, String, String, Double?, String?, String?) -> Unit,
     onSaveMaintenance: (String?, String, String, String?) -> Unit,
@@ -1139,6 +1161,11 @@ internal fun CoffeeInventoryCard(
     var maintenanceNotes by remember { mutableStateOf("") }
     var equipmentMenuExpanded by remember { mutableStateOf(false) }
     var typeMenuExpanded by remember { mutableStateOf(false) }
+    var waterName by remember { mutableStateOf("") }
+    var hardness by remember { mutableStateOf("70") }
+    var alkalinity by remember { mutableStateOf("40") }
+    var temperatureName by remember { mutableStateOf("") }
+    var temperature by remember { mutableStateOf("93") }
     LaunchedEffect(equipment) { if (equipmentId == null) equipmentId = equipment.firstOrNull()?.id }
     Card(shape = RoundedCornerShape(24.dp)) {
         Column(
@@ -1180,7 +1207,9 @@ internal fun CoffeeInventoryCard(
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(coffee.productName, fontWeight = FontWeight.Bold)
                     Text("${coffee.remainingQuantityGrams.toInt()} g remaining", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${coffee.estimatedBrews()} estimated brews", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (coffee.openedAt == null) TextButton(onClick = { onMarkOpened(coffee.id) }) { Text("Mark opened") }
                         TextButton(
                             onClick = { onUpdateRemaining(coffee.id, (coffee.remainingQuantityGrams - 5).coerceAtLeast(0.0)) },
                             modifier = Modifier.testTag("coffee.inventory.consume.${coffee.id}"),
@@ -1190,6 +1219,25 @@ internal fun CoffeeInventoryCard(
                 }
                 HorizontalDivider()
             }
+
+            Text("Water and temperature", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(waterName, { waterName = it }, Modifier.fillMaxWidth(), label = { Text("Water profile name") }, singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(hardness, { hardness = it }, Modifier.weight(1f), label = { Text("Hardness ppm") }, singleLine = true)
+                OutlinedTextField(alkalinity, { alkalinity = it }, Modifier.weight(1f), label = { Text("Alkalinity ppm") }, singleLine = true)
+            }
+            Button(onClick = {
+                val h = hardness.toDoubleOrNull(); val a = alkalinity.toDoubleOrNull()
+                if (waterName.isNotBlank() && h != null && a != null) { onSaveWaterProfile(waterName, h, a); waterName = "" }
+            }) { Text("Save water profile") }
+            waterProfiles.forEach { Text("${it.name} · ${it.hardnessPPM.toInt()}/${it.alkalinityPPM.toInt()} ppm") }
+            OutlinedTextField(temperatureName, { temperatureName = it }, Modifier.fillMaxWidth(), label = { Text("Temperature preset name") }, singleLine = true)
+            OutlinedTextField(temperature, { temperature = it }, Modifier.fillMaxWidth(), label = { Text("Temperature °C") }, singleLine = true)
+            Button(onClick = {
+                val c = temperature.toDoubleOrNull()
+                if (temperatureName.isNotBlank() && c != null) { onSaveTemperaturePreset(temperatureName, c); temperatureName = "" }
+            }) { Text("Save temperature preset") }
+            temperaturePresets.forEach { Text("${it.name} · ${it.celsius.toInt()} °C") }
 
             Text("Equipment", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1215,7 +1263,7 @@ internal fun CoffeeInventoryCard(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(item.name, fontWeight = FontWeight.Bold)
-                        Text(listOf(item.type.name.lowercase().replaceFirstChar(Char::uppercase), item.manufacturer, item.model).filterNot { it.isNullOrBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                        Text(listOf(item.type.name.lowercase().replaceFirstChar(Char::uppercase), item.manufacturer, item.model, item.burrSet).filterNot { it.isNullOrBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                     }
                     TextButton(onClick = { equipmentId = item.id; equipmentType = item.type; equipmentName = item.name; manufacturer = item.manufacturer.orEmpty(); model = item.model.orEmpty() }) { Text("Edit") }
                     IconButton(onClick = { onDeleteEquipment(item.id) }, modifier = Modifier.testTag("coffee.equipment.delete.${item.id}")) { Icon(Icons.Default.Delete, "Delete equipment") }

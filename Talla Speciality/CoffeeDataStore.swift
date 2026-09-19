@@ -198,7 +198,9 @@ final class CoffeeDataStore: ObservableObject {
     }
 
     func saveEnvelope(entityType: String, id: UUID, jsonObject: [String: Any], deletedAt: Date? = nil) throws {
-        let data = try JSONSerialization.data(withJSONObject: jsonObject, options: [.sortedKeys])
+        var identifiedObject = jsonObject
+        identifiedObject["id"] = id.uuidString.lowercased()
+        let data = try JSONSerialization.data(withJSONObject: identifiedObject, options: [.sortedKeys])
         let compoundID = "\(entityType):\(id.uuidString.lowercased())"
         let descriptor = FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.compoundID == compoundID })
         if let existing = try context.fetch(descriptor).first {
@@ -286,7 +288,7 @@ final class CoffeeDataStore: ObservableObject {
                     return "\(type):\(id.lowercased())"
                 })
                 for record in responseJSON["records"] as? [[String: Any]] ?? [] {
-                    try applyRemote(record, conflicts: conflicts)
+                    try applyRemote(record, conflicts: conflicts, submittedChanges: changes)
                 }
                 cursor.cursor = responseJSON["cursor"] as? String ?? cursor.cursor
                 cursor.lastSyncedAt = .now
@@ -392,7 +394,7 @@ final class CoffeeDataStore: ObservableObject {
         let value = CoffeeSyncCursor(ownerID: ownerID); context.insert(value); return value
     }
 
-    private func applyRemote(_ record: [String: Any], conflicts: Set<String>) throws {
+    private func applyRemote(_ record: [String: Any], conflicts: Set<String>, submittedChanges: [[String: Any]]) throws {
         guard let type = record["entityType"] as? String, let idString = record["id"] as? String,
               let id = UUID(uuidString: idString), let payload = record["payload"] as? [String: Any] else { return }
         let key = "\(type):\(idString.lowercased())"
@@ -400,6 +402,13 @@ final class CoffeeDataStore: ObservableObject {
         let descriptor = FetchDescriptor<CoffeeSyncEnvelope>(predicate: #Predicate { $0.compoundID == key })
         let envelope = try context.fetch(descriptor).first ?? CoffeeSyncEnvelope(entityType: type, recordID: id, payload: data)
         if envelope.modelContext == nil { context.insert(envelope) }
+        let submitted = submittedChanges.first { ($0["entityType"] as? String) == type && ($0["id"] as? String)?.lowercased() == idString.lowercased() }
+        let submittedData = (submitted?["payload"] as? [String: Any]).flatMap { try? JSONSerialization.data(withJSONObject: $0, options: [.sortedKeys]) }
+        if envelope.dirty && !conflicts.contains(key) && envelope.payload != submittedData {
+            // A local edit made while the request was in flight must be pushed next.
+            envelope.baseRevision = (record["revision"] as? NSNumber)?.int64Value ?? envelope.baseRevision
+            return
+        }
         if conflicts.contains(key) { envelope.conflictedPayload = envelope.payload }
         envelope.payload = data
         envelope.updatedAt = Self.iso.date(from: record["updatedAt"] as? String ?? "") ?? .now

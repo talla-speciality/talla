@@ -5,8 +5,7 @@ const { execFileSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { URL } = require("url");
-const config = require("./config");
+const { URL } = require("url"); const config = require("./config");
 const database = require("./database");
 const benefitGateway = require("./modules/commerce/benefit-gateway");
 const mpgsGateway = require("./modules/commerce/mpgs-gateway");
@@ -21,13 +20,12 @@ const {
     normalizeBrewJournalEntry,
     normalizeCustomerProductIDs
 } = require("./modules/brewing/customer-library");
-const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync");
+const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync"); const { importShopifyCoffeePurchases } = require("./modules/brewing/shopify-coffee-memory");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry");
 const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail");
 const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments");
-const { orderItemOptions } = require("./modules/commerce/order-item-options");
-const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
+const { orderItemOptions } = require("./modules/commerce/order-item-options"); const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
 const {
     defaultCampaignSettings,
     normalizeCampaignSettings,
@@ -4120,8 +4118,9 @@ function shopifyOrderRecord(shopifyOrder, topic = "") {
         ? shopifyOrder.line_items.map((item) => ({
             name: String(item.name || item.title || "Item"),
             ...orderItemOptions({ productTitle: item.title, variantTitle: item.variant_title }),
-            quantity: Number(item.quantity || 1),
-            variantId: item.variant_id ? String(item.variant_id) : null,
+            quantity: Number(item.quantity || 1), productId: item.product_id ? String(item.product_id) : null,
+            variantId: item.variant_id ? String(item.variant_id) : null, grams: Number(item.grams || 0),
+            productType: item.product_type || null, tags: item.tags || [],
             sku: item.sku ? String(item.sku) : null,
             unitPrice: Number.isFinite(Number(item.price)) ? `${currency} ${Number(item.price).toFixed(3)}` : null
         }))
@@ -4147,7 +4146,8 @@ function shopifyAdminOrderRecord(node, fallbackEmail) {
         ...orderItemOptions({ productTitle: item.title, variantTitle: item.variantTitle }),
         quantity: Number(item.quantity || 1),
         sku: item.sku || null,
-        variantId: item.variant?.id || null
+        variantId: item.variant?.id || null, productId: item.variant?.product?.id || null,
+        productType: item.variant?.product?.productType || null, tags: item.variant?.product?.tags || []
     }));
     return {
         id: `shopify_${node.legacyResourceId || node.id || node.name || Date.now()}`,
@@ -6147,7 +6147,7 @@ async function processShopifyOrderWebhook(shopifyOrder, topic = "") {
     if (!recordedOrder) {
         return { recorded: false, awarded: false, reason: "CUSTOMER_ACCOUNT_NOT_FOUND", email: order.email, eazyTallaPaymentId: eazyPayment?.tallaPaymentId || null };
     }
-
+    await importShopifyCoffeePurchases(database, order);
     const award = await awardOrderBeans(order);
     const rewardAwareOrder = await orderPayloadWithRewardState(order.email, recordedOrder);
     return {
@@ -6212,7 +6212,7 @@ async function syncRecentShopifyOrdersForEmail(email) {
                                     variantTitle
                                     quantity
                                     sku
-                                    variant { id }
+                                    variant { id product { id productType tags } }
                                 }
                             }
                         }
@@ -6236,7 +6236,7 @@ async function syncRecentShopifyOrdersForEmail(email) {
         if (!recordedOrder) {
             continue;
         }
-
+        await importShopifyCoffeePurchases(database, order);
         syncedCount += 1;
         if (completedOrderStatuses().has(order.status)) {
             await awardOrderBeans(order);

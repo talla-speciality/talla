@@ -1,6 +1,7 @@
 const allowedEntityTypes = new Set([
     "coffeeLot", "purchasedCoffee", "equipment", "calibration", "recipe",
-    "recipeVersion", "brewSession", "sample", "tasteFeedback", "maintenance"
+    "recipeVersion", "brewSession", "sample", "tasteFeedback", "maintenance",
+    "waterProfile", "temperaturePreset", "doseUsage", "favorite", "savedCart", "activeCart"
 ]);
 
 function normalizeCoffeeChange(value) {

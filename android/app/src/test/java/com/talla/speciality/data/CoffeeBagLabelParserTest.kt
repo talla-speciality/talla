@@ -6,6 +6,14 @@ import org.junit.Test
 
 class CoffeeBagLabelParserTest {
     @Test
+    fun parsesOnlyUnambiguousLabelledRoastDates() {
+        val labelled = CoffeeBagLabelParser.parse(listOf("Roasted on: 14 Sep 2026", "Best before: 14 Sep 2027"))
+        assertTrue(labelled.roastDate != null)
+        assertEquals(null, CoffeeBagLabelParser.parse(listOf("Roast date: 04/05/2026")).roastDate)
+        assertEquals(null, CoffeeBagLabelParser.parse(listOf("Best before: 2027-09-14")).roastDate)
+    }
+
+    @Test
     fun parsesLabelledEnglishCoffeeBag() {
         val result = CoffeeBagLabelParser.parse(
             listOf(

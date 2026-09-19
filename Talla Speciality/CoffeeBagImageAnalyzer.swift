@@ -11,12 +11,13 @@ struct CoffeeBagScanResult: Equatable {
     var variety: String?
     var process: String?
     var tastingNotes: String?
+    var roastDate: Date?
 
     var populatedFieldCount: Int {
         [name, roaster, origin, region, altitude, variety, process, tastingNotes]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-            .count
+            .count + (roastDate == nil ? 0 : 1)
     }
 }
 
@@ -67,6 +68,7 @@ enum CoffeeBagImageAnalyzer {
 
 enum CoffeeBagLabelParser {
     private static let labelGroups: [(key: String, labels: [String])] = [
+        ("roastDate", ["roast date", "roasted on", "roasted", "تاريخ التحميص"]),
         ("name", ["coffee name", "coffee", "lot name", "lot", "اسم القهوة", "القهوة", "اسم المحصول", "المحصول"]),
         ("roaster", ["roasted by", "roaster", "roastery", "المحمصة", "تحميص"]),
         ("origin", ["country of origin", "origin", "country", "بلد المنشأ", "المنشأ", "الدولة"]),
@@ -97,6 +99,7 @@ enum CoffeeBagLabelParser {
             .filter { !$0.isEmpty }
 
         var result = CoffeeBagScanResult()
+        result.roastDate = value(for: "roastDate", in: lines).flatMap(parseRoastDate)
         result.name = value(for: "name", in: lines)
         result.roaster = value(for: "roaster", in: lines)
         result.origin = value(for: "origin", in: lines) ?? inferredCountry(in: lines)
@@ -108,6 +111,25 @@ enum CoffeeBagLabelParser {
 
         inferHeaderFields(lines: lines, result: &result)
         return result
+    }
+
+    // Require a roast label and an unambiguous date. Never interpret best-before dates.
+    nonisolated static func parseRoastDate(_ raw: String) -> Date? {
+        let text = raw.map { $0.wholeNumberValue.map(String.init) ?? String($0) }.joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.isLenient = false
+        var formats = ["yyyy-MM-dd", "yyyy/MM/dd", "d MMM yyyy", "d MMMM yyyy", "MMM d, yyyy", "MMMM d, yyyy"]
+        let pieces = text.split(whereSeparator: { "/-.".contains($0) }).compactMap { Int($0) }
+        if pieces.count == 3, pieces[0] > 12, pieces[0] <= 31 { formats += ["dd/MM/yyyy", "dd-MM-yyyy", "dd.MM.yyyy"] }
+        if pieces.count == 3, pieces[1] > 12, pieces[1] <= 31 { formats += ["MM/dd/yyyy", "MM-dd-yyyy"] }
+        return formats.compactMap { format -> Date? in
+            formatter.dateFormat = format
+            return formatter.date(from: text)
+        }.first
     }
 
     private static func value(for key: String, in lines: [String]) -> String? {

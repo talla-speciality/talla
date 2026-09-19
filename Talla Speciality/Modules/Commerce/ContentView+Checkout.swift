@@ -3259,6 +3259,41 @@ extension ContentView {
         }
 
         savedCartsPayload = json
+        let activeIDs = Set(carts.map(\.id))
+        for cart in carts {
+            guard let cartData = try? JSONEncoder().encode(cart),
+                  let object = try? JSONSerialization.jsonObject(with: cartData) as? [String: Any] else { continue }
+            try? coffeeData.saveEnvelope(entityType: "savedCart", id: cart.id, jsonObject: object)
+        }
+        for object in coffeeData.legacyObjects(entityType: "savedCart") {
+            guard let rawID = object["id"] as? String, let id = UUID(uuidString: rawID), !activeIDs.contains(id) else { continue }
+            try? coffeeData.tombstone(entityType: "savedCart", id: id)
+        }
+        try? coffeeData.commitPendingCoffeeChanges()
+    }
+
+    func persistActiveCartForSync() {
+        let id = CoffeeDataStore.stableID("active-cart")
+        let record = SyncedActiveCart(
+            id: id,
+            items: cartItems.map { .init(productID: $0.product.id, variantID: $0.variant.id, quantity: $0.quantity) },
+            updatedAt: ISO8601DateFormatter().string(from: .now)
+        )
+        try? coffeeData.saveRecord(record, id: id, entity: "activeCart")
+    }
+
+    func restoreSyncedActiveCart() {
+        guard cartItems.isEmpty,
+              let record = coffeeData.records(SyncedActiveCart.self, entity: "activeCart").first else { return }
+        cartItems = record.items.compactMap { item in
+            guard let product = products.first(where: { $0.id == item.productID }),
+                  let variant = product.variants.first(where: { $0.id == item.variantID }),
+                  product.isAvailableForSale, variant.isAvailableForSale else { return nil }
+            return CartItem(
+                id: cartItemIdentifier(productID: product.id, variantID: variant.id),
+                product: product, variant: variant, quantity: max(item.quantity, 1)
+            )
+        }
     }
 
     func saveCurrentCart() {
@@ -3865,6 +3900,11 @@ extension ContentView {
                 await loadAvailableVouchers(for: profile.email)
             }
             orderHistory = checkoutStart.orders
+            try? coffeeData.importPurchasedCoffee(
+                from: orderHistory,
+                catalog: products,
+                ownerID: customerProfile?.email.lowercased()
+            )
             preparePostPaymentContext(orderID: checkoutStart.orderID, method: selectedPaymentMethod)
 
             switch selectedPaymentMethod.route {

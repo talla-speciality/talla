@@ -9,6 +9,13 @@ struct CoffeeInventoryRecord: Identifiable {
     let roastDate: Date?
     let initialQuantityGrams: Double
     let remainingQuantityGrams: Double
+    let openedAt: Date?
+    let usedQuantityGrams: Double
+
+    func estimatedBrews(doseGrams: Double = 18) -> Int {
+        guard doseGrams > 0 else { return 0 }
+        return max(0, Int((remainingQuantityGrams / doseGrams).rounded(.down)))
+    }
 }
 
 struct CoffeeEquipmentRecord: Identifiable {
@@ -17,6 +24,7 @@ struct CoffeeEquipmentRecord: Identifiable {
     let name: String
     let manufacturer: String
     let model: String
+    let burrSet: String
 }
 
 struct CoffeeCalibrationRecord: Identifiable {
@@ -52,7 +60,8 @@ extension CoffeeDataStore {
                   let kind = (row["kind"] as? String).flatMap(EquipmentKind.init(rawValue:)) else { return nil }
             return CoffeeEquipmentRecord(
                 id: id, kind: kind, name: row["name"] as? String ?? AppLocalization.text("library_equipment", fallback: "Equipment"),
-                manufacturer: row["manufacturer"] as? String ?? "", model: row["model"] as? String ?? ""
+                manufacturer: row["manufacturer"] as? String ?? "", model: row["model"] as? String ?? "",
+                burrSet: row["burrSet"] as? String ?? ""
             )
         }
     }
@@ -81,7 +90,7 @@ extension CoffeeDataStore {
         }
     }
 
-    func saveEquipment(recordID: UUID? = nil, kind: EquipmentKind, name: String, manufacturer: String, model: String, ownerID: String? = nil) throws {
+    func saveEquipment(recordID: UUID? = nil, kind: EquipmentKind, name: String, manufacturer: String, model: String, burrSet: String = "", ownerID: String? = nil) throws {
         let id = recordID ?? UUID()
         if let recordID {
             let descriptor = FetchDescriptor<CoffeeEquipment>(predicate: #Predicate { $0.id == recordID })
@@ -94,7 +103,7 @@ extension CoffeeDataStore {
         }
         try saveEnvelope(entityType: "equipment", id: id, jsonObject: [
             "id": id.uuidString, "kind": kind.rawValue, "name": name,
-            "manufacturer": manufacturer, "model": model
+            "manufacturer": manufacturer, "model": model, "burrSet": burrSet
         ])
         try container.mainContext.save(); notifyCoffeeChange()
     }
@@ -137,6 +146,8 @@ extension CoffeeDataStore {
                 roastDate: (row["roastDate"] as? String).flatMap(Self.coffeeISO.date(from:)),
                 initialQuantityGrams: (row["initialQuantityGrams"] as? NSNumber)?.doubleValue ?? 0,
                 remainingQuantityGrams: (row["remainingQuantityGrams"] as? NSNumber)?.doubleValue ?? 0
+                ,openedAt: (row["openedAt"] as? String).flatMap(Self.coffeeISO.date(from:)),
+                usedQuantityGrams: usedGrams(id)
             )
         }
     }
@@ -144,11 +155,22 @@ extension CoffeeDataStore {
     func addPurchasedCoffee(
         name: String,
         roaster: String,
+        origin: String = "",
+        region: String = "",
+        variety: String = "",
+        process: String = "",
+        roastLevel: String = "",
+        tastingNotes: String = "",
         roastDate: Date?,
         quantityGrams: Double,
         ownerID: String? = nil
     ) throws {
-        let lot = CoffeeLot(name: name, roaster: roaster, ownerID: ownerID)
+        let lot = CoffeeLot(
+            name: name, roaster: roaster, origin: origin.nilIfBlank,
+            producer: region.nilIfBlank, variety: variety.nilIfBlank,
+            process: process.nilIfBlank, roastLevel: roastLevel.nilIfBlank,
+            notes: tastingNotes.nilIfBlank, ownerID: ownerID
+        )
         let purchase = PurchasedCoffee(
             lotID: lot.id,
             productName: name,
@@ -163,7 +185,13 @@ extension CoffeeDataStore {
         try saveEnvelope(entityType: "coffeeLot", id: lot.id, jsonObject: [
             "id": lot.id.uuidString,
             "name": name,
-            "roaster": roaster
+            "roaster": roaster,
+            "origin": origin,
+            "region": region,
+            "variety": variety,
+            "process": process,
+            "roastLevel": roastLevel,
+            "tastingNotes": tastingNotes
         ])
         try saveEnvelope(entityType: "purchasedCoffee", id: purchase.id, jsonObject: [
             "id": purchase.id.uuidString,
@@ -222,14 +250,20 @@ extension CoffeeDataStore {
         durationSeconds: Int?,
         rating: Int,
         notes: String,
+        purchasedCoffeeID: UUID? = nil,
         ownerID: String? = nil,
         samples: [CoffeeSampleInput] = []
     ) throws {
         let kind: BrewSessionKind = method.localizedCaseInsensitiveContains("espresso") ? .espresso : .filter
         let startedAt = Date().addingTimeInterval(-Double(durationSeconds ?? 0))
+        let availablePurchases = inventory().filter { $0.remainingQuantityGrams > 0 }
+        let activePurchase = purchasedCoffeeID.flatMap { id in availablePurchases.first { $0.id == id } }
+            ?? availablePurchases.filter { $0.openedAt != nil }.sorted { $0.openedAt! > $1.openedAt! }.first
+            ?? (availablePurchases.count == 1 ? availablePurchases.first : nil)
         let session = CoffeeBrewSession(
             id: id,
             kind: kind,
+            purchasedCoffeeID: activePurchase?.id,
             startedAt: startedAt,
             endedAt: .now,
             doseGrams: coffeeGrams,
@@ -261,6 +295,10 @@ extension CoffeeDataStore {
                 "value": captured.value,
                 "unit": captured.unit
             ])
+        }
+        if let purchase = activePurchase, let coffeeGrams, coffeeGrams > 0 {
+            try recordDose(sessionID: id, purchaseID: purchase.id, grams: coffeeGrams)
+            try updateRemainingQuantity(recordID: purchase.id, remainingGrams: purchase.remainingQuantityGrams - coffeeGrams)
         }
         try container.mainContext.save()
         notifyCoffeeChange()
@@ -300,6 +338,12 @@ struct CoffeeLibraryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var roaster = ""
+    @State private var origin = ""
+    @State private var region = ""
+    @State private var variety = ""
+    @State private var process = ""
+    @State private var roastLevel = ""
+    @State private var tastingNotes = ""
     @State private var quantity = "250"
     @State private var roastDate = Date()
     @State private var hasRoastDate = true
@@ -308,6 +352,7 @@ struct CoffeeLibraryView: View {
     @State private var equipmentName = ""
     @State private var equipmentManufacturer = ""
     @State private var equipmentModel = ""
+    @State private var equipmentBurrSet = ""
     @State private var calibrationSetting = ""
     @State private var calibrationID: UUID?
     @State private var calibrationValue = ""
@@ -334,6 +379,12 @@ struct CoffeeLibraryView: View {
                         .accessibilityIdentifier("coffee.inventory.name")
                     TextField(AppLocalization.text("roaster", fallback: "Roaster"), text: $roaster)
                         .textFieldStyle(.roundedBorder)
+                    TextField("Origin", text: $origin).textFieldStyle(.roundedBorder)
+                    TextField("Region or producer", text: $region).textFieldStyle(.roundedBorder)
+                    TextField("Variety", text: $variety).textFieldStyle(.roundedBorder)
+                    TextField("Process", text: $process).textFieldStyle(.roundedBorder)
+                    TextField("Roast level", text: $roastLevel).textFieldStyle(.roundedBorder)
+                    TextField("Tasting notes", text: $tastingNotes).textFieldStyle(.roundedBorder)
                     TextField(AppLocalization.text("quantity_grams", fallback: "Quantity (g)"), text: $quantity)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
@@ -350,6 +401,15 @@ struct CoffeeLibraryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(coffee.productName).font(.headline)
                     if !coffee.roaster.isEmpty { Text(coffee.roaster).font(.subheadline) }
+                    if let openedAt = coffee.openedAt {
+                        Text("Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.caption)
+                    } else {
+                        Button("Mark opened today") { try? coffeeData.markOpened(coffee.id, date: .now) }
+                            .buttonStyle(.borderless)
+                    }
+                    Text("\(coffee.estimatedBrews()) estimated brews · \(coffee.usedQuantityGrams, specifier: "%.0f") g logged")
+                        .font(.caption)
                     Stepper(
                         "\(Int(coffee.remainingQuantityGrams.rounded())) g remaining",
                         value: Binding(
@@ -366,6 +426,8 @@ struct CoffeeLibraryView: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityIdentifier("offline.cached-brew")
             }
+
+            CoffeeMemoryProfilesView()
 
             equipmentSection
             calibrationSection
@@ -436,13 +498,16 @@ struct CoffeeLibraryView: View {
                 TextField(AppLocalization.text("library_name", fallback: "Name"), text: $equipmentName).textFieldStyle(.roundedBorder).accessibilityIdentifier("coffee.equipment.name")
                 TextField(AppLocalization.text("library_manufacturer", fallback: "Manufacturer"), text: $equipmentManufacturer).textFieldStyle(.roundedBorder)
                 TextField(AppLocalization.text("library_model", fallback: "Model"), text: $equipmentModel).textFieldStyle(.roundedBorder)
+                if equipmentKind == .grinder {
+                    TextField("Burr set (size, geometry, coating)", text: $equipmentBurrSet).textFieldStyle(.roundedBorder)
+                }
                 Button(equipmentID == nil ? AppLocalization.text("library_add_equipment", fallback: "Add equipment") : AppLocalization.text("library_save_equipment", fallback: "Save equipment"), action: saveEquipment)
                     .buttonStyle(.borderedProminent).accessibilityIdentifier("coffee.equipment.save")
                 ForEach(coffeeData.equipmentRecords()) { equipment in
                     HStack {
                         VStack(alignment: .leading) {
                             Text(equipment.name).font(.headline)
-                            Text([AppLocalization.text("library_\(equipment.kind.rawValue)", fallback: equipment.kind.rawValue.capitalized), equipment.manufacturer, equipment.model].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption)
+                            Text([AppLocalization.text("library_\(equipment.kind.rawValue)", fallback: equipment.kind.rawValue.capitalized), equipment.manufacturer, equipment.model, equipment.burrSet].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption)
                         }
                         Spacer()
                         Button(AppLocalization.text("library_edit", fallback: "Edit")) { beginEditing(equipment) }
@@ -506,16 +571,17 @@ struct CoffeeLibraryView: View {
     private func beginEditing(_ equipment: CoffeeEquipmentRecord) {
         equipmentID = equipment.id; equipmentKind = equipment.kind; equipmentName = equipment.name
         equipmentManufacturer = equipment.manufacturer; equipmentModel = equipment.model
+        equipmentBurrSet = equipment.burrSet
     }
 
     private func clearEquipmentEditor() {
-        equipmentID = nil; equipmentName = ""; equipmentManufacturer = ""; equipmentModel = ""
+        equipmentID = nil; equipmentName = ""; equipmentManufacturer = ""; equipmentModel = ""; equipmentBurrSet = ""
     }
 
     private func saveEquipment() {
         guard !equipmentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { errorMessage = AppLocalization.text("library_enter_equipment", fallback: "Enter an equipment name."); return }
         do {
-            try coffeeData.saveEquipment(recordID: equipmentID, kind: equipmentKind, name: equipmentName, manufacturer: equipmentManufacturer, model: equipmentModel)
+            try coffeeData.saveEquipment(recordID: equipmentID, kind: equipmentKind, name: equipmentName, manufacturer: equipmentManufacturer, model: equipmentModel, burrSet: equipmentBurrSet)
             equipmentID = coffeeData.equipmentRecords().first { $0.name == equipmentName }?.id; errorMessage = nil
         } catch { errorMessage = error.localizedDescription }
     }
@@ -572,15 +638,29 @@ struct CoffeeLibraryView: View {
             try coffeeData.addPurchasedCoffee(
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                 roaster: roaster.trimmingCharacters(in: .whitespacesAndNewlines),
+                origin: origin.trimmingCharacters(in: .whitespacesAndNewlines),
+                region: region.trimmingCharacters(in: .whitespacesAndNewlines),
+                variety: variety.trimmingCharacters(in: .whitespacesAndNewlines),
+                process: process.trimmingCharacters(in: .whitespacesAndNewlines),
+                roastLevel: roastLevel.trimmingCharacters(in: .whitespacesAndNewlines),
+                tastingNotes: tastingNotes.trimmingCharacters(in: .whitespacesAndNewlines),
                 roastDate: hasRoastDate ? roastDate : nil,
                 quantityGrams: grams
             )
             name = ""
             roaster = ""
+            origin = ""; region = ""; variety = ""; process = ""; roastLevel = ""; tastingNotes = ""
             quantity = "250"
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

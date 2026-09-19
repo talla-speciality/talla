@@ -31,6 +31,8 @@ import com.talla.speciality.data.CoffeeEquipment
 import com.talla.speciality.data.EquipmentCalibration
 import com.talla.speciality.data.MaintenanceEvent
 import com.talla.speciality.data.EquipmentType
+import com.talla.speciality.data.WaterProfile
+import com.talla.speciality.data.TemperaturePreset
 import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
 import com.talla.speciality.data.ScaleAction
@@ -81,6 +83,8 @@ data class TallaUiState(
     val coffeeEquipment: List<CoffeeEquipment> = emptyList(),
     val coffeeCalibrations: List<EquipmentCalibration> = emptyList(),
     val coffeeMaintenance: List<MaintenanceEvent> = emptyList(),
+    val waterProfiles: List<WaterProfile> = emptyList(),
+    val temperaturePresets: List<TemperaturePreset> = emptyList(),
     val coffeeConflicts: List<CoffeeConflict> = emptyList(),
     val coffeeBagScan: CoffeeBagScanResult? = null,
     val coffeeBagScanning: Boolean = false,
@@ -609,6 +613,24 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         refreshCoffeeDataState(ownerId)
     }
 
+    fun markCoffeeOpened(id: String) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.markOpened(ownerId, id)
+        refreshCoffeeDataState(ownerId)
+    }
+
+    fun saveWaterProfile(name: String, hardness: Double, alkalinity: Double) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.saveWaterProfile(WaterProfile(name = name.trim(), hardnessPPM = hardness, alkalinityPPM = alkalinity), ownerId)
+        refreshCoffeeDataState(ownerId)
+    }
+
+    fun saveTemperaturePreset(name: String, celsius: Double) {
+        val ownerId = mutableState.value.profile?.id.orEmpty()
+        coffeeData.saveTemperaturePreset(TemperaturePreset(name = name.trim(), celsius = celsius), ownerId)
+        refreshCoffeeDataState(ownerId)
+    }
+
     fun saveCoffeeEquipment(id: String?, type: EquipmentType, name: String, manufacturer: String?, model: String?) {
         val ownerId = mutableState.value.profile?.id.orEmpty()
         coffeeData.saveEquipment(
@@ -717,6 +739,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         runCatching {
             coffeeData.synchronize(profile.id, token)
             refreshCoffeeDataState(profile.id)
+            restoreSyncedCart(profile.id)
         }
     }
 
@@ -724,6 +747,23 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val json = JSONObject()
         state.cart.forEach { (variantId, line) -> json.put(variantId, line.quantity) }
         preferences.edit { putString("cart", json.toString()) }
+        val items = JSONArray()
+        state.cart.values.forEach { line -> items.put(JSONObject()
+            .put("productID", line.product.id).put("variantID", line.variant.id).put("quantity", line.quantity)) }
+        coffeeData.saveActiveCart(state.profile?.id.orEmpty(), items)
+    }
+
+    private fun restoreSyncedCart(ownerId: String) {
+        if (mutableState.value.cart.isNotEmpty()) return
+        val products = mutableState.value.products
+        val restored = coffeeData.activeCart(ownerId).let { items ->
+            (0 until items.length()).mapNotNull { items.optJSONObject(it) }.mapNotNull { item ->
+                val product = products.firstOrNull { it.id == item.optString("productID") } ?: return@mapNotNull null
+                val variant = product.variants.firstOrNull { it.id == item.optString("variantID") && it.available } ?: return@mapNotNull null
+                variant.id to CartLine(product, variant, item.optInt("quantity", 1).coerceAtLeast(1))
+            }.toMap()
+        }
+        if (restored.isNotEmpty()) mutableState.update { it.copy(cart = restored).also(::persistCart) }
     }
 
     private fun loadCartQuantities(): Map<String, Int> = runCatching {
@@ -759,6 +799,8 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                 coffeeEquipment = coffeeData.equipment(ownerId),
                 coffeeCalibrations = coffeeData.calibrations(ownerId),
                 coffeeMaintenance = coffeeData.maintenance(ownerId),
+                waterProfiles = coffeeData.waterProfiles(ownerId),
+                temperaturePresets = coffeeData.temperaturePresets(ownerId),
                 coffeeConflicts = coffeeData.conflicts(ownerId),
             )
         }

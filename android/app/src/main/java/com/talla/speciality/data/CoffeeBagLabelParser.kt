@@ -1,6 +1,11 @@
 package com.talla.speciality.data
 
 import java.text.Normalizer
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.util.Locale
 
 data class CoffeeBagScanResult(
     val name: String? = null,
@@ -11,10 +16,11 @@ data class CoffeeBagScanResult(
     val variety: String? = null,
     val process: String? = null,
     val tastingNotes: String? = null,
+    val roastDate: Long? = null,
 ) {
     val populatedFieldCount: Int
         get() = listOf(name, roaster, origin, region, altitude, variety, process, tastingNotes)
-            .count { !it.isNullOrBlank() }
+            .count { !it.isNullOrBlank() } + if (roastDate == null) 0 else 1
 
     fun journalNotes(): String = listOfNotNull(
         origin?.let { "Origin: $it" },
@@ -28,6 +34,7 @@ data class CoffeeBagScanResult(
 
 object CoffeeBagLabelParser {
     private val labelGroups = mapOf(
+        "roastDate" to listOf("roast date", "roasted on", "roasted", "تاريخ التحميص"),
         "name" to listOf("coffee name", "coffee", "lot name", "lot", "اسم القهوة", "القهوة", "اسم المحصول", "المحصول"),
         "roaster" to listOf("roasted by", "roaster", "roastery", "المحمصة", "تحميص"),
         "origin" to listOf("country of origin", "origin", "country", "بلد المنشأ", "المنشأ", "الدولة"),
@@ -61,6 +68,7 @@ object CoffeeBagLabelParser {
     fun parse(rawLines: List<String>): CoffeeBagScanResult {
         val lines = rawLines.map(::clean).filter(String::isNotEmpty)
         var result = CoffeeBagScanResult(
+            roastDate = value("roastDate", lines)?.let(::parseRoastDate),
             name = value("name", lines),
             roaster = value("roaster", lines),
             origin = value("origin", lines) ?: inferredCountry(lines),
@@ -89,6 +97,20 @@ object CoffeeBagLabelParser {
             })
         }
         return result
+    }
+
+    internal fun parseRoastDate(raw: String): Long? {
+        val text = raw.map { it.digitToIntOrNull()?.toString() ?: it.toString() }.joinToString("").trim()
+        val numeric = text.split(Regex("[/\\-.]")).mapNotNull(String::toIntOrNull)
+        val patterns = mutableListOf("yyyy-MM-dd", "yyyy/MM/dd", "d MMM yyyy", "d MMMM yyyy", "MMM d, yyyy", "MMMM d, yyyy")
+        if (numeric.size == 3 && numeric[0] in 13..31) patterns += listOf("dd/MM/yyyy", "dd-MM-yyyy", "dd.MM.yyyy")
+        if (numeric.size == 3 && numeric[1] in 13..31) patterns += listOf("MM/dd/yyyy", "MM-dd-yyyy")
+        return patterns.firstNotNullOfOrNull { pattern ->
+            try {
+                LocalDate.parse(text, DateTimeFormatter.ofPattern(pattern, Locale.US))
+                    .atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+            } catch (_: DateTimeParseException) { null }
+        }
     }
 
     private fun value(key: String, lines: List<String>): String? {
