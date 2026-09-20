@@ -8123,7 +8123,6 @@ async function adminOperationsSummary() {
             recentRateLimits: []
         };
     }
-
     const totalsResult = await database.query(
         `SELECT
             COUNT(*)::int AS requests_last_hour,
@@ -8133,7 +8132,6 @@ async function adminOperationsSummary() {
          FROM request_logs
          WHERE created_at >= NOW() - INTERVAL '1 hour'`
     );
-
     const errorsResult = await database.query(
         `SELECT id, method, path, status_code, ip_address, duration_ms, user_agent, account_email, created_at
          FROM request_logs
@@ -8141,7 +8139,6 @@ async function adminOperationsSummary() {
          ORDER BY created_at DESC
          LIMIT 10`
     );
-
     const rateLimitedResult = await database.query(
         `SELECT id, method, path, status_code, ip_address, duration_ms, user_agent, account_email, created_at
          FROM request_logs
@@ -8149,7 +8146,6 @@ async function adminOperationsSummary() {
          ORDER BY created_at DESC
          LIMIT 10`
     );
-
     const totals = totalsResult.rows[0] || {};
     return {
         enabled: true,
@@ -8163,7 +8159,6 @@ async function adminOperationsSummary() {
         recentRateLimits: rateLimitedResult.rows.map(requestLogRowToRecord)
     };
 }
-
 async function adminAnalyticsSummary() {
     const [accounts, tasteMemory] = await Promise.all([
         allAccounts(),
@@ -8176,7 +8171,6 @@ async function adminAnalyticsSummary() {
             allVouchersFor(account.email),
             stockAlertsFor(account.email)
         ]);
-
         return {
             id: account.id,
             email: account.email,
@@ -8190,7 +8184,6 @@ async function adminAnalyticsSummary() {
             alerts
         };
     }));
-
     const totalOrders = customers.reduce((sum, customer) => sum + customer.orders.length, 0);
     const pendingOrders = customers.reduce((sum, customer) => (
         sum + customer.orders.filter((order) => !completedOrderStatuses().has(order.status) && order.status !== "Cancelled").length
@@ -8207,41 +8200,21 @@ async function adminAnalyticsSummary() {
     const averagePoints = customers.length > 0
         ? Math.round(customers.reduce((sum, customer) => sum + customer.pointsBalance, 0) / customers.length)
         : 0;
-    const allOrders = customers.flatMap((customer) => customer.orders);
-    const repeatCustomers = customers.filter((customer) => customer.orders.length > 1).length;
-    const coffeeClubOrders = allOrders.filter((order) => normalizeOrderDetails(order.details).coffeeClub);
-    const activeCoffeeClubPlans = coffeeClubOrders.filter((order) => {
-        const status = normalizeOrderDetails(order.details).coffeeClub?.status;
-        return status === "active" || status === "paused";
-    }).length;
-    let telemetryEvents = [];
+    const allOrders = customers.flatMap((customer) => customer.orders), repeatCustomers = customers.filter((customer) => customer.orders.length > 1).length, coffeeClubOrders = allOrders.filter((order) => normalizeOrderDetails(order.details).coffeeClub);
+    const activeCoffeeClubPlans = coffeeClubOrders.filter((order) => ["active", "paused"].includes(normalizeOrderDetails(order.details).coffeeClub?.status)).length; let telemetryEvents = [];
     if (database.isEnabled()) {
-        const result = await database.query(
-            `SELECT event_name, properties FROM telemetry_events WHERE occurred_at >= NOW() - INTERVAL '30 days'`
-        );
+        const result = await database.query(`SELECT event_name, properties FROM telemetry_events WHERE occurred_at >= NOW() - INTERVAL '30 days'`);
         telemetryEvents = result.rows.map((row) => ({ eventName: row.event_name, properties: row.properties || {} }));
     } else {
-        telemetryEvents = (readJSON(telemetryStorePath).events || []).filter((event) => {
-            const occurredAt = Date.parse(event.occurredAt || event.receivedAt || "");
-            return Number.isFinite(occurredAt) && occurredAt >= Date.now() - 30 * 86_400_000;
-        });
+        telemetryEvents = (readJSON(telemetryStorePath).events || []).filter((event) => { const occurredAt = Date.parse(event.occurredAt || event.receivedAt || ""); return Number.isFinite(occurredAt) && occurredAt >= Date.now() - 30 * 86_400_000; });
     }
-    const eventCount = (name) => telemetryEvents.filter((event) => event.eventName === name).length;
-    const checkoutStarted = eventCount("payment_method_selected");
-    const purchasesCompleted = eventCount("purchase_completed");
-    const paymentFailures = eventCount("payment_failed");
-    const checkoutConversionPercent = checkoutStarted > 0 ? Math.round((purchasesCompleted / checkoutStarted) * 100) : 0;
+    const eventCount = (name) => telemetryEvents.filter((event) => event.eventName === name).length, checkoutStarted = eventCount("payment_method_selected"), purchasesCompleted = eventCount("purchase_completed"), paymentFailures = eventCount("payment_failed"), checkoutConversionPercent = checkoutStarted > 0 ? Math.round((purchasesCompleted / checkoutStarted) * 100) : 0;
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    const newCustomersLast7Days = customers.filter((customer) => {
-        const createdAt = new Date(customer.createdAt).getTime();
-        return Number.isFinite(createdAt) && createdAt >= sevenDaysAgo;
-    }).length;
-
+    const newCustomersLast7Days = customers.filter((customer) => { const createdAt = new Date(customer.createdAt).getTime(); return Number.isFinite(createdAt) && createdAt >= sevenDaysAgo; }).length;
     const tierCounts = customers.reduce((accumulator, customer) => {
         accumulator[customer.loyaltyTier] = (accumulator[customer.loyaltyTier] || 0) + 1;
         return accumulator;
     }, {});
-
     const topCustomers = customers
         .slice()
         .sort((lhs, rhs) => rhs.pointsBalance - lhs.pointsBalance)
@@ -8253,7 +8226,6 @@ async function adminAnalyticsSummary() {
             loyaltyTier: customer.loyaltyTier,
             pointsBalance: customer.pointsBalance
         }));
-
     const newestCustomers = customers
         .slice()
         .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime())
@@ -8264,7 +8236,6 @@ async function adminAnalyticsSummary() {
             lastName: customer.lastName,
             createdAt: customer.createdAt
         }));
-
     return {
         totals: {
             customers: customers.length,
@@ -8278,13 +8249,8 @@ async function adminAnalyticsSummary() {
             customersWithTasteMemory,
             averagePoints,
             newCustomersLast7Days,
-            repeatCustomers,
-            repeatPurchaseRatePercent: customersWithOrders > 0 ? Math.round((repeatCustomers / customersWithOrders) * 100) : 0,
-            activeCoffeeClubPlans,
-            checkoutStartedLast30Days: checkoutStarted,
-            purchasesCompletedLast30Days: purchasesCompleted,
-            checkoutConversionPercent,
-            paymentFailuresLast30Days: paymentFailures
+            repeatCustomers, repeatPurchaseRatePercent: customersWithOrders > 0 ? Math.round((repeatCustomers / customersWithOrders) * 100) : 0,
+            activeCoffeeClubPlans, checkoutStartedLast30Days: checkoutStarted, purchasesCompletedLast30Days: purchasesCompleted, checkoutConversionPercent, paymentFailuresLast30Days: paymentFailures
         },
         tierCounts,
         topCustomers,
