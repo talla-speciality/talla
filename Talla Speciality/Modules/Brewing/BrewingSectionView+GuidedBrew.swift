@@ -803,10 +803,16 @@ extension BrewingSectionView {
 
     var focusedLiveBrewView: some View {
         GeometryReader { proxy in
+            // The folded Duo outer display is a compact landscape window
+            // (roughly 740 points wide), so it must use the landscape brew
+            // workspace instead of the vertically scrolling phone layout.
+            let usesDuoLandscapeLayout = proxy.size.width >= 600 && proxy.size.width > proxy.size.height
             let usesLandscapeLayout = proxy.size.width >= 900 && proxy.size.width > proxy.size.height
 
             Group {
-                if usesLandscapeLayout {
+                if usesDuoLandscapeLayout {
+                    focusedDuoLandscapeLiveBrewView
+                } else if usesLandscapeLayout {
                     focusedLandscapeLiveBrewView
                 } else {
                     focusedPortraitLiveBrewView
@@ -818,6 +824,33 @@ extension BrewingSectionView {
             .safeAreaPadding(.top, 10)
             .safeAreaPadding(.bottom, 14)
         }
+    }
+
+    /// A compact, no-scroll workspace for Duo's folded outer display. The
+    /// timer and current pour stay on the left while all actions remain in a
+    /// fixed, reachable column on the right.
+    var focusedDuoLandscapeLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            focusedBrewTopArea
+
+            focusedBrewTimeline
+
+            HStack(alignment: .top, spacing: 16) {
+                Group {
+                    if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                        focusedPrepareBrewContent
+                    } else {
+                        focusedLandscapeActiveBrewContent
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                focusedBrewControls
+                    .frame(width: 214, alignment: .top)
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     var focusedPortraitLiveBrewView: some View {

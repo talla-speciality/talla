@@ -30,6 +30,19 @@ import SafariServices
 import UIKit
 #endif
 
+struct DuoToolbarBehavior: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 27.1, *) {
+            content
+                .toolbarVerticalBehavior(.automatic)
+                .toolbarVerticalCompressionBehavior(.prefersToolbarItems)
+        } else {
+            content
+        }
+    }
+}
+
 extension ContentView {
     var header: some View {
         VStack(spacing: isShortHeight ? 8 : 14) {

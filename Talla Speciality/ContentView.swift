@@ -2939,6 +2939,7 @@ struct ContentView: View {
                     }
                 }
                 .toolbar(usesSystemNavigationActions ? .visible : .hidden, for: .navigationBar)
+                .modifier(DuoToolbarBehavior())
                 .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
