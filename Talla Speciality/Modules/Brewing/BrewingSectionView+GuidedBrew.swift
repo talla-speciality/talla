@@ -806,29 +806,132 @@ extension BrewingSectionView {
             // The folded Duo outer display is a compact landscape window
             // (roughly 740 points wide), so it must use the landscape brew
             // workspace instead of the vertically scrolling phone layout.
-            let usesDuoLandscapeLayout = proxy.size.width >= 600 && proxy.size.width > proxy.size.height
-            let usesLandscapeLayout = proxy.size.width >= 900 && proxy.size.width > proxy.size.height
+            let isLandscape = proxy.size.width > proxy.size.height
+            let usesInnerLandscapeLayout = isLandscape && proxy.size.width >= 900
+            let usesDuoOuterLandscapeLayout = isLandscape && proxy.size.width < 900 && proxy.size.width >= 600
+            let usesDuoOuterPortraitLayout = !isLandscape && proxy.size.width >= 500
 
             Group {
-                if usesDuoLandscapeLayout {
+                if usesDuoOuterLandscapeLayout {
                     focusedDuoLandscapeLiveBrewView
-                } else if usesLandscapeLayout {
+                } else if usesInnerLandscapeLayout {
                     focusedLandscapeLiveBrewView
+                } else if usesDuoOuterPortraitLayout {
+                    focusedDuoPortraitLiveBrewView
                 } else {
                     focusedPortraitLiveBrewView
                 }
             }
-            .frame(maxWidth: usesLandscapeLayout ? 1180 : 820, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: usesInnerLandscapeLayout ? 1180 : .infinity, maxHeight: .infinity, alignment: .top)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, usesLandscapeLayout ? 32 : 22)
-            .safeAreaPadding(.top, 10)
-            .safeAreaPadding(.bottom, 14)
+            .padding(.horizontal, usesInnerLandscapeLayout ? 32 : 16)
+            .safeAreaPadding(.top, usesInnerLandscapeLayout ? 10 : 6)
+            .safeAreaPadding(.bottom, usesInnerLandscapeLayout ? 14 : 8)
         }
     }
 
-    /// A compact, no-scroll workspace for Duo's folded outer display. The
-    /// timer and current pour stay on the left while all actions remain in a
-    /// fixed, reachable column on the right.
+    var focusedDuoPortraitLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            focusedBrewTopArea
+            focusedBrewTimeline
+
+            Group {
+                if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                    focusedDuoPortraitPrepareContent
+                } else {
+                    focusedDuoPortraitActiveContent
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            Spacer(minLength: 4)
+            focusedBrewControls
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    var focusedDuoPortraitPrepareContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("prepare", fallback: "Prepare"))
+                .font(brewEyebrowFont)
+                .foregroundColor(brewAccentColor)
+
+            Text(AppLocalization.text("rinse_and_preheat", fallback: "Rinse and preheat"))
+                .font(Font.custom("Georgia-Bold", size: 30))
+                .foregroundColor(brewPrimaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.72)
+
+            Text(AppLocalization.text("rinse_preheat_explanation", fallback: "Rinse the filter, warm the brewer, and discard the rinse water."))
+                .font(Font.custom("AvenirNext-Regular", size: 14))
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+
+            focusedScaleSetupCard
+
+            Button {
+                if scaleManager.isConnected { tareConnectedScale() }
+                startBrewModeSession()
+            } label: {
+                Label(
+                    scaleManager.isConnected
+                        ? AppLocalization.text("tare_and_start", fallback: "Tare & Start")
+                        : AppLocalization.text("ready", fallback: "Ready"),
+                    systemImage: scaleManager.isConnected ? "arrow.counterclockwise" : "play.fill"
+                )
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(Color(hex: 0x1C1A17))
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 48)
+                .background(brewAccentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    var focusedDuoPortraitActiveContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentBrewPhaseName)
+                        .font(brewEyebrowFont)
+                        .foregroundColor(brewAccentColor)
+                    Text(formattedTimerTime(brewModeElapsedSeconds))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 54))
+                        .monospacedDigit()
+                        .foregroundColor(brewPrimaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                Spacer(minLength: 0)
+                Text(primaryWaterTargetText)
+                    .font(Font.custom("Georgia-Bold", size: 28))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
+            Text(focusedBrewGuidanceText)
+                .font(Font.custom("AvenirNext-Regular", size: 14))
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+
+            if scaleManager.isConnected {
+                focusedScaleLiveCard
+            }
+
+            focusedBrewMetricRows
+                .frame(maxHeight: 184)
+
+            focusedNextStepPreview
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+    }
+
     var focusedDuoLandscapeLiveBrewView: some View {
         VStack(alignment: .leading, spacing: 8) {
             focusedBrewTopArea
@@ -851,6 +954,40 @@ extension BrewingSectionView {
             .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    var focusedInnerLandscapeLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            focusedBrewTopArea
+            focusedBrewTimeline.padding(.top, 12)
+            Spacer(minLength: 14)
+            if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                focusedPrepareBrewContent
+                    .frame(maxWidth: 760)
+                    .frame(maxWidth: .infinity)
+            } else {
+                focusedLandscapeActiveBrewContent
+            }
+            Spacer(minLength: 14)
+            focusedBrewControls
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    var focusedLegacyLandscapeLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            focusedBrewTopArea
+            focusedBrewTimeline.padding(.top, 12)
+            Spacer(minLength: 14)
+            if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                focusedPrepareBrewContent
+            } else {
+                focusedLandscapeActiveBrewContent
+            }
+            Spacer(minLength: 14)
+            focusedBrewControls
+        }
     }
 
     var focusedPortraitLiveBrewView: some View {
