@@ -38,6 +38,7 @@ struct ShopSectionView: View {
     let retryLoad: () -> Void
     let categorySelected: () -> Void
     @State private var isSortDialogPresented = false
+    @State private var isCoffeeClubExpanded = false
     @FocusState private var isSearchFocused: Bool
 
     private var usesArabicTypography: Bool {
@@ -122,15 +123,20 @@ struct ShopSectionView: View {
     }
 
     private var coffeeClubIntroduction: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: isCoffeeClubExpanded ? 16 : 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isCoffeeClubExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(accentColor)
                     .frame(width: 46, height: 46)
                     .background(accentColor.opacity(isLightAppearance ? 0.13 : 0.18), in: Circle())
 
-                VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.text("coffee_club_intro_eyebrow", fallback: "Talla Coffee Club"))
                         .font(labelFont)
                         .tracking(localizedTracking(1.8))
@@ -141,64 +147,84 @@ struct ShopSectionView: View {
                         .font(sectionTitleFont)
                         .foregroundColor(primaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+                    }
 
-            Text(String(
-                format: AppLocalization.text(
-                    "coffee_club_intro_detail",
-                    fallback: "Prepay for %d shipments, delivered every %d weeks, and save %d%% on your coffee."
-                ),
-                coffeeClubShipmentCount,
-                coffeeClubIntervalWeeks,
-                coffeeClubDiscountPercent
-            ))
-            .font(bodyFont)
-            .foregroundColor(secondaryTextColor)
-            .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    coffeeClubPrepaidFact
-                    coffeeClubRenewalFact
+                    Image(systemName: isCoffeeClubExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(secondaryTextColor)
+                        .frame(width: 34, height: 34)
+                        .background(cardFillColor.opacity(0.72), in: Circle())
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    coffeeClubPrepaidFact
-                    coffeeClubRenewalFact
-                }
-            }
-
-            Text(AppLocalization.text(
-                "coffee_club_intro_delivery_note",
-                fallback: "Choose delivery in Bahrain or pickup at Talla. Delivery is charged for each shipment."
-            ))
-            .font(categoryBodyFont)
-            .foregroundColor(tertiaryTextColor)
-            .fixedSize(horizontal: false, vertical: true)
-
-            Button {
-                activeCategory = "coffee-beans"
-                searchQuery = ""
-                categorySelected()
-            } label: {
-                HStack {
-                    Text(AppLocalization.text("coffee_club_intro_cta", fallback: "Choose your coffee"))
-                        .font(categoryLabelFont)
-                        .tracking(localizedTracking(1.1))
-                        .textCase(.uppercase)
-                    Spacer()
-                    Image(systemName: "arrow.forward")
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .foregroundColor(isLightAppearance ? Color(hex: 0x24180E) : .black)
-                .padding(.horizontal, 15)
-                .frame(minHeight: 48)
-                .background(accentColor, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("shop.coffeeClub.chooseCoffee")
+            .accessibilityLabel(AppLocalization.text("coffee_club_intro_toggle", fallback: "Talla Coffee Club"))
+            .accessibilityValue(isCoffeeClubExpanded
+                ? AppLocalization.text("expanded", fallback: "Expanded")
+                : AppLocalization.text("collapsed", fallback: "Collapsed"))
+            .accessibilityHint(AppLocalization.text("coffee_club_intro_toggle_hint", fallback: "Double tap to show or hide Coffee Club details."))
+
+            if isCoffeeClubExpanded {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(String(
+                    format: AppLocalization.text(
+                        "coffee_club_intro_detail",
+                        fallback: "Prepay for %d shipments, delivered every %d weeks, and save %d%% on your coffee."
+                    ),
+                    coffeeClubShipmentCount,
+                    coffeeClubIntervalWeeks,
+                    coffeeClubDiscountPercent
+                    ))
+                    .font(bodyFont)
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 10) {
+                            coffeeClubPrepaidFact
+                            coffeeClubRenewalFact
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            coffeeClubPrepaidFact
+                            coffeeClubRenewalFact
+                        }
+                    }
+
+                    Text(AppLocalization.text(
+                        "coffee_club_intro_delivery_note",
+                        fallback: "Choose delivery in Bahrain or pickup at Talla. Delivery is charged for each shipment."
+                    ))
+                    .font(categoryBodyFont)
+                    .foregroundColor(tertiaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        activeCategory = "coffee-beans"
+                        searchQuery = ""
+                        categorySelected()
+                    } label: {
+                        HStack {
+                            Text(AppLocalization.text("coffee_club_intro_cta", fallback: "Choose your coffee"))
+                                .font(categoryLabelFont)
+                                .tracking(localizedTracking(1.1))
+                                .textCase(.uppercase)
+                            Spacer()
+                            Image(systemName: "arrow.forward")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .foregroundColor(isLightAppearance ? Color(hex: 0x24180E) : .black)
+                        .padding(.horizontal, 15)
+                        .frame(minHeight: 48)
+                        .background(accentColor, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("shop.coffeeClub.chooseCoffee")
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        .padding(18)
+        .padding(isCoffeeClubExpanded ? 18 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
