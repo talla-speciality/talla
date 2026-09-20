@@ -8,6 +8,8 @@ extension ContentView {
         struct Item: Codable, Identifiable {
             var id: String { productID }
             let productID: String
+            let variantID: String?
+            let variantTitle: String?
             let productName: String
             let quantity: Int
         }

@@ -201,6 +201,7 @@ struct OrderHistorySectionView: View {
     let saveTasteMemoryAction: (ContentView.AccountOrder, ContentView.AccountOrder.Item, String, [String]) -> Void
     let pickupDirectionsAction: () -> Void
     let browseProductsAction: () -> Void
+    let orderSupportAction: (ContentView.AccountOrder) -> Void
     let manageCoffeeClubAction: (ContentView.AccountOrder, String, String?, String?, String?, ContentView.DeliveryAddress?) async -> Bool
 
     @State private var managedCoffeeClubOrder: ContentView.AccountOrder?
@@ -414,6 +415,21 @@ struct OrderHistorySectionView: View {
 
                         orderProgressRow(status: order.historyStatus, isPickup: order.isPickup)
 
+                        if let tracking = order.details?.tracking,
+                           let value = tracking.url,
+                           let url = URL(string: value) {
+                            Link(destination: url) {
+                                Label(
+                                    tracking.company?.isEmpty == false
+                                        ? String(format: AppLocalization.text("track_with_carrier", fallback: "Track with %@"), tracking.company ?? "")
+                                        : AppLocalization.text("track_shipment", fallback: "Track Shipment"),
+                                    systemImage: "shippingbox.and.arrow.backward.fill"
+                                )
+                                .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
                         if order.isPickup && isReadyForPickup(status: order.historyStatus) {
                             pickupDirectionsCard
                         }
@@ -452,6 +468,12 @@ struct OrderHistorySectionView: View {
                             }
                             .buttonStyle(.plain)
                         }
+
+                        Button { orderSupportAction(order) } label: {
+                            Label(AppLocalization.text("help_with_order", fallback: "Help with this order"), systemImage: "message.fill")
+                                .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                        }
+                        .buttonStyle(.bordered)
                     }
                     .padding(14)
                     .background(cardFillColor)
@@ -559,6 +581,11 @@ struct OrderHistorySectionView: View {
                                 performCoffeeClubAction(order, action: "resume")
                             }
                         } else if club.lifecycleStatus == "active" {
+                            Button(AppLocalization.text("skip_next_shipment", fallback: "Skip Next Shipment")) {
+                                performCoffeeClubAction(order, action: "skip_next")
+                            }
+                            .disabled(isManagingCoffeeClub)
+
                             Button(AppLocalization.text("pause_plan", fallback: "Pause Plan")) {
                                 performCoffeeClubAction(order, action: "pause")
                             }

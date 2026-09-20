@@ -89,6 +89,7 @@ function createAdminOrderDetailService(dependencies) {
             refundedAt: validISODate(value.refundedAt) || null,
             termsAcceptedAt: validISODate(value.termsAcceptedAt) || null,
             lastReminderAt: validISODate(value.lastReminderAt) || null,
+            lastSkippedAt: validISODate(value.lastSkippedAt) || null,
             preference: {
                 coffeeName: trimText(value.preference?.coffeeName, 180) || null,
                 variantId: trimText(value.preference?.variantId, 180) || null
@@ -151,6 +152,15 @@ function createAdminOrderDetailService(dependencies) {
                 status: "active",
                 startedAt: shiftedISODate(coffeeClub.startedAt, pausedForDays),
                 pausedAt: null
+            });
+        } else if (action === "skip_next") {
+            if (coffeeClub.status !== "active" || !coffeeClub.nextShipmentAt) return null;
+            const nextShipment = coffeeClub.shipments.find((shipment) => shipment.number === coffeeClub.nextShipmentNumber);
+            if (nextShipment?.preparedAt) return null;
+            return normalizeCoffeeClub({
+                ...coffeeClub,
+                startedAt: shiftedISODate(coffeeClub.startedAt, coffeeClub.intervalWeeks * 7),
+                lastSkippedAt: now
             });
         } else if (action === "request_cancel") {
             if (["cancelled", "completed"].includes(coffeeClub.status)) return null;
@@ -220,6 +230,7 @@ function createAdminOrderDetailService(dependencies) {
         const customer = details.customer && typeof details.customer === "object" ? details.customer : {};
         const fulfillment = details.fulfillment && typeof details.fulfillment === "object" ? details.fulfillment : {};
         const payment = details.payment && typeof details.payment === "object" ? details.payment : {};
+        const tracking = details.tracking && typeof details.tracking === "object" ? details.tracking : {};
         const coffeeClub = normalizeCoffeeClub(details.coffeeClub);
         return {
             source: trimText(details.source, 60),
@@ -234,9 +245,15 @@ function createAdminOrderDetailService(dependencies) {
                 line1: trimText(fulfillment.line1, 240),
                 city: trimText(fulfillment.city, 100),
                 countryCode: normalizeCountryCode(fulfillment.countryCode, ""),
-                notes: trimText(fulfillment.notes, 500)
+                notes: trimText(fulfillment.notes, 500),
+                pickupSlot: trimText(fulfillment.pickupSlot, 80)
             },
             payment: { method: trimText(payment.method, 80) },
+            tracking: {
+                company: trimText(tracking.company, 100),
+                number: trimText(tracking.number, 120),
+                url: /^https:\/\//i.test(String(tracking.url || "")) ? trimText(tracking.url, 500) : ""
+            },
             coffeeClub
         };
     }
@@ -383,7 +400,12 @@ function createAdminOrderDetailService(dependencies) {
                 countryCode: address.country_code,
                 notes: order.note
             },
-            payment: { method: gatewayNames }
+            payment: { method: gatewayNames },
+            tracking: {
+                company: order.fulfillments?.[0]?.tracking_company,
+                number: order.fulfillments?.[0]?.tracking_number,
+                url: order.fulfillments?.[0]?.tracking_url
+            }
         });
     }
 
@@ -402,7 +424,12 @@ function createAdminOrderDetailService(dependencies) {
                 city: address.city,
                 countryCode: address.countryCodeV2
             },
-            payment: { method: Array.isArray(order.paymentGatewayNames) ? order.paymentGatewayNames.join(", ") : order.paymentGatewayNames }
+            payment: { method: Array.isArray(order.paymentGatewayNames) ? order.paymentGatewayNames.join(", ") : order.paymentGatewayNames },
+            tracking: {
+                company: order.fulfillments?.[0]?.trackingInfo?.[0]?.company,
+                number: order.fulfillments?.[0]?.trackingInfo?.[0]?.number,
+                url: order.fulfillments?.[0]?.trackingInfo?.[0]?.url
+            }
         });
     }
 

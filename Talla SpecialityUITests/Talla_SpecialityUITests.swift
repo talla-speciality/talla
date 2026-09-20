@@ -342,6 +342,33 @@ final class TallaDeviceLayoutTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
     }
 
+    func testHomeActionsSurviveRotation() throws {
+        let server = try TallaUITestServer()
+        defer { server.stop() }
+        let app = XCUIApplication()
+        app.launchEnvironment["TALLA_UI_TEST_SCENARIO"] = "layout"
+        app.launchEnvironment["TALLA_UI_TEST_ACCESS_TOKEN"] = "ui-test-access-token"
+        app.launchEnvironment["TALLA_UI_TEST_REFRESH_TOKEN"] = "ui-test-refresh-token"
+        app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
+        app.launch()
+        let explore = app.buttons["home.explore"]
+        XCTAssertTrue(explore.waitForExistence(timeout: 20))
+        for orientation: UIDeviceOrientation in [.portrait, .landscapeLeft, .portrait] {
+            XCUIDevice.shared.orientation = orientation
+            XCTAssertTrue(explore.isHittable, "Home's primary action must remain reachable")
+            XCTAssertTrue(app.buttons["home.brew"].isHittable)
+            XCTAssertGreaterThanOrEqual(explore.frame.height, 44)
+            XCTAssertTrue(app.frame.contains(explore.frame), "The action must stay inside the window")
+            let capture = XCTAttachment(screenshot: app.screenshot())
+            capture.name = "home-\(orientation.rawValue)"
+            capture.lifetime = .keepAlways
+            add(capture)
+        }
+        explore.tap()
+        XCTAssertTrue(app.textFields["shop.search"].waitForExistence(timeout: 8))
+        app.terminate()
+    }
+
     func testCheckoutSurvivesRotation() throws {
         try verifyCheckout(scenario: "checkout", largeText: false)
     }

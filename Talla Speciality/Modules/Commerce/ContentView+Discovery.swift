@@ -74,10 +74,35 @@ extension ContentView {
 
                 Spacer()
 
-                if !showLaunchSplash && shouldShowHeaderCartButton {
+                if !usesSystemNavigationActions && !showLaunchSplash && shouldShowHeaderCartButton {
                     headerCartButton
                 }
 
+                if #available(iOS 27.1, *) {
+                    // The system toolbar owns these actions on Duo.
+                } else {
+                    appearanceMenu
+                }
+            }
+        }
+        .padding(.horizontal, isShortHeight ? 12 : 18)
+        .padding(.top, isShortHeight ? 8 : 14)
+        .padding(.bottom, isShortHeight ? 7 : 12)
+        .background(headerOverlayColor)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                .frame(height: 1)
+        }
+        .shadow(color: Color.black.opacity(isLightAppearance ? 0.035 : 0.18), radius: 16, y: 8)
+    }
+
+    var usesSystemNavigationActions: Bool {
+        if #available(iOS 27.1, *) { return true }
+        return false
+    }
+
+    var appearanceMenu: some View {
                 Menu {
                     Section(AppLocalization.text("appearance", fallback: "Appearance")) {
                         ForEach(AppearanceMode.allCases) { mode in
@@ -110,7 +135,8 @@ extension ContentView {
                         }
                     }
                 } label: {
-                    Image(systemName: "circle.lefthalf.filled")
+                    Label(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"), systemImage: "circle.lefthalf.filled")
+                        .labelStyle(.iconOnly)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(readableBrandGoldColor)
                         .frame(width: 40, height: 40)
@@ -123,18 +149,6 @@ extension ContentView {
                 }
                 .menuStyle(.button)
                 .accessibilityLabel(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"))
-            }
-        }
-        .padding(.horizontal, isShortHeight ? 12 : 18)
-        .padding(.top, isShortHeight ? 8 : 14)
-        .padding(.bottom, isShortHeight ? 7 : 12)
-        .background(headerOverlayColor)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
-                .frame(height: 1)
-        }
-        .shadow(color: Color.black.opacity(isLightAppearance ? 0.035 : 0.18), radius: 16, y: 8)
     }
 
     var headerCartButton: some View {
@@ -1914,8 +1928,54 @@ extension ContentView {
     }
 
     var heroSection: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top) {
+        TallaHomeHeroLayout(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize) {
+            heroIntroduction
+        } artwork: {
+            VStack(spacing: 12) {
+                Image("Logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 180, maxHeight: 180)
+                Text("TALLA")
+                    .font(displayFont(size: 28))
+                    .tracking(5)
+                    .foregroundStyle(primaryTextColor)
+                Text(AppLocalization.text("coffee_daily_rituals", fallback: "Coffee for daily rituals"))
+                    .font(bodyFont(size: 13))
+                    .foregroundStyle(secondaryTextColor)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, minHeight: 250)
+            .background(readableBrandGoldColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 24))
+            .accessibilityHidden(true)
+        }
+        .padding(isCompact ? 18 : 24)
+        .background(
+            LinearGradient(
+                colors: isLightAppearance
+                    ? [Color(hex: 0xFFF7ED), Color(hex: 0xEAD9C3)]
+                    : (isOLEDAppearance ? [.black, .black] : [Color(hex: 0x22170F), elevatedSurfaceColor]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(readableBrandGoldColor.opacity(0.18), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 8)
+        .padding(.bottom, 24)
+        .accessibilityIdentifier("home.hero")
+    }
+
+    var heroIntroduction: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            (dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: 12))) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(homeSettingText(remoteHomeSettings?.heroEyebrow, arabicValue: remoteHomeSettings?.heroEyebrowAR, localizationKey: "roastery", fallback: "Roastery"))
                         .font(labelFont(size: 10, weight: .bold))
@@ -1938,7 +1998,7 @@ extension ContentView {
                         .tracking(AppLocalization.letterSpacing(1.5))
                         .textCase(.uppercase)
                 }
-                .foregroundColor(Color(hex: 0x8B5B2A))
+                .foregroundColor(readableBrandGoldColor)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(
@@ -1953,7 +2013,7 @@ extension ContentView {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(homeSettingText(remoteHomeSettings?.heroTitle, arabicValue: remoteHomeSettings?.heroTitleAR, localizationKey: "hero_title", fallback: "Specialty coffee,\nroasted with intention"))
-                    .font(displayFont(size: isCompact ? 24 : 30))
+                    .font(displayFont(size: isCompact ? 28 : 36))
                     .lineSpacing(1)
                     .foregroundColor(primaryTextColor)
 
@@ -1963,76 +2023,53 @@ extension ContentView {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    openShop()
-                } label: {
-                    Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, arabicValue: remoteHomeSettings?.primaryButtonTitleAR, localizationKey: "explore_coffees", fallback: "EXPLORE COFFEES").uppercased())
-                        .font(labelFont(size: 11, weight: .bold))
-                        .tracking(AppLocalization.letterSpacing(2))
-                        .foregroundColor(Color(hex: 0x0A0804))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(Color(hex: 0xC8965A))
-                        .cornerRadius(14)
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    openBrewing()
-                } label: {
-                    Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, arabicValue: remoteHomeSettings?.secondaryButtonTitleAR, localizationKey: "brewing_guide", fallback: "BREWING GUIDE").uppercased())
-                        .font(labelFont(size: 11, weight: .bold))
-                        .tracking(AppLocalization.letterSpacing(2))
-                        .foregroundColor(primaryTextColor)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(cardFillColor)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.18 : 0.08), lineWidth: 1)
-                        )
-                        .cornerRadius(14)
-                }
-                .buttonStyle(.plain)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { heroActions }
+                VStack(spacing: 10) { heroActions }
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: isLightAppearance
-                            ? [Color(hex: 0xFFF7ED), Color(hex: 0xEAD9C3)]
-                            : (isOLEDAppearance
-                                ? [.black, .black]
-                                : [Color(hex: 0x22170F).opacity(0.95), elevatedSurfaceColor.opacity(0.96)]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    var heroActions: some View {
+        Button {
+            openShop()
+        } label: {
+            Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, arabicValue: remoteHomeSettings?.primaryButtonTitleAR, localizationKey: "explore_coffees", fallback: "EXPLORE COFFEES").uppercased())
+                .font(labelFont(size: 11, weight: .bold))
+                .tracking(AppLocalization.letterSpacing(2))
+                .foregroundColor(Color(hex: 0x0A0804))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 48)
+                .background(Color(hex: 0xC8965A))
+                .cornerRadius(14)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.explore")
+
+        Button {
+            openBrewing()
+        } label: {
+            Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, arabicValue: remoteHomeSettings?.secondaryButtonTitleAR, localizationKey: "brewing_guide", fallback: "BREWING GUIDE").uppercased())
+                .font(labelFont(size: 11, weight: .bold))
+                .tracking(AppLocalization.letterSpacing(2))
+                .foregroundColor(primaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 48)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.18 : 0.08), lineWidth: 1)
                 )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-        )
-        .overlay(alignment: .topTrailing) {
-            Circle()
-                .fill(Color(hex: 0xC8965A).opacity(0.14))
-                .frame(width: 140, height: 140)
-                .blur(radius: 24)
-                .offset(x: 26, y: -26)
+                .cornerRadius(14)
         }
-        .overlay(alignment: .bottomLeading) {
-            Circle()
-                .fill(Color(hex: 0x7C4E24).opacity(isLightAppearance ? 0.08 : 0.12))
-                .frame(width: 120, height: 120)
-                .blur(radius: 26)
-                .offset(x: -24, y: 30)
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.brew")
     }
 
     var featureStrip: some View {
@@ -2312,6 +2349,13 @@ extension ContentView {
             browseProductsAction: {
                 openShop()
             },
+            orderSupportAction: { order in
+                var components = URLComponents(url: managedWhatsAppURL, resolvingAgainstBaseURL: false)
+                var items = components?.queryItems ?? []
+                items.append(URLQueryItem(name: "text", value: String(format: AppLocalization.text("order_support_message", fallback: "Hello Talla, I need help with order %@."), order.title)))
+                components?.queryItems = items
+                openURL(components?.url ?? managedWhatsAppURL)
+            },
             manageCoffeeClubAction: { order, action, note, coffeeName, variantID, address in
                 await manageCoffeeClub(
                     order: order,
@@ -2372,7 +2416,7 @@ extension ContentView {
                     }
                 } else {
                     LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 12)],
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2),
                         alignment: .leading,
                         spacing: 12
                     ) {
@@ -3136,4 +3180,46 @@ extension ContentView {
         isRunningConcierge = false
     }
 
+}
+
+/// Measures the actual safe-area content width, including Split View and side bars.
+/// The scrolling feed stays continuous; only this non-scrolling hero avoids the fold.
+private struct TallaHomeHeroLayout<Introduction: View, Artwork: View>: View {
+    let isAccessibilitySize: Bool
+    @ViewBuilder let introduction: () -> Introduction
+    @ViewBuilder let artwork: () -> Artwork
+    @State private var geometry = HeroGeometry()
+
+    private nonisolated struct HeroGeometry: Equatable, Sendable {
+        var width: CGFloat = 0
+        var division: CGRect = .zero
+    }
+
+    var body: some View {
+        let hasDivision = !geometry.division.isEmpty
+        let wide = geometry.width >= 620 && !isAccessibilitySize
+        let gap: CGFloat = max(24, geometry.division.width + 24)
+        let leadingWidth = geometry.division.isEmpty
+            ? (geometry.width - gap) / 2
+            : max(0, geometry.division.minX - 12)
+        HStack(alignment: .center, spacing: wide ? gap : 0) {
+            introduction()
+                .frame(width: wide || hasDivision ? leadingWidth : nil, alignment: .leading)
+                .frame(maxWidth: wide || hasDivision ? nil : .infinity, alignment: .leading)
+            if wide {
+                artwork()
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: HeroGeometry.self) { proxy in
+            var result = HeroGeometry(width: proxy.size.width)
+            if #available(iOS 27.1, *) {
+                result.division = proxy.reservedRegions(kind: .division)
+                    .map(\.frame)
+                    .first(where: { $0.height > $0.width && $0.minX > 0 && $0.maxX < proxy.size.width }) ?? .zero
+            }
+            return result
+        } action: { geometry = $0 }
+    }
 }

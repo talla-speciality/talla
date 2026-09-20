@@ -608,7 +608,13 @@ struct ContentView: View {
             struct Fulfillment: Decodable {
                 let method: String?
             }
+            struct Tracking: Decodable {
+                let company: String?
+                let number: String?
+                let url: String?
+            }
             let fulfillment: Fulfillment?
+            let tracking: Tracking?
             let coffeeClub: CustomerCoffeeClub?
         }
 
@@ -1021,7 +1027,7 @@ struct ContentView: View {
     @State var isLoadingBackendAlerts = false
     @State var alertInbox: [AlertInboxRecord] = []
     @State var addresses: [DeliveryAddress] = []
-    @State var fulfillmentMethod: TallaFulfillmentMethod = .delivery
+    @State var fulfillmentMethod: TallaFulfillmentMethod = .delivery; @State var selectedPickupSlot = "10:00–12:00"
     @State var addressLabel = ""
     @State var addressFullName = ""
     @State var addressPhone = ""
@@ -1380,7 +1386,7 @@ struct ContentView: View {
     }
 
     var contentMaxWidth: CGFloat {
-        isCompact ? 400 : 980
+        isCompact ? 600 : 1120
     }
 
     var homeQuickActionColumns: [GridItem] {
@@ -2807,7 +2813,7 @@ struct ContentView: View {
 
     @ViewBuilder
     var appTabView: some View {
-        if #available(iOS 18.0, *), horizontalSizeClass == .regular {
+        if #available(iOS 18.0, *) {
             baseTabView
                 .tabViewStyle(.sidebarAdaptable)
         } else {
@@ -2911,10 +2917,41 @@ struct ContentView: View {
     }
 
     func tabScreen<Content: View>(tab: Tab, @ViewBuilder content: @escaping () -> Content) -> some View {
+        NavigationStack {
+            tabScrollContent(tab: tab, content: content)
+                .toolbar {
+                    if #available(iOS 27.1, *) {
+                        ToolbarItem(placement: .primaryAction) {
+                            if tab == .home || tab == .shop {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.18)) { cartOpen = true }
+                                } label: {
+                                    Label(AppLocalization.text("bag", fallback: "Bag"), systemImage: "bag")
+                                }
+                                .badge(cartCount)
+                                .accessibilityIdentifier("navigation.bag")
+                                .accessibilityValue(String(cartCount))
+                            }
+                        }
+                        ToolbarItem(placement: .secondaryAction) {
+                            appearanceMenu
+                        }
+                    }
+                }
+                .toolbar(usesSystemNavigationActions ? .visible : .hidden, for: .navigationBar)
+                .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    func tabScrollContent<Content: View>(tab: Tab, @ViewBuilder content: @escaping () -> Content) -> some View {
         VStack(spacing: 0) {
-            header
-                .frame(maxWidth: .infinity)
-                .zIndex(10)
+            if #available(iOS 27.1, *) {
+                // Branding scrolls with the page; actions live in the system bar.
+            } else {
+                header
+                    .frame(maxWidth: .infinity)
+                    .zIndex(10)
+            }
 
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
@@ -2922,9 +2959,11 @@ struct ContentView: View {
                         Color.clear
                             .frame(height: 0)
                             .id("tab-top")
-                        if activeTab == tab {
-                            content()
+                        if #available(iOS 27.1, *) {
+                            header
                         }
+                        // Keep each tab's view identity and local state while resizing.
+                        content()
                         Color.clear
                             .frame(height: bottomScrollPadding(for: tab))
                     }
@@ -2962,6 +3001,7 @@ struct ContentView: View {
         }
         .frame(maxWidth: contentMaxWidth)
         .frame(maxWidth: .infinity)
+        .background(pageBackgroundColor)
     }
 
     var tabBarBackgroundColor: Color {

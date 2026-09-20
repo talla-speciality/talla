@@ -144,6 +144,18 @@ test("Coffee Club lifecycle supports preparing, pause/resume, cancellation, pref
     assert.equal(refunded.refundAmount, 8.4);
 });
 
+test("Coffee Club can skip the next unprepared shipment", () => {
+    const detailService = service();
+    const updated = detailService.updateCoffeeClubProgress({
+        shipmentCount: 3,
+        intervalWeeks: 4,
+        startedAt: "2026-01-01T00:00:00.000Z",
+        status: "active"
+    }, "skip_next", "customer", "2026-01-02T00:00:00.000Z");
+    assert.equal(updated.nextShipmentAt, "2026-01-29T00:00:00.000Z");
+    assert.equal(updated.lastSkippedAt, "2026-01-02T00:00:00.000Z");
+});
+
 test("Shopify order snapshots retain operational customer and delivery data", () => {
     const details = service().shopifyOrderDetails({
         customer: { first_name: "Sara", last_name: "Ali", phone: "+97311111111" },

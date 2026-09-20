@@ -6175,6 +6175,9 @@ async function syncRecentShopifyOrdersForEmail(email) {
                         displayFinancialStatus
                         displayFulfillmentStatus
                         paymentGatewayNames
+                        fulfillments {
+                            trackingInfo { company number url }
+                        }
                         customer {
                             firstName
                             lastName
@@ -8204,6 +8207,30 @@ async function adminAnalyticsSummary() {
     const averagePoints = customers.length > 0
         ? Math.round(customers.reduce((sum, customer) => sum + customer.pointsBalance, 0) / customers.length)
         : 0;
+    const allOrders = customers.flatMap((customer) => customer.orders);
+    const repeatCustomers = customers.filter((customer) => customer.orders.length > 1).length;
+    const coffeeClubOrders = allOrders.filter((order) => normalizeOrderDetails(order.details).coffeeClub);
+    const activeCoffeeClubPlans = coffeeClubOrders.filter((order) => {
+        const status = normalizeOrderDetails(order.details).coffeeClub?.status;
+        return status === "active" || status === "paused";
+    }).length;
+    let telemetryEvents = [];
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT event_name, properties FROM telemetry_events WHERE occurred_at >= NOW() - INTERVAL '30 days'`
+        );
+        telemetryEvents = result.rows.map((row) => ({ eventName: row.event_name, properties: row.properties || {} }));
+    } else {
+        telemetryEvents = (readJSON(telemetryStorePath).events || []).filter((event) => {
+            const occurredAt = Date.parse(event.occurredAt || event.receivedAt || "");
+            return Number.isFinite(occurredAt) && occurredAt >= Date.now() - 30 * 86_400_000;
+        });
+    }
+    const eventCount = (name) => telemetryEvents.filter((event) => event.eventName === name).length;
+    const checkoutStarted = eventCount("payment_method_selected");
+    const purchasesCompleted = eventCount("purchase_completed");
+    const paymentFailures = eventCount("payment_failed");
+    const checkoutConversionPercent = checkoutStarted > 0 ? Math.round((purchasesCompleted / checkoutStarted) * 100) : 0;
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const newCustomersLast7Days = customers.filter((customer) => {
         const createdAt = new Date(customer.createdAt).getTime();
@@ -8250,7 +8277,14 @@ async function adminAnalyticsSummary() {
             tasteMemory: tasteMemory.length,
             customersWithTasteMemory,
             averagePoints,
-            newCustomersLast7Days
+            newCustomersLast7Days,
+            repeatCustomers,
+            repeatPurchaseRatePercent: customersWithOrders > 0 ? Math.round((repeatCustomers / customersWithOrders) * 100) : 0,
+            activeCoffeeClubPlans,
+            checkoutStartedLast30Days: checkoutStarted,
+            purchasesCompletedLast30Days: purchasesCompleted,
+            checkoutConversionPercent,
+            paymentFailuresLast30Days: paymentFailures
         },
         tierCounts,
         topCustomers,

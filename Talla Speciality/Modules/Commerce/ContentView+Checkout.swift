@@ -31,6 +31,8 @@ import UIKit
 #endif
 
 extension ContentView {
+    var pickupTimeSlots: [String] { ["10:00–12:00", "12:00–14:00", "14:00–16:00", "16:00–18:00", "18:00–20:00"] }
+
     var cartCount: Int {
         cartItems.reduce(0) { $0 + $1.quantity }
     }
@@ -1055,6 +1057,15 @@ extension ContentView {
                 )
                 .font(bodyFont(size: 12))
                 .foregroundColor(secondaryTextColor)
+
+                Picker(AppLocalization.text("pickup_time", fallback: "Pickup time"), selection: $selectedPickupSlot) {
+                    ForEach(pickupTimeSlots, id: \.self) { Text($0).tag($0) }
+                }
+                .pickerStyle(.menu)
+
+                Text(AppLocalization.text("pickup_time_detail", fallback: "We will prepare your order for this collection window."))
+                    .font(bodyFont(size: 11))
+                    .foregroundColor(tertiaryTextColor)
             }
         }
         .padding(14)
@@ -3344,7 +3355,7 @@ extension ContentView {
             id: UUID(),
             name: trimmedName.isEmpty ? defaultSavedCartName() : trimmedName,
             items: cartItems.map {
-                SavedCart.Item(productID: $0.product.id, productName: $0.product.name, quantity: $0.quantity)
+                SavedCart.Item(productID: $0.product.id, variantID: $0.variant.id, variantTitle: $0.variant.title, productName: $0.product.name, quantity: $0.quantity)
             },
             createdAt: ISO8601DateFormatter().string(from: Date())
         )
@@ -3356,9 +3367,12 @@ extension ContentView {
     }
 
     func applySavedCart(_ savedCart: SavedCart) {
-        let matchedItems = savedCart.items.compactMap { item -> (Product, Int)? in
+        let matchedItems = savedCart.items.compactMap { item -> (Product, Product.Variant, Int)? in
             if let product = products.first(where: { $0.id == item.productID }) ?? matchingProduct(for: item.productName) {
-                return (product, item.quantity)
+                let variant = item.variantID.flatMap { savedID in
+                    product.variants.first { $0.id == savedID || $0.id.hasSuffix("/\(savedID)") }
+                } ?? selectedVariant(for: product)
+                if let variant, variant.isAvailableForSale { return (product, variant, item.quantity) }
             }
 
             return nil
@@ -3370,8 +3384,7 @@ extension ContentView {
         }
 
         cartItems = []
-        for (product, quantity) in matchedItems {
-            guard let variant = selectedVariant(for: product) else { continue }
+        for (product, variant, quantity) in matchedItems {
             cartItems.append(
                 CartItem(
                     id: cartItemIdentifier(productID: product.id, variantID: variant.id),
@@ -3383,6 +3396,10 @@ extension ContentView {
         }
 
         cartOpen = true
+        if matchedItems.count < savedCart.items.count {
+            showToast(message: AppLocalization.text("saved_cart_partially_loaded", fallback: "Some saved options are unavailable and were left out."))
+            return
+        }
         showToast(message: String(format: AppLocalization.text("saved_cart_loaded_toast", fallback: "%@ loaded"), savedCart.name))
     }
 
@@ -3900,7 +3917,8 @@ extension ContentView {
                     lines: lines,
                     customerEmail: profile.email,
                     checkoutAddress: checkoutAddress,
-                    fulfillmentMethod: fulfillmentMethod
+                    fulfillmentMethod: fulfillmentMethod,
+                    pickupSlot: fulfillmentMethod == .pickup ? selectedPickupSlot : nil
                 )
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
@@ -3932,6 +3950,7 @@ extension ContentView {
                 total: cartTotal,
                 fulfillmentMethod: fulfillmentMethod,
                 address: fulfillmentMethod == .delivery ? preferredAddress : nil,
+                pickupSlot: fulfillmentMethod == .pickup ? selectedPickupSlot : nil,
                 paymentMethod: selectedPaymentMethod,
                 voucherCode: appliedVoucher?.code,
                 prepaidCoffeeClub: isCoffeeClubActive,

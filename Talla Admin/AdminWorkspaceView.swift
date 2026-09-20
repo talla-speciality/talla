@@ -67,7 +67,18 @@ enum AdminReport: String, CaseIterable, Identifiable {
     }
     var metrics: [AdminField] {
         switch self {
-        case .analytics: [.init("totals.customers", "Customers"), .init("totals.totalOrders", "Total orders"), .init("totals.activeVouchers", "Active vouchers"), .init("totals.averagePoints", "Average Beans"), .init("totals.customersWithOrders", "Customers with orders"), .init("totals.pendingOrders", "Pending orders"), .init("totals.usedVouchers", "Used vouchers")]
+        case .analytics: [
+            .init("totals.customers", "Customers"), .init("totals.totalOrders", "Total orders"),
+            .init("totals.customersWithOrders", "Customers with orders"), .init("totals.repeatCustomers", "Repeat customers"),
+            .init("totals.repeatPurchaseRatePercent", "Repeat purchase rate %"),
+            .init("totals.activeCoffeeClubPlans", "Active Coffee Club plans"),
+            .init("totals.checkoutStartedLast30Days", "Checkout starts · 30 days"),
+            .init("totals.purchasesCompletedLast30Days", "Purchases · 30 days"),
+            .init("totals.checkoutConversionPercent", "Checkout conversion %"),
+            .init("totals.paymentFailuresLast30Days", "Payment failures · 30 days"),
+            .init("totals.pendingOrders", "Pending orders"), .init("totals.activeVouchers", "Active vouchers"),
+            .init("totals.usedVouchers", "Used vouchers"), .init("totals.averagePoints", "Average Beans")
+        ]
         case .operations: [.init("totals.requestsLastHour", "Requests / hour"), .init("totals.errorsLastHour", "Server errors / hour"), .init("totals.rateLimitedLastHour", "Rate limits / hour"), .init("totals.avgDurationMs", "Average duration (ms)")]
         default: []
         }

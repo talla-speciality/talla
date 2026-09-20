@@ -114,4 +114,24 @@ enum BrewTimerNotificationService {
         "brew-timer-complete-\(runID.uuidString)"
     }
 }
+
+enum CoffeeReorderNotificationService {
+    static let center = UNUserNotificationCenter.current()
+
+    static func scheduleIfLow(coffee: CoffeeInventoryRecord, doseGrams: Double) async {
+        guard coffee.remainingQuantityGrams > 0, coffee.estimatedBrews(doseGrams: doseGrams) <= 3 else {
+            center.removePendingNotificationRequests(withIdentifiers: [identifier(coffee.id)])
+            return
+        }
+        let settings = await BrewTimerNotificationService.notificationSettings()
+        guard [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus) else { return }
+        let content = UNMutableNotificationContent()
+        content.title = AppLocalization.text("coffee_running_low", fallback: "Your coffee is running low")
+        content.body = String(format: AppLocalization.text("coffee_reorder_reminder_body", fallback: "%@ has about %d brews left. Reorder before your next cup."), coffee.productName, coffee.estimatedBrews(doseGrams: doseGrams))
+        content.sound = .default
+        try? await center.add(UNNotificationRequest(identifier: identifier(coffee.id), content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)))
+    }
+
+    private static func identifier(_ coffeeID: UUID) -> String { "coffee-reorder-\(coffeeID.uuidString)" }
+}
 #endif

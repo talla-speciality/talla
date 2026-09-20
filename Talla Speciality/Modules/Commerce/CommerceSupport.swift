@@ -613,7 +613,8 @@ enum ShopifyStorefrontClient {
         customerEmail: String? = nil,
         checkoutAddress: ShopifyCheckoutAddress? = nil,
         tallaPaymentID: String? = nil,
-        fulfillmentMethod: TallaFulfillmentMethod = .delivery
+        fulfillmentMethod: TallaFulfillmentMethod = .delivery,
+        pickupSlot: String? = nil
     ) async throws -> URL {
         let lineInputs = lines.map { line in
             [
@@ -626,6 +627,9 @@ enum ShopifyStorefrontClient {
             "lines": lineInputs
         ]
         var attributes = [["key": "talla_fulfillment_method", "value": fulfillmentMethod.rawValue]]
+        if let pickupSlot = pickupSlot?.trimmingCharacters(in: .whitespacesAndNewlines), !pickupSlot.isEmpty {
+            attributes.append(["key": "talla_pickup_slot", "value": pickupSlot])
+        }
         if let tallaPaymentID = tallaPaymentID?.trimmingCharacters(in: .whitespacesAndNewlines), !tallaPaymentID.isEmpty {
             attributes.append(["key": "talla_payment_id", "value": tallaPaymentID])
         }

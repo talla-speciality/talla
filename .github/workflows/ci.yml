@@ -115,7 +115,7 @@ jobs:
           XCODE_VERSION="$(tr -d '[:space:]' < .xcode-version)"
           sudo xcode-select --switch "/Applications/Xcode_${XCODE_VERSION}.app/Contents/Developer"
           xcodebuild -version
-          test "$(xcrun --sdk iphoneos --show-sdk-version)" = "27.0"
+          test "$(xcrun --sdk iphoneos --show-sdk-version)" = "27.1"
       - name: Build iPhone app and embedded extensions
         run: >-
           xcodebuild -project "Talla Speciality.xcodeproj" -scheme "Talla Speciality"

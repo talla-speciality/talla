@@ -686,6 +686,10 @@ extension ContentView {
             ownerID: customerProfile?.email.lowercased(),
             samples: pendingBrewSamples
         )
+        if let coffeeID = selectedJournalCoffeeID,
+           let coffee = coffeeData.inventory().first(where: { $0.id == coffeeID }) {
+            Task { await CoffeeReorderNotificationService.scheduleIfLow(coffee: coffee, doseGrams: max(entry.coffeeGrams ?? 18, 1)) }
+        }
         var brewTelemetry: [String: String] = [
             "method": entry.method,
             "rating": String(entry.rating)

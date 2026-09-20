@@ -509,6 +509,7 @@ enum AccountService {
         total: Double,
         fulfillmentMethod: TallaFulfillmentMethod,
         address: ContentView.DeliveryAddress?,
+        pickupSlot: String? = nil,
         paymentMethod: TallaPaymentMethod,
         voucherCode: String?,
         prepaidCoffeeClub: Bool = false,
@@ -562,6 +563,9 @@ enum AccountService {
                 "countryCode": address.country.rawValue,
                 "notes": address.notes ?? ""
             ]
+        }
+        if fulfillmentMethod == .pickup, let pickupSlot, !pickupSlot.isEmpty {
+            payload["fulfillment"] = ["method": fulfillmentMethod.rawValue, "pickupSlot": pickupSlot]
         }
         if let voucherCode, !voucherCode.isEmpty {
             payload["voucherCode"] = voucherCode

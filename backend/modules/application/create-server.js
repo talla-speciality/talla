@@ -4139,7 +4139,7 @@ module.exports = function createServer(dependencies) {
 
             const orderID = String(body.orderID || body.id || "").trim();
             const action = String(body.action || "").trim().toLowerCase();
-            const allowedActions = new Set(["pause", "resume", "request_cancel", "request_refund", "update_preferences"]);
+            const allowedActions = new Set(["pause", "resume", "skip_next", "request_cancel", "request_refund", "update_preferences"]);
             if (!orderID || !allowedActions.has(action)) {
                 sendJSON(response, 400, { error: "Provide an orderID and a valid Coffee Club action." });
                 return;
