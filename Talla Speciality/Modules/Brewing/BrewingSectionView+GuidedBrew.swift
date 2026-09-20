@@ -807,7 +807,10 @@ extension BrewingSectionView {
             // (roughly 740 points wide), so it must use the landscape brew
             // workspace instead of the vertically scrolling phone layout.
             let isLandscape = proxy.size.width > proxy.size.height
-            let usesDuoOuterPortraitLayout = !isLandscape && proxy.size.width >= 500
+            // The outer Duo screen reports a usable width in the low 400s.
+            // Keep it on the dense workspace so the action controls stay above
+            // the bottom safe area instead of being clipped by the metrics.
+            let usesDuoOuterPortraitLayout = !isLandscape && proxy.size.width >= 350
 
             Group {
                 if isLandscape {
@@ -919,13 +922,60 @@ extension BrewingSectionView {
                 focusedScaleLiveCard
             }
 
-            focusedBrewMetricRows
-                .frame(maxHeight: 184)
+            focusedDuoCompactMetricRows
 
             focusedNextStepPreview
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
+    }
+
+    var focusedDuoCompactMetricRows: some View {
+        VStack(spacing: 0) {
+            focusedDuoCompactMetricRow(title: AppLocalization.text("target", fallback: "Target"), value: "\(formattedWholeGram(currentWaterTarget)) g")
+            focusedDuoCompactMetricRow(title: AppLocalization.text("added_this_step", fallback: "Added this step"), value: "\(formattedWholeGram(waterAddedThisStep)) g")
+            focusedDuoCompactMetricRow(title: AppLocalization.text("suggested_flow", fallback: "Suggested flow"), value: currentSuggestedFlow)
+            focusedDuoCompactMetricRow(title: AppLocalization.text("target_completion_time", fallback: "Target completion time"), value: currentTargetCompletionTime)
+
+            if currentBrewPhaseName == AppLocalization.text("bloom", fallback: "Bloom") {
+                focusedDuoCompactMetricRow(title: AppLocalization.text("bloom_duration", fallback: "Bloom duration"), value: focusedBloomDurationText)
+            }
+        }
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(brewBorderColor)
+                .frame(height: 1)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(brewBorderColor)
+                .frame(height: 1)
+        }
+    }
+
+    func focusedDuoCompactMetricRow(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title)
+                .font(Font.custom("AvenirNext-DemiBold", size: 9))
+                .tracking(AppLocalization.letterSpacing(0.8))
+                .textCase(.uppercase)
+                .foregroundColor(brewSecondaryTextColor)
+
+            Spacer(minLength: 8)
+
+            Text(value)
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(brewPrimaryTextColor)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+        }
+        .frame(minHeight: 32)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(brewBorderColor.opacity(0.7))
+                .frame(height: 1)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     var focusedDuoLandscapeLiveBrewView: some View {
