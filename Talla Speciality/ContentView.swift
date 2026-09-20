@@ -3488,37 +3488,4 @@ struct ContentView: View {
         ))
     }
 
-    func handleBenefitPayReturn(_ url: URL) {
-        guard let session = benefitPaySession,
-              BenefitPayCallbackParser.referenceID(from: url) == session.referenceId else {
-            benefitPaySession = nil
-            paymentFlow.transition(to: .failed, error: "BenefitPay returned an invalid payment reference.")
-            presentPostPayment()
-            return
-        }
-        benefitPaySession = nil
-        paymentFlow.transition(to: .processing)
-        presentPostPayment()
-        Task {
-            do {
-                let confirmation = try await BenefitPayService.confirm(session: session)
-                guard confirmation.status == "succeeded" else {
-                    paymentFlow.transition(to: .failed, error: "BenefitPay did not confirm this payment.")
-                    return
-                }
-                cartItems.removeAll()
-                appliedVoucher = nil
-                voucherCodeInput = ""
-                voucherError = nil
-                paymentFlow.transition(to: .succeeded)
-                await loadOrderHistory()
-                if !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    await loadLoyaltyAccount()
-                }
-            } catch {
-                paymentFlow.transition(to: .failed, error: error.localizedDescription)
-            }
-        }
-    }
-
 }
