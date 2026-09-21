@@ -1779,18 +1779,10 @@ function createAdminSession(principal) {
     const sessionPrincipal = typeof principal === "string"
         ? { username: principal, role: "owner", permissions: ["*"] }
         : principal;
+    const payload = encodeBase64URL(JSON.stringify({ id: sessionID, username: sessionPrincipal.username, role: sessionPrincipal.role, permissions: sessionPrincipal.permissions, expiresAt }));
     adminSessions.set(sessionID, { ...sessionPrincipal, expiresAt });
-    const signedValue = `${sessionID}.${signSessionValue(sessionID)}`;
-
-    return {
-        username: sessionPrincipal.username,
-        role: sessionPrincipal.role,
-        permissions: sessionPrincipal.permissions,
-        expiresAt,
-        cookie: adminSessionCookieAttributes(expiresAt).map((part, index) => (
-            index === 0 ? `${adminSessionCookieName}=${encodeURIComponent(signedValue)}` : part
-        )).join("; ")
-    };
+    const signedValue = `${payload}.${signSessionValue(payload)}`;
+    return { username: sessionPrincipal.username, role: sessionPrincipal.role, permissions: sessionPrincipal.permissions, expiresAt, cookie: adminSessionCookieAttributes(expiresAt).map((part, index) => index === 0 ? `${adminSessionCookieName}=${encodeURIComponent(signedValue)}` : part).join("; ") };
 }
 
 function clearAdminSessionCookie() {
@@ -1811,9 +1803,9 @@ function getAdminSession(request) {
         return null;
     }
 
-    const sessionID = rawValue.slice(0, separatorIndex);
+    const payload = rawValue.slice(0, separatorIndex);
     const providedSignature = rawValue.slice(separatorIndex + 1);
-    const expectedSignature = signSessionValue(sessionID);
+    const expectedSignature = signSessionValue(payload);
     const providedBuffer = Buffer.from(providedSignature);
     const expectedBuffer = Buffer.from(expectedSignature);
 
@@ -1821,14 +1813,22 @@ function getAdminSession(request) {
         return null;
     }
 
-    const session = adminSessions.get(sessionID);
-    if (!session || session.expiresAt <= Date.now()) {
-        adminSessions.delete(sessionID);
+    let session;
+    try {
+        session = JSON.parse(decodeBase64URL(payload));
+    } catch {
         return null;
     }
 
+    if (!session?.id || !session.username || !Array.isArray(session.permissions) || session.expiresAt <= Date.now()) {
+        adminSessions.delete(session?.id);
+        return null;
+    }
+
+    adminSessions.delete(session.id);
+
     return {
-        id: sessionID,
+        id: session.id,
         username: session.username,
         role: session.role,
         permissions: session.permissions,

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AdminRootView: View {
-    enum Tab: Hashable { case orders, products, customers, console, settings }
+    enum Tab: Hashable { case orders, products, customers, console, workspace, settings }
 
     @EnvironmentObject private var session: AdminSession
     @State private var selection: Tab = .orders
@@ -34,6 +34,10 @@ struct AdminRootView: View {
             AdminWorkspaceView()
                 .tabItem { Label("Admin", systemImage: "rectangle.3.group.fill") }
                 .tag(Tab.console)
+
+            AdminConsoleView(url: session.api.adminConsoleURL)
+                .tabItem { Label("Web Admin", systemImage: "globe") }
+                .tag(Tab.workspace)
 
             AdminSettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }

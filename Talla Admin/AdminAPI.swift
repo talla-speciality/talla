@@ -17,6 +17,13 @@ struct AdminAPI {
         return AdminAPI(baseURL: URL(string: configuredValue ?? fallback)!)
     }
 
+    /// The canonical admin console served by the backend. Keeping this URL
+    /// alongside the API configuration prevents the native app and web admin
+    /// from drifting onto different hosts or paths.
+    var adminConsoleURL: URL {
+        url("/admin")
+    }
+
     private func url(_ path: String) -> URL {
         URL(string: path, relativeTo: baseURL)!.absoluteURL
     }
