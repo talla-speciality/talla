@@ -442,7 +442,7 @@ struct ContentView: View {
                         .rotationEffect(.degrees(-90))
                     Text("\(store.snapshot.points)")
                         .font(.system(size: 20, weight: .black, design: .serif))
-                        .minimumScaleFactor(0.6)
+                        .minimumScaleFactor(0.75)
                 }
                 .frame(width: 66, height: 66)
 
@@ -748,7 +748,7 @@ struct WatchBrewSessionView: View {
                     .rotationEffect(.degrees(-90))
                 Text(formattedTime(elapsed))
                     .font(.system(size: 22, weight: .black, design: .rounded))
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.8)
             }
             .frame(width: 86, height: 86)
 

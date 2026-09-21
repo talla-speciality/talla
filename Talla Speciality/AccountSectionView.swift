@@ -140,14 +140,14 @@ struct AccountSectionView: View {
                     Text(accountDisplayName)
                         .font(titleFont)
                         .foregroundColor(primaryTextColor)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                         .minimumScaleFactor(0.72)
 
                     if !accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(accountEmail)
                             .font(quickActionBodyFont)
                             .foregroundColor(secondaryTextColor)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                             .minimumScaleFactor(0.78)
                     }
 
@@ -156,7 +156,7 @@ struct AccountSectionView: View {
                         .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
                         .foregroundColor(accentColor)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                 }
 
                 Spacer(minLength: 8)
@@ -310,13 +310,13 @@ struct AccountSectionView: View {
                     Text(title)
                         .font(quickActionTitleFont)
                         .foregroundColor(primaryTextColor)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                         .minimumScaleFactor(0.82)
 
                     Text(detail)
                         .font(quickActionBodyFont)
                         .foregroundColor(secondaryTextColor)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                         .minimumScaleFactor(0.82)
                 }
 

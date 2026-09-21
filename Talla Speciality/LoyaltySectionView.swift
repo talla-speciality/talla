@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct LoyaltySectionView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isRewardsCatalogPresented = false
 
     let isCompact: Bool
@@ -165,7 +166,8 @@ struct LoyaltySectionView: View {
         let bottlesLeft = max(6 - filledCount, 0)
 
         return VStack(spacing: 14) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+            let columnCount = dynamicTypeSize.isAccessibilitySize ? (isCompact ? 2 : 3) : 3
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: columnCount), spacing: 10) {
                 ForEach(0..<6, id: \.self) { index in
                     productStamp(isEarned: index < filledCount)
                 }

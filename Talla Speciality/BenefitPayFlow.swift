@@ -139,7 +139,8 @@ struct BenefitPayCheckoutSheet: View {
                 }
 
                 BenefitPaySDKButton(session: session)
-                    .frame(width: 258, height: 60)
+                    .frame(maxWidth: .infinity, minHeight: 60)
+                    .padding(.horizontal, 18)
 
                 Spacer()
             }

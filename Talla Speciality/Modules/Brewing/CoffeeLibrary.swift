@@ -63,6 +63,34 @@ struct BrewTelemetryChart: View {
     }
 }
 
+struct BrewShareCardView: View {
+    let title: String
+    let method: String
+    let finalWeight: Double?
+    let duration: Double
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "drop.fill")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 48, height: 48)
+                .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline)
+                Text(method).font(.subheadline).foregroundStyle(.secondary)
+                Text("\(finalWeight.map { String(format: "%.1f g", $0) } ?? "—")  ·  \(Int(duration.rounded())) s")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text("Measured brew").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
+        }
+        .padding(14)
+        .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.25)))
+    }
+}
+
 enum BrewReferenceStore {
     private static let key = "talla.brewing.referenceCurve.v1"
     static func save(_ samples: [CoffeeSampleInput]) { UserDefaults.standard.set(try? JSONEncoder().encode(samples), forKey: key) }

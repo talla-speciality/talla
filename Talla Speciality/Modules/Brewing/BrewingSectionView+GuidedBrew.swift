@@ -358,7 +358,7 @@ extension BrewingSectionView {
                 Text(recipe.title)
                     .font(Font.custom("Georgia-Bold", size: 16))
                     .foregroundColor(primaryTextColor)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .minimumScaleFactor(0.82)
 
                 Text(recipe.detail)
@@ -367,7 +367,7 @@ extension BrewingSectionView {
                     .lineLimit(2)
             }
             .padding(12)
-            .frame(width: 184, alignment: .leading)
+            .frame(minWidth: 184, maxWidth: 260, alignment: .leading)
             .background(accentColor.opacity(0.07))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -807,16 +807,9 @@ extension BrewingSectionView {
             // (roughly 740 points wide), so it must use the landscape brew
             // workspace instead of the vertically scrolling phone layout.
             let isLandscape = proxy.size.width > proxy.size.height
-            // The outer Duo screen reports a usable width in the low 400s.
-            // Keep it on the dense workspace so the action controls stay above
-            // the bottom safe area instead of being clipped by the metrics.
-            let usesDuoOuterPortraitLayout = !isLandscape && proxy.size.width >= 350
-
             Group {
                 if isLandscape {
                     focusedDuoLandscapeLiveBrewView
-                } else if usesDuoOuterPortraitLayout {
-                    focusedDuoPortraitLiveBrewView
                 } else {
                     focusedPortraitLiveBrewView
                 }
@@ -1053,25 +1046,30 @@ extension BrewingSectionView {
     }
 
     var focusedPortraitLiveBrewView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            focusedBrewTopArea
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                focusedBrewTopArea
 
-            focusedBrewTimeline
-                .padding(.top, 20)
+                focusedBrewTimeline
+                    .padding(.top, 4)
 
-            Spacer(minLength: 22)
+                if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                    focusedPrepareBrewContent
+                        .transition(.opacity)
+                } else {
+                    focusedActiveBrewContent
+                        .transition(.opacity)
+                }
 
-            if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
-                focusedPrepareBrewContent
-                    .transition(.opacity)
-            } else {
-                focusedActiveBrewContent
-                    .transition(.opacity)
             }
-
-            Spacer(minLength: 22)
-
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(.bottom, 20)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             focusedBrewControls
+                .padding(.top, isCompact ? 6 : 10)
+                .padding(.bottom, isCompact ? 2 : 6)
+                .background(.ultraThinMaterial)
         }
     }
 
@@ -1435,7 +1433,7 @@ extension BrewingSectionView {
             .padding(.vertical, 12)
             if capturedBrewSamples.contains(where: { $0.kind == .weight }) {
                 BrewTelemetryChart(samples: capturedBrewSamples, accent: brewAccentColor)
-                    .frame(height: 120)
+                    .frame(height: isCompact ? 92 : 120)
             }
         }
         .padding(10)
@@ -2014,7 +2012,7 @@ extension BrewingSectionView {
                 focusedBrewCompletionSummary
                 if capturedBrewSamples.contains(where: { $0.kind == .weight }) {
                     BrewTelemetryChart(samples: capturedBrewSamples, accent: brewAccentColor)
-                        .frame(height: 170)
+                        .frame(height: isCompact ? 132 : 170)
                 }
 
                 if isAfterBrewFeedbackExpanded {
@@ -2034,6 +2032,7 @@ extension BrewingSectionView {
 
                     afterBrewActions
                 } else {
+                    brewMeasurementActions
                     focusedCompletionActions
                 }
             }
@@ -2254,6 +2253,13 @@ extension BrewingSectionView {
 
     var afterBrewActions: some View {
         VStack(spacing: 10) {
+            brewMeasurementActions
+            recipeAdjustmentActions
+        }
+    }
+
+    @ViewBuilder
+    var brewMeasurementActions: some View {
             HStack(spacing: 8) {
                 Button {
                     BrewReferenceStore.save(capturedBrewSamples)
@@ -2276,7 +2282,7 @@ extension BrewingSectionView {
 
             if !BrewReferenceStore.load().isEmpty {
                 BrewTelemetryComparisonChart(reference: BrewReferenceStore.load(), attempt: capturedBrewSamples)
-                    .frame(height: 150)
+                    .frame(height: isCompact ? 112 : 150)
             }
 
             if let payload = ShareableBrewCard(
@@ -2289,13 +2295,21 @@ extension BrewingSectionView {
                 isReference: false
             ).payload,
                let shareText = String(data: payload, encoding: .utf8) {
+                BrewShareCardView(title: brewRecipeName.isEmpty ? "Talla Brew" : brewRecipeName,
+                                  method: selectedBrewModeMethod?.name ?? "Brew",
+                                  finalWeight: capturedBrewSamples.last(where: { $0.kind == .weight })?.value,
+                                  duration: Double(brewModeElapsedSeconds))
+                    .frame(minHeight: 92)
                 ShareLink(item: shareText, subject: Text("My Talla brew"), message: Text("Measured brew curve")) {
                     Label("Share brew card", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(.bordered)
             }
+    }
 
+    var recipeAdjustmentActions: some View {
+        VStack(spacing: 10) {
             if recipeRevisionChanges.isEmpty {
                 afterBrewActionButton(
                     title: AppLocalization.text("show_next_adjustment", fallback: "Show Talla’s next adjustment"),

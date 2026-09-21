@@ -1320,7 +1320,14 @@ extension BrewingSectionView {
     }
 
     func restartBrewMode() {
+        isBrewRestartConfirmationPresented = false
+        isFocusedBrewPresented = true
+        isBrewModeRunning = false
         scaleManager.stopTimer()
+        // A restart is a new attempt, not a continuation. Clear every piece of
+        // attempt-local state before starting the new timer so the graph and
+        // automatic stop detector cannot consume the previous brew.
+        capturedBrewSamples.removeAll(keepingCapacity: true)
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
         lastPrePourCueStepID = nil
@@ -1328,6 +1335,7 @@ extension BrewingSectionView {
         scaleStepOverrideIndex = nil
         didCompleteBrewFromScale = false
         brewModeBackgroundDate = nil
+        clearPersistedBrewSession()
         endBrewLiveActivity()
         startBrewModeSession()
     }

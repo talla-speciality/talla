@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SignedInCustomerSectionView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let profile: ContentView.ShopifyCustomerProfile
     let addressesCount: Int
     let orderCount: Int
@@ -32,13 +33,13 @@ struct SignedInCustomerSectionView: View {
                     Text(profile.displayName)
                         .font(titleFont)
                         .foregroundColor(primaryTextColor)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                         .minimumScaleFactor(0.78)
 
                     Text(profile.email)
                         .font(bodyFont)
                         .foregroundColor(secondaryTextColor)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                         .minimumScaleFactor(0.82)
 
                     Label(AppLocalization.text("rewards_connected", fallback: "Rewards connected"), systemImage: "checkmark.circle.fill")
