@@ -2242,6 +2242,8 @@ extension BrewingSectionView {
                 }
             }
 
+            focusedRecipeCard
+
             if let revisedRecipeVersionTitle {
                 Text(String(format: AppLocalization.text("saved_new_recipe_version", fallback: "Saved as a new version: %@"), revisedRecipeVersionTitle))
                     .font(Font.custom("AvenirNext-DemiBold", size: 12))
@@ -2249,6 +2251,56 @@ extension BrewingSectionView {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    var focusedRecipeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(brewRecipeName.isEmpty ? AppLocalization.text("talla_brew", fallback: "Talla Brew") : brewRecipeName)
+                    .font(Font.custom("Georgia-Bold", size: 22))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .lineLimit(2)
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "bookmark.fill")
+                    .foregroundColor(brewAccentColor)
+                    .accessibilityHidden(true)
+            }
+
+            HStack(spacing: 8) {
+                brewRecipeStat(AppLocalization.text("method", fallback: "Method"), selectedBrewModeMethod?.name ?? AppLocalization.text("filter", fallback: "Filter"))
+                brewRecipeStat(AppLocalization.text("dose", fallback: "Dose"), "\(formattedRatioValue(validCoffeeAmount)) g")
+                brewRecipeStat(AppLocalization.text("ratio", fallback: "Ratio"), "1:\(formattedRatioValue(validRatioValue))")
+            }
+
+            Button(action: saveCurrentRecipe) {
+                Label(AppLocalization.text("save_recipe", fallback: "Save Recipe"), systemImage: "bookmark.fill")
+                    .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                    .foregroundColor(Color(hex: 0x1C1A17))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(brewSurfaceColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(brewBorderColor, lineWidth: 1))
+    }
+
+    func brewRecipeStat(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundColor(brewSecondaryTextColor)
+                .textCase(.uppercase)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(brewPrimaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var afterBrewActions: some View {
@@ -2285,6 +2337,12 @@ extension BrewingSectionView {
                     .frame(height: isCompact ? 112 : 150)
             }
 
+            BrewShareCardView(title: brewRecipeName.isEmpty ? "Talla Brew" : brewRecipeName,
+                              method: selectedBrewModeMethod?.name ?? "Brew",
+                              finalWeight: capturedBrewSamples.last(where: { $0.kind == .weight })?.value,
+                              duration: Double(brewModeElapsedSeconds))
+                .frame(minHeight: 92)
+
             if let payload = ShareableBrewCard(
                 title: brewRecipeName.isEmpty ? "Talla Brew" : brewRecipeName,
                 method: selectedBrewModeMethod?.name ?? "Brew",
@@ -2295,11 +2353,6 @@ extension BrewingSectionView {
                 isReference: false
             ).payload,
                let shareText = String(data: payload, encoding: .utf8) {
-                BrewShareCardView(title: brewRecipeName.isEmpty ? "Talla Brew" : brewRecipeName,
-                                  method: selectedBrewModeMethod?.name ?? "Brew",
-                                  finalWeight: capturedBrewSamples.last(where: { $0.kind == .weight })?.value,
-                                  duration: Double(brewModeElapsedSeconds))
-                    .frame(minHeight: 92)
                 ShareLink(item: shareText, subject: Text("My Talla brew"), message: Text("Measured brew curve")) {
                     Label("Share brew card", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity, minHeight: 44)
