@@ -70,7 +70,7 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
                 FROM coffee_records sessions
                 LEFT JOIN coffee_records samples ON samples.email = sessions.email
                     AND samples.entity_type = 'sample' AND samples.deleted_at IS NULL
-                    AND samples.payload->>'sessionID' = sessions.record_id
+                    AND samples.payload->>'sessionID' = sessions.record_id::text
                 WHERE sessions.entity_type = 'brewSession' AND sessions.deleted_at IS NULL
                 GROUP BY sessions.email, sessions.record_id, sessions.payload
                 ORDER BY updated_at DESC LIMIT 100`)
