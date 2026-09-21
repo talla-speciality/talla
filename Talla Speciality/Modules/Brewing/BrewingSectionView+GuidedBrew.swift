@@ -1407,7 +1407,8 @@ extension BrewingSectionView {
     }
 
     var focusedScaleLiveCard: some View {
-        HStack(spacing: 0) {
+        VStack(spacing: 10) {
+            HStack(spacing: 0) {
             scaleLiveMetric(
                 title: AppLocalization.text("live_weight", fallback: "Live weight"),
                 value: String(format: "%.1f g", scaleManager.weightGrams)
@@ -1430,8 +1431,14 @@ extension BrewingSectionView {
                 title: AppLocalization.text("flow", fallback: "Flow"),
                 value: String(format: "%.1f g/s", scaleManager.flowRateGramsPerSecond)
             )
+            }
+            .padding(.vertical, 12)
+            if capturedBrewSamples.contains(where: { $0.kind == .weight }) {
+                BrewTelemetryChart(samples: capturedBrewSamples, accent: brewAccentColor)
+                    .frame(height: 120)
+            }
         }
-        .padding(.vertical, 12)
+        .padding(10)
         .background(brewSurfaceColor)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -2005,6 +2012,10 @@ extension BrewingSectionView {
             VStack(alignment: .leading, spacing: 20) {
                 focusedCompletionTopBar
                 focusedBrewCompletionSummary
+                if capturedBrewSamples.contains(where: { $0.kind == .weight }) {
+                    BrewTelemetryChart(samples: capturedBrewSamples, accent: brewAccentColor)
+                        .frame(height: 170)
+                }
 
                 if isAfterBrewFeedbackExpanded {
                     Text(AppLocalization.text("how_did_this_cup_taste", fallback: "How did this cup taste?"))
@@ -2243,6 +2254,48 @@ extension BrewingSectionView {
 
     var afterBrewActions: some View {
         VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Button {
+                    BrewReferenceStore.save(capturedBrewSamples)
+                    UserDefaults.standard.set(true, forKey: "talla.brewing.hasReferenceCurve.v1")
+                } label: {
+                    Label("Mark as best", systemImage: "star.fill")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    isAfterBrewFeedbackExpanded = false
+                    restartBrewMode()
+                } label: {
+                    Label("Repeat best", systemImage: "arrow.counterclockwise")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            if !BrewReferenceStore.load().isEmpty {
+                BrewTelemetryComparisonChart(reference: BrewReferenceStore.load(), attempt: capturedBrewSamples)
+                    .frame(height: 150)
+            }
+
+            if let payload = ShareableBrewCard(
+                title: brewRecipeName.isEmpty ? "Talla Brew" : brewRecipeName,
+                method: selectedBrewModeMethod?.name ?? "Brew",
+                doseGrams: validCoffeeAmount,
+                finalWeightGrams: capturedBrewSamples.last(where: { $0.kind == .weight })?.value,
+                durationSeconds: Double(brewModeElapsedSeconds),
+                curve: capturedBrewSamples.filter { $0.kind == .weight }.map { BrewCurvePoint(id: UUID(), seconds: Double($0.elapsedMilliseconds) / 1000, weightGrams: $0.value, flowGramsPerSecond: nil) },
+                isReference: false
+            ).payload,
+               let shareText = String(data: payload, encoding: .utf8) {
+                ShareLink(item: shareText, subject: Text("My Talla brew"), message: Text("Measured brew curve")) {
+                    Label("Share brew card", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+            }
+
             if recipeRevisionChanges.isEmpty {
                 afterBrewActionButton(
                     title: AppLocalization.text("show_next_adjustment", fallback: "Show Talla’s next adjustment"),

@@ -267,6 +267,7 @@ struct BrewingSectionView: View {
         let recipePourCount: Int
         let scaleStepOverrideIndex: Int?
         let didCompleteBrewFromScale: Bool?
+        let capturedBrewSamples: [CoffeeSampleInput]?
     }
 
     enum BrewSessionStorage {

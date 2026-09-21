@@ -43,7 +43,7 @@ function nextCoffeeTags(existingTags = [], metadata = {}) {
 function createCoffeeAdminService(database, normalizeEmail = (value) => String(value || "").trim().toLowerCase()) {
     async function summary() {
         if (!database.isEnabled()) return { configured: false, totals: {}, recentRecords: [] };
-        const [counts, recent] = await Promise.all([
+        const [counts, recent, brewInsights] = await Promise.all([
             database.query(`SELECT COUNT(DISTINCT email)::int AS customers,
                 COUNT(*) FILTER (WHERE deleted_at IS NULL)::int AS records,
                 COUNT(*) FILTER (WHERE entity_type = 'coffeeLot' AND deleted_at IS NULL)::int AS lots,
@@ -56,6 +56,24 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
                 MAX(updated_at) AS last_sync_at FROM coffee_records`),
             database.query(`SELECT email, entity_type, record_id, payload, revision, updated_at, updated_by_device
                 FROM coffee_records WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT 100`)
+            , database.query(`SELECT sessions.email, sessions.record_id AS session_id,
+                    sessions.payload->>'title' AS title, sessions.payload->>'method' AS method,
+                    COUNT(samples.record_id)::int AS sample_count,
+                    MAX((samples.payload->>'value')::double precision) FILTER (WHERE samples.payload->>'kind' = 'weight') AS max_weight,
+                    AVG((samples.payload->>'value')::double precision) FILTER (WHERE samples.payload->>'kind' = 'flow') AS average_flow,
+                    MAX((samples.payload->>'elapsedMilliseconds')::int) FILTER (WHERE samples.payload->>'kind' = 'weight') AS duration_ms,
+                    COALESCE(json_agg(json_build_object(
+                        'elapsedMilliseconds', (samples.payload->>'elapsedMilliseconds')::int,
+                        'kind', samples.payload->>'kind', 'value', (samples.payload->>'value')::double precision
+                    ) ORDER BY (samples.payload->>'elapsedMilliseconds')::int) FILTER (WHERE samples.record_id IS NOT NULL), '[]'::json) AS curve,
+                    MAX(sessions.updated_at) AS updated_at
+                FROM coffee_records sessions
+                LEFT JOIN coffee_records samples ON samples.email = sessions.email
+                    AND samples.entity_type = 'sample' AND samples.deleted_at IS NULL
+                    AND samples.payload->>'sessionID' = sessions.record_id
+                WHERE sessions.entity_type = 'brewSession' AND sessions.deleted_at IS NULL
+                GROUP BY sessions.email, sessions.record_id, sessions.payload
+                ORDER BY updated_at DESC LIMIT 100`)
         ]);
         const row = counts.rows[0] || {};
         return { configured: true, totals: {
@@ -63,7 +81,12 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
             purchasedBags: Number(row.purchased_bags || 0), brewSessions: Number(row.brew_sessions || 0),
             doseRecords: Number(row.dose_records || 0), shopifyImports: Number(row.shopify_imports || 0),
             lotsMissingMetadata: Number(row.lots_missing_metadata || 0), lastSyncAt: row.last_sync_at || null
-        }, recentRecords: recent.rows.map((entry) => ({
+        }, brewInsights: brewInsights.rows.map((entry) => ({
+            sessionID: entry.session_id, email: entry.email, title: entry.title || "Brew", method: entry.method || "",
+            sampleCount: Number(entry.sample_count || 0), maxWeight: entry.max_weight == null ? null : Number(entry.max_weight),
+            averageFlow: entry.average_flow == null ? null : Number(entry.average_flow), durationMilliseconds: entry.duration_ms == null ? null : Number(entry.duration_ms),
+            curve: entry.curve || [], updatedAt: entry.updated_at
+        })), recentRecords: recent.rows.map((entry) => ({
             id: entry.record_id, email: entry.email, entityType: entry.entity_type, recordID: entry.record_id,
             title: entry.payload?.name || entry.payload?.productName || entry.payload?.title || entry.entity_type,
             revision: entry.revision, updatedAt: entry.updated_at, source: entry.updated_by_device

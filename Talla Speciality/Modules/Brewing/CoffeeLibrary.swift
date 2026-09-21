@@ -1,6 +1,112 @@
 import SwiftData
 import SwiftUI
 
+struct BrewCurvePoint: Identifiable, Codable, Equatable {
+    let id: UUID
+    let seconds: Double
+    let weightGrams: Double
+    let flowGramsPerSecond: Double?
+}
+
+struct BrewCurveComparison: Codable, Equatable {
+    let reference: [BrewCurvePoint]
+    let attempt: [BrewCurvePoint]
+    let finalWeightDifference: Double
+    let timeDifference: Double
+}
+
+struct BrewMeasurementRecommendation: Codable, Equatable {
+    let title: String
+    let detail: String
+    let confidence: Double
+}
+
+struct ShareableBrewCard: Codable, Equatable {
+    let title: String
+    let method: String
+    let doseGrams: Double?
+    let finalWeightGrams: Double?
+    let durationSeconds: Double?
+    let curve: [BrewCurvePoint]
+    let isReference: Bool
+
+    var payload: Data? { try? JSONEncoder().encode(self) }
+}
+
+struct BrewTelemetryChart: View {
+    let samples: [CoffeeSampleInput]
+    var accent: Color = .orange
+
+    var body: some View {
+        GeometryReader { proxy in
+            let weights = samples.filter { $0.kind == .weight }.sorted { $0.elapsedMilliseconds < $1.elapsedMilliseconds }
+            let maxWeight = max(weights.map(\.value).max() ?? 1, 1)
+            Canvas { context, size in
+                guard weights.count > 1 else { return }
+                var path = Path()
+                let maxTime = max(Double(weights.last?.elapsedMilliseconds ?? 1), 1)
+                for (index, point) in weights.enumerated() {
+                    let x = CGFloat(Double(point.elapsedMilliseconds) / maxTime) * size.width
+                    let y = size.height - CGFloat(point.value / maxWeight) * (size.height - 8) - 4
+                    if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+                }
+                context.stroke(path, with: .color(accent), lineWidth: 2.5)
+            }
+            .overlay(alignment: .topLeading) {
+                Text("WEIGHT CURVE")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .padding(7)
+            }
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.quaternary))
+        }
+    }
+}
+
+enum BrewReferenceStore {
+    private static let key = "talla.brewing.referenceCurve.v1"
+    static func save(_ samples: [CoffeeSampleInput]) { UserDefaults.standard.set(try? JSONEncoder().encode(samples), forKey: key) }
+    static func load() -> [CoffeeSampleInput] { guard let data = UserDefaults.standard.data(forKey: key) else { return [] }; return (try? JSONDecoder().decode([CoffeeSampleInput].self, from: data)) ?? [] }
+}
+
+struct BrewTelemetryComparisonChart: View {
+    let reference: [CoffeeSampleInput]
+    let attempt: [CoffeeSampleInput]
+
+    var body: some View {
+        GeometryReader { proxy in
+            Canvas { context, size in
+                draw(reference, color: .gray, context: &context, size: size)
+                draw(attempt, color: .orange, context: &context, size: size)
+            }
+            .overlay(alignment: .topLeading) {
+                HStack(spacing: 10) {
+                    Label("Best", systemImage: "circle.fill").foregroundStyle(.gray)
+                    Label("This brew", systemImage: "circle.fill").foregroundStyle(.orange)
+                }
+                .font(.caption2)
+                .padding(6)
+                .background(.thinMaterial, in: Capsule())
+            }
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.quaternary))
+        }
+    }
+
+    private func draw(_ values: [CoffeeSampleInput], color: Color, context: inout GraphicsContext, size: CGSize) {
+        let weights = values.filter { $0.kind == .weight }.sorted { $0.elapsedMilliseconds < $1.elapsedMilliseconds }
+        guard weights.count > 1 else { return }
+        let maxWeight = max(weights.map(\.value).max() ?? 1, 1)
+        let maxTime = max(Double(weights.last?.elapsedMilliseconds ?? 1), 1)
+        var path = Path()
+        for (index, point) in weights.enumerated() {
+            let x = CGFloat(Double(point.elapsedMilliseconds) / maxTime) * size.width
+            let y = size.height - CGFloat(point.value / maxWeight) * (size.height - 8) - 4
+            if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+        }
+        context.stroke(path, with: .color(color), lineWidth: 2)
+    }
+}
+
 struct CoffeeInventoryRecord: Identifiable {
     let id: UUID
     let lotID: UUID?
@@ -794,6 +900,61 @@ private struct CoffeeLotEditorView: View {
                 }
             }
         }
+    }
+}
+
+extension CoffeeDataStore {
+    func measuredCurve(for sessionID: UUID, bucketSeconds: Double = 1) -> [BrewCurvePoint] {
+        let rows = legacyObjects(entityType: "sample").filter { ($0["sessionID"] as? String).flatMap(UUID.init(uuidString:)) == sessionID }
+        let weights = Dictionary(grouping: rows.filter { ($0["kind"] as? String) == SampleKind.weight.rawValue }, by: { ($0["elapsedMilliseconds"] as? NSNumber)?.intValue ?? 0 })
+        let flows = Dictionary(uniqueKeysWithValues: rows.filter { ($0["kind"] as? String) == SampleKind.flow.rawValue }.compactMap { row -> (Int, Double)? in
+            guard let time = (row["elapsedMilliseconds"] as? NSNumber)?.intValue, let value = (row["value"] as? NSNumber)?.doubleValue else { return nil }
+            return (time, value)
+        })
+        guard bucketSeconds > 0 else { return [] }
+        return weights.keys.sorted().compactMap { elapsed in
+            guard let value = weights[elapsed]?.last?["value"] as? NSNumber else { return nil }
+            return BrewCurvePoint(id: UUID(), seconds: Double(elapsed) / 1000, weightGrams: value.doubleValue, flowGramsPerSecond: flows[elapsed] ?? flows.keys.sorted().last(where: { $0 <= elapsed }).flatMap { flows[$0] })
+        }.reduce(into: [Int: BrewCurvePoint]()) { result, point in
+            result[Int((point.seconds / bucketSeconds).rounded())] = point
+        }.values.sorted { $0.seconds < $1.seconds }
+    }
+
+    func compareMeasuredBrews(referenceID: UUID, attemptID: UUID) -> BrewCurveComparison {
+        let reference = measuredCurve(for: referenceID), attempt = measuredCurve(for: attemptID)
+        return BrewCurveComparison(reference: reference, attempt: attempt,
+            finalWeightDifference: (attempt.last?.weightGrams ?? 0) - (reference.last?.weightGrams ?? 0),
+            timeDifference: (attempt.last?.seconds ?? 0) - (reference.last?.seconds ?? 0))
+    }
+
+    func markBestMeasuredBrew(_ sessionID: UUID) {
+        UserDefaults.standard.set(sessionID.uuidString, forKey: "talla.brewing.referenceBrewID.v1")
+    }
+
+    func bestMeasuredBrewID() -> UUID? {
+        UUID(uuidString: UserDefaults.standard.string(forKey: "talla.brewing.referenceBrewID.v1") ?? "")
+    }
+
+    func recommendation(for sessionID: UUID, targetSeconds: Double? = nil, targetWeight: Double? = nil, rating: Int? = nil, tasteNotes: String = "") -> BrewMeasurementRecommendation? {
+        let curve = measuredCurve(for: sessionID)
+        guard let last = curve.last else { return nil }
+        let taste = rating ?? 3
+        let averageFlow = curve.suffix(8).compactMap(\.flowGramsPerSecond).reduce(0, +) / Double(max(1, curve.suffix(8).compactMap(\.flowGramsPerSecond).count))
+        if taste <= 2 || tasteNotes.localizedCaseInsensitiveContains("sour") {
+            return BrewMeasurementRecommendation(title: "Extract more", detail: "The cup feedback and measured curve suggest a finer grind or a 10–15 second longer finish.", confidence: 0.78)
+        }
+        if taste >= 4 && (targetSeconds == nil || abs(last.seconds - targetSeconds!) <= 10) {
+            return BrewMeasurementRecommendation(title: "Repeat this curve", detail: "This was a strong cup with a controlled \(String(format: "%.1f", averageFlow)) g/s finish. Use it as your reference brew.", confidence: 0.86)
+        }
+        if let targetWeight, last.weightGrams < targetWeight * 0.95 {
+            return BrewMeasurementRecommendation(title: "Increase the final pour", detail: "The measured brew finished \(String(format: "%.1f", targetWeight - last.weightGrams)) g below target.", confidence: 0.71)
+        }
+        return BrewMeasurementRecommendation(title: "Keep the next brew steady", detail: "The measured curve is close to target. Repeat the timing and refine from taste.", confidence: 0.58)
+    }
+
+    func shareableBrewCard(sessionID: UUID, title: String, method: String, doseGrams: Double?, isReference: Bool = false) -> ShareableBrewCard {
+        let curve = measuredCurve(for: sessionID)
+        return ShareableBrewCard(title: title, method: method, doseGrams: doseGrams, finalWeightGrams: curve.last?.weightGrams, durationSeconds: curve.last?.seconds, curve: curve, isReference: isReference)
     }
 }
 

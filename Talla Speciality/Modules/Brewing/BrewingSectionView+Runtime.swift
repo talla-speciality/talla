@@ -705,6 +705,18 @@ extension BrewingSectionView {
     }
 
     func handleSmartScaleWeightChange(previousWeight: Double, currentWeight: Double) {
+        // A visible, prepared brew can begin as soon as the scale detects the first
+        // real pour. This preserves the existing manual start as a fallback.
+        if !isBrewModeRunning,
+           isFocusedBrewPresented,
+           brewModeElapsedSeconds == 0,
+           scaleManager.isConnected,
+           currentWeight - previousWeight >= 0.8,
+           scaleManager.flowRateGramsPerSecond >= 0.4 {
+            startBrewModeSession()
+            return
+        }
+
         guard isGeneratedRecipeActive,
               lastScaleAutoAdvancedStepID != currentBrewModeStep.id,
               let row = generatedPourRows.first(where: { $0.id == currentBrewModeStep.id }),
@@ -1400,6 +1412,24 @@ extension BrewingSectionView {
         if flow.isFinite {
             capturedBrewSamples.append(CoffeeSampleInput(kind: .flow, elapsedMilliseconds: elapsed, value: flow, unit: "g/s"))
         }
+        // Finish when the measured signal says the brew is done, even if the
+        // recipe timer is longer than the actual drawdown.
+        let paired: [(weight: Double, flow: Double)] = stride(
+            from: max(0, elapsed - 4_000),
+            through: elapsed,
+            by: 1_000
+        ).compactMap { second -> (weight: Double, flow: Double)? in
+            guard let weight = capturedBrewSamples.last(where: { $0.kind == .weight && $0.elapsedMilliseconds == second })?.value,
+                  let flow = capturedBrewSamples.last(where: { $0.kind == .flow && $0.elapsedMilliseconds == second })?.value else { return nil }
+            return (weight: weight, flow: flow)
+        }
+        if paired.count >= 5 {
+            let weights = paired.map(\.weight)
+            let flows = paired.map(\.flow)
+            let stable = (weights.max()! - weights.min()!) <= 0.35
+            let declining = flows.last! < 0.35 && flows.reduce(0, +) / Double(flows.count) < 0.8
+            if stable || declining { completeBrewModeSession(preserveElapsedTime: true, completedFromScale: true) }
+        }
         if capturedBrewSamples.count > 2_000 {
             capturedBrewSamples.removeSubrange(2..<(capturedBrewSamples.count - 1_998))
         }
@@ -1576,7 +1606,8 @@ extension BrewingSectionView {
             generatedTemperatureC: generatedTemperatureC,
             recipePourCount: recipePourCount,
             scaleStepOverrideIndex: scaleStepOverrideIndex,
-            didCompleteBrewFromScale: didCompleteBrewFromScale
+            didCompleteBrewFromScale: didCompleteBrewFromScale,
+            capturedBrewSamples: capturedBrewSamples
         )
 
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
@@ -1615,6 +1646,7 @@ extension BrewingSectionView {
         recipePourCount = snapshot.recipePourCount
         scaleStepOverrideIndex = snapshot.scaleStepOverrideIndex
         didCompleteBrewFromScale = snapshot.didCompleteBrewFromScale ?? false
+        capturedBrewSamples = snapshot.capturedBrewSamples ?? []
         restoredBrewTotalSeconds = snapshot.totalSeconds
 
         let backgroundDelta = snapshot.isRunning ? max(Int(Date().timeIntervalSince(snapshot.savedAt)), 0) : 0

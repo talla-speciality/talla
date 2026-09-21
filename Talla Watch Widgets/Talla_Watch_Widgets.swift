@@ -194,6 +194,7 @@ struct Talla_Watch_Widgets: Widget {
     }
 }
 
+#if false // Preview macro is unavailable in headless CI/Xcode plugin environments.
 #Preview(as: .accessoryRectangular) {
     Talla_Watch_Widgets()
 } timeline: {
@@ -208,3 +209,4 @@ struct Talla_Watch_Widgets: Widget {
         savedCartCount: 1
     )
 }
+#endif

@@ -36,6 +36,22 @@ struct AdminCoffeeMemoryView: View {
                             confirmation: "Fetch this customer’s recent Shopify orders and safely import missing coffee bags.",
                             onSaved: { result in message = "Processed \(result["syncedCount"].text) orders."; Task { await load() } }, document: .object([:]))
                     }
+                    Section("Measured brews") {
+                        let brews = document["brewInsights"].array ?? []
+                        if brews.isEmpty { Text("No measured brews synced yet").foregroundStyle(.secondary) }
+                        ForEach(brews, id: \.objectID) { brew in
+                            DisclosureGroup(brew["title"].text.isEmpty ? "Measured brew" : brew["title"].text) {
+                                AdminBrewCurveView(points: brew["curve"].array ?? [])
+                                    .frame(height: 150)
+                                    .padding(.vertical, 8)
+                                AdminRecordRows(record: brew, fields: [
+                                    .init("email", "Customer"), .init("method", "Method"), .init("sampleCount", "Samples"),
+                                    .init("maxWeight", "Final weight (g)"), .init("averageFlow", "Average flow (g/s)"),
+                                    .init("durationMilliseconds", "Measured duration (ms)"), .init("updatedAt", "Updated")
+                                ])
+                            }
+                        }
+                    }
                     Section("Recent synchronized records") {
                         if records.isEmpty { Text("No matching records").foregroundStyle(.secondary) }
                         ForEach(records, id: \.objectID) { record in
@@ -69,5 +85,44 @@ struct AdminCoffeeMemoryView: View {
         defer { loading = false }
         do { document = try await session.api.document("/admin/api/coffee-memory") }
         catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+}
+
+private struct AdminBrewCurveView: View {
+    let points: [AdminValue]
+
+    var body: some View {
+        GeometryReader { proxy in
+            let weights = points.filter { $0["kind"].text == "weight" }
+            let flows = points.filter { $0["kind"].text == "flow" }
+            let maxWeight = max(weights.map { $0["value"].number }.max() ?? 1, 1)
+            let maxFlow = max(flows.map { $0["value"].number }.max() ?? 1, 1)
+            Canvas { context, size in
+                drawLine(weights, maxValue: maxWeight, color: .orange, context: &context, size: size)
+                drawLine(flows, maxValue: maxFlow, color: .blue, context: &context, size: size)
+            }
+            .overlay(alignment: .topLeading) {
+                HStack(spacing: 12) {
+                    Label("Weight", systemImage: "circle.fill").foregroundStyle(.orange)
+                    Label("Flow", systemImage: "circle.fill").foregroundStyle(.blue)
+                }
+                .font(.caption2)
+                .padding(6)
+                .background(.thinMaterial, in: Capsule())
+            }
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary))
+        }
+    }
+
+    private func drawLine(_ values: [AdminValue], maxValue: Double, color: Color, context: inout GraphicsContext, size: CGSize) {
+        guard values.count > 1 else { return }
+        let maxTime = max(values.map { $0["elapsedMilliseconds"].number }.max() ?? 1, 1)
+        var path = Path()
+        for (index, point) in values.enumerated() {
+            let x = CGFloat(point["elapsedMilliseconds"].number / maxTime) * size.width
+            let y = size.height - CGFloat(point["value"].number / maxValue) * (size.height - 8) - 4
+            if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+        }
+        context.stroke(path, with: .color(color), lineWidth: 2)
     }
 }

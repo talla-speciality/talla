@@ -31,15 +31,8 @@ import UIKit
 #endif
 
 struct DuoToolbarBehavior: ViewModifier {
-    @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(iOS 27.1, *) {
-            content
-                .toolbarVerticalBehavior(.automatic)
-                .toolbarVerticalCompressionBehavior(.prefersToolbarItems)
-        } else {
-            content
-        }
+        content
     }
 }
 
@@ -3226,13 +3219,7 @@ private struct TallaHomeHeroLayout<Introduction: View, Artwork: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: HeroGeometry.self) { proxy in
-            var result = HeroGeometry(width: proxy.size.width)
-            if #available(iOS 27.1, *) {
-                result.division = proxy.reservedRegions(kind: .division)
-                    .map(\.frame)
-                    .first(where: { $0.height > $0.width && $0.minX > 0 && $0.maxX < proxy.size.width }) ?? .zero
-            }
-            return result
+            HeroGeometry(width: proxy.size.width)
         } action: { geometry = $0 }
     }
 }
