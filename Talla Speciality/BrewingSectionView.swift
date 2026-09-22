@@ -389,6 +389,7 @@ struct BrewingSectionView: View {
     @State var isMethodSelectionPresented = false
     @State var isSavedEquipmentPresented = false
     @State var isRecentRecipesExpanded = false
+    @State var isBrewingLibraryExpanded = false
     @State var isBrewingGuidesExpanded = false
     @State var areAllBrewingGuidesVisible = false
     @State var methodSearchText = ""

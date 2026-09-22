@@ -2780,23 +2780,13 @@ struct ContentView: View {
 
     func tabScrollContent<Content: View>(tab: Tab, @ViewBuilder content: @escaping () -> Content) -> some View {
         VStack(spacing: 0) {
-            if #available(iOS 27.1, *) {
-                // Branding scrolls with the page; actions live in the system bar.
-            } else {
-                header
-                    .frame(maxWidth: .infinity)
-                    .zIndex(10)
-            }
-
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         Color.clear
                             .frame(height: 0)
                             .id("tab-top")
-                        if #available(iOS 27.1, *) {
-                            header
-                        }
+                        header
                         // Keep each tab's view identity and local state while resizing.
                         content()
                         Color.clear

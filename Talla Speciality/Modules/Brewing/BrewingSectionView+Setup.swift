@@ -119,11 +119,96 @@ extension BrewingSectionView {
             }
 
             primaryBrewEntrySection
+            espressoWorkspaceEntry
+            brewingQuickActions
             brewScaleConnectionSection
             brewingMinimalRecentRecipes
             brewingLibrarySection
             exploreBrewingGuidesSection
         }
+    }
+
+    var espressoWorkspaceEntry: some View {
+        Button {
+            activeDashboardDestination = .espressoWorkspace
+        } label: {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: "dial.medium")
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .frame(width: 46, height: 46)
+                    .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 7) {
+                        Text("Espresso Workspace")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(brewPrimaryTextColor)
+                        Text("NEW")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(1)
+                            .foregroundColor(brewAccentColor)
+                    }
+                    Text("Dial in shots with your scale, Watch, and complete history.")
+                        .font(.system(size: 12))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(brewSecondaryTextColor)
+            }
+            .padding(15)
+            .background(brewSurfaceColor)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(brewAccentColor.opacity(0.42), lineWidth: 1.2))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open Espresso Workspace")
+        .accessibilityHint("Dial in espresso shots and review your shot history")
+    }
+
+    var brewingQuickActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            brewSectionLabel("QUICK TOOLS")
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                brewingQuickAction(title: "Coffee Inventory", detail: "Your beans and recipes", icon: "books.vertical.fill", destination: .coffeeLibrary)
+                brewingQuickAction(title: "Coffee Journal", detail: "Save taste notes", icon: "book.pages.fill", destination: .coffeeJournal)
+            }
+        }
+    }
+
+    func brewingQuickAction(title: String, detail: String, icon: String, destination: BrewingDashboardDestination) -> some View {
+        Button { activeDashboardDestination = destination } label: {
+            VStack(alignment: .leading, spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(brewAccentColor)
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(brewPrimaryTextColor)
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundColor(brewSecondaryTextColor)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                HStack {
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(brewSecondaryTextColor)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+            .padding(14)
+            .background(brewSurfaceColor)
+            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(brewBorderColor, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(title)")
     }
 
     var primaryBrewEntrySection: some View {
@@ -342,8 +427,25 @@ extension BrewingSectionView {
 
     var brewingLibrarySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            brewSectionLabel(AppLocalization.text("brew_library", fallback: "Brew Library"))
-            brewingMinimalShortcuts
+            Button {
+                withAnimation(.easeInOut(duration: 0.22)) { isBrewingLibraryExpanded.toggle() }
+            } label: {
+                HStack {
+                    brewSectionLabel(AppLocalization.text("brew_library", fallback: "Brew Library"))
+                    Spacer()
+                    Image(systemName: isBrewingLibraryExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(brewSecondaryTextColor)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(AppLocalization.text("brew_library", fallback: "Brew Library"))
+            .accessibilityValue(isBrewingLibraryExpanded ? "Expanded" : "Collapsed")
+
+            if isBrewingLibraryExpanded {
+                brewingMinimalShortcuts
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
     }
 

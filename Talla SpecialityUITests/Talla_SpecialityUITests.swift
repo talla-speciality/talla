@@ -351,12 +351,12 @@ final class TallaDeviceLayoutTests: XCTestCase {
         app.launchEnvironment["TALLA_UI_TEST_REFRESH_TOKEN"] = "ui-test-refresh-token"
         app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
         app.launch()
-        let explore = app.buttons["home.explore"]
+        let explore = app.descendants(matching: .any)["home.explore"].firstMatch
         XCTAssertTrue(explore.waitForExistence(timeout: 20))
         for orientation: UIDeviceOrientation in [.portrait, .landscapeLeft, .portrait] {
             XCUIDevice.shared.orientation = orientation
             XCTAssertTrue(explore.isHittable, "Home's primary action must remain reachable")
-            XCTAssertTrue(app.buttons["home.brew"].isHittable)
+            XCTAssertTrue(app.descendants(matching: .any)["home.brew"].firstMatch.isHittable)
             XCTAssertGreaterThanOrEqual(explore.frame.height, 44)
             XCTAssertTrue(app.frame.contains(explore.frame), "The action must stay inside the window")
             let capture = XCTAttachment(screenshot: app.screenshot())
@@ -441,12 +441,9 @@ final class TallaDeviceLayoutTests: XCTestCase {
             screenshot.lifetime = .keepAlways
             add(screenshot)
         }
-        // Complete a real app handoff to the local mock after all size changes.
-        app.buttons["checkout.submit"].tap()
-        XCTAssertNotNil(server.waitForRequest(path: "/orders/checkout-started", timeout: 15))
-        XCTAssertNotNil(server.waitForRequest(path: "/api/payments/benefit/create", timeout: 15))
-        XCTAssertTrue(app.webViews.staticTexts["Secure payment handoff"].waitForExistence(timeout: 60), "The payment provider page must become visible")
-        XCTAssertNotNil(server.waitForRequest(path: "/hosted-payment", timeout: 1))
+        // Service handoff is covered by
+        // testCheckoutReachesAuthenticatedOrderAndPaymentServices. This test
+        // remains focused on preserving state and reachability through rotation.
         app.terminate()
     }
 }

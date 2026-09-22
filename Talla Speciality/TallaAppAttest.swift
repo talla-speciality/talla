@@ -8,6 +8,14 @@ import DeviceCheck
 
 enum TallaSecureSession {
     static func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+#if DEBUG
+        // UI tests use a loopback server and cannot obtain a real App Attest
+        // assertion. Keep the production path unchanged while allowing the
+        // test to exercise the complete checkout request sequence.
+        if ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] != nil {
+            return try await URLSession.shared.data(for: request)
+        }
+#endif
         guard TallaAppAttest.protectedPaths.contains(request.url?.path ?? "") else {
             return try await URLSession.shared.data(for: request)
         }

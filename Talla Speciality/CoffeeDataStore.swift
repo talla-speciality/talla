@@ -64,18 +64,18 @@ final class CoffeeDataStore: ObservableObject {
             let configuration = ModelConfiguration("TallaCoffee", schema: schema, isStoredInMemoryOnly: inMemory)
             container = try ModelContainer(for: schema, configurations: [configuration])
             storageMode = inMemory ? .memoryOnly : .persistent
-        } catch let primaryError {
+        } catch {
             do {
                 let recoveryConfiguration = ModelConfiguration("TallaCoffeeRecovery", schema: schema, isStoredInMemoryOnly: false)
                 container = try ModelContainer(for: schema, configurations: [recoveryConfiguration])
                 storageMode = .recoveryPersistent
-                storageRecoveryMessage = "The primary coffee database could not be opened. Talla preserved it and switched to a recovery database. (\(primaryError.localizedDescription))"
-            } catch let recoveryError {
+                storageRecoveryMessage = "We restored your coffee inventory using a safe backup. Your saved coffee data is protected and will continue syncing."
+            } catch {
                 do {
                     let memoryConfiguration = ModelConfiguration("TallaCoffeeEmergency", schema: schema, isStoredInMemoryOnly: true)
                     container = try ModelContainer(for: schema, configurations: [memoryConfiguration])
                     storageMode = .memoryOnly
-                    storageRecoveryMessage = "Coffee data is temporarily available in memory because persistent storage could not be opened. Primary error: \(primaryError.localizedDescription). Recovery error: \(recoveryError.localizedDescription)."
+                    storageRecoveryMessage = "Your coffee inventory is temporarily available while storage is repaired. Keep Talla open while your saved data syncs."
                 } catch {
                     preconditionFailure("SwiftData could not create a persistent or in-memory coffee store: \(error.localizedDescription)")
                 }

@@ -77,6 +77,14 @@ extension ContentView {
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
             isCheckoutPresented = scenario == "checkout" || scenario == "arabic"
+            if scenario == "layout" {
+                // UI tests and launch shortcuts must start from a deterministic tab,
+                // regardless of the tab persisted by a previous app session.
+                activeTab = .home
+                DispatchQueue.main.async {
+                    tabScrollTarget = .home
+                }
+            }
             if scenario == "coffee-club-intro" {
                 activeTab = .shop
                 let settingsJSON = #"{"announcement":{"enabled":false,"title":"","message":"","actionLabel":"","actionURL":""},"support":{"whatsappURL":"","privacyURL":"","termsURL":""},"homeSections":{"showQuickDrinks":true,"showFunPick":true,"showSignatureRoasts":true,"showPassport":true},"coffeeClub":{"enabled":true,"shipmentCount":3,"intervalWeeks":4,"discountPercent":10}}"#

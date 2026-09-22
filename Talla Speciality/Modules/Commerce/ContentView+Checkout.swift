@@ -417,10 +417,7 @@ extension ContentView {
 
     var checkoutView: some View {
         NavigationStack {
-            GeometryReader { geometry in
-                // A pinned footer can consume the entire viewport at accessibility
-                // sizes or in a short window. Keep all checkout content scrollable.
-                let scrollsFooter = dynamicTypeSize.isAccessibilitySize || geometry.size.height < 450
+            GeometryReader { _ in
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 18) {
                         SecurityReassurance(
@@ -448,9 +445,6 @@ extension ContentView {
                         checkoutDestinationSection
                         cartPaymentMethodsSection
                         cartOrderSummarySection
-                        if scrollsFooter {
-                            cartFooterContent
-                        }
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 12)
@@ -479,15 +473,15 @@ extension ContentView {
                     }
                 }
                 .safeAreaInset(edge: .bottom) {
-                    if !scrollsFooter {
-                        cartFooterContent
-                            .padding(.horizontal, 18)
-                            .padding(.top, 12)
-                            .padding(.bottom, 8)
-                            .frame(maxWidth: 720)
-                            .frame(maxWidth: .infinity)
-                            .background(.ultraThinMaterial)
-                    }
+                    // Keep the payment action reachable after rotation. SwiftUI
+                    // automatically shortens the ScrollView above this inset.
+                    cartFooterContent
+                        .padding(.horizontal, 18)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: 720)
+                        .frame(maxWidth: .infinity)
+                        .background(.ultraThinMaterial)
                 }
             }
         }

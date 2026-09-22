@@ -38,7 +38,7 @@ struct DuoToolbarBehavior: ViewModifier {
 
 extension ContentView {
     var header: some View {
-        VStack(spacing: isShortHeight ? 8 : 14) {
+        VStack(spacing: isShortHeight ? 4 : 6) {
             HStack {
                 Button {
                     openTab(.home)
@@ -48,8 +48,8 @@ extension ContentView {
                             .resizable()
                             .scaledToFit()
                             .frame(
-                                width: isShortHeight ? 38 : (customerProfile == nil ? 52 : 44),
-                                height: isShortHeight ? 38 : (customerProfile == nil ? 52 : 44)
+                                width: isShortHeight ? 38 : (customerProfile == nil ? 48 : 46),
+                                height: isShortHeight ? 38 : (customerProfile == nil ? 48 : 46)
                             )
 
                         if let customerProfile {
@@ -61,15 +61,15 @@ extension ContentView {
                                     .foregroundColor(readableBrandGoldColor)
 
                                 Text(customerFirstName(for: customerProfile))
-                                    .font(displayFont(size: isShortHeight ? 21 : (isCompact ? 25 : 26)))
+                                    .font(displayFont(size: isShortHeight ? 21 : (isCompact ? 26 : 27)))
                                     .foregroundColor(primaryTextColor)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.7)
                             }
                         } else {
                             Text("TALLA")
-                                .font(displayFont(size: isShortHeight ? 25 : (isCompact ? 32 : 28)))
-                                .tracking(isCompact ? 2 : 3)
+                                .font(displayFont(size: isShortHeight ? 25 : (isCompact ? 31 : 30)))
+                                .tracking(isCompact ? 1.5 : 2)
                                 .foregroundColor(primaryTextColor)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
@@ -84,15 +84,13 @@ extension ContentView {
                     headerCartButton
                 }
 
-                if #available(iOS 27.1, *) {
-                    // The system toolbar owns these actions on Duo.
-                } else {
+                if !usesSystemNavigationActions {
                     appearanceMenu
                 }
             }
         }
-        .padding(.horizontal, isShortHeight ? 12 : 18)
-        .padding(.top, isShortHeight ? 8 : 14)
+        .padding(.horizontal, isShortHeight ? 12 : 16)
+        .padding(.top, isShortHeight ? 7 : 12)
         .padding(.bottom, isShortHeight ? 7 : 12)
         .background(headerOverlayColor)
         .overlay(alignment: .bottom) {
@@ -2029,9 +2027,10 @@ extension ContentView {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) { heroActions }
-                VStack(spacing: 10) { heroActions }
+            (dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 10))
+                : AnyLayout(HStackLayout(spacing: 10))) {
+                heroActions
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
