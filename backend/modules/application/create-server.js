@@ -914,7 +914,7 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "GET" && url.pathname === "/admin/api/education-content") {
-        const admin = await ensureMobileAdminAccess(request, response);
+        const admin = ensureAdminAccess(request, response);
         if (!admin) return;
         if (!hasPermission(admin, "admin:read")) { sendJSON(response, 403, { error: "Admin permission required: admin:read." }); return; }
         sendJSON(response, 200, educationContent.read(), { "Cache-Control": "no-store" });
@@ -922,7 +922,7 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "POST" && url.pathname === "/admin/api/education-content") {
-        const admin = await ensureMobileAdminAccess(request, response);
+        const admin = ensureAdminAccess(request, response);
         if (!admin) return;
         if (!hasPermission(admin, "catalog:write")) { sendJSON(response, 403, { error: "Admin permission required: catalog:write." }); return; }
         try {
