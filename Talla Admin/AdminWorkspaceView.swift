@@ -10,7 +10,9 @@ struct AdminWorkspaceView: View {
                 if search.isEmpty {
                     Section {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Your roastery, in one place.").font(.title2.bold()).foregroundStyle(TallaAdminStyle.espresso)
+                            Text("Admin workspace").font(.title2.bold()).foregroundStyle(TallaAdminStyle.espresso)
+                            Text("Keep the day-to-day work in the tabs below. Use this space for configuration, content, and reporting.")
+                                .font(.subheadline).foregroundStyle(.secondary)
                             HStack {
                                 metric("Active", session.orders.filter(\.isActive).count)
                                 metric("Completed", session.orders.filter(\.isCompleted).count)
@@ -19,21 +21,22 @@ struct AdminWorkspaceView: View {
                         }.padding(.vertical, 8)
                     }
                 }
-                Section("Store") {
-                    if includes("Products catalog inventory") { NavigationLink { AdminProductsView() } label: { row("Products & Inventory", "Catalog, pricing, images, and stock", "bag.fill") } }
-                    if includes("Coffee memory beans lots sync recommendations") { NavigationLink { AdminCoffeeMemoryView() } label: { row("Coffee Memory", "Lots, imports, sync health, and customer support", "cup.and.saucer.fill") } }
-                    if includes("Customers loyalty vouchers addresses") { NavigationLink { AdminCustomersView() } label: { row("Customers & Loyalty", "Accounts, Beans, vouchers, and addresses", "person.2.fill") } }
-                }
-                Section("Customer app") {
-                    ForEach(AdminContentArea.allCases.filter { includes($0.rawValue) }) { area in
+                Section("Customer app content") {
+                    ForEach(AdminContentArea.allCases.filter { $0 != .espresso && includes($0.rawValue) }) { area in
                         NavigationLink { AdminContentView(area: area) } label: { row(area.rawValue, subtitle(area), area.icon) }
                     }
+                }
+                Section("Customer engagement") {
+                    if includes("Coffee memory beans lots sync recommendations") { NavigationLink { AdminCoffeeMemoryView() } label: { row("Coffee Memory", "Lots, imports, sync health, and customer support", "cup.and.saucer.fill") } }
                     if includes("Notifications push messages") { NavigationLink { AdminNotificationComposer() } label: { row("Notifications", "Compose a customer push notification", "bell.badge.fill") } }
                 }
                 Section("Insights") {
                     ForEach(AdminReport.allCases.filter { includes($0.rawValue) }) { report in
                         NavigationLink { AdminReportView(report: report) } label: { row(report.rawValue, report.subtitle, report.icon) }
                     }
+                }
+                Section("System") {
+                    if includes("Espresso machine grinder burr basket portafilter dial in") { NavigationLink { AdminContentView(area: .espresso) } label: { row("Espresso setup", "Targets, machines, grinders, baskets, and portafilters", "dial.medium") } }
                 }
             }.adminBackground().navigationTitle("Admin").searchable(text: $search, prompt: "Find an admin section")
         }
@@ -49,7 +52,7 @@ struct AdminWorkspaceView: View {
             .frame(maxWidth: .infinity, alignment: .leading).padding(10).background(TallaAdminStyle.cream, in: RoundedRectangle(cornerRadius: 12))
     }
     private func subtitle(_ area: AdminContentArea) -> String {
-        switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards" }
+        switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions" }
     }
 }
 

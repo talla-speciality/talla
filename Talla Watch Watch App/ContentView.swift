@@ -259,6 +259,17 @@ final class TallaWatchStore: NSObject {
 #endif
     }
 
+    func sendEspressoAction(action: String, targetYield: Double) {
+#if canImport(WatchConnectivity)
+        guard let session, session.isReachable else { lastActionText = "Connect Talla"; return }
+        session.sendMessage(["espressoAction": action, "targetYield": targetYield], replyHandler: { [weak self] reply in
+            Task { @MainActor in self?.lastActionText = reply["espressoStatus"] as? String ?? "Sent" }
+        }, errorHandler: { [weak self] _ in Task { @MainActor in self?.lastActionText = "Failed" } })
+#else
+        lastActionText = "Unavailable"
+#endif
+    }
+
     private func apply(_ payload: [String: Any]) {
         snapshot = TallaWatchSnapshot(
             email: payload["email"] as? String ?? "",
@@ -304,6 +315,7 @@ extension TallaWatchStore: WCSessionDelegate {
 struct ContentView: View {
     @State private var store = TallaWatchStore()
     @State private var isBrewPresented = false
+    @State private var isEspressoPresented = false
 
     private let accent = Color(red: 0.79, green: 0.59, blue: 0.35)
     private let watchBrewRecipe = WatchBrewRecipe()
@@ -316,6 +328,7 @@ struct ContentView: View {
                     if store.snapshot.isSignedIn {
                         rewardHero
                         continueBrewCard
+                        espressoCard
                         watchPrimaryActions
                         secondaryRowAction(watchText("Open Talla on iPhone", arabic: "افتح Talla على iPhone"), icon: "iphone", destination: "home")
                         syncFooter
@@ -338,6 +351,11 @@ struct ContentView: View {
                         currentWaterGrams: currentWaterGrams,
                         isPaused: isPaused
                     )
+                }
+            }
+            .fullScreenCover(isPresented: $isEspressoPresented) {
+                WatchEspressoSessionView { action, targetYield in
+                    store.sendEspressoAction(action: action, targetYield: targetYield)
                 }
             }
             .toolbar {
@@ -390,6 +408,16 @@ struct ContentView: View {
             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private var espressoCard: some View {
+        Button { isEspressoPresented = true } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "dial.medium").foregroundStyle(accent).frame(width: 30, height: 30).background(Color.white.opacity(0.08), in: Circle())
+                VStack(alignment: .leading, spacing: 2) { Text("Espresso Dial-In").font(.system(size: 12, weight: .black)); Text("Start, stop, and hit yield from Watch").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary) }
+                Spacer(); Image(systemName: "chevron.right").font(.system(size: 9, weight: .black)).foregroundStyle(.secondary)
+            }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }.buttonStyle(.plain)
     }
 
     private var header: some View {
@@ -922,6 +950,33 @@ struct WatchBrewSessionView: View {
         isPaused: Bool
     ) {
         liveActivityHandler(action, elapsedSeconds, currentStep, nextStep, currentWaterGrams, isPaused)
+    }
+}
+
+struct WatchEspressoSessionView: View {
+    let onAction: (String, Double) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var isRunning = false
+    @State private var elapsed = 0
+    @State private var targetYield = 36.0
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack { Text("ESPRESSO").font(.system(size: 12, weight: .black)); Spacer(); Button("Done") { dismiss() }.font(.caption) }
+            Spacer()
+            Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60)).font(.system(size: 38, weight: .black, design: .rounded)).monospacedDigit()
+            Text(String(format: "Target %.0f g", targetYield)).font(.caption).foregroundStyle(.secondary)
+            Stepper("Yield", value: $targetYield, in: 15...80, step: 1).font(.caption)
+            Button { isRunning.toggle(); onAction(isRunning ? "start" : "stop", targetYield) } label: { Label(isRunning ? "Stop Shot" : "Start Shot", systemImage: isRunning ? "stop.fill" : "play.fill").frame(maxWidth: .infinity).padding(10) }.buttonStyle(.borderedProminent)
+            Spacer()
+        }.padding()
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, isRunning else { continue }
+                elapsed += 1
+            }
+        }
     }
 }
 

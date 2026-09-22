@@ -1,4 +1,5 @@
 const { snapshotCheckoutOptions } = require("../commerce/order-item-options");
+const { createEducationContentStore } = require("./education-content");
 module.exports = function createServer(dependencies) {
     const {
         URL,
@@ -489,6 +490,7 @@ module.exports = function createServer(dependencies) {
         writeJSON,
         writeWalletStampStrips
     } = dependencies;
+    const educationContent = createEducationContentStore();
 
     const trimText = (value, maximumLength) => String(value || "").trim().slice(0, maximumLength);
 
@@ -903,6 +905,31 @@ module.exports = function createServer(dependencies) {
             const statusCode = error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400;
             sendJSON(response, statusCode, { error: statusCode === 413 ? "EazyPay webhook payload is too large." : "Malformed EazyPay webhook." });
         }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/education-content") {
+        sendJSON(response, 200, educationContent.read(), { "Cache-Control": "no-store" });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/api/education-content") {
+        const admin = await ensureMobileAdminAccess(request, response);
+        if (!admin) return;
+        if (!hasPermission(admin, "admin:read")) { sendJSON(response, 403, { error: "Admin permission required: admin:read." }); return; }
+        sendJSON(response, 200, educationContent.read(), { "Cache-Control": "no-store" });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/api/education-content") {
+        const admin = await ensureMobileAdminAccess(request, response);
+        if (!admin) return;
+        if (!hasPermission(admin, "catalog:write")) { sendJSON(response, 403, { error: "Admin permission required: catalog:write." }); return; }
+        try {
+            const saved = educationContent.write(await readBody(request));
+            await createAdminAuditLog({ adminUser: admin.username, action: "education_content_updated", targetEmail: null, detail: "Updated coffee education content", metadata: { questionCount: saved.questions.length } });
+            sendJSON(response, 200, saved, { "Cache-Control": "no-store" });
+        } catch (error) { sendJSON(response, 400, { error: error.message || "Could not save education content." }); }
         return;
     }
 

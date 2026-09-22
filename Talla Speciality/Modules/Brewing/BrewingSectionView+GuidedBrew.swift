@@ -2316,6 +2316,7 @@ extension BrewingSectionView {
                 Button {
                     BrewReferenceStore.save(capturedBrewSamples)
                     UserDefaults.standard.set(true, forKey: "talla.brewing.hasReferenceCurve.v1")
+                    UserDefaults.standard.set(true, forKey: "talla.brewing.referencePending.v1")
                 } label: {
                     Label("Mark as best", systemImage: "star.fill")
                         .frame(maxWidth: .infinity, minHeight: 44)

@@ -414,6 +414,7 @@ extension CoffeeDataStore {
         let activePurchase = purchasedCoffeeID.flatMap { id in availablePurchases.first { $0.id == id } }
             ?? availablePurchases.filter { $0.openedAt != nil }.sorted { $0.openedAt! > $1.openedAt! }.first
             ?? (availablePurchases.count == 1 ? availablePurchases.first : nil)
+        let isReference = UserDefaults.standard.bool(forKey: "talla.brewing.referencePending.v1")
         let session = CoffeeBrewSession(
             id: id,
             kind: kind,
@@ -424,11 +425,23 @@ extension CoffeeDataStore {
             yieldGrams: kind == .espresso ? waterGrams : nil,
             waterGrams: kind == .filter ? waterGrams : nil,
             notes: title,
+            isReference: isReference,
+            referenceLabel: isReference ? "Best measured brew" : nil,
             ownerID: ownerID
         )
         let feedback = CoffeeTasteFeedback(id: id, sessionID: id, rating: rating, notes: notes, ownerID: ownerID)
         container.mainContext.insert(session)
         container.mainContext.insert(feedback)
+        try saveEnvelope(entityType: "brewSession", id: id, jsonObject: [
+            "id": id.uuidString, "title": title, "method": method,
+            "coffeeGrams": coffeeGrams.map { $0 as Any } ?? NSNull(),
+            "waterGrams": waterGrams.map { $0 as Any } ?? NSNull(),
+            "brewTimeSeconds": durationSeconds.map { $0 as Any } ?? NSNull(),
+            "isReference": isReference, "referenceLabel": session.referenceLabel ?? NSNull()
+        ])
+        try saveEnvelope(entityType: "tasteFeedback", id: id, jsonObject: [
+            "id": id.uuidString, "sessionID": id.uuidString, "rating": rating, "notes": notes
+        ])
         var capturedSamples = samples.filter { $0.value.isFinite }
         if let waterGrams, !capturedSamples.contains(where: { $0.kind == .weight }) {
             capturedSamples.append(CoffeeSampleInput(
@@ -455,6 +468,7 @@ extension CoffeeDataStore {
             try updateRemainingQuantity(recordID: purchase.id, remainingGrams: purchase.remainingQuantityGrams - coffeeGrams)
         }
         try container.mainContext.save()
+        UserDefaults.standard.set(false, forKey: "talla.brewing.referencePending.v1")
         notifyCoffeeChange()
     }
 

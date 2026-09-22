@@ -196,12 +196,12 @@ test("a free-drink voucher discounts one eligible drink and is consumed after va
     const result = await verify(body([
         { variantId: coffeeID, quantity: 1 },
         { variantId: drinkID, quantity: 2 }
-    ], 8.7, { voucherCode: voucher.code }), "customer@example.com");
+    ], 6.7, { voucherCode: voucher.code, fulfillmentMethod: "pickup", fulfillment: {} }), "customer@example.com");
 
     assert.equal(result.subtotal, 8.9);
     assert.equal(result.discount, 2.2);
-    assert.equal(result.shipping, 2);
-    assert.equal(result.total, 8.7);
+    assert.equal(result.shipping, 0);
+    assert.equal(result.total, 6.7);
     assert.equal(consumedCode, voucher.code);
 });
 

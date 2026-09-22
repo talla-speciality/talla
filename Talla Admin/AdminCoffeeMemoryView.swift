@@ -45,7 +45,7 @@ struct AdminCoffeeMemoryView: View {
                                     .frame(height: 150)
                                     .padding(.vertical, 8)
                                 AdminRecordRows(record: brew, fields: [
-                                    .init("email", "Customer"), .init("method", "Method"), .init("sampleCount", "Samples"),
+                                    .init("email", "Customer"), .init("method", "Method"), .init("isReference", "Best/reference"), .init("sampleCount", "Samples"),
                                     .init("maxWeight", "Final weight (g)"), .init("averageFlow", "Average flow (g/s)"),
                                     .init("durationMilliseconds", "Measured duration (ms)"), .init("updatedAt", "Updated")
                                 ])

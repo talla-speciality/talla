@@ -444,6 +444,11 @@ extension BrewingSectionView {
                         isToolsMenuPresented = false
                         activeDashboardDestination = .brewCoach
                     }
+                    brewDivider
+                    brewingLinkedRow(title: "Espresso Workspace", detail: "Dial in shots, compare references, and track the path to a positive espresso.", value: nil) {
+                        isToolsMenuPresented = false
+                        activeDashboardDestination = .espressoWorkspace
+                    }
                 }
                 .background(brewSurfaceColor)
                 .overlay(

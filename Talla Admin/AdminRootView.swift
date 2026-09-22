@@ -12,6 +12,8 @@ struct AdminRootView: View {
             _selection = State(initialValue: .settings)
         } else if ProcessInfo.processInfo.arguments.contains("-admin-preview-console") {
             _selection = State(initialValue: .console)
+        } else if ProcessInfo.processInfo.arguments.contains("-admin-preview-education") {
+            _selection = State(initialValue: .console)
         }
         #endif
     }
@@ -32,11 +34,11 @@ struct AdminRootView: View {
                 .tag(Tab.customers)
 
             AdminWorkspaceView()
-                .tabItem { Label("Admin", systemImage: "rectangle.3.group.fill") }
+                .tabItem { Label("More", systemImage: "rectangle.3.group.fill") }
                 .tag(Tab.console)
 
             AdminConsoleView(url: session.api.adminConsoleURL)
-                .tabItem { Label("Web Admin", systemImage: "globe") }
+                .tabItem { Label("Full Admin", systemImage: "globe") }
                 .tag(Tab.workspace)
 
             AdminSettingsView()

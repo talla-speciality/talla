@@ -72,7 +72,17 @@ function isEligibleDrink(node) {
     const handles = (node?.product?.collections?.nodes || [])
         .map((collection) => String(collection?.handle || "").trim().toLowerCase());
     const productType = String(node?.product?.productType || "").trim().toLowerCase();
-    return handles.includes("ready-made-drinks") || ["drinks", "summer drinks"].includes(productType);
+    return handles.some((handle) => ["ready-made-drinks", "summer-drinks"].includes(handle))
+        || ["drinks", "summer drinks"].includes(productType);
+}
+
+function isPickupOnly(node) {
+    const handles = (node?.product?.collections?.nodes || [])
+        .map((collection) => String(collection?.handle || "").trim().toLowerCase());
+    const productType = String(node?.product?.productType || "").trim().toLowerCase();
+    return isEligibleDrink(node)
+        || handles.some((handle) => ["desserts", "crmb-tallas-speciality-bakery"].includes(handle))
+        || ["dessert", "desserts", "crmb"].includes(productType);
 }
 
 function isCoffeeBag(node) {
@@ -212,6 +222,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 requiresShipping: node.inventoryItem?.requiresShipping !== false,
                 weightGrams: weightInGrams(node.inventoryItem?.measurement?.weight),
                 eligibleDrink: isEligibleDrink(node),
+                pickupOnly: isPickupOnly(node),
                 coffeeBag: isCoffeeBag(node)
             };
         });
@@ -240,6 +251,9 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
         }
         const fulfillmentMethod = String(body?.fulfillmentMethod || body?.fulfillment?.method || "").trim().toLowerCase();
         const countryCode = String(body?.fulfillment?.countryCode || "").trim().toUpperCase();
+        if (fulfillmentMethod === "delivery" && lines.some((line) => line.pickupOnly)) {
+            fail("CHECKOUT_PICKUP_ONLY_ITEMS", 409, "Drinks and desserts are available for pickup only.");
+        }
         if (coffeeClub && String(body?.paymentMethod || "").trim().toLowerCase() === "cashondelivery") {
             fail("COFFEE_CLUB_PREPAYMENT_REQUIRED", 409, "Coffee Club must be paid in full before its first shipment.");
         }
@@ -286,6 +300,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
 module.exports = {
     CheckoutPricingError,
     createCheckoutPricingService,
+    isPickupOnly,
     isCoffeeBag,
     normalizeSubmittedItems,
     normalizeCoffeeClub,

@@ -454,6 +454,8 @@ extension BrewingSectionView {
                         if let selectedGuideProfile {
                             brewCoachCard(for: selectedGuideProfile)
                         }
+                    case .espressoWorkspace:
+                        EspressoWorkspaceView(accent: accentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     }
                 }
                 .frame(maxWidth: brewColumnMaxWidth, alignment: .leading)
@@ -493,6 +495,8 @@ extension BrewingSectionView {
             return AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory")
         case .brewCoach:
             return AppLocalization.text("brew_coach", fallback: "Brew Coach")
+        case .espressoWorkspace:
+            return "Espresso Workspace"
         }
     }
 

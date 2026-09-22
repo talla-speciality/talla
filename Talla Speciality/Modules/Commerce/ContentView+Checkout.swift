@@ -37,6 +37,12 @@ extension ContentView {
         cartItems.reduce(0) { $0 + $1.quantity }
     }
 
+    var cartRequiresPickup: Bool {
+        cartItems.contains { item in
+            ["ready-made-drinks", "summer-drinks", "desserts"].contains(item.product.categoryKey)
+        }
+    }
+
     var cartSingleShipmentSubtotal: Double {
         cartItems.reduce(0) { partialResult, item in
             partialResult + (priceValue(from: item.product.price) * Double(item.quantity))
@@ -1034,7 +1040,7 @@ extension ContentView {
                 .foregroundColor(readableBrandGoldColor)
 
             HStack(spacing: 8) {
-                if remoteAppSettings?.fulfillment?.deliveryEnabled != false {
+                if !cartRequiresPickup && remoteAppSettings?.fulfillment?.deliveryEnabled != false {
                     fulfillmentMethodButton(
                         .delivery,
                         title: AppLocalization.text("delivery", fallback: "Delivery"),
@@ -1048,6 +1054,12 @@ extension ContentView {
                         systemImage: "storefront.fill"
                     )
                 }
+            }
+
+            if cartRequiresPickup {
+                Text(AppLocalization.text("pickup_only_drinks_desserts", fallback: "Drinks and desserts are available for pickup only."))
+                    .font(bodyFont(size: 11))
+                    .foregroundColor(tertiaryTextColor)
             }
 
             if fulfillmentMethod == .pickup {
@@ -3776,6 +3788,8 @@ extension ContentView {
     @MainActor
     func prepareCheckout() {
         guard !cartItems.isEmpty else { return }
+
+        if cartRequiresPickup { fulfillmentMethod = .pickup }
 
         guard remoteAppSettings?.release?.checkoutMaintenanceEnabled != true,
               remoteAppSettings?.release?.maintenanceEnabled != true else {

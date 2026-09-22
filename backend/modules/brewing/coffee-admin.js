@@ -58,6 +58,7 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
                 FROM coffee_records WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT 100`)
             , database.query(`SELECT sessions.email, sessions.record_id AS session_id,
                     sessions.payload->>'title' AS title, sessions.payload->>'method' AS method,
+                    COALESCE((sessions.payload->>'isReference')::boolean, false) AS is_reference,
                     COUNT(samples.record_id)::int AS sample_count,
                     MAX((samples.payload->>'value')::double precision) FILTER (WHERE samples.payload->>'kind' = 'weight') AS max_weight,
                     AVG((samples.payload->>'value')::double precision) FILTER (WHERE samples.payload->>'kind' = 'flow') AS average_flow,
@@ -82,7 +83,7 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
             doseRecords: Number(row.dose_records || 0), shopifyImports: Number(row.shopify_imports || 0),
             lotsMissingMetadata: Number(row.lots_missing_metadata || 0), lastSyncAt: row.last_sync_at || null
         }, brewInsights: brewInsights.rows.map((entry) => ({
-            sessionID: entry.session_id, email: entry.email, title: entry.title || "Brew", method: entry.method || "",
+            sessionID: entry.session_id, email: entry.email, title: entry.title || "Brew", method: entry.method || "", isReference: Boolean(entry.is_reference),
             sampleCount: Number(entry.sample_count || 0), maxWeight: entry.max_weight == null ? null : Number(entry.max_weight),
             averageFlow: entry.average_flow == null ? null : Number(entry.average_flow), durationMilliseconds: entry.duration_ms == null ? null : Number(entry.duration_ms),
             curve: entry.curve || [], updatedAt: entry.updated_at

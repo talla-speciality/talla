@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AdminContentArea: String, CaseIterable, Identifiable {
-    case home = "App Home", controls = "Live Controls", events = "Seasonal Events", passport = "Coffee Passport"
+    case home = "App Home", controls = "Live Controls", events = "Seasonal Events", passport = "Coffee Passport", espresso = "Espresso", education = "Coffee Education"
     var id: Self { self }
     var endpoint: String {
         switch self {
@@ -9,10 +9,12 @@ enum AdminContentArea: String, CaseIterable, Identifiable {
         case .controls: "/admin/api/app-settings"
         case .events: "/admin/api/events"
         case .passport: "/admin/api/passport-settings"
+        case .espresso: "/admin/api/app-settings"
+        case .education: "/admin/api/education-content"
         }
     }
     var icon: String {
-        switch self { case .home: "house.fill"; case .controls: "slider.horizontal.3"; case .events: "sparkles"; case .passport: "globe.europe.africa.fill" }
+        switch self { case .home: "house.fill"; case .controls: "slider.horizontal.3"; case .events: "sparkles"; case .passport: "globe.europe.africa.fill"; case .espresso: "dial.medium"; case .education: "book.closed.fill" }
     }
     var groups: [AdminFieldGroup] {
         switch self {
@@ -38,6 +40,8 @@ enum AdminContentArea: String, CaseIterable, Identifiable {
         case .passport: return [.init("Completion reward", [.init("completionRewardTitle", "Reward title"), .init("completionRewardDetail", "Reward detail", .multiline)])]
         case .events: return []
         case .controls: return Self.controlGroups
+        case .espresso: return [.init("Default targets", [.init("espresso.defaultDoseGrams", "Default dose (g)", .number), .init("espresso.defaultYieldGrams", "Default yield (g)", .number), .init("espresso.defaultTemperatureC", "Default temperature (°C)", .integer), .init("espresso.targetTimeMinSeconds", "Minimum target time (s)", .integer), .init("espresso.targetTimeMaxSeconds", "Maximum target time (s)", .integer), .init("espresso.targetFirstDripSeconds", "Target first drip (s)", .integer)]), .init("Guidance", [.init("espresso.positiveRatingThreshold", "Positive rating threshold", .integer), .init("espresso.recommendationStep", "Grind recommendation step", .number), .init("espresso.targetYieldAlertsEnabled", "Target-yield alerts enabled", .toggle), .init("espresso.watchControlsEnabled", "Watch controls enabled", .toggle)])]
+        case .education: return []
         }
     }
 }
@@ -69,7 +73,20 @@ extension AdminContentArea {
             .init(path: "fulfillment.khaleejiTiers", title: "GCC shipping tiers", groups: [.init("Shipping tier", [.init("maximumWeightGrams", "Maximum weight (grams)", .integer), .init("rate", "Rate (BHD)", .number)])], blank: .object(["maximumWeightGrams": .number(500), "rate": .number(5.5)])),
             .init(path: "loyalty.rewards", title: "Loyalty rewards", groups: [.init("Reward", [.init("id", "Reward identifier", required: true), .init("enabled", "Enabled", .toggle), .init("points", "Points required", .integer), .init("reward", "Reward name", required: true), .init("titleEN", "English title", required: true), .init("titleAR", "Arabic title"), .init("detailEN", "English detail", .multiline), .init("detailAR", "Arabic detail", .multiline)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "enabled": .bool(true), "points": .number(50), "reward": .string("New reward"), "titleEN": .string("New reward")]))
         ]
-    }
+        case .espresso: return [
+            .init(path: "machines", title: "Machines", groups: [.init("Machine", [.init("id", "Identifier", required: true), .init("name", "Name", required: true), .init("enabled", "Enabled", .toggle)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New machine"), "enabled": .bool(true)])),
+            .init(path: "grinders", title: "Grinders", groups: [.init("Grinder", [.init("id", "Identifier", required: true), .init("name", "Name", required: true), .init("burrOptions", "Burr options", .words), .init("enabled", "Enabled", .toggle)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New grinder"), "burrOptions": .array([]), "enabled": .bool(true)])),
+            .init(path: "baskets", title: "Baskets", groups: [.init("Basket", [.init("id", "Identifier", required: true), .init("name", "Name", required: true), .init("doseMinGrams", "Minimum dose (g)", .number), .init("doseMaxGrams", "Maximum dose (g)", .number), .init("enabled", "Enabled", .toggle)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New basket"), "doseMinGrams": .number(17), "doseMaxGrams": .number(19), "enabled": .bool(true)])),
+            .init(path: "portafilters", title: "Portafilters", groups: [.init("Portafilter", [.init("id", "Identifier", required: true), .init("name", "Name", required: true), .init("enabled", "Enabled", .toggle)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New portafilter"), "enabled": .bool(true)]))
+        ]
+        case .education: return [.init(path: "questions", title: "Quiz questions", groups: [.init("Question", [
+            .init("id", "Question identifier", required: true),
+            .init("prompt", "Question", .multiline, required: true),
+            .init("options", "Answer options", .words, required: true),
+            .init("correctAnswer", "Correct answer", required: true),
+            .init("explanation", "Explanation", .multiline)
+        ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "prompt": .string("New coffee question"), "options": .array([.string("Option A"), .string("Option B")]), "correctAnswer": .string("Option A"), "explanation": .string("Explain why this is correct.")]))]
+        }
 }
 
 }

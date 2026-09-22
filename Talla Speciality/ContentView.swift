@@ -228,6 +228,7 @@ struct ContentView: View {
         case home
         case shop
         case brewing
+        case education
         case account
         case search
 
@@ -239,6 +240,8 @@ struct ContentView: View {
                 return "square.grid.2x2"
             case .brewing:
                 return "drop"
+            case .education:
+                return "book.closed"
             case .account:
                 return "person"
             case .search:
@@ -2866,6 +2869,11 @@ struct ContentView: View {
                 .accessibilityIdentifier("tab.brewing")
             }
 
+            SwiftUI.Tab("Learn", systemImage: Tab.education.systemImage, value: Tab.education) {
+                tabScreen(tab: .education) { CoffeeEducationView() }
+                    .accessibilityIdentifier("tab.education")
+            }
+
             SwiftUI.Tab(
                 AppLocalization.text("account", fallback: "Account"),
                 systemImage: Tab.account.systemImage,
@@ -2902,6 +2910,11 @@ struct ContentView: View {
                 .tabItem {
                     Label(AppLocalization.text("brewing", fallback: "Brewing"), systemImage: Tab.brewing.systemImage)
                 }
+
+            tabScreen(tab: .education) { CoffeeEducationView() }
+                .tag(Tab.education)
+                .accessibilityIdentifier("tab.education")
+                .tabItem { Label("Learn", systemImage: Tab.education.systemImage) }
 
             tabScreen(tab: .account) { accountView }
                 .tag(Tab.account)

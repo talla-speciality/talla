@@ -101,6 +101,15 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        if let espressoAction = message["espressoAction"] as? String {
+            UserDefaults.standard.set(espressoAction, forKey: "talla.espresso.watch.lastAction")
+            NotificationCenter.default.post(name: .tallaEspressoWatchAction, object: nil, userInfo: [
+                "action": espressoAction,
+                "targetYield": message["targetYield"] as? Double ?? 36.0
+            ])
+            replyHandler(["espressoStatus": espressoAction, "espressoTarget": message["targetYield"] as? Double ?? 36.0])
+            return
+        }
         if let brewActivityAction = message["brewActivity"] as? String {
             var response = snapshot()
             response["brewActivityStatus"] = handleBrewActivity(action: brewActivityAction, message: message)
@@ -244,6 +253,10 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
 #endif
 }
 #endif
+
+extension Notification.Name {
+    static let tallaEspressoWatchAction = Notification.Name("talla.espresso.watch.action")
+}
 
 @main
 struct Talla_SpecialityApp: App {
