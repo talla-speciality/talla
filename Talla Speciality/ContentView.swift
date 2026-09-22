@@ -2786,7 +2786,9 @@ struct ContentView: View {
                         Color.clear
                             .frame(height: 0)
                             .id("tab-top")
-                        header
+                        if tab == .home {
+                            header
+                        }
                         // Keep each tab's view identity and local state while resizing.
                         content()
                         Color.clear
