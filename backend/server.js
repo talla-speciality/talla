@@ -2068,15 +2068,7 @@ async function revokeCustomerSessionsForEmail(email) {
 
 function parseAuthenticatedCustomer(request, response, explicitEmail = null) {
     const authenticated = authenticateCustomer(request, response, explicitEmail);
-    if (!authenticated) {
-        sendJSON(response, 401, { error: "Invalid customer token." });
-        return false;
-    }
-
-    return {
-        ...authenticated,
-        request
-    };
+    return authenticated ? { ...authenticated, request } : false;
 }
 
 function ensureAdminAccess(request, response) {
