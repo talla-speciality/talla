@@ -2861,13 +2861,9 @@ extension ContentView {
     func productFactsSection(_ product: Product) -> some View {
         let origin = productCountryOfOrigin(for: product)
         let summary = productTasteSummary(for: product)
-        let displayDescription = product.desc
-            .replacingOccurrences(of: "countries heritage", with: "country's heritage")
-            .replacingOccurrences(of: "countries’ heritage", with: "country's heritage")
         let facts: [(String, String)] = [
             (AppLocalization.text("origin", fallback: "Origin"), origin ?? "—"),
-            (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary.isEmpty ? "—" : summary),
-            (AppLocalization.text("product_details", fallback: "Product details"), displayDescription.isEmpty ? "—" : displayDescription)
+            (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary.isEmpty ? "—" : summary)
         ]
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("coffee_facts", fallback: "Coffee facts"))
