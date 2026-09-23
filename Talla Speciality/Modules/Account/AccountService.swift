@@ -88,6 +88,56 @@ enum AccountService {
         var journalID: String? = nil
     }
 
+    struct CommunityRecipe: Codable, Identifiable, Hashable {
+        let id: String
+        let title: String
+        let method: String
+        let detail: String
+        let author: String
+        let status: String
+        let createdAt: String
+    }
+
+    static func fetchCommunityRecipes() async throws -> [CommunityRecipe] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The community service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/community/recipes"))
+        request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let recipes: [CommunityRecipe] }
+        return try JSONDecoder().decode(Envelope.self, from: data).recipes
+    }
+
+    static func submitCommunityRecipe(title: String, method: String, detail: String, author: String = "") async throws -> CommunityRecipe {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The community service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/community/recipes"))
+        request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["title": title, "method": method, "detail": detail, "author": author])
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let recipe: CommunityRecipe }
+        return try JSONDecoder().decode(Envelope.self, from: data).recipe
+    }
+
+    static func fetchCuppingEntries() async throws -> [CuppingEntry] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The cupping service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/cupping/entries")); request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let entries: [CuppingEntry] }
+        return try JSONDecoder().decode(Envelope.self, from: data).entries
+    }
+
+    static func saveCuppingEntry(_ entry: CuppingEntry) async throws -> CuppingEntry {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The cupping service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/cupping/entries")); request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
+        request.httpBody = try JSONEncoder().encode(entry)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let entry: CuppingEntry }
+        return try JSONDecoder().decode(Envelope.self, from: data).entry
+    }
+
     static var accessToken: String {
         TallaAccountCredentialStore.accessToken
     }
@@ -515,7 +565,11 @@ enum AccountService {
         prepaidCoffeeClub: Bool = false,
         coffeeClubShipmentCount: Int = 3,
         coffeeClubIntervalWeeks: Int = 4,
-        coffeeClubTermsAccepted: Bool = false
+        coffeeClubTermsAccepted: Bool = false,
+        giftOrder: Bool = false,
+        giftRecipientName: String? = nil,
+        giftRecipientPhone: String? = nil,
+        giftMessage: String? = nil
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -569,6 +623,13 @@ enum AccountService {
         }
         if let voucherCode, !voucherCode.isEmpty {
             payload["voucherCode"] = voucherCode
+        }
+        if giftOrder {
+            payload["gift"] = [
+                "recipientName": giftRecipientName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                "recipientPhone": giftRecipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                "message": giftMessage?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            ]
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 

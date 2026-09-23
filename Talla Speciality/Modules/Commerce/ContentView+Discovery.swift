@@ -2504,6 +2504,7 @@ extension ContentView {
             coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
             coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks,
             coffeeClubDiscountPercent: configuredCoffeeClubDiscountPercent,
+            curatedBundleProducts: curatedBundleProducts,
             activeCategory: $activeCategory,
             searchQuery: $shopSearchQuery,
             sortMode: $shopSortMode,
@@ -2565,7 +2566,13 @@ extension ContentView {
             (AppLocalization.text("summer_boxes", fallback: "Summer Boxes"), "box", "summer-drinks"),
             (AppLocalization.text("gifts", fallback: "Gifts"), "gift", "gifts"),
             (AppLocalization.text("crmb", fallback: "CRMB"), "crmb", "desserts"),
-            (AppLocalization.text("equipment", fallback: "Equipment"), "brew", "coffee-equipment")
+            (AppLocalization.text("equipment", fallback: "Equipment"), "brew", "coffee-equipment"),
+            (AppLocalization.text("decaf", fallback: "Decaf"), "decaf", "all"),
+            (AppLocalization.text("available", fallback: "In stock"), "available", "all"),
+            (AppLocalization.text("budget", fallback: "Budget picks"), "budget", "all"),
+            (AppLocalization.text("fruity", fallback: "Fruity"), "fruity", "all"),
+            (AppLocalization.text("espresso", fallback: "Espresso"), "espresso", "all"),
+            (AppLocalization.text("hosting", fallback: "Hosting"), "hosting", "gifts")
         ]
     }
 
@@ -2752,6 +2759,7 @@ extension ContentView {
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 8)], spacing: 8) {
                     Button {
+                        TallaTelemetry.shared.track("recommendation_to_product_conversion", properties: ["source": "taste_quiz", "product": product.name])
                         addToCart(product: product)
                     } label: {
                         Text(AppLocalization.text("add_to_bag", fallback: "Add to Bag"))

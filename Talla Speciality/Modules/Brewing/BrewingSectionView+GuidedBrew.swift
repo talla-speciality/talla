@@ -1036,6 +1036,17 @@ extension BrewingSectionView {
                 focusedScaleLiveCard
             }
 
+            Toggle(isOn: $isVoiceGuidanceEnabled) {
+                Label(
+                    AppLocalization.text("voice_guidance", fallback: "Voice guidance"),
+                    systemImage: "speaker.wave.2.fill"
+                )
+                .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                .foregroundColor(brewPrimaryTextColor)
+            }
+            .tint(brewAccentColor)
+            .accessibilityIdentifier("guided-brew.voice-guidance")
+
             focusedBrewMetricRows
                 .frame(maxHeight: 190)
 
@@ -2305,9 +2316,24 @@ extension BrewingSectionView {
 
     var afterBrewActions: some View {
         VStack(spacing: 10) {
+            if let productID = completedBrewProductID {
+                afterBrewActionButton(
+                    title: AppLocalization.text("reorder_this_coffee", fallback: "Reorder this coffee"),
+                    isPrimary: true
+                ) {
+                    reorderCoffeeAction(productID)
+                }
+            }
             brewMeasurementActions
             recipeAdjustmentActions
         }
+    }
+
+    var completedBrewProductID: String? {
+        guard let purchasedCoffeeID = selectedPurchasedCoffeeID,
+              let purchase = coffeeData.inventory().first(where: { $0.id == purchasedCoffeeID }),
+              let lotID = purchase.lotID else { return nil }
+        return coffeeData.beanLots().first(where: { $0.id == lotID })?.productID
     }
 
     @ViewBuilder

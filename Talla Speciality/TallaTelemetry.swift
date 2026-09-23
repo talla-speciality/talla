@@ -23,12 +23,16 @@ final class TallaTelemetry: NSObject {
     private let installKey = "telemetry.installID"
     private let activeLaunchKey = "telemetry.activeLaunch"
     private let retentionDayKey = "telemetry.retentionDay"
+    private let installStartedAtKey = "telemetry.installStartedAt"
     private let sessionID = UUID().uuidString
     private let launchStartedAt = ProcessInfo.processInfo.systemUptime
     private var isSending = false
 
     func start() {
         let defaults = UserDefaults.standard
+        if defaults.object(forKey: installStartedAtKey) == nil {
+            defaults.set(Date().timeIntervalSince1970, forKey: installStartedAtKey)
+        }
         if defaults.bool(forKey: activeLaunchKey) {
             track("crash_detected", category: "crash", properties: ["source": "unclean_foreground_exit"])
         }
@@ -57,7 +61,14 @@ final class TallaTelemetry: NSObject {
         flush()
     }
 
+    var secondsSinceInstall: Int {
+        let started = UserDefaults.standard.double(forKey: installStartedAtKey)
+        guard started > 0 else { return 0 }
+        return max(0, Int(Date().timeIntervalSince1970 - started))
+    }
+
     func track(_ name: String, category: String = "analytics", properties: [String: String] = [:]) {
+        guard !UserDefaults.standard.bool(forKey: "privacy.analytics.optOut") else { return }
         var queue = loadQueue()
         queue.append(Event(
             id: UUID().uuidString,

@@ -47,6 +47,7 @@ struct LoyaltySectionView: View {
 
             if let loyaltyAccount {
                 compactClubCard(account: loyaltyAccount)
+                ReferralSectionView(email: savedLoyaltyEmail, accent: accentColor, cardFill: cardFillColor, secondary: secondaryTextColor)
 
                 VStack(alignment: .leading, spacing: 20) {
                     expiringRewardsSection
@@ -447,5 +448,64 @@ struct LoyaltySectionView: View {
                 .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+private struct ReferralSectionView: View {
+    let email: String
+    let accent: Color
+    let cardFill: Color
+    let secondary: Color
+    @State private var referral: LoyaltyService.ReferralAccount?
+    @State private var redeemCode = ""
+    @State private var message: String?
+    @State private var isLoading = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(AppLocalization.text("referral_rewards", fallback: "Referral rewards"), systemImage: "person.2.fill")
+                .font(.headline)
+            Text(AppLocalization.text("referral_rewards_detail", fallback: "Share your code. You earn 100 Beans and your friend earns 50 Beans after they use it."))
+                .font(.subheadline)
+                .foregroundStyle(secondary)
+            if let referral {
+                ShareLink(item: referral.code) {
+                    Label(String(format: AppLocalization.text("share_referral_code", fallback: "Share %@"), referral.code), systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .accessibilityIdentifier("referral.share")
+            }
+            HStack {
+                TextField(AppLocalization.text("referral_code_placeholder", fallback: "TALLA-XXXXXXXX"), text: $redeemCode)
+                    .textInputAutocapitalization(.characters)
+                    .textFieldStyle(.roundedBorder)
+                Button(AppLocalization.text("redeem", fallback: "Redeem")) { redeem() }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoading || redeemCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            if let message { Text(message).font(.caption).foregroundStyle(secondary) }
+        }
+        .padding(16)
+        .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard !email.isEmpty else { return }
+        referral = try? await LoyaltyService.fetchReferral(email: email)
+    }
+
+    private func redeem() {
+        let code = redeemCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        isLoading = true
+        Task {
+            do {
+                _ = try await LoyaltyService.redeemReferral(email: email, code: code)
+                await MainActor.run { message = AppLocalization.text("referral_redeemed", fallback: "Referral reward added to your Beans."); redeemCode = ""; isLoading = false }
+            } catch {
+                await MainActor.run { message = AppLocalization.text("referral_failed", fallback: "That referral could not be redeemed."); isLoading = false }
+            }
+        }
     }
 }

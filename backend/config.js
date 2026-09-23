@@ -150,6 +150,8 @@ module.exports = {
         appSettings: path.join(dataDirectory, "appSettings.json"),
         tasteMemory: path.join(dataDirectory, "tasteMemory.json"),
         customerLibrary: path.join(dataDirectory, "customerLibrary.json"),
+        communityRecipes: path.join(dataDirectory, "communityRecipes.json"),
+        cuppingRecords: path.join(dataDirectory, "cuppingRecords.json"),
         passwordResetTokens: path.join(dataDirectory, "passwordResetTokens.json"),
         benefitPayments: path.join(dataDirectory, "benefitPayments.json"),
         cardPayments: path.join(dataDirectory, "cardPayments.json"),

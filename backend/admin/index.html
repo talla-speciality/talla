@@ -720,6 +720,7 @@
                 <button class="nav-link" data-section-target="app-controls-section">Live Controls</button>
                 <button class="nav-link" data-section-target="campaigns-section">Seasonal Events</button>
                 <button class="nav-link" data-section-target="analytics-section">Analytics</button>
+                <button class="nav-link" data-section-target="community-recipes-section">Community Recipes</button>
             </div>
             <div class="section-search-row">
                 <input id="section-search" type="search" placeholder="Find an admin section…" aria-label="Find an admin section">
@@ -745,6 +746,15 @@
             <h2>Admin Dashboard</h2>
             <div id="admin-dashboard" class="empty">Loading dashboard...</div>
         </section>
+
+        <details id="community-recipes-section" class="panel" data-admin-section="community recipes moderation cupping" style="margin-bottom: 20px;" open>
+            <summary class="panel-summary"><h2>Community Recipe Moderation</h2></summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Review recipes submitted by customers before they appear in the community feed.</div>
+                <div class="toolbar-row" style="margin-bottom: 12px;"><button id="refresh-community-recipes" class="secondary">Refresh Recipes</button><div id="community-recipes-note" class="muted">Loading recipes…</div></div>
+                <div id="community-recipes-list" class="empty">Sign in to review community recipes.</div>
+            </div>
+        </details>
 
         <details id="app-controls-section" class="panel" data-admin-section="live app controls payments delivery pickup maintenance versions loyalty announcement support links sections" data-section-version="2" style="margin-bottom: 20px;" open>
             <summary class="panel-summary">
@@ -1170,7 +1180,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], communityRecipes: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -1180,6 +1190,9 @@
         const loginStatusEl = document.getElementById("login-status");
         const sessionSummaryEl = document.getElementById("session-summary");
         const adminDashboardEl = document.getElementById("admin-dashboard");
+        const communityRecipesListEl = document.getElementById("community-recipes-list");
+        const communityRecipesNoteEl = document.getElementById("community-recipes-note");
+        const refreshCommunityRecipesButton = document.getElementById("refresh-community-recipes");
         const todayLabelEl = document.getElementById("today-label");
         const sectionSearchInput = document.getElementById("section-search");
         const sectionCountEl = document.getElementById("section-count");
@@ -2836,6 +2849,27 @@
                         <div class="value">${totals.usedVouchers || 0}</div>
                     </div>
                 </div>
+                <div class="grid" style="margin-bottom:18px;">
+                    <div class="grid-card">
+                        <span class="label">First Brews / 30d</span>
+                        <div class="value">${totals.firstBrewsLast30Days || 0}</div>
+                        <div class="muted">${totals.firstBrewsWithinTenMinutesLast30Days || 0} within 10 minutes</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Recommendation → Product</span>
+                        <div class="value">${totals.recommendationToProductConversionsLast30Days || 0}</div>
+                        <div class="muted">${totals.recommendationToBrewStartsLast30Days || 0} brew starts</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Purchase → First Brew</span>
+                        <div class="value">${totals.purchaseToFirstBrewLast30Days || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Rated / Repeat Brews</span>
+                        <div class="value">${totals.ratedBrewsLast30Days || 0} / ${totals.repeatBrewsLast30Days || 0}</div>
+                        <div class="muted">Education completions: ${totals.educationCompletionsLast30Days || 0}</div>
+                    </div>
+                </div>
                 <div class="panel" style="padding:0; border:none; box-shadow:none; background:transparent;">
                     <h2 style="margin-top:0;">Loyalty Tier Mix</h2>
                     <div class="list">${renderList(Object.entries(tierCounts), ([tier, count]) => `<div class="list-item"><strong>${escapeHTML(tier)}</strong><div class="muted">${count} customers</div></div>`, "No loyalty data yet.")}</div>
@@ -3192,6 +3226,60 @@
             return payload;
         }
 
+        async function fetchCommunityRecipes() {
+            const response = await fetch("/admin/api/community-recipes");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load community recipes.");
+            return payload.recipes || [];
+        }
+
+        async function moderateCommunityRecipe(id, status) {
+            const response = await fetch("/admin/api/community-recipes/moderate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, status })
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not update recipe moderation.");
+            return payload.recipe;
+        }
+
+        function renderCommunityRecipes(recipes) {
+            state.communityRecipes = recipes;
+            const pending = recipes.filter((recipe) => recipe.status === "pending");
+            communityRecipesNoteEl.textContent = `${pending.length} pending · ${recipes.filter((recipe) => recipe.status === "approved").length} approved · ${recipes.filter((recipe) => recipe.status === "rejected").length} rejected`;
+            if (!recipes.length) {
+                communityRecipesListEl.className = "empty";
+                communityRecipesListEl.textContent = "No community recipes submitted yet.";
+                return;
+            }
+            communityRecipesListEl.className = "list";
+            communityRecipesListEl.innerHTML = recipes.map((recipe) => `
+                <div class="list-item">
+                    <div class="toolbar-row space-between">
+                        <div><strong>${escapeHTML(recipe.title || "Untitled recipe")}</strong><div class="muted">${escapeHTML(recipe.method || "Method not specified")} · ${escapeHTML(recipe.author || recipe.authorEmail || "Unknown author")} · ${recipe.createdAt ? new Date(recipe.createdAt).toLocaleString() : ""}</div></div>
+                        <span class="directory-badge">${escapeHTML(recipe.status || "pending")}</span>
+                    </div>
+                    <div style="margin-top:8px; white-space:pre-wrap;">${escapeHTML(recipe.detail || "")}</div>
+                    <div class="toolbar-row" style="margin-top:10px;">
+                        <button class="moderate-community-recipe" data-id="${escapeHTML(recipe.id)}" data-status="approved">Approve</button>
+                        <button class="moderate-community-recipe secondary" data-id="${escapeHTML(recipe.id)}" data-status="pending">Return to pending</button>
+                        <button class="moderate-community-recipe danger" data-id="${escapeHTML(recipe.id)}" data-status="rejected">Reject</button>
+                    </div>
+                </div>`).join("");
+        }
+
+        async function loadCommunityRecipes() {
+            try {
+                communityRecipesNoteEl.textContent = "Loading recipes…";
+                renderCommunityRecipes(await fetchCommunityRecipes());
+            } catch (error) {
+                communityRecipesNoteEl.textContent = error.message;
+                communityRecipesListEl.className = "empty";
+                communityRecipesListEl.textContent = "Community recipes unavailable.";
+            }
+        }
+
         async function refreshCustomers() {
             try {
                 setButtonBusy(refreshCustomersButton, true, "Refresh Customers", "Refreshing...");
@@ -3240,6 +3328,7 @@
                 renderAdminDashboard();
                 await loadEvents();
                 await loadAppSettings();
+                await loadCommunityRecipes();
                 showApp();
                 await loadAdminOrders();
                 connectOrderStream();
@@ -3268,6 +3357,7 @@
             state.customers = [];
             state.adminOrders = [];
             state.tasteMemory = [];
+            state.communityRecipes = [];
             emailInput.value = "";
             pointsInput.value = "";
             noteInput.value = "";
@@ -3291,6 +3381,9 @@
             ordersNoteEl.textContent = "";
             tasteMemoryEl.className = "empty";
             tasteMemoryEl.innerHTML = "Sign in to view customer taste feedback.";
+            communityRecipesListEl.className = "empty";
+            communityRecipesListEl.innerHTML = "Sign in to review community recipes.";
+            communityRecipesNoteEl.textContent = "";
             eventsStatusEl.textContent = "Sign in to manage seasonal events.";
             eventsListEl.className = "empty";
             eventsListEl.innerHTML = "Sign in to manage seasonal events.";
@@ -3918,6 +4011,22 @@
         });
         document.querySelectorAll("[data-section-target]").forEach((button) => {
             button.addEventListener("click", () => openAdminSection(button.dataset.sectionTarget));
+        });
+
+        refreshCommunityRecipesButton.addEventListener("click", loadCommunityRecipes);
+        communityRecipesListEl.addEventListener("click", async (event) => {
+            const button = event.target.closest(".moderate-community-recipe");
+            if (!button) return;
+            try {
+                button.disabled = true;
+                await moderateCommunityRecipe(button.dataset.id, button.dataset.status);
+                await loadCommunityRecipes();
+                setStatus(`Recipe ${button.dataset.status}.`, false);
+            } catch (error) {
+                setStatus(error.message, true);
+            } finally {
+                button.disabled = false;
+            }
         });
         document.addEventListener("keydown", (event) => {
             if (event.metaKey || event.ctrlKey || event.altKey) return;

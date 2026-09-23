@@ -718,6 +718,9 @@ struct ContentView: View {
     @State var products: [Product] = []
     @State var pendingUniversalLinkProductHandle = ""
     @State var pendingBrewingCoffeeName = ""
+    @State var pendingBrewingCoffeeOrigin = ""
+    @State var pendingBrewingCoffeeNotes = ""
+    @State var pendingRecommendedRecipe = false
     @State var cartItems: [CartItem] = []
     @State var isCoffeeClubPrepaid = false
     @State var coffeeClubTermsAccepted = false
@@ -859,6 +862,10 @@ struct ContentView: View {
     @State var addressCity = ""
     @State var addressCountry: SupportedDeliveryCountry = .bahrain
     @State var addressNotes = ""
+    @State var isGiftOrder = false
+    @State var giftRecipientName = ""
+    @State var giftRecipientPhone = ""
+    @State var giftMessage = ""
     @State var isSavingAddress = false
     @State var selectingAddressID: String?
     @State var isAccountOnboardingPresented = false
@@ -1401,6 +1408,15 @@ struct ContentView: View {
             .joined(separator: " ")
             .lowercased()
 
+            if ["available", "in stock", "ready"].contains(normalizedQuery) {
+                return product.isAvailableForSale
+            }
+            if ["decaf", "low caffeine", "caffeine free"].contains(normalizedQuery) {
+                return searchableText.contains("decaf") || searchableText.contains("caffeine free")
+            }
+            if normalizedQuery == "under 5" || normalizedQuery == "budget" {
+                return priceValue(from: product.price) <= 5
+            }
             return searchableText.contains(normalizedQuery)
             }
         }
@@ -1431,6 +1447,17 @@ struct ContentView: View {
                 return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
         }
+    }
+
+    var curatedBundleProducts: [Product] {
+        products.filter { product in
+            let text = product.catalogClassificationText.lowercased()
+            return product.categoryKey == "gifts"
+                || text.contains("bundle")
+                || text.contains("gift box")
+                || text.contains("talla box")
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     var favoriteProductIDs: Set<String> {
@@ -1714,8 +1741,9 @@ struct ContentView: View {
         let ranked = products
             .filter { !excludedIDs.contains($0.id) }
             .sorted { lhs, rhs in
-                let lhsScore = categoryWeights[lhs.categoryKey, default: 0] + tastePreferenceScore(for: lhs)
-                let rhsScore = categoryWeights[rhs.categoryKey, default: 0] + tastePreferenceScore(for: rhs)
+                let usePersonalization = !UserDefaults.standard.bool(forKey: "privacy.personalization.optOut")
+                let lhsScore = categoryWeights[lhs.categoryKey, default: 0] + (usePersonalization ? tastePreferenceScore(for: lhs) : 0)
+                let rhsScore = categoryWeights[rhs.categoryKey, default: 0] + (usePersonalization ? tastePreferenceScore(for: rhs) : 0)
 
                 if lhsScore != rhsScore {
                     return lhsScore > rhsScore
@@ -2871,13 +2899,17 @@ struct ContentView: View {
         openTab(.brewing)
     }
 
-    func startBrewing(product: Product) {
+    func startBrewing(product: Product, useRecommendedRecipe: Bool = false) {
         let coffeeName = product.name.trimmingCharacters(in: .whitespacesAndNewlines)
         selectedProduct = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             brewRecipeName = coffeeName
             openBrewing(category: product.categoryKey == "arabic-coffee-beans" ? "Traditional" : "All")
             pendingBrewingCoffeeName = coffeeName
+            pendingBrewingCoffeeOrigin = product.countryOfOrigin ?? ""
+            pendingBrewingCoffeeNotes = product.desc
+            pendingRecommendedRecipe = useRecommendedRecipe
+            TallaTelemetry.shared.track(useRecommendedRecipe ? "recommendation_to_brew_started" : "brew_from_product_started", properties: ["product": coffeeName])
             showToast(message: AppLocalization.text("brew_ready", fallback: "Coffee added to your brewing workspace"))
         }
     }

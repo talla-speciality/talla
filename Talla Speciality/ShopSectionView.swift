@@ -12,6 +12,7 @@ struct ShopSectionView: View {
     let coffeeClubShipmentCount: Int
     let coffeeClubIntervalWeeks: Int
     let coffeeClubDiscountPercent: Int
+    let curatedBundleProducts: [ContentView.Product]
     @Binding var activeCategory: String
     @Binding var searchQuery: String
     @Binding var sortMode: ContentView.ShopSortMode
@@ -73,11 +74,14 @@ struct ShopSectionView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            if showsCoffeeClubIntroduction {
+            if showsCoffeeClubIntroduction && (activeCategory == "all" || activeCategory == "coffee-beans") {
                 coffeeClubIntroduction
             }
 
             shopCategoriesSection
+            if !curatedBundleProducts.isEmpty && (activeCategory == "all" || activeCategory == "gifts") && searchQuery.isEmpty {
+                curatedBundlesSection
+            }
             shopSortSection
 
             if isLoadingProducts && allProductsAreEmpty {
@@ -120,6 +124,54 @@ struct ShopSectionView: View {
 
             Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) { }
         }
+    }
+
+    private var curatedBundlesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("curated_bundles_eyebrow", fallback: "Curated for sharing"))
+                        .font(labelFont)
+                        .tracking(localizedTracking(1.8))
+                        .textCase(.uppercase)
+                        .foregroundColor(accentColor)
+                    Text(AppLocalization.text("curated_bundles_title", fallback: "Talla Boxes"))
+                        .font(sectionTitleFont)
+                        .foregroundColor(primaryTextColor)
+                    Text(AppLocalization.text("curated_bundles_detail", fallback: "Ready-to-gift combinations for hosts, coffee lovers, and seasonal moments."))
+                        .font(categoryBodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Button {
+                    activeCategory = "gifts"
+                    categorySelected()
+                } label: {
+                    Image(systemName: "arrow.forward")
+                        .foregroundColor(accentColor)
+                        .frame(width: 36, height: 36)
+                        .background(accentColor.opacity(0.12), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("curated_bundles_browse", fallback: "Browse curated bundles"))
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(curatedBundleProducts.prefix(4)) { product in
+                        renderProductCard(product, false)
+                            .frame(width: horizontalSizeClass == .compact ? 210 : 250)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(16)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(accentColor.opacity(isLightAppearance ? 0.2 : 0.14), lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("shop.curatedBundles")
     }
 
     private var coffeeClubIntroduction: some View {

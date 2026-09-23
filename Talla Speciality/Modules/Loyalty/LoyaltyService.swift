@@ -91,6 +91,35 @@ enum LoyaltyService {
         return try await performLoyaltyRequest(request)
     }
 
+    struct ReferralAccount: Codable {
+        let code: String
+        let reward: Reward
+        let redeemedCount: Int
+        struct Reward: Codable { let referrerBeans: Int; let recipientBeans: Int }
+    }
+
+    static func fetchReferral(email: String) async throws -> ReferralAccount {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The referral service is unavailable.") }
+        var components = URLComponents(url: baseURL.appending(path: "/referrals/account"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "email", value: email)]
+        guard let url = components?.url else { throw ContentView.LoyaltyServiceError.operationFailed("The referral URL is invalid.") }
+        var request = URLRequest(url: url)
+        try AccountService.authorize(&request)
+        let (data, response) = try await AccountService.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw ContentView.LoyaltyServiceError.operationFailed("The referral service could not load your code.") }
+        return try JSONDecoder().decode(ReferralAccount.self, from: data)
+    }
+
+    static func redeemReferral(email: String, code: String) async throws -> ContentView.LoyaltyAccount {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The referral service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/referrals/redeem"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try AccountService.authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email, "code": code])
+        return try await performLoyaltyRequest(request)
+    }
+
     static func performLoyaltyRequest(_ request: URLRequest) async throws -> ContentView.LoyaltyAccount {
         let (data, response) = try await AccountService.data(for: request)
 

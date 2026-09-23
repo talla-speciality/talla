@@ -4529,5 +4529,76 @@
   "catalog_term_gear": {"ar": "أدوات"},
   "catalog_term_espresso": {"ar": "إسبريسو"},
   "catalog_term_arabic": {"ar": "عربية"},
-  "catalog_term_drip": {"ar": "ترشيح"}
+  "catalog_term_drip": {"ar": "ترشيح"},
+  "recommended_recipe": {"ar": "استخدم الوصفة المقترحة"},
+  "empty_coffee_library": {"ar": "مكتبة القهوة فارغة"},
+  "empty_coffee_library_detail": {"ar": "امسح كيسًا أو أضف قهوة لبدء مكتبتك."},
+  "brew_profile_equipment_question": {"ar": "ما المعدات التي تستخدمها؟"},
+  "brew_profile_equipment_detail": {"ar": "احفظ المطحنة والفلتر ليصنع تلة وصفات مناسبة لإعدادك."},
+  "other_grinder": {"ar": "مطحنة أخرى"},
+  "other_filter": {"ar": "فلتر آخر"},
+  "remove_roast_date": {"ar": "إزالة تاريخ التحميص"},
+  "add_roast_date": {"ar": "إضافة تاريخ التحميص"},
+  "mark_opened_today": {"ar": "تحديد الفتح اليوم"},
+  "bean_library": {"ar": "مكتبة الحبوب"}
+  ,"maintenance_due_title": {"ar": "حان موعد العناية بالمعدات"}
+  ,"maintenance_due_body": {"ar": "%@ · %@"}
+  ,"household_equipment": {"ar": "ملف معدات المنزل"}
+  ,"household_profile_name": {"ar": "اسم المنزل أو الملف"}
+  ,"shared_equipment": {"ar": "مشاركة المعدات مع أفراد المنزل"}
+  ,"household_equipment_detail": {"ar": "احتفظ بإعداد واحد للمعدات المشتركة وتذكيرات الصيانة."}
+  ,"maintenance_schedule": {"ar": "جدول الصيانة"}
+  ,"maintenance_task": {"ar": "مهمة الصيانة"}
+  ,"next_due": {"ar": "الاستحقاق التالي"}
+  ,"schedule_maintenance": {"ar": "جدولة تذكير"}
+  ,"remove_reminder": {"ar": "إزالة التذكير"}
+  ,"no_maintenance_schedules": {"ar": "لا توجد تذكيرات صيانة مجدولة بعد."}
+  ,"brew_day_reminder": {"ar": "تذكير يوم التحضير"}
+  ,"brew_day_reminder_detail": {"ar": "اختر وقتًا لتحضير قهوتك المحفوظة قبل أن تُنسى."}
+  ,"brew_day_time": {"ar": "يوم التحضير"}
+  ,"schedule_reminder": {"ar": "جدولة التذكير"}
+  ,"brew_day_reminder_title": {"ar": "حان يوم التحضير"}
+  ,"brew_day_reminder_body": {"ar": "قهوتك المحفوظة جاهزة لتحضير جديد."},
+  "referral_rewards": {"ar": "مكافآت الإحالة"},
+  "referral_rewards_detail": {"ar": "شارك رمزك لتحصل على 100 حبة ويحصل صديقك على 50 حبة عند استخدامه."},
+  "share_referral_code": {"ar": "مشاركة %@"},
+  "referral_code_placeholder": {"ar": "TALLA-XXXXXXXX"},
+  "redeem": {"ar": "استبدال"},
+  "referral_redeemed": {"ar": "تمت إضافة مكافأة الإحالة إلى حبوبك."},
+  "referral_failed": {"ar": "تعذر استبدال رمز الإحالة."},
+  "cupping_mode": {"ar": "وضع التذوق"},
+  "cupping_title": {"ar": "طوّر حاسة التذوق"},
+  "cupping_detail": {"ar": "تذوق القهوة جنباً إلى جنب وسجل الأبعاد نفسها وحافظ على لغة حسية متسقة."},
+  "cupping_new_sample": {"ar": "عينة جديدة"},
+  "cupping_sample_name": {"ar": "اسم القهوة أو العينة"},
+  "cupping_notes": {"ar": "ملاحظات حسية"},
+  "save_cupping_sample": {"ar": "حفظ العينة"},
+  "cupping_history": {"ar": "سجل التذوق"},
+  "cupping_comparison": {"ar": "مقارنة جنباً إلى جنب"},
+  "community_recipes": {"ar": "وصفات المجتمع"},
+  "community_moderation_detail": {"ar": "تتم مراجعة الوصفات الجديدة قبل ظهورها للعامة."},
+  "privacy_controls": {"ar": "الخصوصية والتفسيرات"},
+  "privacy_controls_detail": {"ar": "تحكم في التحليلات والتخصيص والمشاركة وافهم التوصيات."},
+  "recommendation_explanation": {"ar": "لماذا هذه الاختيارات؟ تجمع تالا بين تفضيلات ذوقك ومفضلاتك وطلباتك السابقة ومكتبة القهوة والتوفر الحالي."},
+  "voice_guidance": {"ar": "التوجيه الصوتي"},
+  "coffee_facts": {"ar": "معلومات القهوة"},
+  "origin": {"ar": "الأصل"},
+  "tasting_notes": {"ar": "إيحاءات التذوق"},
+  "product_details": {"ar": "تفاصيل المنتج"},
+  "buy_the_setup": {"ar": "اشترِ التجهيز الكامل"},
+  "setup_added_to_bag": {"ar": "تمت إضافة القهوة والتجهيز الأساسي إلى السلة."},
+  "reorder_this_coffee": {"ar": "أعد طلب هذه القهوة"},
+  "decaf": {"ar": "منزوعة الكافيين"},
+  "budget": {"ar": "اختيارات اقتصادية"},
+  "fruity": {"ar": "فاكهية"},
+  "hosting": {"ar": "للضيافة"},
+  "gift_order_title": {"ar": "هذه هدية"},
+  "gift_recipient_name": {"ar": "اسم المستلم"},
+  "gift_recipient_phone": {"ar": "هاتف المستلم"},
+  "gift_recipient_required": {"ar": "أدخل اسم المستلم قبل إتمام طلب الهدية."},
+  "gift_message": {"ar": "أضف رسالة (اختياري)"},
+  "curated_bundles_eyebrow": {"ar": "مختارات للمشاركة"},
+  "curated_bundles_title": {"ar": "صناديق تالا"},
+  "curated_bundles_detail": {"ar": "تشكيلات جاهزة للإهداء للضيافة ومحبي القهوة والمناسبات الموسمية."},
+  "curated_bundles_browse": {"ar": "تصفح التشكيلات المختارة"}
 }

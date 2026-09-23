@@ -15,6 +15,9 @@ import WatchConnectivity
 #if canImport(UIKit)
 import UIKit
 #endif
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
 
 struct BrewRecipeRecord: Identifiable {
     let id: UUID
@@ -176,6 +179,9 @@ struct BrewingSectionView: View {
         case coffeeLibrary
         case brewCoach
         case espressoWorkspace
+        case cuppingMode
+        case communityRecipes
+        case privacyControls
 
         var id: String { rawValue }
     }
@@ -306,6 +312,9 @@ struct BrewingSectionView: View {
     @Binding var ratioValueInput: String
     @Binding var brewRecipeName: String
     @Binding var pendingCoffeeName: String
+    @Binding var pendingCoffeeOrigin: String
+    @Binding var pendingCoffeeNotes: String
+    @Binding var pendingRecommendedRecipe: Bool
     let calculatedWaterAmount: Double
     let ratioCoffeeAmount: Double
     let ratioValue: Double
@@ -316,6 +325,7 @@ struct BrewingSectionView: View {
     let labelFont: Font
     let saveRecipeAction: (BrewRecipeRecord) -> Void
     let openArticleAction: (URL) -> Void
+    let reorderCoffeeAction: (String) -> Void
     let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int, UUID?, [CoffeeSampleInput]) -> Void
     let brewTimerSection: AnyView
     let coffeeJournalSection: AnyView
@@ -342,6 +352,7 @@ struct BrewingSectionView: View {
     @State var lastPrePourCueStepID: Int?
     @State var brewModeBackgroundDate: Date?
     @State var brewModeHapticTrigger = 0
+    @AppStorage("talla.brewing.voiceGuidance.v1") var isVoiceGuidanceEnabled = false
     @State var selectedBrewModeMethodID: String?
     @State var isFocusedBrewPresented = false
     @State var isEndBrewConfirmationPresented = false

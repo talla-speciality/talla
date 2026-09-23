@@ -11,6 +11,9 @@ struct CoffeeEducationView: View {
     @State private var remoteQuestions: [EducationQuestion] = []
     @State private var quizScore = 0
     @State private var questionsAnswered = 0
+    @AppStorage("talla.education.completedLessons.v1") private var persistedCompletedLessons = ""
+    @AppStorage("talla.education.quizScore.v1") private var persistedQuizScore = 0
+    @AppStorage("talla.education.questionsAnswered.v1") private var persistedQuestionsAnswered = 0
 
     private let families: [(name: String, color: Color, notes: [String], description: String)] = [
         ("Fruity", Color(red: 0.89, green: 0.32, blue: 0.28), ["Berry", "Citrus", "Stone fruit"], "Bright, juicy notes often found in lightly roasted coffees."),
@@ -42,7 +45,13 @@ struct CoffeeEducationView: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .sheet(item: $selectedMethod) { MethodLessonSheet(lesson: $0) }
-            .onAppear { loadNewQuestion(); Task { await loadRemoteQuestions() } }
+            .onAppear {
+                completedLessons = Set(persistedCompletedLessons.split(separator: ",").map(String.init))
+                quizScore = persistedQuizScore
+                questionsAnswered = persistedQuestionsAnswered
+                loadNewQuestion()
+                Task { await loadRemoteQuestions() }
+            }
     }
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -128,6 +137,7 @@ struct CoffeeEducationView: View {
         questionsAnswered += 1
         if answer == question.correctAnswer { quizScore += 1 }
         completedLessons.insert("3")
+        persistProgress()
     }
 
     private func loadNewQuestion() {
@@ -152,6 +162,17 @@ struct CoffeeEducationView: View {
             completedLessons.remove(id)
         } else {
             completedLessons.insert(id)
+        }
+        persistProgress()
+    }
+
+    private func persistProgress() {
+        persistedCompletedLessons = completedLessons.sorted().joined(separator: ",")
+        persistedQuizScore = quizScore
+        persistedQuestionsAnswered = questionsAnswered
+        if completedLessons.count >= 3 && !UserDefaults.standard.bool(forKey: "talla.metrics.educationCompleted.v1") {
+            UserDefaults.standard.set(true, forKey: "talla.metrics.educationCompleted.v1")
+            TallaTelemetry.shared.track("education_path_completed", properties: ["lessons": String(completedLessons.count), "quiz_score": String(quizScore)])
         }
     }
 

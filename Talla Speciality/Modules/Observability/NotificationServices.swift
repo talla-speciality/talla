@@ -134,4 +134,48 @@ enum CoffeeReorderNotificationService {
 
     private static func identifier(_ coffeeID: UUID) -> String { "coffee-reorder-\(coffeeID.uuidString)" }
 }
+
+enum TallaRetentionNotificationService {
+    static let center = UNUserNotificationCenter.current()
+
+    static func scheduleBrewDay(date: Date, title: String, body: String) async {
+        guard date > .now else { return }
+        let settings = await BrewTimerNotificationService.notificationSettings()
+        guard [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus) else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        try? await center.add(UNNotificationRequest(
+            identifier: "talla-brew-day",
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        ))
+    }
+
+    static func cancelBrewDay() {
+        center.removePendingNotificationRequests(withIdentifiers: ["talla-brew-day"])
+    }
+
+    static func scheduleMaintenance(date: Date, equipmentName: String, task: String, id: UUID) async {
+        guard date > .now else { return }
+        let settings = await BrewTimerNotificationService.notificationSettings()
+        guard [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus) else { return }
+        let content = UNMutableNotificationContent()
+        content.title = AppLocalization.text("maintenance_due_title", fallback: "Equipment care is due")
+        content.body = String(format: AppLocalization.text("maintenance_due_body", fallback: "%@ · %@"), equipmentName, task)
+        content.sound = .default
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        try? await center.add(UNNotificationRequest(
+            identifier: "talla-maintenance-\(id.uuidString)",
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        ))
+    }
+
+    static func cancelMaintenance(id: UUID) {
+        center.removePendingNotificationRequests(withIdentifiers: ["talla-maintenance-\(id.uuidString)"])
+    }
+}
 #endif

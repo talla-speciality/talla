@@ -215,7 +215,45 @@ extension ContentView {
             if !isCoffeeClubActive {
                 cartPromoSection
             }
+            giftOptionsSection
         }
+    }
+
+    var giftOptionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $isGiftOrder) {
+                Label(
+                    AppLocalization.text("gift_order_title", fallback: "This is a gift"),
+                    systemImage: "gift.fill"
+                )
+                .font(labelFont(size: 13, weight: .bold))
+                .foregroundColor(primaryTextColor)
+            }
+            .tint(readableBrandGoldColor)
+            .accessibilityIdentifier("checkout.gift.toggle")
+
+            if isGiftOrder {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField(AppLocalization.text("gift_recipient_name", fallback: "Recipient name"), text: $giftRecipientName)
+                        .textContentType(.name)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("checkout.gift.recipient")
+                    TextField(AppLocalization.text("gift_recipient_phone", fallback: "Recipient phone"), text: $giftRecipientPhone)
+                        .keyboardType(.phonePad)
+                        .textContentType(.telephoneNumber)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("checkout.gift.phone")
+                    TextField(AppLocalization.text("gift_message", fallback: "Add a message (optional)"), text: $giftMessage, axis: .vertical)
+                        .lineLimit(2...4)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("checkout.gift.message")
+                }
+                .padding(12)
+                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .padding(14)
+        .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.08 : 0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     var coffeeClubOfferSection: some View {
@@ -2582,6 +2620,8 @@ extension ContentView {
                     .font(displayFont(size: 24))
                     .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? Color(hex: 0xC8965A) : tertiaryTextColor)
 
+                productFactsSection(product)
+
                 if product.hasVariantChoices {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(AppLocalization.text("variants", fallback: "VARIANTS"))
@@ -2674,6 +2714,51 @@ extension ContentView {
                                 .clipShape(Capsule(style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("product.brew-this-coffee")
+
+                        Button {
+                            startBrewing(product: product, useRecommendedRecipe: true)
+                        } label: {
+                            Label(
+                                AppLocalization.text("recommended_recipe", fallback: "Use Recommended Recipe"),
+                                systemImage: "wand.and.stars"
+                            )
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(AppLocalization.letterSpacing(1.4))
+                            .textCase(.uppercase)
+                            .foregroundColor(primaryTextColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(cardFillColor)
+                            .overlay(Capsule().stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("product.recommended-recipe")
+
+                        if let setupProduct = starterSetupProduct(for: product) {
+                            Button {
+                                addToCart(product: product)
+                                addToCart(product: setupProduct)
+                                showToast(message: AppLocalization.text("setup_added_to_bag", fallback: "Coffee and starter setup added to your bag."))
+                            } label: {
+                                Label(
+                                    AppLocalization.text("buy_the_setup", fallback: "Buy the Setup"),
+                                    systemImage: "shippingbox.and.arrow.backward.fill"
+                                )
+                                .font(labelFont(size: 10, weight: .bold))
+                                .tracking(AppLocalization.letterSpacing(1.4))
+                                .textCase(.uppercase)
+                                .foregroundColor(primaryTextColor)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color(hex: 0xC8965A).opacity(0.14))
+                                .overlay(Capsule().stroke(Color(hex: 0xC8965A).opacity(0.32), lineWidth: 1))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("product.buy-setup")
+                        }
                     }
 
                     HStack(spacing: 12) {
@@ -2749,6 +2834,45 @@ extension ContentView {
         }
         .background(backgroundGradientColors[0].ignoresSafeArea())
         .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    func productFactsSection(_ product: Product) -> some View {
+        let origin = productCountryOfOrigin(for: product)
+        let summary = productTasteSummary(for: product)
+        let facts: [(String, String)] = [
+            (AppLocalization.text("origin", fallback: "Origin"), origin ?? "—"),
+            (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary.isEmpty ? "—" : summary),
+            (AppLocalization.text("product_details", fallback: "Product details"), product.desc.isEmpty ? "—" : product.desc)
+        ]
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("coffee_facts", fallback: "Coffee facts"))
+                .font(labelFont(size: 10, weight: .bold))
+                .tracking(AppLocalization.letterSpacing(1.8))
+                .textCase(.uppercase)
+                .foregroundColor(readableBrandGoldColor)
+            ForEach(Array(facts.enumerated()), id: \.offset) { _, fact in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(fact.0).font(labelFont(size: 9, weight: .bold)).foregroundColor(tertiaryTextColor)
+                    Text(fact.1).font(bodyFont(size: 13)).foregroundColor(primaryTextColor).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(14)
+        .background(cardFillColor)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityIdentifier("product.coffee-facts")
+    }
+
+    func starterSetupProduct(for coffee: Product) -> Product? {
+        let coffeeText = coffee.catalogClassificationText.lowercased()
+        return products.first { product in
+            guard product.categoryKey == "coffee-equipment", product.isAvailableForSale else { return false }
+            let text = product.catalogClassificationText.lowercased()
+            if coffeeText.contains("espresso") { return text.contains("espresso") || text.contains("machine") }
+            if coffeeText.contains("aeropress") { return text.contains("aeropress") }
+            return text.contains("v60") || text.contains("pour") || text.contains("filter") || text.contains("brewer")
+        }
     }
 
     @ViewBuilder
@@ -3850,6 +3974,12 @@ extension ContentView {
             return
         }
 
+        if isGiftOrder && giftRecipientName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            paymentFlow.transition(to: .failed)
+            checkoutError = AppLocalization.text("gift_recipient_required", fallback: "Add the recipient name before placing a gift order.")
+            return
+        }
+
         guard canStartCheckoutWithShipping else {
             paymentFlow.transition(to: .failed)
             checkoutError = cartShipmentWeightGrams == nil
@@ -3926,7 +4056,11 @@ extension ContentView {
                     customerEmail: profile.email,
                     checkoutAddress: checkoutAddress,
                     fulfillmentMethod: fulfillmentMethod,
-                    pickupSlot: fulfillmentMethod == .pickup ? selectedPickupSlot : nil
+                    pickupSlot: fulfillmentMethod == .pickup ? selectedPickupSlot : nil,
+                    giftOrder: isGiftOrder,
+                    giftRecipientName: giftRecipientName,
+                    giftRecipientPhone: giftRecipientPhone,
+                    giftMessage: giftMessage
                 )
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
@@ -3964,7 +4098,11 @@ extension ContentView {
                 prepaidCoffeeClub: isCoffeeClubActive,
                 coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
                 coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks,
-                coffeeClubTermsAccepted: coffeeClubTermsAccepted
+                coffeeClubTermsAccepted: coffeeClubTermsAccepted,
+                giftOrder: isGiftOrder,
+                giftRecipientName: giftRecipientName,
+                giftRecipientPhone: giftRecipientPhone,
+                giftMessage: giftMessage
             )
             if let appliedVoucher {
                 if checkoutStart.pricingVersion != 2 {

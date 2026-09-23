@@ -184,6 +184,27 @@ struct CoffeeMaintenanceRecord: Identifiable {
     let notes: String
 }
 
+struct MaintenanceScheduleRecord: Codable, Identifiable, Hashable {
+    let id: UUID
+    let equipmentID: UUID
+    let task: String
+    let dueAt: Date
+}
+
+enum MaintenanceScheduleStore {
+    private static let key = "talla.maintenance.schedules.v1"
+
+    static func load() -> [MaintenanceScheduleRecord] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let records = try? JSONDecoder().decode([MaintenanceScheduleRecord].self, from: data) else { return [] }
+        return records.sorted { $0.dueAt < $1.dueAt }
+    }
+
+    static func save(_ records: [MaintenanceScheduleRecord]) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(records), forKey: key)
+    }
+}
+
 struct CoffeeDataConflict: Identifiable {
     let entityType: String
     let recordID: UUID
@@ -530,8 +551,17 @@ struct CoffeeLibraryView: View {
     @State private var maintenanceKind = "Cleaning"
     @State private var maintenanceNotes = ""
     @State private var maintenanceID: UUID?
+    @State private var maintenanceSchedules: [MaintenanceScheduleRecord] = []
+    @State private var maintenanceScheduleDate = Date().addingTimeInterval(7 * 24 * 60 * 60)
+    @State private var maintenanceScheduleTask = "Cleaning"
+    @State private var brewDayReminderDate = Date().addingTimeInterval(24 * 60 * 60)
+    @AppStorage("talla.brewDayReminderAt.v1") private var brewDayReminderTimestamp = 0.0
+    @AppStorage("talla.household.profile.name.v1") private var householdProfileName = ""
+    @AppStorage("talla.household.profile.shared.v1") private var householdEquipmentIsShared = true
     @State private var editingLot: BeanLotRecord?
     @State private var errorMessage: String?
+    var brewCoffeeAction: ((String) -> Void)? = nil
+    var reorderCoffeeAction: ((BeanLotRecord) -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -549,12 +579,12 @@ struct CoffeeLibraryView: View {
                         .accessibilityIdentifier("coffee.inventory.name")
                     TextField(AppLocalization.text("roaster", fallback: "Roaster"), text: $roaster)
                         .textFieldStyle(.roundedBorder)
-                    TextField("Origin", text: $origin).textFieldStyle(.roundedBorder)
-                    TextField("Region or producer", text: $region).textFieldStyle(.roundedBorder)
-                    TextField("Variety", text: $variety).textFieldStyle(.roundedBorder)
-                    TextField("Process", text: $process).textFieldStyle(.roundedBorder)
-                    TextField("Roast level", text: $roastLevel).textFieldStyle(.roundedBorder)
-                    TextField("Tasting notes", text: $tastingNotes).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("origin", fallback: "Origin"), text: $origin).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("region", fallback: "Region or producer"), text: $region).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("variety", fallback: "Variety"), text: $variety).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("process", fallback: "Process"), text: $process).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("roast_level", fallback: "Roast level"), text: $roastLevel).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("tasting_notes", fallback: "Tasting notes"), text: $tastingNotes).textFieldStyle(.roundedBorder)
                     TextField(AppLocalization.text("quantity_grams", fallback: "Quantity (g)"), text: $quantity)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
@@ -581,12 +611,12 @@ struct CoffeeLibraryView: View {
                             displayedComponents: .date
                         )
                         .font(.caption)
-                        Button("Remove roast date", role: .destructive) {
+                        Button(AppLocalization.text("remove_roast_date", fallback: "Remove roast date"), role: .destructive) {
                             try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: nil)
                         }
                         .font(.caption)
                     } else {
-                        Button("Add roast date") {
+                        Button(AppLocalization.text("add_roast_date", fallback: "Add roast date")) {
                             try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: .now)
                         }
                         .buttonStyle(.borderless)
@@ -595,11 +625,20 @@ struct CoffeeLibraryView: View {
                         Text("Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))")
                             .font(.caption)
                     } else {
-                        Button("Mark opened today") { try? coffeeData.markOpened(coffee.id, date: .now) }
+                        Button(AppLocalization.text("mark_opened_today", fallback: "Mark opened today")) { try? coffeeData.markOpened(coffee.id, date: .now) }
                             .buttonStyle(.borderless)
                     }
                     Text("\(coffee.estimatedBrews()) estimated brews · \(coffee.usedQuantityGrams, specifier: "%.0f") g logged")
                         .font(.caption)
+                    if let brewCoffeeAction {
+                        Button {
+                            brewCoffeeAction(coffee.productName)
+                        } label: {
+                            Label(AppLocalization.text("brew_this_coffee", fallback: "Brew this coffee"), systemImage: "cup.and.saucer.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("coffee.inventory.brew")
+                    }
                     Text("Original bag weight: \(coffee.initialQuantityGrams, specifier: "%.0f") g")
                         .font(.caption)
                     Stepper(
@@ -623,7 +662,7 @@ struct CoffeeLibraryView: View {
                 .accessibilityIdentifier("offline.cached-brew")
             }
 
-            GroupBox("Bean library") {
+            GroupBox(AppLocalization.text("bean_library", fallback: "Bean library")) {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(coffeeData.beanLots()) { lot in
                         HStack(alignment: .top) {
@@ -636,18 +675,34 @@ struct CoffeeLibraryView: View {
                                 if !lot.tastingNotes.isEmpty { Text(lot.tastingNotes).font(.caption).foregroundStyle(.secondary) }
                             }
                             Spacer()
-                            Button("Edit") { editingLot = lot }
+                            if let reorderCoffeeAction, lot.productID != nil {
+                                Button {
+                                    reorderCoffeeAction(lot)
+                                } label: {
+                                    Label(AppLocalization.text("reorder", fallback: "Reorder"), systemImage: "arrow.clockwise")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .accessibilityIdentifier("coffee.library.reorder")
+                            }
+                            Button(AppLocalization.text("edit", fallback: "Edit")) { editingLot = lot }
                             Button(role: .destructive) { delete("coffeeLot", lot.id) } label: { Image(systemName: "trash") }
                         }
                     }
                     if coffeeData.beanLots().isEmpty {
-                        Text("Add a coffee above to create your first bean lot.").font(.caption).foregroundStyle(.secondary)
+                        ContentUnavailableView(
+                            AppLocalization.text("empty_coffee_library", fallback: "Your coffee library is empty"),
+                            systemImage: "books.vertical",
+                            description: Text(AppLocalization.text("empty_coffee_library_detail", fallback: "Scan a bag or add a coffee above to start your library."))
+                        )
                     }
                 }
                 .padding(.top, 8)
             }
 
             equipmentSection
+            householdEquipmentSection
+            maintenanceScheduleSection
+            brewDayReminderSection
             calibrationSection
             maintenanceSection
 
@@ -674,7 +729,13 @@ struct CoffeeLibraryView: View {
         }
         }
         .groupBoxStyle(TallaCoffeeGroupBoxStyle())
-        .onAppear { equipmentID = equipmentID ?? coffeeData.equipmentRecords().first?.id }
+        .onAppear {
+            equipmentID = equipmentID ?? coffeeData.equipmentRecords().first?.id
+            maintenanceSchedules = MaintenanceScheduleStore.load()
+            if brewDayReminderTimestamp > Date().timeIntervalSince1970 {
+                brewDayReminderDate = Date(timeIntervalSince1970: brewDayReminderTimestamp)
+            }
+        }
         .sheet(item: $editingLot) { lot in
             CoffeeLotEditorView(lot: lot)
                 .environmentObject(coffeeData)
@@ -751,6 +812,118 @@ struct CoffeeLibraryView: View {
             Text(AppLocalization.text("library_select_equipment", fallback: "Select equipment")).tag(nil as UUID?)
             ForEach(coffeeData.equipmentRecords()) { Text($0.name).tag(Optional($0.id)) }
         }
+    }
+
+    private var householdEquipmentSection: some View {
+        GroupBox(AppLocalization.text("household_equipment", fallback: "Household equipment profile")) {
+            VStack(alignment: .leading, spacing: 10) {
+                TextField(AppLocalization.text("household_profile_name", fallback: "Household or profile name"), text: $householdProfileName)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("coffee.household.name")
+                Toggle(AppLocalization.text("shared_equipment", fallback: "Share equipment across this household"), isOn: $householdEquipmentIsShared)
+                Text(AppLocalization.text("household_equipment_detail", fallback: "Keep one equipment setup for shared brewers, grinders, and maintenance reminders."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    private var maintenanceScheduleSection: some View {
+        GroupBox(AppLocalization.text("maintenance_schedule", fallback: "Maintenance schedule")) {
+            VStack(alignment: .leading, spacing: 10) {
+                equipmentPicker
+                TextField(AppLocalization.text("maintenance_task", fallback: "Maintenance task"), text: $maintenanceScheduleTask)
+                    .textFieldStyle(.roundedBorder)
+                DatePicker(AppLocalization.text("next_due", fallback: "Next due"), selection: $maintenanceScheduleDate, in: .now..., displayedComponents: [.date, .hourAndMinute])
+                Button(AppLocalization.text("schedule_maintenance", fallback: "Schedule reminder")) {
+                    scheduleMaintenanceReminder()
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("coffee.maintenance.schedule")
+
+                ForEach(maintenanceSchedules) { schedule in
+                    if let equipment = coffeeData.equipmentRecords().first(where: { $0.id == schedule.equipmentID }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(schedule.task).font(.headline)
+                                Text("\(equipment.name) · \(schedule.dueAt.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(role: .destructive) {
+                                removeMaintenanceSchedule(schedule)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .accessibilityLabel(AppLocalization.text("remove_reminder", fallback: "Remove reminder"))
+                        }
+                    }
+                }
+                if maintenanceSchedules.isEmpty {
+                    Text(AppLocalization.text("no_maintenance_schedules", fallback: "No maintenance reminders scheduled yet."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    private var brewDayReminderSection: some View {
+        GroupBox(AppLocalization.text("brew_day_reminder", fallback: "Brew-day reminder")) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(AppLocalization.text("brew_day_reminder_detail", fallback: "Choose a time to make your saved coffee before it gets forgotten."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                DatePicker(AppLocalization.text("brew_day_time", fallback: "Brew day"), selection: $brewDayReminderDate, in: .now..., displayedComponents: [.date, .hourAndMinute])
+                HStack {
+                    Button(AppLocalization.text("schedule_reminder", fallback: "Schedule reminder")) {
+                        brewDayReminderTimestamp = brewDayReminderDate.timeIntervalSince1970
+                        Task {
+                            await TallaRetentionNotificationService.scheduleBrewDay(
+                                date: brewDayReminderDate,
+                                title: AppLocalization.text("brew_day_reminder_title", fallback: "Brew day is here"),
+                                body: AppLocalization.text("brew_day_reminder_body", fallback: "Your saved coffee is ready for a fresh brew.")
+                            )
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("coffee.brew-day.schedule")
+                    if brewDayReminderTimestamp > 0 {
+                        Button(AppLocalization.text("remove_reminder", fallback: "Remove reminder"), role: .destructive) {
+                            brewDayReminderTimestamp = 0
+                            TallaRetentionNotificationService.cancelBrewDay()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    private func scheduleMaintenanceReminder() {
+        guard let equipmentID,
+              !maintenanceScheduleTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let equipment = coffeeData.equipmentRecords().first(where: { $0.id == equipmentID }) else {
+            errorMessage = AppLocalization.text("library_enter_maintenance", fallback: "Select equipment and enter a maintenance type.")
+            return
+        }
+        let schedule = MaintenanceScheduleRecord(id: UUID(), equipmentID: equipmentID, task: maintenanceScheduleTask, dueAt: maintenanceScheduleDate)
+        maintenanceSchedules.append(schedule)
+        MaintenanceScheduleStore.save(maintenanceSchedules)
+        Task {
+            await TallaRetentionNotificationService.scheduleMaintenance(date: schedule.dueAt, equipmentName: equipment.name, task: schedule.task, id: schedule.id)
+        }
+        errorMessage = nil
+    }
+
+    private func removeMaintenanceSchedule(_ schedule: MaintenanceScheduleRecord) {
+        maintenanceSchedules.removeAll { $0.id == schedule.id }
+        MaintenanceScheduleStore.save(maintenanceSchedules)
+        TallaRetentionNotificationService.cancelMaintenance(id: schedule.id)
     }
 
     private var calibrationSection: some View {

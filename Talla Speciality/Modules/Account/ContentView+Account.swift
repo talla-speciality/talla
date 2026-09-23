@@ -648,6 +648,13 @@ extension ContentView {
                         .font(bodyFont(size: 14))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
+                    Text(AppLocalization.text("recommendation_explanation", fallback: "Why these picks: Talla combines your taste profile, favorites, recent orders, coffee-library matches, and current availability. You can change this in Privacy & Explanations."))
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .padding(12)
+                        .background(cardFillColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .accessibilityIdentifier("recommendations.explanation")
 
                     LazyVGrid(columns: productGridColumns, spacing: 16) {
                         ForEach(recommendedProducts) { product in

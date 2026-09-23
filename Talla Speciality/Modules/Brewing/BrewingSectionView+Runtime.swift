@@ -1320,6 +1320,7 @@ extension BrewingSectionView {
     }
 
     func restartBrewMode() {
+        TallaTelemetry.shared.track("repeat_brew_started", properties: ["method": selectedBrewModeMethod?.name ?? "custom"])
         isBrewRestartConfirmationPresented = false
         isFocusedBrewPresented = true
         isBrewModeRunning = false
@@ -1458,6 +1459,7 @@ extension BrewingSectionView {
             lastCueStepIndex = stepIndex
             lastPrePourCueStepID = nil
             brewStepHaptic(strong: false)
+            speakBrewCue(currentBrewModeStep.title)
         }
 
         if let nextBrewModeStep,
@@ -1466,6 +1468,7 @@ extension BrewingSectionView {
            lastPrePourCueStepID != nextBrewModeStep.id {
             lastPrePourCueStepID = nextBrewModeStep.id
             brewStepHaptic(strong: true)
+            speakBrewCue(nextBrewModeStep.title)
         }
 
         updateBrewLiveActivity(isPaused: false)
@@ -1574,6 +1577,16 @@ extension BrewingSectionView {
         } else {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         }
+#endif
+    }
+
+    func speakBrewCue(_ text: String) {
+        guard isVoiceGuidanceEnabled else { return }
+#if canImport(AVFoundation)
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = 0.48
+        utterance.voice = AVSpeechSynthesisVoice(language: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "ar" : "en-US")
+        AVSpeechSynthesizer().speak(utterance)
 #endif
     }
 

@@ -61,6 +61,8 @@ const passportSettingsStorePath = config.stores.passportSettings;
 const appSettingsStorePath = config.stores.appSettings;
 const tasteMemoryStorePath = config.stores.tasteMemory;
 const customerLibraryStorePath = config.stores.customerLibrary;
+const communityRecipesStorePath = config.stores.communityRecipes;
+const cuppingRecordsStorePath = config.stores.cuppingRecords;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
 const cardPaymentsStorePath = config.stores.cardPayments;
@@ -184,7 +186,7 @@ let apnsPrivateKeyCache = null;
 let walletPushCredentialsCache = null;
 const walletPassUpdateTimers = new Map();
 
-ensureStoreFile(loyaltyStorePath, { accounts: {} });
+ensureStoreFile(loyaltyStorePath, { accounts: {}, referrals: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
 ensureStoreFile(ordersStorePath, { orders: {} });
 ensureStoreFile(vouchersStorePath, { vouchers: {} });
@@ -8200,7 +8202,10 @@ async function adminAnalyticsSummary() {
     } else {
         telemetryEvents = (readJSON(telemetryStorePath).events || []).filter((event) => { const occurredAt = Date.parse(event.occurredAt || event.receivedAt || ""); return Number.isFinite(occurredAt) && occurredAt >= Date.now() - 30 * 86_400_000; });
     }
-    const eventCount = (name) => telemetryEvents.filter((event) => event.eventName === name).length, checkoutStarted = eventCount("payment_method_selected"), purchasesCompleted = eventCount("purchase_completed"), paymentFailures = eventCount("payment_failed"), checkoutConversionPercent = checkoutStarted > 0 ? Math.round((purchasesCompleted / checkoutStarted) * 100) : 0;
+    const eventCount = (name) => telemetryEvents.filter((event) => event.eventName === name).length;
+    const eventCountWhere = (name, key, value) => telemetryEvents.filter((event) => event.eventName === name && String(event.properties?.[key]) === String(value)).length;
+    const checkoutStarted = eventCount("payment_method_selected"), purchasesCompleted = eventCount("purchase_completed"), paymentFailures = eventCount("payment_failed"), checkoutConversionPercent = checkoutStarted > 0 ? Math.round((purchasesCompleted / checkoutStarted) * 100) : 0;
+    const firstBrews = eventCount("first_brew_completed"), firstBrewsWithinTenMinutes = eventCountWhere("first_brew_completed", "within_ten_minutes", "true");
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const newCustomersLast7Days = customers.filter((customer) => { const createdAt = new Date(customer.createdAt).getTime(); return Number.isFinite(createdAt) && createdAt >= sevenDaysAgo; }).length;
     const tierCounts = customers.reduce((accumulator, customer) => {
@@ -8242,7 +8247,8 @@ async function adminAnalyticsSummary() {
             averagePoints,
             newCustomersLast7Days,
             repeatCustomers, repeatPurchaseRatePercent: customersWithOrders > 0 ? Math.round((repeatCustomers / customersWithOrders) * 100) : 0,
-            activeCoffeeClubPlans, checkoutStartedLast30Days: checkoutStarted, purchasesCompletedLast30Days: purchasesCompleted, checkoutConversionPercent, paymentFailuresLast30Days: paymentFailures
+            activeCoffeeClubPlans, checkoutStartedLast30Days: checkoutStarted, purchasesCompletedLast30Days: purchasesCompleted, checkoutConversionPercent, paymentFailuresLast30Days: paymentFailures,
+            firstBrewsLast30Days: firstBrews, firstBrewsWithinTenMinutesLast30Days: firstBrewsWithinTenMinutes, recommendationToProductConversionsLast30Days: eventCount("recommendation_to_product_conversion"), recommendationToBrewStartsLast30Days: eventCount("recommendation_to_brew_started"), purchaseToFirstBrewLast30Days: eventCount("purchase_to_first_brew_completed"), ratedBrewsLast30Days: eventCount("brew_rated"), repeatBrewsLast30Days: eventCount("repeat_brew_started"), educationCompletionsLast30Days: eventCount("education_path_completed")
         },
         tierCounts,
         topCustomers,
@@ -8803,6 +8809,8 @@ const server = createServer({
     csvEscape,
     customerLibraryPayload,
     customerLibraryStorePath,
+    communityRecipesStorePath,
+    cuppingRecordsStorePath,
     customerPhoneForShopifyOrder,
     customerTokenHours,
     customerTokenSecret,

@@ -614,7 +614,11 @@ enum ShopifyStorefrontClient {
         checkoutAddress: ShopifyCheckoutAddress? = nil,
         tallaPaymentID: String? = nil,
         fulfillmentMethod: TallaFulfillmentMethod = .delivery,
-        pickupSlot: String? = nil
+        pickupSlot: String? = nil,
+        giftOrder: Bool = false,
+        giftRecipientName: String? = nil,
+        giftRecipientPhone: String? = nil,
+        giftMessage: String? = nil
     ) async throws -> URL {
         let lineInputs = lines.map { line in
             [
@@ -632,6 +636,18 @@ enum ShopifyStorefrontClient {
         }
         if let tallaPaymentID = tallaPaymentID?.trimmingCharacters(in: .whitespacesAndNewlines), !tallaPaymentID.isEmpty {
             attributes.append(["key": "talla_payment_id", "value": tallaPaymentID])
+        }
+        if giftOrder {
+            func giftAttribute(_ key: String, _ value: String?, maxLength: Int) {
+                let trimmed = String((value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxLength))
+                if !trimmed.isEmpty {
+                    attributes.append(["key": key, "value": trimmed])
+                }
+            }
+            attributes.append(["key": "talla_gift_order", "value": "true"])
+            giftAttribute("talla_gift_recipient", giftRecipientName, maxLength: 120)
+            giftAttribute("talla_gift_phone", giftRecipientPhone, maxLength: 40)
+            giftAttribute("talla_gift_message", giftMessage, maxLength: 240)
         }
         input["attributes"] = attributes
         var buyerIdentity: [String: Any] = [:]

@@ -449,13 +449,25 @@ extension BrewingSectionView {
                     case .coffeeJournal:
                         coffeeJournalSection
                     case .coffeeLibrary:
-                        CoffeeLibraryView()
+                        CoffeeLibraryView(brewCoffeeAction: { coffeeName in
+                            brewRecipeName = coffeeName
+                            activeDashboardDestination = .brewTimer
+                        }, reorderCoffeeAction: { lot in
+                            guard let productID = lot.productID else { return }
+                            reorderCoffeeAction(productID)
+                        })
                     case .brewCoach:
                         if let selectedGuideProfile {
                             brewCoachCard(for: selectedGuideProfile)
                         }
                     case .espressoWorkspace:
                         EspressoWorkspaceView(accent: accentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                    case .cuppingMode:
+                        CuppingWorkspaceView(isSignedIn: isCustomerSignedIn, accent: accentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                    case .communityRecipes:
+                        CommunityRecipesView(isSignedIn: isCustomerSignedIn, accent: accentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                    case .privacyControls:
+                        PrivacyControlsView(accent: accentColor, background: brewBackgroundColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     }
                 }
                 .frame(maxWidth: brewColumnMaxWidth, alignment: .leading)
@@ -497,6 +509,12 @@ extension BrewingSectionView {
             return AppLocalization.text("brew_coach", fallback: "Brew Coach")
         case .espressoWorkspace:
             return "Espresso Workspace"
+        case .cuppingMode:
+            return AppLocalization.text("cupping_mode", fallback: "Cupping Mode")
+        case .communityRecipes:
+            return AppLocalization.text("community_recipes", fallback: "Community Recipes")
+        case .privacyControls:
+            return AppLocalization.text("privacy_controls", fallback: "Privacy & Explanations")
         }
     }
 
@@ -2964,6 +2982,21 @@ extension BrewingSectionView {
         if let value = result.variety { coffeeVariety = value }
         if let value = result.process { coffeeProcess = value }
         if let value = result.tastingNotes { coffeeTastingNotes = value }
+        let scannedName = coffeeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !scannedName.isEmpty,
+           !coffeeData.beanLots().contains(where: { normalizedCoffeeIdentity($0.name) == normalizedCoffeeIdentity(scannedName) }) {
+            try? coffeeData.saveLot(BeanLotRecord(
+                id: UUID(), name: scannedName,
+                roaster: coffeeRoaster.trimmingCharacters(in: .whitespacesAndNewlines),
+                origin: coffeeOrigin.trimmingCharacters(in: .whitespacesAndNewlines),
+                region: coffeeRegion.trimmingCharacters(in: .whitespacesAndNewlines),
+                variety: coffeeVariety.trimmingCharacters(in: .whitespacesAndNewlines),
+                process: coffeeProcess.trimmingCharacters(in: .whitespacesAndNewlines),
+                roastLevel: coffeeRoastLevel.trimmingCharacters(in: .whitespacesAndNewlines),
+                tastingNotes: coffeeTastingNotes.trimmingCharacters(in: .whitespacesAndNewlines),
+                productID: nil, variantID: nil, replacementProductID: nil
+            ))
+        }
         createRecipeValidationMessage = nil
     }
 #endif

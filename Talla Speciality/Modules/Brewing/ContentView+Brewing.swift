@@ -54,6 +54,9 @@ extension ContentView {
             ratioValueInput: $ratioValueInput,
             brewRecipeName: $brewRecipeName,
             pendingCoffeeName: $pendingBrewingCoffeeName,
+            pendingCoffeeOrigin: $pendingBrewingCoffeeOrigin,
+            pendingCoffeeNotes: $pendingBrewingCoffeeNotes,
+            pendingRecommendedRecipe: $pendingRecommendedRecipe,
             calculatedWaterAmount: calculatedWaterAmount,
             ratioCoffeeAmount: ratioCoffeeAmount,
             ratioValue: ratioValue,
@@ -67,6 +70,10 @@ extension ContentView {
             },
             openArticleAction: { url in
                 articleSession = CheckoutSession(url: url)
+            },
+            reorderCoffeeAction: { productID in
+                guard let product = products.first(where: { $0.id == productID }) else { return }
+                addToCart(product: product)
             },
             guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, purchasedCoffeeID, samples in
                 prepareJournalEntryFromGuidedBrew(
@@ -699,6 +706,15 @@ extension ContentView {
         }
         TallaTelemetry.shared.track("brew_completed", properties: brewTelemetry)
         TallaTelemetry.shared.track("brew_rated", properties: ["rating": String(entry.rating)])
+        if !UserDefaults.standard.bool(forKey: "talla.metrics.firstBrewRecorded.v1") {
+            UserDefaults.standard.set(true, forKey: "talla.metrics.firstBrewRecorded.v1")
+            let seconds = TallaTelemetry.shared.secondsSinceInstall
+            TallaTelemetry.shared.track("first_brew_completed", properties: ["time_since_install_seconds": String(seconds), "within_ten_minutes": String(seconds <= 600)])
+        }
+        if UserDefaults.standard.bool(forKey: "talla.metrics.purchaseCompleted.v1") && !UserDefaults.standard.bool(forKey: "talla.metrics.firstBrewAfterPurchase.v1") {
+            UserDefaults.standard.set(true, forKey: "talla.metrics.firstBrewAfterPurchase.v1")
+            TallaTelemetry.shared.track("purchase_to_first_brew_completed")
+        }
         if customerProfile != nil {
             Task { _ = try? await AccountService.saveBrewJournal(entry) }
         }

@@ -4,8 +4,6 @@
 <dict>
 	<key>BackendBaseURL</key>
 	<string>https://talla-backend.onrender.com</string>
-	<key>BenefitPaySDKSecretKey</key>
-	<string>$(BENEFITPAY_SDK_SECRET_KEY)</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleURLTypes</key>

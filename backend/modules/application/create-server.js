@@ -142,6 +142,8 @@ module.exports = function createServer(dependencies) {
         csvEscape,
         customerLibraryPayload,
         customerLibraryStorePath,
+        communityRecipesStorePath,
+        cuppingRecordsStorePath,
         customerPhoneForShopifyOrder,
         customerTokenHours,
         customerTokenSecret,
@@ -1140,6 +1142,29 @@ module.exports = function createServer(dependencies) {
 
         if (request.method === "GET" && url.pathname === "/admin/api/coffee-memory") {
             sendJSON(response, 200, await adminCoffeeMemorySummary(), { "Cache-Control": "no-store" });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/community-recipes") {
+            const store = readJSON(communityRecipesStorePath);
+            sendJSON(response, 200, { recipes: Array.isArray(store.recipes) ? store.recipes : [] });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/community-recipes/moderate") {
+            const body = await readBody(request);
+            const recipeID = trimText(body.id, 160);
+            const status = ["approved", "rejected", "pending"].includes(body.status) ? body.status : null;
+            if (!recipeID || !status) { sendJSON(response, 400, { error: "Recipe id and valid status are required." }); return; }
+            const store = readJSON(communityRecipesStorePath);
+            const recipe = (Array.isArray(store.recipes) ? store.recipes : []).find((item) => item.id === recipeID);
+            if (!recipe) { sendJSON(response, 404, { error: "Community recipe not found." }); return; }
+            recipe.status = status;
+            recipe.moderatedAt = new Date().toISOString();
+            recipe.moderatedBy = admin.username;
+            writeJSON(communityRecipesStorePath, store);
+            await createAdminAuditLog({ adminUser: admin.username, action: "community_recipe_moderated", targetEmail: recipe.authorEmail || null, detail: `${recipeID} -> ${status}`, metadata: { recipeID, status } });
+            sendJSON(response, 200, { recipe });
             return;
         }
 
@@ -3038,6 +3063,71 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/referrals/account") {
+        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
+        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = readJSON(loyaltyStorePath);
+        store.referrals = store.referrals || {};
+        const code = `TALLA-${crypto.createHash("sha256").update(customer.email).digest("hex").slice(0, 8).toUpperCase()}`;
+        store.referrals[code] = store.referrals[code] || { email: customer.email, redeemedBy: [] };
+        writeJSON(loyaltyStorePath, store);
+        sendJSON(response, 200, {
+            code,
+            reward: { referrerBeans: 100, recipientBeans: 50 },
+            redeemedCount: store.referrals[code].redeemedBy.length
+        });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/referrals/redeem") {
+        try {
+            const body = await readBody(request);
+            const code = String(body.code || "").trim().toUpperCase();
+            const requestedEmail = normalizeEmail(body.email);
+            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer || !/^TALLA-[A-F0-9]{8}$/.test(code)) {
+                sendJSON(response, 400, { error: "Invalid referral code." });
+                return;
+            }
+            const store = readJSON(loyaltyStorePath);
+            const referral = store.referrals?.[code];
+            if (!referral || referral.email === customer.email) {
+                sendJSON(response, 409, { error: "This referral code cannot be used." });
+                return;
+            }
+            referral.redeemedBy = referral.redeemedBy || [];
+            if (referral.redeemedBy.includes(customer.email)) {
+                sendJSON(response, 409, { error: "This referral has already been used." });
+                return;
+            }
+            const referrer = await updateLoyaltyAccount(referral.email, (account) => {
+                account.pointsBalance += 100;
+                account.transactions = account.transactions || [];
+                account.transactions.unshift({ id: `txn_${Date.now()}_referrer`, type: "earn", points: 100, note: "Referral reward", createdAt: new Date().toISOString() });
+            });
+            const recipient = await updateLoyaltyAccount(customer.email, (account) => {
+                account.pointsBalance += 50;
+                account.transactions = account.transactions || [];
+                account.transactions.unshift({ id: `txn_${Date.now()}_recipient`, type: "earn", points: 50, note: "Welcome referral reward", createdAt: new Date().toISOString() });
+            });
+            if (!referrer || !recipient) {
+                sendJSON(response, 404, { error: "Rewards account not found." });
+                return;
+            }
+            referral.redeemedBy.push(customer.email);
+            writeJSON(loyaltyStorePath, store);
+            sendJSON(response, 200, { status: "redeemed", account: loyaltyPayload(recipient) });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid referral request." });
+        }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/payments/apple-pay/session") {
         if (!await requireOperationalPayment("applePayEnabled", response)) return;
         let body;
@@ -4305,6 +4395,94 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/community/recipes") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = readJSON(communityRecipesStorePath);
+        const recipes = Array.isArray(store.recipes) ? store.recipes : [];
+        sendJSON(response, 200, { recipes: recipes.filter((recipe) => recipe.status === "approved" || recipe.authorEmail === customer.email) });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/cupping/entries") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = readJSON(cuppingRecordsStorePath);
+        sendJSON(response, 200, { entries: (Array.isArray(store.entries) ? store.entries : []).filter((entry) => entry.ownerEmail === customer.email) });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/cupping/entries") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const entry = {
+                id: trimText(body.id, 100) || `cupping_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+                name: trimText(body.name, 120),
+                aroma: Math.min(5, Math.max(1, Math.round(Number(body.aroma) || 3))),
+                acidity: Math.min(5, Math.max(1, Math.round(Number(body.acidity) || 3))),
+                sweetness: Math.min(5, Math.max(1, Math.round(Number(body.sweetness) || 3))),
+                body: Math.min(5, Math.max(1, Math.round(Number(body.body) || 3))),
+                clarity: Math.min(5, Math.max(1, Math.round(Number(body.clarity) || 3))),
+                notes: trimText(body.notes, 1_000),
+                createdAt: trimText(body.createdAt, 60) || new Date().toISOString(),
+                ownerEmail: customer.email
+            };
+            const store = readJSON(cuppingRecordsStorePath);
+            store.entries = Array.isArray(store.entries) ? store.entries.filter((item) => !(item.id === entry.id && item.ownerEmail === customer.email)) : [];
+            store.entries.unshift(entry);
+            store.entries = store.entries.slice(0, 500);
+            writeJSON(cuppingRecordsStorePath, store);
+            sendJSON(response, 201, { entry });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid cupping entry payload." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/community/recipes") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const title = trimText(body.title, 120);
+            const method = trimText(body.method, 80);
+            const detail = trimText(body.detail, 1_000);
+            if (!title || !detail) {
+                sendJSON(response, 400, { error: "Recipe title and detail are required." });
+                return;
+            }
+            const store = readJSON(communityRecipesStorePath);
+            store.recipes = Array.isArray(store.recipes) ? store.recipes : [];
+            const recipe = {
+                id: `community_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+                title,
+                method,
+                detail,
+                author: trimText(body.author, 80) || customer.email.split("@")[0],
+                authorEmail: customer.email,
+                status: "pending",
+                createdAt: new Date().toISOString()
+            };
+            store.recipes.unshift(recipe);
+            store.recipes = store.recipes.slice(0, 500);
+            writeJSON(communityRecipesStorePath, store);
+            sendJSON(response, 201, { recipe });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid community recipe payload." });
+        }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/orders/checkout-started") {
         try {
             const body = await readBody(request);
@@ -4354,6 +4532,12 @@ module.exports = function createServer(dependencies) {
             const safeTotal = verifiedPricing?.total
                 ?? (Number.isFinite(totalNumber) && totalNumber >= 0 ? totalNumber : 0);
             const createdAt = new Date().toISOString();
+            const requestedGift = body.gift && typeof body.gift === "object" ? body.gift : null;
+            const gift = requestedGift ? {
+                recipientName: trimText(requestedGift.recipientName, 120),
+                recipientPhone: trimText(requestedGift.recipientPhone, 40),
+                message: trimText(requestedGift.message, 240)
+            } : null;
             const pendingOrder = {
                 id: `checkout_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`,
                 email: customer.email,
@@ -4370,6 +4554,7 @@ module.exports = function createServer(dependencies) {
                         method: body.fulfillmentMethod || body.fulfillment?.method
                     },
                     payment: { method: body.paymentMethod },
+                    gift: gift && (gift.recipientName || gift.recipientPhone || gift.message) ? gift : null,
                     coffeeClub: verifiedPricing?.coffeeClub ? {
                         ...verifiedPricing.coffeeClub,
                         startedAt: createdAt,

@@ -31,19 +31,8 @@ struct BenefitPayConfirmation: Decodable {
 enum BenefitPaySDKConfiguration {
     static let callbackScheme = "tallabenefitpay"
 
-    static var secretKey: String? {
-        let value = (Bundle.main.object(forInfoDictionaryKey: "BenefitPaySDKSecretKey") as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !value.isEmpty, !value.contains("$(") else { return nil }
-        return value
-    }
-
     static var isAvailable: Bool {
-#if canImport(BenefitInAppSDK) && canImport(UIKit)
-        secretKey != nil
-#else
         false
-#endif
     }
 }
 
@@ -183,20 +172,9 @@ private struct BenefitPaySDKButton: UIViewRepresentable {
         }
 
         func bpInAppConfiguration() -> BPInAppConfiguration! {
-            guard let secretKey = BenefitPaySDKConfiguration.secretKey else { return nil }
-            return BPInAppConfiguration(
-                appId: session.appId,
-                andSecretKey: secretKey,
-                andAmount: session.amount,
-                andCurrencyCode: session.currencyCode,
-                andMerchantId: session.merchantId,
-                andMerchantName: session.merchantName,
-                andMerchantCity: session.merchantCity,
-                andCountryCode: session.countryCode,
-                andMerchantCategoryId: session.merchantCategoryCode,
-                andReferenceId: session.referenceId,
-                andCallBackTag: session.callbackTag
-            )
+            // The SDK requires a secret that must never be shipped in the app.
+            // Talla uses the authenticated backend-hosted BenefitPay flow instead.
+            return nil
         }
     }
 }

@@ -62,6 +62,19 @@ extension BrewingSectionView {
                             searchableBrewerList
                         }
                     }
+                case .equipment:
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(AppLocalization.text("brew_profile_equipment_question", fallback: "What equipment do you use?"))
+                            .font(brewQuestionFont)
+                            .foregroundColor(brewPrimaryTextColor)
+                        Text(AppLocalization.text("brew_profile_equipment_detail", fallback: "Save your grinder and filter so Talla can make recipes that fit your setup."))
+                            .font(brewReadingFont)
+                            .foregroundColor(brewSecondaryTextColor)
+                        catalogPicker(title: AppLocalization.text("grinder", fallback: "Grinder"), selection: $recipeGrinder, options: grinderCatalog, customPlaceholder: AppLocalization.text("other_grinder", fallback: "Other grinder"))
+                            .accessibilityIdentifier("brew.setup.grinder")
+                        catalogPicker(title: AppLocalization.text("filter", fallback: "Filter"), selection: $recipeFilterType, options: filterCatalog, customPlaceholder: AppLocalization.text("other_filter", fallback: "Other filter"))
+                            .accessibilityIdentifier("brew.setup.filter")
+                    }
                 default:
                     createRecipeQuestionStep(
                         question: AppLocalization.text("brew_profile_taste_question", fallback: "How do you like your cup?"),
@@ -95,6 +108,7 @@ extension BrewingSectionView {
             .frame(height: 2)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("brew.setup.progress")
     }
 
     var brewingMinimalHomeContent: some View {
@@ -550,6 +564,21 @@ extension BrewingSectionView {
                     brewingLinkedRow(title: "Espresso Workspace", detail: "Dial in shots, compare references, and track the path to a positive espresso.", value: nil) {
                         isToolsMenuPresented = false
                         activeDashboardDestination = .espressoWorkspace
+                    }
+                    brewDivider
+                    brewingLinkedRow(title: AppLocalization.text("cupping_mode", fallback: "Cupping Mode"), detail: AppLocalization.text("cupping_detail", fallback: "Calibrate aroma, acidity, sweetness, body, and clarity side by side."), value: nil) {
+                        isToolsMenuPresented = false
+                        activeDashboardDestination = .cuppingMode
+                    }
+                    brewDivider
+                    brewingLinkedRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: AppLocalization.text("community_moderation_detail", fallback: "Share recipes that are reviewed before publishing."), value: nil) {
+                        isToolsMenuPresented = false
+                        activeDashboardDestination = .communityRecipes
+                    }
+                    brewDivider
+                    brewingLinkedRow(title: AppLocalization.text("privacy_controls", fallback: "Privacy & Explanations"), detail: AppLocalization.text("privacy_controls_detail", fallback: "Control analytics, personalization, sharing, and understand recommendations."), value: nil) {
+                        isToolsMenuPresented = false
+                        activeDashboardDestination = .privacyControls
                     }
                 }
                 .background(brewSurfaceColor)
@@ -1362,8 +1391,12 @@ extension BrewingSectionView {
             return "01 / 03  EXPERIENCE"
         case .brewer:
             return "02 / 03  BREWER"
+        case .tasteGoal:
+            return "03 / 04  TASTE"
+        case .equipment:
+            return "04 / 04  EQUIPMENT"
         default:
-            return "03 / 03  TASTE"
+            return "04 / 04  EQUIPMENT"
         }
     }
 
@@ -1373,6 +1406,10 @@ extension BrewingSectionView {
             return 1.0 / 3.0
         case .brewer:
             return 2.0 / 3.0
+        case .tasteGoal:
+            return 3.0 / 4.0
+        case .equipment:
+            return 1.0
         default:
             return 1.0
         }
@@ -1402,7 +1439,7 @@ extension BrewingSectionView {
             Button {
                 moveBrewProfileForward()
             } label: {
-                Text(brewProfileStep == .tasteGoal ? AppLocalization.text("finish_setup", fallback: "Finish Setup") : AppLocalization.text("continue", fallback: "Continue"))
+                Text(brewProfileStep == .equipment ? AppLocalization.text("finish_setup", fallback: "Finish Setup") : AppLocalization.text("continue", fallback: "Continue"))
                     .font(.system(size: 12, weight: .semibold))
                     .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
@@ -1464,8 +1501,12 @@ extension BrewingSectionView {
             persistBrewProfileSelections()
         case .brewer:
             brewProfileStep = .experience
-        default:
+        case .tasteGoal:
             brewProfileStep = .brewer
+        case .equipment:
+            brewProfileStep = .tasteGoal
+        default:
+            persistBrewProfileSelections()
         }
     }
 
@@ -1475,6 +1516,10 @@ extension BrewingSectionView {
             brewProfileStep = .brewer
         case .brewer:
             brewProfileStep = .tasteGoal
+        case .tasteGoal:
+            brewProfileStep = .equipment
+        case .equipment:
+            persistBrewProfileSelections()
         default:
             persistBrewProfileSelections()
         }
@@ -1502,10 +1547,18 @@ extension BrewingSectionView {
 
         coffeeName = name
         coffeeRoaster = "Talla Speciality"
+        coffeeOrigin = pendingCoffeeOrigin
+        coffeeTastingNotes = pendingCoffeeNotes
         brewRecipeName = name
         prepareNewRecipeJourney(startsWithScan: false)
         coffeeDetailsMode = .manual
+        if pendingRecommendedRecipe {
+            selectedGuideProfileID = recommendedProfileForCreateRecipe?.id ?? selectedGuideProfileID
+            pendingRecommendedRecipe = false
+        }
         pendingCoffeeName = ""
+        pendingCoffeeOrigin = ""
+        pendingCoffeeNotes = ""
         activeDashboardDestination = .createRecipe
     }
 

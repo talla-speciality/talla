@@ -1508,6 +1508,7 @@ struct MastercardPaymentSheet: View {
             "amount": context.session.amount,
             "currency": context.session.currency
         ])
+        UserDefaults.standard.set(true, forKey: "talla.metrics.purchaseCompleted.v1")
         dismiss()
     }
 
