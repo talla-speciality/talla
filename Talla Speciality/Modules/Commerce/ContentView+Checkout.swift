@@ -2698,6 +2698,25 @@ extension ContentView {
                 VStack(spacing: 12) {
                     if isBrewableCoffee(product) {
                         Button {
+                            startBrewing(product: product, useRecommendedRecipe: true)
+                        } label: {
+                            Label(
+                                AppLocalization.text("recommended_recipe", fallback: "Brew the Recommended Recipe"),
+                                systemImage: "wand.and.stars"
+                            )
+                                .font(labelFont(size: 11, weight: .bold))
+                                .tracking(AppLocalization.letterSpacing(1.6))
+                                .textCase(.uppercase)
+                                .foregroundColor(Color(hex: 0x0A0804))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color(hex: 0xC8965A))
+                                .clipShape(Capsule(style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("product.recommended-recipe.primary")
+
+                        Button {
                             startBrewing(product: product)
                         } label: {
                             Label(
@@ -2715,26 +2734,6 @@ extension ContentView {
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("product.brew-this-coffee")
-
-                        Button {
-                            startBrewing(product: product, useRecommendedRecipe: true)
-                        } label: {
-                            Label(
-                                AppLocalization.text("recommended_recipe", fallback: "Use Recommended Recipe"),
-                                systemImage: "wand.and.stars"
-                            )
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(AppLocalization.letterSpacing(1.4))
-                            .textCase(.uppercase)
-                            .foregroundColor(primaryTextColor)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(cardFillColor)
-                            .overlay(Capsule().stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1))
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("product.recommended-recipe")
 
                         if let setupProduct = starterSetupProduct(for: product) {
                             Button {
@@ -2758,6 +2757,28 @@ extension ContentView {
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("product.buy-setup")
+                        }
+
+                        if reorderPrompts.contains(where: { $0.product.id == product.id }) {
+                            Button {
+                                addToCart(product: product)
+                            } label: {
+                                Label(
+                                    AppLocalization.text("reorder_this_coffee", fallback: "Reorder This Coffee"),
+                                    systemImage: "arrow.clockwise"
+                                )
+                                .font(labelFont(size: 10, weight: .bold))
+                                .tracking(AppLocalization.letterSpacing(1.4))
+                                .textCase(.uppercase)
+                                .foregroundColor(primaryTextColor)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(cardFillColor)
+                                .overlay(Capsule().stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("product.reorder")
                         }
                     }
 
@@ -2840,10 +2861,13 @@ extension ContentView {
     func productFactsSection(_ product: Product) -> some View {
         let origin = productCountryOfOrigin(for: product)
         let summary = productTasteSummary(for: product)
+        let displayDescription = product.desc
+            .replacingOccurrences(of: "countries heritage", with: "country's heritage")
+            .replacingOccurrences(of: "countries’ heritage", with: "country's heritage")
         let facts: [(String, String)] = [
             (AppLocalization.text("origin", fallback: "Origin"), origin ?? "—"),
             (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary.isEmpty ? "—" : summary),
-            (AppLocalization.text("product_details", fallback: "Product details"), product.desc.isEmpty ? "—" : product.desc)
+            (AppLocalization.text("product_details", fallback: "Product details"), displayDescription.isEmpty ? "—" : displayDescription)
         ]
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("coffee_facts", fallback: "Coffee facts"))
@@ -2856,6 +2880,14 @@ extension ContentView {
                     Text(fact.0).font(labelFont(size: 9, weight: .bold)).foregroundColor(tertiaryTextColor)
                     Text(fact.1).font(bodyFont(size: 13)).foregroundColor(primaryTextColor).fixedSize(horizontal: false, vertical: true)
                 }
+            }
+            if !productMetadataChips(for: product).isEmpty {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    ForEach(Array(productMetadataChips(for: product).enumerated()), id: \.offset) { _, chip in
+                        productMetadataChip(icon: chip.icon, title: chip.title)
+                    }
+                }
+                .padding(.top, 2)
             }
         }
         .padding(14)
@@ -2886,10 +2918,10 @@ extension ContentView {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
-            .frame(height: 280)
+                        .frame(height: 240)
         } else {
             ProductThumbnail(imageURL: images.first, size: nil, cornerRadius: 22)
-                .frame(height: 280)
+                .frame(height: 240)
                 .accessibilityLabel(product.name)
         }
     }
