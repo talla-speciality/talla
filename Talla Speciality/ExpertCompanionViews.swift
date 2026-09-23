@@ -50,19 +50,19 @@ struct CuppingWorkspaceView: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text(AppLocalization.text("cupping_new_sample", fallback: "New sample")).font(.headline).foregroundStyle(primary)
-                    TextField(AppLocalization.text("cupping_sample_name", fallback: "Coffee or sample name"), text: $name).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("cupping_sample_name", fallback: "Coffee or sample name"), text: $name).textFieldStyle(.talla)
                     cuppingSlider("Aroma", value: $draftAroma)
                     cuppingSlider("Acidity", value: $draftAcidity)
                     cuppingSlider("Sweetness", value: $draftSweetness)
                     cuppingSlider("Body", value: $draftBody)
                     cuppingSlider("Clarity", value: $draftClarity)
-                    TextField(AppLocalization.text("cupping_notes", fallback: "Sensory notes"), text: $notes, axis: .vertical).lineLimit(3...6).textFieldStyle(.roundedBorder)
+                    TextField(AppLocalization.text("cupping_notes", fallback: "Sensory notes"), text: $notes, axis: .vertical).lineLimit(3...6).textFieldStyle(.talla)
                     Button {
                         let entry = CuppingEntry(name: name.isEmpty ? "Sample (entries.count + 1)" : name, aroma: draftAroma, acidity: draftAcidity, sweetness: draftSweetness, body: draftBody, clarity: draftClarity, notes: notes)
                         entries.insert(entry, at: 0); save(); name = ""; notes = ""
                         if isSignedIn { Task { _ = try? await AccountService.saveCuppingEntry(entry) } }
                     } label: { Label(AppLocalization.text("save_cupping_sample", fallback: "Save sample"), systemImage: "plus.circle.fill").frame(maxWidth: .infinity).padding(12) }
-                        .buttonStyle(.borderedProminent).tint(accent)
+                        .buttonStyle(.tallaPrimary).tint(accent)
                 }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 18))
 
                 if entries.count >= 2 {

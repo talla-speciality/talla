@@ -236,16 +236,16 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField(AppLocalization.text("gift_recipient_name", fallback: "Recipient name"), text: $giftRecipientName)
                         .textContentType(.name)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.talla)
                         .accessibilityIdentifier("checkout.gift.recipient")
                     TextField(AppLocalization.text("gift_recipient_phone", fallback: "Recipient phone"), text: $giftRecipientPhone)
                         .keyboardType(.phonePad)
                         .textContentType(.telephoneNumber)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.talla)
                         .accessibilityIdentifier("checkout.gift.phone")
                     TextField(AppLocalization.text("gift_message", fallback: "Add a message (optional)"), text: $giftMessage, axis: .vertical)
                         .lineLimit(2...4)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.talla)
                         .accessibilityIdentifier("checkout.gift.message")
                 }
                 .padding(12)
@@ -2603,6 +2603,19 @@ extension ContentView {
 
                     Spacer()
 
+                    Button {
+                        toggleFavorite(product: product)
+                    } label: {
+                        Image(systemName: isFavorite(product) ? "heart.fill" : "heart")
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(isFavorite(product) ? Color(hex: 0xC8965A) : primaryTextColor)
+                            .frame(width: 40, height: 40)
+                            .background(cardFillColor, in: Circle())
+                            .overlay(Circle().stroke(Color(hex: 0xC8965A).opacity(0.2), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isFavorite(product) ? "Remove from saved" : "Save coffee")
+
                     if let tag = product.tag {
                         Text(tag)
                             .font(labelFont(size: 9, weight: .bold))
@@ -2716,25 +2729,6 @@ extension ContentView {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("product.recommended-recipe.primary")
 
-                        Button {
-                            startBrewing(product: product)
-                        } label: {
-                            Label(
-                                AppLocalization.text("brew_this_coffee", fallback: "Start Brewing This Coffee"),
-                                systemImage: "cup.and.saucer.fill"
-                            )
-                                .font(labelFont(size: 11, weight: .bold))
-                                .tracking(AppLocalization.letterSpacing(1.6))
-                                .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0x0A0804))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color(hex: 0xC8965A))
-                                .clipShape(Capsule(style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("product.brew-this-coffee")
-
                         if let setupProduct = starterSetupProduct(for: product) {
                             Button {
                                 addToCart(product: product)
@@ -2759,49 +2753,8 @@ extension ContentView {
                             .accessibilityIdentifier("product.buy-setup")
                         }
 
-                        if reorderPrompts.contains(where: { $0.product.id == product.id }) {
-                            Button {
-                                addToCart(product: product)
-                            } label: {
-                                Label(
-                                    AppLocalization.text("reorder_this_coffee", fallback: "Reorder This Coffee"),
-                                    systemImage: "arrow.clockwise"
-                                )
-                                .font(labelFont(size: 10, weight: .bold))
-                                .tracking(AppLocalization.letterSpacing(1.4))
-                                .textCase(.uppercase)
-                                .foregroundColor(primaryTextColor)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(cardFillColor)
-                                .overlay(Capsule().stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1))
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("product.reorder")
-                        }
                     }
-
                     HStack(spacing: 12) {
-                        Button {
-                            toggleFavorite(product: product)
-                        } label: {
-                            Label(isFavorite(product) ? "Saved" : "Save", systemImage: isFavorite(product) ? "heart.fill" : "heart")
-                                .font(labelFont(size: 10, weight: .bold))
-                                .tracking(AppLocalization.letterSpacing(1.4))
-                                .textCase(.uppercase)
-                                .foregroundColor(primaryTextColor)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(cardFillColor)
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
-                                )
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-
                         if !product.isAvailableForSale || isAlertEnabled(product) {
                             Button {
                                 Task {

@@ -39,6 +39,113 @@ extension ContentView {
     }
 }
 
+enum TallaTheme {
+    enum Colors {
+        static let accent = Color(hex: 0xC8965A)
+        static let readableAccentLight = Color(hex: 0x7A4F25)
+        static let readableAccentDark = Color(hex: 0xD7A76C)
+        static let lightBackground = Color(hex: 0xFFFDF9)
+        static let darkBackground = Color(hex: 0x181411)
+        static let lightSurface = Color(hex: 0xFFFBF6)
+        static let darkSurface = Color(hex: 0x1A1511)
+        static let lightElevatedSurface = Color(hex: 0xFFFCF8)
+        static let darkElevatedSurface = Color(hex: 0x15110E)
+    }
+
+    enum CornerRadius {
+        static let control: CGFloat = 14
+        static let card: CGFloat = 18
+        static let featuredCard: CGFloat = 22
+        static let sheet: CGFloat = 28
+    }
+
+    enum Spacing {
+        static let compact: CGFloat = 8
+        static let standard: CGFloat = 12
+        static let section: CGFloat = 18
+        static let page: CGFloat = 20
+    }
+
+    enum Fonts {
+        static let body = Font.system(.body, design: .rounded)
+        static let field = Font.system(.body, design: .rounded)
+        static let button = Font.system(.callout, design: .rounded).weight(.bold)
+        static let sectionTitle = Font.system(.headline, design: .rounded).weight(.bold)
+        static let display = Font.system(.largeTitle, design: .serif).weight(.bold)
+    }
+}
+
+struct TallaTextFieldStyle: TextFieldStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .font(TallaTheme.Fonts.field)
+            .padding(.horizontal, TallaTheme.Spacing.standard)
+            .frame(minHeight: 48)
+            .background(
+                colorScheme == .dark
+                    ? TallaTheme.Colors.darkElevatedSurface
+                    : TallaTheme.Colors.lightElevatedSurface
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
+                    .stroke(TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.24 : 0.20), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+    }
+}
+
+extension TextFieldStyle where Self == TallaTextFieldStyle {
+    static var talla: TallaTextFieldStyle { TallaTextFieldStyle() }
+}
+
+struct TallaPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(TallaTheme.Fonts.button)
+            .foregroundStyle(Color(hex: 0x20150D))
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .background(
+                LinearGradient(
+                    colors: [
+                        TallaTheme.Colors.accent,
+                        colorScheme == .dark ? Color(hex: 0xE0B27B) : Color(hex: 0xD9A468)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
+                    .stroke(.white.opacity(0.22), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+            .shadow(
+                color: TallaTheme.Colors.accent.opacity(configuration.isPressed ? 0.12 : 0.28),
+                radius: configuration.isPressed ? 3 : 9,
+                y: configuration.isPressed ? 1 : 5
+            )
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+            .opacity(isEnabled ? 1 : 0.48)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.72),
+                value: configuration.isPressed
+            )
+            .contentShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+    }
+}
+
+extension ButtonStyle where Self == TallaPrimaryButtonStyle {
+    static var tallaPrimary: TallaPrimaryButtonStyle { TallaPrimaryButtonStyle() }
+}
+
+
 extension View {
     @ViewBuilder
     func tallaGlassCapsule(tint: Color, enabled: Bool = true) -> some View {

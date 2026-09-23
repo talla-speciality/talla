@@ -53,10 +53,6 @@ struct SignedInCustomerSectionView: View {
             }
             .padding(14)
             .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             HStack(spacing: 16) {
@@ -100,10 +96,6 @@ struct SignedInCustomerSectionView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 

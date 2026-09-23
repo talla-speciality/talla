@@ -92,13 +92,7 @@ extension ContentView {
         .padding(.horizontal, isShortHeight ? 12 : 16)
         .padding(.top, isShortHeight ? 7 : 12)
         .padding(.bottom, isShortHeight ? 7 : 12)
-        .background(headerOverlayColor)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
-                .frame(height: 1)
-        }
-        .shadow(color: Color.black.opacity(isLightAppearance ? 0.035 : 0.18), radius: 16, y: 8)
+        .background(Color.clear)
     }
 
     var usesSystemNavigationActions: Bool {
@@ -333,7 +327,7 @@ extension ContentView {
                         openURL(actionURL)
                     }
                     .font(labelFont(size: 11, weight: .bold))
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.tallaPrimary)
                     .tint(Color(hex: 0xC8965A))
                 }
             }
@@ -1964,11 +1958,6 @@ extension ContentView {
             ),
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(readableBrandGoldColor.opacity(0.18), lineWidth: 1)
-                .allowsHitTesting(false)
-        }
         .padding(.horizontal, 18)
         .padding(.top, 8)
         .padding(.bottom, 24)

@@ -177,10 +177,6 @@ struct AccountSectionView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .id(ScrollTarget.loyalty)
     }
@@ -218,10 +214,6 @@ struct AccountSectionView: View {
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
@@ -329,10 +321,6 @@ struct AccountSectionView: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
@@ -490,10 +478,6 @@ struct AccountSectionView: View {
                 }
             }
             .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
@@ -589,10 +573,6 @@ struct AccountSectionView: View {
                             .frame(width: 44, height: 44)
                             .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
                             .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1)
-                            )
                     }
                     .buttonStyle(.plain)
                     .contentShape(Circle())
@@ -797,10 +777,6 @@ struct AccountSectionView: View {
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
             .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }

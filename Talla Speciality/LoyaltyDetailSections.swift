@@ -70,10 +70,6 @@ struct LoyaltyRewardsActionsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
             .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-            )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             Text(AppLocalization.text("redeem_rewards", fallback: "Redeem Rewards"))
@@ -201,10 +197,6 @@ struct ExpiringRewardsSectionView: View {
                     }
                     .padding(14)
                     .background(cardFillColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
-                    )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
             }
@@ -288,10 +280,6 @@ struct LoyaltyTransactionsSectionView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(cardFillColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
-                    )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
             }

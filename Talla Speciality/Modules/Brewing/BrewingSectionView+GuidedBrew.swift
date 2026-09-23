@@ -2356,7 +2356,7 @@ extension BrewingSectionView {
                     Label("Repeat best", systemImage: "arrow.counterclockwise")
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.tallaPrimary)
             }
 
             if !BrewReferenceStore.load().isEmpty {

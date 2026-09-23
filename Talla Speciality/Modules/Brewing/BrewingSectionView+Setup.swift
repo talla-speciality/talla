@@ -39,7 +39,7 @@ extension BrewingSectionView {
     }
 
     var brewProfileSetupContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 32) {
             brewProfileProgressHeader
 
             Group {
@@ -136,10 +136,93 @@ extension BrewingSectionView {
             espressoWorkspaceEntry
             brewingQuickActions
             brewScaleConnectionSection
+            brewNavigationCluster
             brewingMinimalRecentRecipes
             brewingLibrarySection
             exploreBrewingGuidesSection
         }
+    }
+
+    var brewNavigationCluster: some View {
+        HStack(spacing: 14) {
+            brewNavigationCircle(
+                title: AppLocalization.text("recent_recipes", fallback: "Recent Recipes"),
+                icon: "clock.arrow.circlepath",
+                value: brewHistoryItems.isEmpty ? nil : "\(min(brewHistoryItems.count, 99))",
+                isSelected: isRecentRecipesExpanded
+            ) {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isRecentRecipesExpanded.toggle()
+                    isBrewingLibraryExpanded = false
+                    isBrewingGuidesExpanded = false
+                }
+            }
+
+            brewNavigationCircle(
+                title: AppLocalization.text("brew_library", fallback: "Brew Library"),
+                icon: "books.vertical",
+                value: nil,
+                isSelected: isBrewingLibraryExpanded
+            ) {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isBrewingLibraryExpanded.toggle()
+                    isRecentRecipesExpanded = false
+                    isBrewingGuidesExpanded = false
+                }
+            }
+
+            brewNavigationCircle(
+                title: AppLocalization.text("explore_brewing_guides", fallback: "Brewing Guides"),
+                icon: "book.closed",
+                value: displayedMethods.isEmpty ? nil : "\(displayedMethods.count)",
+                isSelected: isBrewingGuidesExpanded
+            ) {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isBrewingGuidesExpanded.toggle()
+                    isRecentRecipesExpanded = false
+                    isBrewingLibraryExpanded = false
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+    }
+
+    func brewNavigationCircle(title: String, icon: String, value: String?, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: icon)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundColor(isSelected ? brewPrimaryTextColor : brewAccentColor)
+                        .frame(width: 58, height: 58)
+                        .background(isSelected ? brewAccentColor : brewSurfaceColor.opacity(0.72), in: Circle())
+                        .overlay(Circle().stroke(brewAccentColor.opacity(isSelected ? 0 : 0.28), lineWidth: 1))
+
+                    if let value {
+                        Text(value)
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundColor(brewPrimaryTextColor)
+                            .frame(minWidth: 19, minHeight: 19)
+                            .background(brewAccentColor, in: Circle())
+                            .overlay(Circle().stroke(brewBackgroundColor, lineWidth: 2))
+                            .offset(x: 3, y: -3)
+                    }
+                }
+
+                Text(title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(isSelected ? brewAccentColor : brewSecondaryTextColor)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 92)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "Expanded" : "Collapsed")
     }
 
     var espressoWorkspaceEntry: some View {
@@ -175,8 +258,7 @@ extension BrewingSectionView {
                     .foregroundColor(brewSecondaryTextColor)
             }
             .padding(15)
-            .background(brewSurfaceColor)
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(brewAccentColor.opacity(0.42), lineWidth: 1.2))
+            .background(brewAccentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -186,7 +268,7 @@ extension BrewingSectionView {
 
     var brewingQuickActions: some View {
         VStack(alignment: .leading, spacing: 12) {
-            brewSectionLabel("QUICK TOOLS")
+            brewSectionLabel("YOUR WORKSPACE")
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 brewingQuickAction(title: "Coffee Inventory", detail: "Your beans and recipes", icon: "books.vertical.fill", destination: .coffeeLibrary)
                 brewingQuickAction(title: "Coffee Journal", detail: "Save taste notes", icon: "book.pages.fill", destination: .coffeeJournal)
@@ -215,11 +297,9 @@ extension BrewingSectionView {
                         .foregroundColor(brewSecondaryTextColor)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 86, alignment: .topLeading)
             .padding(14)
-            .background(brewSurfaceColor)
-            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(brewBorderColor, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .background(brewSurfaceColor.opacity(0.58), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Open \(title)")
@@ -287,10 +367,7 @@ extension BrewingSectionView {
             }
             .padding(16)
             .background(brewSurfaceColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(brewBorderColor, lineWidth: 1)
-            )
+            .background(brewSurfaceColor.opacity(0.55), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
@@ -353,10 +430,7 @@ extension BrewingSectionView {
                 .padding(15)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(brewSurfaceColor)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.46) : brewBorderColor, lineWidth: 1)
-                )
+                .background(brewSurfaceColor.opacity(0.55), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(.plain)
@@ -379,30 +453,8 @@ extension BrewingSectionView {
     }
 
     var brewingMinimalRecentRecipes: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                guard !brewHistoryItems.isEmpty else { return }
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    isRecentRecipesExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    brewSectionLabel(AppLocalization.text("recent_recipes", fallback: "Recent Recipes"))
-                    Spacer(minLength: 8)
-                    if !brewHistoryItems.isEmpty {
-                        Text("\(min(brewHistoryItems.count, 4))")
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .foregroundColor(brewSecondaryTextColor)
-                        Image(systemName: isRecentRecipesExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(brewSecondaryTextColor)
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if brewHistoryItems.isEmpty {
+        Group {
+            if brewHistoryItems.isEmpty && isRecentRecipesExpanded {
                 VStack(spacing: 0) {
                     Text(AppLocalization.text("no_recent_recipes_yet", fallback: "Your recent recipes will appear after your first saved brew."))
                         .font(brewReadingFont)
@@ -416,7 +468,7 @@ extension BrewingSectionView {
                         .stroke(brewBorderColor, lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            } else if isRecentRecipesExpanded {
+            } else if !brewHistoryItems.isEmpty && isRecentRecipesExpanded {
                 VStack(spacing: 0) {
                     let recipes = brewHistoryItems.prefix(4)
                     ForEach(Array(recipes.enumerated()), id: \.offset) { index, recipe in
@@ -440,22 +492,7 @@ extension BrewingSectionView {
     }
 
     var brewingLibrarySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.22)) { isBrewingLibraryExpanded.toggle() }
-            } label: {
-                HStack {
-                    brewSectionLabel(AppLocalization.text("brew_library", fallback: "Brew Library"))
-                    Spacer()
-                    Image(systemName: isBrewingLibraryExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(brewSecondaryTextColor)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(AppLocalization.text("brew_library", fallback: "Brew Library"))
-            .accessibilityValue(isBrewingLibraryExpanded ? "Expanded" : "Collapsed")
-
+        Group {
             if isBrewingLibraryExpanded {
                 brewingMinimalShortcuts
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -477,12 +514,7 @@ extension BrewingSectionView {
                 isToolsMenuPresented = true
             }
         }
-        .background(brewSurfaceColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(brewBorderColor, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(brewSurfaceColor.opacity(0.55), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     var savedEquipmentDetail: String {
@@ -533,66 +565,94 @@ extension BrewingSectionView {
     var brewingToolsMenu: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 0) {
-                    brewingLinkedRow(title: AppLocalization.text("ratio_calculator", fallback: "Ratio Calculator"), detail: AppLocalization.text("ratio_calculator_detail", fallback: "Dose, ratio, and water totals."), value: nil) {
-                        isToolsMenuPresented = false
-                        activeDashboardDestination = .ratioCalculator
-                    }
-                    brewDivider
-                    brewingLinkedRow(title: AppLocalization.text("brew_timer", fallback: "Brew Timer"), detail: AppLocalization.text("brew_timer_detail", fallback: "A focused timer for manual recipes."), value: nil) {
-                        isToolsMenuPresented = false
-                        activeDashboardDestination = .brewTimer
-                    }
-                    brewDivider
-                    brewingLinkedRow(title: AppLocalization.text("coffee_journal", fallback: "Coffee Journal"), detail: AppLocalization.text("coffee_journal_detail", fallback: "Taste notes and brew history."), value: nil) {
-                        isToolsMenuPresented = false
-                        activeDashboardDestination = .coffeeJournal
-                    }
-                    if coffeeMemoryEnabled {
-                        brewDivider
-                        brewingLinkedRow(title: AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory"), detail: AppLocalization.text("coffee_inventory_detail", fallback: "Lots, roast dates, quantities, and sync conflicts."), value: nil) {
+                VStack(alignment: .leading, spacing: 26) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        brewSectionLabel("CORE TOOLS")
+                        toolMenuRow(title: AppLocalization.text("ratio_calculator", fallback: "Ratio Calculator"), detail: "Dose, ratio, water", icon: "divide.circle") {
                             isToolsMenuPresented = false
-                            activeDashboardDestination = .coffeeLibrary
+                            activeDashboardDestination = .ratioCalculator
+                        }
+                        toolMenuRow(title: AppLocalization.text("brew_timer", fallback: "Brew Timer"), detail: "A focused timer", icon: "timer") {
+                            isToolsMenuPresented = false
+                            activeDashboardDestination = .brewTimer
+                        }
+                        toolMenuRow(title: AppLocalization.text("coffee_journal", fallback: "Coffee Journal"), detail: "Tasting notes and history", icon: "book.pages") {
+                            isToolsMenuPresented = false
+                            activeDashboardDestination = .coffeeJournal
+                        }
+                        if coffeeMemoryEnabled {
+                            toolMenuRow(title: AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory"), detail: "Beans, roast dates, quantities", icon: "books.vertical") {
+                                isToolsMenuPresented = false
+                                activeDashboardDestination = .coffeeLibrary
+                            }
                         }
                     }
-                    brewDivider
-                    brewingLinkedRow(title: AppLocalization.text("brew_coach", fallback: "Brew Coach"), detail: AppLocalization.text("brew_coach_detail", fallback: "Small adjustments for the next cup."), value: nil) {
-                        isToolsMenuPresented = false
-                        activeDashboardDestination = .brewCoach
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        brewSectionLabel("EXPLORE")
+                        toolMenuRow(title: AppLocalization.text("brew_coach", fallback: "Brew Coach"), detail: "Small adjustments for the next cup", icon: "sparkles") {
+                            isToolsMenuPresented = false
+                            activeDashboardDestination = .brewCoach
+                        }
+                        toolMenuRow(title: "Espresso Workspace", detail: "Dial in and compare shots", icon: "dial.medium") {
+                            isToolsMenuPresented = false
+                            activeDashboardDestination = .espressoWorkspace
+                        }
+                        toolMenuRow(title: AppLocalization.text("cupping_mode", fallback: "Cupping Mode"), detail: "Compare aroma, body, and clarity", icon: "circle.grid.3x3") {
+                            isToolsMenuPresented = false
+                            activeDashboardDestination = .cuppingMode
+                        }
+                        toolMenuRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: "Browse reviewed recipes", icon: "person.2") {
+                            isToolsMenuPresented = false
+                            activeDashboardDestination = .communityRecipes
+                        }
                     }
-                    brewDivider
-                    brewingLinkedRow(title: "Espresso Workspace", detail: "Dial in shots, compare references, and track the path to a positive espresso.", value: nil) {
-                        isToolsMenuPresented = false
-                        activeDashboardDestination = .espressoWorkspace
-                    }
-                    brewDivider
-                    brewingLinkedRow(title: AppLocalization.text("cupping_mode", fallback: "Cupping Mode"), detail: AppLocalization.text("cupping_detail", fallback: "Calibrate aroma, acidity, sweetness, body, and clarity side by side."), value: nil) {
-                        isToolsMenuPresented = false
-                        activeDashboardDestination = .cuppingMode
-                    }
-                    brewDivider
-                    brewingLinkedRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: AppLocalization.text("community_moderation_detail", fallback: "Share recipes that are reviewed before publishing."), value: nil) {
-                        isToolsMenuPresented = false
-                        activeDashboardDestination = .communityRecipes
-                    }
-                    brewDivider
-                    brewingLinkedRow(title: AppLocalization.text("privacy_controls", fallback: "Privacy & Explanations"), detail: AppLocalization.text("privacy_controls_detail", fallback: "Control analytics, personalization, sharing, and understand recommendations."), value: nil) {
+
+                    toolMenuRow(title: AppLocalization.text("privacy_controls", fallback: "Privacy & Explanations"), detail: "Personalization and recommendations", icon: "lock.shield") {
                         isToolsMenuPresented = false
                         activeDashboardDestination = .privacyControls
                     }
                 }
-                .background(brewSurfaceColor)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(brewBorderColor, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(22)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
             }
             .background(brewBackgroundColor.ignoresSafeArea())
             .navigationTitle(AppLocalization.text("tools", fallback: "Tools"))
             .navigationBarTitleDisplayMode(.inline)
         }
+    }
+
+    func toolMenuRow(title: String, detail: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 13) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(brewAccentColor)
+                    .frame(width: 38, height: 38)
+                    .background(brewAccentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(brewSecondaryTextColor)
+            }
+            .padding(.horizontal, 2)
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
     }
 
     var brewingMethodSelectionView: some View {
@@ -829,30 +889,7 @@ extension BrewingSectionView {
     var exploreBrewingGuidesSection: some View {
         Group {
             if !displayedMethods.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            isBrewingGuidesExpanded.toggle()
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            brewSectionLabel(AppLocalization.text("explore_brewing_guides", fallback: "Explore Brewing Guides"))
-                            Spacer(minLength: 8)
-
-                            Text("\(displayedMethods.count)")
-                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                .foregroundColor(brewSecondaryTextColor)
-
-                            Image(systemName: isBrewingGuidesExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(brewAccentColor)
-                                .accessibilityHidden(true)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if isBrewingGuidesExpanded {
+                if isBrewingGuidesExpanded {
                         if displayedMethods.count > 3 {
                             HStack {
                                 Spacer(minLength: 0)
@@ -884,7 +921,6 @@ extension BrewingSectionView {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
                 }
             }
         }

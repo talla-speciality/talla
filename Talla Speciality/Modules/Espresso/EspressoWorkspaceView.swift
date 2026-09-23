@@ -128,7 +128,7 @@ struct EspressoWorkspaceView: View {
             }
             Spacer()
             Button { draft = EspressoShot(); showNewShot = true } label: { Image(systemName: "plus") }
-                .buttonStyle(.borderedProminent).tint(accent)
+                .buttonStyle(.tallaPrimary).tint(accent)
         }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
@@ -140,7 +140,7 @@ struct EspressoWorkspaceView: View {
             Button { isRunning ? finishShot() : startShot() } label: {
                 Label(isRunning ? "Finish Shot" : "Start Shot", systemImage: isRunning ? "stop.fill" : "play.fill")
                     .frame(maxWidth: .infinity).padding(13)
-            }.buttonStyle(.borderedProminent).tint(accent)
+            }.buttonStyle(.tallaPrimary).tint(accent)
             HStack {
                 Label(scaleManager.isConnected ? (scaleManager.connectedScaleName ?? "Scale connected") : "Connect scale", systemImage: scaleManager.isConnected ? "checkmark.circle.fill" : "scalemass")
                     .font(.caption).foregroundStyle(secondary)
@@ -159,7 +159,7 @@ struct EspressoWorkspaceView: View {
             editorField("Portafilter", text: $draft.portafilter); editorField("Grind setting", text: $draft.grind)
             metricGrid
             if let suggestion { suggestionCard(suggestion) }
-            Button("Save iteration") { finishShot() }.buttonStyle(.borderedProminent).tint(accent)
+            Button("Save iteration") { finishShot() }.buttonStyle(.tallaPrimary).tint(accent)
         }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
@@ -206,7 +206,7 @@ struct EspressoWorkspaceView: View {
         }.navigationTitle("New shot").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") { showNewShot = false; finishShot() } } } }
     }
 
-    private func editorField(_ title: String, text: Binding<String>) -> some View { TextField(title, text: text).textFieldStyle(.roundedBorder) }
+    private func editorField(_ title: String, text: Binding<String>) -> some View { TextField(title, text: text).textFieldStyle(.talla) }
     private func startShot() { elapsed = 0; firstDrop = nil; liveWeight = 0; weightSamples = []; didAlertTarget = false; isRunning = true; if scaleManager.isConnected { scaleManager.tare(); scaleManager.startTimer() } }
     private func finishShot() { guard !isRunning || elapsed > 0 else { return }; isRunning = false; if scaleManager.isConnected { scaleManager.stopTimer() }; draft.totalSeconds = elapsed > 0 ? elapsed : draft.totalSeconds; draft.firstDripSeconds = firstDrop ?? draft.firstDripSeconds; draft.yield = liveWeight > 0 ? liveWeight : draft.yield; shots.append(draft); save(); draft = EspressoShot(); liveWeight = 0; weightSamples = [] }
     private func targetReachedFeedback() {

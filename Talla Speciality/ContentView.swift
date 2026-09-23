@@ -1161,7 +1161,7 @@ struct ContentView: View {
     }
 
     var readableBrandGoldColor: Color {
-        isLightAppearance ? Color(hex: 0x7A4F25) : Color(hex: 0xD7A76C)
+        isLightAppearance ? TallaTheme.Colors.readableAccentLight : TallaTheme.Colors.readableAccentDark
     }
 
     var secondaryTextColor: Color {
@@ -1174,30 +1174,23 @@ struct ContentView: View {
 
     var cardFillColor: Color {
         if isLightAppearance {
-            return Color(hex: 0xFFFBF6).opacity(0.96)
+            return TallaTheme.Colors.lightSurface.opacity(0.96)
         }
-        return isOLEDAppearance ? .black : Color(hex: 0x1A1511).opacity(0.9)
+        return isOLEDAppearance ? .black : TallaTheme.Colors.darkSurface.opacity(0.9)
     }
 
     var elevatedSurfaceColor: Color {
         if isLightAppearance {
-            return Color(hex: 0xFFFCF8)
+            return TallaTheme.Colors.lightElevatedSurface
         }
-        return isOLEDAppearance ? .black : Color(hex: 0x15110E)
-    }
-
-    var headerOverlayColor: Color {
-        if isLightAppearance {
-            return Color(hex: 0xFFFCF8).opacity(0.92)
-        }
-        return isOLEDAppearance ? .black : Color(hex: 0x0F0C09).opacity(0.88)
+        return isOLEDAppearance ? .black : TallaTheme.Colors.darkElevatedSurface
     }
 
     var pageBackgroundColor: Color {
         if isLightAppearance {
-            return Color(hex: 0xFFFDF9)
+            return TallaTheme.Colors.lightBackground
         }
-        return isOLEDAppearance ? .black : Color(hex: 0x181411)
+        return isOLEDAppearance ? .black : TallaTheme.Colors.darkBackground
     }
 
     var scrimColor: Color {
@@ -2251,6 +2244,9 @@ struct ContentView: View {
 
     var body: some View {
         presentedContent
+            .font(TallaTheme.Fonts.body)
+            .tint(TallaTheme.Colors.accent)
+            .sensoryFeedback(.selection, trigger: activeTab)
             .onOpenURL(perform: handleDeepLink)
             .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
             .environment(\.layoutDirection, appLanguage.layoutDirection)
@@ -2265,6 +2261,22 @@ struct ContentView: View {
                 endPoint: .bottom
             )
                 .ignoresSafeArea()
+
+            Circle()
+                .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.08))
+                .frame(width: isCompact ? 260 : 420)
+                .blur(radius: 18)
+                .offset(x: isCompact ? 150 : 320, y: -280)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+
+            Circle()
+                .fill(Color(hex: 0x7A4F25).opacity(isLightAppearance ? 0.06 : 0.09))
+                .frame(width: isCompact ? 220 : 360)
+                .blur(radius: 24)
+                .offset(x: isCompact ? -160 : -340, y: 340)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             if showLaunchSplash {
                 launchSplashView
@@ -2548,7 +2560,7 @@ struct ContentView: View {
                     Button(isArabicInterface ? "التحديث من App Store" : "Update on the App Store") {
                         openURL(url)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.tallaPrimary)
                     .tint(Color(hex: 0xC8965A))
                 }
             }
@@ -2861,7 +2873,7 @@ struct ContentView: View {
 
     var tabBarBackgroundColor: Color {
         if isLightAppearance {
-            return Color(hex: 0xFFFCF8).opacity(0.98)
+            return TallaTheme.Colors.lightElevatedSurface.opacity(0.98)
         }
         return isOLEDAppearance ? .black : Color(hex: 0x100D0A).opacity(0.98)
     }

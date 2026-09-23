@@ -33,7 +33,7 @@ struct CoffeeEducationView: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 30) {
+        VStack(alignment: .leading, spacing: 38) {
             intro
             learningPath
             flavourWheel
@@ -42,8 +42,8 @@ struct CoffeeEducationView: View {
             methodsSection
             basics
         }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.horizontal, 22)
+            .padding(.top, 12)
             .sheet(item: $selectedMethod) { MethodLessonSheet(lesson: $0) }
             .onAppear {
                 completedLessons = Set(persistedCompletedLessons.split(separator: ",").map(String.init))
@@ -60,10 +60,28 @@ struct CoffeeEducationView: View {
                 .tracking(3)
                 .foregroundStyle(accent)
             Text("Coffee school")
-                .font(.system(size: 38, weight: .bold, design: .serif))
+                .font(.system(size: 44, weight: .bold, design: .serif))
             Text("Learn the bean, the brew, and everything in between.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Button { surpriseMe() } label: {
+                    Label("Surprise me", systemImage: "sparkles")
+                }
+                .buttonStyle(.tallaPrimary)
+                .tint(accent)
+                Button { withAnimation { selectedFamily = families.randomElement()?.name ?? "Fruity"; completedLessons.insert("1") }; persistProgress() } label: {
+                    Label("Taste a coffee", systemImage: "cup.and.saucer.fill")
+                }
+                .buttonStyle(.bordered)
+                .tint(accent)
+            }
+        }
+    }
+    private func surpriseMe() {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            selectedFamily = families.randomElement()?.name ?? "Fruity"
+            selectedMethod = methods.randomElement()
         }
     }
     private var learningPath: some View {
@@ -79,7 +97,8 @@ struct CoffeeEducationView: View {
                         Text(completedLessons.contains(item.0) ? "Done" : "Mark done")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(completedLessons.contains(item.0) ? .green : accent)
-                    }.padding(14).educationCard(cornerRadius: 16, accent: accent)
+                    }
+                    .padding(.vertical, 10)
                 }.buttonStyle(.plain)
             }
         }
@@ -100,7 +119,7 @@ struct CoffeeEducationView: View {
                 }
             }.frame(maxWidth: .infinity).padding(.vertical, 18)
             if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 7).background(family.color.opacity(0.16), in: Capsule()) } } }.padding(16).background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 18)) }
-        }.padding(18).educationCard(cornerRadius: 24, accent: accent)
+            }
     }
     private var methodsSection: some View { VStack(alignment: .leading, spacing: 14) { sectionTitle("Every method, explained"); Text("Choose a method to learn its character and starting point.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) { ForEach(methods) { method in Button { selectedMethod = method } label: { VStack(alignment: .leading, spacing: 10) { Image(systemName: method.icon).font(.title2).foregroundStyle(accent); Text(method.name).font(.headline).foregroundStyle(.primary); Text("\(method.time) · \(method.grind)").font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(16).educationCard(cornerRadius: 18, accent: accent) }.buttonStyle(.plain) } } } }
     private var brewLab: some View {
@@ -111,7 +130,7 @@ struct CoffeeEducationView: View {
             HStack { Text("Under-extracted").font(.caption); Spacer(); Text("Balanced").font(.caption.bold()); Spacer(); Text("Over-extracted").font(.caption) }.foregroundStyle(.secondary)
             Text(extraction < 38 ? "Sour, sharp, or thin? Try a finer grind, hotter water, or more brew time." : extraction > 66 ? "Bitter, dry, or harsh? Try a coarser grind, cooler water, or less brew time." : "Sweet, clear, and balanced. This is the zone to look for when dialing in a recipe.")
                 .font(.body).padding(14).frame(maxWidth: .infinity, alignment: .leading).background(accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 14))
-        }.padding(18).educationCard(cornerRadius: 22, accent: accent)
+        }
     }
     private var knowledgeCheck: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -126,10 +145,10 @@ struct CoffeeEducationView: View {
                 if !quizChoice.isEmpty {
                     Text(quizChoice == question.correctAnswer ? "Correct — \(question.explanation)" : "Not quite — \(question.explanation)")
                         .font(.subheadline).foregroundStyle(quizChoice == question.correctAnswer ? .green : .secondary)
-                    Button("New question") { loadNewQuestion() }.buttonStyle(.borderedProminent).tint(accent)
+                    Button("New question") { loadNewQuestion() }.buttonStyle(.tallaPrimary).tint(accent)
                 }
             }
-        }.padding(18).educationCard(cornerRadius: 22, accent: accent)
+        }
     }
 
     private func answerQuestion(_ answer: String, question: EducationQuestion) {
@@ -180,16 +199,12 @@ struct CoffeeEducationView: View {
         Text(title).font(.system(.title2, design: .serif, weight: .bold))
     }
 
-    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline); Text(item.1).font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14)) } }.padding(16).educationCard(cornerRadius: 18, accent: accent) } }
+    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline); Text(item.1).font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14)) } } } }
 }
 
 private extension View {
     func educationCard(cornerRadius: CGFloat, accent: Color) -> some View {
-        background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(accent.opacity(0.18), lineWidth: 1)
-            }
+        self
     }
 }
 

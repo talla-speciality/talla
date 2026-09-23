@@ -472,14 +472,14 @@ private struct ReferralSectionView: View {
                 ShareLink(item: referral.code) {
                     Label(String(format: AppLocalization.text("share_referral_code", fallback: "Share %@"), referral.code), systemImage: "square.and.arrow.up")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.tallaPrimary)
                 .tint(accent)
                 .accessibilityIdentifier("referral.share")
             }
             HStack {
                 TextField(AppLocalization.text("referral_code_placeholder", fallback: "TALLA-XXXXXXXX"), text: $redeemCode)
                     .textInputAutocapitalization(.characters)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.talla)
                 Button(AppLocalization.text("redeem", fallback: "Redeem")) { redeem() }
                     .buttonStyle(.bordered)
                     .disabled(isLoading || redeemCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

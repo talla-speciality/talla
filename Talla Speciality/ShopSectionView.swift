@@ -169,7 +169,6 @@ struct ShopSectionView: View {
         }
         .padding(16)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(accentColor.opacity(isLightAppearance ? 0.2 : 0.14), lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shop.curatedBundles")
     }
@@ -289,10 +288,6 @@ struct ShopSectionView: View {
             ),
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.25 : 0.16), lineWidth: 1)
-        )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shop.coffeeClub.introduction")
     }
@@ -357,10 +352,6 @@ struct ShopSectionView: View {
         .contentShape(Rectangle())
         .onTapGesture { isSearchFocused = true }
         .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
@@ -418,10 +409,6 @@ struct ShopSectionView: View {
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
                                 .background(cardFillColor)
-                                .overlay(
-                                    Capsule(style: .continuous)
-                                        .stroke(accentColor.opacity(0.18), lineWidth: 1)
-                                )
                                 .clipShape(Capsule(style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -496,10 +483,6 @@ struct ShopSectionView: View {
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .id("shop-catalogue")
     }
@@ -545,10 +528,6 @@ struct ShopSectionView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .padding(.top, 12)
         .id("shop-catalogue")
@@ -719,10 +698,6 @@ struct ShopSectionView: View {
         }
         .padding(14)
         .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
-        )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .redacted(reason: .placeholder)
         .allowsHitTesting(false)
