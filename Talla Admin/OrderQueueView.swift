@@ -359,6 +359,7 @@ struct OrderDetailView: View {
     @State private var isUpdatingShipment = false
     @State private var coffeeClubNote = ""
     @State private var refundAmount = ""
+    @State private var isEditingClubPreferences = false
 
     private var order: AdminOrder? { session.orders.first { $0.id == orderID } }
 
@@ -522,8 +523,53 @@ struct OrderDetailView: View {
                     )
                 }
                 detailRow("Renewal", "No automatic renewal")
-                if let coffee = club.preference?.coffeeName, !coffee.isEmpty { detailRow("Future coffee", coffee) }
-                if let address = club.fulfillmentOverride?.addressText { detailRow("Future address", address) }
+                if club.coffeeItems.isEmpty,
+                   let coffee = club.preference?.coffeeName,
+                   !coffee.isEmpty {
+                    detailRow("Future coffee", coffee)
+                }
+                if !club.coffeeItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text("Next shipment coffees")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(TallaAdminStyle.espresso)
+                        ForEach(Array(club.coffeeItems.enumerated()), id: \.offset) { _, item in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Image(systemName: "cup.and.saucer")
+                                    .foregroundStyle(TallaAdminStyle.caramel)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.coffeeName ?? "Coffee")
+                                    if let variant = item.variantId, !variant.isEmpty {
+                                        Text(variant)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text("×\(item.quantity)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(TallaAdminStyle.caramel)
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(TallaAdminStyle.paper, in: RoundedRectangle(cornerRadius: 14))
+                }
+                if let fulfillment = club.fulfillmentOverride {
+                    detailRow("Future fulfilment", displayFulfillmentMethod(fulfillment.method, fallback: "Delivery"))
+                    if let slot = fulfillment.pickupSlot, !slot.isEmpty {
+                        detailRow("Pickup slot", slot)
+                    }
+                    if let name = fulfillment.fullName, !name.isEmpty {
+                        detailRow("Future recipient", name)
+                    }
+                    if let address = fulfillment.addressText {
+                        detailRow("Future address", address, selectable: true)
+                    }
+                    if let notes = fulfillment.notes, !notes.isEmpty {
+                        detailRow("Future notes", notes, selectable: true)
+                    }
+                }
                 if let effectiveShipment = club.changesEffectiveFromShipment {
                     detailRow("Changes start", "Shipment #\(effectiveShipment)")
                 }
@@ -535,6 +581,12 @@ struct OrderDetailView: View {
 
                 ProgressView(value: Double(club.deliveredShipments), total: Double(max(1, club.shipmentCount)))
                     .tint(TallaAdminStyle.caramel)
+
+                Button("Edit Future Shipment", systemImage: "slider.horizontal.3") {
+                    isEditingClubPreferences = true
+                }
+                .buttonStyle(.bordered)
+                .disabled(isUpdatingShipment || club.remainingShipments <= 0)
 
                 if ["active", "cancel_requested"].contains(club.status), club.remainingShipments > 0 {
                     let nextIsPrepared = club.shipments.contains {
@@ -618,6 +670,23 @@ struct OrderDetailView: View {
                 Text("Delivery is charged separately for every shipment. Shipment progress is visible to the customer in their order history.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+        }
+        .sheet(isPresented: $isEditingClubPreferences) {
+            if let currentOrder = order, let club = currentOrder.coffeeClub {
+                AdminCoffeeClubPreferencesEditor(order: currentOrder, club: club) { coffeeItems, fulfillment in
+                    isEditingClubPreferences = false
+                    isUpdatingShipment = true
+                    Task {
+                        await session.updateCoffeeClubShipment(
+                            currentOrder,
+                            action: "update_preferences",
+                            coffeeItems: coffeeItems,
+                            fulfillment: fulfillment
+                        )
+                        isUpdatingShipment = false
+                    }
+                }
             }
         }
     }
@@ -885,6 +954,162 @@ struct OrderDetailView: View {
         var components = URLComponents(string: "https://maps.apple.com/")
         components?.queryItems = [URLQueryItem(name: "q", value: address)]
         return components?.url
+    }
+}
+
+private struct AdminClubItemDraft: Identifiable, Hashable {
+    let id: UUID
+    var coffeeName: String
+    var variantID: String
+    var quantity: Int
+
+    init(id: UUID = UUID(), coffeeName: String = "", variantID: String = "", quantity: Int = 1) {
+        self.id = id
+        self.coffeeName = coffeeName
+        self.variantID = variantID
+        self.quantity = quantity
+    }
+}
+
+private struct AdminCoffeeClubPreferencesEditor: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let order: AdminOrder
+    let club: AdminCoffeeClub
+    let onSave: ([[String: Any]], [String: Any]?) -> Void
+
+    @State private var items: [AdminClubItemDraft]
+    @State private var fulfillmentMethod: String
+    @State private var fullName: String
+    @State private var phone: String
+    @State private var line1: String
+    @State private var city: String
+    @State private var countryCode: String
+    @State private var notes: String
+    @State private var pickupSlot: String
+
+    init(order: AdminOrder, club: AdminCoffeeClub, onSave: @escaping ([[String: Any]], [String: Any]?) -> Void) {
+        self.order = order
+        self.club = club
+        self.onSave = onSave
+
+        let sourceItems = club.coffeeItems.isEmpty
+            ? [AdminCoffeeClubItem(coffeeName: club.preference?.coffeeName, variantId: club.preference?.variantId, quantity: 1)]
+            : club.coffeeItems
+        _items = State(initialValue: sourceItems.map {
+            AdminClubItemDraft(
+                coffeeName: $0.coffeeName ?? "",
+                variantID: $0.variantId ?? "",
+                quantity: max(1, $0.quantity)
+            )
+        })
+
+        let override = club.fulfillmentOverride
+        _fulfillmentMethod = State(initialValue: override?.method?.lowercased().contains("pickup") == true ? "pickup" : "delivery")
+        _fullName = State(initialValue: override?.fullName ?? order.customer?.fullName ?? "")
+        _phone = State(initialValue: override?.phone ?? order.customer?.phone ?? "")
+        _line1 = State(initialValue: override?.line1 ?? "")
+        _city = State(initialValue: override?.city ?? "")
+        _countryCode = State(initialValue: override?.countryCode ?? "BH")
+        _notes = State(initialValue: override?.notes ?? "")
+        _pickupSlot = State(initialValue: override?.pickupSlot ?? "")
+    }
+
+    private var canSave: Bool {
+        !items.isEmpty && items.allSatisfy { !$0.coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    ForEach(items.indices, id: \.self) { index in
+                        VStack(alignment: .leading, spacing: 9) {
+                            TextField("Coffee name", text: $items[index].coffeeName)
+                            TextField("Variant / bag size ID", text: $items[index].variantID)
+                            Stepper(value: $items[index].quantity, in: 1...12) {
+                                HStack {
+                                    Text("Quantity")
+                                    Spacer()
+                                    Text("×\(items[index].quantity)")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            if items.count > 1 {
+                                Button("Remove coffee", systemImage: "minus.circle", role: .destructive) {
+                                    items.remove(at: index)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    Button("Add another coffee", systemImage: "plus.circle") {
+                        items.append(AdminClubItemDraft())
+                    }
+                } header: {
+                    Text("Next eligible shipment")
+                } footer: {
+                    Text("Changes apply to the next shipment that has not been prepared. If it is already prepared, they start with the following shipment.")
+                }
+
+                Section("Fulfilment") {
+                    Picker("Method", selection: $fulfillmentMethod) {
+                        Text("Delivery").tag("delivery")
+                        Text("Pickup").tag("pickup")
+                    }
+                    .pickerStyle(.segmented)
+
+                    TextField("Recipient name", text: $fullName)
+                    TextField("Phone", text: $phone)
+
+                    if fulfillmentMethod == "pickup" {
+                        TextField("Pickup slot", text: $pickupSlot)
+                    } else {
+                        TextField("Address", text: $line1)
+                        TextField("City", text: $city)
+                        TextField("Country code", text: $countryCode)
+                    }
+
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .lineLimit(2...5)
+                }
+            }
+            .navigationTitle("Edit Coffee Club")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }
+                        .disabled(!canSave)
+                }
+            }
+        }
+    }
+
+    private func save() {
+        let coffeeItems: [[String: Any]] = items.map { item in
+            [
+                "coffeeName": item.coffeeName.trimmingCharacters(in: .whitespacesAndNewlines),
+                "variantId": item.variantID.trimmingCharacters(in: .whitespacesAndNewlines),
+                "quantity": item.quantity
+            ]
+        }
+        var fulfillment: [String: Any] = [
+            "method": fulfillmentMethod,
+            "fullName": fullName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "phone": phone.trimmingCharacters(in: .whitespacesAndNewlines),
+            "notes": notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        ]
+        if fulfillmentMethod == "pickup" {
+            fulfillment["pickupSlot"] = pickupSlot.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            fulfillment["line1"] = line1.trimmingCharacters(in: .whitespacesAndNewlines)
+            fulfillment["city"] = city.trimmingCharacters(in: .whitespacesAndNewlines)
+            fulfillment["countryCode"] = countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        }
+        onSave(coffeeItems, fulfillment)
     }
 }
 

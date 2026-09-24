@@ -2385,9 +2385,9 @@ extension ContentView {
                     note: note,
                     coffeeName: coffeeName,
                     variantID: variantID,
-                    coffeeItems: coffeeItems,
                     address: address,
-                    fulfillmentMethod: fulfillmentMethod
+                    fulfillmentMethod: fulfillmentMethod,
+                    coffeeItems: coffeeItems
                 )
             }
         )

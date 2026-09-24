@@ -123,7 +123,9 @@ final class AdminSession: ObservableObject {
         action: String,
         reason: String? = nil,
         note: String? = nil,
-        amount: Double? = nil
+        amount: Double? = nil,
+        coffeeItems: [[String: Any]]? = nil,
+        fulfillment: [String: Any]? = nil
     ) async {
         message = nil
         errorMessage = nil
@@ -133,7 +135,9 @@ final class AdminSession: ObservableObject {
                 action: action,
                 reason: reason,
                 note: note,
-                amount: amount
+                amount: amount,
+                coffeeItems: coffeeItems,
+                fulfillment: fulfillment
             ).sorted {
                 ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast)
             }

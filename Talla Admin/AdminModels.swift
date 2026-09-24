@@ -50,6 +50,7 @@ struct AdminCoffeeClub: Codable, Hashable {
     let refundStatus: String
     let refundAmount: Double
     let refundNote: String?
+    let coffeeItems: [AdminCoffeeClubItem]
     let preference: AdminCoffeeClubPreference?
     let fulfillmentOverride: AdminCoffeeClubFulfillment?
 
@@ -71,6 +72,7 @@ struct AdminCoffeeClub: Codable, Hashable {
         refundStatus: String = "none",
         refundAmount: Double = 0,
         refundNote: String? = nil,
+        coffeeItems: [AdminCoffeeClubItem] = [],
         preference: AdminCoffeeClubPreference? = nil,
         fulfillmentOverride: AdminCoffeeClubFulfillment? = nil
     ) {
@@ -94,6 +96,7 @@ struct AdminCoffeeClub: Codable, Hashable {
         self.refundStatus = refundStatus
         self.refundAmount = refundAmount
         self.refundNote = refundNote
+        self.coffeeItems = coffeeItems
         self.preference = preference
         self.fulfillmentOverride = fulfillmentOverride
     }
@@ -119,6 +122,7 @@ struct AdminCoffeeClub: Codable, Hashable {
             refundStatus: try values.decodeIfPresent(String.self, forKey: .refundStatus) ?? "none",
             refundAmount: try values.decodeIfPresent(Double.self, forKey: .refundAmount) ?? 0,
             refundNote: try values.decodeIfPresent(String.self, forKey: .refundNote),
+            coffeeItems: try values.decodeIfPresent([AdminCoffeeClubItem].self, forKey: .coffeeItems) ?? [],
             preference: try values.decodeIfPresent(AdminCoffeeClubPreference.self, forKey: .preference),
             fulfillmentOverride: try values.decodeIfPresent(AdminCoffeeClubFulfillment.self, forKey: .fulfillmentOverride)
         )
@@ -148,18 +152,50 @@ struct AdminCoffeeClubShipment: Codable, Hashable {
     var preparedDate: Date? { preparedAt.flatMap { ISO8601DateFormatter().date(from: $0) } }
 }
 
+struct AdminCoffeeClubItem: Codable, Hashable, Identifiable {
+    let coffeeName: String?
+    let variantId: String?
+    let quantity: Int
+
+    var id: String {
+        "\(coffeeName ?? "coffee")-\(variantId ?? "default")"
+    }
+}
+
 struct AdminCoffeeClubPreference: Codable, Hashable {
     let coffeeName: String?
     let variantId: String?
 }
 
 struct AdminCoffeeClubFulfillment: Codable, Hashable {
+    let method: String?
     let fullName: String?
     let phone: String?
     let line1: String?
     let city: String?
     let countryCode: String?
     let notes: String?
+    let pickupSlot: String?
+
+    init(
+        method: String? = nil,
+        fullName: String? = nil,
+        phone: String? = nil,
+        line1: String? = nil,
+        city: String? = nil,
+        countryCode: String? = nil,
+        notes: String? = nil,
+        pickupSlot: String? = nil
+    ) {
+        self.method = method
+        self.fullName = fullName
+        self.phone = phone
+        self.line1 = line1
+        self.city = city
+        self.countryCode = countryCode
+        self.notes = notes
+        self.pickupSlot = pickupSlot
+    }
 
     var addressText: String? {
         let text = [line1, city, countryCode].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")

@@ -1419,6 +1419,14 @@ module.exports = function createServer(dependencies) {
                     sendJSON(response, 400, { error: "Provide an orderID and a valid Coffee Club action." });
                     return;
                 }
+                if (action === "update_preferences") {
+                    const fulfillment = body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : null;
+                    const method = String(fulfillment?.method || "delivery").trim().toLowerCase();
+                    if (method !== "pickup" && String(fulfillment?.countryCode || "").trim().toUpperCase() !== "BH") {
+                        sendJSON(response, 409, { error: "Coffee Club delivery changes must use a Bahrain address." });
+                        return;
+                    }
+                }
 
                 const result = await updateCoffeeClubShipmentByID(orderID, action, admin.username, {
                     reason: body.reason,
@@ -1426,6 +1434,7 @@ module.exports = function createServer(dependencies) {
                     amount: body.amount,
                     coffeeName: body.coffeeName,
                     variantId: body.variantId,
+                    coffeeItems: body.coffeeItems,
                     fulfillment: body.fulfillment
                 });
                 if (!result.order) {

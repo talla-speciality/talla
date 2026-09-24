@@ -111,6 +111,7 @@ struct AdminAPI {
         amount: Double? = nil,
         coffeeName: String? = nil,
         variantID: String? = nil,
+        coffeeItems: [[String: Any]]? = nil,
         fulfillment: [String: Any]? = nil
     ) async throws -> [AdminOrder] {
         var payload: [String: Any] = [
@@ -122,6 +123,7 @@ struct AdminAPI {
         if let amount { payload["amount"] = amount }
         if let coffeeName { payload["coffeeName"] = coffeeName }
         if let variantID { payload["variantId"] = variantID }
+        if let coffeeItems { payload["coffeeItems"] = coffeeItems }
         if let fulfillment { payload["fulfillment"] = fulfillment }
         let data = try await request("/admin/api/orders/coffee-club/shipment", method: "POST", body: payload)
         let response = try JSONDecoder().decode(AdminStatusUpdateResponse.self, from: data)
