@@ -673,13 +673,13 @@ struct OrderDetailView: View {
             }
         }
         .sheet(isPresented: $isEditingClubPreferences) {
-            if let currentOrder = order, let club = currentOrder.coffeeClub {
-                AdminCoffeeClubPreferencesEditor(order: currentOrder, club: club) { coffeeItems, fulfillment in
+            if let club = order.coffeeClub {
+                AdminCoffeeClubPreferencesEditor(order: order, club: club) { coffeeItems, fulfillment in
                     isEditingClubPreferences = false
                     isUpdatingShipment = true
                     Task {
                         await session.updateCoffeeClubShipment(
-                            currentOrder,
+                            order,
                             action: "update_preferences",
                             coffeeItems: coffeeItems,
                             fulfillment: fulfillment
