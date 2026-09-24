@@ -45,7 +45,7 @@ extension ContentView {
 
     var cartSingleShipmentSubtotal: Double {
         cartItems.reduce(0) { partialResult, item in
-            partialResult + (priceValue(from: item.product.price) * Double(item.quantity))
+            partialResult + (priceValue(from: item.variant.price) * Double(item.quantity))
         }
     }
 
@@ -4418,7 +4418,7 @@ extension ContentView {
             lines: cartItems.map {
                 (
                     categoryKey: $0.product.categoryKey,
-                    unitPrice: priceValue(from: $0.product.price),
+                    unitPrice: priceValue(from: $0.variant.price),
                     quantity: $0.quantity
                 )
             }

@@ -981,7 +981,7 @@ struct ContentView: View {
                 lines: cartItems.map {
                     (
                         categoryKey: $0.product.categoryKey,
-                        unitPrice: priceValue(from: $0.product.price),
+                        unitPrice: priceValue(from: $0.variant.price),
                         quantity: $0.quantity
                     )
                 }
