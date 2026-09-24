@@ -53,6 +53,7 @@ test("customer order refresh recognises the same app export", async () => {
         const request = JSON.parse(options.body);
         assert.match(request.query, /sourceIdentifier/);
         assert.match(request.query, /tags/);
+        assert.doesNotMatch(request.query, /customer\s*\{/);
         return new Response(JSON.stringify({ data: { orders: { edges: [{ node: {
             id: "gid://shopify/Order/9001", sourceIdentifier: original.id, tags: input.tags, email: original.email
         } }] } } }));

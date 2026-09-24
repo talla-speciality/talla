@@ -6172,11 +6172,6 @@ async function syncRecentShopifyOrdersForEmail(email) {
                         fulfillments {
                             trackingInfo { company number url }
                         }
-                        customer {
-                            firstName
-                            lastName
-                            phone
-                        }
                         shippingAddress {
                             name
                             phone
