@@ -123,6 +123,42 @@ test("Coffee Club accepts coffee products identified by the catalog title or tag
     assert.equal(result.coffeeClub.shipmentCount, 3);
 });
 
+test("Coffee Club accepts coffee capsules while excluding coffee equipment", async () => {
+    const capsules = node(coffeeID, "4.000", {
+        displayName: "Coffee Capsules",
+        product: {
+            title: "Coffee Capsules",
+            productType: "Coffee capsules",
+            collections: { nodes: [{ handle: "coffee-capsules" }] }
+        }
+    });
+    const verify = service({ nodes: [capsules] });
+    const result = await verify(body(
+        [{ variantId: coffeeID, quantity: 1 }],
+        16.8,
+        { coffeeClub: { shipmentCount: 3, intervalWeeks: 4, termsAccepted: true } }
+    ), "customer@example.com");
+
+    assert.equal(result.coffeeClub.shipmentCount, 3);
+
+    const equipment = node(coffeeID, "4.000", {
+        displayName: "Coffee Scale",
+        product: {
+            title: "Coffee Scale",
+            productType: "Coffee Equipment",
+            collections: { nodes: [{ handle: "coffee-equipment" }] }
+        }
+    });
+    await assert.rejects(
+        service({ nodes: [equipment] })(body(
+            [{ variantId: coffeeID, quantity: 1 }],
+            16.8,
+            { coffeeClub: { shipmentCount: 3, intervalWeeks: 4, termsAccepted: true } }
+        ), "customer@example.com"),
+        (error) => error.code === "COFFEE_CLUB_ITEMS_INVALID"
+    );
+});
+
 test("Coffee Club checkout requires explicit prepaid terms acceptance", async () => {
     const verify = service({ nodes: [node(coffeeID, "4.000")] });
     await assert.rejects(

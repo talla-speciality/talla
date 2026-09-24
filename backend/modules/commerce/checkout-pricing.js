@@ -100,7 +100,7 @@ function isCoffeeBag(node) {
         || ["coffee", "coffee beans", "arabic coffee", "arabic coffee beans", "beans"].includes(productType)
         || ["coffee", "coffee beans", "coffee-beans", "arabic coffee", "arabic coffee beans", "arabic-coffee-beans", "beans"]
             .some((value) => tags.some((tag) => String(tag).trim().toLowerCase() === value))
-        || /(?:coffee beans?|espresso|roast|roasted|single[- ]origin|decaf|qahwa|gahwa|shamali|northern coffee)/.test(source));
+        || /(?:coffee|espresso|roast|roasted|single[- ]origin|decaf|qahwa|gahwa|shamali|northern coffee)/.test(source));
 }
 
 function normalizeCoffeeClub(value, settings = {}) {
