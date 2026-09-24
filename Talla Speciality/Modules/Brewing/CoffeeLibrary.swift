@@ -560,34 +560,28 @@ struct CoffeeLibraryView: View {
     @AppStorage("talla.household.profile.shared.v1") private var householdEquipmentIsShared = true
     @State private var editingLot: BeanLotRecord?
     @State private var errorMessage: String?
-    var brewCoffeeAction: ((String) -> Void)? = nil
+    var brewCoffeeAction: ((CoffeeInventoryRecord) -> Void)? = nil
     var reorderCoffeeAction: ((BeanLotRecord) -> Void)? = nil
 
     var body: some View {
-        ScrollView {
         VStack(alignment: .leading, spacing: 18) {
             Text(AppLocalization.text("coffee_inventory", fallback: "Coffee inventory"))
                 .font(.system(size: 28, weight: .semibold, design: .serif))
                 .accessibilityAddTraits(.isHeader)
 
-            coffeeSyncStatusBanner
-
             GroupBox(AppLocalization.text("add_coffee", fallback: "Add coffee")) {
                 VStack(spacing: 12) {
                     TextField(AppLocalization.text("coffee_name", fallback: "Coffee name"), text: $name)
-                        .textFieldStyle(.talla)
                         .accessibilityIdentifier("coffee.inventory.name")
                     TextField(AppLocalization.text("roaster", fallback: "Roaster"), text: $roaster)
-                        .textFieldStyle(.talla)
-                    TextField(AppLocalization.text("origin", fallback: "Origin"), text: $origin).textFieldStyle(.talla)
-                    TextField(AppLocalization.text("region", fallback: "Region or producer"), text: $region).textFieldStyle(.talla)
-                    TextField(AppLocalization.text("variety", fallback: "Variety"), text: $variety).textFieldStyle(.talla)
-                    TextField(AppLocalization.text("process", fallback: "Process"), text: $process).textFieldStyle(.talla)
-                    TextField(AppLocalization.text("roast_level", fallback: "Roast level"), text: $roastLevel).textFieldStyle(.talla)
-                    TextField(AppLocalization.text("tasting_notes", fallback: "Tasting notes"), text: $tastingNotes).textFieldStyle(.talla)
+                    TextField(AppLocalization.text("origin", fallback: "Origin"), text: $origin)
+                    TextField(AppLocalization.text("region", fallback: "Region or producer"), text: $region)
+                    TextField(AppLocalization.text("variety", fallback: "Variety"), text: $variety)
+                    TextField(AppLocalization.text("process", fallback: "Process"), text: $process)
+                    TextField(AppLocalization.text("roast_level", fallback: "Roast level"), text: $roastLevel)
+                    TextField(AppLocalization.text("tasting_notes", fallback: "Tasting notes"), text: $tastingNotes)
                     TextField(AppLocalization.text("quantity_grams", fallback: "Quantity (g)"), text: $quantity)
                         .keyboardType(.decimalPad)
-                        .textFieldStyle(.talla)
                     Toggle(AppLocalization.text("roast_date", fallback: "Roast date"), isOn: $hasRoastDate)
                     if hasRoastDate { DatePicker("", selection: $roastDate, displayedComponents: .date).labelsHidden() }
                     Button(AppLocalization.text("save", fallback: "Save"), action: addCoffee)
@@ -597,70 +591,7 @@ struct CoffeeLibraryView: View {
                 .padding(.top, 8)
             }
 
-            ForEach(coffeeData.inventory()) { coffee in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(coffee.productName).font(.headline)
-                    if !coffee.roaster.isEmpty { Text(coffee.roaster).font(.subheadline) }
-                    if let roastDate = coffee.roastDate {
-                        DatePicker(
-                            "Roasted",
-                            selection: Binding(
-                                get: { roastDate },
-                                set: { try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: $0) }
-                            ),
-                            displayedComponents: .date
-                        )
-                        .font(.caption)
-                        Button(AppLocalization.text("remove_roast_date", fallback: "Remove roast date"), role: .destructive) {
-                            try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: nil)
-                        }
-                        .font(.caption)
-                    } else {
-                        Button(AppLocalization.text("add_roast_date", fallback: "Add roast date")) {
-                            try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: .now)
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    if let openedAt = coffee.openedAt {
-                        Text("Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))")
-                            .font(.caption)
-                    } else {
-                        Button(AppLocalization.text("mark_opened_today", fallback: "Mark opened today")) { try? coffeeData.markOpened(coffee.id, date: .now) }
-                            .buttonStyle(.borderless)
-                    }
-                    Text("\(coffee.estimatedBrews()) estimated brews · \(coffee.usedQuantityGrams, specifier: "%.0f") g logged")
-                        .font(.caption)
-                    if let brewCoffeeAction {
-                        Button {
-                            brewCoffeeAction(coffee.productName)
-                        } label: {
-                            Label(AppLocalization.text("brew_this_coffee", fallback: "Brew this coffee"), systemImage: "cup.and.saucer.fill")
-                        }
-                        .buttonStyle(.tallaPrimary)
-                        .accessibilityIdentifier("coffee.inventory.brew")
-                    }
-                    Text("Original bag weight: \(coffee.initialQuantityGrams, specifier: "%.0f") g")
-                        .font(.caption)
-                    Stepper(
-                        "\(Int(coffee.remainingQuantityGrams.rounded())) g remaining",
-                        value: Binding(
-                            get: { Int(coffee.remainingQuantityGrams.rounded()) },
-                            set: { try? coffeeData.updateRemainingQuantity(recordID: coffee.id, remainingGrams: Double($0)) }
-                        ),
-                        in: 0...max(Int(coffee.initialQuantityGrams.rounded()), 1),
-                        step: 5
-                    )
-                    .accessibilityIdentifier("coffee.inventory.remaining.\(coffee.id.uuidString)")
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(coffeeCardColor, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color(hex: 0xC8965A).opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
-                )
-                .accessibilityIdentifier("offline.cached-brew")
-            }
+            inventorySection
 
             GroupBox(AppLocalization.text("bean_library", fallback: "Bean library")) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -727,7 +658,6 @@ struct CoffeeLibraryView: View {
 
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
         }
-        }
         .groupBoxStyle(TallaCoffeeGroupBoxStyle())
         .onAppear {
             equipmentID = equipmentID ?? coffeeData.equipmentRecords().first?.id
@@ -744,6 +674,110 @@ struct CoffeeLibraryView: View {
 
     private var coffeeCardColor: Color {
         colorScheme == .dark ? Color(hex: 0x17120D) : Color(hex: 0xFFFCF5)
+    }
+
+    private var inventorySection: some View {
+        let bags = coffeeData.inventory()
+        let remaining = bags.reduce(0) { $0 + $1.remainingQuantityGrams }
+        return GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(AppLocalization.text("coffee_bags", fallback: "Coffee bags"))
+                        .font(.headline)
+                    Spacer()
+                    Text("\(Int(remaining.rounded())) g left")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                if bags.isEmpty {
+                    ContentUnavailableView(
+                        AppLocalization.text("empty_coffee_inventory", fallback: "No coffee bags yet"),
+                        systemImage: "shippingbox",
+                        description: Text(AppLocalization.text("empty_coffee_inventory_detail", fallback: "Add a bag above to track roast dates, remaining coffee, and brews."))
+                    )
+                    .frame(maxWidth: .infinity)
+                } else {
+                    ForEach(bags) { coffee in
+                        coffeeInventoryCard(coffee)
+                    }
+                }
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    private func coffeeInventoryCard(_ coffee: CoffeeInventoryRecord) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(coffee.productName).font(.headline)
+                    if !coffee.roaster.isEmpty { Text(coffee.roaster).font(.subheadline) }
+                }
+                Spacer()
+                Button(role: .destructive) { delete("purchasedCoffee", coffee.id) } label: {
+                    Image(systemName: "trash")
+                }
+                .accessibilityLabel(AppLocalization.text("delete_coffee_bag", fallback: "Delete coffee bag"))
+            }
+            if let roastDate = coffee.roastDate {
+                DatePicker(
+                    "Roasted",
+                    selection: Binding(
+                        get: { roastDate },
+                        set: { try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: $0) }
+                    ),
+                    displayedComponents: .date
+                )
+                .font(.caption)
+                Button(AppLocalization.text("remove_roast_date", fallback: "Remove roast date"), role: .destructive) {
+                    try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: nil)
+                }
+                .font(.caption)
+            } else {
+                Button(AppLocalization.text("add_roast_date", fallback: "Add roast date")) {
+                    try? coffeeData.updateRoastDate(recordID: coffee.id, roastDate: .now)
+                }
+                .buttonStyle(.borderless)
+            }
+            if let openedAt = coffee.openedAt {
+                Text("Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))").font(.caption)
+            } else {
+                Button(AppLocalization.text("mark_opened_today", fallback: "Mark opened today")) { try? coffeeData.markOpened(coffee.id, date: .now) }
+                    .buttonStyle(.borderless)
+            }
+            Text("\(coffee.estimatedBrews()) estimated brews · \(coffee.usedQuantityGrams, specifier: "%.0f") g logged")
+                .font(.caption)
+            if let brewCoffeeAction {
+                Button {
+                    brewCoffeeAction(coffee)
+                } label: {
+                    Label(AppLocalization.text("brew_this_coffee", fallback: "Brew this coffee"), systemImage: "cup.and.saucer.fill")
+                }
+                .buttonStyle(.tallaPrimary)
+                .accessibilityIdentifier("coffee.inventory.brew")
+            }
+            Text("Original bag weight: \(coffee.initialQuantityGrams, specifier: "%.0f") g")
+                .font(.caption)
+            Stepper(
+                "\(Int(coffee.remainingQuantityGrams.rounded())) g remaining",
+                value: Binding(
+                    get: { Int(coffee.remainingQuantityGrams.rounded()) },
+                    set: { try? coffeeData.updateRemainingQuantity(recordID: coffee.id, remainingGrams: Double($0)) }
+                ),
+                in: 0...max(Int(coffee.initialQuantityGrams.rounded()), 1),
+                step: 5
+            )
+            .accessibilityIdentifier("coffee.inventory.remaining.\(coffee.id.uuidString)")
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(coffeeCardColor, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
+        )
+        .accessibilityIdentifier("offline.cached-brew")
     }
 
     @ViewBuilder
@@ -771,7 +805,7 @@ struct CoffeeLibraryView: View {
                 Button(AppLocalization.text("retry", fallback: "Retry connection")) {
                     Task { await coffeeData.retryCurrentAccountSynchronization() }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.tallaSecondary)
                 .accessibilityIdentifier("offline.retry")
             }
         }
@@ -783,11 +817,11 @@ struct CoffeeLibraryView: View {
                 Picker(AppLocalization.text("library_type", fallback: "Type"), selection: $equipmentKind) {
                     ForEach(EquipmentKind.allCases, id: \.self) { Text(AppLocalization.text("library_\($0.rawValue)", fallback: $0.rawValue.capitalized)).tag($0) }
                 }
-                TextField(AppLocalization.text("library_name", fallback: "Name"), text: $equipmentName).textFieldStyle(.talla).accessibilityIdentifier("coffee.equipment.name")
-                TextField(AppLocalization.text("library_manufacturer", fallback: "Manufacturer"), text: $equipmentManufacturer).textFieldStyle(.talla)
-                TextField(AppLocalization.text("library_model", fallback: "Model"), text: $equipmentModel).textFieldStyle(.talla)
+                TextField(AppLocalization.text("library_name", fallback: "Name"), text: $equipmentName).accessibilityIdentifier("coffee.equipment.name")
+                TextField(AppLocalization.text("library_manufacturer", fallback: "Manufacturer"), text: $equipmentManufacturer)
+                TextField(AppLocalization.text("library_model", fallback: "Model"), text: $equipmentModel)
                 if equipmentKind == .grinder {
-                    TextField("Burr set (size, geometry, coating)", text: $equipmentBurrSet).textFieldStyle(.talla)
+                    TextField("Burr set (size, geometry, coating)", text: $equipmentBurrSet)
                 }
                 Button(equipmentID == nil ? AppLocalization.text("library_add_equipment", fallback: "Add equipment") : AppLocalization.text("library_save_equipment", fallback: "Save equipment"), action: saveEquipment)
                     .buttonStyle(.tallaPrimary).accessibilityIdentifier("coffee.equipment.save")
@@ -818,7 +852,6 @@ struct CoffeeLibraryView: View {
         GroupBox(AppLocalization.text("household_equipment", fallback: "Household equipment profile")) {
             VStack(alignment: .leading, spacing: 10) {
                 TextField(AppLocalization.text("household_profile_name", fallback: "Household or profile name"), text: $householdProfileName)
-                    .textFieldStyle(.talla)
                     .accessibilityIdentifier("coffee.household.name")
                 Toggle(AppLocalization.text("shared_equipment", fallback: "Share equipment across this household"), isOn: $householdEquipmentIsShared)
                 Text(AppLocalization.text("household_equipment_detail", fallback: "Keep one equipment setup for shared brewers, grinders, and maintenance reminders."))
@@ -834,7 +867,6 @@ struct CoffeeLibraryView: View {
             VStack(alignment: .leading, spacing: 10) {
                 equipmentPicker
                 TextField(AppLocalization.text("maintenance_task", fallback: "Maintenance task"), text: $maintenanceScheduleTask)
-                    .textFieldStyle(.talla)
                 DatePicker(AppLocalization.text("next_due", fallback: "Next due"), selection: $maintenanceScheduleDate, in: .now..., displayedComponents: [.date, .hourAndMinute])
                 Button(AppLocalization.text("schedule_maintenance", fallback: "Schedule reminder")) {
                     scheduleMaintenanceReminder()
@@ -896,7 +928,7 @@ struct CoffeeLibraryView: View {
                             brewDayReminderTimestamp = 0
                             TallaRetentionNotificationService.cancelBrewDay()
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.tallaSecondary)
                     }
                 }
             }
@@ -930,12 +962,12 @@ struct CoffeeLibraryView: View {
         GroupBox(AppLocalization.text("library_calibrations", fallback: "Calibrations")) {
             VStack(alignment: .leading, spacing: 10) {
                 equipmentPicker
-                TextField(AppLocalization.text("library_setting", fallback: "Setting"), text: $calibrationSetting).textFieldStyle(.talla).accessibilityIdentifier("coffee.calibration.setting")
+                TextField(AppLocalization.text("library_setting", fallback: "Setting"), text: $calibrationSetting).accessibilityIdentifier("coffee.calibration.setting")
                 HStack {
-                    TextField(AppLocalization.text("library_measured_value", fallback: "Measured value"), text: $calibrationValue).keyboardType(.decimalPad).textFieldStyle(.talla)
-                    TextField(AppLocalization.text("library_unit", fallback: "Unit"), text: $calibrationUnit).textFieldStyle(.talla)
+                    TextField(AppLocalization.text("library_measured_value", fallback: "Measured value"), text: $calibrationValue).keyboardType(.decimalPad)
+                    TextField(AppLocalization.text("library_unit", fallback: "Unit"), text: $calibrationUnit)
                 }
-                TextField(AppLocalization.text("library_notes", fallback: "Notes"), text: $calibrationNotes).textFieldStyle(.talla)
+                TextField(AppLocalization.text("library_notes", fallback: "Notes"), text: $calibrationNotes)
                 Button(AppLocalization.text("library_save_calibration", fallback: "Save calibration"), action: saveCalibration).buttonStyle(.tallaPrimary).accessibilityIdentifier("coffee.calibration.save")
                 ForEach(coffeeData.calibrationRecords()) { calibration in
                     HStack {
@@ -953,8 +985,8 @@ struct CoffeeLibraryView: View {
         GroupBox(AppLocalization.text("library_maintenance", fallback: "Maintenance")) {
             VStack(alignment: .leading, spacing: 10) {
                 equipmentPicker
-                TextField(AppLocalization.text("library_maintenance_type", fallback: "Maintenance type"), text: $maintenanceKind).textFieldStyle(.talla).accessibilityIdentifier("coffee.maintenance.kind")
-                TextField(AppLocalization.text("library_notes", fallback: "Notes"), text: $maintenanceNotes).textFieldStyle(.talla)
+                TextField(AppLocalization.text("library_maintenance_type", fallback: "Maintenance type"), text: $maintenanceKind).accessibilityIdentifier("coffee.maintenance.kind")
+                TextField(AppLocalization.text("library_notes", fallback: "Notes"), text: $maintenanceNotes)
                 Button(AppLocalization.text("library_record_maintenance", fallback: "Record maintenance"), action: saveMaintenance).buttonStyle(.tallaPrimary).accessibilityIdentifier("coffee.maintenance.save")
                 ForEach(coffeeData.maintenanceRecords()) { event in
                     HStack {
@@ -1187,7 +1219,7 @@ private struct TallaCoffeeGroupBoxStyle: GroupBoxStyle {
         .background(colorScheme == .dark ? Color(hex: 0x17120D) : Color(hex: 0xFFFCF5))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }

@@ -73,7 +73,7 @@ struct CoffeeEducationView: View {
                 Button { withAnimation { selectedFamily = families.randomElement()?.name ?? "Fruity"; completedLessons.insert("1") }; persistProgress() } label: {
                     Label("Taste a coffee", systemImage: "cup.and.saucer.fill")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.tallaSecondary)
                 .tint(accent)
             }
         }
@@ -86,6 +86,40 @@ struct CoffeeEducationView: View {
     }
     private var learningPath: some View {
         VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("YOUR COFFEE SCHOOL LEVEL")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.8)
+                            .foregroundStyle(accent)
+                        Text(learningLevel.title)
+                            .font(.system(.title2, design: .serif, weight: .bold))
+                        Text(learningLevel.detail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    VStack(spacing: 4) {
+                        Image(systemName: learningLevel.icon)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(accent)
+                        Text("\(completedLessons.count)/3")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                    }
+                }
+                ProgressView(value: Double(completedLessons.count), total: 3)
+                    .tint(accent)
+                HStack(spacing: 8) {
+                    schoolBadge(title: "First pour", earned: completedLessons.contains("1"), icon: "drop.fill")
+                    schoolBadge(title: "Dialled in", earned: completedLessons.contains("2"), icon: "slider.horizontal.3")
+                    schoolBadge(title: "Bean brain", earned: quizScore > 0, icon: "brain.head.profile")
+                }
+            }
+            .padding(16)
+            .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
+
             HStack { sectionTitle("Your learning path"); Spacer(); Text("\(completedLessons.count)/3").font(.subheadline.weight(.bold)).foregroundStyle(accent) }
             Text("Build a better palate in three small steps.").foregroundStyle(.secondary)
             ForEach([("1", "Taste vocabulary", "Use the flavour wheel to name what you taste."), ("2", "Brew variables", "See how grind and time change extraction."), ("3", "Check your knowledge", "Answer a quick question and keep learning.")], id: \.0) { item in
@@ -102,6 +136,21 @@ struct CoffeeEducationView: View {
                 }.buttonStyle(.plain)
             }
         }
+    }
+    private var learningLevel: (title: String, detail: String, icon: String) {
+        switch completedLessons.count {
+        case 0: return ("Beginner", "Start with flavour vocabulary and the basics.", "leaf")
+        case 1...2: return ("Brewer", "You are building confident brewing instincts.", "drop.triangle")
+        default: return ("Coffee Expert", "Path complete — keep exploring and teaching your palate.", "rosette")
+        }
+    }
+    private func schoolBadge(title: String, earned: Bool, icon: String) -> some View {
+        Label(title, systemImage: earned ? "checkmark.seal.fill" : icon)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(earned ? .green : .secondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 7)
+            .background(Color.primary.opacity(earned ? 0.10 : 0.05), in: Capsule())
     }
     private var selectedColor: Color { families.first(where: { $0.name == selectedFamily })?.color ?? .brown }
     private var flavourWheel: some View {

@@ -142,7 +142,7 @@ extension ContentView {
                         .clipShape(Circle())
                         .overlay(
                             Circle()
-                                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
                         )
                 }
                 .menuStyle(.button)
@@ -177,7 +177,7 @@ private struct HeaderCartButton: View {
             ZStack(alignment: .topTrailing) {
                 if showingCelebration {
                     Circle()
-                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.32 : 0.42), lineWidth: 2)
+                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.32 : 0.42), lineWidth: 2)
                         .frame(width: 44, height: 44)
                         .scaleEffect(1.42)
                         .opacity(0.55)
@@ -187,14 +187,14 @@ private struct HeaderCartButton: View {
 
                 Image(systemName: cartCount > 0 ? "bag.fill" : "bag")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(cartCount > 0 ? Color(hex: 0x0A0804) : Color(hex: 0xC8965A))
+                    .foregroundColor(cartCount > 0 ? Color(hex: 0x0A0804) : TallaTheme.Colors.accent)
                     .symbolEffect(.bounce, value: celebrationID)
                     .frame(width: 40, height: 40)
-                    .background(cartCount > 0 ? Color(hex: 0xC8965A) : cardFillColor)
+                    .background(cartCount > 0 ? TallaTheme.Colors.accent : cardFillColor)
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.20 : 0.14), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.20 : 0.14), lineWidth: 1)
                     )
 
                 if cartCount > 0 {
@@ -291,7 +291,7 @@ extension ContentView {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -328,7 +328,7 @@ extension ContentView {
                     }
                     .font(labelFont(size: 11, weight: .bold))
                     .buttonStyle(.tallaPrimary)
-                    .tint(Color(hex: 0xC8965A))
+                    .tint(TallaTheme.Colors.accent)
                 }
             }
             .padding(16)
@@ -336,7 +336,7 @@ extension ContentView {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.24 : 0.16), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.24 : 0.16), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .padding(.horizontal, 18)
@@ -357,8 +357,8 @@ extension ContentView {
                 if let url = URL(string: release.appStoreURL), !release.appStoreURL.isEmpty {
                     Button(isArabicInterface ? "تحديث" : "Update") { openURL(url) }
                         .font(labelFont(size: 10, weight: .bold))
-                        .buttonStyle(.bordered)
-                        .tint(Color(hex: 0xC8965A))
+                        .buttonStyle(.tallaSecondary)
+                        .tint(TallaTheme.Colors.accent)
                 }
             }
             .padding(14)
@@ -589,7 +589,7 @@ extension ContentView {
                 .minimumScaleFactor(0.72)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 9)
-                .background(Color(hex: 0xC8965A))
+                .background(TallaTheme.Colors.accent)
                 .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
@@ -599,7 +599,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.09), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.09), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -640,7 +640,7 @@ extension ContentView {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.2 : 0.1), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.2 : 0.1), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 18)
@@ -662,7 +662,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(isSurprisePickExpanded ? 10 : 8)
                     .frame(width: isSurprisePickExpanded ? 40 : 32, height: isSurprisePickExpanded ? 40 : 32)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -713,7 +713,7 @@ extension ContentView {
                         .minimumScaleFactor(0.7)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 44)
-                        .background(Color(hex: 0xC8965A))
+                        .background(TallaTheme.Colors.accent)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -747,7 +747,7 @@ extension ContentView {
             revealSurprisePick()
         } label: {
             ZStack {
-                CoffeeBeansBurstView(accentColor: Color(hex: 0xC8965A), id: surpriseRevealID)
+                CoffeeBeansBurstView(accentColor: TallaTheme.Colors.accent, id: surpriseRevealID)
                     .opacity(surpriseRevealID == 0 ? 0 : 1)
                     .offset(y: -12)
 
@@ -759,7 +759,7 @@ extension ContentView {
                         .foregroundColor(Color(hex: 0x0A0804))
                         .padding(24)
                         .frame(width: 104, height: 104)
-                        .background(Color(hex: 0xC8965A))
+                        .background(TallaTheme.Colors.accent)
                         .clipShape(Circle())
                         .rotationEffect(.degrees(surpriseRevealID.isMultiple(of: 2) ? -4 : 4))
                         .animation(.spring(response: 0.22, dampingFraction: 0.42), value: surpriseRevealID)
@@ -808,7 +808,7 @@ extension ContentView {
                             .foregroundColor(Color(hex: 0x0A0804))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
-                            .background(Color(hex: 0xC8965A).opacity(0.9))
+                            .background(TallaTheme.Colors.accent.opacity(0.9))
                             .clipShape(Capsule())
                     }
 
@@ -847,7 +847,7 @@ extension ContentView {
                         .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
-                        .background(Color(hex: 0xC8965A))
+                        .background(TallaTheme.Colors.accent)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -873,7 +873,7 @@ extension ContentView {
         .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.78 : 0.62))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(alignment: .topTrailing) {
-            CoffeeBeansBurstView(accentColor: Color(hex: 0xC8965A), id: surpriseRevealID)
+            CoffeeBeansBurstView(accentColor: TallaTheme.Colors.accent, id: surpriseRevealID)
                 .offset(x: 18, y: -34)
                 .allowsHitTesting(false)
         }
@@ -885,7 +885,7 @@ extension ContentView {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(readableBrandGoldColor)
                 .frame(width: 24, height: 24)
-                .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.16))
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 3) {
@@ -1030,7 +1030,7 @@ extension ContentView {
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(Color(hex: 0x0A0804))
                             .frame(width: 38, height: 38)
-                            .background(Color(hex: 0xC8965A))
+                            .background(TallaTheme.Colors.accent)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -1176,7 +1176,7 @@ extension ContentView {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(readableBrandGoldColor)
                     .frame(width: 30, height: 30)
-                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                    .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
             }
             .menuStyle(.button)
@@ -1191,7 +1191,7 @@ extension ContentView {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(readableBrandGoldColor)
                     .frame(width: 28, height: 28)
-                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                    .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -1217,7 +1217,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.07), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.07), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -1256,7 +1256,7 @@ extension ContentView {
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(readableBrandGoldColor)
                 .frame(width: 34, height: 34)
-                .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.14))
                 .clipShape(Circle())
 
             Text(AppLocalization.text("shelf_sign_in_detail", fallback: "Sign in to save favourites and quickly reorder."))
@@ -1276,7 +1276,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -1342,7 +1342,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 11)
-                    .tallaGlassCapsule(tint: Color(hex: 0xC8965A))
+                    .tallaGlassCapsule(tint: TallaTheme.Colors.accent)
             }
             .buttonStyle(.plain)
         }
@@ -1350,7 +1350,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
@@ -1374,7 +1374,7 @@ extension ContentView {
                 }
             } label: {
                 Image(systemName: recommendation.product.hasVariantChoices ? "slider.horizontal.3" : "cart.badge.plus")
-                    .frame(width: 38, height: 38).background(Color(hex: 0xC8965A)).clipShape(Circle())
+                    .frame(width: 38, height: 38).background(TallaTheme.Colors.accent).clipShape(Circle())
             }
             .buttonStyle(.plain)
         }
@@ -1387,7 +1387,7 @@ extension ContentView {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(readableBrandGoldColor)
                 .frame(width: 34, height: 34)
-                .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.14))
+                .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.14))
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 4) {
@@ -1420,7 +1420,7 @@ extension ContentView {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(width: 38, height: 38)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -1431,7 +1431,7 @@ extension ContentView {
         .background(elevatedSurfaceColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -1494,7 +1494,7 @@ extension ContentView {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(width: 38, height: 38)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -1525,7 +1525,7 @@ extension ContentView {
                     favoriteShelfProductRow(product: product, index: index)
 
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.34 : 0.24))
+                        .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.34 : 0.24))
                         .frame(height: 8)
                         .overlay(alignment: .top) {
                             Rectangle()
@@ -1544,7 +1544,7 @@ extension ContentView {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(isLightAppearance ? 0.08 : 0.24), radius: 18, x: 0, y: 10)
     }
@@ -1626,10 +1626,10 @@ extension ContentView {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule(style: .continuous)
-                        .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.10))
+                        .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.10))
 
                     Capsule(style: .continuous)
-                        .fill(LinearGradient(colors: [Color(hex: 0xC8965A), Color(hex: 0x6F8B55)], startPoint: .leading, endPoint: .trailing))
+                        .fill(LinearGradient(colors: [TallaTheme.Colors.accent, Color(hex: 0x6F8B55)], startPoint: .leading, endPoint: .trailing))
                         .frame(width: max(proxy.size.width * passportProgressFraction, stampedCoffeePassportOriginKeys.isEmpty ? 0 : 12))
                         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: stampedCoffeePassportOriginKeys.count)
                 }
@@ -1667,7 +1667,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 18)
@@ -1677,7 +1677,7 @@ extension ContentView {
     var passportLogoIcon: some View {
         ZStack {
             Circle()
-                .fill(Color(hex: 0xC8965A))
+                .fill(TallaTheme.Colors.accent)
 
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(Color(hex: 0x0A0804))
@@ -1725,10 +1725,10 @@ extension ContentView {
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isStamped ? Color(hex: 0xC8965A) : elevatedSurfaceColor)
+            .background(isStamped ? TallaTheme.Colors.accent : elevatedSurfaceColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isStamped ? 0 : 0.18), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.accent.opacity(isStamped ? 0 : 0.18), lineWidth: 1)
             )
             .overlay(alignment: .topTrailing) {
                 if isStamped {
@@ -1767,9 +1767,9 @@ extension ContentView {
                     detailFont: bodyFont(size: 12),
                     primaryTextColor: primaryTextColor,
                     secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A),
+                    accentColor: TallaTheme.Colors.accent,
                     backgroundColor: cardFillColor,
-                    strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
+                    strokeColor: TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08),
                     minHeight: 106
                 ) {
                     openShop()
@@ -1783,9 +1783,9 @@ extension ContentView {
                     detailFont: bodyFont(size: 12),
                     primaryTextColor: primaryTextColor,
                     secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A),
+                    accentColor: TallaTheme.Colors.accent,
                     backgroundColor: cardFillColor,
-                    strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
+                    strokeColor: TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08),
                     minHeight: 106
                 ) {
                     openAccountSection(AccountSectionView.ScrollTarget.loyalty)
@@ -1799,9 +1799,9 @@ extension ContentView {
                     detailFont: bodyFont(size: 12),
                     primaryTextColor: primaryTextColor,
                     secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A),
+                    accentColor: TallaTheme.Colors.accent,
                     backgroundColor: cardFillColor,
-                    strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
+                    strokeColor: TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08),
                     minHeight: 106
                 ) {
                     isLibrarySectionExpanded = true
@@ -1816,9 +1816,9 @@ extension ContentView {
                     detailFont: bodyFont(size: 12),
                     primaryTextColor: primaryTextColor,
                     secondaryTextColor: secondaryTextColor,
-                    accentColor: Color(hex: 0xC8965A),
+                    accentColor: TallaTheme.Colors.accent,
                     backgroundColor: cardFillColor,
-                    strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
+                    strokeColor: TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08),
                     minHeight: 106
                 ) {
                     openBrewing()
@@ -1861,7 +1861,7 @@ extension ContentView {
                                 .foregroundColor(Color(hex: 0x0A0804))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
-                                .background(Color(hex: 0xC8965A))
+                                .background(TallaTheme.Colors.accent)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -1883,12 +1883,12 @@ extension ContentView {
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
                                 Capsule(style: .continuous)
-                                    .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.10))
+                                    .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.10))
 
                                 Capsule(style: .continuous)
                                     .fill(
                                         LinearGradient(
-                                            colors: [Color(hex: 0xC8965A), Color(hex: 0x8A5E30)],
+                                            colors: [TallaTheme.Colors.accent, Color(hex: 0x8A5E30)],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
@@ -1916,7 +1916,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .padding(.horizontal, 18)
@@ -1926,27 +1926,7 @@ extension ContentView {
     }
 
     var heroSection: some View {
-        TallaHomeHeroLayout(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize) {
-            heroIntroduction
-        } artwork: {
-            VStack(spacing: 12) {
-                Image("Logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 180, maxHeight: 180)
-                Text("TALLA")
-                    .font(displayFont(size: 28))
-                    .tracking(5)
-                    .foregroundStyle(primaryTextColor)
-                Text(AppLocalization.text("coffee_daily_rituals", fallback: "Coffee for daily rituals"))
-                    .font(bodyFont(size: 13))
-                    .foregroundStyle(secondaryTextColor)
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity, minHeight: 250)
-            .background(readableBrandGoldColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 24))
-            .accessibilityHidden(true)
-        }
+        heroIntroduction
         .padding(isCompact ? 18 : 24)
         .background(
             LinearGradient(
@@ -1970,7 +1950,7 @@ extension ContentView {
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
                 : AnyLayout(HStackLayout(alignment: .top, spacing: 12))) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(homeSettingText(remoteHomeSettings?.heroEyebrow, arabicValue: remoteHomeSettings?.heroEyebrowAR, localizationKey: "roastery", fallback: "Roastery"))
+                    Text(homeSettingText(remoteHomeSettings?.heroEyebrow, arabicValue: remoteHomeSettings?.heroEyebrowAR, localizationKey: "roastery", fallback: "Welcome"))
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(AppLocalization.letterSpacing(3))
                         .textCase(.uppercase)
@@ -2000,17 +1980,17 @@ extension ContentView {
                 )
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.22 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.22 : 0.08), lineWidth: 1)
                 )
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(homeSettingText(remoteHomeSettings?.heroTitle, arabicValue: remoteHomeSettings?.heroTitleAR, localizationKey: "hero_title", fallback: "Specialty coffee,\nroasted with intention"))
+                Text(homeSettingText(remoteHomeSettings?.heroTitle, arabicValue: remoteHomeSettings?.heroTitleAR, localizationKey: "hero_title", fallback: "Better coffee starts here"))
                     .font(displayFont(size: isCompact ? 28 : 36))
                     .lineSpacing(1)
                     .foregroundColor(primaryTextColor)
 
-                Text(homeHeroSubtitleText)
+                    Text(homeSettingText(remoteHomeSettings?.heroSubtitle, arabicValue: remoteHomeSettings?.heroSubtitleAR, localizationKey: "hero_subtitle", fallback: "Freshly roasted specialty coffee, brewing essentials, and guided recipes—all in one place."))
                     .font(bodyFont(size: 13))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2030,7 +2010,7 @@ extension ContentView {
         Button {
             openShop()
         } label: {
-            Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, arabicValue: remoteHomeSettings?.primaryButtonTitleAR, localizationKey: "explore_coffees", fallback: "EXPLORE COFFEES").uppercased())
+            Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, arabicValue: remoteHomeSettings?.primaryButtonTitleAR, localizationKey: "explore_coffees", fallback: "SHOP").uppercased())
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(Color(hex: 0x0A0804))
@@ -2038,7 +2018,7 @@ extension ContentView {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12)
                 .frame(minHeight: 48)
-                .background(Color(hex: 0xC8965A))
+                .background(TallaTheme.Colors.accent)
                 .cornerRadius(14)
         }
         .buttonStyle(.plain)
@@ -2047,7 +2027,7 @@ extension ContentView {
         Button {
             openBrewing()
         } label: {
-            Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, arabicValue: remoteHomeSettings?.secondaryButtonTitleAR, localizationKey: "brewing_guide", fallback: "BREWING GUIDE").uppercased())
+            Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, arabicValue: remoteHomeSettings?.secondaryButtonTitleAR, localizationKey: "brewing_guide", fallback: "GUIDED BREW").uppercased())
                 .font(labelFont(size: 11, weight: .bold))
                 .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
@@ -2058,7 +2038,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.18 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.18 : 0.08), lineWidth: 1)
                 )
                 .cornerRadius(14)
         }
@@ -2108,7 +2088,7 @@ extension ContentView {
             tertiaryTextColor: tertiaryTextColor,
             cardFillColor: cardFillColor,
             elevatedSurfaceColor: elevatedSurfaceColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             labelFont: labelFont(size: 10, weight: .semibold),
             titleFont: displayFont(size: isCompact ? 28 : 32),
             bodyFont: bodyFont(size: 15),
@@ -2146,6 +2126,54 @@ extension ContentView {
             }),
             walletCallToAction: AnyView(walletCallToAction)
         )
+    }
+
+    var clubView: some View {
+        ClubSectionView(
+            rewardsContent: AnyView(loyaltySection),
+            coffeeSchoolContent: AnyView(CoffeeEducationView()),
+            beansBalance: loyaltyAccount?.pointsBalance ?? 0,
+            membershipTier: loyaltyAccount?.tier ?? AppLocalization.text("bronze", fallback: "Bronze"),
+            isCustomerSignedIn: customerProfile != nil,
+            coffeeClubEnabled: remoteAppSettings?.coffeeClub?.enabled ?? true,
+            coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
+            coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks,
+            coffeeClubDiscountPercent: configuredCoffeeClubDiscountPercent,
+            coffeeClubProducts: products.filter {
+                let category = $0.categoryKey.lowercased()
+                let normalizedName = $0.name.lowercased().replacingOccurrences(of: "&", with: "and")
+                let excludedAccessoryNames = [
+                    "coffee brew water", "coffee scale", "coffee server", "coffee spoon",
+                    "rdt", "bean doser", "v60 dripper", "v60 filters"
+                ]
+                let isAccessory = excludedAccessoryNames.contains { normalizedName.contains($0) }
+                let isHawarIslandsCoffee = normalizedName.contains("hawar islands")
+                return (["coffee-beans", "arabic-coffee-beans"].contains(category) || isHawarIslandsCoffee)
+                    && !isAccessory
+                    && $0.isAvailableForSale
+            },
+            memberName: customerProfile?.displayName ?? AppLocalization.text("coffee_friend", fallback: "coffee friend"),
+            coffeeClubOrders: orderHistory.filter { $0.details?.coffeeClub != nil },
+            seasonalEvents: activeSeasonalEvents,
+            savedRecipeCount: brewRecipes.count,
+            primaryTextColor: primaryTextColor,
+            secondaryTextColor: secondaryTextColor,
+            tertiaryTextColor: tertiaryTextColor,
+            cardFillColor: cardFillColor,
+            accentColor: TallaTheme.Colors.accent,
+            pageBackgroundColor: pageBackgroundColor,
+            isLightAppearance: isLightAppearance,
+            openCoffeeClubAction: {
+                activeCategory = "coffee-beans"
+                shopSearchQuery = ""
+                openTab(.shop)
+            },
+            addCoffeeToClubAction: { product, variant, quantity, fulfillment in
+                addCoffeeClubToCart(product: product, variant: variant, quantity: quantity, fulfillment: fulfillment)
+            }
+        )
+        .padding(.horizontal, 18)
+        .padding(.vertical, 24)
     }
 
     var cartRewardsSheet: some View {
@@ -2186,7 +2214,7 @@ extension ContentView {
             secondaryTextColor: secondaryTextColor,
             cardFillColor: cardFillColor,
             elevatedSurfaceColor: elevatedSurfaceColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             labelFont: labelFont(size: 10, weight: .semibold),
             titleFont: displayFont(size: isCompact ? 28 : 32),
             bodyFont: bodyFont(size: 15),
@@ -2264,7 +2292,7 @@ extension ContentView {
             orderCount: orderHistory.count,
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
             titleFont: titleFont(size: 24),
@@ -2284,7 +2312,7 @@ extension ContentView {
         ProfileManagementSectionView(
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
             firstName: $profileFirstName,
@@ -2299,7 +2327,7 @@ extension ContentView {
     var passwordResetSection: some View {
         PasswordResetSectionView(
             primaryTextColor: primaryTextColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
             currentPassword: $currentPasswordInput,
@@ -2322,7 +2350,7 @@ extension ContentView {
             primaryTextColor: primaryTextColor,
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
             tasteMemoryLookup: tasteMemoryLookup,
@@ -2350,14 +2378,16 @@ extension ContentView {
                 components?.queryItems = items
                 openURL(components?.url ?? managedWhatsAppURL)
             },
-            manageCoffeeClubAction: { order, action, note, coffeeName, variantID, address in
+            manageCoffeeClubAction: { order, action, note, coffeeName, variantID, coffeeItems, address, fulfillmentMethod in
                 await manageCoffeeClub(
                     order: order,
                     action: action,
                     note: note,
                     coffeeName: coffeeName,
                     variantID: variantID,
-                    address: address
+                    coffeeItems: coffeeItems,
+                    address: address,
+                    fulfillmentMethod: fulfillmentMethod
                 )
             }
         )
@@ -2501,7 +2531,7 @@ extension ContentView {
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,
             cardFillColor: cardFillColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             isLightAppearance: isLightAppearance,
             titleFont: displayFont(size: 28),
             sectionTitleFont: displayFont(size: 22),
@@ -2587,7 +2617,7 @@ extension ContentView {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(width: 34, height: 34)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
 
                 Text(AppLocalization.text("coffee_quiz_title", fallback: "Find Your Talla"))
@@ -2619,7 +2649,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -2677,7 +2707,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -2710,10 +2740,10 @@ extension ContentView {
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 10)
-                            .background(selection.wrappedValue == option.id ? Color(hex: 0xC8965A) : cardFillColor)
+                            .background(selection.wrappedValue == option.id ? TallaTheme.Colors.accent : cardFillColor)
                             .overlay(
                                 Capsule(style: .continuous)
-                                    .stroke(Color(hex: 0xC8965A).opacity(selection.wrappedValue == option.id ? 0 : 0.18), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.accent.opacity(selection.wrappedValue == option.id ? 0 : 0.18), lineWidth: 1)
                             )
                             .clipShape(Capsule(style: .continuous))
                     }
@@ -2761,7 +2791,7 @@ extension ContentView {
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .background(Color(hex: 0xC8965A))
+                            .background(TallaTheme.Colors.accent)
                             .clipShape(Capsule(style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -2783,7 +2813,7 @@ extension ContentView {
                             .background(cardFillColor)
                             .overlay(
                                 Capsule(style: .continuous)
-                                    .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
                             )
                             .clipShape(Capsule(style: .continuous))
                     }
@@ -2805,7 +2835,7 @@ extension ContentView {
                             .background(cardFillColor)
                             .overlay(
                                 Capsule(style: .continuous)
-                                    .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
                             )
                             .clipShape(Capsule(style: .continuous))
                     }
@@ -2814,7 +2844,7 @@ extension ContentView {
             }
         }
         .padding(12)
-        .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.09 : 0.12))
+        .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.09 : 0.12))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
@@ -2937,7 +2967,7 @@ extension ContentView {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(width: 30, height: 30)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -2969,7 +2999,7 @@ extension ContentView {
                     .background(cardFillColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
@@ -2980,7 +3010,7 @@ extension ContentView {
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(width: 38, height: 38)
-                        .background(Color(hex: 0xC8965A))
+                        .background(TallaTheme.Colors.accent)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -3005,7 +3035,7 @@ extension ContentView {
                     .background(cardFillColor)
                     .overlay(
                         Capsule(style: .continuous)
-                            .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                     )
                     .clipShape(Capsule(style: .continuous))
                 }
@@ -3013,7 +3043,7 @@ extension ContentView {
 
                 if isLoadingConciergeImage {
                     ProgressView()
-                        .tint(Color(hex: 0xC8965A))
+                        .tint(TallaTheme.Colors.accent)
                 } else if conciergeImageData != nil {
                     conciergeImagePreview
 
@@ -3073,7 +3103,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
@@ -3083,7 +3113,7 @@ extension ContentView {
         .background(elevatedSurfaceColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -3102,7 +3132,7 @@ extension ContentView {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.22 : 0.12), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.22 : 0.12), lineWidth: 1)
                 )
                 .accessibilityLabel(AppLocalization.text("selected_image", fallback: "Selected image"))
         }
@@ -3131,7 +3161,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
                 )
                 .clipShape(Capsule(style: .continuous))
         }
@@ -3182,40 +3212,4 @@ extension ContentView {
         isRunningConcierge = false
     }
 
-}
-
-/// Measures the actual safe-area content width, including Split View and side bars.
-/// The scrolling feed stays continuous; only this non-scrolling hero avoids the fold.
-private struct TallaHomeHeroLayout<Introduction: View, Artwork: View>: View {
-    let isAccessibilitySize: Bool
-    @ViewBuilder let introduction: () -> Introduction
-    @ViewBuilder let artwork: () -> Artwork
-    @State private var geometry = HeroGeometry()
-
-    private nonisolated struct HeroGeometry: Equatable, Sendable {
-        var width: CGFloat = 0
-        var division: CGRect = .zero
-    }
-
-    var body: some View {
-        let hasDivision = !geometry.division.isEmpty
-        let wide = geometry.width >= 620 && !isAccessibilitySize
-        let gap: CGFloat = max(24, geometry.division.width + 24)
-        let leadingWidth = geometry.division.isEmpty
-            ? (geometry.width - gap) / 2
-            : max(0, geometry.division.minX - 12)
-        HStack(alignment: .center, spacing: wide ? gap : 0) {
-            introduction()
-                .frame(width: wide || hasDivision ? leadingWidth : nil, alignment: .leading)
-                .frame(maxWidth: wide || hasDivision ? nil : .infinity, alignment: .leading)
-            if wide {
-                artwork()
-                    .frame(maxWidth: .infinity)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .onGeometryChange(for: HeroGeometry.self) { proxy in
-            HeroGeometry(width: proxy.size.width)
-        } action: { geometry = $0 }
-    }
 }

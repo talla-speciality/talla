@@ -1211,7 +1211,7 @@
         const appPrivacyURLInput = document.getElementById("app-privacy-url");
         const appTermsURLInput = document.getElementById("app-terms-url");
         const appOperationalInputs = Object.fromEntries([
-            "app-pay-apple", "app-pay-benefitpay", "app-pay-benefit", "app-pay-card", "app-pay-cod",
+            "app-pay-apple", "app-pay-benefitpay", "app-pay-benefit", "app-pay-card", "app-pay-click-to-pay", "app-pay-cod",
             "app-payment-notice-en", "app-payment-notice-ar", "app-delivery-enabled", "app-pickup-enabled",
             "app-pickup-name-en", "app-pickup-name-ar", "app-pickup-address-en", "app-pickup-address-ar",
             "app-pickup-maps-url", "app-opening-hours-en", "app-opening-hours-ar", "app-bahrain-rate",
@@ -3244,6 +3244,17 @@
             return payload.recipe;
         }
 
+        async function updateCommunityRecipe(recipe) {
+            const response = await fetch("/admin/api/community-recipes/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: recipe.id, title: recipe.title, method: recipe.method, detail: recipe.detail })
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not update community recipe.");
+            return payload.recipe;
+        }
+
         function renderCommunityRecipes(recipes) {
             state.communityRecipes = recipes;
             const pending = recipes.filter((recipe) => recipe.status === "pending");
@@ -3260,8 +3271,13 @@
                         <div><strong>${escapeHTML(recipe.title || "Untitled recipe")}</strong><div class="muted">${escapeHTML(recipe.method || "Method not specified")} · ${escapeHTML(recipe.author || recipe.authorEmail || "Unknown author")} · ${recipe.createdAt ? new Date(recipe.createdAt).toLocaleString() : ""}</div></div>
                         <span class="directory-badge">${escapeHTML(recipe.status || "pending")}</span>
                     </div>
-                    <div style="margin-top:8px; white-space:pre-wrap;">${escapeHTML(recipe.detail || "")}</div>
+                    <div class="grid" style="margin-top:10px;">
+                        <input class="community-recipe-title" data-id="${escapeHTML(recipe.id)}" value="${escapeHTML(recipe.title || "")}" maxlength="120" aria-label="Recipe title">
+                        <input class="community-recipe-method" data-id="${escapeHTML(recipe.id)}" value="${escapeHTML(recipe.method || "")}" maxlength="80" aria-label="Recipe method">
+                    </div>
+                    <textarea class="community-recipe-detail" data-id="${escapeHTML(recipe.id)}" maxlength="1000" style="width:100%; min-height:90px; margin-top:10px; resize:vertical;" aria-label="Recipe and notes">${escapeHTML(recipe.detail || "")}</textarea>
                     <div class="toolbar-row" style="margin-top:10px;">
+                        <button class="update-community-recipe secondary" data-id="${escapeHTML(recipe.id)}">Save edits</button>
                         <button class="moderate-community-recipe" data-id="${escapeHTML(recipe.id)}" data-status="approved">Approve</button>
                         <button class="moderate-community-recipe secondary" data-id="${escapeHTML(recipe.id)}" data-status="pending">Return to pending</button>
                         <button class="moderate-community-recipe danger" data-id="${escapeHTML(recipe.id)}" data-status="rejected">Reject</button>
@@ -4015,6 +4031,26 @@
 
         refreshCommunityRecipesButton.addEventListener("click", loadCommunityRecipes);
         communityRecipesListEl.addEventListener("click", async (event) => {
+            const updateButton = event.target.closest(".update-community-recipe");
+            if (updateButton) {
+                const id = updateButton.dataset.id;
+                const card = updateButton.closest(".list-item");
+                try {
+                    updateButton.disabled = true;
+                    await updateCommunityRecipe({
+                        id,
+                        title: card.querySelector(".community-recipe-title").value.trim(),
+                        method: card.querySelector(".community-recipe-method").value.trim(),
+                        detail: card.querySelector(".community-recipe-detail").value.trim()
+                    });
+                    await loadCommunityRecipes();
+                    setStatus("Recipe edits saved.", false);
+                } catch (error) {
+                    setStatus(error.message, true);
+                    updateButton.disabled = false;
+                }
+                return;
+            }
             const button = event.target.closest(".moderate-community-recipe");
             if (!button) return;
             try {

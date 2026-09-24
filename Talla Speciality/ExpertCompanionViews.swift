@@ -14,13 +14,14 @@ struct CuppingEntry: Codable, Identifiable, Hashable {
 
 struct CommunityRecipeEntry: Codable, Identifiable, Hashable {
     enum ModerationStatus: String, Codable { case pending, approved, rejected }
-    var id = UUID()
+    var id = UUID().uuidString
     var title: String
     var method: String
     var detail: String
     var author: String
     var status: ModerationStatus = .pending
     var createdAt = Date()
+    var canEdit = true
 }
 
 struct CuppingWorkspaceView: View {
@@ -79,7 +80,7 @@ struct CuppingWorkspaceView: View {
                 }
 
                 Button { showEventForm = true } label: { Label(AppLocalization.text("cupping_event", fallback: "Plan a cupping event"), systemImage: "calendar.badge.plus") }
-                    .buttonStyle(.bordered).tint(accent)
+                    .buttonStyle(.tallaSecondary).tint(accent)
             }.padding(20)
         }
         .background(background.ignoresSafeArea())
@@ -124,16 +125,47 @@ struct CommunityRecipesView: View {
     @State private var detail = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var editingRecipe: CommunityRecipeEntry?
     @AppStorage("privacy.community.sharing.optOut") private var communitySharingOptOut = false
     private let key = "talla.community.recipes.v1"
 
     var body: some View {
-        List {
-            Section { Text(AppLocalization.text("community_moderation_detail", fallback: "New recipes are reviewed before they appear publicly. Your saved drafts stay on this device until approved.")).font(.subheadline).foregroundStyle(secondary) }
-            Section("Submit a recipe") { TextField("Title", text: $title); TextField("Method", text: $method); TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(3...7); Button(communitySharingOptOut ? "Community sharing is off" : "Submit for review") { submit() }.disabled(communitySharingOptOut || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
-            Section("Approved recipes") { ForEach(recipes.filter { $0.status == .approved }) { recipe in VStack(alignment: .leading) { Text(recipe.title).font(.headline); Text("\(recipe.method) · \(recipe.detail)").font(.caption).foregroundStyle(secondary) } } }
-            Section("Your submissions") { ForEach(recipes.filter { $0.status != .approved }) { recipe in HStack { VStack(alignment: .leading) { Text(recipe.title); Text(recipe.detail).font(.caption).foregroundStyle(secondary) }; Spacer(); Text(recipe.status.rawValue.capitalized).font(.caption.weight(.semibold)).foregroundStyle(accent) } } }
-        }.scrollContentBackground(.hidden).background(background).navigationTitle("Community recipes").onAppear { load() }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(AppLocalization.text("community_moderation_detail", fallback: "New recipes are reviewed before they appear publicly. Your saved drafts stay on this device until approved."))
+                    .font(.subheadline).foregroundStyle(secondary)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Submit a recipe").font(.headline).foregroundStyle(primary)
+                    TextField("Title", text: $title).textFieldStyle(.roundedBorder)
+                    TextField("Method", text: $method).textFieldStyle(.roundedBorder)
+                    TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(3...7).textFieldStyle(.roundedBorder)
+                    Button(communitySharingOptOut ? "Community sharing is off" : "Submit for review") { submit() }
+                        .buttonStyle(.borderedProminent).tint(accent)
+                        .disabled(communitySharingOptOut || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if let errorMessage { Text(errorMessage).font(.footnote).foregroundStyle(.red) }
+                }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(surface).clipShape(RoundedRectangle(cornerRadius: 16))
+
+                recipeSection("Approved recipes", recipes.filter { $0.status == .approved }, showStatus: false)
+                recipeSection("Your submissions", recipes.filter { $0.status != .approved }, showStatus: true)
+            }.padding(.horizontal, 20).padding(.vertical, 16)
+        }.background(background.ignoresSafeArea()).navigationTitle("Community recipes").onAppear { load() }
+        .sheet(item: $editingRecipe) { recipe in
+            NavigationStack { CommunityRecipeEditorView(recipe: recipe, accent: accent, background: background, primary: primary, secondary: secondary) { updated in
+                if let index = recipes.firstIndex(where: { $0.id == updated.id }) { recipes[index] = updated; persistLocal() }
+            } }
+        }
+    }
+    private func recipeRow(_ recipe: CommunityRecipeEntry, showStatus: Bool) -> some View {
+        HStack { VStack(alignment: .leading) { Text(recipe.title).font(.headline); Text("\(recipe.method) · \(recipe.detail)").font(.caption).foregroundStyle(secondary); if showStatus { Text(recipe.status.rawValue.capitalized).font(.caption.weight(.semibold)).foregroundStyle(accent) } }; Spacer(); if recipe.canEdit { Button("Edit") { editingRecipe = recipe }.buttonStyle(.tallaSecondary).tint(accent) } }
+    }
+    @ViewBuilder private func recipeSection(_ title: String, _ recipes: [CommunityRecipeEntry], showStatus: Bool) -> some View {
+        if !recipes.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(title).font(.headline).foregroundStyle(primary)
+                ForEach(recipes) { recipe in recipeRow(recipe, showStatus: showStatus).padding(12).frame(maxWidth: .infinity, alignment: .leading).background(surface).clipShape(RoundedRectangle(cornerRadius: 12)) }
+            }
+        }
     }
     private func submit() {
         let local = CommunityRecipeEntry(title: title, method: method, detail: detail, author: "You")
@@ -156,11 +188,56 @@ struct CommunityRecipesView: View {
     private func loadFromServer() async {
         do {
             let remote = try await AccountService.fetchCommunityRecipes()
-            let mapped = remote.map { CommunityRecipeEntry(id: UUID(), title: $0.title, method: $0.method, detail: $0.detail, author: $0.author, status: CommunityRecipeEntry.ModerationStatus(rawValue: $0.status) ?? .pending) }
+            let mapped = remote.map { CommunityRecipeEntry(id: $0.id, title: $0.title, method: $0.method, detail: $0.detail, author: $0.author, status: CommunityRecipeEntry.ModerationStatus(rawValue: $0.status) ?? .pending, canEdit: $0.canEdit ?? false) }
             await MainActor.run { recipes = mapped; persistLocal() }
         } catch { }
     }
     private func persistLocal() { UserDefaults.standard.set(try? JSONEncoder().encode(recipes), forKey: key) }
+}
+
+private struct CommunityRecipeEditorView: View {
+    let recipe: CommunityRecipeEntry
+    let accent: Color
+    let background: Color
+    let primary: Color
+    let secondary: Color
+    let onSaved: (CommunityRecipeEntry) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+    @State private var method: String
+    @State private var detail: String
+    @State private var saving = false
+    @State private var errorMessage: String?
+
+    init(recipe: CommunityRecipeEntry, accent: Color, background: Color, primary: Color, secondary: Color, onSaved: @escaping (CommunityRecipeEntry) -> Void) {
+        self.recipe = recipe; self.accent = accent; self.background = background; self.primary = primary; self.secondary = secondary; self.onSaved = onSaved
+        _title = State(initialValue: recipe.title); _method = State(initialValue: recipe.method); _detail = State(initialValue: recipe.detail)
+    }
+
+    var body: some View {
+        Form {
+            Section("Recipe") { TextField("Title", text: $title); TextField("Method", text: $method); TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(4...10) }
+            if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+            Section { Button(saving ? "Saving…" : "Save changes") { save() }.disabled(saving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+            Section { Text("Editing sends the recipe back for review before it appears publicly again.").font(.footnote).foregroundStyle(secondary) }
+        }.scrollContentBackground(.hidden).background(background).navigationTitle("Edit recipe").toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+    }
+
+    private func save() {
+        saving = true; errorMessage = nil
+        Task {
+            do {
+                let updated = try await AccountService.updateCommunityRecipe(id: recipe.id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), method: method.trimmingCharacters(in: .whitespacesAndNewlines), detail: detail.trimmingCharacters(in: .whitespacesAndNewlines))
+                let entry = CommunityRecipeEntry(id: updated.id, title: updated.title, method: updated.method, detail: updated.detail, author: updated.author, status: CommunityRecipeEntry.ModerationStatus(rawValue: updated.status) ?? .pending, canEdit: updated.canEdit ?? true)
+                await MainActor.run { onSaved(entry); dismiss() }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Could not save changes. Please try again."
+                    saving = false
+                }
+            }
+        }
+    }
 }
 
 struct PrivacyControlsView: View {

@@ -318,7 +318,7 @@ extension AdminContentArea {
             .init("release.updateMessageAR", "Arabic update message", .text)
         ]),
         .init("Loyalty rules", [
-            .init("loyalty.pointsPerBHD", "Points per BHD", .integer),
+            .init("loyalty.pointsPerBHD", "Points per BHD", .number),
             .init("loyalty.silverThreshold", "Silver threshold", .integer),
             .init("loyalty.goldThreshold", "Gold threshold", .integer),
             .init("loyalty.rewardStep", "Reward step", .integer)

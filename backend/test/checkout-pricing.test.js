@@ -103,6 +103,26 @@ test("prepaid Coffee Club prices three shipments with a 10 percent saving and pa
     assert.equal(result.items[0].quantity, 3);
 });
 
+test("Coffee Club accepts coffee products identified by the catalog title or tags", async () => {
+    const titleIdentifiedCoffee = node(coffeeID, "4.000", {
+        displayName: "Ethiopia Hambela",
+        product: {
+            title: "Ethiopia Hambela",
+            productType: "Coffee",
+            tags: ["single-origin"],
+            collections: { nodes: [] }
+        }
+    });
+    const verify = service({ nodes: [titleIdentifiedCoffee] });
+    const result = await verify(body(
+        [{ variantId: coffeeID, quantity: 1 }],
+        16.8,
+        { coffeeClub: { shipmentCount: 3, intervalWeeks: 4, termsAccepted: true } }
+    ), "customer@example.com");
+
+    assert.equal(result.coffeeClub.shipmentCount, 3);
+});
+
 test("Coffee Club checkout requires explicit prepaid terms acceptance", async () => {
     const verify = service({ nodes: [node(coffeeID, "4.000")] });
     await assert.rejects(

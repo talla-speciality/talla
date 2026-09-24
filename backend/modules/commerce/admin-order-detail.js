@@ -64,6 +64,15 @@ function createAdminOrderDetailService(dependencies) {
         const pausedAt = validISODate(value.pausedAt);
         const cancelledAt = validISODate(value.cancelledAt);
         const activeForSchedule = status === "active" || status === "cancel_requested";
+        const rawCoffeeItems = Array.isArray(value.coffeeItems) && value.coffeeItems.length > 0
+            ? value.coffeeItems
+            : (value.preference && typeof value.preference === "object" ? [value.preference] : []);
+        const coffeeItems = rawCoffeeItems.slice(0, 12).map((item) => ({
+            coffeeName: trimText(item?.coffeeName || item?.name, 180) || null,
+            variantId: trimText(item?.variantId, 180) || null,
+            quantity: Math.max(1, Math.min(12, Math.round(Number(item?.quantity) || 1)))
+        })).filter((item) => item.coffeeName || item.variantId);
+        const firstCoffeeItem = coffeeItems[0] || { coffeeName: null, variantId: null };
         return {
             shipmentCount,
             intervalWeeks,
@@ -90,17 +99,20 @@ function createAdminOrderDetailService(dependencies) {
             termsAcceptedAt: validISODate(value.termsAcceptedAt) || null,
             lastReminderAt: validISODate(value.lastReminderAt) || null,
             lastSkippedAt: validISODate(value.lastSkippedAt) || null,
+            coffeeItems,
             preference: {
-                coffeeName: trimText(value.preference?.coffeeName, 180) || null,
-                variantId: trimText(value.preference?.variantId, 180) || null
+                coffeeName: firstCoffeeItem.coffeeName,
+                variantId: firstCoffeeItem.variantId
             },
             fulfillmentOverride: value.fulfillmentOverride && typeof value.fulfillmentOverride === "object" ? {
+                method: trimText(value.fulfillmentOverride.method, 40).toLowerCase(),
                 fullName: trimText(value.fulfillmentOverride.fullName, 160),
                 phone: trimText(value.fulfillmentOverride.phone, 32),
                 line1: trimText(value.fulfillmentOverride.line1, 240),
                 city: trimText(value.fulfillmentOverride.city, 100),
                 countryCode: normalizeCountryCode(value.fulfillmentOverride.countryCode, ""),
-                notes: trimText(value.fulfillmentOverride.notes, 500)
+                notes: trimText(value.fulfillmentOverride.notes, 500),
+                pickupSlot: trimText(value.fulfillmentOverride.pickupSlot, 80)
             } : null
         };
     }
@@ -202,13 +214,13 @@ function createAdminOrderDetailService(dependencies) {
                 coffeeClub.shipmentCount,
                 coffeeClub.deliveredShipments + (currentShipment ? 2 : 1)
             );
+            const updatedCoffeeItems = Array.isArray(changes.coffeeItems) && changes.coffeeItems.length > 0
+                ? changes.coffeeItems
+                : [{ coffeeName: changes.coffeeName, variantId: changes.variantId, quantity: 1 }];
             return normalizeCoffeeClub({
                 ...coffeeClub,
                 changesEffectiveFromShipment,
-                preference: {
-                    coffeeName: changes.coffeeName,
-                    variantId: changes.variantId
-                },
+                coffeeItems: updatedCoffeeItems,
                 fulfillmentOverride: changes.fulfillment
             });
         } else if (action === "reminded") {

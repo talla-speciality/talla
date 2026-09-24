@@ -28,6 +28,7 @@ struct AdminWorkspaceView: View {
                 }
                 Section("Customer engagement") {
                     if includes("Coffee memory beans lots sync recommendations") { NavigationLink { AdminCoffeeMemoryView() } label: { row("Coffee Memory", "Lots, imports, sync health, and customer support", "cup.and.saucer.fill") } }
+                    if includes("Community recipes moderation edit approve reject") { NavigationLink { AdminCommunityRecipesView() } label: { row("Community Recipes", "Edit and moderate customer-submitted recipes", "book.and.wrench.fill") } }
                     if includes("Notifications push messages") { NavigationLink { AdminNotificationComposer() } label: { row("Notifications", "Compose a customer push notification", "bell.badge.fill") } }
                 }
                 Section("Insights") {
@@ -53,6 +54,122 @@ struct AdminWorkspaceView: View {
     }
     private func subtitle(_ area: AdminContentArea) -> String {
         switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions" }
+    }
+}
+
+extension AdminAPI {
+    func updateCommunityRecipe(_ document: AdminValue) async throws -> AdminValue {
+        try await self.document("/admin/api/community-recipes/update", body: document.selecting(["id", "title", "method", "detail"]))
+    }
+
+    func moderateCommunityRecipe(id: String, status: String) async throws -> AdminValue {
+        try await self.document("/admin/api/community-recipes/moderate", body: .object(["id": .string(id), "status": .string(status)]))
+    }
+}
+
+struct AdminCommunityRecipesView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var recipes: [AdminValue] = []
+    @State private var search = ""
+    @State private var filter = "All"
+    @State private var loading = false
+    @State private var error: String?
+
+    private var visibleRecipes: [(Int, AdminValue)] {
+        recipes.enumerated().filter { _, recipe in
+            let matchesSearch = search.isEmpty || [recipe["title"].text, recipe["method"].text, recipe["detail"].text, recipe["author"].text].joined(separator: " ").localizedCaseInsensitiveContains(search)
+            let matchesFilter = filter == "All" || recipe["status"].text.caseInsensitiveCompare(filter) == .orderedSame
+            return matchesSearch && matchesFilter
+        }.map { ($0.offset, $0.element) }
+    }
+
+    var body: some View {
+        List {
+            Picker("Status", selection: $filter) {
+                ForEach(["All", "Pending", "Approved", "Rejected"], id: \.self) { Text($0) }
+            }.pickerStyle(.segmented)
+            if loading { ProgressView("Loading recipes…") }
+            if !loading && recipes.isEmpty { ContentUnavailableView("No community recipes", systemImage: "book.closed", description: Text("Customer-submitted recipes will appear here.")) }
+            ForEach(visibleRecipes, id: \.0) { index, recipe in
+                NavigationLink {
+                    AdminCommunityRecipeEditor(document: recipe) { updated in recipes[index] = updated }
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipe["title"].text.isEmpty ? "Untitled recipe" : recipe["title"].text).font(.headline)
+                        Text("\(recipe["method"].text.isEmpty ? "Method not specified" : recipe["method"].text) · \(recipe["author"].text.isEmpty ? recipe["authorEmail"].text : recipe["author"].text)").font(.caption).foregroundStyle(.secondary)
+                        Text(recipe["status"].text.capitalized).font(.caption.weight(.semibold)).foregroundStyle(TallaAdminStyle.caramel)
+                    }.padding(.vertical, 5)
+                }
+            }
+        }.adminBackground().navigationTitle("Community Recipes").searchable(text: $search, prompt: "Find a recipe")
+        .task { await load() }.refreshable { await load() }
+        .toolbar { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading).accessibilityLabel("Refresh recipes") }
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: nil) }
+    }
+
+    @MainActor private func load() async {
+        guard !loading else { return }; loading = true; error = nil; defer { loading = false }
+        do { recipes = try await session.api.document("/admin/api/community-recipes")["recipes"].array }
+        catch let caughtError {
+            error = caughtError.localizedDescription
+            if case AdminAPIError.unauthorized = caughtError {
+                session.handle(caughtError)
+            }
+        }
+    }
+}
+
+struct AdminCommunityRecipeEditor: View {
+    @EnvironmentObject private var session: AdminSession
+    @Environment(\.dismiss) private var dismiss
+    @State private var document: AdminValue
+    @State private var busy = false
+    @State private var error: String?
+    @State private var message: String?
+    let onSaved: (AdminValue) -> Void
+    private let fields: [AdminField] = [
+        .init("title", "Title", required: true),
+        .init("method", "Method"),
+        .init("detail", "Recipe and notes", .multiline, required: true)
+    ]
+
+    init(document: AdminValue, onSaved: @escaping (AdminValue) -> Void) {
+        _document = State(initialValue: document)
+        self.onSaved = onSaved
+    }
+
+    var body: some View {
+        Form {
+            Section("Recipe") { ForEach(fields) { AdminFieldRow(field: $0, document: $document) } }
+            Section("Moderation") {
+                Picker("Status", selection: Binding(get: { document["status"].text }, set: { document["status"] = .string($0) })) {
+                    ForEach(["pending", "approved", "rejected"], id: \.self) { Text($0.capitalized).tag($0) }
+                }
+                if !document["authorEmail"].text.isEmpty { LabeledContent("Author", value: document["authorEmail"].text) }
+            }
+            Section { Button(busy ? "Saving…" : "Save Recipe") { Task { await save() } }.disabled(busy) }
+        }.adminBackground().navigationTitle("Edit Recipe").navigationBarTitleDisplayMode(.inline).disabled(busy)
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: message) }
+    }
+
+    @MainActor private func save() async {
+        do {
+            document = try adminValidated(document, fields: fields)
+            guard !document["id"].text.isEmpty else { throw AdminAPIError.server("Recipe id is missing.") }
+            busy = true; error = nil; message = nil
+            let updated = try await session.api.updateCommunityRecipe(document)
+            if document["status"].text != updated["status"].text {
+                _ = try await session.api.moderateCommunityRecipe(id: updated["id"].text, status: document["status"].text)
+            }
+            let refreshed = try await session.api.document("/admin/api/community-recipes")["recipes"].array.first { $0["id"].text == updated["id"].text } ?? updated
+            document = refreshed; onSaved(refreshed); message = "Recipe saved."
+        } catch let caughtError {
+            error = caughtError.localizedDescription
+            if case AdminAPIError.unauthorized = caughtError {
+                session.handle(caughtError)
+            }
+        }
+        busy = false
     }
 }
 

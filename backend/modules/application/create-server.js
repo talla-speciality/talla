@@ -1168,6 +1168,30 @@ module.exports = function createServer(dependencies) {
             return;
         }
 
+        if (request.method === "POST" && url.pathname === "/admin/api/community-recipes/update") {
+            const body = await readBody(request);
+            const recipeID = trimText(body.id, 160);
+            const title = trimText(body.title, 120);
+            const method = trimText(body.method, 80);
+            const detail = trimText(body.detail, 1_000);
+            if (!recipeID || !title || !detail) {
+                sendJSON(response, 400, { error: "Recipe id, title, and detail are required." });
+                return;
+            }
+            const store = readJSON(communityRecipesStorePath);
+            const recipe = (Array.isArray(store.recipes) ? store.recipes : []).find((item) => item.id === recipeID);
+            if (!recipe) { sendJSON(response, 404, { error: "Community recipe not found." }); return; }
+            recipe.title = title;
+            recipe.method = method;
+            recipe.detail = detail;
+            recipe.updatedAt = new Date().toISOString();
+            recipe.updatedBy = admin.username;
+            writeJSON(communityRecipesStorePath, store);
+            await createAdminAuditLog({ adminUser: admin.username, action: "community_recipe_updated", targetEmail: recipe.authorEmail || null, detail: recipeID, metadata: { recipeID } });
+            sendJSON(response, 200, { recipe });
+            return;
+        }
+
         if (request.method === "POST" && url.pathname === "/admin/api/coffee-memory/reimport") {
             const body = await readBody(request);
             const email = normalizeEmail(body.email);
@@ -4273,6 +4297,7 @@ module.exports = function createServer(dependencies) {
                 note: body.note,
                 coffeeName: body.coffeeName,
                 variantId: body.variantId,
+                coffeeItems: body.coffeeItems,
                 fulfillment: body.fulfillment
             }, customer.email);
             if (!result.order) {
@@ -4402,7 +4427,9 @@ module.exports = function createServer(dependencies) {
         if (!customer) return;
         const store = readJSON(communityRecipesStorePath);
         const recipes = Array.isArray(store.recipes) ? store.recipes : [];
-        sendJSON(response, 200, { recipes: recipes.filter((recipe) => recipe.status === "approved" || recipe.authorEmail === customer.email) });
+        sendJSON(response, 200, { recipes: recipes
+            .filter((recipe) => recipe.status === "approved" || recipe.authorEmail === customer.email)
+            .map(({ authorEmail, ...recipe }) => ({ ...recipe, canEdit: authorEmail === customer.email })) });
         return;
     }
 
@@ -4476,7 +4503,40 @@ module.exports = function createServer(dependencies) {
             store.recipes.unshift(recipe);
             store.recipes = store.recipes.slice(0, 500);
             writeJSON(communityRecipesStorePath, store);
-            sendJSON(response, 201, { recipe });
+            sendJSON(response, 201, { recipe: { ...recipe, canEdit: true } });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid community recipe payload." });
+        }
+        return;
+    }
+
+    if (request.method === "PUT" && url.pathname === "/community/recipes") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const recipeID = trimText(body.id, 160);
+            const title = trimText(body.title, 120);
+            const method = trimText(body.method, 80);
+            const detail = trimText(body.detail, 1_000);
+            if (!recipeID || !title || !detail) {
+                sendJSON(response, 400, { error: "Recipe id, title, and detail are required." });
+                return;
+            }
+            const store = readJSON(communityRecipesStorePath);
+            const recipe = (Array.isArray(store.recipes) ? store.recipes : []).find((item) => item.id === recipeID && item.authorEmail === customer.email);
+            if (!recipe) { sendJSON(response, 404, { error: "Recipe not found or not owned by this account." }); return; }
+            recipe.title = title;
+            recipe.method = method;
+            recipe.detail = detail;
+            recipe.status = "pending";
+            recipe.updatedAt = new Date().toISOString();
+            delete recipe.moderatedAt;
+            delete recipe.moderatedBy;
+            writeJSON(communityRecipesStorePath, store);
+            sendJSON(response, 200, { recipe: { ...recipe, canEdit: true } });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid community recipe payload." });
         }
@@ -4557,6 +4617,11 @@ module.exports = function createServer(dependencies) {
                     gift: gift && (gift.recipientName || gift.recipientPhone || gift.message) ? gift : null,
                     coffeeClub: verifiedPricing?.coffeeClub ? {
                         ...verifiedPricing.coffeeClub,
+                        coffeeItems: items.map((item) => ({
+                            coffeeName: item.name,
+                            variantId: item.variantId,
+                            quantity: Math.max(1, Math.round(Number(item.quantity) || 1))
+                        })),
                         startedAt: createdAt,
                         termsAcceptedAt: createdAt,
                         status: "active"

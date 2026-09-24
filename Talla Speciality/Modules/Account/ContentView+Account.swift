@@ -62,7 +62,7 @@ extension ContentView {
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,
             cardFillColor: cardFillColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             isLightAppearance: isLightAppearance,
             isOLEDAppearance: isOLEDAppearance,
             titleFont: displayFont(size: 32),
@@ -123,6 +123,20 @@ extension ContentView {
         )
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
+        .sheet(item: $editingBrewRecipe) { recipe in
+            NavigationStack {
+                SavedBrewRecipeEditor(
+                    recipe: recipe,
+                    accent: TallaTheme.Colors.accent,
+                    background: cardFillColor,
+                    primary: primaryTextColor,
+                    secondary: secondaryTextColor
+                ) { updated in
+                    persistBrewRecipes([updated] + brewRecipes.filter { $0.id != updated.id })
+                    showToast(message: AppLocalization.text("brew_recipe_saved_toast", fallback: "Brew recipe saved"))
+                }
+            }
+        }
     }
 
     var languagePreferenceCard: some View {
@@ -132,7 +146,7 @@ extension ContentView {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(readableBrandGoldColor)
                     .frame(width: 34, height: 34)
-                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                    .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -160,7 +174,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -242,7 +256,7 @@ extension ContentView {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
@@ -257,7 +271,7 @@ extension ContentView {
 
     var settingsDivider: some View {
         Rectangle()
-            .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.06))
+            .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.06))
             .frame(height: 1)
             .padding(.leading, 54)
     }
@@ -273,9 +287,9 @@ extension ContentView {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(isDestructive ? .red : Color(hex: 0xC8965A))
+                    .foregroundColor(isDestructive ? .red : TallaTheme.Colors.accent)
                     .frame(width: 34, height: 34)
-                    .background((isDestructive ? Color.red : Color(hex: 0xC8965A)).opacity(isLightAppearance ? 0.10 : 0.14))
+                    .background((isDestructive ? Color.red : TallaTheme.Colors.accent).opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
 
                 Text(title)
@@ -328,7 +342,7 @@ extension ContentView {
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
-                                    .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -395,7 +409,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
@@ -405,7 +419,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -528,10 +542,10 @@ extension ContentView {
                 .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(isSelected ? Color(hex: 0xC8965A) : cardFillColor)
+                .background(isSelected ? TallaTheme.Colors.accent : cardFillColor)
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(Color(hex: 0xC8965A).opacity(isSelected ? 0 : 0.18), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.accent.opacity(isSelected ? 0 : 0.18), lineWidth: 1)
                 )
                 .clipShape(Capsule(style: .continuous))
         }
@@ -553,7 +567,7 @@ extension ContentView {
     func accountWorkspaceCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         SectionCardView(
             backgroundColor: cardFillColor,
-            strokeColor: Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08)
+            strokeColor: TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08)
         ) {
             content()
         }
@@ -571,7 +585,7 @@ extension ContentView {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(readableBrandGoldColor)
                     .frame(width: 34, height: 34)
-                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                    .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
 
                 Text(message)
@@ -588,7 +602,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -598,7 +612,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -711,7 +725,7 @@ extension ContentView {
                                 .background(cardFillColor)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+                                        .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
                                 )
                                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
@@ -756,7 +770,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
@@ -789,7 +803,7 @@ extension ContentView {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
@@ -845,7 +859,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
@@ -889,7 +903,7 @@ extension ContentView {
                         }
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(Color(hex: 0xC8965A))
+                        .background(TallaTheme.Colors.accent)
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -929,7 +943,7 @@ extension ContentView {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
     }
@@ -1057,7 +1071,7 @@ extension ContentView {
                 }
                 .foregroundColor(Color(hex: 0x0A0804))
                 .frame(maxWidth: .infinity, minHeight: 54)
-                .background(Color(hex: 0xC8965A))
+                .background(TallaTheme.Colors.accent)
                 .clipShape(Capsule())
                 .contentShape(Capsule())
             }
@@ -1066,10 +1080,10 @@ extension ContentView {
             .opacity(isSavingAddress ? 0.72 : 1)
         }
         .padding(16)
-        .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.045 : 0.08))
+        .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.045 : 0.08))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(0.16), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -1092,7 +1106,7 @@ extension ContentView {
 
     var addressFieldBorder: some View {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .stroke(Color(hex: 0xC8965A).opacity(0.14), lineWidth: 1)
+            .stroke(TallaTheme.Colors.accent.opacity(0.14), lineWidth: 1)
     }
 
     func savedAddressCard(_ address: DeliveryAddress) -> some View {
@@ -1111,7 +1125,7 @@ extension ContentView {
                             .foregroundColor(readableBrandGoldColor)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
-                            .background(Color(hex: 0xC8965A).opacity(0.12))
+                            .background(TallaTheme.Colors.accent.opacity(0.12))
                             .clipShape(Capsule())
                     }
                 }
@@ -1154,7 +1168,7 @@ extension ContentView {
                         .foregroundColor(readableBrandGoldColor)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 48)
-                        .background(Color(hex: 0xC8965A).opacity(0.10))
+                        .background(TallaTheme.Colors.accent.opacity(0.10))
                         .clipShape(Capsule())
                         .contentShape(Capsule())
                     }
@@ -1188,10 +1202,10 @@ extension ContentView {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(address.isPreferred ? Color(hex: 0xC8965A).opacity(0.055) : cardFillColor)
+        .background(address.isPreferred ? TallaTheme.Colors.accent.opacity(0.055) : cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(address.isPreferred ? 0.32 : 0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(address.isPreferred ? 0.32 : 0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -1245,7 +1259,22 @@ extension ContentView {
                                         .foregroundColor(Color(hex: 0x0A0804))
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
-                                        .background(Color(hex: 0xC8965A))
+                                        .background(TallaTheme.Colors.accent)
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+
+                                Button {
+                                    editBrewRecipe(recipe)
+                                } label: {
+                                    Label(AppLocalization.text("edit", fallback: "Edit"), systemImage: "pencil")
+                                        .font(labelFont(size: 10, weight: .bold))
+                                        .tracking(AppLocalization.letterSpacing(1.4))
+                                        .textCase(.uppercase)
+                                        .foregroundColor(primaryTextColor)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(cardFillColor)
                                         .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
@@ -1268,7 +1297,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
@@ -1320,7 +1349,7 @@ extension ContentView {
                                         .foregroundColor(Color(hex: 0x0A0804))
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
-                                        .background(Color(hex: 0xC8965A))
+                                        .background(TallaTheme.Colors.accent)
                                         .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
@@ -1343,7 +1372,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
@@ -1450,7 +1479,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
@@ -1460,7 +1489,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -1503,7 +1532,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
@@ -2000,7 +2029,9 @@ extension ContentView {
         note: String?,
         coffeeName: String?,
         variantID: String?,
-        address: DeliveryAddress?
+        address: DeliveryAddress?,
+        fulfillmentMethod: TallaFulfillmentMethod = .delivery,
+        coffeeItems: [(name: String, variantID: String, quantity: Int)] = []
     ) async -> Bool {
         do {
             orderHistory = try await AccountService.manageCoffeeClub(
@@ -2010,7 +2041,9 @@ extension ContentView {
                 note: action == "request_refund" ? note : nil,
                 coffeeName: coffeeName,
                 variantID: variantID,
-                address: address
+                address: address,
+                fulfillmentMethod: fulfillmentMethod,
+                coffeeItems: coffeeItems
             )
             showToast(message: AppLocalization.text("coffee_club_updated", fallback: "Coffee Club updated"))
             return true
@@ -2567,4 +2600,72 @@ extension ContentView {
 #endif
     }
 
+}
+
+private struct SavedBrewRecipeEditor: View {
+    let recipe: ContentView.BrewRecipe
+    let accent: Color
+    let background: Color
+    let primary: Color
+    let secondary: Color
+    let onSave: (ContentView.BrewRecipe) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var coffeeGrams: String
+    @State private var ratio: String
+    @State private var error: String?
+
+    init(recipe: ContentView.BrewRecipe, accent: Color, background: Color, primary: Color, secondary: Color, onSave: @escaping (ContentView.BrewRecipe) -> Void) {
+        self.recipe = recipe; self.accent = accent; self.background = background; self.primary = primary; self.secondary = secondary; self.onSave = onSave
+        _name = State(initialValue: recipe.name)
+        _coffeeGrams = State(initialValue: String(recipe.coffeeGrams))
+        _ratio = State(initialValue: String(recipe.ratio))
+    }
+
+    var body: some View {
+        Form {
+            Section("Recipe") {
+                TextField("Recipe name", text: $name)
+                TextField("Coffee (g)", text: $coffeeGrams).keyboardType(.decimalPad)
+                TextField("Ratio (1:x)", text: $ratio).keyboardType(.decimalPad)
+                if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+            }
+            Section {
+                Text("Water: \(waterText) g").foregroundStyle(secondary)
+                Button("Save changes") { save() }.frame(maxWidth: .infinity)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(background)
+        .navigationTitle("Edit saved recipe")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+    }
+
+    private var parsedCoffee: Double? { Double(coffeeGrams.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespacesAndNewlines)) }
+    private var parsedRatio: Double? { Double(ratio.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespacesAndNewlines)) }
+    private var waterText: String { guard let parsedCoffee, let parsedRatio else { return "—" }; return String(format: "%.1f", parsedCoffee * parsedRatio) }
+
+    private func save() {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty, let parsedCoffee, parsedCoffee > 0, let parsedRatio, parsedRatio > 0 else {
+            error = "Enter a name, coffee amount, and positive ratio."
+            return
+        }
+        let updated = ContentView.BrewRecipe(
+            id: recipe.id, name: trimmedName, coffeeGrams: parsedCoffee, ratio: parsedRatio,
+            waterGrams: parsedCoffee * parsedRatio, category: recipe.category, createdAt: recipe.createdAt,
+            brewingWaterGrams: recipe.brewingWaterGrams, iceGrams: recipe.iceGrams, methodID: recipe.methodID,
+            brewerID: recipe.brewerID, brewMode: recipe.brewMode, bloomRatio: recipe.bloomRatio,
+            pourCount: recipe.pourCount, grind: recipe.grind, temperatureC: recipe.temperatureC,
+            controlMode: recipe.controlMode, process: recipe.process, roast: recipe.roast,
+            grinder: recipe.grinder, grinderID: recipe.grinderID, waterProfileID: recipe.waterProfileID,
+            temperaturePresetID: recipe.temperaturePresetID, filter: recipe.filter, altitudeMeters: recipe.altitudeMeters,
+            tastingNotes: recipe.tastingNotes, targetTimeRange: recipe.targetTimeRange,
+            temperatureReason: recipe.temperatureReason, expectedCup: recipe.expectedCup,
+            approach: recipe.approach, steps: recipe.steps
+        )
+        onSave(updated)
+        dismiss()
+    }
 }

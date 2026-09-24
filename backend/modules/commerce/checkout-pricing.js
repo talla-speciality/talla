@@ -89,8 +89,18 @@ function isCoffeeBag(node) {
     const handles = (node?.product?.collections?.nodes || [])
         .map((collection) => String(collection?.handle || "").trim().toLowerCase());
     const productType = String(node?.product?.productType || "").trim().toLowerCase();
-    return handles.some((handle) => ["coffee-beans", "arabic-coffee-beans"].includes(handle))
-        || ["coffee beans", "arabic coffee beans"].includes(productType);
+    const title = String(node?.product?.title || "").trim().toLowerCase();
+    const tags = Array.isArray(node?.product?.tags) ? node.product.tags : [];
+    const source = [title, productType, ...tags]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .join(" ");
+    const isAccessory = /(?:scale|server|spoon|doser|dripper|filter|grinder|kettle|equipment|accessor|mug|cup|water|gift|box|bundle)/.test(source);
+
+    return !isAccessory && (handles.some((handle) => ["coffee-beans", "arabic-coffee-beans"].includes(handle))
+        || ["coffee", "coffee beans", "arabic coffee", "arabic coffee beans", "beans"].includes(productType)
+        || ["coffee", "coffee beans", "coffee-beans", "arabic coffee", "arabic coffee beans", "arabic-coffee-beans", "beans"]
+            .some((value) => tags.some((tag) => String(tag).trim().toLowerCase() === value))
+        || /(?:coffee beans?|espresso|roast|roasted|single[- ]origin|decaf|qahwa|gahwa|shamali|northern coffee)/.test(source));
 }
 
 function normalizeCoffeeClub(value, settings = {}) {
@@ -192,7 +202,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                             id displayName title price availableForSale inventoryPolicy inventoryQuantity
                             selectedOptions { name value }
                             inventoryItem { requiresShipping measurement { weight { value unit } } }
-                            product { title productType collections(first: 20) { nodes { handle } } }
+                            product { title productType tags collections(first: 20) { nodes { handle } } }
                         }
                     }
                 }`,

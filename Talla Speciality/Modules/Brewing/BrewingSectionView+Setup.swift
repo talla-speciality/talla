@@ -159,8 +159,8 @@ extension BrewingSectionView {
             }
 
             brewNavigationCircle(
-                title: AppLocalization.text("brew_library", fallback: "Brew Library"),
-                icon: "books.vertical",
+                title: AppLocalization.text("tools", fallback: "Tools"),
+                icon: "wrench.and.screwdriver",
                 value: nil,
                 isSelected: isBrewingLibraryExpanded
             ) {
@@ -502,6 +502,14 @@ extension BrewingSectionView {
 
     var brewingMinimalShortcuts: some View {
         VStack(spacing: 0) {
+            brewingLinkedRow(title: AppLocalization.text("ratio_calculator", fallback: "Ratio Calculator"), detail: "Dose, ratio, and water calculations.", value: nil) {
+                activeDashboardDestination = .ratioCalculator
+            }
+            brewDivider
+            brewingLinkedRow(title: AppLocalization.text("brew_timer", fallback: "Brew Timer"), detail: "Run a focused brew timer.", value: nil) {
+                activeDashboardDestination = .brewTimer
+            }
+            brewDivider
             brewingLinkedRow(title: AppLocalization.text("coffee_journal", fallback: "Coffee Journal"), detail: AppLocalization.text("journal_shortcut_detail", fallback: "Review tasting notes and saved cups."), value: nil) {
                 activeDashboardDestination = .coffeeJournal
             }
@@ -509,9 +517,31 @@ extension BrewingSectionView {
             brewingLinkedRow(title: AppLocalization.text("saved_equipment", fallback: "Saved Equipment"), detail: savedEquipmentDetail, value: nil) {
                 isSavedEquipmentPresented = true
             }
+            if coffeeMemoryEnabled {
+                brewDivider
+                brewingLinkedRow(title: AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory"), detail: "Beans, roast dates, and quantities.", value: nil) {
+                    activeDashboardDestination = .coffeeLibrary
+                }
+            }
             brewDivider
-            brewingLinkedRow(title: AppLocalization.text("tools", fallback: "Tools"), detail: AppLocalization.text("tools_menu_detail", fallback: "Ratio calculator, timer, journal, and brew coach."), value: nil) {
-                isToolsMenuPresented = true
+            brewingLinkedRow(title: AppLocalization.text("brew_coach", fallback: "Brew Coach"), detail: "Small adjustments for the next cup.", value: nil) {
+                activeDashboardDestination = .brewCoach
+            }
+            brewDivider
+            brewingLinkedRow(title: "Espresso Workspace", detail: "Dial in and compare espresso shots.", value: nil) {
+                activeDashboardDestination = .espressoWorkspace
+            }
+            brewDivider
+            brewingLinkedRow(title: AppLocalization.text("cupping_mode", fallback: "Cupping Mode"), detail: "Compare aroma, body, and clarity.", value: nil) {
+                activeDashboardDestination = .cuppingMode
+            }
+            brewDivider
+            brewingLinkedRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: "Browse reviewed recipes.", value: nil) {
+                activeDashboardDestination = .communityRecipes
+            }
+            brewDivider
+            brewingLinkedRow(title: AppLocalization.text("privacy_controls", fallback: "Privacy & Explanations"), detail: "Personalization and recommendations.", value: nil) {
+                activeDashboardDestination = .privacyControls
             }
         }
         .background(brewSurfaceColor.opacity(0.55), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -579,6 +609,12 @@ extension BrewingSectionView {
                         toolMenuRow(title: AppLocalization.text("coffee_journal", fallback: "Coffee Journal"), detail: "Tasting notes and history", icon: "book.pages") {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .coffeeJournal
+                        }
+                        toolMenuRow(title: AppLocalization.text("saved_equipment", fallback: "Saved Equipment"), detail: savedEquipmentDetail, icon: "slider.horizontal.3") {
+                            isToolsMenuPresented = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                isSavedEquipmentPresented = true
+                            }
                         }
                         if coffeeMemoryEnabled {
                             toolMenuRow(title: AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory"), detail: "Beans, roast dates, quantities", icon: "books.vertical") {

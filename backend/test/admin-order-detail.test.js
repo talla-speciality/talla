@@ -42,7 +42,16 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
             customer: { fullName: "A Customer", phone: "+97312345678" },
             fulfillment: { method: "delivery", line1: "Road 1", city: "Manama", countryCode: "bh" },
             payment: { method: "applePay" },
-            coffeeClub: { shipmentCount: 3, intervalWeeks: 4, discountPercent: 10 }
+            coffeeClub: {
+                shipmentCount: 3,
+                intervalWeeks: 4,
+                discountPercent: 10,
+                coffeeItems: [
+                    { coffeeName: "Colombia", variantId: "variant-250", quantity: 2 },
+                    { coffeeName: "Ethiopia", variantId: "variant-1000", quantity: 1 }
+                ],
+                fulfillmentOverride: { method: "pickup", countryCode: "BH", pickupSlot: "10:00–12:00" }
+            }
         }
     });
 
@@ -58,6 +67,10 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
     assert.equal(order.coffeeClub.deliveredShipments, 0);
     assert.equal(order.coffeeClub.remainingShipments, 3);
     assert.equal(order.coffeeClub.status, "active");
+    assert.equal(order.coffeeClub.coffeeItems.length, 2);
+    assert.equal(order.coffeeClub.coffeeItems[0].quantity, 2);
+    assert.equal(order.coffeeClub.fulfillmentOverride.method, "pickup");
+    assert.equal(order.coffeeClub.fulfillmentOverride.pickupSlot, "10:00–12:00");
     assert.equal(order.status, "Confirmed");
 });
 
@@ -123,11 +136,15 @@ test("Coffee Club lifecycle supports preparing, pause/resume, cancellation, pref
     assert.equal(resumed.startedAt, "2026-09-08T10:00:00.000Z");
 
     const preferences = detailService.updateCoffeeClubProgress(resumed, "update_preferences", "member", undefined, {
-        coffeeName: "Colombia",
-        variantId: "gid://shopify/ProductVariant/101",
-        fulfillment: { line1: "Road 10", city: "Riffa", countryCode: "BH" }
+        coffeeItems: [
+            { coffeeName: "Colombia", variantId: "gid://shopify/ProductVariant/101", quantity: 2 },
+            { coffeeName: "Ethiopia", variantId: "gid://shopify/ProductVariant/202", quantity: 1 }
+        ],
+        fulfillment: { method: "delivery", line1: "Road 10", city: "Riffa", countryCode: "BH" }
     });
     assert.equal(preferences.preference.coffeeName, "Colombia");
+    assert.equal(preferences.coffeeItems.length, 2);
+    assert.equal(preferences.coffeeItems[0].quantity, 2);
     assert.equal(preferences.fulfillmentOverride.city, "Riffa");
     assert.equal(preferences.changesEffectiveFromShipment, 2);
 

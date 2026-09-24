@@ -449,8 +449,9 @@ extension BrewingSectionView {
                     case .coffeeJournal:
                         coffeeJournalSection
                     case .coffeeLibrary:
-                        CoffeeLibraryView(brewCoffeeAction: { coffeeName in
-                            brewRecipeName = coffeeName
+                        CoffeeLibraryView(brewCoffeeAction: { coffee in
+                            brewRecipeName = coffee.productName
+                            selectedPurchasedCoffeeID = coffee.id
                             activeDashboardDestination = .brewTimer
                         }, reorderCoffeeAction: { lot in
                             guard let productID = lot.productID else { return }

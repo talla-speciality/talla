@@ -96,6 +96,7 @@ enum AccountService {
         let author: String
         let status: String
         let createdAt: String
+        let canEdit: Bool?
     }
 
     static func fetchCommunityRecipes() async throws -> [CommunityRecipe] {
@@ -113,6 +114,17 @@ enum AccountService {
         var request = URLRequest(url: baseURL.appending(path: "/community/recipes"))
         request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: ["title": title, "method": method, "detail": detail, "author": author])
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let recipe: CommunityRecipe }
+        return try JSONDecoder().decode(Envelope.self, from: data).recipe
+    }
+
+    static func updateCommunityRecipe(id: String, title: String, method: String, detail: String) async throws -> CommunityRecipe {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The community service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/community/recipes"))
+        request.httpMethod = "PUT"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["id": id, "title": title, "method": method, "detail": detail])
         let (data, response) = try await Self.data(for: request)
         guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
         struct Envelope: Decodable { let recipe: CommunityRecipe }
@@ -472,7 +484,9 @@ enum AccountService {
         note: String? = nil,
         coffeeName: String? = nil,
         variantID: String? = nil,
-        address: ContentView.DeliveryAddress? = nil
+        address: ContentView.DeliveryAddress? = nil,
+        fulfillmentMethod: TallaFulfillmentMethod = .delivery,
+        coffeeItems: [(name: String, variantID: String, quantity: Int)] = []
     ) async throws -> [ContentView.AccountOrder] {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The Coffee Club service is unavailable.")
@@ -482,16 +496,23 @@ enum AccountService {
         if let note, !note.isEmpty { payload["note"] = note }
         if let coffeeName, !coffeeName.isEmpty { payload["coffeeName"] = coffeeName }
         if let variantID, !variantID.isEmpty { payload["variantId"] = variantID }
-        if let address {
-            payload["fulfillment"] = [
-                "fullName": address.fullName,
-                "phone": address.phone,
-                "line1": address.line1,
-                "city": address.city,
-                "countryCode": address.country.rawValue,
-                "notes": address.notes ?? ""
-            ]
+        if !coffeeItems.isEmpty {
+            payload["coffeeItems"] = coffeeItems.map { [
+                "coffeeName": $0.name,
+                "variantId": $0.variantID,
+                "quantity": max(1, min($0.quantity, 12))
+            ] }
         }
+        var fulfillment: [String: Any] = ["method": fulfillmentMethod.rawValue, "countryCode": "BH"]
+        if let address {
+            fulfillment["fullName"] = address.fullName
+            fulfillment["phone"] = address.phone
+            fulfillment["line1"] = address.line1
+            fulfillment["city"] = address.city
+            fulfillment["countryCode"] = address.country.rawValue
+            fulfillment["notes"] = address.notes ?? ""
+        }
+        payload["fulfillment"] = fulfillment
         var request = URLRequest(url: baseURL.appending(path: "/orders/coffee-club/manage"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -603,7 +624,12 @@ enum AccountService {
             payload["coffeeClub"] = [
                 "shipmentCount": coffeeClubShipmentCount,
                 "intervalWeeks": coffeeClubIntervalWeeks,
-                "termsAccepted": coffeeClubTermsAccepted
+                "termsAccepted": coffeeClubTermsAccepted,
+                "coffeeItems": items.map { [
+                    "coffeeName": $0.name,
+                    "variantId": $0.variantID,
+                    "quantity": $0.quantity
+                ] }
             ]
         }
         if let address {

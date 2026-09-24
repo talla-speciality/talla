@@ -145,6 +145,41 @@ extension ButtonStyle where Self == TallaPrimaryButtonStyle {
     static var tallaPrimary: TallaPrimaryButtonStyle { TallaPrimaryButtonStyle() }
 }
 
+struct TallaSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(TallaTheme.Fonts.button)
+            .foregroundStyle(TallaTheme.Colors.accent)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(
+                colorScheme == .dark
+                    ? TallaTheme.Colors.darkElevatedSurface
+                    : TallaTheme.Colors.lightElevatedSurface
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
+                    .stroke(TallaTheme.Colors.accent.opacity(0.34), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .opacity(isEnabled ? 1 : 0.48)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.78),
+                value: configuration.isPressed
+            )
+    }
+}
+
+extension ButtonStyle where Self == TallaSecondaryButtonStyle {
+    static var tallaSecondary: TallaSecondaryButtonStyle { TallaSecondaryButtonStyle() }
+}
+
+
 
 extension View {
     @ViewBuilder

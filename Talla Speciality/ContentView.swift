@@ -48,8 +48,8 @@ struct ContentView: View {
     enum Tab: String, CaseIterable {
         case home
         case shop
+        case club
         case brewing
-        case education
         case account
         case search
 
@@ -59,10 +59,10 @@ struct ContentView: View {
                 return "house"
             case .shop:
                 return "square.grid.2x2"
+            case .club:
+                return "sparkles"
             case .brewing:
                 return "drop"
-            case .education:
-                return "book.closed"
             case .account:
                 return "person"
             case .search:
@@ -445,6 +445,10 @@ struct ContentView: View {
         var details: Details? = nil
 
         var isPickup: Bool {
+            let clubMethod = details?.coffeeClub?.fulfillmentOverride?.method?
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if clubMethod == "pickup" { return true }
+            if clubMethod == "delivery" { return false }
             let method = details?.fulfillment?.method?
                 .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             if method == "pickup" { return true }
@@ -756,6 +760,7 @@ struct ContentView: View {
     @State var ratioCoffeeInput = "20"
     @State var ratioValueInput = "16"
     @State var brewRecipeName = ""
+    @State var editingBrewRecipe: BrewRecipe?
     @State var selectedBrewTimerName = "Pour Over"
     @State var selectedBrewTimerSeconds = 210
     @State var brewTimerRemainingSeconds = 210
@@ -815,6 +820,7 @@ struct ContentView: View {
     @AppStorage("customerLibrary.cacheOwnerEmail") var customerLibraryCacheOwnerEmail = ""
     @AppStorage("tasteMemory.saved") var savedTasteMemory = ""
     @AppStorage("carts.saved") var savedCartsPayload = ""
+    @AppStorage("brewing.deletedRecipeIDs") var deletedBrewRecipeIDsPayload = ""
     @State var selectedJournalCoffeeID: UUID?
     @AppStorage("app.language") var savedAppLanguage = AppLanguage.system.rawValue
     @AppStorage("shortcut.destination") var shortcutDestination = ""
@@ -1517,7 +1523,11 @@ struct ContentView: View {
             return []
         }
 
-        return decoded
+        return decoded.filter { !deletedBrewRecipeIDs.contains($0.id.uuidString.lowercased()) }
+    }
+
+    var deletedBrewRecipeIDs: Set<String> {
+        Set(deletedBrewRecipeIDsPayload.split(separator: ",").map { String($0).lowercased() })
     }
 
     var brewJournalEntries: [BrewJournalEntry] {
@@ -2081,7 +2091,7 @@ struct ContentView: View {
 
             if !isLightAppearance {
                 Circle()
-                    .fill(Color(hex: 0xC8965A).opacity(0.12))
+                    .fill(TallaTheme.Colors.accent.opacity(0.12))
                     .blur(radius: 90)
                     .frame(width: 240, height: 240)
                     .offset(x: 90, y: -160)
@@ -2246,6 +2256,8 @@ struct ContentView: View {
         presentedContent
             .font(TallaTheme.Fonts.body)
             .tint(TallaTheme.Colors.accent)
+            .textFieldStyle(.talla)
+            .buttonBorderShape(.roundedRectangle(radius: TallaTheme.CornerRadius.control))
             .sensoryFeedback(.selection, trigger: activeTab)
             .onOpenURL(perform: handleDeepLink)
             .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
@@ -2295,7 +2307,7 @@ struct ContentView: View {
                         primaryTextColor: primaryTextColor,
                         secondaryTextColor: secondaryTextColor,
                         cardFillColor: elevatedSurfaceColor,
-                        accentColor: Color(hex: 0xC8965A),
+                        accentColor: TallaTheme.Colors.accent,
                         scrimColor: scrimColor,
                         titleFont: displayFont(size: isCompact ? 34 : 42),
                         bodyFont: bodyFont(size: 14),
@@ -2321,7 +2333,7 @@ struct ContentView: View {
                         primaryTextColor: primaryTextColor,
                         secondaryTextColor: secondaryTextColor,
                         cardFillColor: elevatedSurfaceColor,
-                        accentColor: Color(hex: 0xC8965A),
+                        accentColor: TallaTheme.Colors.accent,
                         scrimColor: scrimColor,
                         titleFont: displayFont(size: isCompact ? 30 : 36),
                         bodyFont: bodyFont(size: 14),
@@ -2544,7 +2556,7 @@ struct ContentView: View {
             VStack(spacing: 18) {
                 Image(systemName: requiresAppUpdate ? "arrow.down.app.fill" : "cup.and.saucer.fill")
                     .font(.system(size: 46, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xC8965A))
+                    .foregroundColor(TallaTheme.Colors.accent)
                 Text(title ?? "Talla")
                     .font(displayFont(size: 32))
                     .foregroundColor(primaryTextColor)
@@ -2561,7 +2573,7 @@ struct ContentView: View {
                         openURL(url)
                     }
                     .buttonStyle(.tallaPrimary)
-                    .tint(Color(hex: 0xC8965A))
+                    .tint(TallaTheme.Colors.accent)
                 }
             }
             .padding(28)
@@ -2720,7 +2732,18 @@ struct ContentView: View {
             }
 
             SwiftUI.Tab(
-                AppLocalization.text("brewing", fallback: "Brewing"),
+                AppLocalization.text("club", fallback: "Club"),
+                systemImage: Tab.club.systemImage,
+                value: Tab.club
+            ) {
+                tabScreen(tab: .club) {
+                    clubView
+                }
+                .accessibilityIdentifier("tab.club")
+            }
+
+            SwiftUI.Tab(
+                AppLocalization.text("brew", fallback: "Brew"),
                 systemImage: Tab.brewing.systemImage,
                 value: Tab.brewing
             ) {
@@ -2728,11 +2751,6 @@ struct ContentView: View {
                     brewingView
                 }
                 .accessibilityIdentifier("tab.brewing")
-            }
-
-            SwiftUI.Tab("Learn", systemImage: Tab.education.systemImage, value: Tab.education) {
-                tabScreen(tab: .education) { CoffeeEducationView() }
-                    .accessibilityIdentifier("tab.education")
             }
 
             SwiftUI.Tab(
@@ -2765,17 +2783,19 @@ struct ContentView: View {
                     Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
                 }
 
+            tabScreen(tab: .club) { clubView }
+                .tag(Tab.club)
+                .accessibilityIdentifier("tab.club")
+                .tabItem {
+                    Label(AppLocalization.text("club", fallback: "Club"), systemImage: Tab.club.systemImage)
+                }
+
             tabScreen(tab: .brewing) { brewingView }
                 .tag(Tab.brewing)
                 .accessibilityIdentifier("tab.brewing")
                 .tabItem {
-                    Label(AppLocalization.text("brewing", fallback: "Brewing"), systemImage: Tab.brewing.systemImage)
+                    Label(AppLocalization.text("brew", fallback: "Brew"), systemImage: Tab.brewing.systemImage)
                 }
-
-            tabScreen(tab: .education) { CoffeeEducationView() }
-                .tag(Tab.education)
-                .accessibilityIdentifier("tab.education")
-                .tabItem { Label("Learn", systemImage: Tab.education.systemImage) }
 
             tabScreen(tab: .account) { accountView }
                 .tag(Tab.account)

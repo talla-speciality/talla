@@ -202,14 +202,23 @@ struct OrderHistorySectionView: View {
     let pickupDirectionsAction: () -> Void
     let browseProductsAction: () -> Void
     let orderSupportAction: (ContentView.AccountOrder) -> Void
-    let manageCoffeeClubAction: (ContentView.AccountOrder, String, String?, String?, String?, ContentView.DeliveryAddress?) async -> Bool
+    let manageCoffeeClubAction: (ContentView.AccountOrder, String, String?, String?, String?, [(name: String, variantID: String, quantity: Int)], ContentView.DeliveryAddress?, TallaFulfillmentMethod) async -> Bool
 
     @State private var managedCoffeeClubOrder: ContentView.AccountOrder?
     @State private var selectedCoffeeName = ""
     @State private var selectedCoffeeVariantID = ""
+    @State private var selectedClubCoffees: [EditableClubCoffee] = []
     @State private var selectedAddressID = ""
+    @State private var selectedFulfillment: TallaFulfillmentMethod = .delivery
     @State private var managementNote = ""
     @State private var isManagingCoffeeClub = false
+
+    private struct EditableClubCoffee: Identifiable {
+        var variantID: String
+        var productName: String
+        var quantity: Int
+        var id: String { variantID }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -372,7 +381,7 @@ struct OrderHistorySectionView: View {
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 10)
                                     }
-                                    .buttonStyle(.bordered)
+                                    .buttonStyle(.tallaSecondary)
                                     .tint(accentColor)
                                 }
                             }
@@ -427,7 +436,7 @@ struct OrderHistorySectionView: View {
                                 )
                                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.tallaSecondary)
                         }
 
                         if order.isPickup && isReadyForPickup(status: order.historyStatus) {
@@ -473,7 +482,7 @@ struct OrderHistorySectionView: View {
                             Label(AppLocalization.text("help_with_order", fallback: "Help with this order"), systemImage: "message.fill")
                                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.tallaSecondary)
                     }
                     .padding(14)
                     .background(cardFillColor)
@@ -504,9 +513,25 @@ struct OrderHistorySectionView: View {
         guard let club = order.details?.coffeeClub else { return }
         selectedCoffeeName = club.preference?.coffeeName ?? ""
         selectedCoffeeVariantID = club.preference?.variantId ?? ""
+        let storedItems = club.coffeeItems ?? []
+        if storedItems.isEmpty {
+            selectedClubCoffees = selectedCoffeeVariantID.isEmpty ? [] : [
+                EditableClubCoffee(variantID: selectedCoffeeVariantID, productName: selectedCoffeeName, quantity: 1)
+            ]
+        } else {
+            selectedClubCoffees = storedItems.compactMap { item in
+                guard let variantID = item.variantId, !variantID.isEmpty else { return nil }
+                return EditableClubCoffee(
+                    variantID: variantID,
+                    productName: item.coffeeName ?? "Coffee",
+                    quantity: max(1, min(item.quantity ?? 1, 12))
+                )
+            }
+        }
         selectedAddressID = deliveryAddresses.first(where: { address in
             address.line1 == club.fulfillmentOverride?.line1 && address.city == club.fulfillmentOverride?.city
         })?.id ?? deliveryAddresses.first(where: \.isPreferred)?.id ?? deliveryAddresses.first?.id ?? ""
+        selectedFulfillment = order.isPickup ? .pickup : .delivery
         managementNote = club.cancellationReason ?? club.refundNote ?? ""
         managedCoffeeClubOrder = order
     }
@@ -526,28 +551,58 @@ struct OrderHistorySectionView: View {
                     }
 
                     Section(AppLocalization.text("future_shipments", fallback: "Future shipments")) {
-                        Picker(AppLocalization.text("coffee", fallback: "Coffee"), selection: $selectedCoffeeVariantID) {
-                            Text(AppLocalization.text("keep_current_coffee", fallback: "Keep current selection")).tag("")
-                            ForEach(coffeeClubProducts) { product in
-                                ForEach(product.variants.filter(\.isAvailableForSale)) { variant in
-                                    Text(product.hasVariantChoices ? "\(product.name) · \(variant.title)" : product.name)
-                                        .tag(variant.id)
+                        ForEach($selectedClubCoffees) { $coffee in
+                            HStack(spacing: 10) {
+                                Picker(AppLocalization.text("coffee", fallback: "Coffee"), selection: $coffee.variantID) {
+                                    ForEach(coffeeClubProducts) { product in
+                                        ForEach(product.variants.filter(\.isAvailableForSale)) { variant in
+                                            Text(product.hasVariantChoices ? "\(product.name) · \(variant.title)" : product.name)
+                                                .tag(variant.id)
+                                        }
+                                    }
                                 }
+                                Stepper("×\(coffee.quantity)", value: $coffee.quantity, in: 1...12)
+                                    .labelsHidden()
+                                Button {
+                                    selectedClubCoffees.removeAll { $0.id == coffee.id }
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(AppLocalization.text("remove_coffee", fallback: "Remove coffee"))
                             }
                         }
-                        .onChange(of: selectedCoffeeVariantID) { _, value in
-                            selectedCoffeeName = coffeeClubProducts.first(where: { product in
-                                product.variants.contains(where: { $0.id == value })
-                            })?.name ?? ""
-                        }
 
-                        if !deliveryAddresses.isEmpty {
+                        Button {
+                            guard let nextVariant = coffeeClubProducts
+                                .flatMap({ $0.variants.filter(\.isAvailableForSale) })
+                                .first(where: { variant in !selectedClubCoffees.contains(where: { $0.variantID == variant.id }) }) else { return }
+                            let productName = coffeeClubProducts.first(where: { product in product.variants.contains(where: { $0.id == nextVariant.id }) })?.name ?? "Coffee"
+                            selectedClubCoffees.append(EditableClubCoffee(variantID: nextVariant.id, productName: productName, quantity: 1))
+                        } label: {
+                            Label(AppLocalization.text("add_another_coffee", fallback: "Add another coffee"), systemImage: "plus.circle.fill")
+                        }
+                        .disabled(selectedClubCoffees.count >= 6)
+
+                        Picker(AppLocalization.text("fulfillment", fallback: "Fulfilment"), selection: $selectedFulfillment) {
+                            Text(AppLocalization.text("delivery", fallback: "Delivery")).tag(TallaFulfillmentMethod.delivery)
+                            Text(AppLocalization.text("pickup_at_talla", fallback: "Pickup at Talla")).tag(TallaFulfillmentMethod.pickup)
+                        }
+                        .pickerStyle(.segmented)
+
+                        if selectedFulfillment == .delivery && !deliveryAddresses.isEmpty {
                             Picker(AppLocalization.text("delivery_address", fallback: "Delivery address"), selection: $selectedAddressID) {
                                 ForEach(deliveryAddresses.filter { $0.country == .bahrain }) { address in
                                     Text("\(address.label) · \(address.line1)").tag(address.id)
                                 }
                             }
                         }
+
+                        Text(selectedFulfillment == .pickup
+                             ? AppLocalization.text("coffee_club_pickup_note", fallback: "Collect future shipments from Talla in Riffa when they are ready.")
+                             : AppLocalization.text("coffee_club_delivery_note", fallback: "Future shipments will use your selected Bahrain address."))
+                            .font(.caption)
 
                         Text(AppLocalization.text(
                             "coffee_club_future_changes_note",
@@ -572,7 +627,7 @@ struct OrderHistorySectionView: View {
                         Button(AppLocalization.text("save_future_choices", fallback: "Save Future Choices")) {
                             performCoffeeClubAction(order, action: "update_preferences")
                         }
-                        .disabled(isManagingCoffeeClub)
+                        .disabled(isManagingCoffeeClub || selectedClubCoffees.isEmpty)
                     }
 
                     Section(AppLocalization.text("plan_controls", fallback: "Plan controls")) {
@@ -630,15 +685,24 @@ struct OrderHistorySectionView: View {
     private func performCoffeeClubAction(_ order: ContentView.AccountOrder, action: String) {
         guard !isManagingCoffeeClub else { return }
         isManagingCoffeeClub = true
-        let address = deliveryAddresses.first { $0.id == selectedAddressID }
+        let address = selectedFulfillment == .delivery ? deliveryAddresses.first { $0.id == selectedAddressID } : nil
         Task {
+            let coffeeItems = selectedClubCoffees.map { coffee in
+                let productName = coffeeClubProducts.first(where: { product in
+                    product.variants.contains(where: { $0.id == coffee.variantID })
+                })?.name ?? coffee.productName
+                return (name: productName, variantID: coffee.variantID, quantity: coffee.quantity)
+            }
+            let firstCoffee = selectedClubCoffees.first
             let succeeded = await manageCoffeeClubAction(
                 order,
                 action,
                 managementNote,
-                selectedCoffeeName,
-                selectedCoffeeVariantID,
-                address
+                firstCoffee?.productName ?? selectedCoffeeName,
+                firstCoffee?.variantID ?? selectedCoffeeVariantID,
+                coffeeItems,
+                address,
+                selectedFulfillment
             )
             await MainActor.run {
                 isManagingCoffeeClub = false

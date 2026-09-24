@@ -41,7 +41,7 @@ extension ContentView {
             secondaryTextColor: secondaryTextColor,
             tertiaryTextColor: tertiaryTextColor,
             cardFillColor: cardFillColor,
-            accentColor: Color(hex: 0xC8965A),
+            accentColor: TallaTheme.Colors.accent,
             isOLEDAppearance: isOLEDAppearance,
             displayedMethods: displayedBrewingMethods,
             brewingCategories: brewingCategories,
@@ -111,7 +111,7 @@ extension ContentView {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(width: 38, height: 38)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -147,7 +147,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             Circle()
-                                .stroke(Color(hex: 0xC8965A).opacity(0.18), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
                         )
                         .clipShape(Circle())
                 }
@@ -167,10 +167,10 @@ extension ContentView {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule(style: .continuous)
-                        .fill(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.10))
+                        .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.10))
 
                     Capsule(style: .continuous)
-                        .fill(Color(hex: 0xC8965A))
+                        .fill(TallaTheme.Colors.accent)
                         .frame(width: max(proxy.size.width * brewTimerFraction, isBrewTimerRunning ? 10 : 0))
                         .animation(.linear(duration: 0.2), value: brewTimerRemainingSeconds)
                 }
@@ -196,7 +196,7 @@ extension ContentView {
                         .foregroundColor(Color(hex: 0x0A0804))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color(hex: 0xC8965A))
+                        .background(TallaTheme.Colors.accent)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -206,7 +206,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
@@ -218,7 +218,7 @@ extension ContentView {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(readableBrandGoldColor)
                     .frame(width: 38, height: 38)
-                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.12 : 0.16))
+                    .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -274,7 +274,7 @@ extension ContentView {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.10 : 0.16))
+                    .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.16))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
 
@@ -316,7 +316,7 @@ extension ContentView {
                     .foregroundColor(Color(hex: 0x0A0804))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color(hex: 0xC8965A))
+                    .background(TallaTheme.Colors.accent)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -384,7 +384,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
@@ -410,13 +410,22 @@ extension ContentView {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(isSelected ? Color(hex: 0xC8965A) : elevatedSurfaceColor)
+                .background(isSelected ? TallaTheme.Colors.accent : elevatedSurfaceColor)
                 .clipShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
     func persistBrewRecipes(_ recipes: [BrewRecipe]) {
+        // Clear a deletion tombstone when a recipe is explicitly saved again.
+        // This keeps an edited/recreated recipe recoverable without allowing a
+        // deleted record to come back during a later sync or view refresh.
+        var deletedIDs = deletedBrewRecipeIDs
+        for recipe in recipes {
+            deletedIDs.remove(recipe.id.uuidString.lowercased())
+        }
+        deletedBrewRecipeIDsPayload = deletedIDs.sorted().joined(separator: ",")
+
         guard let data = try? JSONEncoder().encode(recipes),
               let objects = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             return
@@ -854,7 +863,14 @@ extension ContentView {
         showToast(message: String(format: AppLocalization.text("recipe_loaded_toast", fallback: "%@ loaded"), recipe.name))
     }
 
+    func editBrewRecipe(_ recipe: BrewRecipe) {
+        editingBrewRecipe = recipe
+    }
+
     func deleteBrewRecipe(_ recipe: BrewRecipe) {
+        var deletedIDs = deletedBrewRecipeIDs
+        deletedIDs.insert(recipe.id.uuidString.lowercased())
+        deletedBrewRecipeIDsPayload = deletedIDs.sorted().joined(separator: ",")
         persistBrewRecipes(brewRecipes.filter { $0.id != recipe.id })
         showToast(message: AppLocalization.text("brew_recipe_deleted_toast", fallback: "Brew recipe deleted"))
     }

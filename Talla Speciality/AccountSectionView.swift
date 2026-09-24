@@ -137,6 +137,12 @@ struct AccountSectionView: View {
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 6) {
+                    Text(AppLocalization.text("welcome_back", fallback: "Welcome back"))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                        .tracking(AppLocalization.letterSpacing(1.5))
+                        .textCase(.uppercase)
+                        .foregroundColor(secondaryTextColor)
+
                     Text(accountDisplayName)
                         .font(titleFont)
                         .foregroundColor(primaryTextColor)
@@ -173,6 +179,17 @@ struct AccountSectionView: View {
                     label: AppLocalization.text("until_next_reward", fallback: "until reward")
                 )
             }
+
+            Label(
+                AppLocalization.text("coffee_club_ready_status", fallback: "Coffee Club · Ready to personalize"),
+                systemImage: "shippingbox.fill"
+            )
+            .font(Font.custom("AvenirNext-DemiBold", size: 12))
+            .foregroundColor(accentColor)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.16))
+            .clipShape(Capsule(style: .continuous))
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)

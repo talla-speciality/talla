@@ -9,7 +9,7 @@ struct ContentCanvasPreview: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(Color(hex: 0x0A0804))
                     .frame(width: 40, height: 40)
-                    .background(Color(hex: 0xC8965A), in: Circle())
+                    .background(TallaTheme.Colors.accent, in: Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Talla Speciality")
@@ -28,7 +28,7 @@ struct ContentCanvasPreview: View {
                 Label("Account", systemImage: "person.fill")
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Color(hex: 0xC8965A))
+            .foregroundStyle(TallaTheme.Colors.accent)
         }
         .padding(22)
         .frame(width: 380, alignment: .leading)

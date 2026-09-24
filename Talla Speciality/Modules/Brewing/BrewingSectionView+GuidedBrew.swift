@@ -2347,7 +2347,7 @@ extension BrewingSectionView {
                     Label("Mark as best", systemImage: "star.fill")
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.tallaSecondary)
 
                 Button {
                     isAfterBrewFeedbackExpanded = false
@@ -2384,7 +2384,7 @@ extension BrewingSectionView {
                     Label("Share brew card", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.tallaSecondary)
             }
     }
 

@@ -481,7 +481,7 @@ private struct ReferralSectionView: View {
                     .textInputAutocapitalization(.characters)
                     .textFieldStyle(.talla)
                 Button(AppLocalization.text("redeem", fallback: "Redeem")) { redeem() }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.tallaSecondary)
                     .disabled(isLoading || redeemCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             if let message { Text(message).font(.caption).foregroundStyle(secondary) }

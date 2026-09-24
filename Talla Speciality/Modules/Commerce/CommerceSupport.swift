@@ -64,7 +64,7 @@ struct ProductThumbnail: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .stroke(
-                            Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.14 : 0.08),
+                            TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08),
                             lineWidth: 1
                         )
                 )
@@ -74,7 +74,7 @@ struct ProductThumbnail: View {
                     switch phase {
                     case .empty:
                         ProgressView()
-                            .tint(Color(hex: 0xC8965A))
+                            .tint(TallaTheme.Colors.accent)
 
                     case .success(let image):
                         image
@@ -126,7 +126,7 @@ struct ProductThumbnail: View {
     var placeholder: some View {
         Image(systemName: "cup.and.saucer.fill")
             .font(.system(size: 28))
-            .foregroundColor(Color(hex: 0xC8965A).opacity(isLightAppearance ? 0.66 : 0.8))
+            .foregroundColor(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.66 : 0.8))
     }
 }
 
@@ -1055,7 +1055,16 @@ struct CoffeeClubManageResponse: Decodable {
 
 struct CustomerCoffeeClub: Decodable {
     struct Preference: Decodable { let coffeeName, variantId: String? }
-    struct FulfillmentOverride: Decodable { let fullName, phone, line1, city, countryCode, notes: String? }
+    struct CoffeeItem: Decodable, Identifiable {
+        let coffeeName: String?
+        let variantId: String?
+        let quantity: Int?
+
+        var id: String { "\(variantId ?? coffeeName ?? "coffee")-\(quantity ?? 1)" }
+    }
+    struct FulfillmentOverride: Decodable {
+        let method, fullName, phone, line1, city, countryCode, notes, pickupSlot: String?
+    }
 
     let shipmentCount, intervalWeeks, discountPercent: Int
     let deliveredShipments, remainingShipments, nextShipmentNumber, changesEffectiveFromShipment: Int?
@@ -1064,6 +1073,7 @@ struct CustomerCoffeeClub: Decodable {
     let cancellationRequestedAt, cancellationReason, refundStatus, refundNote: String?
     let refundAmount: Double?
     let preference: Preference?
+    let coffeeItems: [CoffeeItem]?
     let fulfillmentOverride: FulfillmentOverride?
 
     var deliveredCount: Int { min(shipmentCount, max(0, deliveredShipments ?? 0)) }
