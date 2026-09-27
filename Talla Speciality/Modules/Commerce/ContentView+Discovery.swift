@@ -2125,7 +2125,88 @@ extension ContentView {
                 }
             }),
             walletCallToAction: AnyView(walletCallToAction)
+            ,phaseSixSection: AnyView(phaseSixLoyaltySection)
         )
+    }
+
+    var phaseSixLoyaltySection: some View {
+        let completed = Set(phaseSixCompletedPayload.split(separator: ",").map(String.init))
+        let activities: [(String, String, String, Int)] = [
+            ("birthday", "Birthday reward", "A complimentary birthday drink is waiting in your birthday month.", 50),
+            ("mission", "Monthly brewing mission", "Brew three different methods and log the cups this month.", 40),
+            ("achievement", "Method achievement", "Unlock badges for V60, espresso, immersion, and traditional brewing.", 30),
+            ("review", "Useful review", "Share a helpful tasting note or complete a coffee lesson.", 25)
+        ]
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("More ways to earn", systemImage: "sparkles")
+                    .font(labelFont(size: 11, weight: .bold))
+                    .foregroundStyle(TallaTheme.Colors.accent)
+                Spacer()
+                Text("Phase 6").font(.caption.weight(.bold)).foregroundStyle(secondaryTextColor)
+            }
+            Text("Birthday rewards, monthly missions, method achievements, and useful reviews turn your coffee habits into Beans.")
+                .font(bodyFont(size: 15)).foregroundStyle(secondaryTextColor)
+            ForEach(activities, id: \.0) { id, title, detail, points in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: completed.contains(id) ? "checkmark.seal.fill" : "circle.dotted")
+                        .foregroundStyle(completed.contains(id) ? TallaTheme.Colors.accent : secondaryTextColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(primaryTextColor)
+                        Text(detail).font(.caption).foregroundStyle(secondaryTextColor)
+                    }
+                    Spacer()
+                    if !completed.contains(id) {
+                        Button("+\(points)") {
+                            let next = completed.union([id]).sorted().joined(separator: ",")
+                            phaseSixCompletedPayload = next
+                            Task { await earnPhaseSixPoints(activityID: id, points: points, note: title) }
+                        }
+                        .font(.caption.weight(.bold))
+                        .buttonStyle(.borderedProminent)
+                        .tint(TallaTheme.Colors.accent)
+                    }
+                }
+            }
+            if !phaseSixPersonalizedOfferTitles.isEmpty {
+                Divider()
+                Label("Picked for your taste", systemImage: "wand.and.stars").font(.subheadline.weight(.bold)).foregroundStyle(primaryTextColor)
+                ForEach(phaseSixPersonalizedOfferTitles, id: \.self) { Text($0).font(.caption).foregroundStyle(secondaryTextColor) }
+            }
+            if !phaseSixLimitedLotTitles.isEmpty {
+                Divider()
+                Label("Early access", systemImage: "ticket.fill").font(.subheadline.weight(.bold)).foregroundStyle(primaryTextColor)
+                ForEach(phaseSixLimitedLotTitles, id: \.self) { Text($0).font(.caption).foregroundStyle(secondaryTextColor) }
+            }
+        }
+        .padding(16)
+        .background(cardFillColor)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    func earnPhaseSixPoints(activityID: String, points: Int, note: String) async {
+        guard !savedLoyaltyEmail.isEmpty else { return }
+        let idempotencyKey = activityID == "birthday"
+            ? "phase6:birthday:\(Calendar.current.component(.year, from: .now))"
+            : "phase6:\(activityID)"
+        if let updated = try? await LoyaltyService.earnPoints(email: savedLoyaltyEmail, points: points, note: note, idempotencyKey: idempotencyKey) {
+            await MainActor.run { loyaltyAccount = updated }
+        }
+    }
+
+    var phaseSixPersonalizedOfferTitles: [String] {
+        let taste = tasteMemoryRecords.first.map { ([$0.reaction] + $0.tags).joined(separator: " ").lowercased() } ?? ""
+        if taste.contains("bright") || taste.contains("acid") {
+            return ["10% off a bright washed lot", "Try the V60 mission for bonus Beans"]
+        }
+        if orderHistory.contains(where: { $0.items?.contains(where: { $0.name.localizedCaseInsensitiveContains("espresso") }) == true }) {
+            return ["Early access to the next espresso lot", "A milk-base recipe matched to your recent order"]
+        }
+        return ["A curated starter offer based on your coffee history", "Complete a brewing lesson for bonus Beans"]
+    }
+
+    var phaseSixLimitedLotTitles: [String] {
+        activeSeasonalEvents.filter { $0.enabled }.map { "\($0.name) · \($0.subtitleEN)" }
     }
 
     var clubView: some View {
@@ -2317,6 +2398,8 @@ extension ContentView {
             isLightAppearance: isLightAppearance,
             firstName: $profileFirstName,
             lastName: $profileLastName,
+            birthdayMonth: $birthdayMonth,
+            birthdayDay: $birthdayDay,
             isSaving: isSavingProfile,
             saveAction: {
                 await saveProfile()
@@ -2377,6 +2460,9 @@ extension ContentView {
                 items.append(URLQueryItem(name: "text", value: String(format: AppLocalization.text("order_support_message", fallback: "Hello Talla, I need help with order %@."), order.title)))
                 components?.queryItems = items
                 openURL(components?.url ?? managedWhatsAppURL)
+            },
+            customerOrderAction: { order, action in
+                await submitCustomerOrderAction(order: order, action: action)
             },
             manageCoffeeClubAction: { order, action, note, coffeeName, variantID, coffeeItems, address, fulfillmentMethod in
                 await manageCoffeeClub(

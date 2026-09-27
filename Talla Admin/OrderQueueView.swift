@@ -359,6 +359,9 @@ struct OrderDetailView: View {
     @State private var isUpdatingShipment = false
     @State private var coffeeClubNote = ""
     @State private var refundAmount = ""
+    @State private var refundNote = "Order refund"
+    @State private var showOrderRefundConfirmation = false
+    @State private var isRefunding = false
     @State private var isEditingClubPreferences = false
 
     private var order: AdminOrder? { session.orders.first { $0.id == orderID } }
@@ -373,6 +376,7 @@ struct OrderDetailView: View {
                         customerSection(order)
                         fulfillmentSection(order)
                         paymentSection(order)
+                        supportCaseSection(order)
                         itemsSection(order)
                         statusSection(order)
                         identifiersSection(order)
@@ -444,6 +448,16 @@ struct OrderDetailView: View {
                     if let club = order.coffeeClub {
                         Text(coffeeClubConfirmationMessage(club))
                     }
+                }
+                .confirmationDialog(
+                    "Execute Shopify refund?",
+                    isPresented: $showOrderRefundConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Refund BHD \(refundAmount)", role: .destructive) { executeRefund(order) }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This executes the refund with Shopify and marks the order Cancelled. It does not create a refund request in the customer app.")
                 }
             } else {
                 ContentUnavailableView(
@@ -721,10 +735,53 @@ struct OrderDetailView: View {
                 if let paidDate = payment.paidDate {
                     detailRow("Paid", paidDate.formatted(date: .abbreviated, time: .shortened))
                 }
+                if payment.isRefunded {
+                    detailRow("Refund", payment.refundedAmount.map { "BHD \($0.formatted(.number.precision(.fractionLength(3))))" } ?? "Already refunded")
+                } else if order.id.hasPrefix("shopify_") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Shopify refund").font(.subheadline.weight(.semibold))
+                        TextField("Amount (BHD)", text: $refundAmount).keyboardType(.decimalPad)
+                        TextField("Internal note", text: $refundNote)
+                        Button {
+                            if refundAmount.isEmpty { refundAmount = payment.amount ?? "" }
+                            showOrderRefundConfirmation = true
+                        } label: {
+                            if isRefunding { ProgressView().frame(maxWidth: .infinity) }
+                            else { Label("Execute refund in Shopify", systemImage: "arrow.uturn.backward.circle.fill").frame(maxWidth: .infinity) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .disabled(isRefunding || Double(refundAmount) == nil || (Double(refundAmount) ?? 0) <= 0)
+                    }
+                    .padding(.top, 6)
+                }
             } else {
                 detailRow("Method", "Not recorded for this order")
                 detailRow("Order total", order.total)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func supportCaseSection(_ order: AdminOrder) -> some View {
+        if let supportCase = order.supportCase,
+           [supportCase.status, supportCase.type, supportCase.note].contains(where: { !($0 ?? "").isEmpty }) {
+            AdminDetailCard(title: "Customer case", icon: "person.crop.circle.badge.exclamationmark") {
+                detailRow("Type", (supportCase.type ?? "case").replacingOccurrences(of: "_", with: " ").capitalized)
+                detailRow("Status", (supportCase.status ?? "open").replacingOccurrences(of: "_", with: " ").capitalized)
+                if let note = supportCase.note, !note.isEmpty { detailRow("Note", note, selectable: true) }
+                if let updated = supportCase.updatedAt, let date = adminDate(updated) { detailRow("Updated", date.formatted(date: .abbreviated, time: .shortened)) }
+            }
+        }
+    }
+
+    private func executeRefund(_ order: AdminOrder) {
+        guard let amount = Double(refundAmount), amount > 0 else { return }
+        isRefunding = true
+        Task {
+            await session.refund(order, amount: amount, note: refundNote)
+            isRefunding = false
+            refundAmount = ""
         }
     }
 

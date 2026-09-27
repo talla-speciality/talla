@@ -220,9 +220,28 @@ struct ContentView: View {
         }
 
         struct Fulfillment: Decodable {
+            struct Location: Decodable, Identifiable {
+                let id: String
+                let nameEN: String
+                let nameAR: String
+                let addressEN: String
+                let addressAR: String
+                let mapsURL: String
+                let openingHoursEN: String
+                let openingHoursAR: String
+                let temporaryClosureEN: String?
+                let temporaryClosureAR: String?
+                let pickupSlots: [PickupSlot]?
+            }
             struct ShippingTier: Decodable {
                 let maximumWeightGrams: Double
                 let rate: Double
+            }
+            struct PickupSlot: Decodable, Identifiable {
+                let id: String
+                let labelEN: String
+                let labelAR: String
+                let remaining: Int
             }
 
             let deliveryEnabled: Bool
@@ -234,6 +253,10 @@ struct ContentView: View {
             let pickupMapsURL: String
             let openingHoursEN: String
             let openingHoursAR: String
+            let temporaryClosureEN: String?
+            let temporaryClosureAR: String?
+            let pickupSlots: [PickupSlot]?
+            let locations: [Location]?
             let bahrainRate: Double
             let khaleejiCashOnDeliverySurcharge: Double
             let maximumKhaleejiWeightGrams: Double
@@ -437,9 +460,24 @@ struct ContentView: View {
                 let number: String?
                 let url: String?
             }
+            struct Payment: Decodable {
+                let method: String?
+                let status: String?
+                let refundedAmount: Double?
+            }
+            struct SupportCase: Decodable {
+                let id: String?
+                let status: String?
+                let type: String?
+                let note: String?
+                let createdAt: String?
+                let updatedAt: String?
+            }
             let fulfillment: Fulfillment?
             let tracking: Tracking?
+            let payment: Payment?
             let coffeeClub: CustomerCoffeeClub?
+            let supportCase: SupportCase?
         }
 
         var details: Details? = nil
@@ -456,6 +494,11 @@ struct ContentView: View {
             // Older orders can predate the fulfillment snapshot.
             return title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "pickup order"
                 || status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "ready"
+        }
+
+        var isRefunded: Bool {
+            let paymentStatus = details?.payment?.status?.lowercased() ?? ""
+            return paymentStatus == "refunded" || paymentStatus == "partially_refunded" || status.lowercased() == "refunded"
         }
 
         var historyStatus: String {
@@ -775,6 +818,7 @@ struct ContentView: View {
     @State var journalWaterGrams: Double?
     @State var journalBrewTimeSeconds: Int?
     @State var pendingBrewSamples: [CoffeeSampleInput] = []
+    @State var pendingBrewHealthID: UUID?
     @State var journalRating = 4
     @State var cartSaveName = ""
     @State var isCheckingOut = false
@@ -820,6 +864,7 @@ struct ContentView: View {
     @AppStorage("customerLibrary.cacheOwnerEmail") var customerLibraryCacheOwnerEmail = ""
     @AppStorage("tasteMemory.saved") var savedTasteMemory = ""
     @AppStorage("carts.saved") var savedCartsPayload = ""
+    @AppStorage("loyalty.phase6.completed") var phaseSixCompletedPayload = ""
     @AppStorage("brewing.deletedRecipeIDs") var deletedBrewRecipeIDsPayload = ""
     @State var selectedJournalCoffeeID: UUID?
     @AppStorage("app.language") var savedAppLanguage = AppLanguage.system.rawValue
@@ -837,6 +882,8 @@ struct ContentView: View {
     @State var accountConfirmPassword = ""
     @State var profileFirstName = ""
     @State var profileLastName = ""
+    @State var birthdayMonth = ""
+    @State var birthdayDay = ""
     @State var isSavingProfile = false
     @State var currentPasswordInput = ""
     @State var newPasswordInput = ""
@@ -860,7 +907,7 @@ struct ContentView: View {
     @State var isLoadingBackendAlerts = false
     @State var alertInbox: [AlertInboxRecord] = []
     @State var addresses: [DeliveryAddress] = []
-    @State var fulfillmentMethod: TallaFulfillmentMethod = .delivery; @State var selectedPickupSlot = "10:00–12:00"
+    @State var fulfillmentMethod: TallaFulfillmentMethod = .delivery; @State var selectedPickupSlot = "10:00–12:00"; @State var selectedPickupLocationID = ""
     @State var addressLabel = ""
     @State var addressFullName = ""
     @State var addressPhone = ""
@@ -2214,12 +2261,18 @@ struct ContentView: View {
         guard let fulfillment = remoteAppSettings?.fulfillment else {
             return AppLocalization.text("pickup_location_short", fallback: "Talla, Riffa")
         }
+        if let location = fulfillment.locations?.first(where: { $0.id == selectedPickupLocationID }) ?? fulfillment.locations?.first {
+            return isArabicInterface ? location.nameAR : location.nameEN
+        }
         return isArabicInterface ? fulfillment.pickupNameAR : fulfillment.pickupNameEN
     }
 
     var managedPickupAddress: String {
         guard let fulfillment = remoteAppSettings?.fulfillment else {
             return AppLocalization.text("pickup_address", fallback: "Villa 336, Street 1307, Riffa 913")
+        }
+        if let location = fulfillment.locations?.first(where: { $0.id == selectedPickupLocationID }) ?? fulfillment.locations?.first {
+            return isArabicInterface ? location.addressAR : location.addressEN
         }
         return isArabicInterface ? fulfillment.pickupAddressAR : fulfillment.pickupAddressEN
     }

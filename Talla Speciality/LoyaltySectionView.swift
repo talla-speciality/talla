@@ -32,6 +32,7 @@ struct LoyaltySectionView: View {
     let rewardsActionsSection: AnyView
     let transactionsSection: AnyView
     let walletCallToAction: AnyView
+    let phaseSixSection: AnyView
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -47,6 +48,7 @@ struct LoyaltySectionView: View {
 
             if let loyaltyAccount {
                 compactClubCard(account: loyaltyAccount)
+                phaseSixSection
                 ReferralSectionView(email: savedLoyaltyEmail, accent: accentColor, cardFill: cardFillColor, secondary: secondaryTextColor)
 
                 VStack(alignment: .leading, spacing: 20) {

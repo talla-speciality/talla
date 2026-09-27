@@ -13,6 +13,7 @@ struct AdminOrder: Codable, Identifiable, Hashable {
     let customer: AdminOrderCustomer?
     let fulfillment: AdminOrderFulfillment?
     let payment: AdminOrderPayment?
+    var supportCase: AdminSupportCase? = nil
     let coffeeClub: AdminCoffeeClub?
     let source: String?
     let updatedAt: String?
@@ -284,8 +285,22 @@ struct AdminOrderPayment: Codable, Hashable {
     let currency: String?
     let reference: String?
     let paidAt: String?
+    var refundedAmount: Double? = nil
 
     var paidDate: Date? { paidAt.flatMap { ISO8601DateFormatter().date(from: $0) } }
+    var isRefunded: Bool {
+        let normalized = status?.lowercased() ?? ""
+        return normalized == "refunded" || normalized == "partially_refunded" || (refundedAmount ?? 0) > 0
+    }
+}
+
+struct AdminSupportCase: Codable, Hashable {
+    let id: String?
+    let status: String?
+    let type: String?
+    let note: String?
+    let createdAt: String?
+    let updatedAt: String?
 }
 
 struct AdminOrdersResponse: Codable {
@@ -309,6 +324,16 @@ struct AdminStatusUpdateResponse: Codable {
 
 struct AdminNotifyReadyResponse: Codable {
     let push: AdminPushDeliveryResult
+}
+
+struct AdminRefundResult: Codable {
+    let order: AdminOrder?
+    let refund: AdminRefund?
+}
+
+struct AdminRefund: Codable, Hashable {
+    let id: String?
+    let status: String?
 }
 
 struct AdminPushDeliveryResult: Codable {

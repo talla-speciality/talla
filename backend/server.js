@@ -294,6 +294,36 @@ function defaultAppSettings() {
             pickupMapsURL: "",
             openingHoursEN: "",
             openingHoursAR: "",
+            temporaryClosureEN: "",
+            temporaryClosureAR: "",
+            locations: [
+                {
+                    id: "riffa",
+                    nameEN: "Talla, Riffa",
+                    nameAR: "تالة، الرفاع",
+                    addressEN: "Villa 336, Street 1307, Riffa 913",
+                    addressAR: "فيلا 336، طريق 1307، الرفاع 913",
+                    mapsURL: "",
+                    openingHoursEN: "",
+                    openingHoursAR: "",
+                    temporaryClosureEN: "",
+                    temporaryClosureAR: "",
+                    pickupSlots: [
+                        { id: "10-12", labelEN: "10:00–12:00", labelAR: "10:00–12:00", remaining: 8 },
+                        { id: "12-14", labelEN: "12:00–14:00", labelAR: "12:00–14:00", remaining: 8 },
+                        { id: "14-16", labelEN: "14:00–16:00", labelAR: "14:00–16:00", remaining: 8 },
+                        { id: "16-18", labelEN: "16:00–18:00", labelAR: "16:00–18:00", remaining: 8 },
+                        { id: "18-20", labelEN: "18:00–20:00", labelAR: "18:00–20:00", remaining: 8 }
+                    ]
+                }
+            ],
+            pickupSlots: [
+                { id: "10-12", labelEN: "10:00–12:00", labelAR: "10:00–12:00", remaining: 8 },
+                { id: "12-14", labelEN: "12:00–14:00", labelAR: "12:00–14:00", remaining: 8 },
+                { id: "14-16", labelEN: "14:00–16:00", labelAR: "14:00–16:00", remaining: 8 },
+                { id: "16-18", labelEN: "16:00–18:00", labelAR: "16:00–18:00", remaining: 8 },
+                { id: "18-20", labelEN: "18:00–20:00", labelAR: "18:00–20:00", remaining: 8 }
+            ],
             bahrainRate: 2,
             khaleejiCashOnDeliverySurcharge: 2,
             maximumKhaleejiWeightGrams: 4000,
@@ -453,6 +483,41 @@ function normalizeAppSettings(value = {}) {
             pickupMapsURL: safeURL(fulfillment.pickupMapsURL, ""),
             openingHoursEN: trimText(fulfillment.openingHoursEN, 160),
             openingHoursAR: trimText(fulfillment.openingHoursAR, 160),
+            temporaryClosureEN: trimText(fulfillment.temporaryClosureEN, 220),
+            temporaryClosureAR: trimText(fulfillment.temporaryClosureAR, 220),
+            locations: (Array.isArray(fulfillment.locations) ? fulfillment.locations : fallback.fulfillment.locations)
+                .map((location, index) => ({
+                    id: trimText(location?.id || ("location-" + (index + 1)), 40),
+                    nameEN: trimText(location?.nameEN, 100),
+                    nameAR: trimText(location?.nameAR, 100),
+                    addressEN: trimText(location?.addressEN, 180),
+                    addressAR: trimText(location?.addressAR, 180),
+                    mapsURL: safeURL(location?.mapsURL, ""),
+                    openingHoursEN: trimText(location?.openingHoursEN, 160),
+                    openingHoursAR: trimText(location?.openingHoursAR, 160),
+                    temporaryClosureEN: trimText(location?.temporaryClosureEN, 220),
+                    temporaryClosureAR: trimText(location?.temporaryClosureAR, 220),
+                    pickupSlots: (Array.isArray(location?.pickupSlots) ? location.pickupSlots : fallback.fulfillment.pickupSlots)
+                        .map((slot, slotIndex) => ({
+                            id: trimText(slot?.id || ("slot-" + (slotIndex + 1)), 40),
+                            labelEN: trimText(slot?.labelEN, 60),
+                            labelAR: trimText(slot?.labelAR, 60),
+                            remaining: Math.round(boundedNumber(slot?.remaining, 0, 0, 10_000))
+                        }))
+                        .filter((slot) => slot.labelEN && slot.labelAR)
+                        .slice(0, 24)
+                }))
+                .filter((location) => location.nameEN && location.nameAR && location.addressEN && location.addressAR)
+                .slice(0, 24),
+            pickupSlots: (Array.isArray(fulfillment.pickupSlots) ? fulfillment.pickupSlots : fallback.fulfillment.pickupSlots)
+                .map((slot, index) => ({
+                    id: trimText(slot?.id || ("slot-" + (index + 1)), 40),
+                    labelEN: trimText(slot?.labelEN, 60),
+                    labelAR: trimText(slot?.labelAR, 60),
+                    remaining: Math.round(boundedNumber(slot?.remaining, 0, 0, 10_000))
+                }))
+                .filter((slot) => slot.labelEN && slot.labelAR)
+                .slice(0, 24),
             bahrainRate: boundedNumber(fulfillment.bahrainRate, fallback.fulfillment.bahrainRate, 0, 500),
             khaleejiCashOnDeliverySurcharge: boundedNumber(fulfillment.khaleejiCashOnDeliverySurcharge, fallback.fulfillment.khaleejiCashOnDeliverySurcharge, 0, 500),
             maximumKhaleejiWeightGrams: boundedNumber(fulfillment.maximumKhaleejiWeightGrams, fallback.fulfillment.maximumKhaleejiWeightGrams, 1, 50_000),
@@ -1018,6 +1083,28 @@ function assertShopifyUserErrors(errors) {
 
 function shopifyOrderExportTag(localOrderID) {
     return `talla-app-${crypto.createHash("sha256").update(String(localOrderID || "")).digest("hex").slice(0, 20)}`;
+}
+
+async function executeShopifyOrderRefund(orderID, amount, note = "Customer order refund") {
+    const rawID = String(orderID || "").replace(/^shopify_/, "").trim();
+    if (!/^[0-9]+$/.test(rawID) || !shopifyAdminConfigured()) {
+        throw new Error("SHOPIFY_REFUND_UNAVAILABLE");
+    }
+    const orderGID = `gid://shopify/Order/${rawID}`;
+    const lookup = await shopifyAdminGraphQLRequest(`query($id: ID!) {
+        order(id: $id) { id transactions { id kind status amountSet { shopMoney { amount currencyCode } } } }
+    }`, { id: orderGID });
+    const order = lookup.order;
+    const transaction = order?.transactions?.find((candidate) => String(candidate.kind).toUpperCase() === "SALE" && String(candidate.status).toUpperCase() === "SUCCESS");
+    if (!transaction) throw new Error("SHOPIFY_REFUND_TRANSACTION_UNAVAILABLE");
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) throw new Error("SHOPIFY_REFUND_AMOUNT_INVALID");
+    const result = await shopifyAdminGraphQLRequest(`mutation($input: RefundInput!) {
+        refundCreate(input: $input) { refund { id status } userErrors { field message } }
+    }`, { input: { orderId: orderGID, note: String(note || "").slice(0, 500), transactions: [{ parentId: transaction.id, amount: numericAmount.toFixed(3), kind: "REFUND" }] } });
+    assertShopifyUserErrors(result.refundCreate?.userErrors);
+    if (!result.refundCreate?.refund?.id) throw new Error("SHOPIFY_REFUND_NOT_CREATED");
+    return result.refundCreate.refund;
 }
 
 function shopifyOrderExportRowToRecord(row) {
@@ -2279,6 +2366,137 @@ function profilePayload(account) {
         isActive: account.isActive !== false,
         deactivatedAt: account.deactivatedAt || null
     };
+}
+
+async function birthdayProfileFor(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT birth_month, birth_day FROM customer_birthday_profiles WHERE email = $1`,
+            [normalizedEmail]
+        );
+        return result.rowCount ? { month: result.rows[0].birth_month, day: result.rows[0].birth_day } : null;
+    }
+    const store = readJSON(loyaltyStorePath);
+    return store.birthdayProfiles?.[normalizedEmail] || null;
+}
+
+async function saveBirthdayProfile(email, month, day) {
+    const normalizedEmail = normalizeEmail(email);
+    const birthMonth = Math.round(Number(month));
+    const birthDay = Math.round(Number(day));
+    if (!normalizedEmail || birthMonth < 1 || birthMonth > 12 || birthDay < 1 || birthDay > 31) return null;
+    if (database.isEnabled()) {
+        await database.query(
+            `INSERT INTO customer_birthday_profiles (email, birth_month, birth_day, updated_at)
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT (email) DO UPDATE SET birth_month = EXCLUDED.birth_month, birth_day = EXCLUDED.birth_day, updated_at = NOW()`,
+            [normalizedEmail, birthMonth, birthDay]
+        );
+    } else {
+        const store = readJSON(loyaltyStorePath);
+        store.birthdayProfiles = store.birthdayProfiles || {};
+        store.birthdayProfiles[normalizedEmail] = { month: birthMonth, day: birthDay };
+        writeJSON(loyaltyStorePath, store);
+    }
+    return { month: birthMonth, day: birthDay };
+}
+
+async function birthdayProfilesForToday() {
+    const today = new Date();
+    const month = today.getUTCMonth() + 1;
+    const day = today.getUTCDate();
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `SELECT email FROM customer_birthday_profiles WHERE birth_month = $1 AND birth_day = $2`,
+            [month, day]
+        );
+        return result.rows.map((row) => normalizeEmail(row.email)).filter(Boolean);
+    }
+    const store = readJSON(loyaltyStorePath);
+    return Object.entries(store.birthdayProfiles || {})
+        .filter(([, value]) => Number(value?.month) === month && Number(value?.day) === day)
+        .map(([email]) => normalizeEmail(email))
+        .filter(Boolean);
+}
+
+async function runBirthdayRewardScan() {
+    const year = new Date().getUTCFullYear();
+    const transactionID = `phase6:birthday:${year}`;
+    for (const email of await birthdayProfilesForToday()) {
+        const account = await ensureLoyaltyAccount(email);
+        if (account.transactions?.some((transaction) => transaction.id === transactionID)) continue;
+        const updated = await updateLoyaltyAccount(email, (working) => {
+            working.pointsBalance += 50;
+            working.transactions = working.transactions || [];
+            working.transactions.unshift({
+                id: transactionID,
+                type: "earn",
+                points: 50,
+                note: "Birthday reward",
+                createdAt: new Date().toISOString()
+            });
+        });
+        if (!updated) continue;
+        for (const device of await pushDevicesForEmail(email)) {
+            await sendRemotePushToDevice(device, {
+                title: "Happy birthday from Talla",
+                body: "50 Beans have been added to your rewards account.",
+                type: "birthday_reward",
+                url: "talla://account/loyalty"
+            });
+        }
+    }
+}
+
+async function awardMonthlyMissionIfComplete(email, journal) {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const transactionID = `phase6:mission:${year}-${month}`;
+    const methods = new Set((Array.isArray(journal) ? journal : [])
+        .filter((entry) => String(entry.createdAt || "").startsWith(`${year}-${month}`))
+        .map((entry) => String(entry.method || "").trim().toLowerCase())
+        .filter(Boolean));
+    if (methods.size < 3) return;
+    const account = await ensureLoyaltyAccount(email);
+    if (account.transactions?.some((transaction) => transaction.id === transactionID)) return;
+    await updateLoyaltyAccount(email, (working) => {
+        working.pointsBalance += 40;
+        working.transactions = working.transactions || [];
+        working.transactions.unshift({ id: transactionID, type: "earn", points: 40, note: "Monthly brewing mission", createdAt: now.toISOString() });
+    });
+    if (methods.size >= 4) {
+        const achievementID = "phase6:achievement";
+        const refreshed = await ensureLoyaltyAccount(email);
+        if (!refreshed.transactions?.some((transaction) => transaction.id === achievementID)) {
+            await updateLoyaltyAccount(email, (working) => {
+                working.pointsBalance += 30;
+                working.transactions = working.transactions || [];
+                working.transactions.unshift({ id: achievementID, type: "earn", points: 30, note: "Brew method achievement", createdAt: now.toISOString() });
+            });
+        }
+    }
+    const usefulReview = (Array.isArray(journal) ? journal : []).some((entry) => Number(entry.rating) >= 4 && String(entry.notes || "").trim().length >= 20);
+    if (usefulReview) {
+        const reviewID = "phase6:review";
+        const refreshed = await ensureLoyaltyAccount(email);
+        if (!refreshed.transactions?.some((transaction) => transaction.id === reviewID)) {
+            await updateLoyaltyAccount(email, (working) => {
+                working.pointsBalance += 25;
+                working.transactions = working.transactions || [];
+                working.transactions.unshift({ id: reviewID, type: "earn", points: 25, note: "Useful brew review", createdAt: now.toISOString() });
+            });
+        }
+    }
+}
+
+let birthdayRewardTimer = null;
+function startBirthdayRewardMonitor() {
+    if (birthdayRewardTimer) return;
+    void runBirthdayRewardScan().catch((error) => console.error("Birthday reward scan failed:", error.message));
+    birthdayRewardTimer = setInterval(() => void runBirthdayRewardScan().catch((error) => console.error("Birthday reward scan failed:", error.message)), 60 * 60 * 1000);
+    birthdayRewardTimer.unref?.();
 }
 
 function accountRecordFromRow(row) {
@@ -4052,6 +4270,51 @@ async function findOrderByID(orderID) {
 async function updateOrderStatusByID(orderID, status) {
     const order = await findOrderByID(orderID);
     return order ? updateOrderStatusAndAward(order.email, orderID, status) : null;
+}
+
+async function createCustomerOrderAction(email, orderID, action, note = "") {
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedID = String(orderID || "").trim();
+    const normalizedAction = String(action || "").trim().toLowerCase();
+    if (!normalizedEmail || !normalizedID || !["request_cancellation", "open_support"].includes(normalizedAction)) {
+        return { reason: "invalid_request" };
+    }
+    const order = await findOrderByID(normalizedID);
+    if (!order || normalizeEmail(order.email) !== normalizedEmail) return { reason: "not_found" };
+    const terminalStatuses = new Set(["cancelled", "ready", "fulfilled", "delivered", "completed"]);
+    if (normalizedAction === "request_cancellation" && terminalStatuses.has(String(order.status || "").trim().toLowerCase())) {
+        return { reason: "not_cancellable" };
+    }
+    const now = new Date().toISOString();
+    const currentDetails = normalizeOrderDetails(order.details);
+    const currentCase = currentDetails.supportCase || {};
+    const nextCase = {
+        id: currentCase.id || `case_${normalizedID}_${Date.now()}`,
+        status: normalizedAction === "request_cancellation" ? "cancellation_requested" : (currentCase.status || "open"),
+        type: normalizedAction === "request_cancellation" ? "cancellation" : "support",
+        note: String(note || "").trim().slice(0, 800),
+        createdAt: currentCase.createdAt || now,
+        updatedAt: now
+    };
+    const nextDetails = normalizeOrderDetails({ ...currentDetails, supportCase: nextCase });
+    const nextStatus = normalizedAction === "request_cancellation" ? "Cancellation Requested" : order.status;
+    if (database.isEnabled()) {
+        const result = await database.query(
+            `UPDATE orders SET status = $3, details = $4::jsonb, updated_at = NOW()
+             WHERE email = $1 AND id = $2
+             RETURNING id, title, total, status, items, details, created_at, updated_at`,
+            [normalizedEmail, normalizedID, nextStatus, JSON.stringify(nextDetails)]
+        );
+        return result.rowCount ? { order: orderRowToRecord(result.rows[0]) } : { reason: "not_found" };
+    }
+    const store = readJSON(ordersStorePath);
+    const orders = Array.isArray(store.orders?.[normalizedEmail]) ? store.orders[normalizedEmail] : [];
+    const index = orders.findIndex((entry) => entry.id === normalizedID);
+    if (index < 0) return { reason: "not_found" };
+    orders[index] = { ...orders[index], status: nextStatus, details: nextDetails, updatedAt: now };
+    store.orders[normalizedEmail] = orders;
+    writeJSON(ordersStorePath, store);
+    return { order: orders[index] };
 }
 
 function orderStatusFromShopifyOrder(shopifyOrder, topic = "") {
@@ -8539,6 +8802,19 @@ async function saveAppSettings(nextSettings) {
     return settings;
 }
 
+async function reservePickupSlot(locationID, slotLabel) {
+    const settings = await getAppSettings();
+    const fulfillment = settings.fulfillment;
+    const locations = Array.isArray(fulfillment.locations) ? fulfillment.locations : [];
+    const location = locations.find((candidate) => candidate.id === String(locationID || "").trim()) || locations[0] || null;
+    const slots = location?.pickupSlots?.length ? location.pickupSlots : fulfillment.pickupSlots;
+    const slot = slots.find((candidate) => candidate.labelEN === slotLabel || candidate.labelAR === slotLabel);
+    if (!slot || Number(slot.remaining) <= 0) return null;
+    slot.remaining = Math.max(0, Number(slot.remaining) - 1);
+    await saveAppSettings(settings);
+    return { locationID: location?.id || "", slot: slot.labelEN };
+}
+
 async function requireOperationalPayment(paymentKey, response) {
     const settings = await getAppSettings();
     if (settings.release.maintenanceEnabled || settings.release.checkoutMaintenanceEnabled) {
@@ -8788,6 +9064,12 @@ const server = createServer({
     consumeVoucher,
     createAccountRecord,
     createAdminAuditLog,
+    createCustomerOrderAction,
+    birthdayProfileFor,
+    saveBirthdayProfile,
+    awardMonthlyMissionIfComplete,
+    reservePickupSlot,
+    executeShopifyOrderRefund,
     createAdminSession,
     createAdminVoucherRecord,
     createBenefitPayCheckStatusSignature,
@@ -9159,6 +9441,7 @@ async function startServer() {
     if (!database.isEnabled()) {
         await getAppSettings();
         startCoffeeClubReminderMonitor();
+        startBirthdayRewardMonitor();
         server.listen(port, host, () => {
             console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
         });
@@ -9171,6 +9454,7 @@ async function startServer() {
         console.log("Postgres storage enabled for accounts and loyalty.");
         startOpsAlertMonitor();
         startCoffeeClubReminderMonitor();
+        startBirthdayRewardMonitor();
         server.listen(port, host, () => {
             console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
         });

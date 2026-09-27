@@ -60,7 +60,7 @@ indirect enum AdminValue: Codable, Equatable {
 }
 
 struct AdminField: Identifiable {
-    enum Kind { case text, multiline, number, integer, toggle, choice([String]), products(Int, Bool), product, date, words }
+    enum Kind { case text, multiline, number, integer, toggle, choice([String]), products(Int, Bool), product, date, words, json }
     let path: String
     let label: String
     var kind: Kind = .text

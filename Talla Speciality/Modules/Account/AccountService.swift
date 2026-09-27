@@ -391,6 +391,28 @@ enum AccountService {
         return try await performProfileRequest(request)
     }
 
+    static func fetchBirthdayProfile() async throws -> (month: Int, day: Int)? {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/profile/birthday"))
+        request.httpMethod = "GET"
+        try authorize(&request)
+        let (data, response) = try await data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw ContentView.LoyaltyServiceError.operationFailed("Birthday settings could not be loaded.") }
+        struct Response: Decodable { struct Birthday: Decodable { let month: Int; let day: Int }; let birthday: Birthday? }
+        let value = try JSONDecoder().decode(Response.self, from: data).birthday
+        return value.map { ($0.month, $0.day) }
+    }
+
+    static func saveBirthdayProfile(month: Int, day: Int) async throws {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/profile/birthday"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["month": month, "day": day])
+        _ = try await performEmptyRequest(request)
+    }
+
     static func resetPassword(email: String, currentPassword: String, newPassword: String) async throws {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
@@ -475,6 +497,32 @@ enum AccountService {
         try authorize(&request)
 
         return try await performOrdersRequest(request)
+    }
+
+    static func submitCustomerOrderAction(orderID: String, action: String, note: String? = nil) async throws -> [ContentView.AccountOrder] {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The order service is unavailable.")
+        }
+        var request = URLRequest(url: baseURL.appending(path: "/orders/customer-action"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        var payload: [String: String] = ["orderID": orderID, "action": action]
+        if let note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { payload["note"] = note }
+        request.httpBody = try JSONEncoder().encode(payload)
+        let (data, response) = try await data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The order service returned an invalid response.")
+        }
+        if 200 ..< 300 ~= httpResponse.statusCode {
+            struct Response: Decodable { let orders: [ContentView.AccountOrder] }
+            return try JSONDecoder().decode(Response.self, from: data).orders
+        }
+        if let errorPayload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
+        }
+        throw ContentView.LoyaltyServiceError.operationFailed("The order request could not be completed.")
     }
 
     static func manageCoffeeClub(
@@ -581,6 +629,7 @@ enum AccountService {
         fulfillmentMethod: TallaFulfillmentMethod,
         address: ContentView.DeliveryAddress?,
         pickupSlot: String? = nil,
+        pickupLocationID: String? = nil,
         paymentMethod: TallaPaymentMethod,
         voucherCode: String?,
         prepaidCoffeeClub: Bool = false,
@@ -645,7 +694,9 @@ enum AccountService {
             ]
         }
         if fulfillmentMethod == .pickup, let pickupSlot, !pickupSlot.isEmpty {
-            payload["fulfillment"] = ["method": fulfillmentMethod.rawValue, "pickupSlot": pickupSlot]
+            var pickup: [String: Any] = ["method": fulfillmentMethod.rawValue, "pickupSlot": pickupSlot]
+            if let pickupLocationID, !pickupLocationID.isEmpty { pickup["pickupLocationID"] = pickupLocationID }
+            payload["fulfillment"] = pickup
         }
         if let voucherCode, !voucherCode.isEmpty {
             payload["voucherCode"] = voucherCode

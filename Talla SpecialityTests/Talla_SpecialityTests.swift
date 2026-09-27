@@ -4,6 +4,12 @@ import Testing
 
 struct Talla_SpecialityTests {
 
+    @Test func caffeineEstimateUsesDoseAndBrewStyle() {
+        #expect(TallaCaffeineEstimator.estimate(milligramsForDoseGrams: 20, method: "V60") == 200)
+        #expect(TallaCaffeineEstimator.estimate(milligramsForDoseGrams: 18, method: "Espresso") == 117)
+        #expect(TallaCaffeineEstimator.estimate(milligramsForDoseGrams: nil, method: "V60") == nil)
+    }
+
     private func smartInput(
         brewMode: String = "Hot",
         brewerID: String = "v60",

@@ -446,6 +446,24 @@ extension BrewingSectionView {
         }
 
         brewRecipeName = profile.title
+        syncSelectedRecipeToWatch()
+    }
+
+    func syncSelectedRecipeToWatch() {
+#if canImport(WatchConnectivity) && os(iOS)
+        TallaWatchPhoneBridge.syncRecipeSelection(
+            methodName: currentBrewRecipeTitle,
+            coffeeGrams: validCoffeeAmount,
+            ratio: validRatioValue,
+            totalWater: brewModeWaterAmount,
+            totalSeconds: brewModeTotalSeconds,
+            grind: selectedGuideProfile?.grind ?? generatedGrindDescription,
+            temperature: selectedGuideProfile?.temperature ?? "\(generatedTemperatureC) °C",
+            stepTimes: brewModeSteps.map(\.time),
+            stepTitles: brewModeSteps.map(\.title),
+            stepWaterTargets: brewModeSteps.map { $0.waterTarget ?? -1 }
+        )
+#endif
     }
 
     func applySavedRecipe(_ recipe: BrewRecipeRecord, start: Bool) {
@@ -1278,6 +1296,7 @@ extension BrewingSectionView {
         isBrewModeRunning = false
         endBrewLiveActivity()
         brewModeHapticTrigger += 1
+        syncSelectedRecipeToWatch()
 
         if start {
             startBrewModeSession()
@@ -1488,6 +1507,15 @@ extension BrewingSectionView {
             brewModeElapsedSeconds = brewModeTotalSeconds
         }
         didCompleteBrewFromScale = completedFromScale
+        guidedBrewFinishedAction(
+            selectedBrewModeMethod,
+            validCoffeeAmount,
+            validRatioValue,
+            validWaterAmount,
+            brewModeElapsedSeconds,
+            selectedPurchasedCoffeeID,
+            capturedBrewSamples
+        )
         TallaTelemetry.shared.track("brew_timer_completed", properties: [
             "method": selectedBrewModeMethod?.name ?? "custom",
             "duration_seconds": String(brewModeElapsedSeconds),
@@ -1733,7 +1761,9 @@ extension BrewingSectionView {
             "isPaused": isPaused,
             "stepTimes": brewModeSteps.map(\.time),
             "stepTitles": brewModeSteps.map(\.title),
-            "stepWaterTargets": brewModeSteps.map { $0.waterTarget ?? -1 }
+            "stepWaterTargets": brewModeSteps.map { $0.waterTarget ?? -1 },
+            "grind": selectedGuideProfile?.grind ?? generatedGrindDescription,
+            "temperature": selectedGuideProfile?.temperature ?? "93 °C"
         ]
 
         if session.isReachable {

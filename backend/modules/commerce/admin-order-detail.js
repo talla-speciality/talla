@@ -243,6 +243,7 @@ function createAdminOrderDetailService(dependencies) {
         const fulfillment = details.fulfillment && typeof details.fulfillment === "object" ? details.fulfillment : {};
         const payment = details.payment && typeof details.payment === "object" ? details.payment : {};
         const tracking = details.tracking && typeof details.tracking === "object" ? details.tracking : {};
+        const supportCase = details.supportCase && typeof details.supportCase === "object" ? details.supportCase : {};
         const coffeeClub = normalizeCoffeeClub(details.coffeeClub);
         return {
             source: trimText(details.source, 60),
@@ -258,13 +259,26 @@ function createAdminOrderDetailService(dependencies) {
                 city: trimText(fulfillment.city, 100),
                 countryCode: normalizeCountryCode(fulfillment.countryCode, ""),
                 notes: trimText(fulfillment.notes, 500),
-                pickupSlot: trimText(fulfillment.pickupSlot, 80)
+                pickupSlot: trimText(fulfillment.pickupSlot, 80),
+                pickupLocationID: trimText(fulfillment.pickupLocationID, 80)
             },
-            payment: { method: trimText(payment.method, 80) },
+            payment: {
+                method: trimText(payment.method, 80),
+                status: trimText(payment.status, 40).toLowerCase(),
+                refundedAmount: Math.max(0, Number(payment.refundedAmount) || 0)
+            },
             tracking: {
                 company: trimText(tracking.company, 100),
                 number: trimText(tracking.number, 120),
                 url: /^https:\/\//i.test(String(tracking.url || "")) ? trimText(tracking.url, 500) : ""
+            },
+            supportCase: {
+                id: trimText(supportCase.id, 80),
+                status: trimText(supportCase.status, 40).toLowerCase(),
+                type: trimText(supportCase.type, 40).toLowerCase(),
+                note: trimText(supportCase.note, 800),
+                createdAt: trimText(supportCase.createdAt, 40),
+                updatedAt: trimText(supportCase.updatedAt, 40)
             },
             coffeeClub
         };
@@ -388,6 +402,7 @@ function createAdminOrderDetailService(dependencies) {
                 notes: fulfillment.notes || preferredAddress.notes || ""
             },
             coffeeClub: snapshot.coffeeClub,
+            supportCase: snapshot.supportCase,
             payment,
             source: snapshot.source || (String(order.id).startsWith("shopify_") ? "Shopify" : "Talla app")
         });
@@ -412,7 +427,7 @@ function createAdminOrderDetailService(dependencies) {
                 countryCode: address.country_code,
                 notes: order.note
             },
-            payment: { method: gatewayNames },
+            payment: { method: gatewayNames, status: order.financial_status, refundedAmount: order.total_refunded },
             tracking: {
                 company: order.fulfillments?.[0]?.tracking_company,
                 number: order.fulfillments?.[0]?.tracking_number,
@@ -436,7 +451,7 @@ function createAdminOrderDetailService(dependencies) {
                 city: address.city,
                 countryCode: address.countryCodeV2
             },
-            payment: { method: Array.isArray(order.paymentGatewayNames) ? order.paymentGatewayNames.join(", ") : order.paymentGatewayNames },
+            payment: { method: Array.isArray(order.paymentGatewayNames) ? order.paymentGatewayNames.join(", ") : order.paymentGatewayNames, status: order.displayFinancialStatus, refundedAmount: order.refundedAmount },
             tracking: {
                 company: order.fulfillments?.[0]?.trackingInfo?.[0]?.company,
                 number: order.fulfillments?.[0]?.trackingInfo?.[0]?.number,

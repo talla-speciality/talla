@@ -136,6 +136,16 @@ struct AdminAPI {
         return try JSONDecoder().decode(AdminNotifyReadyResponse.self, from: data).push
     }
 
+    func refundOrder(orderID: String, email: String, amount: Double, note: String) async throws -> AdminRefundResult {
+        let data = try await request("/admin/api/orders/refund", method: "POST", body: [
+            "id": orderID,
+            "email": email,
+            "amount": amount,
+            "note": note
+        ])
+        return try JSONDecoder().decode(AdminRefundResult.self, from: data)
+    }
+
     func registerPushToken(_ token: String) async throws -> Bool {
         #if DEBUG
         let environment = "sandbox"

@@ -75,6 +75,15 @@ extension ContentView {
                 guard let product = products.first(where: { $0.id == productID }) else { return }
                 addToCart(product: product)
             },
+            guidedBrewFinishedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, purchasedCoffeeID, samples in
+                recordCaffeineForCompletedBrew(
+                    method: method,
+                    coffeeAmount: coffeeAmount,
+                    brewTime: brewTime,
+                    purchasedCoffeeID: purchasedCoffeeID,
+                    samples: samples
+                )
+            },
             guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, purchasedCoffeeID, samples in
                 prepareJournalEntryFromGuidedBrew(
                     method: method,
@@ -676,7 +685,7 @@ extension ContentView {
         }
 
         let entry = BrewJournalEntry(
-            id: UUID(),
+            id: pendingBrewHealthID ?? UUID(),
             title: title.isEmpty ? defaultBrewRecipeName() : title,
             method: method.isEmpty ? selectedBrewTimerName : method,
             coffeeGrams: journalCoffeeGrams,
@@ -690,7 +699,7 @@ extension ContentView {
 
         persistCoffeeJournalEntries([entry] + brewJournalEntries)
         try? coffeeData.recordCompletedBrew(
-            id: entry.id,
+            id: pendingBrewHealthID ?? entry.id,
             title: entry.title,
             method: entry.method,
             coffeeGrams: entry.coffeeGrams,
@@ -728,10 +737,36 @@ extension ContentView {
             Task { _ = try? await AccountService.saveBrewJournal(entry) }
         }
         journalTitleInput = ""
+        pendingBrewHealthID = nil
         selectedJournalCoffeeID = nil
         journalNotesInput = ""
         clearJournalBrewDetails()
         showToast(message: AppLocalization.text("journal_saved_toast", fallback: "Coffee note saved"))
+    }
+
+    func recordCaffeineForCompletedBrew(
+        method: BrewingMethod?,
+        coffeeAmount: Double,
+        brewTime: Int,
+        purchasedCoffeeID: UUID?,
+        samples: [CoffeeSampleInput]
+    ) {
+        let brewID = UUID()
+        pendingBrewHealthID = brewID
+        let methodName = method?.name ?? selectedBrewTimerName
+        guard let caffeineMilligrams = TallaCaffeineEstimator.estimate(
+            milligramsForDoseGrams: coffeeAmount,
+            method: methodName
+        ) else { return }
+
+        Task { @MainActor in
+            await TallaHealthKitService.shared.saveEstimatedCaffeine(
+                forBrewID: brewID,
+                milligrams: caffeineMilligrams,
+                date: .now,
+                title: methodName
+            )
+        }
     }
 
     func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int, purchasedCoffeeID: UUID?, samples: [CoffeeSampleInput]) {

@@ -8,6 +8,8 @@ struct ProfileManagementSectionView: View {
     let isLightAppearance: Bool
     @Binding var firstName: String
     @Binding var lastName: String
+    @Binding var birthdayMonth: String
+    @Binding var birthdayDay: String
     let isSaving: Bool
     let saveAction: () async -> Bool
     @State private var isEditingName = false
@@ -94,6 +96,19 @@ struct ProfileManagementSectionView: View {
                 }
                 .padding(.vertical, 4)
             }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Birthday rewards")
+                    .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                    .foregroundColor(primaryTextColor)
+                HStack(spacing: 10) {
+                    styledNumberField("Month", text: $birthdayMonth)
+                    styledNumberField("Day", text: $birthdayDay)
+                }
+                Text("Save your month and day to unlock the birthday reward on the correct date.")
+                    .font(Font.custom("AvenirNext-Regular", size: 11))
+                    .foregroundColor(secondaryTextColor)
+            }
         }
         .onAppear {
             if !hasSavedName {
@@ -115,6 +130,18 @@ struct ProfileManagementSectionView: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func styledNumberField(_ title: String, text: Binding<String>) -> some View {
+        TextField(title, text: text)
+            .keyboardType(.numberPad)
+            .font(Font.custom("AvenirNext-Regular", size: 15))
+            .foregroundColor(primaryTextColor)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .background(cardFillColor)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
@@ -202,6 +229,7 @@ struct OrderHistorySectionView: View {
     let pickupDirectionsAction: () -> Void
     let browseProductsAction: () -> Void
     let orderSupportAction: (ContentView.AccountOrder) -> Void
+    let customerOrderAction: (ContentView.AccountOrder, String) async -> Bool
     let manageCoffeeClubAction: (ContentView.AccountOrder, String, String?, String?, String?, [(name: String, variantID: String, quantity: Int)], ContentView.DeliveryAddress?, TallaFulfillmentMethod) async -> Bool
 
     @State private var managedCoffeeClubOrder: ContentView.AccountOrder?
@@ -288,6 +316,11 @@ struct OrderHistorySectionView: View {
                                     .foregroundColor(accentColor)
 
                                 orderStatusBadge(order.historyStatus)
+                                if order.isRefunded {
+                                    Text("Refunded")
+                                        .font(Font.custom("AvenirNext-DemiBold", size: 10))
+                                        .foregroundColor(accentColor)
+                                }
                             }
                         }
 
@@ -443,6 +476,14 @@ struct OrderHistorySectionView: View {
                             pickupDirectionsCard
                         }
 
+                        if let supportCase = order.details?.supportCase,
+                           let status = supportCase.status,
+                           !status.isEmpty {
+                            Label("Case \(status.replacingOccurrences(of: "_", with: " ").capitalized)", systemImage: "checkmark.message.fill")
+                                .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                                .foregroundColor(accentColor)
+                        }
+
                         if order.beansAwarded == true, let pointsAwarded = order.pointsAwarded, pointsAwarded > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "sparkles")
@@ -483,6 +524,16 @@ struct OrderHistorySectionView: View {
                                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
                         }
                         .buttonStyle(.tallaSecondary)
+
+                        if !["cancelled", "cancellation requested", "ready", "fulfilled", "delivered", "completed"].contains(order.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) {
+                            Button {
+                                Task { _ = await customerOrderAction(order, "request_cancellation") }
+                            } label: {
+                                Label("Request cancellation", systemImage: "xmark.circle")
+                                    .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                            }
+                            .buttonStyle(.tallaSecondary)
+                        }
                     }
                     .padding(14)
                     .background(cardFillColor)

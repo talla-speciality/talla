@@ -57,6 +57,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Talla records estimated caffeine from your completed brews in Apple Health so you can track your daily caffeine intake.</string>
 	<key>TallaAppAttestEnvironment</key>
 	<string>$(APP_ATTEST_ENVIRONMENT)</string>
 	<key>UILaunchScreen</key>

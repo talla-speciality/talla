@@ -72,7 +72,7 @@ enum LoyaltyService {
         return try await performLoyaltyRequest(request)
     }
 
-    static func earnPoints(email: String, points: Int, note: String) async throws -> ContentView.LoyaltyAccount {
+    static func earnPoints(email: String, points: Int, note: String, idempotencyKey: String? = nil) async throws -> ContentView.LoyaltyAccount {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service is unavailable.")
         }
@@ -82,12 +82,24 @@ enum LoyaltyService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         try AccountService.authorize(&request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
+        var payload: [String: Any] = [
             "email": email,
             "points": points,
             "note": note
-        ])
+        ]
+        if let idempotencyKey, !idempotencyKey.isEmpty { payload["idempotencyKey"] = idempotencyKey }
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
+        return try await performLoyaltyRequest(request)
+    }
+
+    static func claimEducationReward(lessons: Int, score: Int) async throws -> ContentView.LoyaltyAccount {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/loyalty/activities/education-claim"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try AccountService.authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["lessons": lessons, "score": score])
         return try await performLoyaltyRequest(request)
     }
 

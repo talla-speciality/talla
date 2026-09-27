@@ -14,6 +14,9 @@ struct CoffeeEducationView: View {
     @AppStorage("talla.education.completedLessons.v1") private var persistedCompletedLessons = ""
     @AppStorage("talla.education.quizScore.v1") private var persistedQuizScore = 0
     @AppStorage("talla.education.questionsAnswered.v1") private var persistedQuestionsAnswered = 0
+    @AppStorage("loyalty.email") private var loyaltyEmail = ""
+    @AppStorage("talla.education.rewardClaimed.v1") private var educationRewardClaimed = false
+    @State private var claimingEducationReward = false
 
     private let families: [(name: String, color: Color, notes: [String], description: String)] = [
         ("Fruity", Color(red: 0.89, green: 0.32, blue: 0.28), ["Berry", "Citrus", "Stone fruit"], "Bright, juicy notes often found in lightly roasted coffees."),
@@ -241,6 +244,16 @@ struct CoffeeEducationView: View {
         if completedLessons.count >= 3 && !UserDefaults.standard.bool(forKey: "talla.metrics.educationCompleted.v1") {
             UserDefaults.standard.set(true, forKey: "talla.metrics.educationCompleted.v1")
             TallaTelemetry.shared.track("education_path_completed", properties: ["lessons": String(completedLessons.count), "quiz_score": String(quizScore)])
+        }
+        guard completedLessons.count >= 3, quizScore >= 2, !educationRewardClaimed, !claimingEducationReward,
+              !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        claimingEducationReward = true
+        Task {
+            if (try? await LoyaltyService.claimEducationReward(lessons: completedLessons.count, score: quizScore)) != nil {
+                await MainActor.run { educationRewardClaimed = true; claimingEducationReward = false }
+            } else {
+                await MainActor.run { claimingEducationReward = false }
+            }
         }
     }
 

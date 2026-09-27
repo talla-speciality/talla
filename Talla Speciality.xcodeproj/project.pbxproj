@@ -12,6 +12,7 @@
 		E085884A2FD9583B003B3E9D /* TallaWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = E08588492FD9583B003B3E9D /* TallaWidgets.swift */; };
 		E08588522FD959E3003B3E9D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E08588512FD959E3003B3E9D /* WidgetKit.framework */; };
 		E08588542FD959E3003B3E9D /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E08588532FD959E3003B3E9D /* SwiftUI.framework */; };
+		E08588562FD959E3003B3E9D /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E08588572FD959E3003B3E9D /* HealthKit.framework */; };
 		E08588652FD959E5003B3E9D /* Talla WidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E085884F2FD959E3003B3E9D /* Talla WidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E09687C93006F5AA001FBDAD /* Talla Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = E09687A93006F5A8001FBDAD /* Talla Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E09687D93007968C001FBDAD /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E08588512FD959E3003B3E9D /* WidgetKit.framework */; };
@@ -145,6 +146,7 @@
 		E085884F2FD959E3003B3E9D /* Talla WidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Talla WidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E08588512FD959E3003B3E9D /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		E08588532FD959E3003B3E9D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		E08588572FD959E3003B3E9D /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		E08D10A92F66FF140092272C /* Talla Speciality.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Talla Speciality.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E08D10BA2F66FF170092272C /* Talla SpecialityTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Talla SpecialityTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E08D10C42F66FF170092272C /* Talla SpecialityUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Talla SpecialityUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -265,6 +267,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E08588562FD959E3003B3E9D /* HealthKit.framework in Frameworks */,
 				FD40000130D0000000000001 /* Vendor/Acaia/AcaiaSDK.xcframework in Frameworks */,
 				FB20000130B0000000000001 /* Vendor/BenefitPay/BenefitInAppSDK.xcframework in Frameworks */,
 				FA10000130A0000000000001 /* Vendor/Mastercard/Gateway.xcframework in Frameworks */,

@@ -31,6 +31,18 @@ struct EspressoShot: Identifiable, Codable, Equatable {
     var isPositive: Bool { rating >= 4 }
 }
 
+struct EspressoDiagnosticTag: Identifiable, Codable, Equatable {
+    let id: String
+    let title: String
+    let systemImage: String
+}
+
+struct EspressoPuckChecklistItem: Identifiable, Codable, Equatable {
+    let id: String
+    let title: String
+    var isComplete: Bool
+}
+
 struct EspressoWorkspaceView: View {
     let accent: Color
     let background: Color
@@ -52,6 +64,18 @@ struct EspressoWorkspaceView: View {
     @State private var didAlertTarget = false
     @State private var feedbackTrigger = 0
     @State private var showNewShot = false
+    @State private var puckChecklist = [
+        EspressoPuckChecklistItem(id: "dose", title: "Dose and distribute evenly", isComplete: false),
+        EspressoPuckChecklistItem(id: "tamp", title: "Tamp level", isComplete: false),
+        EspressoPuckChecklistItem(id: "flush", title: "Flush and lock in", isComplete: false)
+    ]
+    @State private var diagnosticTags: [EspressoDiagnosticTag] = []
+    @State private var milkElapsed = 0
+    @State private var milkRunning = false
+    @State private var milkTargetTemperature = 60.0
+    @State private var milkScale = 1.0
+    @AppStorage("talla.espresso.waterHardnessPPM") private var waterHardnessPPM = 90.0
+    @AppStorage("talla.espresso.burrRevision") private var burrRevision = 1
     private let storageKey = "talla.espresso.shots.v1"
 
     var body: some View {
@@ -62,6 +86,9 @@ struct EspressoWorkspaceView: View {
                 modePicker
                 if mode == "Quick" { quickMode } else { labMode }
                 weightGraph
+                puckPreparation
+                milkSteamingCard
+                maintenanceCard
                 referenceComparison
                 history
             }
@@ -80,6 +107,7 @@ struct EspressoWorkspaceView: View {
         }
         .onChange(of: scaleManager.weightGrams) { _, weight in
             liveWeight = max(0, weight)
+            TallaWatchPhoneBridge.sendEspressoState(elapsed: elapsed, weight: liveWeight, ratio: draft.ratio, flow: scaleManager.flowRateGramsPerSecond, targetYield: draft.yield, isRunning: isRunning)
             if isRunning { weightSamples.append(EspressoSample(seconds: elapsed, weight: liveWeight, flow: scaleManager.flowRateGramsPerSecond)) }
             if isRunning && !didAlertTarget && liveWeight >= draft.yield { didAlertTarget = true; targetReachedFeedback(); finishShot() }
         }
@@ -99,6 +127,7 @@ struct EspressoWorkspaceView: View {
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
+                if milkRunning { milkElapsed += 1 }
                 guard !Task.isCancelled, isRunning else { continue }
                 elapsed += 1
                 if firstDrop == nil && liveWeight > 0.5 { firstDrop = elapsed }
@@ -151,12 +180,66 @@ struct EspressoWorkspaceView: View {
         }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    private var puckPreparation: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack { Text("Puck preparation").font(.headline).foregroundStyle(primary); Spacer(); Text("\(puckChecklist.filter(\.isComplete).count)/\(puckChecklist.count)").font(.caption).foregroundStyle(secondary) }
+            ForEach(puckChecklist.indices, id: \.self) { index in
+                Button { puckChecklist[index].isComplete.toggle() } label: {
+                    Label(puckChecklist[index].title, systemImage: puckChecklist[index].isComplete ? "checkmark.circle.fill" : "circle")
+                        .font(.subheadline).foregroundStyle(puckChecklist[index].isComplete ? accent : primary)
+                }.buttonStyle(.plain)
+            }
+            HStack(spacing: 6) {
+                ForEach([("sour", "Sour", "drop.triangle"), ("bitter", "Bitter", "flame"), ("channeling", "Channeling", "waveform.path.ecg")], id: \.0) { tag in
+                    let active = diagnosticTags.contains { $0.id == tag.0 }
+                    Button { toggleDiagnostic(tag.0, title: tag.1, icon: tag.2) } label: {
+                        Text(tag.1).font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 6).background(active ? accent.opacity(0.2) : background.opacity(0.5)).clipShape(Capsule())
+                    }.buttonStyle(.plain)
+                }
+            }
+        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var maintenanceCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack { Text("Maintenance").font(.headline).foregroundStyle(primary); Spacer(); Text(maintenanceMessage).font(.caption.weight(.semibold)).foregroundStyle(accent) }
+            HStack { Text("Water hardness").font(.caption).foregroundStyle(secondary); Spacer(); Stepper("\(Int(waterHardnessPPM)) ppm", value: $waterHardnessPPM, in: 0...500, step: 10).font(.caption) }
+            Text("Shot count drives group-head cleaning; hardness drives descaling. Grinder burr changes remain attached to each shot's setting history.").font(.caption).foregroundStyle(secondary)
+        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var maintenanceMessage: String {
+        if shots.count >= 200 { return "Clean group head now" }
+        if waterHardnessPPM >= 120 && shots.count >= 100 { return "Descale soon" }
+        return "On track"
+    }
+
+    private var milkSteamingCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack { Text("Milk steaming").font(.headline).foregroundStyle(primary); Spacer(); Text(String(format: "%02d:%02d", milkElapsed / 60, milkElapsed % 60)).font(.caption.monospacedDigit()).foregroundStyle(accent) }
+            HStack { Text("Target temperature").font(.caption).foregroundStyle(secondary); Spacer(); Stepper("\(Int(milkTargetTemperature)) °C", value: $milkTargetTemperature, in: 50...75, step: 1).font(.caption) }
+            HStack { Text("Drink scale").font(.caption).foregroundStyle(secondary); Spacer(); Stepper(String(format: "%.1fx", milkScale), value: $milkScale, in: 0.5...2.0, step: 0.1).font(.caption) }
+            Button { milkRunning.toggle() } label: { Label(milkRunning ? "Pause steam timer" : "Start steam timer", systemImage: milkRunning ? "pause.fill" : "play.fill").font(.caption.weight(.semibold)) }.buttonStyle(.borderedProminent).tint(accent)
+            Text(String(format: "For this shot: %.1f g espresso · %.0f °C milk target", draft.yield * milkScale, milkTargetTemperature)).font(.caption).foregroundStyle(secondary)
+        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func toggleDiagnostic(_ id: String, title: String, icon: String) {
+        if diagnosticTags.contains(where: { $0.id == id }) { diagnosticTags.removeAll { $0.id == id } }
+        else { diagnosticTags.append(EspressoDiagnosticTag(id: id, title: title, systemImage: icon)) }
+    }
+
     private var labMode: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Equipment & variables").font(.headline).foregroundStyle(primary)
             editorField("Machine", text: $draft.machine); editorField("Grinder", text: $draft.grinder)
             editorField("Burr", text: $draft.burr); editorField("Basket", text: $draft.basket)
             editorField("Portafilter", text: $draft.portafilter); editorField("Grind setting", text: $draft.grind)
+            HStack {
+                Text("Burr revision \(burrRevision)").font(.caption).foregroundStyle(secondary)
+                Spacer()
+                Button("Record burr change") { burrRevision += 1; draft.burr = "Revision \(burrRevision)" }.font(.caption.weight(.semibold))
+            }
             metricGrid
             if let suggestion { suggestionCard(suggestion) }
             Button("Save iteration") { finishShot() }.buttonStyle(.tallaPrimary).tint(accent)
@@ -207,8 +290,23 @@ struct EspressoWorkspaceView: View {
     }
 
     private func editorField(_ title: String, text: Binding<String>) -> some View { TextField(title, text: text).textFieldStyle(.talla) }
-    private func startShot() { elapsed = 0; firstDrop = nil; liveWeight = 0; weightSamples = []; didAlertTarget = false; isRunning = true; if scaleManager.isConnected { scaleManager.tare(); scaleManager.startTimer() } }
-    private func finishShot() { guard !isRunning || elapsed > 0 else { return }; isRunning = false; if scaleManager.isConnected { scaleManager.stopTimer() }; draft.totalSeconds = elapsed > 0 ? elapsed : draft.totalSeconds; draft.firstDripSeconds = firstDrop ?? draft.firstDripSeconds; draft.yield = liveWeight > 0 ? liveWeight : draft.yield; shots.append(draft); save(); draft = EspressoShot(); liveWeight = 0; weightSamples = [] }
+    private func startShot() { elapsed = 0; firstDrop = nil; liveWeight = 0; weightSamples = []; didAlertTarget = false; isRunning = true; TallaWatchPhoneBridge.sendEspressoState(elapsed: 0, weight: 0, ratio: draft.ratio, flow: 0, targetYield: draft.yield, isRunning: true); if scaleManager.isConnected { scaleManager.tare(); scaleManager.startTimer() } }
+    private func finishShot() { guard !isRunning || elapsed > 0 else { return }; isRunning = false; if scaleManager.isConnected { scaleManager.stopTimer() }; draft.totalSeconds = elapsed > 0 ? elapsed : draft.totalSeconds; draft.firstDripSeconds = firstDrop ?? draft.firstDripSeconds; draft.yield = liveWeight > 0 ? liveWeight : draft.yield; if draft.burr.isEmpty { draft.burr = "Revision \(burrRevision)" }; shots.append(draft); TallaWatchPhoneBridge.sendEspressoState(elapsed: elapsed, weight: draft.yield, ratio: draft.ratio, flow: 0, targetYield: draft.yield, isRunning: false); save(); scheduleMaintenanceReminderIfNeeded(); draft = EspressoShot(); liveWeight = 0; weightSamples = [] }
+    private func scheduleMaintenanceReminderIfNeeded() {
+#if canImport(UserNotifications)
+        let count = shots.count
+        guard count == 100 || count == 200 || (waterHardnessPPM >= 120 && count % 50 == 0) else { return }
+        let content = UNMutableNotificationContent()
+        content.title = count >= 200 ? "Clean your espresso machine" : "Espresso maintenance reminder"
+        content.body = waterHardnessPPM >= 120 && count >= 100 ? "Check the group head and plan a descale for your water profile." : "Your shot count suggests it is time to clean the group head."
+        content.sound = .default
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            let request = UNNotificationRequest(identifier: "espresso-maintenance-\(count)", content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false))
+            UNUserNotificationCenter.current().add(request)
+        }
+#endif
+    }
     private func targetReachedFeedback() {
         feedbackTrigger += 1
 #if canImport(AudioToolbox)

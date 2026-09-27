@@ -192,6 +192,20 @@ final class AdminSession: ObservableObject {
         }
     }
 
+    func refund(_ order: AdminOrder, amount: Double, note: String) async {
+        message = nil
+        errorMessage = nil
+        do {
+            let result = try await api.refundOrder(orderID: order.id, email: order.email, amount: amount, note: note)
+            if let updated = result.order, let index = orders.firstIndex(where: { $0.id == updated.id }) {
+                orders[index] = updated
+            }
+            message = "Refund executed for (order.title)."
+        } catch {
+            handle(error)
+        }
+    }
+
     func enableNotifications() async {
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])

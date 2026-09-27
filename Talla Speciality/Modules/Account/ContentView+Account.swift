@@ -1881,6 +1881,10 @@ extension ContentView {
                 await loadLoyaltyAccount()
             }
             await loadOrderHistory()
+            if let birthday = try? await AccountService.fetchBirthdayProfile() {
+                birthdayMonth = String(birthday.month)
+                birthdayDay = String(birthday.day)
+            }
             await syncBackendStockAlerts()
             await loadBackendStockAlerts()
             await loadAddresses()
@@ -1911,6 +1915,9 @@ extension ContentView {
 
         do {
             let updated = try await AccountService.updateProfile(email: profile.email, firstName: firstName, lastName: lastName)
+            if let month = Int(birthdayMonth), let day = Int(birthdayDay), (1...12).contains(month), (1...31).contains(day) {
+                try await AccountService.saveBirthdayProfile(month: month, day: day)
+            }
             customerProfile = updated
             profileFirstName = updated.firstName ?? ""
             profileLastName = updated.lastName ?? ""
@@ -2052,6 +2059,18 @@ extension ContentView {
                 for: error,
                 fallback: AppLocalization.text("coffee_club_update_failed", fallback: "Coffee Club could not be updated right now.")
             ))
+            return false
+        }
+    }
+
+    @MainActor
+    func submitCustomerOrderAction(order: AccountOrder, action: String) async -> Bool {
+        do {
+            orderHistory = try await AccountService.submitCustomerOrderAction(orderID: order.id, action: action)
+            showToast(message: action == "request_cancellation" ? "Cancellation request sent" : "Support case updated")
+            return true
+        } catch {
+            showToast(message: customerFacingServiceMessage(for: error, fallback: "Your order request could not be completed."))
             return false
         }
     }
@@ -2420,6 +2439,11 @@ extension ContentView {
         do {
             let settings = try await HomeSettingsService.fetchAppSettings()
             remoteAppSettings = settings
+            if let firstLocation = settings.fulfillment?.locations?.first,
+               selectedPickupLocationID.isEmpty || settings.fulfillment?.locations?.contains(where: { $0.id == selectedPickupLocationID }) != true {
+                selectedPickupLocationID = firstLocation.id
+                selectedPickupSlot = firstLocation.pickupSlots?.first(where: { $0.remaining > 0 }).map { isArabicInterface ? $0.labelAR : $0.labelEN } ?? selectedPickupSlot
+            }
             if settings.fulfillment?.deliveryEnabled == false,
                settings.fulfillment?.pickupEnabled == true {
                 fulfillmentMethod = .pickup

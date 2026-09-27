@@ -126,6 +126,12 @@ module.exports = function createServer(dependencies) {
         consumeVoucher,
         createAccountRecord,
         createAdminAuditLog,
+        createCustomerOrderAction,
+        birthdayProfileFor,
+        saveBirthdayProfile,
+        awardMonthlyMissionIfComplete,
+        reservePickupSlot,
+        executeShopifyOrderRefund,
         createAdminSession,
         createAdminVoucherRecord,
         createBenefitPayCheckStatusSignature,
@@ -2330,6 +2336,36 @@ module.exports = function createServer(dependencies) {
             return;
         }
 
+        if (request.method === "POST" && url.pathname === "/admin/api/orders/refund") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const orderID = String(body.id || "").trim();
+                const amount = Number(body.amount);
+                const order = await findOrderByID(orderID);
+                if (!email || !orderID || !order || normalizeEmail(order.email) !== email || !Number.isFinite(amount) || amount <= 0) {
+                    sendJSON(response, 400, { error: "Provide a valid order, customer email, and refund amount." });
+                    return;
+                }
+                const refund = await executeShopifyOrderRefund(orderID, amount, body.note);
+                const updated = await updateOrderStatusAndAward(email, orderID, "Cancelled");
+                await createAdminAuditLog({
+                    adminUser: admin.username,
+                    action: "order_refund_executed",
+                    targetEmail: email,
+                    detail: `Executed Shopify refund for order ${orderID}`,
+                    metadata: { orderID, amount, refundID: refund.id }
+                });
+                sendJSON(response, 200, { order: updated, refund });
+            } catch (error) {
+                const message = error.message === "SHOPIFY_REFUND_UNAVAILABLE"
+                    ? "This order is not eligible for an automatically executed Shopify refund."
+                    : error.message || "Refund execution failed.";
+                sendJSON(response, 409, { error: message });
+            }
+            return;
+        }
+
         if (request.method === "POST" && url.pathname === "/admin/api/vouchers/create") {
             try {
                 const body = await readBody(request);
@@ -2908,6 +2944,34 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 200, profilePayload(account));
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/accounts/profile/birthday") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        sendJSON(response, 200, { birthday: await birthdayProfileFor(customer.email) });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/accounts/profile/birthday") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const birthday = await saveBirthdayProfile(customer.email, body.month, body.day);
+            if (!birthday) {
+                sendJSON(response, 400, { error: "Provide a valid birthday month and day." });
+                return;
+            }
+            sendJSON(response, 200, { birthday });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid birthday payload." });
         }
         return;
     }
@@ -4279,6 +4343,43 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/orders/customer-action") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const result = await createCustomerOrderAction(
+                customer.email,
+                body.orderID,
+                body.action,
+                body.note
+            );
+            const errors = {
+                invalid_request: [400, "Provide an order and a valid customer action."],
+                not_found: [404, "Order not found."],
+                not_cancellable: [409, "This order can no longer be cancelled."]
+            };
+            if (!result.order) {
+                const [statusCode, message] = errors[result.reason] || [400, "Unable to update this order."];
+                sendJSON(response, statusCode, { error: message });
+                return;
+            }
+            await createAdminAuditLog({
+                adminUser: "customer",
+                action: `customer_order_${String(body.action || "action").trim().toLowerCase()}`,
+                targetEmail: customer.email,
+                detail: `Customer submitted an order action for ${body.orderID}`,
+                metadata: { orderID: body.orderID, action: body.action }
+            });
+            sendJSON(response, 200, { orders: await ordersPayload(customer.email) });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid customer order action." });
+        }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/orders/coffee-club/manage") {
         try {
             const body = await readBody(request);
@@ -4422,6 +4523,7 @@ module.exports = function createServer(dependencies) {
                 sendJSON(response, 400, { error: "Invalid customer library payload." });
                 return;
             }
+            await awardMonthlyMissionIfComplete(customer.email, library.brewJournal);
             sendJSON(response, 200, library);
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid customer library payload." });
@@ -4601,6 +4703,16 @@ module.exports = function createServer(dependencies) {
             const safeTotal = verifiedPricing?.total
                 ?? (Number.isFinite(totalNumber) && totalNumber >= 0 ? totalNumber : 0);
             const createdAt = new Date().toISOString();
+            const submittedFulfillment = body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : {};
+            if (String(body.fulfillmentMethod || submittedFulfillment.method || "").toLowerCase() === "pickup") {
+                const reservation = typeof reservePickupSlot === "function"
+                    ? await reservePickupSlot(submittedFulfillment.pickupLocationID, submittedFulfillment.pickupSlot)
+                    : { locationID: submittedFulfillment.pickupLocationID || "", slot: submittedFulfillment.pickupSlot || "" };
+                if (!reservation) {
+                    sendJSON(response, 409, { error: "That pickup window is no longer available. Choose another slot." });
+                    return;
+                }
+            }
             const requestedGift = body.gift && typeof body.gift === "object" ? body.gift : null;
             const gift = requestedGift ? {
                 recipientName: trimText(requestedGift.recipientName, 120),
@@ -5129,6 +5241,7 @@ module.exports = function createServer(dependencies) {
             const body = await readBody(request);
             const points = Number(body.points);
             const note = String(body.note || "Beans adjustment");
+            const idempotencyKey = String(body.idempotencyKey || "").trim().slice(0, 120);
             const requestedEmail = normalizeEmail(body.email);
             const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
             if (!authenticated) {
@@ -5145,11 +5258,36 @@ module.exports = function createServer(dependencies) {
                 return;
             }
 
+            if (idempotencyKey.startsWith("phase6:")) {
+                const allowedPhaseSixPoints = { birthday: 50, mission: 40, achievement: 30, review: 25 };
+                const activityParts = idempotencyKey.slice("phase6:".length).split(":");
+                const activityID = activityParts[0];
+                if (allowedPhaseSixPoints[activityID] !== points) {
+                    sendJSON(response, 400, { error: "Invalid Phase 6 reward activity." });
+                    return;
+                }
+                if (activityID === "birthday") {
+                    const year = Number(activityParts[1]);
+                    const birthday = await birthdayProfileFor(customer.email);
+                    const now = new Date();
+                    if (!birthday || year !== now.getUTCFullYear() || birthday.month !== now.getUTCMonth() + 1 || birthday.day !== now.getUTCDate()) {
+                        sendJSON(response, 409, { error: "Birthday rewards are available on your birthday." });
+                        return;
+                    }
+                }
+            }
+
+            const existingAccount = await ensureLoyaltyAccount(customer.email);
+            if (idempotencyKey && existingAccount.transactions?.some((transaction) => transaction.id === idempotencyKey)) {
+                sendJSON(response, 200, loyaltyPayload(existingAccount));
+                return;
+            }
+
             const updated = await updateLoyaltyAccount(customer.email, (account) => {
                 account.pointsBalance += points;
                 account.transactions = account.transactions || [];
                 account.transactions.unshift({
-                    id: `txn_${Date.now()}`,
+                    id: idempotencyKey || `txn_${Date.now()}`,
                     type: "earn",
                     points,
                     note,
@@ -5165,6 +5303,37 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 200, loyaltyPayload(updated));
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/loyalty/activities/education-claim") {
+        try {
+            const body = await readBody(request);
+            const lessons = Number(body.lessons);
+            const score = Number(body.score);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            if (!Number.isFinite(lessons) || lessons < 3 || !Number.isFinite(score) || score < 2) {
+                sendJSON(response, 409, { error: "Complete at least three lessons and two quiz answers correctly." });
+                return;
+            }
+            const account = await ensureLoyaltyAccount(customer.email);
+            const id = "phase6:education";
+            if (account.transactions?.some((transaction) => transaction.id === id)) {
+                sendJSON(response, 200, loyaltyPayload(account));
+                return;
+            }
+            const updated = await updateLoyaltyAccount(customer.email, (working) => {
+                working.pointsBalance += 25;
+                working.transactions = working.transactions || [];
+                working.transactions.unshift({ id, type: "earn", points: 25, note: "Completed coffee education path", createdAt: new Date().toISOString() });
+            });
+            sendJSON(response, 200, loyaltyPayload(updated));
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid education reward payload." });
         }
         return;
     }

@@ -163,6 +163,38 @@ extension BrewingSectionView {
                     AppLocalization.text("arabic_note_rest", fallback: "Resting helps sediment settle for a cleaner service.")
                 ]
             )
+        ] + phaseFiveProfiles
+    }
+
+    /// Dial-in profiles are deliberately data-driven so the phone and Watch
+    /// can synchronize the selected title, ratio, water target, and timing.
+    private var phaseFiveProfiles: [BrewGuideProfile] {
+        let profiles: [(String, String, Double, Double, String, String, Int, String)] = [
+            ("ristretto", "Ristretto", 18, 1.5, "Fine", "25–30 sec", 28, "Dense, syrupy, concentrated"),
+            ("lungo", "Lungo", 18, 3.0, "Fine-medium", "35–45 sec", 40, "Long, aromatic, structured"),
+            ("turbo", "Turbo Shot", 18, 2.5, "Medium-fine", "15–20 sec", 18, "Fast, bright, juicy"),
+            ("blooming-espresso", "Blooming Espresso", 18, 2.0, "Fine", "30–38 sec", 34, "Sweet, even, expressive"),
+            ("lever", "Lever Profile", 18, 2.0, "Fine", "35–45 sec", 40, "Textured, rounded, gentle"),
+            ("decaf", "Decaf Espresso", 18, 2.0, "Fine", "25–32 sec", 30, "Balanced without caffeine"),
+            ("milk-base", "Milk Base", 20, 1.8, "Fine", "25–32 sec", 30, "Rich enough for milk")
         ]
+        return profiles.map { id, title, dose, ratio, grind, time, seconds, goal in
+            BrewGuideProfile(
+                id: id, title: title, subtitle: "A Phase 5 espresso profile with a clear target for Watch dial-in.",
+                icon: id == "milk-base" ? "cup.and.saucer.fill" : "dial.medium",
+                methodKeywords: ["espresso", id],
+                coffeeGrams: dose, ratio: ratio, grind: grind, temperature: id == "decaf" ? "91–93 °C" : "93 °C",
+                time: time, targetSeconds: seconds, goal: goal,
+                steps: [
+                    "Complete the puck checklist: dose, distribute, and tamp level.",
+                    "Start the shot and watch time, yield, ratio, and flow on Watch.",
+                    "Stop at \(String(format: "%.1f", dose * ratio)) g, then taste before changing one variable."
+                ],
+                learningNotes: [
+                    "Use the target as a starting point; taste and flow decide the next grind change.",
+                    id == "milk-base" ? "Steam milk to 55–65 °C and scale the drink from the finished espresso yield." : "Record grinder setting and burr revision with every shot."
+                ]
+            )
+        }
     }
 }

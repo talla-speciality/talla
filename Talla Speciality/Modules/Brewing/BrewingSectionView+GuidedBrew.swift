@@ -2097,6 +2097,15 @@ extension BrewingSectionView {
                 focusedMetricRow(title: AppLocalization.text("final_brew_time", fallback: "Final brew time"), value: formattedTimerTime(brewModeElapsedSeconds))
                 focusedMetricRow(title: AppLocalization.text("target_range", fallback: "Target range"), value: generatedTargetTimeRange)
                 focusedMetricRow(title: AppLocalization.text("difference_from_target", fallback: "Difference from target"), value: brewCompletionDifferenceText)
+                if let caffeineMilligrams = TallaCaffeineEstimator.estimate(
+                    milligramsForDoseGrams: validCoffeeAmount,
+                    method: selectedBrewModeMethod?.name ?? "Filter"
+                ) {
+                    focusedMetricRow(
+                        title: AppLocalization.text("estimated_caffeine", fallback: "Estimated caffeine"),
+                        value: "\(Int(caffeineMilligrams)) mg"
+                    )
+                }
             }
             .overlay(alignment: .top) {
                 Rectangle()

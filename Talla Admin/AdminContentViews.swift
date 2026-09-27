@@ -71,6 +71,13 @@ extension AdminContentArea {
         ], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New event"), "enabled": .bool(false), "priority": .number(0), "titleEN": .string("New event"), "productIDs": .array([]), "symbol": .string("sparkles"), "accentHex": .string("#C8965A"), "secondaryHex": .string("#2A1D14")]))]
         case .controls: return [
             .init(path: "fulfillment.khaleejiTiers", title: "GCC shipping tiers", groups: [.init("Shipping tier", [.init("maximumWeightGrams", "Maximum weight (grams)", .integer), .init("rate", "Rate (BHD)", .number)])], blank: .object(["maximumWeightGrams": .number(500), "rate": .number(5.5)])),
+            .init(path: "fulfillment.locations", title: "Locations and pickup slots", groups: [.init("Location", [
+                .init("id", "Location identifier", required: true), .init("nameEN", "English name", required: true), .init("nameAR", "Arabic name", required: true),
+                .init("addressEN", "English address", required: true), .init("addressAR", "Arabic address", required: true), .init("mapsURL", "Map link"), .init("enabled", "Enabled", .toggle),
+                .init("openingHoursEN", "English opening hours", .multiline), .init("openingHoursAR", "Arabic opening hours", .multiline),
+                .init("temporaryClosureEN", "English temporary closure", .multiline), .init("temporaryClosureAR", "Arabic temporary closure", .multiline),
+                .init("pickupSlots", "Pickup slots JSON", .json)
+            ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "nameEN": .string("New location"), "enabled": .bool(true), "pickupSlots": .array([])])),
             .init(path: "loyalty.rewards", title: "Loyalty rewards", groups: [.init("Reward", [.init("id", "Reward identifier", required: true), .init("enabled", "Enabled", .toggle), .init("points", "Points required", .integer), .init("reward", "Reward name", required: true), .init("titleEN", "English title", required: true), .init("titleAR", "Arabic title"), .init("detailEN", "English detail", .multiline), .init("detailAR", "Arabic detail", .multiline)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "enabled": .bool(true), "points": .number(50), "reward": .string("New reward"), "titleEN": .string("New reward")]))
         ]
         case .espresso: return [
@@ -303,6 +310,10 @@ extension AdminContentArea {
             .init("fulfillment.bahrainRate", "Bahrain delivery rate (BHD)", .number),
             .init("fulfillment.khaleejiCashOnDeliverySurcharge", "GCC cash-on-delivery surcharge (BHD)", .number),
             .init("fulfillment.maximumKhaleejiWeightGrams", "Maximum GCC weight (grams)", .integer)
+        ]),
+        .init("Temporary closures", [
+            .init("fulfillment.temporaryClosureEN", "English closure message", .multiline),
+            .init("fulfillment.temporaryClosureAR", "Arabic closure message", .multiline)
         ]),
         .init("Maintenance and updates", [
             .init("release.maintenanceEnabled", "App maintenance", .toggle),

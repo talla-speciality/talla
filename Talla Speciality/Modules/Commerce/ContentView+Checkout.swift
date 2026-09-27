@@ -31,7 +31,44 @@ import UIKit
 #endif
 
 extension ContentView {
-    var pickupTimeSlots: [String] { ["10:00–12:00", "12:00–14:00", "14:00–16:00", "16:00–18:00", "18:00–20:00"] }
+    var selectedPickupLocation: ContentView.AppSettings.Fulfillment.Location? {
+        guard let locations = remoteAppSettings?.fulfillment?.locations, !locations.isEmpty else { return nil }
+        return locations.first(where: { $0.id == selectedPickupLocationID }) ?? locations.first
+    }
+
+    var pickupTimeSlots: [String] {
+        if let slots = selectedPickupLocation?.pickupSlots, !slots.isEmpty {
+            return slots.filter { $0.remaining > 0 }.map { isArabicInterface ? $0.labelAR : $0.labelEN }
+        }
+        if let slots = remoteAppSettings?.fulfillment?.pickupSlots, !slots.isEmpty {
+            return slots.filter { $0.remaining > 0 }.map { isArabicInterface ? $0.labelAR : $0.labelEN }
+        }
+        return ["10:00–12:00", "12:00–14:00", "14:00–16:00", "16:00–18:00", "18:00–20:00"]
+    }
+
+    var pickupTemporarilyClosed: Bool {
+        if let location = selectedPickupLocation {
+            let closure = isArabicInterface ? location.temporaryClosureAR : location.temporaryClosureEN
+            if !(closure ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        }
+        let closure = isArabicInterface
+            ? remoteAppSettings?.fulfillment?.temporaryClosureAR
+            : remoteAppSettings?.fulfillment?.temporaryClosureEN
+        return !(closure ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var pickupClosureMessage: String? {
+        if let location = selectedPickupLocation {
+            let locationClosure = isArabicInterface ? location.temporaryClosureAR : location.temporaryClosureEN
+            let value = locationClosure?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !value.isEmpty { return value }
+        }
+        let closure = isArabicInterface
+            ? remoteAppSettings?.fulfillment?.temporaryClosureAR
+            : remoteAppSettings?.fulfillment?.temporaryClosureEN
+        let value = closure?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? nil : value
+    }
 
     var cartCount: Int {
         cartItems.reduce(0) { $0 + $1.quantity }
@@ -1079,7 +1116,7 @@ extension ContentView {
                         systemImage: "truck.box.fill"
                     )
                 }
-                if remoteAppSettings?.fulfillment?.pickupEnabled != false {
+                if remoteAppSettings?.fulfillment?.pickupEnabled != false && !pickupTemporarilyClosed {
                     fulfillmentMethodButton(
                         .pickup,
                         title: AppLocalization.text("pickup", fallback: "Pickup"),
@@ -1095,6 +1132,19 @@ extension ContentView {
             }
 
             if fulfillmentMethod == .pickup {
+                if let pickupClosureMessage {
+                    Label(pickupClosureMessage, systemImage: "exclamationmark.triangle.fill")
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(.orange)
+                }
+                if let locations = remoteAppSettings?.fulfillment?.locations, !locations.isEmpty {
+                    Picker(AppLocalization.text("pickup_location", fallback: "Pickup location"), selection: $selectedPickupLocationID) {
+                        ForEach(locations) { location in
+                            Text(isArabicInterface ? location.nameAR : location.nameEN).tag(location.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
                 Label(
                     managedPickupAddress,
                     systemImage: "mappin.and.ellipse"
@@ -3480,6 +3530,9 @@ extension ContentView {
                 product: product, variant: variant, quantity: max(item.quantity, 1)
             )
         }
+        if !cartItems.isEmpty {
+            showToast(message: "Your cart was restored from another device")
+        }
     }
 
     func saveCurrentCart() {
@@ -3924,7 +3977,7 @@ extension ContentView {
         }
 
         guard (fulfillmentMethod == .delivery && remoteAppSettings?.fulfillment?.deliveryEnabled != false)
-                || (fulfillmentMethod == .pickup && remoteAppSettings?.fulfillment?.pickupEnabled != false) else {
+                || (fulfillmentMethod == .pickup && remoteAppSettings?.fulfillment?.pickupEnabled != false && !pickupTemporarilyClosed && !pickupTimeSlots.isEmpty) else {
             checkoutError = isArabicInterface ? "طريقة الاستلام هذه غير متاحة حالياً." : "This fulfillment method is currently unavailable."
             return
         }
@@ -4101,6 +4154,7 @@ extension ContentView {
                 fulfillmentMethod: fulfillmentMethod,
                 address: fulfillmentMethod == .delivery ? preferredAddress : nil,
                 pickupSlot: fulfillmentMethod == .pickup ? selectedPickupSlot : nil,
+                pickupLocationID: fulfillmentMethod == .pickup ? selectedPickupLocationID : nil,
                 paymentMethod: selectedPaymentMethod,
                 voucherCode: appliedVoucher?.code,
                 prepaidCoffeeClub: isCoffeeClubActive,

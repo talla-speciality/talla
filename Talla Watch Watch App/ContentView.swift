@@ -20,14 +20,18 @@ struct WatchBrewStep: Identifiable, Equatable {
 }
 
 struct WatchBrewRecipe {
-    let methodName = "Solo Dripper"
-    let coffeeAmount = 20
-    let ratio = 16
-    let totalWater = 320
-    let totalSeconds = 210
+    var methodName = "Solo Dripper"
+    var coffeeAmount = 20
+    var ratio = 16
+    var totalWater = 320
+    var totalSeconds = 210
+    var grind = "Medium-fine"
+    var temperature = "93 °C"
+    var syncedSteps: [WatchBrewStep]?
 
     var steps: [WatchBrewStep] {
-        [
+        if let syncedSteps { return syncedSteps }
+        return [
             WatchBrewStep(
                 id: 0,
                 time: 0,
@@ -74,6 +78,15 @@ struct WatchBrewRecipe {
     }
 }
 
+struct WatchEspressoState: Equatable {
+    var elapsed = 0
+    var weight = 0.0
+    var ratio = 0.0
+    var flow = 0.0
+    var targetYield = 36.0
+    var isRunning = false
+}
+
 struct TallaWatchSnapshot {
     var email: String = ""
     var points: Int = 0
@@ -112,6 +125,8 @@ struct TallaWatchSnapshot {
 @MainActor
 final class TallaWatchStore: NSObject {
     var snapshot = TallaWatchSnapshot()
+    var selectedRecipe = WatchBrewRecipe()
+    var espressoState = WatchEspressoState()
     var statusText = watchText("Open Talla on your iPhone and sign in to sync.", arabic: "افتح Talla على iPhone وسجّل الدخول للمزامنة.")
     var isSyncing = false
     var lastActionText = watchText("Ready", arabic: "جاهز")
@@ -282,11 +297,53 @@ final class TallaWatchStore: NSObject {
             savedCartCount: payload["savedCartCount"] as? Int ?? 0,
             lastUpdated: (payload["lastUpdated"] as? Double).flatMap { $0 > 0 ? Date(timeIntervalSince1970: $0) : nil }
         )
+
+        if let name = payload["methodName"] as? String { selectedRecipe.methodName = name }
+        if let value = payload["coffeeGrams"] as? Double { selectedRecipe.coffeeAmount = Int(value.rounded()) }
+        if let value = payload["ratio"] as? Double { selectedRecipe.ratio = Int(value.rounded()) }
+        if let value = payload["totalWaterGrams"] as? Double { selectedRecipe.totalWater = Int(value.rounded()) }
+        if let value = payload["totalSeconds"] as? Int { selectedRecipe.totalSeconds = value }
+        if let value = payload["grind"] as? String { selectedRecipe.grind = value }
+        if let value = payload["temperature"] as? String { selectedRecipe.temperature = value }
+        if let titles = payload["stepTitles"] as? [String],
+           let times = payload["stepTimes"] as? [Int],
+           let targets = payload["stepWaterTargets"] as? [Double] {
+            selectedRecipe.syncedSteps = titles.enumerated().map { index, title in
+                WatchBrewStep(
+                    id: index,
+                    time: times.indices.contains(index) ? times[index] : 0,
+                    title: title,
+                    detail: watchText("Follow the phone recipe and keep the bed even.", arabic: "اتبع وصفة الهاتف وحافظ على توازن سطح القهوة."),
+                    waterTarget: targets.indices.contains(index) && targets[index] >= 0 ? Int(targets[index].rounded()) : nil
+                )
+            }
+        }
+        if payload["espressoState"] != nil {
+            espressoState = WatchEspressoState(
+                elapsed: payload["espressoElapsed"] as? Int ?? espressoState.elapsed,
+                weight: payload["espressoWeight"] as? Double ?? espressoState.weight,
+                ratio: payload["espressoRatio"] as? Double ?? espressoState.ratio,
+                flow: payload["espressoFlow"] as? Double ?? espressoState.flow,
+                targetYield: payload["espressoTargetYield"] as? Double ?? espressoState.targetYield,
+                isRunning: payload["espressoIsRunning"] as? Bool ?? espressoState.isRunning
+            )
+        }
     }
 }
 
 #if canImport(WatchConnectivity)
 extension TallaWatchStore: WCSessionDelegate {
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        Task { @MainActor in
+            apply(message)
+            if message["brewActivity"] != nil { lastActionText = watchText("Live brew received", arabic: "تم استلام التحضير المباشر") }
+            if message["espressoState"] != nil { lastActionText = watchText("Espresso live", arabic: "الإسبريسو مباشر") }
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        Task { @MainActor in apply(userInfo) }
+    }
     nonisolated func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
@@ -316,9 +373,9 @@ struct ContentView: View {
     @State private var store = TallaWatchStore()
     @State private var isBrewPresented = false
     @State private var isEspressoPresented = false
+    @State private var isMilkPresented = false
 
     private let accent = Color(red: 0.79, green: 0.59, blue: 0.35)
-    private let watchBrewRecipe = WatchBrewRecipe()
 
     var body: some View {
         NavigationStack {
@@ -329,6 +386,7 @@ struct ContentView: View {
                         rewardHero
                         continueBrewCard
                         espressoCard
+                        milkCard
                         watchPrimaryActions
                         secondaryRowAction(watchText("Open Talla on iPhone", arabic: "افتح Talla على iPhone"), icon: "iphone", destination: "home")
                         syncFooter
@@ -341,10 +399,10 @@ struct ContentView: View {
             }
             .navigationTitle("Talla")
             .fullScreenCover(isPresented: $isBrewPresented) {
-                WatchBrewSessionView(recipe: watchBrewRecipe) { action, elapsedSeconds, currentStep, nextStep, currentWaterGrams, isPaused in
+                WatchBrewSessionView(recipe: store.selectedRecipe) { action, elapsedSeconds, currentStep, nextStep, currentWaterGrams, isPaused in
                     store.sendBrewActivity(
                         action: action,
-                        recipe: watchBrewRecipe,
+                        recipe: store.selectedRecipe,
                         elapsedSeconds: elapsedSeconds,
                         currentStep: currentStep,
                         nextStep: nextStep,
@@ -354,9 +412,12 @@ struct ContentView: View {
                 }
             }
             .fullScreenCover(isPresented: $isEspressoPresented) {
-                WatchEspressoSessionView { action, targetYield in
+                WatchEspressoSessionView(state: $store.espressoState) { action, targetYield in
                     store.sendEspressoAction(action: action, targetYield: targetYield)
                 }
+            }
+            .fullScreenCover(isPresented: $isMilkPresented) {
+                WatchMilkSteamingView()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -391,7 +452,7 @@ struct ContentView: View {
                     Text(watchText("Continue Last Brew", arabic: "تابع آخر تحضير"))
                         .font(.system(size: 12, weight: .black))
                         .foregroundStyle(.primary)
-                    Text("\(watchBrewRecipe.methodName) · \(watchBrewRecipe.coffeeAmount) g · 1:\(watchBrewRecipe.ratio)")
+                        Text("\(store.selectedRecipe.methodName) · \(store.selectedRecipe.coffeeAmount) g · 1:\(store.selectedRecipe.ratio)")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -415,6 +476,19 @@ struct ContentView: View {
             HStack(spacing: 9) {
                 Image(systemName: "dial.medium").foregroundStyle(accent).frame(width: 30, height: 30).background(Color.white.opacity(0.08), in: Circle())
                 VStack(alignment: .leading, spacing: 2) { Text("Espresso Dial-In").font(.system(size: 12, weight: .black)); Text("Start, stop, and hit yield from Watch").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary) }
+                Spacer(); Image(systemName: "chevron.right").font(.system(size: 9, weight: .black)).foregroundStyle(.secondary)
+            }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }.buttonStyle(.plain)
+    }
+
+    private var milkCard: some View {
+        Button { isMilkPresented = true } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "thermometer.medium").foregroundStyle(accent).frame(width: 30, height: 30).background(Color.white.opacity(0.08), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Milk Steaming").font(.system(size: 12, weight: .black))
+                    Text("Timer · target temperature · drink scale").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                }
                 Spacer(); Image(systemName: "chevron.right").font(.system(size: 9, weight: .black)).foregroundStyle(.secondary)
             }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }.buttonStyle(.plain)
@@ -954,27 +1028,58 @@ struct WatchBrewSessionView: View {
 }
 
 struct WatchEspressoSessionView: View {
+    @Binding var state: WatchEspressoState
     let onAction: (String, Double) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                HStack { Text("ESPRESSO").font(.system(size: 12, weight: .black)); Spacer(); Button("Done") { dismiss() }.font(.caption) }
+                Text(String(format: "%02d:%02d", state.elapsed / 60, state.elapsed % 60)).font(.system(size: 38, weight: .black, design: .rounded)).monospacedDigit()
+                HStack(spacing: 6) {
+                    espressoMetric("Weight", String(format: "%.1f g", state.weight))
+                    espressoMetric("Ratio", String(format: "1:%.2f", state.ratio))
+                }
+                HStack(spacing: 6) {
+                    espressoMetric("Flow", String(format: "%.1f g/s", state.flow))
+                    espressoMetric("Target", String(format: "%.0f g", state.targetYield))
+                }
+                Stepper("Yield", value: $state.targetYield, in: 15...80, step: 1).font(.caption)
+                Button { state.isRunning.toggle(); onAction(state.isRunning ? "start" : "stop", state.targetYield) } label: { Label(state.isRunning ? "Stop Shot" : "Start Shot", systemImage: state.isRunning ? "stop.fill" : "play.fill").frame(maxWidth: .infinity).padding(10) }.buttonStyle(.borderedProminent)
+            }
+        }.padding()
+    }
+
+    private func espressoMetric(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) { Text(title).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary); Text(value).font(.system(size: 15, weight: .black)).monospacedDigit() }
+            .frame(maxWidth: .infinity, alignment: .leading).padding(8).background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct WatchMilkSteamingView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isRunning = false
     @State private var elapsed = 0
-    @State private var targetYield = 36.0
+    @State private var targetTemperature = 60.0
+    @State private var scale = 1.0
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack { Text("ESPRESSO").font(.system(size: 12, weight: .black)); Spacer(); Button("Done") { dismiss() }.font(.caption) }
-            Spacer()
-            Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60)).font(.system(size: 38, weight: .black, design: .rounded)).monospacedDigit()
-            Text(String(format: "Target %.0f g", targetYield)).font(.caption).foregroundStyle(.secondary)
-            Stepper("Yield", value: $targetYield, in: 15...80, step: 1).font(.caption)
-            Button { isRunning.toggle(); onAction(isRunning ? "start" : "stop", targetYield) } label: { Label(isRunning ? "Stop Shot" : "Start Shot", systemImage: isRunning ? "stop.fill" : "play.fill").frame(maxWidth: .infinity).padding(10) }.buttonStyle(.borderedProminent)
-            Spacer()
+        VStack(alignment: .leading, spacing: 12) {
+            HStack { Text("MILK").font(.system(size: 12, weight: .black)); Spacer(); Button("Done") { dismiss() }.font(.caption) }
+            Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60)).font(.system(size: 36, weight: .black, design: .rounded)).monospacedDigit()
+            Stepper("Target \(Int(targetTemperature)) °C", value: $targetTemperature, in: 50...75, step: 1).font(.caption)
+            Stepper(String(format: "Drink scale %.1fx", scale), value: $scale, in: 0.5...2.0, step: 0.1).font(.caption)
+            Button { isRunning.toggle() } label: {
+                Label(isRunning ? "Pause steaming" : "Start steaming", systemImage: isRunning ? "pause.fill" : "play.fill")
+                    .frame(maxWidth: .infinity).padding(10)
+            }.buttonStyle(.borderedProminent)
+            Text("Stop at the target temperature for a glossy texture. Scale the milk drink to the finished espresso yield.").font(.caption).foregroundStyle(.secondary)
         }.padding()
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled, isRunning else { continue }
-                elapsed += 1
+                if isRunning { elapsed += 1 }
             }
         }
     }

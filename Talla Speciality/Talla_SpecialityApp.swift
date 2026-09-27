@@ -56,7 +56,7 @@ private final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotifica
 #endif
 
 #if canImport(WatchConnectivity) && os(iOS)
-private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
+final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
     static let shared = TallaWatchPhoneBridge()
 
 #if canImport(ActivityKit)
@@ -126,8 +126,60 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
         replyHandler(snapshot())
     }
 
+    /// Sends the espresso state to the Watch while a shot is running.  The Watch
+    /// can therefore be used as the glanceable display even when the phone is
+    /// handling the scale connection.
+    static func sendEspressoState(elapsed: Int, weight: Double, ratio: Double, flow: Double, targetYield: Double, isRunning: Bool) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled else { return }
+        let payload: [String: Any] = [
+            "espressoState": "updated",
+            "espressoElapsed": elapsed,
+            "espressoWeight": weight,
+            "espressoRatio": ratio,
+            "espressoFlow": flow,
+            "espressoTargetYield": targetYield,
+            "espressoIsRunning": isRunning
+        ]
+        if session.isReachable { session.sendMessage(payload, replyHandler: nil) }
+        else { session.transferUserInfo(payload) }
+    }
+
+    static func syncRecipeSelection(methodName: String, coffeeGrams: Double, ratio: Double, totalWater: Double, totalSeconds: Int, grind: String, temperature: String, stepTimes: [Int], stepTitles: [String], stepWaterTargets: [Double]) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled else { return }
+        let defaults = UserDefaults(suiteName: Key.appGroupID) ?? .standard
+        defaults.set(methodName, forKey: "watch.recipe.methodName")
+        defaults.set(coffeeGrams, forKey: "watch.recipe.coffeeGrams")
+        defaults.set(ratio, forKey: "watch.recipe.ratio")
+        defaults.set(totalWater, forKey: "watch.recipe.totalWater")
+        defaults.set(totalSeconds, forKey: "watch.recipe.totalSeconds")
+        defaults.set(grind, forKey: "watch.recipe.grind")
+        defaults.set(temperature, forKey: "watch.recipe.temperature")
+        defaults.set(stepTimes, forKey: "watch.recipe.stepTimes")
+        defaults.set(stepTitles, forKey: "watch.recipe.stepTitles")
+        defaults.set(stepWaterTargets, forKey: "watch.recipe.stepWaterTargets")
+        let payload: [String: Any] = [
+            "recipeSelection": "updated",
+            "methodName": methodName,
+            "coffeeGrams": coffeeGrams,
+            "ratio": ratio,
+            "totalWaterGrams": totalWater,
+            "totalSeconds": totalSeconds,
+            "grind": grind,
+            "temperature": temperature,
+            "stepTimes": stepTimes,
+            "stepTitles": stepTitles,
+            "stepWaterTargets": stepWaterTargets
+        ]
+        if session.isReachable { session.sendMessage(payload, replyHandler: nil) }
+        else { session.transferUserInfo(payload) }
+    }
+
     private func snapshot() -> [String: Any] {
-        [
+        var response: [String: Any] = [
             "email": defaults.string(forKey: Key.loyaltyEmail) ?? "",
             "favoriteCount": defaults.integer(forKey: Key.favoriteCount),
             "recentCount": defaults.integer(forKey: Key.recentCount),
@@ -139,6 +191,19 @@ private final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
             "memberID": defaults.string(forKey: Key.loyaltyMemberID) ?? "",
             "lastUpdated": defaults.double(forKey: Key.lastUpdated)
         ]
+        if let methodName = defaults.string(forKey: "watch.recipe.methodName") {
+            response["methodName"] = methodName
+            response["coffeeGrams"] = defaults.double(forKey: "watch.recipe.coffeeGrams")
+            response["ratio"] = defaults.double(forKey: "watch.recipe.ratio")
+            response["totalWaterGrams"] = defaults.double(forKey: "watch.recipe.totalWater")
+            response["totalSeconds"] = defaults.integer(forKey: "watch.recipe.totalSeconds")
+            response["grind"] = defaults.string(forKey: "watch.recipe.grind") ?? ""
+            response["temperature"] = defaults.string(forKey: "watch.recipe.temperature") ?? ""
+            response["stepTimes"] = defaults.array(forKey: "watch.recipe.stepTimes") as? [Int] ?? []
+            response["stepTitles"] = defaults.array(forKey: "watch.recipe.stepTitles") as? [String] ?? []
+            response["stepWaterTargets"] = defaults.array(forKey: "watch.recipe.stepWaterTargets") as? [Double] ?? []
+        }
+        return response
     }
 
     private func handleBrewActivity(action: String, message: [String: Any]) -> String {

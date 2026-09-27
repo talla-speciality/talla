@@ -820,7 +820,11 @@
                         <input id="app-pickup-maps-url" type="url" maxlength="500" placeholder="Optional maps link">
                         <input id="app-opening-hours-en" type="text" maxlength="160" placeholder="Opening hours (English)">
                         <input id="app-opening-hours-ar" type="text" maxlength="160" dir="rtl" placeholder="ساعات العمل">
+                        <input id="app-temporary-closure-en" type="text" maxlength="220" placeholder="Temporary closure message (English)">
+                        <input id="app-temporary-closure-ar" type="text" maxlength="220" dir="rtl" placeholder="رسالة الإغلاق المؤقت">
                     </div>
+                    <textarea id="app-locations-json" style="width:100%; min-height:150px; margin-top:12px; resize:vertical;" placeholder='Locations JSON: [{"id":"riffa","nameEN":"Talla, Riffa","nameAR":"تالة، الرفاع","addressEN":"...","addressAR":"...","mapsURL":"","openingHoursEN":"","openingHoursAR":"","temporaryClosureEN":"","temporaryClosureAR":"","pickupSlots":[{"id":"10-12","labelEN":"10:00–12:00","labelAR":"10:00–12:00","remaining":8}]}]'></textarea>
+                    <div class="subcopy">Location JSON controls store selection, hours, closures, and pickup capacity. Leave blank to use the legacy single location.</div>
                     <div class="grid" style="margin-top:12px;">
                         <label>Bahrain delivery (BHD)<input id="app-bahrain-rate" type="number" min="0" max="500" step="0.001"></label>
                         <label>GCC COD surcharge (BHD)<input id="app-gcc-cod" type="number" min="0" max="500" step="0.001"></label>
@@ -1219,7 +1223,8 @@
             "app-maintenance", "app-checkout-maintenance", "app-min-version", "app-latest-version", "app-store-url",
             "app-maintenance-title-en", "app-maintenance-title-ar", "app-maintenance-message-en", "app-maintenance-message-ar",
             "app-update-message-en", "app-update-message-ar",
-            "app-points-per-bhd", "app-silver-threshold", "app-gold-threshold", "app-reward-step", "app-loyalty-rewards"
+            "app-points-per-bhd", "app-silver-threshold", "app-gold-threshold", "app-reward-step", "app-loyalty-rewards",
+            "app-temporary-closure-en", "app-temporary-closure-ar", "app-locations-json"
         ].map((id) => [id, document.getElementById(id)]));
         const saveAppSettingsButton = document.getElementById("save-app-settings");
         const appSettingsStatusEl = document.getElementById("app-settings-status");
@@ -1518,6 +1523,9 @@
             input("app-pickup-maps-url").value = fulfillment.pickupMapsURL || "";
             input("app-opening-hours-en").value = fulfillment.openingHoursEN || "";
             input("app-opening-hours-ar").value = fulfillment.openingHoursAR || "";
+            input("app-temporary-closure-en").value = fulfillment.temporaryClosureEN || "";
+            input("app-temporary-closure-ar").value = fulfillment.temporaryClosureAR || "";
+            input("app-locations-json").value = fulfillment.locations?.length ? JSON.stringify(fulfillment.locations, null, 2) : "";
             input("app-bahrain-rate").value = fulfillment.bahrainRate ?? 2;
             input("app-gcc-cod").value = fulfillment.khaleejiCashOnDeliverySurcharge ?? 2;
             input("app-gcc-max-weight").value = fulfillment.maximumKhaleejiWeightGrams ?? 4000;
@@ -1600,6 +1608,17 @@
             }).filter((reward) => reward.id && reward.reward && reward.titleEN && Number.isFinite(reward.points));
             const shippingTiers = parseTiers();
             const loyaltyRewards = parseRewards();
+            let locations;
+            const locationsText = input("app-locations-json").value.trim();
+            if (locationsText) {
+                try {
+                    locations = JSON.parse(locationsText);
+                    if (!Array.isArray(locations)) throw new Error("Locations must be an array.");
+                } catch (error) {
+                    appSettingsStatusEl.textContent = "Locations must be valid JSON array data.";
+                    return;
+                }
+            }
             if (!input("app-delivery-enabled").checked && !input("app-pickup-enabled").checked) {
                 appSettingsStatusEl.textContent = "Keep at least delivery or pickup enabled.";
                 return;
@@ -1658,6 +1677,9 @@
                             pickupMapsURL: input("app-pickup-maps-url").value.trim(),
                             openingHoursEN: input("app-opening-hours-en").value.trim(),
                             openingHoursAR: input("app-opening-hours-ar").value.trim(),
+                            temporaryClosureEN: input("app-temporary-closure-en").value.trim(),
+                            temporaryClosureAR: input("app-temporary-closure-ar").value.trim(),
+                            ...(locations ? { locations } : {}),
                             bahrainRate: Number(input("app-bahrain-rate").value),
                             khaleejiCashOnDeliverySurcharge: Number(input("app-gcc-cod").value),
                             maximumKhaleejiWeightGrams: Number(input("app-gcc-max-weight").value),
@@ -3142,7 +3164,7 @@
                     <summary class="panel-summary" style="padding:0;">
                         <h2 style="margin-top:0;">Orders</h2>
                     </summary>
-                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${escapeHTML(order.status || "No status")} • ${new Date(order.createdAt).toLocaleString()}</div>${order.details?.coffeeClub ? `<div class="muted"><strong>Talla Coffee Club</strong> • ${Number(order.details.coffeeClub.shipmentCount || 3)} prepaid shipments • every ${Number(order.details.coffeeClub.intervalWeeks || 4)} weeks</div>` : ""}${order.beansAwarded ? `<div class="muted">${Number(order.pointsAwarded || 0)} Beans awarded</div>` : ""}<div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${orderStatuses.map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button></div></div>`, "No orders yet.")}</div>
+                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${escapeHTML(order.status || "No status")} • ${new Date(order.createdAt).toLocaleString()}</div>${order.details?.coffeeClub ? `<div class="muted"><strong>Talla Coffee Club</strong> • ${Number(order.details.coffeeClub.shipmentCount || 3)} prepaid shipments • every ${Number(order.details.coffeeClub.intervalWeeks || 4)} weeks</div>` : ""}${order.beansAwarded ? `<div class="muted">${Number(order.pointsAwarded || 0)} Beans awarded</div>` : ""}<div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${orderStatuses.map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button>${String(order.id).startsWith("shopify_") ? `<button class="execute-order-refund secondary" data-order-id="${escapeHTML(order.id)}">Execute Shopify Refund</button>` : ""}</div></div>`, "No orders yet.")}</div>
                 </details>
                 <details class="mini-section" open>
                     <summary class="panel-summary" style="padding:0;">
@@ -3942,6 +3964,30 @@
             }
         }
 
+        async function executeOrderRefund(orderID) {
+            if (!state.currentEmail || !orderID) {
+                setStatus("Load a customer before executing a refund.", true);
+                return;
+            }
+            const amount = Number(window.prompt("Refund amount in BHD:"));
+            if (!Number.isFinite(amount) || amount <= 0) return;
+            if (!window.confirm(`Execute a Shopify refund of BHD ${amount.toFixed(3)}?`)) return;
+            setStatus("Executing Shopify refund...");
+            try {
+                const response = await fetch("/admin/api/orders/refund", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, id: orderID, amount })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Refund execution failed.");
+                await lookupCustomer();
+                setStatus("Shopify refund executed and order updated.", "success");
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
         async function createVoucher() {
             if (!state.currentEmail) {
                 setStatus("Load a customer before creating a voucher.", true);
@@ -4251,6 +4297,12 @@
             const orderButton = event.target.closest(".save-order-status");
             if (orderButton) {
                 void saveOrderStatus(orderButton.dataset.orderId);
+                return;
+            }
+
+            const refundButton = event.target.closest(".execute-order-refund");
+            if (refundButton) {
+                void executeOrderRefund(refundButton.dataset.orderId);
                 return;
             }
 

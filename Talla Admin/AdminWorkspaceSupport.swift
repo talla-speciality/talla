@@ -50,6 +50,18 @@ struct AdminFieldRow: View {
                 Text(field.label).font(.caption).foregroundStyle(.secondary)
                 TextField("Comma-separated keywords", text: Binding(get: { value.array.map(\.text).joined(separator: ", ") }, set: { document.set(field.path, .array($0.split(separator: ",").map { .string($0.trimmingCharacters(in: .whitespaces)) })) }), axis: .vertical)
             }
+        case .json:
+            VStack(alignment: .leading, spacing: 6) {
+                Text(field.label).font(.caption).foregroundStyle(.secondary)
+                TextEditor(text: Binding(
+                    get: { adminPrettyJSON(value) },
+                    set: { newValue in
+                        if let parsed = adminJSONValue(newValue) { document.set(field.path, parsed) }
+                    }
+                ))
+                .frame(minHeight: 110)
+                .font(.system(.footnote, design: .monospaced))
+            }
         default:
             VStack(alignment: .leading, spacing: 6) {
                 Text(field.label).font(.caption).foregroundStyle(.secondary)
@@ -69,6 +81,19 @@ struct AdminFieldRow: View {
         default: return field.path.lowercased().contains("url") ? .URL : field.path.lowercased().contains("email") ? .emailAddress : .default
         }
     }
+}
+
+private func adminPrettyJSON(_ value: AdminValue) -> String {
+    guard let data = try? JSONEncoder().encode(value),
+          let object = try? JSONSerialization.jsonObject(with: data),
+          let pretty = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]),
+          let text = String(data: pretty, encoding: .utf8) else { return "[]" }
+    return text
+}
+
+private func adminJSONValue(_ text: String) -> AdminValue? {
+    guard let data = text.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(AdminValue.self, from: data)
 }
 
 struct AdminProductPicker: View {
