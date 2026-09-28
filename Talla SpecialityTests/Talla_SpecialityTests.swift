@@ -405,6 +405,23 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Coffee Beans")
     }
 
+    @Test func mapsHawarIslandsToCoffeeBeansDespiteConflictingTags() {
+        let coffeeKey = ProductCatalogRules.categoryKey(
+            productType: "CRMB",
+            tags: ["app-category:crmb"],
+            title: "Hawar Islands"
+        )
+        let dripBagKey = ProductCatalogRules.categoryKey(
+            productType: "CRMB",
+            tags: ["app-category:crmb"],
+            title: "Hawar Islands Drip Bags"
+        )
+
+        #expect(coffeeKey == "coffee-beans")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: coffeeKey) == "Coffee Beans")
+        #expect(dripBagKey == "drip-bags")
+    }
+
     @Test func picksPreferredMerchandisingTag() {
         #expect(ProductCatalogRules.productTag(from: ["local", "new"]) == "NEW")
         #expect(ProductCatalogRules.productTag(from: ["single-origin"]) == nil)

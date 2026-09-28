@@ -1116,6 +1116,14 @@ enum ProductCatalogRules {
     }
 
     static func categoryKey(productType: String, tags: [String], title: String) -> String {
+        let normalizedTitle = slug(from: title)
+        let isHawarIslandsCoffee = normalizedTitle.contains("hawar-islands")
+            && !normalizedTitle.contains("drip-bag")
+
+        if isHawarIslandsCoffee {
+            return "coffee-beans"
+        }
+
         if let appCategory = appCategoryOverride(from: tags) {
             return appCategory
         }
