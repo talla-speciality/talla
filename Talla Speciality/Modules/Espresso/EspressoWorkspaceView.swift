@@ -26,6 +26,7 @@ struct EspressoShot: Identifiable, Codable, Equatable {
     var taste = ""
     var rating = 0
     var notes = ""
+    var advancedSnapshot: EspressoAdvancedSnapshot?
 
     var ratio: Double { dose > 0 ? yield / dose : 0 }
     var isPositive: Bool { rating >= 4 }
@@ -59,6 +60,7 @@ struct EspressoWorkspaceView: View {
     @State private var firstDrop: Int?
     @State private var liveWeight = 0.0
     @State private var weightSamples: [EspressoSample] = []
+    @State private var advancedTelemetry: [EspressoTelemetrySample] = []
     @StateObject private var scaleManager = CoffeeScaleManager()
     @State private var showScalePicker = false
     @State private var didAlertTarget = false
@@ -90,6 +92,7 @@ struct EspressoWorkspaceView: View {
                 milkSteamingCard
                 maintenanceCard
                 referenceComparison
+                EspressoAdvancedPanel(draft: $draft, shots: $shots, telemetry: $advancedTelemetry)
                 history
             }
             .padding(20)
@@ -108,7 +111,10 @@ struct EspressoWorkspaceView: View {
         .onChange(of: scaleManager.weightGrams) { _, weight in
             liveWeight = max(0, weight)
             TallaWatchPhoneBridge.sendEspressoState(elapsed: elapsed, weight: liveWeight, ratio: draft.ratio, flow: scaleManager.flowRateGramsPerSecond, targetYield: draft.yield, isRunning: isRunning)
-            if isRunning { weightSamples.append(EspressoSample(seconds: elapsed, weight: liveWeight, flow: scaleManager.flowRateGramsPerSecond)) }
+            if isRunning {
+                weightSamples.append(EspressoSample(seconds: elapsed, weight: liveWeight, flow: scaleManager.flowRateGramsPerSecond))
+                advancedTelemetry.append(EspressoTelemetrySample(elapsedSeconds: Double(elapsed), kind: .flow, value: scaleManager.flowRateGramsPerSecond))
+            }
             if isRunning && !didAlertTarget && liveWeight >= draft.yield { didAlertTarget = true; targetReachedFeedback(); finishShot() }
         }
         .sheet(isPresented: $showNewShot) { shotEditor }
@@ -290,8 +296,47 @@ struct EspressoWorkspaceView: View {
     }
 
     private func editorField(_ title: String, text: Binding<String>) -> some View { TextField(title, text: text).textFieldStyle(.talla) }
-    private func startShot() { elapsed = 0; firstDrop = nil; liveWeight = 0; weightSamples = []; didAlertTarget = false; isRunning = true; TallaWatchPhoneBridge.sendEspressoState(elapsed: 0, weight: 0, ratio: draft.ratio, flow: 0, targetYield: draft.yield, isRunning: true); if scaleManager.isConnected { scaleManager.tare(); scaleManager.startTimer() } }
-    private func finishShot() { guard !isRunning || elapsed > 0 else { return }; isRunning = false; if scaleManager.isConnected { scaleManager.stopTimer() }; draft.totalSeconds = elapsed > 0 ? elapsed : draft.totalSeconds; draft.firstDripSeconds = firstDrop ?? draft.firstDripSeconds; draft.yield = liveWeight > 0 ? liveWeight : draft.yield; if draft.burr.isEmpty { draft.burr = "Revision \(burrRevision)" }; shots.append(draft); TallaWatchPhoneBridge.sendEspressoState(elapsed: elapsed, weight: draft.yield, ratio: draft.ratio, flow: 0, targetYield: draft.yield, isRunning: false); save(); scheduleMaintenanceReminderIfNeeded(); draft = EspressoShot(); liveWeight = 0; weightSamples = [] }
+    private func startShot() { elapsed = 0; firstDrop = nil; liveWeight = 0; weightSamples = []; advancedTelemetry = []; didAlertTarget = false; isRunning = true; advancedTelemetry.append(EspressoTelemetrySample(elapsedSeconds: 0, kind: .temperature, value: draft.temperature)); if let pressure = draft.pressure { advancedTelemetry.append(EspressoTelemetrySample(elapsedSeconds: 0, kind: .pressure, value: pressure)) }; TallaWatchPhoneBridge.sendEspressoState(elapsed: 0, weight: 0, ratio: draft.ratio, flow: 0, targetYield: draft.yield, isRunning: true); if scaleManager.isConnected { scaleManager.tare(); scaleManager.startTimer() } }
+    private func finishShot() {
+        guard !isRunning || elapsed > 0 else { return }
+        isRunning = false
+        if scaleManager.isConnected { scaleManager.stopTimer() }
+        draft.totalSeconds = elapsed > 0 ? elapsed : draft.totalSeconds
+        draft.firstDripSeconds = firstDrop ?? draft.firstDripSeconds
+        draft.yield = liveWeight > 0 ? liveWeight : draft.yield
+        if draft.burr.isEmpty { draft.burr = "Revision \(burrRevision)" }
+        var snapshot = draft.advancedSnapshot ?? EspressoAdvancedSnapshot()
+        snapshot.telemetry = advancedTelemetry
+        draft.advancedSnapshot = snapshot
+        let completedShot = draft
+        shots.append(completedShot)
+        TallaWatchPhoneBridge.sendEspressoState(elapsed: elapsed, weight: completedShot.yield, ratio: completedShot.ratio, flow: 0, targetYield: completedShot.yield, isRunning: false)
+        save()
+        syncCompletedShot(completedShot)
+        scheduleMaintenanceReminderIfNeeded()
+        draft = EspressoShot()
+        liveWeight = 0
+        weightSamples = []
+        advancedTelemetry = []
+    }
+
+    private func syncCompletedShot(_ shot: EspressoShot) {
+        guard !AccountService.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let formatter = ISO8601DateFormatter()
+        let entry = ContentView.BrewJournalEntry(
+            id: shot.id,
+            title: shot.machine.isEmpty ? "Espresso shot" : "\(shot.machine) espresso",
+            method: "Espresso",
+            coffeeGrams: shot.dose,
+            ratio: shot.ratio,
+            waterGrams: shot.yield,
+            brewTimeSeconds: shot.totalSeconds,
+            rating: shot.rating,
+            notes: [shot.taste, shot.notes].filter { !$0.isEmpty }.joined(separator: " · "),
+            createdAt: formatter.string(from: shot.date)
+        )
+        Task { _ = try? await AccountService.saveBrewJournal(entry) }
+    }
     private func scheduleMaintenanceReminderIfNeeded() {
 #if canImport(UserNotifications)
         let count = shots.count

@@ -131,6 +131,99 @@ enum AccountService {
         return try JSONDecoder().decode(Envelope.self, from: data).recipe
     }
 
+    struct EspressoCommunityPayload: Decodable {
+        let profiles: [SharedEspressoProfile]
+        let roasterRecipes: [RoasterEspressoRecipe]
+        let startingPoints: [EspressoCommunityStartingPoint]
+        let videoAssessments: [BottomlessVideoAssessment]
+    }
+
+    static func fetchEspressoCommunity(equipment: String? = nil) async throws -> EspressoCommunityPayload {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The espresso community service is unavailable.") }
+        var components = URLComponents(url: baseURL.appending(path: "/community/espresso"), resolvingAgainstBaseURL: false)
+        if let equipment, !equipment.isEmpty { components?.queryItems = [URLQueryItem(name: "equipment", value: equipment)] }
+        guard let url = components?.url else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        return try JSONDecoder().decode(EspressoCommunityPayload.self, from: data)
+    }
+
+    static func submitSharedEspressoProfile(_ profile: SharedEspressoProfile) async throws -> SharedEspressoProfile {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The espresso community service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/community/espresso/profiles"))
+        request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
+        request.httpBody = try JSONEncoder().encode(profile)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let profile: SharedEspressoProfile }
+        return try JSONDecoder().decode(Envelope.self, from: data).profile
+    }
+
+    static func submitBottomlessAssessment(videoURL: URL, diagnostics: [BottomlessDiagnostic], note: String) async throws {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The espresso community service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/community/espresso/videos"))
+        request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["videoURL": videoURL.absoluteString, "diagnostics": diagnostics.map(\.rawValue), "note": note])
+        let (_, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+    }
+
+    static func uploadBottomlessVideo(data: Data, fileExtension: String, mimeType: String, diagnostics: [BottomlessDiagnostic], note: String) async throws -> URL {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The video service is unavailable.") }
+        guard data.count <= 100 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
+        var request = URLRequest(url: baseURL.appending(path: "/community/espresso/videos/upload"))
+        request.httpMethod = "POST"; request.httpBody = data; request.setValue(mimeType, forHTTPHeaderField: "Content-Type"); request.setValue(diagnostics.map(\.rawValue).joined(separator: ","), forHTTPHeaderField: "X-Video-Diagnostics"); request.setValue(note, forHTTPHeaderField: "X-Video-Note"); try authorize(&request)
+        let (responseData, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let assessment: Assessment }
+        struct Assessment: Decodable { let videoURL: URL }
+        return try JSONDecoder().decode(Envelope.self, from: responseData).assessment.videoURL
+    }
+
+    static func homeConnectAuthorizationURL() async throws -> URL {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The Home Connect service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/integrations/home-connect/authorize"))
+        request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let authorizationURL: URL }
+        return try JSONDecoder().decode(Envelope.self, from: data).authorizationURL
+    }
+
+    static func completeHomeConnectAuthorization(code: String, state: String) async throws {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The Home Connect service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/integrations/home-connect/callback"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "state": state])
+        let (_, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+    }
+
+    static func fetchHomeConnectAppliances() async throws -> [[String: String]] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The Home Connect service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/integrations/home-connect/appliances"))
+        request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let appliances: [[String: String]] }
+        return try JSONDecoder().decode(Envelope.self, from: data).appliances
+    }
+
+    static func startHomeConnectEspresso(applianceID: String, fillQuantity: Double = 35, beanAmount: String = "Strong") async throws {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The Home Connect service is unavailable.") }
+        let escapedID = applianceID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? applianceID
+        var request = URLRequest(url: baseURL.appending(path: "/integrations/home-connect/appliances/\(escapedID)/espresso"))
+        request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["fillQuantity": fillQuantity, "beanAmount": beanAmount])
+        let (_, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.cannotPerformOperation) }
+    }
+
     static func fetchCuppingEntries() async throws -> [CuppingEntry] {
         guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The cupping service is unavailable.") }
         var request = URLRequest(url: baseURL.appending(path: "/cupping/entries")); request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)

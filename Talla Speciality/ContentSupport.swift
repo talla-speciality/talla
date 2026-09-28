@@ -221,11 +221,11 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .system:
-            return "System"
+            return AppLocalization.text("system_language", fallback: "System")
         case .english:
-            return "English"
+            return AppLocalization.text("english", fallback: "English")
         case .arabic:
-            return "العربية"
+            return AppLocalization.text("arabic", fallback: "العربية")
         }
     }
 
@@ -346,11 +346,11 @@ enum BackendConfiguration {
     }
 
     static func unavailableMessage(for serviceName: String) -> String {
-        "This part of Talla is unavailable right now. Please try again in a moment."
+        AppLocalization.text("service_unavailable", fallback: "This part of Talla is unavailable right now. Please try again in a moment.")
     }
 
     static func connectionMessage(for serviceName: String) -> String {
-        "Talla is having trouble connecting. Check your internet connection and try again."
+        AppLocalization.text("connection_problem", fallback: "Talla is having trouble connecting. Check your internet connection and try again.")
     }
 
     private static var configuredURL: URL? {

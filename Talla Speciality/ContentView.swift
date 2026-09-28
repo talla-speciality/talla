@@ -3102,6 +3102,27 @@ struct ContentView: View {
             return
         }
 
+        if url.scheme?.lowercased() == "talla",
+           url.host?.lowercased() == "home-connect",
+           url.path.lowercased() == "/callback" {
+            let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let code = queryItems.first(where: { $0.name == "code" })?.value
+            let state = queryItems.first(where: { $0.name == "state" })?.value
+            guard let code, let state, !code.isEmpty, !state.isEmpty else {
+                showToast(message: "Home Connect authorization was incomplete")
+                return
+            }
+            Task {
+                do {
+                    try await AccountService.completeHomeConnectAuthorization(code: code, state: state)
+                    showToast(message: "Home Connect connected")
+                } catch {
+                    showToast(message: "Home Connect connection failed")
+                }
+            }
+            return
+        }
+
         let scheme = url.scheme?.lowercased() ?? ""
         let isCustomLink = scheme == "talla"
         let isUniversalLink = ["http", "https"].contains(scheme) && isTallaUniversalLinkHost(url.host)

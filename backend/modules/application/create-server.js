@@ -1,5 +1,9 @@
 const { snapshotCheckoutOptions } = require("../commerce/order-item-options");
 const { createEducationContentStore } = require("./education-content");
+const { normalizeProfile, normalizeRoasterRecipe, visibleCommunity } = require("../brewing/espresso-community");
+const { espressoMachineCatalog } = require("../brewing/espresso-machine-catalog");
+const { createHomeConnectAdapter, openSecret, randomState, sealSecret } = require("../brewing/home-connect-adapter");
+const path = require("path");
 module.exports = function createServer(dependencies) {
     const {
         URL,
@@ -149,6 +153,11 @@ module.exports = function createServer(dependencies) {
         customerLibraryPayload,
         customerLibraryStorePath,
         communityRecipesStorePath,
+        espressoCommunityStorePath,
+        homeConnectTokensStorePath,
+        homeConnectClientID,
+        homeConnectClientSecret,
+        homeConnectRedirectURI,
         cuppingRecordsStorePath,
         customerPhoneForShopifyOrder,
         customerTokenHours,
@@ -1195,6 +1204,65 @@ module.exports = function createServer(dependencies) {
             writeJSON(communityRecipesStorePath, store);
             await createAdminAuditLog({ adminUser: admin.username, action: "community_recipe_updated", targetEmail: recipe.authorEmail || null, detail: recipeID, metadata: { recipeID } });
             sendJSON(response, 200, { recipe });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/espresso-community") {
+            sendJSON(response, 200, readJSON(espressoCommunityStorePath));
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/espresso-community/moderate") {
+            const body = await readBody(request);
+            const collection = ["profiles", "roasterRecipes", "videoAssessments"].includes(body.collection) ? body.collection : null;
+            const status = ["approved", "rejected", "pending", "private"].includes(body.status) ? body.status : null;
+            const itemID = trimText(body.id, 160);
+            if (!collection || !status || !itemID) { sendJSON(response, 400, { error: "Collection, id, and valid status are required." }); return; }
+            const store = readJSON(espressoCommunityStorePath);
+            const item = (Array.isArray(store[collection]) ? store[collection] : []).find((entry) => entry.id === itemID);
+            if (!item) { sendJSON(response, 404, { error: "Espresso community item not found." }); return; }
+            item.status = status;
+            item.moderatedAt = new Date().toISOString();
+            item.moderatedBy = admin.username;
+            writeJSON(espressoCommunityStorePath, store);
+            await createAdminAuditLog({ adminUser: admin.username, action: "espresso_community_moderated", targetEmail: item.ownerEmail || item.publisherEmail || null, detail: `${collection}:${itemID} -> ${status}`, metadata: { collection, itemID, status } });
+            sendJSON(response, 200, { item });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/espresso-community/roaster-recipes") {
+            const body = await readBody(request);
+            const recipe = normalizeRoasterRecipe(body, admin.username);
+            if (!recipe) { sendJSON(response, 400, { error: "Title, roaster, and coffee name are required." }); return; }
+            recipe.status = body.status === "rejected" ? "rejected" : "approved";
+            recipe.moderatedAt = new Date().toISOString();
+            recipe.moderatedBy = admin.username;
+            const store = readJSON(espressoCommunityStorePath);
+            store.roasterRecipes = Array.isArray(store.roasterRecipes) ? store.roasterRecipes : [];
+            store.roasterRecipes = store.roasterRecipes.filter((item) => item.id !== recipe.id);
+            store.roasterRecipes.unshift(recipe);
+            store.roasterRecipes = store.roasterRecipes.slice(0, 500);
+            writeJSON(espressoCommunityStorePath, store);
+            await createAdminAuditLog({ adminUser: admin.username, action: "espresso_roaster_recipe_published", detail: recipe.id, metadata: { recipeID: recipe.id, status: recipe.status } });
+            sendJSON(response, 201, { recipe });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/espresso-community/starting-points") {
+            const body = await readBody(request);
+            const profile = normalizeProfile(body.profile || body, admin.username);
+            const equipment = trimText(body.equipment, 120) || profile?.machine;
+            const title = trimText(body.title, 120);
+            if (!profile || !equipment || !title) { sendJSON(response, 400, { error: "A starting point title, equipment, and profile are required." }); return; }
+            const startingPoint = { id: trimText(body.id, 160) || `starting_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`, equipment, title, profile: { ...profile, status: "approved" }, source: admin.username, status: "approved", createdAt: new Date().toISOString() };
+            const store = readJSON(espressoCommunityStorePath);
+            store.startingPoints = Array.isArray(store.startingPoints) ? store.startingPoints : [];
+            store.startingPoints = store.startingPoints.filter((item) => item.id !== startingPoint.id);
+            store.startingPoints.unshift(startingPoint);
+            store.startingPoints = store.startingPoints.slice(0, 500);
+            writeJSON(espressoCommunityStorePath, store);
+            await createAdminAuditLog({ adminUser: admin.username, action: "espresso_starting_point_published", detail: startingPoint.id, metadata: { startingPointID: startingPoint.id, equipment } });
+            sendJSON(response, 201, { startingPoint });
             return;
         }
 
@@ -4541,6 +4609,270 @@ module.exports = function createServer(dependencies) {
         sendJSON(response, 200, { recipes: recipes
             .filter((recipe) => recipe.status === "approved" || recipe.authorEmail === customer.email)
             .map(({ authorEmail, ...recipe }) => ({ ...recipe, canEdit: authorEmail === customer.email })) });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/community/espresso/machines") {
+        sendJSON(response, 200, { machines: espressoMachineCatalog });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/integrations/home-connect/authorize") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        if (!homeConnectClientID || !homeConnectClientSecret || !homeConnectRedirectURI || !customerTokenSecret) {
+            sendJSON(response, 503, { error: "Home Connect integration is not configured." });
+            return;
+        }
+        const state = randomState();
+        const stateHash = crypto.createHash("sha256").update(state).digest("hex");
+        const store = readJSON(homeConnectTokensStorePath);
+        store.states = (Array.isArray(store.states) ? store.states : []).filter((item) => new Date(item.expiresAt).getTime() > Date.now());
+        store.states.push({ stateHash, email: customer.email, expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
+        writeJSON(homeConnectTokensStorePath, store);
+        const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
+        sendJSON(response, 200, { authorizationURL: adapter.authorizationURL(state), expiresInSeconds: 600 });
+        return;
+    }
+
+    // Home Connect requires an HTTPS redirect URI. Keep this endpoint public,
+    // then hand the short-lived code/state back to the signed-in native app.
+    if (request.method === "GET" && url.pathname === "/integrations/home-connect/redirect") {
+        const callback = new URL("talla://home-connect/callback");
+        for (const name of ["code", "state", "error", "error_description"]) {
+            const value = trimText(url.searchParams.get(name), 4096);
+            if (value) callback.searchParams.set(name, value);
+        }
+        response.writeHead(302, { Location: callback.toString(), "Cache-Control": "no-store" });
+        response.end();
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/integrations/home-connect/callback") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const code = trimText(body.code, 4096);
+            const stateHash = crypto.createHash("sha256").update(trimText(body.state, 4096)).digest("hex");
+            const store = readJSON(homeConnectTokensStorePath);
+            const stateIndex = (Array.isArray(store.states) ? store.states : []).findIndex((item) => item.stateHash === stateHash && item.email === customer.email && new Date(item.expiresAt).getTime() > Date.now());
+            if (!code || stateIndex < 0) { sendJSON(response, 400, { error: "Invalid or expired Home Connect authorization state." }); return; }
+            store.states.splice(stateIndex, 1);
+            const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
+            const token = await adapter.exchangeCode(code);
+            store.connections = store.connections && typeof store.connections === "object" ? store.connections : {};
+            store.connections[customer.email] = {
+                accessToken: sealSecret(token.accessToken, customerTokenSecret),
+                refreshToken: sealSecret(token.refreshToken, customerTokenSecret),
+                expiresAt: token.expiresAt,
+                scope: token.scope,
+                updatedAt: new Date().toISOString()
+            };
+            writeJSON(homeConnectTokensStorePath, store);
+            sendJSON(response, 200, { connected: true, expiresAt: token.expiresAt, scope: token.scope });
+        } catch (error) {
+            sendJSON(response, error.statusCode || 400, { error: "Home Connect authorization failed." });
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/integrations/home-connect/appliances") {
+        try {
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const store = readJSON(homeConnectTokensStorePath);
+            const connection = store.connections?.[customer.email];
+            if (!connection) { sendJSON(response, 404, { error: "Home Connect is not connected." }); return; }
+            const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
+            let accessToken = openSecret(connection.accessToken, customerTokenSecret);
+            if (new Date(connection.expiresAt).getTime() <= Date.now() + 60_000) {
+                const token = await adapter.refresh(openSecret(connection.refreshToken, customerTokenSecret));
+                connection.accessToken = sealSecret(token.accessToken, customerTokenSecret);
+                connection.refreshToken = sealSecret(token.refreshToken, customerTokenSecret);
+                connection.expiresAt = token.expiresAt;
+                connection.scope = token.scope;
+                connection.updatedAt = new Date().toISOString();
+                writeJSON(homeConnectTokensStorePath, store);
+                accessToken = token.accessToken;
+            }
+            const payload = await adapter.listAppliances(accessToken);
+            sendJSON(response, 200, { appliances: payload?.data?.homeAppliances || payload?.homeAppliances || [] });
+        } catch (error) {
+            sendJSON(response, error.statusCode || 400, { error: "Home Connect appliance discovery failed." });
+        }
+        return;
+    }
+
+    const homeConnectEspressoMatch = request.method === "POST" && url.pathname.match(/^\/integrations\/home-connect\/appliances\/([^/]+)\/espresso$/);
+    if (homeConnectEspressoMatch) {
+        try {
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const body = await readBody(request);
+            const store = readJSON(homeConnectTokensStorePath);
+            const connection = store.connections?.[customer.email];
+            if (!connection) { sendJSON(response, 404, { error: "Home Connect is not connected." }); return; }
+            if (!/(^| )(CoffeeMaker|CoffeeMaker-Control|Control)( |$)/.test(connection.scope || "")) {
+                sendJSON(response, 403, { error: "Home Connect control permission was not granted." });
+                return;
+            }
+            const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
+            let accessToken = openSecret(connection.accessToken, customerTokenSecret);
+            if (new Date(connection.expiresAt).getTime() <= Date.now() + 60_000) {
+                const token = await adapter.refresh(openSecret(connection.refreshToken, customerTokenSecret));
+                connection.accessToken = sealSecret(token.accessToken, customerTokenSecret);
+                connection.refreshToken = sealSecret(token.refreshToken, customerTokenSecret);
+                connection.expiresAt = token.expiresAt;
+                connection.scope = token.scope;
+                connection.updatedAt = new Date().toISOString();
+                writeJSON(homeConnectTokensStorePath, store);
+                accessToken = token.accessToken;
+            }
+            const statusPayload = await adapter.getStatus(accessToken, homeConnectEspressoMatch[1]);
+            const statusItems = statusPayload?.data?.items || statusPayload?.items || [];
+            const status = Object.fromEntries(statusItems.map((item) => [item.key, item.value]));
+            if (status["BSH.Common.Status.RemoteControlActive"] !== true || status["BSH.Common.Status.RemoteControlStartAllowed"] !== true || status["BSH.Common.Status.LocalControlActive"] === true || status["BSH.Common.Status.OperationState"] !== "BSH.Common.EnumType.OperationState.Ready") {
+                sendJSON(response, 409, { error: "Remote start is not currently allowed by the appliance." });
+                return;
+            }
+            await adapter.setPowerState(accessToken, homeConnectEspressoMatch[1], "BSH.Common.EnumType.PowerState.On");
+            await adapter.startEspresso(accessToken, homeConnectEspressoMatch[1], body);
+            sendJSON(response, 202, { accepted: true, applianceID: homeConnectEspressoMatch[1], program: "espresso" });
+        } catch (error) {
+            sendJSON(response, error.statusCode || 400, { error: "Home Connect espresso start failed." });
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/community/espresso") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = readJSON(espressoCommunityStorePath);
+        const equipment = trimText(url.searchParams.get("equipment"), 120);
+        sendJSON(response, 200, visibleCommunity(store, customer.email, equipment));
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/community/espresso/profiles") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const profile = normalizeProfile(body, customer.email);
+            if (!profile) { sendJSON(response, 400, { error: "A profile title and machine are required." }); return; }
+            const store = readJSON(espressoCommunityStorePath);
+            store.profiles = Array.isArray(store.profiles) ? store.profiles : [];
+            store.profiles = store.profiles.filter((item) => !(item.id === profile.id && item.ownerEmail === customer.email));
+            store.profiles.unshift(profile);
+            store.profiles = store.profiles.slice(0, 1_000);
+            writeJSON(espressoCommunityStorePath, store);
+            sendJSON(response, 201, { profile: { ...profile, canEdit: true } });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid espresso profile payload." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/community/espresso/videos") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const videoURL = trimText(body.videoURL, 500);
+            if (!videoURL || !/^https:\/\//i.test(videoURL)) { sendJSON(response, 400, { error: "A secure video URL is required." }); return; }
+            const assessment = {
+                id: `bottomless_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+                videoURL,
+                diagnostics: Array.isArray(body.diagnostics) ? body.diagnostics.map((item) => trimText(item, 40)).filter(Boolean).slice(0, 10) : [],
+                note: trimText(body.note, 1_000),
+                ownerEmail: customer.email,
+                status: "private",
+                createdAt: new Date().toISOString()
+            };
+            const store = readJSON(espressoCommunityStorePath);
+            store.videoAssessments = Array.isArray(store.videoAssessments) ? store.videoAssessments : [];
+            store.videoAssessments.unshift(assessment);
+            store.videoAssessments = store.videoAssessments.slice(0, 100);
+            writeJSON(espressoCommunityStorePath, store);
+            sendJSON(response, 201, { assessment: { ...assessment, ownerEmail: undefined } });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid bottomless-portafilter assessment payload." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/community/espresso/videos/upload") {
+        try {
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const contentType = String(request.headers["content-type"] || "").split(";", 1)[0].toLowerCase();
+            const allowedTypes = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+            if (!allowedTypes.has(contentType)) { sendJSON(response, 415, { error: "Upload an MP4, QuickTime, or WebM video." }); return; }
+            const rawVideo = await readRawBody(request, 100 * 1024 * 1024);
+            if (!rawVideo.length) { sendJSON(response, 400, { error: "The video upload was empty." }); return; }
+            const storageDirectory = process.env.ESPRESSO_VIDEO_STORAGE_PATH || path.join(dataDirectory, "espresso-videos");
+            fs.mkdirSync(storageDirectory, { recursive: true });
+            const extension = contentType === "video/mp4" ? "mp4" : contentType === "video/webm" ? "webm" : "mov";
+            const assessmentID = `video_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
+            const storageKey = `${assessmentID}.${extension}`;
+            fs.writeFileSync(path.join(storageDirectory, storageKey), rawVideo, { flag: "wx" });
+            const diagnostics = String(request.headers["x-video-diagnostics"] || "").split(",").map((item) => trimText(item, 80)).filter(Boolean).slice(0, 8);
+            const note = trimText(request.headers["x-video-note"], 1_000);
+            const store = readJSON(espressoCommunityStorePath);
+            store.videoAssessments = Array.isArray(store.videoAssessments) ? store.videoAssessments : [];
+            const assessment = { id: assessmentID, videoURL: null, storageKey, mimeType: contentType, sizeBytes: rawVideo.length, diagnostics, note, ownerEmail: customer.email, status: "pending", createdAt: new Date().toISOString() };
+            store.videoAssessments.unshift(assessment);
+            store.videoAssessments = store.videoAssessments.slice(0, 500);
+            writeJSON(espressoCommunityStorePath, store);
+            sendJSON(response, 201, { assessment: { ...assessment, videoURL: `/community/espresso/videos/${assessmentID}` } });
+        } catch (error) {
+            const tooLarge = error.code === "REQUEST_BODY_TOO_LARGE";
+            sendJSON(response, tooLarge ? 413 : 400, { error: tooLarge ? "Video is larger than the 100 MB limit." : "Video upload failed." });
+        }
+        return;
+    }
+
+    const videoMatch = request.method === "GET" ? url.pathname.match(/^\/community\/espresso\/videos\/([^/]+)$/) : null;
+    if (videoMatch) {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const requestedID = decodeURIComponent(videoMatch[1]);
+        const store = readJSON(espressoCommunityStorePath);
+        const assessment = (Array.isArray(store.videoAssessments) ? store.videoAssessments : [])
+            .find((item) => item.id === requestedID && item.ownerEmail === customer.email && item.storageKey);
+        if (!assessment) { sendJSON(response, 404, { error: "Video assessment not found." }); return; }
+        const storageDirectory = process.env.ESPRESSO_VIDEO_STORAGE_PATH || path.join(dataDirectory, "espresso-videos");
+        const videoPath = path.resolve(storageDirectory, assessment.storageKey);
+        if (path.dirname(videoPath) !== path.resolve(storageDirectory) || !fs.existsSync(videoPath)) {
+            sendJSON(response, 404, { error: "Video file is unavailable." });
+            return;
+        }
+        response.writeHead(200, {
+            "Content-Type": assessment.mimeType || "application/octet-stream",
+            "Content-Length": String(assessment.sizeBytes || fs.statSync(videoPath).size),
+            "Cache-Control": "private, no-store",
+            "Content-Disposition": `inline; filename="${assessment.storageKey}"`
+        });
+        fs.createReadStream(videoPath).pipe(response);
         return;
     }
 

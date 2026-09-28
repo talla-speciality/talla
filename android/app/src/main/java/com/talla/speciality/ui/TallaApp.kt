@@ -421,9 +421,9 @@ private fun TallaTopBar(cartCount: Int, profileName: String?, showCart: Boolean,
         Box(Modifier.size(40.dp).clip(CircleShape).background(TallaCard).clickable { settingsOpen = true }, contentAlignment = Alignment.Center) {
             Icon(Icons.Default.Contrast, contentDescription = stringResource(R.string.appearance_and_language), tint = TallaGoldText, modifier = Modifier.size(19.dp))
             DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
-                DropdownMenuItem(text = { Text("System appearance") }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM); settingsOpen = false })
-                DropdownMenuItem(text = { Text("Light appearance") }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO); settingsOpen = false })
-                DropdownMenuItem(text = { Text("Dark appearance") }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES); settingsOpen = false })
+                DropdownMenuItem(text = { Text(stringResource(R.string.system_appearance)) }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM); settingsOpen = false })
+                DropdownMenuItem(text = { Text(stringResource(R.string.light_appearance)) }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO); settingsOpen = false })
+                DropdownMenuItem(text = { Text(stringResource(R.string.dark_appearance)) }, onClick = { AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES); settingsOpen = false })
                 HorizontalDivider()
                 DropdownMenuItem(text = { Text(if (languageTag.isBlank()) "✓  System language" else "System language") }, onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()); settingsOpen = false })
                 DropdownMenuItem(text = { Text(if (languageTag.startsWith("en")) "✓  English" else "English") }, onClick = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en")); settingsOpen = false })
@@ -458,7 +458,7 @@ private fun HomeScreen(
         }
         if (state.remoteSettings.events.isNotEmpty()) {
             item {
-                Text("SEASONAL AT TALLA", modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Text(stringResource(R.string.seasonal_at_talla).uppercase(), modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
                 LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(state.remoteSettings.events, key = { it.id }) { event -> SeasonalEventCard(event, openShop) }
                 }
@@ -815,7 +815,7 @@ private fun ShopScreen(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search summer boxes, cups, CRMB...") },
+            placeholder = { Text(stringResource(R.string.search_summer_boxes)) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = TallaGoldText) },
             singleLine = true,
             shape = RoundedCornerShape(18.dp),
@@ -835,7 +835,7 @@ private fun ShopScreen(
                 Text((category ?: stringResource(R.string.all_products)).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
                 Text(if (query.isBlank()) stringResource(R.string.products_count, visibleProducts.size) else "${visibleProducts.size} results for “$query”", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
             }
-            Text("SORT: FEATURED  ⌄", style = MaterialTheme.typography.labelMedium, color = Ink, modifier = Modifier.clip(CircleShape).border(1.dp, Sand.copy(alpha = .18f), CircleShape).padding(horizontal = 12.dp, vertical = 9.dp))
+            Text(stringResource(R.string.sort_featured_label), style = MaterialTheme.typography.labelMedium, color = Ink, modifier = Modifier.clip(CircleShape).border(1.dp, Sand.copy(alpha = .18f), CircleShape).padding(horizontal = 12.dp, vertical = 9.dp))
         }
         ProductStatus(state, retry) {
             LazyVerticalGrid(
@@ -1010,7 +1010,7 @@ private fun BrewingScreen(
 
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            TextButton(onClick = { showBrewWorkspace = false }, contentPadding = PaddingValues(0.dp)) { Text("←  BREWING METHODS", style = MaterialTheme.typography.labelMedium, color = TallaGoldText) }
+            TextButton(onClick = { showBrewWorkspace = false }, contentPadding = PaddingValues(0.dp)) { Text(stringResource(R.string.brewing_methods_back), style = MaterialTheme.typography.labelMedium, color = TallaGoldText) }
         }
         if (coffeeMemoryEnabled && roastDateOcrEnabled) item {
             CoffeeBagScannerCard(
@@ -1052,10 +1052,10 @@ private fun BrewingScreen(
         item {
             Card(shape = RoundedCornerShape(22.dp)) {
                 Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                    Text("Coffee · ${dose.toInt()} g", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.coffee_dose, dose.toInt()), fontWeight = FontWeight.Bold)
                     Slider(value = dose, onValueChange = { dose = it; elapsed = 0 }, valueRange = 10f..60f, steps = 49)
                     if (brewer != "Espresso") {
-                        Text("Ratio · 1:${"%.1f".format(ratio)}", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ratio_value, "%.1f".format(ratio)), fontWeight = FontWeight.Bold)
                         Slider(value = ratio, onValueChange = { ratio = it; elapsed = 0 }, valueRange = 10f..20f, steps = 19)
                     }
                 }
@@ -1065,8 +1065,8 @@ private fun BrewingScreen(
             Card(colors = CardDefaults.cardColors(containerColor = Coffee), shape = RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("${recipe.coffeeGrams} g → ${recipe.waterGrams} g", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
-                        Text("${recipe.temperatureC} °C · ${recipe.grind} · ${recipe.targetTime}", color = androidx.compose.ui.graphics.Color.White.copy(alpha = .75f))
+                        Text(stringResource(R.string.brew_weight_pair, recipe.coffeeGrams, recipe.waterGrams), color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                        Text(stringResource(R.string.brew_temperature_detail, recipe.temperatureC, recipe.grind, recipe.targetTime), color = androidx.compose.ui.graphics.Color.White.copy(alpha = .75f))
                     }
                     Icon(Icons.Default.Coffee, null, tint = Sand, modifier = Modifier.size(42.dp))
                 }
@@ -1177,19 +1177,19 @@ internal fun CoffeeInventoryCard(
             Modifier.fillMaxWidth().padding(18.dp).testTag("coffee.inventory"),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Coffee inventory", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            Text(stringResource(R.string.coffee_inventory), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 modifier = Modifier.fillMaxWidth().testTag("coffee.inventory.name"),
-                label = { Text("Coffee name") },
+                label = { Text(stringResource(R.string.coffee_name)) },
                 singleLine = true,
             )
             OutlinedTextField(
                 value = quantity,
                 onValueChange = { quantity = it.filter { character -> character.isDigit() || character == '.' } },
                 modifier = Modifier.fillMaxWidth().testTag("coffee.inventory.quantity"),
-                label = { Text("Quantity (g)") },
+                label = { Text(stringResource(R.string.quantity_grams)) },
                 singleLine = true,
             )
             Button(
@@ -1205,46 +1205,46 @@ internal fun CoffeeInventoryCard(
                     }
                 },
                 modifier = Modifier.testTag("coffee.inventory.save"),
-            ) { Text("Save coffee") }
+            ) { Text(stringResource(R.string.save_coffee)) }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
             inventory.forEach { coffee ->
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(coffee.productName, fontWeight = FontWeight.Bold)
-                    Text("${coffee.remainingQuantityGrams.toInt()} g remaining", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${coffee.estimatedBrews()} estimated brews", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.g_remaining, coffee.remainingQuantityGrams.toInt()), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.estimated_brews, coffee.estimatedBrews()), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (coffee.openedAt == null) TextButton(onClick = { onMarkOpened(coffee.id) }) { Text("Mark opened") }
+                        if (coffee.openedAt == null) TextButton(onClick = { onMarkOpened(coffee.id) }) { Text(stringResource(R.string.mark_opened)) }
                         TextButton(
                             onClick = { onUpdateRemaining(coffee.id, (coffee.remainingQuantityGrams - 5).coerceAtLeast(0.0)) },
                             modifier = Modifier.testTag("coffee.inventory.consume.${coffee.id}"),
-                        ) { Text("Use 5 g") }
-                        TextButton(onClick = { onUpdateRemaining(coffee.id, coffee.initialQuantityGrams) }) { Text("Refill") }
+                        ) { Text(stringResource(R.string.use_5g)) }
+                        TextButton(onClick = { onUpdateRemaining(coffee.id, coffee.initialQuantityGrams) }) { Text(stringResource(R.string.refill)) }
                     }
                 }
                 HorizontalDivider()
             }
 
-            Text("Water and temperature", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            OutlinedTextField(waterName, { waterName = it }, Modifier.fillMaxWidth(), label = { Text("Water profile name") }, singleLine = true)
+            Text(stringResource(R.string.water_and_temperature), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(waterName, { waterName = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.water_profile_name)) }, singleLine = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(hardness, { hardness = it }, Modifier.weight(1f), label = { Text("Hardness ppm") }, singleLine = true)
-                OutlinedTextField(alkalinity, { alkalinity = it }, Modifier.weight(1f), label = { Text("Alkalinity ppm") }, singleLine = true)
+                OutlinedTextField(hardness, { hardness = it }, Modifier.weight(1f), label = { Text(stringResource(R.string.hardness_ppm)) }, singleLine = true)
+                OutlinedTextField(alkalinity, { alkalinity = it }, Modifier.weight(1f), label = { Text(stringResource(R.string.alkalinity_ppm)) }, singleLine = true)
             }
             Button(onClick = {
                 val h = hardness.toDoubleOrNull(); val a = alkalinity.toDoubleOrNull()
                 if (waterName.isNotBlank() && h != null && a != null) { onSaveWaterProfile(waterName, h, a); waterName = "" }
-            }) { Text("Save water profile") }
+            }) { Text(stringResource(R.string.save_water_profile)) }
             waterProfiles.forEach { Text("${it.name} · ${it.hardnessPPM.toInt()}/${it.alkalinityPPM.toInt()} ppm") }
-            OutlinedTextField(temperatureName, { temperatureName = it }, Modifier.fillMaxWidth(), label = { Text("Temperature preset name") }, singleLine = true)
-            OutlinedTextField(temperature, { temperature = it }, Modifier.fillMaxWidth(), label = { Text("Temperature °C") }, singleLine = true)
+            OutlinedTextField(temperatureName, { temperatureName = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.temperature_preset_name)) }, singleLine = true)
+            OutlinedTextField(temperature, { temperature = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.temperature_celsius)) }, singleLine = true)
             Button(onClick = {
                 val c = temperature.toDoubleOrNull()
                 if (temperatureName.isNotBlank() && c != null) { onSaveTemperaturePreset(temperatureName, c); temperatureName = "" }
-            }) { Text("Save temperature preset") }
+            }) { Text(stringResource(R.string.save_temperature_preset)) }
             temperaturePresets.forEach { Text("${it.name} · ${it.celsius.toInt()} °C") }
 
-            Text("Equipment", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.equipment), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box {
                     TextButton(onClick = { typeMenuExpanded = true }) { Text(equipmentType.name.lowercase().replaceFirstChar(Char::uppercase)) }
@@ -1254,63 +1254,63 @@ internal fun CoffeeInventoryCard(
                         }
                     }
                 }
-                OutlinedTextField(value = equipmentName, onValueChange = { equipmentName = it }, modifier = Modifier.weight(1f).testTag("coffee.equipment.name"), label = { Text("Name") }, singleLine = true)
+                OutlinedTextField(value = equipmentName, onValueChange = { equipmentName = it }, modifier = Modifier.weight(1f).testTag("coffee.equipment.name"), label = { Text(stringResource(R.string.full_name)) }, singleLine = true)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = manufacturer, onValueChange = { manufacturer = it }, modifier = Modifier.weight(1f), label = { Text("Manufacturer") }, singleLine = true)
-                OutlinedTextField(value = model, onValueChange = { model = it }, modifier = Modifier.weight(1f), label = { Text("Model") }, singleLine = true)
+                OutlinedTextField(value = manufacturer, onValueChange = { manufacturer = it }, modifier = Modifier.weight(1f), label = { Text(stringResource(R.string.manufacturer)) }, singleLine = true)
+                OutlinedTextField(value = model, onValueChange = { model = it }, modifier = Modifier.weight(1f), label = { Text(stringResource(R.string.model)) }, singleLine = true)
             }
             Button(onClick = {
                 if (equipmentName.isBlank()) error = "Enter an equipment name."
                 else { onSaveEquipment(equipmentId, equipmentType, equipmentName, manufacturer, model); equipmentId = null; equipmentName = ""; manufacturer = ""; model = ""; error = null }
-            }, modifier = Modifier.testTag("coffee.equipment.save")) { Text("Save equipment") }
+            }, modifier = Modifier.testTag("coffee.equipment.save")) { Text(stringResource(R.string.save_equipment)) }
             equipment.forEach { item ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(item.name, fontWeight = FontWeight.Bold)
                         Text(listOf(item.type.name.lowercase().replaceFirstChar(Char::uppercase), item.manufacturer, item.model, item.burrSet).filterNot { it.isNullOrBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                     }
-                    TextButton(onClick = { equipmentId = item.id; equipmentType = item.type; equipmentName = item.name; manufacturer = item.manufacturer.orEmpty(); model = item.model.orEmpty() }) { Text("Edit") }
+                    TextButton(onClick = { equipmentId = item.id; equipmentType = item.type; equipmentName = item.name; manufacturer = item.manufacturer.orEmpty(); model = item.model.orEmpty() }) { Text(stringResource(R.string.edit)) }
                     IconButton(onClick = { onDeleteEquipment(item.id) }, modifier = Modifier.testTag("coffee.equipment.delete.${item.id}")) { Icon(Icons.Default.Delete, "Delete equipment") }
                 }
             }
 
-            Text("Calibrations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.calibrations), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Box {
                 TextButton(onClick = { equipmentMenuExpanded = true }) { Text(equipment.firstOrNull { it.id == equipmentId }?.name ?: "Select equipment") }
                 DropdownMenu(expanded = equipmentMenuExpanded, onDismissRequest = { equipmentMenuExpanded = false }) {
                     equipment.forEach { item -> DropdownMenuItem(text = { Text(item.name) }, onClick = { equipmentId = item.id; equipmentMenuExpanded = false }) }
                 }
             }
-            OutlinedTextField(value = calibrationSetting, onValueChange = { calibrationSetting = it }, modifier = Modifier.fillMaxWidth().testTag("coffee.calibration.setting"), label = { Text("Setting") }, singleLine = true)
+            OutlinedTextField(value = calibrationSetting, onValueChange = { calibrationSetting = it }, modifier = Modifier.fillMaxWidth().testTag("coffee.calibration.setting"), label = { Text(stringResource(R.string.setting)) }, singleLine = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = calibrationValue, onValueChange = { calibrationValue = it }, modifier = Modifier.weight(1f), label = { Text("Measured value") }, singleLine = true)
-                OutlinedTextField(value = calibrationUnit, onValueChange = { calibrationUnit = it }, modifier = Modifier.weight(1f), label = { Text("Unit") }, singleLine = true)
+                OutlinedTextField(value = calibrationValue, onValueChange = { calibrationValue = it }, modifier = Modifier.weight(1f), label = { Text(stringResource(R.string.measured_value)) }, singleLine = true)
+                OutlinedTextField(value = calibrationUnit, onValueChange = { calibrationUnit = it }, modifier = Modifier.weight(1f), label = { Text(stringResource(R.string.unit)) }, singleLine = true)
             }
-            OutlinedTextField(value = calibrationNotes, onValueChange = { calibrationNotes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Notes") }, singleLine = true)
+            OutlinedTextField(value = calibrationNotes, onValueChange = { calibrationNotes = it }, modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.recent_notes)) }, singleLine = true)
             Button(onClick = {
                 if (equipmentId == null || calibrationSetting.isBlank()) error = "Select equipment and enter a setting."
                 else { onSaveCalibration(calibrationId, equipmentId!!, calibrationSetting, calibrationValue.toDoubleOrNull(), calibrationUnit, calibrationNotes); calibrationId = null; calibrationSetting = ""; calibrationValue = ""; calibrationNotes = ""; error = null }
-            }, modifier = Modifier.testTag("coffee.calibration.save")) { Text("Save calibration") }
+            }, modifier = Modifier.testTag("coffee.calibration.save")) { Text(stringResource(R.string.save_calibration)) }
             calibrations.forEach { item ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(listOf(item.setting, item.measuredValue?.toString(), item.unit).filterNot { it.isNullOrBlank() }.joinToString(" · "), Modifier.weight(1f))
-                    TextButton(onClick = { calibrationId = item.id; equipmentId = item.equipmentId; calibrationSetting = item.setting; calibrationValue = item.measuredValue?.toString().orEmpty(); calibrationUnit = item.unit.orEmpty(); calibrationNotes = item.notes.orEmpty() }) { Text("Edit") }
+                    TextButton(onClick = { calibrationId = item.id; equipmentId = item.equipmentId; calibrationSetting = item.setting; calibrationValue = item.measuredValue?.toString().orEmpty(); calibrationUnit = item.unit.orEmpty(); calibrationNotes = item.notes.orEmpty() }) { Text(stringResource(R.string.edit)) }
                     IconButton(onClick = { onDeleteCalibration(item.id) }, modifier = Modifier.testTag("coffee.calibration.delete.${item.id}")) { Icon(Icons.Default.Delete, "Delete calibration") }
                 }
             }
 
-            Text("Maintenance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            OutlinedTextField(value = maintenanceType, onValueChange = { maintenanceType = it }, modifier = Modifier.fillMaxWidth().testTag("coffee.maintenance.type"), label = { Text("Maintenance type") }, singleLine = true)
-            OutlinedTextField(value = maintenanceNotes, onValueChange = { maintenanceNotes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Notes") }, singleLine = true)
+            Text(stringResource(R.string.maintenance), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(value = maintenanceType, onValueChange = { maintenanceType = it }, modifier = Modifier.fillMaxWidth().testTag("coffee.maintenance.type"), label = { Text(stringResource(R.string.maintenance_type)) }, singleLine = true)
+            OutlinedTextField(value = maintenanceNotes, onValueChange = { maintenanceNotes = it }, modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.recent_notes)) }, singleLine = true)
             Button(onClick = {
                 if (equipmentId == null || maintenanceType.isBlank()) error = "Select equipment and enter a maintenance type."
                 else { onSaveMaintenance(maintenanceId, equipmentId!!, maintenanceType, maintenanceNotes); maintenanceId = null; maintenanceNotes = ""; error = null }
-            }, modifier = Modifier.testTag("coffee.maintenance.save")) { Text("Record maintenance") }
+            }, modifier = Modifier.testTag("coffee.maintenance.save")) { Text(stringResource(R.string.record_maintenance)) }
             maintenance.forEach { item ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(item.type, fontWeight = FontWeight.Bold); item.notes?.takeIf(String::isNotBlank)?.let { Text(it, style = MaterialTheme.typography.bodySmall) } }
-                    TextButton(onClick = { maintenanceId = item.id; equipmentId = item.equipmentId; maintenanceType = item.type; maintenanceNotes = item.notes.orEmpty() }) { Text("Edit") }
+                    TextButton(onClick = { maintenanceId = item.id; equipmentId = item.equipmentId; maintenanceType = item.type; maintenanceNotes = item.notes.orEmpty() }) { Text(stringResource(R.string.edit)) }
                     IconButton(onClick = { onDeleteMaintenance(item.id) }, modifier = Modifier.testTag("coffee.maintenance.delete.${item.id}")) { Icon(Icons.Default.Delete, "Delete maintenance") }
                 }
             }
@@ -1321,10 +1321,10 @@ internal fun CoffeeInventoryCard(
                         .testTag("coffee.sync.conflict"),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Sync conflict · ${conflict.entityType}", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.sync_conflict, conflict.entityType), fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { onResolveConflict(conflict, false) }) { Text("Keep server") }
-                        TextButton(onClick = { onResolveConflict(conflict, true) }) { Text("Restore local") }
+                        TextButton(onClick = { onResolveConflict(conflict, false) }) { Text(stringResource(R.string.keep_server)) }
+                        TextButton(onClick = { onResolveConflict(conflict, true) }) { Text(stringResource(R.string.restore_local)) }
                     }
                 }
             }
@@ -1525,7 +1525,7 @@ internal fun CoffeeScaleCard(
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(device.name, fontWeight = FontWeight.Bold)
-                                Text("${device.family.displayName} · ${device.rssi} dBm", style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(R.string.device_signal, device.family.displayName, device.rssi), style = MaterialTheme.typography.bodySmall)
                             }
                             if (state.connectingAddress == device.address) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                             else Text(stringResource(R.string.connect), color = Coffee, fontWeight = FontWeight.Bold)
@@ -1767,7 +1767,7 @@ internal fun AccountScreen(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("${profile.firstName} ${profile.lastName}".trim(), style = MaterialTheme.typography.displaySmall, color = Ink, maxLines = 1)
                         Text(profile.email, style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
-                        Text("MEMBERSHIP: ${(state.loyalty?.tier ?: "Bronze").uppercase()}", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                        Text(stringResource(R.string.membership_tier_upper, (state.loyalty?.tier ?: "Bronze").uppercase()), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
                     }
                     IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, "Refresh account", tint = TallaGoldText) }
                 }
@@ -1796,7 +1796,7 @@ internal fun AccountScreen(
                         .border(1.dp, Sand.copy(alpha = .14f), RoundedCornerShape(18.dp)).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Text("THE TALLA CLUB", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                    Text(stringResource(R.string.talla_club_upper), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
                     Text(loyalty.nextReward, style = MaterialTheme.typography.titleMedium, color = Ink)
                     Text(stringResource(R.string.member_id, loyalty.memberId), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .62f))
                 }
@@ -1886,7 +1886,7 @@ internal fun AccountScreen(
             TextButton(
                 onClick = { confirmingDeletion = true },
                 modifier = Modifier.testTag("account.delete"),
-            ) { Text("Delete account", color = MaterialTheme.colorScheme.error) }
+            ) { Text(stringResource(R.string.delete_account), color = MaterialTheme.colorScheme.error) }
         }
     }
     if (addingAddress) {
@@ -1898,14 +1898,14 @@ internal fun AccountScreen(
     if (confirmingDeletion) {
         AlertDialog(
             onDismissRequest = { confirmingDeletion = false },
-            title = { Text("Delete account?") },
-            text = { Text("Your profile, synced coffee data, loyalty history, and saved preferences will be permanently deleted.") },
-            dismissButton = { TextButton(onClick = { confirmingDeletion = false }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.delete_account_question)) },
+            text = { Text(stringResource(R.string.delete_account_detail)) },
+            dismissButton = { TextButton(onClick = { confirmingDeletion = false }) { Text(stringResource(R.string.cancel)) } },
             confirmButton = {
                 TextButton(
                     onClick = { confirmingDeletion = false; onDeleteAccount() },
                     modifier = Modifier.testTag("account.delete.confirm"),
-                ) { Text("Delete permanently", color = MaterialTheme.colorScheme.error) }
+                ) { Text(stringResource(R.string.delete_permanently), color = MaterialTheme.colorScheme.error) }
             },
         )
     }
@@ -2226,8 +2226,8 @@ internal fun CartSheet(
     val subtotal = lines.sumOf { line -> (line.variant.price.toDoubleOrNull() ?: 0.0) * line.quantity }
     val content: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
-            Text("YOUR BAG", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
-            Text("A good ritual starts here", style = MaterialTheme.typography.displaySmall, color = Ink)
+            Text(stringResource(R.string.your_bag_upper), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+            Text(stringResource(R.string.good_ritual_starts_here), style = MaterialTheme.typography.displaySmall, color = Ink)
             Spacer(Modifier.height(12.dp))
             if (lines.isEmpty()) Text(stringResource(R.string.empty_bag), color = MaterialTheme.colorScheme.onSurfaceVariant)
             lines.forEach { line ->
@@ -2248,7 +2248,7 @@ internal fun CartSheet(
             }
             if (lines.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
-                    Text("SUBTOTAL", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = Ink.copy(alpha = .72f))
+                    Text(stringResource(R.string.subtotal_upper), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = Ink.copy(alpha = .72f))
                     Text("BHD ${"%.3f".format(subtotal)}", style = MaterialTheme.typography.titleMedium, color = Ink)
                 }
                 Spacer(Modifier.height(16.dp))

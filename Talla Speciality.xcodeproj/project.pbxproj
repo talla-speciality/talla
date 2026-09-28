@@ -329,6 +329,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		E0130FB9306A532700C7D606 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				E08588572FD959E3003B3E9D /* HealthKit.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		E08588502FD959E3003B3E9D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -361,6 +369,7 @@
 				E08588452FD94DB8003B3E9D /* CoffeeConciergeService.swift */,
 				E08588472FD95597003B3E9D /* TallaAppIntents.swift */,
 				E08588492FD9583B003B3E9D /* TallaWidgets.swift */,
+				E0130FB9306A532700C7D606 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -601,7 +610,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2660;
-				LastUpgradeCheck = 2660;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					E085884E2FD959E3003B3E9D = {
 						CreatedOnToolsVersion = 26.5;
@@ -658,6 +667,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ar,
 			);
 			mainGroup = E08D10A02F66FF140092272C;
 			minimizedProjectReferenceProxies = 1;
@@ -1054,6 +1064,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -1118,6 +1129,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";

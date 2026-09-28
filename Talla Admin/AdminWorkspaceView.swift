@@ -29,6 +29,7 @@ struct AdminWorkspaceView: View {
                 Section("Customer engagement") {
                     if includes("Coffee memory beans lots sync recommendations") { NavigationLink { AdminCoffeeMemoryView() } label: { row("Coffee Memory", "Lots, imports, sync health, and customer support", "cup.and.saucer.fill") } }
                     if includes("Community recipes moderation edit approve reject") { NavigationLink { AdminCommunityRecipesView() } label: { row("Community Recipes", "Edit and moderate customer-submitted recipes", "book.and.wrench.fill") } }
+                    if includes("Espresso community moderation videos profiles roaster recipes") { NavigationLink { AdminEspressoCommunityView() } label: { row("Espresso Community", "Moderate profiles, roaster recipes, and video assessments", "waveform.path.ecg") } }
                     if includes("Notifications push messages") { NavigationLink { AdminNotificationComposer() } label: { row("Notifications", "Compose a customer push notification", "bell.badge.fill") } }
                 }
                 Section("Insights") {
@@ -54,6 +55,130 @@ struct AdminWorkspaceView: View {
     }
     private func subtitle(_ area: AdminContentArea) -> String {
         switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions" }
+    }
+}
+
+extension AdminAPI {
+    func moderateEspressoCommunity(collection: String, id: String, status: String) async throws -> AdminValue {
+        try await self.document("/admin/api/espresso-community/moderate", body: .object([
+            "collection": .string(collection), "id": .string(id), "status": .string(status)
+        ]))
+    }
+}
+
+private struct AdminEspressoCommunityItem: Identifiable {
+    let id: String
+    let collection: String
+    let document: AdminValue
+    var title: String {
+        document["title"].text.isEmpty ? (document["note"].text.isEmpty ? document["id"].text : document["note"].text) : document["title"].text
+    }
+}
+
+struct AdminEspressoCommunityView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var items: [AdminEspressoCommunityItem] = []
+    @State private var filter = "All"
+    @State private var loading = false
+    @State private var error: String?
+    @State private var message: String?
+
+    var body: some View {
+        List {
+            Picker("Status", selection: $filter) {
+                ForEach(["All", "pending", "approved", "rejected", "private"], id: \.self) { Text($0.capitalized) }
+            }.pickerStyle(.segmented)
+            if loading { ProgressView("Loading espresso community…") }
+            if !loading && filteredItems.isEmpty {
+                ContentUnavailableView("No espresso community submissions", systemImage: "waveform.path.ecg", description: Text("Profiles, recipes, and video assessments will appear here."))
+            }
+            ForEach(filteredItems) { item in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(item.title).font(.headline)
+                        Spacer()
+                        Text(item.document["status"].text.capitalized).font(.caption.weight(.semibold)).foregroundStyle(TallaAdminStyle.caramel)
+                    }
+                    Text(item.collection.replacingOccurrences(of: "roasterRecipes", with: "Roaster recipe").replacingOccurrences(of: "videoAssessments", with: "Video assessment").replacingOccurrences(of: "profiles", with: "Profile"))
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        ForEach(["approved", "rejected", "private"], id: \.self) { status in
+                            Button(status.capitalized) { Task { await moderate(item, status: status) } }
+                                .font(.caption).buttonStyle(.bordered)
+                        }
+                    }
+                }.padding(.vertical, 5)
+            }
+        }
+        .adminBackground().navigationTitle("Espresso Community")
+        .task { await load() }.refreshable { await load() }
+        .toolbar {
+            ToolbarItemGroup {
+                Menu {
+                    NavigationLink("Publish roaster recipe") {
+                        AdminActionForm(
+                            title: "Roaster Recipe",
+                            endpoint: "/admin/api/espresso-community/roaster-recipes",
+                            groups: [.init("Recipe", [
+                                .init("title", "Title", required: true), .init("roaster", "Roaster", required: true), .init("coffeeName", "Coffee name", required: true),
+                                .init("doseGrams", "Dose (g)", .number), .init("yieldGrams", "Yield (g)", .number), .init("temperatureC", "Temperature (°C)", .number),
+                                .init("grindSetting", "Grind setting"), .init("sourceURL", "Source URL"), .init("status", "Status", .choice(["approved", "rejected"]))
+                            ])],
+                            confirmation: "Publish this roaster recipe to equipment-specific espresso starting points.",
+                            document: .object(["doseGrams": .number(18), "yieldGrams": .number(36), "temperatureC": .number(93), "status": .string("approved")])
+                        )
+                    }
+                    NavigationLink("Publish equipment starting point") {
+                        AdminActionForm(
+                            title: "Equipment Starting Point",
+                            endpoint: "/admin/api/espresso-community/starting-points",
+                            groups: [.init("Starting point", [
+                                .init("title", "Title", required: true), .init("equipment", "Equipment", required: true),
+                                .init("profile.title", "Profile title", required: true), .init("profile.machine", "Machine", required: true),
+                                .init("profile.doseGrams", "Dose (g)", .number), .init("profile.yieldGrams", "Yield (g)", .number), .init("profile.temperatureC", "Temperature (°C)", .number),
+                                .init("profile.grindSetting", "Grind setting"), .init("profile.notes", "Notes", .multiline)
+                            ])],
+                            confirmation: "Publish this equipment-specific starting point to customers.",
+                            document: .object(["profile": .object(["doseGrams": .number(18), "yieldGrams": .number(36), "temperatureC": .number(93)])])
+                        )
+                    }
+                } label: { Image(systemName: "plus") }.accessibilityLabel("Add espresso community content")
+                Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading)
+            }
+        }
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: message) }
+    }
+
+    private var filteredItems: [AdminEspressoCommunityItem] {
+        filter == "All" ? items : items.filter { $0.document["status"].text.caseInsensitiveCompare(filter) == .orderedSame }
+    }
+
+    @MainActor private func load() async {
+        guard !loading else { return }; loading = true; error = nil
+        defer { loading = false }
+        do {
+            let root = try await session.api.document("/admin/api/espresso-community")
+            items = ["profiles", "roasterRecipes", "videoAssessments"].flatMap { collection in
+                root[collection].array.compactMap { document in
+                    let id = document["id"].text
+                    return id.isEmpty ? nil : AdminEspressoCommunityItem(id: "\(collection):\(id)", collection: collection, document: document)
+                }
+            }
+        } catch let caughtError {
+            error = caughtError.localizedDescription
+            if case AdminAPIError.unauthorized = caughtError { session.handle(caughtError) }
+        }
+    }
+
+    @MainActor private func moderate(_ item: AdminEspressoCommunityItem, status: String) async {
+        do {
+            _ = try await session.api.moderateEspressoCommunity(collection: item.collection, id: item.document["id"].text, status: status)
+            message = "Submission marked \(status)."
+            await load()
+        } catch let caughtError {
+            error = caughtError.localizedDescription
+            if case AdminAPIError.unauthorized = caughtError { session.handle(caughtError) }
+        }
     }
 }
 

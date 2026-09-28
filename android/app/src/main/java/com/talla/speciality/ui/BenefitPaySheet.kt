@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.res.stringResource
 import com.talla.speciality.BuildConfig
 import com.talla.speciality.data.BenefitPaySession
 import mobi.foo.benefitinapp.data.Transaction
@@ -40,7 +41,8 @@ internal fun BenefitPaySheet(
     onFailure: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val activity = LocalContext.current.findActivity()
+    val context = LocalContext.current
+    val activity = context.findActivity()
     val secret = BuildConfig.BENEFITPAY_SDK_SECRET.trim()
     ModalBottomSheet(onDismissRequest = { if (!loading) onDismiss() }) {
         Column(
@@ -51,7 +53,7 @@ internal fun BenefitPaySheet(
             Text("BenefitPay", style = MaterialTheme.typography.headlineSmall)
             Text("BHD ${session.amount}", style = MaterialTheme.typography.titleLarge)
             Text(
-                "Continue in the BenefitPay app. Talla verifies the transaction before completing your order.",
+                stringResource(R.string.benefitpay_continue_detail),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
@@ -59,12 +61,12 @@ internal fun BenefitPaySheet(
                 loading -> CircularProgressIndicator(Modifier.size(30.dp))
                 secret.isEmpty() -> {
                     Text(
-                        "BenefitPay is connected, but the production SDK credential has not been installed on this build.",
+                        stringResource(R.string.benefitpay_credential_detail),
                         color = MaterialTheme.colorScheme.error,
                     )
-                    Button(onClick = { onFailure("BenefitPay needs its production SDK credential") }) { Text("Close") }
+                    Button(onClick = { onFailure(context.getString(R.string.benefitpay_credential_error)) }) { Text(stringResource(R.string.dismiss)) }
                 }
-                activity == null -> Text("BenefitPay cannot open from this screen.", color = MaterialTheme.colorScheme.error)
+                activity == null -> Text(stringResource(R.string.benefitpay_screen_error), color = MaterialTheme.colorScheme.error)
                 else -> AndroidView(
                     modifier = Modifier.size(width = 258.dp, height = 60.dp),
                     factory = { context ->
@@ -78,19 +80,19 @@ internal fun BenefitPaySheet(
                                         object : CheckoutListener {
                                             override fun onTransactionSuccess(transaction: Transaction) = onSuccess()
                                             override fun onTransactionFail(transaction: Transaction) {
-                                                onFailure(transaction.transactionMessage?.takeIf(String::isNotBlank) ?: "BenefitPay did not complete the payment")
+                                                onFailure(transaction.transactionMessage?.takeIf(String::isNotBlank) ?: context.getString(R.string.benefitpay_payment_failed))
                                             }
                                         },
                                     )
                                 }
 
-                                override fun onFail(reason: Int) = onFailure("BenefitPay could not start (reason $reason)")
+                                override fun onFail(reason: Int) = onFailure(context.getString(R.string.benefitpay_start_failed, reason))
                             })
                         }
                     },
                 )
             }
-            TextButton(onClick = onDismiss, enabled = !loading) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !loading) { Text(stringResource(R.string.cancel)) }
         }
     }
 }

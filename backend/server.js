@@ -62,6 +62,8 @@ const appSettingsStorePath = config.stores.appSettings;
 const tasteMemoryStorePath = config.stores.tasteMemory;
 const customerLibraryStorePath = config.stores.customerLibrary;
 const communityRecipesStorePath = config.stores.communityRecipes;
+const espressoCommunityStorePath = config.stores.espressoCommunity;
+const homeConnectTokensStorePath = config.stores.homeConnectTokens;
 const cuppingRecordsStorePath = config.stores.cuppingRecords;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
@@ -85,6 +87,9 @@ const webPushVapidSubject = config.webPushVapidSubject;
 const customerTokenSecret = config.customerTokenSecret;
 const customerTokenHours = config.customerTokenHours;
 const customerRefreshTokenDays = config.customerRefreshTokenDays;
+const homeConnectClientID = config.homeConnectClientID;
+const homeConnectClientSecret = config.homeConnectClientSecret;
+const homeConnectRedirectURI = config.homeConnectRedirectURI;
 const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
 const appleSignInClientID = config.appleSignInClientID;
@@ -204,6 +209,8 @@ ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSe
 ensureStoreFile(appSettingsStorePath, { appSettings: defaultAppSettings() });
 ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(customerLibraryStorePath, { customerLibrary: {} });
+ensureStoreFile(espressoCommunityStorePath, { profiles: [], roasterRecipes: [], startingPoints: [], videoAssessments: [] });
+ensureStoreFile(homeConnectTokensStorePath, { connections: {}, states: [] });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
 ensureStoreFile(cardPaymentsStorePath, { payments: {} });
@@ -9087,6 +9094,11 @@ const server = createServer({
     customerLibraryPayload,
     customerLibraryStorePath,
     communityRecipesStorePath,
+    espressoCommunityStorePath,
+    homeConnectTokensStorePath,
+    homeConnectClientID,
+    homeConnectClientSecret,
+    homeConnectRedirectURI,
     cuppingRecordsStorePath,
     customerPhoneForShopifyOrder,
     customerTokenHours,
