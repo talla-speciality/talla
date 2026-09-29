@@ -209,6 +209,7 @@ ensureStoreFile(passportSettingsStorePath, { passportSettings: defaultPassportSe
 ensureStoreFile(appSettingsStorePath, { appSettings: defaultAppSettings() });
 ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(customerLibraryStorePath, { customerLibrary: {} });
+ensureStoreFile(communityRecipesStorePath, { recipes: [] });
 ensureStoreFile(espressoCommunityStorePath, { profiles: [], roasterRecipes: [], startingPoints: [], videoAssessments: [] });
 ensureStoreFile(homeConnectTokensStorePath, { connections: {}, states: [] });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
