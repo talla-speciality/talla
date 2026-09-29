@@ -25,6 +25,7 @@ object BrewRecipeEngine {
         val normalizedRatio = ratio.coerceIn(10.0, 20.0)
         val water = (dose * normalizedRatio).roundToInt()
         return when (brewer.lowercase()) {
+            "arabic coffee" -> arabicCoffee(dose)
             "espresso" -> espresso(dose)
             "cold brew" -> cold(dose, water)
             "aeropress" -> immersion("AeroPress", dose, water, 90, "Medium-fine", 120)
@@ -33,6 +34,16 @@ object BrewRecipeEngine {
             else -> pourOver("V60", dose, water, 93, "Medium-fine", flatBed = false)
         }
     }
+
+    private fun arabicCoffee(dose: Int) = BrewRecipe(
+        "Arabic coffee", dose, dose * 12, 90, "Extra fine", "8–12 min",
+        listOf(
+            BrewStep("Add water", 0, dose * 12, "Bring ${dose * 12} g water to a gentle boil in a dallah or small pot."),
+            BrewStep("Add coffee", 30, dose * 12, "Add $dose g finely ground Arabic coffee and reduce to a low simmer."),
+            BrewStep("Simmer", 60, dose * 12, "Simmer gently for 8–10 minutes; avoid a rolling boil."),
+            BrewStep("Rest and serve", 600, dose * 12, "Rest briefly, then pour carefully. Add cardamom to taste."),
+        ),
+    )
 
     private fun pourOver(name: String, dose: Int, water: Int, temperature: Int, grind: String, flatBed: Boolean): BrewRecipe {
         val bloom = (dose * 2.5).roundToInt().coerceAtMost((water * .4).roundToInt())

@@ -245,6 +245,7 @@
     <string name="unit">الوحدة</string>
     <string name="save_calibration">حفظ المعايرة</string>
     <string name="maintenance_type">نوع الصيانة</string>
+    <string name="coffee_maintenance">الصيانة</string>
     <string name="record_maintenance">تسجيل الصيانة</string>
     <string name="sync_conflict">تعارض مزامنة · %1$s</string>
     <string name="keep_server">الاحتفاظ بنسخة الخادم</string>

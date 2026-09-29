@@ -9,6 +9,7 @@ data class Product(
     val imageUrls: List<String> = imageUrl?.let(::listOf) ?: emptyList(),
     val category: String,
     val variants: List<ProductVariant>,
+    val roastDate: Long? = null,
 ) {
     val defaultVariant: ProductVariant? get() = variants.firstOrNull { it.available } ?: variants.firstOrNull()
     val priceLabel: String get() = defaultVariant?.let { "${it.currencyCode} ${it.price}" } ?: "Unavailable"
@@ -22,6 +23,23 @@ data class ProductVariant(
     val available: Boolean,
     val requiresShipping: Boolean,
     val weightGrams: Double?,
+)
+
+data class CoffeeTasteProfile(
+    val acidity: String = "balanced",
+    val sweetness: String = "sweet",
+    val body: String = "balanced",
+    val roast: String = "medium",
+    val temperature: String = "hot",
+    val style: String = "modern",
+    val configured: Boolean = false,
+)
+
+data class BrewLaunchRequest(
+    val coffeeName: String,
+    val method: String,
+    val doseGrams: Int = 20,
+    val ratio: Double = 15.0,
 )
 
 data class CartLine(

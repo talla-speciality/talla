@@ -12,6 +12,8 @@ import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.DeliveryAddress
 import com.talla.speciality.data.LoyaltyAccount
 import com.talla.speciality.data.Product
+import com.talla.speciality.data.CoffeeTasteProfile
+import com.talla.speciality.data.BrewLaunchRequest
 import com.talla.speciality.data.SecureTokenStore
 import com.talla.speciality.data.Voucher
 import com.talla.speciality.data.StockAlert
@@ -78,6 +80,8 @@ data class TallaUiState(
     val vouchers: List<Voucher> = emptyList(),
     val stockAlerts: List<StockAlert> = emptyList(),
     val tasteMemory: List<TasteMemoryRecord> = emptyList(),
+    val tasteProfile: CoffeeTasteProfile = CoffeeTasteProfile(),
+    val pendingBrewLaunch: BrewLaunchRequest? = null,
     val brewJournal: List<BrewJournalEntry> = emptyList(),
     val coffeeInventory: List<PurchasedCoffee> = emptyList(),
     val coffeeEquipment: List<CoffeeEquipment> = emptyList(),
@@ -111,6 +115,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         TallaUiState(
             favoriteProductIds = preferences.getStringSet("favorites", emptySet()).orEmpty(),
             recentlyViewedProductIds = loadRecentIds(),
+            tasteProfile = loadTasteProfile(),
             hostedBenefitOrderId = preferences.getString("hosted_benefit_order", null),
             clickToPayOrderId = preferences.getString("click_to_pay_order", null),
             brewJournal = loadBrewJournal(),
@@ -196,6 +201,28 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         tokenStore.read()?.let { token ->
             viewModelScope.launch { runCatching { accounts.setFavorite(token, productId, isFavorite) } }
         }
+    }
+
+    fun saveTasteProfile(profile: CoffeeTasteProfile) {
+        val saved = profile.copy(configured = true)
+        preferences.edit {
+            putString("taste_acidity", saved.acidity)
+            putString("taste_sweetness", saved.sweetness)
+            putString("taste_body", saved.body)
+            putString("taste_roast", saved.roast)
+            putString("taste_temperature", saved.temperature)
+            putString("taste_style", saved.style)
+            putBoolean("taste_configured", true)
+        }
+        mutableState.update { it.copy(tasteProfile = saved) }
+    }
+
+    fun launchBrew(coffeeName: String, method: String, doseGrams: Int = 20, ratio: Double = 15.0) {
+        mutableState.update { it.copy(pendingBrewLaunch = BrewLaunchRequest(coffeeName, method, doseGrams, ratio)) }
+    }
+
+    fun consumeBrewLaunch() {
+        mutableState.update { it.copy(pendingBrewLaunch = null) }
     }
 
     fun markViewed(productId: String) {
@@ -775,6 +802,16 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         val json = JSONArray(preferences.getString("recent", "[]") ?: "[]")
         (0 until json.length()).mapNotNull { json.optString(it).takeIf(String::isNotBlank) }
     }.getOrDefault(emptyList())
+
+    private fun loadTasteProfile() = CoffeeTasteProfile(
+        acidity = preferences.getString("taste_acidity", "balanced") ?: "balanced",
+        sweetness = preferences.getString("taste_sweetness", "sweet") ?: "sweet",
+        body = preferences.getString("taste_body", "balanced") ?: "balanced",
+        roast = preferences.getString("taste_roast", "medium") ?: "medium",
+        temperature = preferences.getString("taste_temperature", "hot") ?: "hot",
+        style = preferences.getString("taste_style", "modern") ?: "modern",
+        configured = preferences.getBoolean("taste_configured", false),
+    )
 
     private fun persistBrewJournal(state: TallaUiState) {
         coffeeData.replaceJournal(state.brewJournal, state.profile?.id.orEmpty())

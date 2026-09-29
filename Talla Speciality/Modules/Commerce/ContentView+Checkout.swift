@@ -2685,6 +2685,10 @@ extension ContentView {
 
                 productFactsSection(product)
 
+                if isBrewableCoffee(product) && tasteProfileConfigured {
+                    productTasteProfileFitSection(product)
+                }
+
                 if product.hasVariantChoices {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(AppLocalization.text("variants", fallback: "VARIANTS"))
@@ -2858,6 +2862,78 @@ extension ContentView {
         }
         .background(backgroundGradientColors[0].ignoresSafeArea())
         .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    func productTasteProfileFitSection(_ product: Product) -> some View {
+        let score = tastePreferenceScore(for: product)
+        let productText = normalizedSearchText(for: product)
+        let matchingProfileSignals = tasteProfileLabels.filter { label in
+            let keywords: [String]
+            switch label {
+            case AppLocalization.text("taste_acidity_low", fallback: "Low acidity"):
+                keywords = ["smooth", "low acid", "chocolate", "nutty", "brazil"]
+            case AppLocalization.text("taste_acidity_balanced", fallback: "Balanced acidity"):
+                keywords = ["balanced", "clean", "sweet"]
+            case AppLocalization.text("taste_acidity_high", fallback: "Bright acidity"):
+                keywords = ["bright", "acid", "citrus", "floral", "fruit", "berry"]
+            case AppLocalization.text("taste_sweetness_sweet", fallback: "Sweet"):
+                keywords = ["sweet", "caramel", "honey", "chocolate"]
+            case AppLocalization.text("taste_body_full", fallback: "Full body"):
+                keywords = ["body", "rich", "espresso", "chocolate", "nutty"]
+            case AppLocalization.text("taste_body_light", fallback: "Light body"):
+                keywords = ["tea", "clean", "floral", "washed"]
+            case AppLocalization.text("taste_temperature_iced", fallback: "Iced"):
+                keywords = ["iced", "cold", "summer", "refreshing"]
+            case AppLocalization.text("taste_style_arabic", fallback: "Arabic coffee"):
+                keywords = ["arabic", "qahwa", "cardamom", "yemen"]
+            default:
+                keywords = [label.lowercased()]
+            }
+            return keywords.contains(where: { productText.contains($0) })
+        }
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: score >= 0 ? "wand.and.stars" : "slider.horizontal.3")
+                    .foregroundColor(readableBrandGoldColor)
+                Text("Fits your taste profile")
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(AppLocalization.letterSpacing(1.5))
+                    .textCase(.uppercase)
+                    .foregroundColor(primaryTextColor)
+                Spacer()
+                Text(score >= 10
+                     ? AppLocalization.text("taste_match_strong", fallback: "Strong fit")
+                     : score >= 4
+                        ? AppLocalization.text("taste_match_possible", fallback: "Possible fit")
+                        : AppLocalization.text("taste_match_explore", fallback: "Explore beyond your usual"))
+                    .font(labelFont(size: 9, weight: .bold))
+                    .foregroundColor(readableBrandGoldColor)
+            }
+
+            Text(matchingProfileSignals.isEmpty
+                 ? AppLocalization.text("taste_match_explore_detail", fallback: "A Talla pick to help you explore beyond your usual cup.")
+                 : String(format: AppLocalization.text("taste_match_signals_format", fallback: "This coffee overlaps with %@."), matchingProfileSignals.prefix(2).joined(separator: " and ")))
+                .font(bodyFont(size: 13))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 7) {
+                ForEach(Array(tasteProfileLabels.prefix(4)), id: \.self) { label in
+                    Text(label)
+                        .font(labelFont(size: 9, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(elevatedSurfaceColor)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(14)
+        .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.08 : 0.11))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     @ViewBuilder
@@ -3809,14 +3885,50 @@ extension ContentView {
 
     func tastePreferenceScore(for product: Product) -> Int {
         let productText = normalizedSearchText(for: product)
+        var profileScore = 0
+        if tasteProfileConfigured {
+        switch savedTasteProfile.acidity {
+        case "low": profileScore += profileKeywordScore(productText, keywords: ["smooth", "low acid", "chocolate", "nutty", "brazil"])
+        case "high": profileScore += profileKeywordScore(productText, keywords: ["bright", "acid", "citrus", "floral", "fruit", "ethiopia"])
+        default: profileScore += profileKeywordScore(productText, keywords: ["balanced", "clean", "sweet"])
+        }
+        switch savedTasteProfile.sweetness {
+        case "sweet": profileScore += profileKeywordScore(productText, keywords: ["sweet", "caramel", "honey", "chocolate"])
+        default: profileScore += profileKeywordScore(productText, keywords: ["clean", "tea", "floral"])
+        }
+        switch savedTasteProfile.body {
+        case "light": profileScore += profileKeywordScore(productText, keywords: ["tea", "clean", "floral", "washed"])
+        case "full": profileScore += profileKeywordScore(productText, keywords: ["body", "rich", "espresso", "chocolate", "nutty"])
+        default: profileScore += profileKeywordScore(productText, keywords: ["balanced", "smooth"])
+        }
+        switch savedTasteProfile.roast {
+        case "light": profileScore += profileKeywordScore(productText, keywords: ["light", "washed", "floral", "fruit"])
+        case "dark": profileScore += profileKeywordScore(productText, keywords: ["dark", "bold", "espresso"])
+        default: profileScore += profileKeywordScore(productText, keywords: ["medium", "balanced", "sweet"])
+        }
+        if savedTasteProfile.temperature == "iced" {
+            profileScore += profileKeywordScore(productText, keywords: ["iced", "cold", "summer", "refreshing"])
+        }
+        if savedTasteProfile.style == "arabic" {
+            profileScore += profileKeywordScore(productText, keywords: ["arabic", "qahwa", "cardamom", "yemen"])
+        } else {
+            profileScore += profileKeywordScore(productText, keywords: ["single-origin", "specialty", "washed", "natural"])
+        }
+        }
 
-        return tasteMemoryRecords.reduce(0) { score, record in
+        return tasteMemoryRecords.reduce(profileScore) { score, record in
             let tagScore = record.tags.reduce(0) { partialResult, tag in
                 partialResult + (productText.contains(tag.lowercased()) ? 3 : 0)
             }
             let reactionScore = record.reaction == "loved" ? tagScore : -tagScore
             let productPenalty = record.reaction == "not-for-me" && normalizedProductName(record.productName) == normalizedProductName(product.name) ? -8 : 0
             return score + reactionScore + productPenalty
+        }
+    }
+
+    func profileKeywordScore(_ text: String, keywords: [String]) -> Int {
+        keywords.reduce(0) { partialResult, keyword in
+            partialResult + (text.contains(keyword) ? 2 : 0)
         }
     }
 

@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.stringResource
+import com.talla.speciality.R
 import com.talla.speciality.BuildConfig
 import com.talla.speciality.data.BenefitPaySession
 import mobi.foo.benefitinapp.data.Transaction

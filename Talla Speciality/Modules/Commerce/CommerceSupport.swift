@@ -1395,6 +1395,19 @@ extension ContentView.Product {
         let countryOfOrigin = metafieldCountryOfOrigin?.isEmpty == false
             ? metafieldCountryOfOrigin
             : ProductCatalogRules.countryOfOriginLabel(from: shopifyNode.tags)
+        let roastDateTag = shopifyNode.tags.first {
+            $0.range(of: "Talla Roast Date:", options: [.caseInsensitive, .anchored]) != nil
+        }
+        let roastDateValue = roastDateTag.map { String($0.dropFirst("Talla Roast Date:".count)).trimmingCharacters(in: .whitespacesAndNewlines) }
+        let roastDate: Date? = roastDateValue.flatMap { value in
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            for format in ["yyyy-MM-dd", "dd/MM/yyyy", "MM/dd/yyyy"] {
+                formatter.dateFormat = format
+                if let date = formatter.date(from: value) { return date }
+            }
+            return ISO8601DateFormatter().date(from: value)
+        }
 
         self.init(
             id: shopifyNode.id,
@@ -1410,6 +1423,7 @@ extension ContentView.Product {
             desc: AppLocalization.catalogText(localizedNode?.description ?? shopifyNode.description, source: shopifyNode.description, key: "catalog_\(shopifyNode.handle)_description"),
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
             countryOfOrigin: countryOfOrigin,
+            roastDate: roastDate,
             isAvailableForSale: defaultVariant?.isAvailableForSale ?? false,
             catalogSourceText: ([shopifyNode.title, shopifyNode.description, shopifyNode.productType] + shopifyNode.tags)
                 .joined(separator: "\n")

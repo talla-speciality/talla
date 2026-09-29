@@ -136,6 +136,7 @@ struct ContentView: View {
         let desc: String
         let tag: String?
         let countryOfOrigin: String?
+        var roastDate: Date? = nil
         let isAvailableForSale: Bool
         var catalogSourceText: String? = nil
 
@@ -522,6 +523,15 @@ struct ContentView: View {
         let updatedAt: String?
     }
 
+    struct TasteProfileRecord: Codable, Hashable {
+        let acidity: String
+        let sweetness: String
+        let body: String
+        let roast: String
+        let temperature: String
+        let style: String
+    }
+
     struct VoucherRecord: Codable, Identifiable {
         var id: String { code }
 
@@ -762,6 +772,13 @@ struct ContentView: View {
     @State var quizBrewMethod = "v60"
     @State var quizFlavor = "fruity"
     @State var quizAdventure = "curious"
+    @AppStorage("tasteProfile.acidity") var tasteProfileAcidity = "balanced"
+    @AppStorage("tasteProfile.sweetness") var tasteProfileSweetness = "sweet"
+    @AppStorage("tasteProfile.body") var tasteProfileBody = "balanced"
+    @AppStorage("tasteProfile.roast") var tasteProfileRoast = "medium"
+    @AppStorage("tasteProfile.temperature") var tasteProfileTemperature = "hot"
+    @AppStorage("tasteProfile.style") var tasteProfileStyle = "modern"
+    @AppStorage("tasteProfile.configured") var tasteProfileConfigured = false
     @State var products: [Product] = []
     @State var pendingUniversalLinkProductHandle = ""
     @State var pendingBrewingCoffeeName = ""

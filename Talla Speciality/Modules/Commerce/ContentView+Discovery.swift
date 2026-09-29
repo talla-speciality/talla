@@ -232,9 +232,330 @@ private struct HeaderCartButton: View {
 
 extension ContentView {
 
+    // The home screen is the customer's coffee control centre. These small,
+    // data-backed shelves make the existing taste, brew, loyalty, and order
+    // history useful before the customer starts browsing the catalogue.
+    var savedTasteProfile: TasteProfileRecord {
+        TasteProfileRecord(
+            acidity: tasteProfileAcidity,
+            sweetness: tasteProfileSweetness,
+            body: tasteProfileBody,
+            roast: tasteProfileRoast,
+            temperature: tasteProfileTemperature,
+            style: tasteProfileStyle
+        )
+    }
+
+    var tasteProfileLabels: [String] {
+        guard tasteProfileConfigured else { return [] }
+        let profile = savedTasteProfile
+        let labels: [(String, String)] = [
+            (profile.acidity == "low" ? "taste_acidity_low" : profile.acidity == "high" ? "taste_acidity_high" : "taste_acidity_balanced", profile.acidity),
+            (profile.sweetness == "subtle" ? "taste_sweetness_subtle" : "taste_sweetness_sweet", profile.sweetness),
+            (profile.body == "light" ? "taste_body_light" : profile.body == "full" ? "taste_body_full" : "taste_body_balanced", profile.body),
+            (profile.roast == "light" ? "taste_roast_light" : profile.roast == "dark" ? "taste_roast_dark" : "taste_roast_medium", profile.roast),
+            (profile.temperature == "iced" ? "taste_temperature_iced" : "taste_temperature_hot", profile.temperature),
+            (profile.style == "arabic" ? "taste_style_arabic" : "taste_style_modern", profile.style)
+        ]
+        return labels.map { AppLocalization.text($0.0, fallback: $0.1.capitalized) }
+    }
+
+    var homeTasteProfileTags: [String] {
+        let memoryWords = tasteMemoryRecords
+            .flatMap { [$0.reaction] + $0.tags }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+
+        var tags: [String] = []
+        let candidates: [(String, [String])] = [
+            ("Bright", ["bright", "acid", "acidity", "fruity", "floral"]),
+            ("Sweet", ["sweet", "caramel", "chocolate", "honey"]),
+            ("Full body", ["body", "bold", "rich", "heavy"]),
+            ("Light roast", ["light", "light roast"]),
+            ("Iced", ["iced", "cold"]),
+            ("Arabic coffee", ["arabic", "qahwa", "cardamom"])
+        ]
+
+        for (label, keywords) in candidates where keywords.contains(where: { keyword in
+            memoryWords.contains(where: { $0.contains(keyword) })
+        }) {
+            tags.append(label)
+        }
+
+        tags.append(contentsOf: tasteProfileLabels)
+
+        if tags.isEmpty, let firstRecommendation = recommendedProducts.first {
+            let source = firstRecommendation.catalogClassificationText.lowercased()
+            if source.contains("arabic") || source.contains("qahwa") {
+                tags.append("Arabic coffee")
+            } else if source.contains("fruit") || source.contains("floral") || source.contains("ethiopia") {
+                tags.append("Bright")
+            } else {
+                tags.append("Balanced")
+            }
+        }
+
+        return Array(tags.prefix(6))
+    }
+
+    var homeHasPersonalizationSignals: Bool {
+        !UserDefaults.standard.bool(forKey: "privacy.personalization.optOut")
+            && (tasteProfileConfigured
+            || !tasteMemoryRecords.isEmpty
+            || !favoriteProducts.isEmpty
+            || !recentlyViewedProducts.isEmpty
+            || !orderedProducts.isEmpty)
+    }
+
+    var homeTasteProfileSummary: String {
+        guard tasteProfileConfigured else {
+            return AppLocalization.text("taste_profile_setup_detail", fallback: "Set your preferences so Talla can learn the cup you like.")
+        }
+        let tags = homeTasteProfileTags
+        if tags.isEmpty {
+            return AppLocalization.text("taste_profile_empty", fallback: "Tell us what you like and Talla will learn your cup.")
+        }
+        return tags.prefix(6).joined(separator: " · ")
+    }
+
+    var homeUsualProduct: Product? {
+        reorderPrompt?.product ?? orderedProducts.first
+    }
+
+    var homeBrewRecommendation: Product? {
+        let coffeeProducts = recommendedProducts.filter(isBrewableCoffee)
+        return coffeeProducts.first ?? signatureRoastProducts.first(where: isBrewableCoffee)
+    }
+
+    var homeFreshRoastProducts: [Product] {
+        let freshCutoff = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .distantPast
+        return products
+            .filter { product in
+                product.isAvailableForSale
+                    && ["coffee-beans", "arabic-coffee-beans"].contains(product.categoryKey.lowercased())
+                    && product.roastDate.map { $0 >= freshCutoff && $0 <= .now } == true
+            }
+            .sorted { ($0.roastDate ?? .distantPast) > ($1.roastDate ?? .distantPast) }
+            .prefix(4)
+            .map { $0 }
+    }
+
+    var homeNearYouProducts: [Product] {
+        let availableDrinks = quickDrinkProducts
+        if !availableDrinks.isEmpty { return Array(availableDrinks.prefix(4)) }
+        return Array(products.filter { $0.isAvailableForSale && $0.categoryKey == "ready-made-drinks" }.prefix(4))
+    }
+
+    var homeNearYouTitle: String {
+        guard let city = preferredAddress?.city.trimmingCharacters(in: .whitespacesAndNewlines), !city.isEmpty else {
+            return AppLocalization.text("talla_express", fallback: "Talla Express")
+        }
+        return AppLocalization.text("near_you_now", fallback: "Near you now")
+    }
+
+    var homeNearYouDetail: String {
+        guard let city = preferredAddress?.city.trimmingCharacters(in: .whitespacesAndNewlines), !city.isEmpty else {
+            return AppLocalization.text("available_to_order", fallback: "Available to order")
+        }
+        return String(format: AppLocalization.text("order_in_city_format", fallback: "Order for %@"), city)
+    }
+
+    @ViewBuilder
+    var homePersonalizedHub: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("your_coffee_today", fallback: "Your coffee today"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(AppLocalization.letterSpacing(2.2))
+                        .textCase(.uppercase)
+                        .foregroundColor(readableBrandGoldColor)
+                    Text(AppLocalization.text("coffee_os_home_title", fallback: "A home screen that knows your ritual"))
+                        .font(titleFont(size: isCompact ? 21 : 24))
+                        .foregroundColor(primaryTextColor)
+                }
+                Spacer(minLength: 8)
+                Button {
+                    openTasteProfileEditor()
+                } label: {
+                    Text(AppLocalization.text(tasteProfileConfigured ? "edit_taste" : "taste_setup_action", fallback: tasteProfileConfigured ? "Edit taste" : "Set your taste"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button {
+                openTasteProfileEditor()
+            } label: {
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundColor(readableBrandGoldColor)
+                        Text(AppLocalization.text("your_taste_profile", fallback: "Your taste profile"))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(AppLocalization.letterSpacing(1.4))
+                            .textCase(.uppercase)
+                            .foregroundColor(primaryTextColor)
+                    }
+                    Text(homeTasteProfileSummary)
+                        .font(bodyFont(size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cardFillColor)
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            LazyVGrid(columns: homeQuickActionColumns, spacing: 10) {
+                if let product = homeUsualProduct {
+                    homePersonalizedProductCard(title: AppLocalization.text("your_usual", fallback: "Your usual"), detail: reorderPrompt.map { String(format: AppLocalization.text("last_ordered_days_ago", fallback: "Last ordered %d days ago"), $0.daysAgo) } ?? AppLocalization.text("familiar_cup_detail", fallback: "A familiar cup, ready when you are"), product: product) {
+                        quickBuyDrink(product)
+                    }
+                } else {
+                    homePersonalizedActionCard(title: AppLocalization.text("your_usual", fallback: "Your usual"), detail: AppLocalization.text("usual_empty_detail", fallback: "Your go-to coffee will appear here after your first order."), systemImage: "cup.and.saucer") {
+                        openShop(category: "coffee-beans")
+                    }
+                }
+
+                if let product = homeBrewRecommendation {
+                    let brewDetailKey = homeHasPersonalizationSignals ? "brew_profile_match_detail" : "brew_guide_detail"
+                    let brewDetailFallback = homeHasPersonalizationSignals ? "A recipe matched to your coffee preferences" : "A Talla brewing guide for this coffee"
+                    homePersonalizedProductCard(title: AppLocalization.text("brew_this_morning", fallback: "Brew this morning"), detail: AppLocalization.text(brewDetailKey, fallback: brewDetailFallback), product: product) {
+                        startBrewing(product: product, useRecommendedRecipe: true)
+                    }
+                } else {
+                    homePersonalizedActionCard(title: AppLocalization.text("brew_this_morning", fallback: "Brew this morning"), detail: AppLocalization.text("first_brew_detail", fallback: "Choose a coffee and Talla will help you make your first cup."), systemImage: "sun.max.fill") {
+                        openBrewing()
+                    }
+                }
+
+                if homeHasPersonalizationSignals, let product = recommendedProducts.first {
+                    homePersonalizedProductCard(title: AppLocalization.text("based_on_your_taste", fallback: "Based on your taste"), detail: productTasteSummary(for: product), product: product) {
+                        selectedProduct = product
+                    }
+                } else {
+                    homePersonalizedActionCard(title: AppLocalization.text("discover_at_talla", fallback: "Discover at Talla"), detail: AppLocalization.text("discover_taste_setup_detail", fallback: "Set your taste preferences to get coffee picks shaped around you."), systemImage: "sparkle.magnifyingglass") {
+                        openTasteProfileEditor()
+                    }
+                }
+
+                if let product = homeNearYouProducts.first {
+                    homePersonalizedProductCard(title: homeNearYouTitle, detail: homeNearYouDetail, product: product) {
+                        quickBuyDrink(product)
+                    }
+                } else {
+                    homePersonalizedActionCard(title: AppLocalization.text("talla_express", fallback: "Talla Express"), detail: AppLocalization.text("ready_drinks_explore_detail", fallback: "See ready-to-drink options from Talla."), systemImage: "takeoutbag.and.cup.and.straw") {
+                        openDrinksSection()
+                    }
+                }
+
+                if let product = homeFreshRoastProducts.first {
+                    homePersonalizedProductCard(title: AppLocalization.text("fresh_roast_week", fallback: "Freshly roasted this week"), detail: product.roastDate.map { String(format: AppLocalization.text("roasted_date_format", fallback: "Roasted %@"), $0.formatted(date: .abbreviated, time: .omitted)) } ?? AppLocalization.text("recently_roasted", fallback: "Recently roasted"), product: product) {
+                        selectedProduct = product
+                    }
+                } else if let product = signatureRoastProducts.first {
+                    homePersonalizedProductCard(title: AppLocalization.text("explore_signature_roasts", fallback: "Explore signature roasts"), detail: productTasteSummary(for: product), product: product) {
+                        selectedProduct = product
+                    }
+                }
+
+                homePersonalizedActionCard(
+                    title: AppLocalization.text("your_beans_rewards", fallback: "Your Beans and rewards"),
+                    detail: loyaltyAccount.map { String(format: AppLocalization.text("beans_tier_format", fallback: "%d Beans · %@"), $0.pointsBalance, $0.tier) } ?? AppLocalization.text("rewards_membership_detail", fallback: "See your rewards and membership"),
+                    systemImage: "sparkles"
+                ) {
+                    openAccountSection(AccountSectionView.ScrollTarget.loyalty)
+                }
+
+                if let brew = brewAgainHistoryItems.first {
+                    homePersonalizedActionCard(title: AppLocalization.text("continue_last_brew", fallback: "Continue your last brew"), detail: brew.detail, systemImage: "arrow.clockwise") {
+                        continueHomeBrew(brew)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+    }
+
+    func homePersonalizedProductCard(title: String, detail: String, product: Product, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 9) {
+                ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 13)
+                    .frame(height: isCompact ? 82 : 96)
+                Text(title)
+                    .font(labelFont(size: 10, weight: .bold))
+                    .foregroundColor(readableBrandGoldColor)
+                    .lineLimit(1)
+                Text(customerFacingProductName(for: product))
+                    .font(titleFont(size: 14))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                Text(detail)
+                    .font(bodyFont(size: 11))
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(2)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    func homePersonalizedActionCard(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(readableBrandGoldColor)
+                Text(title)
+                    .font(labelFont(size: 10, weight: .bold))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                Text(detail)
+                    .font(bodyFont(size: 11))
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(3)
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 132 : 146, alignment: .topLeading)
+            .background(cardFillColor)
+            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    func continueHomeBrew(_ brew: BrewRecipeRecord) {
+        brewRecipeName = brew.title
+        if let coffeeGrams = brew.coffeeGrams {
+            ratioCoffeeInput = formattedRatioValue(coffeeGrams)
+        }
+        if let ratio = brew.ratio {
+            ratioValueInput = formattedRatioValue(ratio)
+        }
+        openBrewing()
+    }
+
+    func openTasteProfileEditor() {
+        openShop()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            isCoffeeQuizExpanded = true
+        }
+    }
+
     var homeView: some View {
         VStack(spacing: 0) {
             heroSection
+            homePersonalizedHub
             appAnnouncementCard
             optionalAppUpdateCard
             seasonalEventsSection
@@ -2390,21 +2711,70 @@ extension ContentView {
     }
 
     var profileManagementSection: some View {
-        ProfileManagementSectionView(
-            primaryTextColor: primaryTextColor,
-            secondaryTextColor: secondaryTextColor,
-            accentColor: TallaTheme.Colors.accent,
-            cardFillColor: cardFillColor,
-            isLightAppearance: isLightAppearance,
-            firstName: $profileFirstName,
-            lastName: $profileLastName,
-            birthdayMonth: $birthdayMonth,
-            birthdayDay: $birthdayDay,
-            isSaving: isSavingProfile,
-            saveAction: {
-                await saveProfile()
+        VStack(alignment: .leading, spacing: 16) {
+            ProfileManagementSectionView(
+                primaryTextColor: primaryTextColor,
+                secondaryTextColor: secondaryTextColor,
+                accentColor: TallaTheme.Colors.accent,
+                cardFillColor: cardFillColor,
+                isLightAppearance: isLightAppearance,
+                firstName: $profileFirstName,
+                lastName: $profileLastName,
+                birthdayMonth: $birthdayMonth,
+                birthdayDay: $birthdayDay,
+                isSaving: isSavingProfile,
+                saveAction: {
+                    await saveProfile()
+                }
+            )
+
+            accountTasteProfileCard
+        }
+    }
+
+    var accountTasteProfileCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 9) {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundColor(readableBrandGoldColor)
+                Text(AppLocalization.text("your_taste_profile", fallback: "Taste profile"))
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(AppLocalization.letterSpacing(1.8))
+                    .textCase(.uppercase)
+                    .foregroundColor(primaryTextColor)
+                Spacer()
+                Button(AppLocalization.text(tasteProfileConfigured ? "edit" : "taste_setup_action", fallback: tasteProfileConfigured ? "Edit" : "Set your taste")) {
+                    openTasteProfileEditor()
+                }
+                .font(labelFont(size: 10, weight: .bold))
+                .foregroundColor(readableBrandGoldColor)
+                .buttonStyle(.plain)
             }
-        )
+
+            Text(AppLocalization.text(tasteProfileConfigured ? "taste_profile_account_detail" : "taste_profile_setup_detail", fallback: tasteProfileConfigured ? "Talla uses these preferences to shape your home screen, recommendations, and brew suggestions." : "Set your preferences so Talla can learn the cup you like."))
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if tasteProfileConfigured {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
+                    ForEach(tasteProfileLabels, id: \.self) { label in
+                        Text(label)
+                            .font(labelFont(size: 9, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 8)
+                            .background(elevatedSurfaceColor)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(cardFillColor)
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.14), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     var passwordResetSection: some View {
@@ -2777,6 +3147,33 @@ extension ContentView {
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
 
+                quizOptionRow(title: AppLocalization.text("taste_acidity_title", fallback: "Acidity"), options: [("low", AppLocalization.text("taste_acidity_low", fallback: "Low")), ("balanced", AppLocalization.text("taste_acidity_balanced", fallback: "Balanced")), ("high", AppLocalization.text("taste_acidity_high", fallback: "Bright"))], selection: $tasteProfileAcidity)
+                quizOptionRow(title: AppLocalization.text("taste_sweetness_title", fallback: "Sweetness"), options: [("subtle", AppLocalization.text("taste_sweetness_subtle", fallback: "Subtle")), ("sweet", AppLocalization.text("taste_sweetness_sweet", fallback: "Sweet"))], selection: $tasteProfileSweetness)
+                quizOptionRow(title: AppLocalization.text("taste_body_title", fallback: "Body"), options: [("light", AppLocalization.text("taste_body_light", fallback: "Light")), ("balanced", AppLocalization.text("taste_body_balanced", fallback: "Balanced")), ("full", AppLocalization.text("taste_body_full", fallback: "Full"))], selection: $tasteProfileBody)
+                quizOptionRow(title: AppLocalization.text("taste_roast_title", fallback: "Roast preference"), options: [("light", AppLocalization.text("taste_roast_light", fallback: "Light")), ("medium", AppLocalization.text("taste_roast_medium", fallback: "Medium")), ("dark", AppLocalization.text("taste_roast_dark", fallback: "Dark"))], selection: $tasteProfileRoast)
+                quizOptionRow(title: AppLocalization.text("taste_temperature_title", fallback: "Temperature"), options: [("hot", AppLocalization.text("taste_temperature_hot", fallback: "Hot")), ("iced", AppLocalization.text("taste_temperature_iced", fallback: "Iced"))], selection: $tasteProfileTemperature)
+                quizOptionRow(title: AppLocalization.text("taste_style_title", fallback: "Coffee style"), options: [("modern", AppLocalization.text("taste_style_modern", fallback: "Modern specialty")), ("arabic", AppLocalization.text("taste_style_arabic", fallback: "Arabic coffee"))], selection: $tasteProfileStyle)
+
+                Text(AppLocalization.text("taste_profile_usage_detail", fallback: "Talla uses this profile to shape your home screen and recommendations. You can change it anytime."))
+                    .font(bodyFont(size: 11))
+                    .foregroundColor(tertiaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    tasteProfileConfigured = true
+                    isCoffeeQuizExpanded = false
+                    showToast(message: AppLocalization.text("taste_profile_saved", fallback: "Taste profile saved"))
+                } label: {
+                    Text(AppLocalization.text("save_taste_profile", fallback: "Save taste profile"))
+                        .font(labelFont(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: 0x0A0804))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(TallaTheme.Colors.accent)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
                 if let match = quizMatchedProduct {
                     quizResultCard(match)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -2987,6 +3384,41 @@ extension ContentView {
             score += quizTextScore(text, keywords: ["guji", "ethiopia", "natural", "anaerobic", "floral", "berry"])
         default:
             break
+        }
+
+        if tasteProfileConfigured {
+        switch savedTasteProfile.acidity {
+        case "low": score += quizTextScore(text, keywords: ["smooth", "low acid", "chocolate", "nutty", "brazil"])
+        case "high": score += quizTextScore(text, keywords: ["bright", "acid", "citrus", "floral", "fruit", "ethiopia"])
+        default: score += quizTextScore(text, keywords: ["balanced", "clean", "sweet"])
+        }
+
+        switch savedTasteProfile.sweetness {
+        case "sweet": score += quizTextScore(text, keywords: ["sweet", "caramel", "honey", "chocolate", "brown sugar"])
+        default: score += quizTextScore(text, keywords: ["clean", "tea", "floral"])
+        }
+
+        switch savedTasteProfile.body {
+        case "light": score += quizTextScore(text, keywords: ["tea", "clean", "floral", "washed"])
+        case "full": score += quizTextScore(text, keywords: ["body", "rich", "espresso", "chocolate", "nutty"])
+        default: score += quizTextScore(text, keywords: ["balanced", "smooth"])
+        }
+
+        switch savedTasteProfile.roast {
+        case "light": score += quizTextScore(text, keywords: ["light", "washed", "floral", "fruit"])
+        case "dark": score += quizTextScore(text, keywords: ["dark", "bold", "roast", "espresso"])
+        default: score += quizTextScore(text, keywords: ["medium", "balanced", "sweet"])
+        }
+
+        if savedTasteProfile.temperature == "iced" {
+            score += quizTextScore(text, keywords: ["iced", "cold", "summer", "refreshing"])
+        }
+
+        if savedTasteProfile.style == "arabic" {
+            score += quizTextScore(text, keywords: ["arabic", "qahwa", "cardamom", "yemen", "shamali"])
+        } else {
+            score += quizTextScore(text, keywords: ["single-origin", "specialty", "washed", "natural"])
+        }
         }
 
         if product.isAvailableForSale {

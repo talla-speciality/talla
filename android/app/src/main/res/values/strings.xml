@@ -241,6 +241,7 @@
     <string name="unit">Unit</string>
     <string name="save_calibration">Save calibration</string>
     <string name="maintenance_type">Maintenance type</string>
+    <string name="coffee_maintenance">Maintenance</string>
     <string name="record_maintenance">Record maintenance</string>
     <string name="sync_conflict">Sync conflict · %1$s</string>
     <string name="keep_server">Keep server</string>

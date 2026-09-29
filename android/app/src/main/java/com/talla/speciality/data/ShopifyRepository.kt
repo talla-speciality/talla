@@ -7,6 +7,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class ShopifyRepository {
     suspend fun products(): List<Product> = withContext(Dispatchers.IO) {
@@ -140,6 +142,16 @@ class ShopifyRepository {
                 images.optJSONObject(index)?.optString("url")?.takeIf(String::isNotBlank)?.let(::add)
             }
         }.distinct()
+        val tags = node.optJSONArray("tags") ?: JSONArray()
+        val roastDate = (0 until tags.length()).asSequence()
+            .map { tags.optString(it) }
+            .firstOrNull { it.startsWith("Talla Roast Date:", ignoreCase = true) }
+            ?.substringAfter(':')?.trim()
+            ?.let { value ->
+                listOf("yyyy-MM-dd", "dd/MM/yyyy", "MM/dd/yyyy").firstNotNullOfOrNull { format ->
+                    runCatching { SimpleDateFormat(format, Locale.US).parse(value)?.time }.getOrNull()
+                }
+            }
         return Product(
             id = node.getString("id"),
             handle = node.getString("handle"),
@@ -149,6 +161,7 @@ class ShopifyRepository {
             imageUrls = imageUrls,
             category = node.optString("productType").ifBlank { "Coffee" },
             variants = variants,
+            roastDate = roastDate,
         )
     }
 
