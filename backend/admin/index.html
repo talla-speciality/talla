@@ -1735,7 +1735,9 @@
                 return;
             }
 
-            const totals = state.analytics.totals || {};
+            const analytics = state.analytics;
+            const totals = analytics.totals || {};
+            const tierCounts = analytics.tierCounts || {};
             const lowStock = lowStockProducts();
             const lowStockDetail = state.productControlAvailable
                 ? (lowStock.length > 0 ? `${lowStock.slice(0, 3).map((product) => product.title).join(", ")}${lowStock.length > 3 ? "..." : ""}` : "No products at or under 5 units.")
@@ -2896,9 +2898,9 @@
                     <h2 style="margin-top:0;">Loyalty Tier Mix</h2>
                     <div class="list">${renderList(Object.entries(tierCounts), ([tier, count]) => `<div class="list-item"><strong>${escapeHTML(tier)}</strong><div class="muted">${count} customers</div></div>`, "No loyalty data yet.")}</div>
                     <h2 style="margin-top:22px;">Top Customers By Points</h2>
-                    <div class="list">${renderList(summary.topCustomers, customer => `<div class="list-item"><strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong><div class="muted">${escapeHTML(customer.email)} • ${customer.pointsBalance} pts • ${escapeHTML(customer.loyaltyTier)}</div></div>`, "No customer points yet.")}</div>
+                    <div class="list">${renderList(analytics.topCustomers, customer => `<div class="list-item"><strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong><div class="muted">${escapeHTML(customer.email)} • ${customer.pointsBalance} pts • ${escapeHTML(customer.loyaltyTier)}</div></div>`, "No customer points yet.")}</div>
                     <h2 style="margin-top:22px;">Newest Accounts</h2>
-                    <div class="list">${renderList(summary.newestCustomers, customer => `<div class="list-item"><strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong><div class="muted">${escapeHTML(customer.email)} • Created ${new Date(customer.createdAt).toLocaleString()}</div></div>`, "No customer accounts yet.")}</div>
+                    <div class="list">${renderList(analytics.newestCustomers, customer => `<div class="list-item"><strong>${escapeHTML(`${customer.firstName || ""} ${customer.lastName || ""}`.trim() || customer.email)}</strong><div class="muted">${escapeHTML(customer.email)} • Created ${new Date(customer.createdAt).toLocaleString()}</div></div>`, "No customer accounts yet.")}</div>
                 </div>
             `;
         }
