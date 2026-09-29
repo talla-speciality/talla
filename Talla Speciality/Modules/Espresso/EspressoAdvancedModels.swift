@@ -15,6 +15,14 @@ enum EspressoTelemetryKind: String, Codable, CaseIterable, Identifiable, Hashabl
         case .temperature: return "°C"
         }
     }
+
+    var title: String {
+        switch self {
+        case .pressure: return "Pressure"
+        case .flow: return "Flow"
+        case .temperature: return "Temperature"
+        }
+    }
 }
 
 struct EspressoTelemetrySample: Codable, Equatable, Identifiable {
@@ -70,6 +78,15 @@ struct EspressoMachineIntegration: Codable, Equatable, Identifiable, Hashable {
     var supportedStreams: Set<EspressoTelemetryKind>
     var officialURL: URL?
     var notes: String
+
+    var supportTitle: String {
+        switch supportLevel {
+        case .officialSDK: return "Official SDK"
+        case .officialCloudAPI: return "Official cloud API"
+        case .officialCompanionApp: return "Companion app"
+        case .manualOnly: return "Manual capture"
+        }
+    }
 
     static let catalog = [
         EspressoMachineIntegration(id: "decent-de1", name: "Decent DE1 / DE1XL", manufacturer: "Decent Espresso", accessMode: .readOnly, supportLevel: .officialCompanionApp, supportedStreams: [.pressure, .flow, .temperature], officialURL: URL(string: "https://decentespresso.com/docs"), notes: "Read-only monitoring is available through a local Decaid gateway. Direct Talla control remains disabled until hardware validation."),
@@ -192,7 +209,6 @@ struct EspressoAdvancedPanel: View {
     @Binding var draft: EspressoShot
     @Binding var shots: [EspressoShot]
     @Binding var telemetry: [EspressoTelemetrySample]
-    @Environment(\.openURL) private var openURL
 
     @State private var tdsPercent = 9.0
     @State private var measuredYield = 36.0
@@ -203,11 +219,6 @@ struct EspressoAdvancedPanel: View {
     @State private var videoSelection: PhotosPickerItem?
     @State private var selectedVideoData: Data?
     @State private var diagnostics: Set<BottomlessDiagnostic> = []
-    @State private var selectedIntegration = EspressoMachineIntegration.catalog[0]
-    @State private var homeConnectAppliances: [[String: String]] = []
-    @State private var isLoadingHomeConnect = false
-    @StateObject private var decentClient = DecentDE1ReadOnlyClient()
-    @State private var decentGatewayURL = "http://192.168.1.100:8080"
     @State private var isShowingProfile = false
     @State private var shareStatus = ""
     @AppStorage("talla.espresso.advanced.snapshot.v1") private var snapshotPayload = ""
@@ -215,33 +226,20 @@ struct EspressoAdvancedPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("ADVANCED ESPRESSO", systemImage: "waveform.path.ecg.rectangle")
-                .font(.caption.weight(.bold)).tracking(1.1)
-            Text("Measure the shot before changing the shot.")
-                .font(.headline)
-            telemetryEditor
-            overlaySummary
-            refractometerCard
-            integrationCard
-            profileAndVideoCard
+                .font(.caption.weight(.bold)).tracking(1.1).foregroundStyle(advancedAccent)
+            Text("Measure first. Change one variable at a time.")
+                .font(.title3.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            advancedCard(telemetryEditor)
+            advancedCard(overlaySummary)
+            advancedCard(refractometerCard)
+            advancedCard(profileAndVideoCard)
         }
         .padding(16)
-        .background(.regularMaterial)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .onAppear {
             loadSnapshot()
-            if selectedIntegration.id == "home-connect-coffee" { Task { await refreshHomeConnectAppliances() } }
-        }
-        .onChange(of: selectedIntegration) { _, integration in
-            if integration.id == "home-connect-coffee" { Task { await refreshHomeConnectAppliances() } }
-            if integration.id != "decent-de1" { decentClient.stopMonitoring() }
-        }
-        .onChange(of: decentClient.snapshot) { _, snapshot in
-            guard let snapshot else { return }
-            if let pressure = snapshot.pressure { telemetry.append(.init(elapsedSeconds: sampleSeconds, kind: .pressure, value: pressure)) }
-            if let flow = snapshot.flow { telemetry.append(.init(elapsedSeconds: sampleSeconds, kind: .flow, value: flow)) }
-            if let temperature = snapshot.groupTemperature ?? snapshot.mixTemperature { telemetry.append(.init(elapsedSeconds: sampleSeconds, kind: .temperature, value: temperature)) }
-            sampleSeconds += 1
-            persistSnapshot()
         }
         .sheet(isPresented: $isShowingProfile) {
             NavigationStack {
@@ -255,126 +253,130 @@ struct EspressoAdvancedPanel: View {
         }
     }
 
+    private let advancedAccent = Color(red: 0.72, green: 0.48, blue: 0.20)
+
+    private func advancedCard<Content: View>(_ content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(Color(.systemBackground).opacity(0.82))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.black.opacity(0.06), lineWidth: 1))
+    }
+
     private var telemetryEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sensor streams").font(.subheadline.weight(.semibold))
-            HStack {
-                Picker("Stream", selection: $selectedKind) { ForEach(EspressoTelemetryKind.allCases) { Text($0.rawValue.capitalized).tag($0) } }
-                TextField("Value", value: $sampleValue, format: .number).keyboardType(.decimalPad).frame(width: 70)
-                Text(selectedKind.unit).font(.caption)
-                TextField("s", value: $sampleSeconds, format: .number).keyboardType(.decimalPad).frame(width: 45)
-                Button("Add") {
+            sectionHeading("Sensor streams", detail: telemetry.isEmpty ? "No samples yet" : "\(telemetry.count) captured")
+            Picker("Stream", selection: $selectedKind) {
+                ForEach(EspressoTelemetryKind.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            HStack(spacing: 8) {
+                labeledNumberField("Value", value: $sampleValue)
+                Text(selectedKind.unit).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                labeledNumberField("Seconds", value: $sampleSeconds)
+                Button {
                     telemetry.append(.init(elapsedSeconds: sampleSeconds, kind: selectedKind, value: sampleValue))
                     persistSnapshot()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.headline.weight(.semibold))
+                        .frame(width: 40, height: 40)
                 }
+                .buttonStyle(.borderedProminent).tint(advancedAccent)
+                .accessibilityLabel("Add sensor sample")
             }
-            Text(telemetry.isEmpty ? "No pressure, flow, or temperature samples yet." : "\(telemetry.count) samples captured")
-                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
     private var overlaySummary: some View {
         let overlay = EspressoReferenceOverlay(samples: telemetry)
         return VStack(alignment: .leading, spacing: 5) {
-            Text("Pressure / flow / temperature overlay").font(.subheadline.weight(.semibold))
+            sectionHeading("Pressure / flow / temperature", detail: "Reference overlay")
             Text("Pressure \(overlay.pressure.count) · Flow \(overlay.flow.count) · Temperature \(overlay.temperature.count)")
                 .font(.caption).foregroundStyle(.secondary)
             if let maxPressure = overlay.pressure.map(\.value).max() { Text("Peak pressure \(String(format: "%.1f bar", maxPressure))").font(.caption) }
+            if overlay.isEmpty { Text("Add readings above to build the shot overlay.").font(.caption).foregroundStyle(.secondary) }
         }
     }
 
     private var refractometerCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Refractometer").font(.subheadline.weight(.semibold))
-            HStack { TextField("TDS %", value: $tdsPercent, format: .number).keyboardType(.decimalPad); TextField("Yield g", value: $measuredYield, format: .number).keyboardType(.decimalPad); Button("Save") { persistSnapshot() }.font(.caption) }
+            sectionHeading("Refractometer", detail: "Optional")
+            HStack(spacing: 10) {
+                labeledNumberField("TDS %", value: $tdsPercent)
+                labeledNumberField("Yield (g)", value: $measuredYield)
+            }
+            Button("Save reading") { persistSnapshot() }
+                .font(.subheadline.weight(.semibold)).foregroundStyle(advancedAccent)
             if let ey = EspressoExtractionMath.extractionYieldPercent(doseGrams: draft.dose, beverageYieldGrams: measuredYield, tdsPercent: tdsPercent) {
-                Text(String(format: "Extraction yield %.2f%%", ey)).font(.caption.weight(.semibold))
-            }
-        }
-    }
-
-    private var integrationCard: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text("Machine integrations").font(.subheadline.weight(.semibold))
-            Picker("Integration", selection: $selectedIntegration) { ForEach(EspressoMachineIntegration.catalog) { Text($0.name).tag($0) } }
-            Text(selectedIntegration.notes).font(.caption).foregroundStyle(.secondary)
-            Text(selectedIntegration.supportLevel == .manualOnly ? "Manual capture" : selectedIntegration.supportLevel.rawValue)
-                .font(.caption).foregroundStyle(.secondary)
-            if selectedIntegration.id == "home-connect-coffee" {
-                HStack {
-                    Button("Connect Home Connect") {
-                    Task {
-                        do { openURL(try await AccountService.homeConnectAuthorizationURL()) }
-                        catch { shareStatus = "Home Connect is not configured on the server." }
-                    }
-                    }.buttonStyle(.bordered)
-                    Button(isLoadingHomeConnect ? "Loading…" : "Refresh appliances") {
-                        Task { await refreshHomeConnectAppliances() }
-                    }.buttonStyle(.bordered).disabled(isLoadingHomeConnect)
-                }
-                if homeConnectAppliances.isEmpty {
-                    Text("No connected appliances returned yet.").font(.caption).foregroundStyle(.secondary)
-                } else {
-                    ForEach(Array(homeConnectAppliances.enumerated()), id: \.offset) { _, appliance in
-                        let name = appliance["name"] ?? appliance["brand"] ?? appliance["haId"] ?? "Home Connect appliance"
-                        HStack {
-                            Text(name).font(.caption)
-                            Spacer()
-                            if let applianceID = appliance["haId"] {
-                                Button("Brew espresso") {
-                                    Task {
-                                        do {
-                                            try await AccountService.startHomeConnectEspresso(applianceID: applianceID, fillQuantity: draft.yield > 0 ? draft.yield : 35)
-                                            shareStatus = "Espresso start sent to Home Connect."
-                                        } catch {
-                                            shareStatus = "The appliance is not ready for remote start."
-                                        }
-                                    }
-                                }.font(.caption).buttonStyle(.bordered)
-                            }
-                        }
-                    }
-                }
-            }
-            if selectedIntegration.id == "decent-de1" {
-                TextField("Decaid gateway URL", text: $decentGatewayURL)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                Button(decentClient.isMonitoring ? "Stop Decent monitoring" : "Monitor Decent DE1") {
-                    guard let url = URL(string: decentGatewayURL), url.scheme == "http" || url.scheme == "https" else { return }
-                    if decentClient.isMonitoring { decentClient.stopMonitoring() } else { decentClient.startMonitoring(baseURL: url) }
-                }.buttonStyle(.bordered)
-                if let snapshot = decentClient.snapshot {
-                    Text("DE1 (snapshot.state?.state ?? "unknown") · (String(format: "%.1f bar", snapshot.pressure ?? 0)) · (String(format: "%.1f g/s", snapshot.flow ?? 0)) · (String(format: "%.1f °C", snapshot.groupTemperature ?? snapshot.mixTemperature ?? 0))")
-                        .font(.caption)
-                }
-                if let error = decentClient.errorMessage { Text(error).font(.caption).foregroundStyle(.secondary) }
+                Text(String(format: "Extraction yield %.2f%%", ey)).font(.subheadline.weight(.semibold))
             }
         }
     }
 
     private var profileAndVideoCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Community starting points").font(.subheadline.weight(.semibold))
-            HStack {
-                Button("Share profile") { Task { await shareProfile() } }.buttonStyle(.bordered)
-                Spacer()
-                Text("Equipment-specific").font(.caption).foregroundStyle(.secondary)
-            }
-            TextField("Bottomless video URL (optional)", text: $videoURL)
+            sectionHeading("Community starting points", detail: "Share when ready")
+            Button { Task { await shareProfile() } } label: {
+                Label("Share espresso profile", systemImage: "square.and.arrow.up")
+                    .frame(maxWidth: .infinity)
+            }.buttonStyle(.bordered)
+            TextField("Video URL (optional)", text: $videoURL)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+                .padding(.horizontal, 12).padding(.vertical, 10)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             PhotosPicker(selection: $videoSelection, matching: .videos) {
                 Label(selectedVideoData == nil ? "Choose bottomless video" : "Video selected", systemImage: "video.badge.plus")
+                    .frame(maxWidth: .infinity)
             }.onChange(of: videoSelection) { _, item in
                 Task { selectedVideoData = try? await item?.loadTransferable(type: Data.self) }
             }
-            HStack { ForEach(BottomlessDiagnostic.allCases) { diagnostic in Button(diagnostic.title) { if diagnostics.contains(diagnostic) { diagnostics.remove(diagnostic) } else { diagnostics.insert(diagnostic) } }.font(.caption).buttonStyle(.bordered) } }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(BottomlessDiagnostic.allCases) { diagnostic in
+                    let selected = diagnostics.contains(diagnostic)
+                    Button {
+                        if selected { diagnostics.remove(diagnostic) } else { diagnostics.insert(diagnostic) }
+                    } label: {
+                        Text(diagnostic.title).font(.caption.weight(.semibold)).lineLimit(1).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selected ? advancedAccent : .secondary)
+                }
+            }
             Button("Submit video assessment") { Task { await submitVideoAssessment() } }.buttonStyle(.bordered)
             if selectedVideoData != nil {
-                Button("Upload selected video") { Task { await uploadVideoAssessment() } }.buttonStyle(.borderedProminent)
+                Button("Upload selected video") { Task { await uploadVideoAssessment() } }.buttonStyle(.borderedProminent).tint(advancedAccent)
             }
             if !shareStatus.isEmpty { Text(shareStatus).font(.caption).foregroundStyle(.secondary) }
             Text("Video notes stay attached to the shot; publishing requires an explicit share action and moderation.").font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private func sectionHeading(_ title: String, detail: String? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).font(.subheadline.weight(.semibold))
+            Spacer(minLength: 8)
+            if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+        }
+    }
+
+    private func labeledNumberField(_ title: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+            TextField(title, value: value, format: .number)
+                .keyboardType(.decimalPad)
+                .font(.body.monospacedDigit())
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func shareProfile() async {
@@ -418,17 +420,6 @@ struct EspressoAdvancedPanel: View {
             shareStatus = "Video uploaded and saved for moderation."
         } catch {
             shareStatus = "Video upload failed. Check the file size and sign-in status."
-        }
-    }
-
-    private func refreshHomeConnectAppliances() async {
-        isLoadingHomeConnect = true
-        defer { isLoadingHomeConnect = false }
-        do {
-            homeConnectAppliances = try await AccountService.fetchHomeConnectAppliances()
-            shareStatus = homeConnectAppliances.isEmpty ? "Home Connect is connected, but no appliances were returned." : "Home Connect appliances refreshed."
-        } catch {
-            homeConnectAppliances = []
         }
     }
 

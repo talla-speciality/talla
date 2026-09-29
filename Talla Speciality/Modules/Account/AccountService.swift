@@ -221,7 +221,7 @@ enum AccountService {
         request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
         request.httpBody = try JSONSerialization.data(withJSONObject: ["fillQuantity": fillQuantity, "beanAmount": beanAmount])
         let (_, response) = try await Self.data(for: request)
-        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.cannotPerformOperation) }
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
     }
 
     static func fetchCuppingEntries() async throws -> [CuppingEntry] {
