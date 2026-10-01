@@ -54,7 +54,7 @@ struct AdminWorkspaceView: View {
             .frame(maxWidth: .infinity, alignment: .leading).padding(10).background(TallaAdminStyle.cream, in: RoundedRectangle(cornerRadius: 12))
     }
     private func subtitle(_ area: AdminContentArea) -> String {
-        switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions" }
+        switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions"; case .gulfCoffeeMap: "Talla location, partner sellers, map links, and offerings" }
     }
 }
 

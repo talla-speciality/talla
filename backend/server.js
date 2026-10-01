@@ -23,6 +23,7 @@ const {
 const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync"); const { importShopifyCoffeePurchases } = require("./modules/brewing/shopify-coffee-memory");
 const { coffeeMetadataFromTags, createCoffeeAdminService, defaultCoffeeMemorySettings, nextCoffeeTags, normalizeCoffeeMemorySettings } = require("./modules/brewing/coffee-admin");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry"); const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
+const { aggregateRatings: aggregateGulfCoffeeRatings, directoryFor: gulfCoffeeDirectoryFor, normalizeStore: normalizeGulfCoffeeMapStore, ratingsFor: gulfCoffeeRatingsFor, replaceDirectory: replaceGulfCoffeeDirectory, saveRating: saveGulfCoffeeRating } = require("./modules/discovery/gulf-coffee-map");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail"); const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments"); const { createCoffeeClubNotificationService } = require("./modules/commerce/coffee-club-notifications");
 const { orderItemOptions } = require("./modules/commerce/order-item-options"); const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
 const {
@@ -73,6 +74,7 @@ const shopifyOrderExportsStorePath = config.stores.shopifyOrderExports;
 const walletPassesStorePath = config.stores.walletPasses;
 const appAttestStorePath = config.stores.appAttest;
 const telemetryStorePath = config.stores.telemetry;
+const gulfCoffeeMapStorePath = config.stores.gulfCoffeeMap;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -219,6 +221,7 @@ ensureStoreFile(shopifyEazyPaymentsStorePath, { payments: {} });
 ensureStoreFile(shopifyOrderExportsStorePath, { exports: {} });
 ensureStoreFile(appAttestStorePath, { keys: {} });
 ensureStoreFile(telemetryStorePath, { events: [] });
+ensureStoreFile(gulfCoffeeMapStorePath, { version: 1, ratings: {} });
 
 async function recordTelemetry(payload, accountEmail = null) {
     const event = normalizeTelemetryEvent(payload);
@@ -9157,6 +9160,13 @@ const server = createServer({
     findShopifyOrderByExportTag,
     findShopifyOrderExport,
     fs,
+    gulfCoffeeMapStorePath,
+    aggregateGulfCoffeeRatings,
+    gulfCoffeeDirectoryFor,
+    normalizeGulfCoffeeMapStore,
+    replaceGulfCoffeeDirectory,
+    gulfCoffeeRatingsFor,
+    saveGulfCoffeeRating,
     generateVoucherCode,
     generateWalletPass,
     getAccountByAppleUserID,

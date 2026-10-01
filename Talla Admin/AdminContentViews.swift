@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AdminContentArea: String, CaseIterable, Identifiable {
-    case home = "App Home", controls = "Live Controls", events = "Seasonal Events", passport = "Coffee Passport", espresso = "Espresso", education = "Coffee Education"
+    case home = "App Home", controls = "Live Controls", events = "Seasonal Events", passport = "Coffee Passport", espresso = "Espresso", education = "Coffee Education", gulfCoffeeMap = "Gulf Coffee Map"
     var id: Self { self }
     var endpoint: String {
         switch self {
@@ -11,10 +11,11 @@ enum AdminContentArea: String, CaseIterable, Identifiable {
         case .passport: "/admin/api/passport-settings"
         case .espresso: "/admin/api/app-settings"
         case .education: "/admin/api/education-content"
+        case .gulfCoffeeMap: "/admin/api/gulf-coffee-map"
         }
     }
     var icon: String {
-        switch self { case .home: "house.fill"; case .controls: "slider.horizontal.3"; case .events: "sparkles"; case .passport: "globe.europe.africa.fill"; case .espresso: "dial.medium"; case .education: "book.closed.fill" }
+        switch self { case .home: "house.fill"; case .controls: "slider.horizontal.3"; case .events: "sparkles"; case .passport: "globe.europe.africa.fill"; case .espresso: "dial.medium"; case .education: "book.closed.fill"; case .gulfCoffeeMap: "map.fill" }
     }
     var groups: [AdminFieldGroup] {
         switch self {
@@ -42,6 +43,7 @@ enum AdminContentArea: String, CaseIterable, Identifiable {
         case .controls: return Self.controlGroups
         case .espresso: return [.init("Default targets", [.init("espresso.defaultDoseGrams", "Default dose (g)", .number), .init("espresso.defaultYieldGrams", "Default yield (g)", .number), .init("espresso.defaultTemperatureC", "Default temperature (°C)", .integer), .init("espresso.targetTimeMinSeconds", "Minimum target time (s)", .integer), .init("espresso.targetTimeMaxSeconds", "Maximum target time (s)", .integer), .init("espresso.targetFirstDripSeconds", "Target first drip (s)", .integer)]), .init("Guidance", [.init("espresso.positiveRatingThreshold", "Positive rating threshold", .integer), .init("espresso.recommendationStep", "Grind recommendation step", .number), .init("espresso.targetYieldAlertsEnabled", "Target-yield alerts enabled", .toggle), .init("espresso.watchControlsEnabled", "Watch controls enabled", .toggle)])]
         case .education: return []
+        case .gulfCoffeeMap: return []
         }
     }
 }
@@ -93,6 +95,21 @@ extension AdminContentArea {
             .init("correctAnswer", "Correct answer", required: true),
             .init("explanation", "Explanation", .multiline)
         ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "prompt": .string("New coffee question"), "options": .array([.string("Option A"), .string("Option B")]), "correctAnswer": .string("Option A"), "explanation": .string("Explain why this is correct.")]))]
+        case .gulfCoffeeMap: return [.init(path: "directory", title: "Directory listings", groups: [.init("Listing", [
+            .init("id", "Listing identifier", required: true),
+            .init("name", "Name", required: true),
+            .init("city", "City or Online", required: true),
+            .init("country", "Country or GCC", required: true),
+            .init("neighborhood", "Neighborhood / listing type"),
+            .init("websiteURL", "Website or map link"),
+            .init("address", "Address", .multiline),
+            .init("phone", "Phone"),
+            .init("hours", "Opening hours", .multiline),
+            .init("verificationStatus", "Verification status", .choice(["unverified", "link-provided", "link-verified", "admin-verified"])),
+            .init("categories", "Categories", .words),
+            .init("tags", "Tags", .words),
+            .init("offerings", "Drinks, beans, and workshops JSON", .json)
+        ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New listing"), "city": .string(""), "country": .string(""), "categories": .array([]), "tags": .array([]), "offerings": .array([]), "verificationStatus": .string("unverified")]))]
         }
 }
 

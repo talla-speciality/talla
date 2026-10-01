@@ -837,6 +837,22 @@
                     <textarea id="app-gcc-tiers" style="width:100%; min-height:100px; margin-top:12px; resize:vertical;" placeholder="GCC shipping tiers, one per line: maximum grams = BHD rate"></textarea>
                 </div>
                 <div class="list-item" style="margin-bottom:14px;">
+                    <strong>Coffee Club and Coffee Memory</strong>
+                    <div class="grid" style="margin-top:12px;">
+                        <label><input id="app-coffee-club-enabled" type="checkbox" style="width:auto; margin-right:8px;">Coffee Club enabled</label>
+                        <label>Prepaid shipments<input id="app-coffee-club-shipments" type="number" min="2" max="12" step="1"></label>
+                        <label>Interval weeks<input id="app-coffee-club-interval" type="number" min="1" max="12" step="1"></label>
+                        <label>Discount percent<input id="app-coffee-club-discount" type="number" min="0" max="30" step="1"></label>
+                    </div>
+                    <input id="app-coffee-club-product-ids" type="text" maxlength="3000" style="width:100%; margin-top:12px;" placeholder="Coffee Club Shopify product IDs, comma separated">
+                    <div class="grid" style="margin-top:12px;">
+                        <label><input id="app-coffee-memory-enabled" type="checkbox" style="width:auto; margin-right:8px;">Coffee Memory enabled</label>
+                        <label><input id="app-coffee-memory-import" type="checkbox" style="width:auto; margin-right:8px;">Automatic purchase import</label>
+                        <label><input id="app-coffee-memory-ocr" type="checkbox" style="width:auto; margin-right:8px;">Roast-date OCR</label>
+                        <label><input id="app-coffee-memory-recommendations" type="checkbox" style="width:auto; margin-right:8px;">Replacement recommendations</label>
+                    </div>
+                </div>
+                <div class="list-item" style="margin-bottom:14px;">
                     <strong>Maintenance and App Store versions</strong>
                     <div class="grid" style="margin-top:12px;">
                         <label><input id="app-maintenance" type="checkbox" style="width:auto; margin-right:8px;">Put entire app in maintenance</label>
@@ -1051,6 +1067,38 @@
             </div>
         </details>
 
+        <details id="gulf-coffee-map-section" class="panel" data-admin-section="gulf coffee map directory sellers beans partners" style="margin-bottom: 20px;">
+            <summary class="panel-summary">
+                <h2>Gulf Coffee Map</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Manage Talla’s owned location, partner bean sellers, online stores, map links, and offerings. Keep seller links accurate; unknown details can remain blank.</div>
+                <div class="toolbar-row" style="padding: 0 0 14px;">
+                    <button id="add-gulf-coffee-place" class="secondary">Add Listing</button>
+                    <button id="refresh-gulf-coffee-map" class="secondary">Refresh Directory</button>
+                    <button id="save-gulf-coffee-map">Save Directory</button>
+                    <div id="gulf-coffee-map-status" class="muted">Loading directory...</div>
+                </div>
+                <div id="gulf-coffee-map-editor" class="list">Loading Gulf Coffee Map...</div>
+            </div>
+        </details>
+
+        <details id="education-section" class="panel" data-admin-section="coffee education school quiz questions" style="margin-bottom: 20px;">
+            <summary class="panel-summary">
+                <h2>Coffee Education</h2>
+            </summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Edit the quiz questions shown in the customer Coffee School. Every question needs at least two options and one correct answer.</div>
+                <div class="toolbar-row" style="padding: 0 0 14px;">
+                    <button id="add-education-question" class="secondary">Add Question</button>
+                    <button id="refresh-education-content" class="secondary">Refresh Questions</button>
+                    <button id="save-education-content">Save Education</button>
+                    <div id="education-content-status" class="muted">Loading education content...</div>
+                </div>
+                <div id="education-content-editor" class="list">Loading questions...</div>
+            </div>
+        </details>
+
         <details id="products-section" class="panel" data-admin-section="products shopify catalog inventory price" style="margin-bottom: 20px;">
             <summary class="panel-summary">
                 <h2>Products</h2>
@@ -1184,7 +1232,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], communityRecipes: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], communityRecipes: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, gulfCoffeeDirectory: [], gulfCoffeeRatings: [], educationQuestions: [], orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -1223,6 +1271,8 @@
             "app-maintenance", "app-checkout-maintenance", "app-min-version", "app-latest-version", "app-store-url",
             "app-maintenance-title-en", "app-maintenance-title-ar", "app-maintenance-message-en", "app-maintenance-message-ar",
             "app-update-message-en", "app-update-message-ar",
+            "app-coffee-club-enabled", "app-coffee-club-shipments", "app-coffee-club-interval", "app-coffee-club-discount", "app-coffee-club-product-ids",
+            "app-coffee-memory-enabled", "app-coffee-memory-import", "app-coffee-memory-ocr", "app-coffee-memory-recommendations",
             "app-points-per-bhd", "app-silver-threshold", "app-gold-threshold", "app-reward-step", "app-loyalty-rewards",
             "app-temporary-closure-en", "app-temporary-closure-ar", "app-locations-json"
         ].map((id) => [id, document.getElementById(id)]));
@@ -1298,6 +1348,16 @@
         const passportOriginsEl = document.getElementById("passport-origins");
         const passportSettingsStatusEl = document.getElementById("passport-settings-status");
         const savePassportSettingsButton = document.getElementById("save-passport-settings");
+        const gulfCoffeeMapEditorEl = document.getElementById("gulf-coffee-map-editor");
+        const gulfCoffeeMapStatusEl = document.getElementById("gulf-coffee-map-status");
+        const refreshGulfCoffeeMapButton = document.getElementById("refresh-gulf-coffee-map");
+        const addGulfCoffeePlaceButton = document.getElementById("add-gulf-coffee-place");
+        const saveGulfCoffeeMapButton = document.getElementById("save-gulf-coffee-map");
+        const educationContentEditorEl = document.getElementById("education-content-editor");
+        const educationContentStatusEl = document.getElementById("education-content-status");
+        const refreshEducationContentButton = document.getElementById("refresh-education-content");
+        const addEducationQuestionButton = document.getElementById("add-education-question");
+        const saveEducationContentButton = document.getElementById("save-education-content");
         const productsEl = document.getElementById("products");
         const productsNoteEl = document.getElementById("products-note");
         const refreshProductsButton = document.getElementById("refresh-products");
@@ -1493,6 +1553,8 @@
             const fulfillment = settings.fulfillment || {};
             const release = settings.release || {};
             const loyalty = settings.loyalty || {};
+            const coffeeClub = settings.coffeeClub || {};
+            const coffeeMemory = settings.coffeeMemory || {};
             appAnnouncementEnabledInput.checked = Boolean(announcement.enabled);
             appAnnouncementTitleInput.value = announcement.title || "";
             appAnnouncementMessageInput.value = announcement.message || "";
@@ -1543,6 +1605,15 @@
             input("app-maintenance-message-ar").value = release.messageAR || "";
             input("app-update-message-en").value = release.updateMessageEN || "";
             input("app-update-message-ar").value = release.updateMessageAR || "";
+            input("app-coffee-club-enabled").checked = coffeeClub.enabled !== false;
+            input("app-coffee-club-shipments").value = coffeeClub.shipmentCount ?? 3;
+            input("app-coffee-club-interval").value = coffeeClub.intervalWeeks ?? 4;
+            input("app-coffee-club-discount").value = coffeeClub.discountPercent ?? 10;
+            input("app-coffee-club-product-ids").value = (coffeeClub.productIDs || []).join(", ");
+            input("app-coffee-memory-enabled").checked = coffeeMemory.enabled !== false;
+            input("app-coffee-memory-import").checked = coffeeMemory.automaticPurchaseImport !== false;
+            input("app-coffee-memory-ocr").checked = coffeeMemory.roastDateOCR !== false;
+            input("app-coffee-memory-recommendations").checked = coffeeMemory.replacementRecommendations !== false;
             input("app-points-per-bhd").value = loyalty.pointsPerBHD ?? 5;
             input("app-silver-threshold").value = loyalty.silverThreshold ?? 150;
             input("app-gold-threshold").value = loyalty.goldThreshold ?? 300;
@@ -1636,6 +1707,10 @@
                 appSettingsStatusEl.textContent = "The Gold threshold must be higher than Silver.";
                 return;
             }
+            if (Number(input("app-coffee-club-shipments").value) < 2 || Number(input("app-coffee-club-shipments").value) > 12 || Number(input("app-coffee-club-interval").value) < 1 || Number(input("app-coffee-club-interval").value) > 12 || Number(input("app-coffee-club-discount").value) < 0 || Number(input("app-coffee-club-discount").value) > 30) {
+                appSettingsStatusEl.textContent = "Coffee Club values must be within their allowed ranges.";
+                return;
+            }
             if (!window.confirm("Publish these controls to the live app? Customers will see the changes when the app refreshes.")) return;
 
             setButtonBusy(saveAppSettingsButton, true, "Publish App Changes", "Publishing...");
@@ -1699,6 +1774,19 @@
                             messageAR: input("app-maintenance-message-ar").value.trim(),
                             updateMessageEN: input("app-update-message-en").value.trim(),
                             updateMessageAR: input("app-update-message-ar").value.trim()
+                        },
+                        coffeeClub: {
+                            enabled: input("app-coffee-club-enabled").checked,
+                            shipmentCount: Number(input("app-coffee-club-shipments").value),
+                            intervalWeeks: Number(input("app-coffee-club-interval").value),
+                            discountPercent: Number(input("app-coffee-club-discount").value),
+                            productIDs: input("app-coffee-club-product-ids").value.split(",").map((id) => id.trim()).filter(Boolean)
+                        },
+                        coffeeMemory: {
+                            enabled: input("app-coffee-memory-enabled").checked,
+                            automaticPurchaseImport: input("app-coffee-memory-import").checked,
+                            roastDateOCR: input("app-coffee-memory-ocr").checked,
+                            replacementRecommendations: input("app-coffee-memory-recommendations").checked
                         },
                         loyalty: {
                             pointsPerBHD: Number(input("app-points-per-bhd").value),
@@ -3243,11 +3331,170 @@
             return payload;
         }
 
+        async function fetchGulfCoffeeMap() {
+            const response = await fetch("/admin/api/gulf-coffee-map/ratings");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load Gulf Coffee Map.");
+            return payload;
+        }
+
+        function renderGulfCoffeeMap() {
+            if (!state.gulfCoffeeDirectory.length) {
+                gulfCoffeeMapEditorEl.className = "empty";
+                gulfCoffeeMapEditorEl.textContent = "No listings yet. Add the first listing.";
+                return;
+            }
+            gulfCoffeeMapEditorEl.className = "list";
+            gulfCoffeeMapEditorEl.innerHTML = state.gulfCoffeeDirectory.map((place, index) => `
+                <div class="list-item gulf-coffee-place" data-index="${index}">
+                    <div class="toolbar-row" style="padding:0 0 10px;">
+                        <strong>${escapeHTML(place.name || "New listing")}</strong>
+                        <span class="muted">${escapeHTML(place.city || "")}${place.neighborhood ? ` · ${escapeHTML(place.neighborhood)}` : ""}</span>
+                        <button type="button" class="secondary remove-gulf-coffee-place">Remove</button>
+                    </div>
+                    <div class="product-filter-grid">
+                        <input data-field="id" value="${escapeHTML(place.id || "")}" placeholder="Stable ID">
+                        <input data-field="name" value="${escapeHTML(place.name || "")}" placeholder="Listing name">
+                        <input data-field="city" value="${escapeHTML(place.city || "")}" placeholder="City or Online">
+                        <input data-field="country" value="${escapeHTML(place.country || "")}" placeholder="Country or GCC">
+                        <input data-field="neighborhood" value="${escapeHTML(place.neighborhood || "")}" placeholder="Neighborhood / type">
+                        <input data-field="websiteURL" value="${escapeHTML(place.websiteURL || "")}" placeholder="Website or Google Maps URL">
+                        <input data-field="address" value="${escapeHTML(place.address || "")}" placeholder="Full address">
+                        <input data-field="phone" value="${escapeHTML(place.phone || "")}" placeholder="Phone">
+                        <input data-field="hours" value="${escapeHTML(place.hours || "")}" placeholder="Opening hours">
+                        <select data-field="verificationStatus">
+                            ${["unverified", "link-provided", "admin-verified"].map((status) => `<option value="${status}" ${place.verificationStatus === status ? "selected" : ""}>${status}</option>`).join("")}
+                        </select>
+                    </div>
+                    <div class="product-filter-grid" style="margin-top:10px;">
+                        <input data-field="categories" value="${escapeHTML((place.categories || []).join(", "))}" placeholder="Categories, comma separated">
+                        <input data-field="tags" value="${escapeHTML((place.tags || []).join(", "))}" placeholder="Tags, comma separated">
+                    </div>
+                    <textarea data-field="offerings" rows="3" style="width:100%; margin-top:10px;" placeholder='Offerings JSON, e.g. [{"id":"place-beans","name":"Talla beans","kind":"bean"}]'>${escapeHTML(JSON.stringify(place.offerings || [], null, 2))}</textarea>
+                </div>
+            `).join("");
+            gulfCoffeeMapStatusEl.textContent = `${state.gulfCoffeeDirectory.length} listings • ${state.gulfCoffeeRatings.length} rating rows`;
+        }
+
+        async function loadGulfCoffeeMap() {
+            try {
+                const payload = await fetchGulfCoffeeMap();
+                state.gulfCoffeeDirectory = payload.directory || [];
+                state.gulfCoffeeRatings = payload.ratings || [];
+                renderGulfCoffeeMap();
+            } catch (error) {
+                gulfCoffeeMapStatusEl.textContent = error.message;
+                gulfCoffeeMapEditorEl.className = "empty";
+                gulfCoffeeMapEditorEl.textContent = error.message;
+            }
+        }
+
+        function addGulfCoffeePlace() {
+            state.gulfCoffeeDirectory.push({ id: `new-place-${Date.now()}`, name: "", city: "", country: "", neighborhood: "", websiteURL: "", address: "", phone: "", hours: "", verificationStatus: "unverified", categories: [], tags: [], offerings: [] });
+            renderGulfCoffeeMap();
+            gulfCoffeeMapEditorEl.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        async function saveGulfCoffeeMap() {
+            const directory = Array.from(gulfCoffeeMapEditorEl.querySelectorAll(".gulf-coffee-place")).map((card) => {
+                const value = (field) => card.querySelector(`[data-field="${field}"]`)?.value.trim() || "";
+                let offerings = [];
+                try { offerings = JSON.parse(value("offerings") || "[]"); } catch (error) { throw new Error(`Invalid offerings JSON for ${value("name") || "listing"}.`); }
+                return { id: value("id"), name: value("name"), city: value("city"), country: value("country"), neighborhood: value("neighborhood"), websiteURL: value("websiteURL"), address: value("address"), phone: value("phone"), hours: value("hours"), verificationStatus: value("verificationStatus") || "unverified", categories: value("categories").split(",").map((item) => item.trim()).filter(Boolean), tags: value("tags").split(",").map((item) => item.trim()).filter(Boolean), offerings };
+            });
+            if (directory.some((place) => !place.id || !place.name || !place.city || !place.country)) {
+                gulfCoffeeMapStatusEl.textContent = "Each listing needs an ID, name, city, and country.";
+                return;
+            }
+            setButtonBusy(saveGulfCoffeeMapButton, true, "Save Directory", "Saving...");
+            try {
+                const response = await fetch("/admin/api/gulf-coffee-map", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ directory }) });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not save Gulf Coffee Map.");
+                state.gulfCoffeeDirectory = payload.directory || directory;
+                renderGulfCoffeeMap();
+                gulfCoffeeMapStatusEl.textContent = "Directory saved.";
+            } catch (error) {
+                gulfCoffeeMapStatusEl.textContent = error.message;
+            } finally {
+                setButtonBusy(saveGulfCoffeeMapButton, false, "Save Directory");
+            }
+        }
+
         async function fetchCustomers() {
             const response = await fetch("/admin/api/customers");
             const payload = await response.json();
             if (!response.ok) throw new Error(payload.error || "Could not load customers.");
             return payload;
+        }
+
+        async function fetchEducationContent() {
+            const response = await fetch("/admin/api/education-content");
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not load education content.");
+            return payload;
+        }
+
+        function renderEducationContent() {
+            educationContentEditorEl.className = "list";
+            educationContentEditorEl.innerHTML = state.educationQuestions.map((question, index) => `
+                <div class="list-item education-question" data-index="${index}">
+                    <div class="toolbar-row" style="padding:0 0 10px;">
+                        <strong>Question ${index + 1}</strong>
+                        <button type="button" class="secondary remove-education-question">Remove</button>
+                    </div>
+                    <div class="product-filter-grid">
+                        <input data-field="id" value="${escapeHTML(question.id || "")}" placeholder="Stable ID">
+                        <input data-field="prompt" value="${escapeHTML(question.prompt || "")}" placeholder="Question prompt">
+                        <input data-field="correctAnswer" value="${escapeHTML(question.correctAnswer || "")}" placeholder="Correct answer exactly as written in options">
+                    </div>
+                    <input data-field="options" value="${escapeHTML((question.options || []).join(" | "))}" style="width:100%; margin-top:10px;" placeholder="Options separated by |">
+                    <textarea data-field="explanation" rows="2" style="width:100%; margin-top:10px;" placeholder="Explanation shown after answering">${escapeHTML(question.explanation || "")}</textarea>
+                </div>
+            `).join("");
+            educationContentStatusEl.textContent = `${state.educationQuestions.length} questions`;
+        }
+
+        async function loadEducationContent() {
+            try {
+                const payload = await fetchEducationContent();
+                state.educationQuestions = payload.questions || [];
+                renderEducationContent();
+            } catch (error) {
+                educationContentStatusEl.textContent = error.message;
+                educationContentEditorEl.className = "empty";
+                educationContentEditorEl.textContent = error.message;
+            }
+        }
+
+        function addEducationQuestion() {
+            state.educationQuestions.push({ id: `question-${Date.now()}`, prompt: "", options: ["", ""], correctAnswer: "", explanation: "" });
+            renderEducationContent();
+            educationContentEditorEl.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        async function saveEducationContent() {
+            const questions = Array.from(educationContentEditorEl.querySelectorAll(".education-question")).map((card) => {
+                const value = (field) => card.querySelector(`[data-field="${field}"]`)?.value.trim() || "";
+                return { id: value("id"), prompt: value("prompt"), options: value("options").split("|").map((option) => option.trim()).filter(Boolean), correctAnswer: value("correctAnswer"), explanation: value("explanation") };
+            });
+            if (questions.some((question) => !question.id || !question.prompt || question.options.length < 2 || !question.correctAnswer || !question.options.includes(question.correctAnswer))) {
+                educationContentStatusEl.textContent = "Each question needs an ID, prompt, two options, and a correct answer matching an option.";
+                return;
+            }
+            setButtonBusy(saveEducationContentButton, true, "Save Education", "Saving...");
+            try {
+                const response = await fetch("/admin/api/education-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ questions }) });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not save education content.");
+                state.educationQuestions = payload.questions || questions;
+                renderEducationContent();
+                educationContentStatusEl.textContent = "Education content saved.";
+            } catch (error) {
+                educationContentStatusEl.textContent = error.message;
+            } finally {
+                setButtonBusy(saveEducationContentButton, false, "Save Education");
+            }
         }
 
         async function fetchCommunityRecipes() {
@@ -3378,6 +3625,8 @@
                 await refreshProducts();
                 await loadSignatureRoasts();
                 await loadPassportSettings();
+                await loadGulfCoffeeMap();
+                await loadEducationContent();
                 setStatus("Signed in. Search for a customer to begin.", "success");
             } catch (error) {
                 setLoginStatus(error.message, "error");
@@ -4159,6 +4408,36 @@
         });
         saveSignatureRoastsButton.addEventListener("click", saveSignatureRoasts);
         savePassportSettingsButton.addEventListener("click", savePassportSettings);
+        refreshGulfCoffeeMapButton.addEventListener("click", loadGulfCoffeeMap);
+        addGulfCoffeePlaceButton.addEventListener("click", addGulfCoffeePlace);
+        saveGulfCoffeeMapButton.addEventListener("click", () => {
+            void saveGulfCoffeeMap().catch((error) => { gulfCoffeeMapStatusEl.textContent = error.message; });
+        });
+        gulfCoffeeMapEditorEl.addEventListener("click", (event) => {
+            const removeButton = event.target.closest(".remove-gulf-coffee-place");
+            if (!removeButton) return;
+            const card = removeButton.closest(".gulf-coffee-place");
+            const index = Number(card?.dataset.index);
+            if (Number.isInteger(index)) {
+                state.gulfCoffeeDirectory.splice(index, 1);
+                renderGulfCoffeeMap();
+            }
+        });
+        refreshEducationContentButton.addEventListener("click", loadEducationContent);
+        addEducationQuestionButton.addEventListener("click", addEducationQuestion);
+        saveEducationContentButton.addEventListener("click", () => {
+            void saveEducationContent().catch((error) => { educationContentStatusEl.textContent = error.message; });
+        });
+        educationContentEditorEl.addEventListener("click", (event) => {
+            const removeButton = event.target.closest(".remove-education-question");
+            if (!removeButton) return;
+            const card = removeButton.closest(".education-question");
+            const index = Number(card?.dataset.index);
+            if (Number.isInteger(index)) {
+                state.educationQuestions.splice(index, 1);
+                renderEducationContent();
+            }
+        });
         signatureRoastsEl.addEventListener("change", (event) => {
             if (!event.target.classList.contains("signature-roast-input")) {
                 return;

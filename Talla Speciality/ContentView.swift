@@ -50,6 +50,7 @@ struct ContentView: View {
         case shop
         case club
         case brewing
+        case map
         case account
         case search
 
@@ -63,6 +64,8 @@ struct ContentView: View {
                 return "sparkles"
             case .brewing:
                 return "drop"
+            case .map:
+                return "map"
             case .account:
                 return "person"
             case .search:
@@ -2790,7 +2793,6 @@ struct ContentView: View {
                 }
                 .accessibilityIdentifier("tab.home")
             }
-
             SwiftUI.Tab(
                 AppLocalization.text("shop", fallback: "Shop"),
                 systemImage: Tab.shop.systemImage,
@@ -2825,6 +2827,17 @@ struct ContentView: View {
             }
 
             SwiftUI.Tab(
+                "Map",
+                systemImage: Tab.map.systemImage,
+                value: Tab.map
+            ) {
+                tabScreen(tab: .map) {
+                    gulfCoffeeMapView
+                }
+                .accessibilityIdentifier("tab.map")
+            }
+
+            SwiftUI.Tab(
                 AppLocalization.text("account", fallback: "Account"),
                 systemImage: Tab.account.systemImage,
                 value: Tab.account
@@ -2834,8 +2847,10 @@ struct ContentView: View {
                 }
                 .accessibilityIdentifier("tab.account")
             }
-
         }
+        .toolbar(.visible, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(tabBarBackgroundColor, for: .tabBar)
     }
 
     var legacyTabView: some View {
@@ -2867,7 +2882,12 @@ struct ContentView: View {
                 .tabItem {
                     Label(AppLocalization.text("brew", fallback: "Brew"), systemImage: Tab.brewing.systemImage)
                 }
-
+            tabScreen(tab: .map) { gulfCoffeeMapView }
+                .tag(Tab.map)
+                .accessibilityIdentifier("tab.map")
+                .tabItem {
+                    Label("Map", systemImage: Tab.map.systemImage)
+                }
             tabScreen(tab: .account) { accountView }
                 .tag(Tab.account)
                 .accessibilityIdentifier("tab.account")
@@ -2975,7 +2995,7 @@ struct ContentView: View {
 
     func bottomScrollPadding(for tab: Tab) -> CGFloat {
         switch tab {
-        case .home: 104
+        case .home: 36
         case .account: 56
         default: 28
         }

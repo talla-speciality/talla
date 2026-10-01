@@ -211,6 +211,13 @@ module.exports = function createServer(dependencies) {
         findShopifyOrderByExportTag,
         findShopifyOrderExport,
         fs,
+        gulfCoffeeMapStorePath,
+        aggregateGulfCoffeeRatings,
+        gulfCoffeeDirectoryFor,
+        normalizeGulfCoffeeMapStore,
+        replaceGulfCoffeeDirectory,
+        gulfCoffeeRatingsFor,
+        saveGulfCoffeeRating,
         generateVoucherCode,
         generateWalletPass,
         getAccountByAppleUserID,
@@ -801,6 +808,21 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/gulf-coffee-map") {
+        const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+        sendJSON(response, 200, {
+            directory: gulfCoffeeDirectoryFor(store),
+            ratings: aggregateGulfCoffeeRatings(store)
+        }, { "Cache-Control": "public, max-age=60" });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/gulf-coffee-map/ratings/summary") {
+        const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+        sendJSON(response, 200, { ratings: aggregateGulfCoffeeRatings(store) }, { "Cache-Control": "public, max-age=60" });
+        return;
+    }
+
     if (request.method === "POST" && ["/shopify/webhooks/orders", "/webhooks/shopify/orders-create"].includes(url.pathname)) {
         try {
             const rawBody = await readRawBody(request, 262_144);
@@ -1127,6 +1149,33 @@ module.exports = function createServer(dependencies) {
         const requiredPermission = permissionForAdminRequest(request.method, url.pathname);
         if (!hasPermission(admin, requiredPermission)) {
             sendJSON(response, 403, { error: `Admin permission required: ${requiredPermission}.` });
+            return;
+        }
+
+        if (request.method === "GET" && (url.pathname === "/admin/api/gulf-coffee-map" || url.pathname === "/admin/api/gulf-coffee-map/ratings")) {
+            const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+            sendJSON(response, 200, {
+                directory: gulfCoffeeDirectoryFor(store),
+                ratings: aggregateGulfCoffeeRatings(store),
+                totalRatings: Object.values(store.ratings).reduce((count, entries) => count + (Array.isArray(entries) ? entries.length : 0), 0)
+            });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/gulf-coffee-map") {
+            try {
+                const body = await readBody(request, 512_000);
+                const current = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+                const next = replaceGulfCoffeeDirectory(current, body.directory || body.places);
+                if (!next) {
+                    sendJSON(response, 400, { error: "Provide a valid non-empty directory." });
+                    return;
+                }
+                writeJSON(gulfCoffeeMapStorePath, next);
+                sendJSON(response, 200, { directory: gulfCoffeeDirectoryFor(next) });
+            } catch (error) {
+                sendJSON(response, error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400, { error: "Invalid Gulf Coffee Map directory payload." });
+            }
             return;
         }
 
@@ -4515,6 +4564,40 @@ module.exports = function createServer(dependencies) {
         }
 
         sendJSON(response, 200, await tasteMemoryPayload(customer.email));
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/gulf-coffee-map/ratings") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+        sendJSON(response, 200, { ratings: gulfCoffeeRatingsFor(store, customer.email) });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/gulf-coffee-map/ratings") {
+        try {
+            const body = await readBody(request, 32_768);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+            const rating = saveGulfCoffeeRating(store, customer.email, body);
+            if (!rating) {
+                sendJSON(response, 400, { error: "Provide a spot, offering and a rating from 1 to 5." });
+                return;
+            }
+            writeJSON(gulfCoffeeMapStorePath, store);
+            sendJSON(response, 201, {
+                rating,
+                ratings: gulfCoffeeRatingsFor(store, customer.email)
+            });
+        } catch (error) {
+            sendJSON(response, error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400, { error: "Invalid Gulf Coffee Map rating payload." });
+        }
         return;
     }
 

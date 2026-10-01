@@ -37,11 +37,11 @@ struct AdminCoffeeMemoryView: View {
                             onSaved: { result in message = "Processed \(result["syncedCount"].text) orders."; Task { await load() } }, document: .object([:]))
                     }
                     Section("Measured brews") {
-                        let brews = document["brewInsights"].array ?? []
+                        let brews = document["brewInsights"].array
                         if brews.isEmpty { Text("No measured brews synced yet").foregroundStyle(.secondary) }
                         ForEach(brews, id: \.objectID) { brew in
                             DisclosureGroup(brew["title"].text.isEmpty ? "Measured brew" : brew["title"].text) {
-                                AdminBrewCurveView(points: brew["curve"].array ?? [])
+                                AdminBrewCurveView(points: brew["curve"].array)
                                     .frame(height: 150)
                                     .padding(.vertical, 8)
                                 AdminRecordRows(record: brew, fields: [

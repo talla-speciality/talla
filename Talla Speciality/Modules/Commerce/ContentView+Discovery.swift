@@ -298,15 +298,6 @@ extension ContentView {
         return Array(tags.prefix(6))
     }
 
-    var homeHasPersonalizationSignals: Bool {
-        !UserDefaults.standard.bool(forKey: "privacy.personalization.optOut")
-            && (tasteProfileConfigured
-            || !tasteMemoryRecords.isEmpty
-            || !favoriteProducts.isEmpty
-            || !recentlyViewedProducts.isEmpty
-            || !orderedProducts.isEmpty)
-    }
-
     var homeTasteProfileSummary: String {
         guard tasteProfileConfigured else {
             return AppLocalization.text("taste_profile_setup_detail", fallback: "Set your preferences so Talla can learn the cup you like.")
@@ -349,11 +340,6 @@ extension ContentView {
         }
     }
 
-    var homeBrewRecommendation: Product? {
-        let coffeeProducts = recommendedProducts.filter(isBrewableCoffee)
-        return coffeeProducts.first ?? signatureRoastProducts.first(where: isBrewableCoffee)
-    }
-
     var homeFreshRoastProducts: [Product] {
         let freshCutoff = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .distantPast
         return products
@@ -388,193 +374,34 @@ extension ContentView {
     }
 
     @ViewBuilder
-    var homePersonalizedHub: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .lastTextBaseline, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(AppLocalization.text("your_coffee_today", fallback: "Your coffee today"))
+    var homeUsualRow: some View {
+        if let product = homeUsualProduct {
+            Button {
+                quickBuyDrink(product)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "cup.and.saucer.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(readableBrandGoldColor)
+                    Text(AppLocalization.text("your_usual", fallback: "Your usual"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .tracking(AppLocalization.letterSpacing(2.1))
-                        .textCase(.uppercase)
-                        .foregroundColor(readableBrandGoldColor)
-                    Text(AppLocalization.text("todays_brew_title", fallback: "Today's brew"))
-                        .font(displayFont(size: isCompact ? 24 : 28))
                         .foregroundColor(primaryTextColor)
-                }
-                Spacer(minLength: 8)
-                Button {
-                    openTasteProfileEditor()
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(readableBrandGoldColor)
-                        .frame(width: 40, height: 40)
-                        .background(cardFillColor, in: Circle())
-                        .overlay(Circle().stroke(TallaTheme.Colors.accent.opacity(0.22), lineWidth: 0.8))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppLocalization.text(tasteProfileConfigured ? "edit_taste" : "taste_setup_action", fallback: tasteProfileConfigured ? "Edit taste" : "Set your taste"))
-            }
-
-            if let product = homeBrewRecommendation {
-                homeFeaturedBrewCard(product)
-            } else {
-                homeEmptyBrewCard
-            }
-
-            HStack(spacing: 10) {
-                if homePurchasedCoffeeProducts.isEmpty, let product = homeUsualProduct {
-                    homeCompactShortcut(
-                        title: AppLocalization.text("your_usual", fallback: "Your usual"),
-                        detail: customerFacingProductName(for: product),
-                        systemImage: "cup.and.saucer.fill"
-                    ) { quickBuyDrink(product) }
-                } else if homePurchasedCoffeeProducts.isEmpty {
-                    homeCompactShortcut(
-                        title: AppLocalization.text("your_usual", fallback: "Your usual"),
-                        detail: AppLocalization.text("usual_empty_detail", fallback: "Your go-to coffee will appear here after your first order."),
-                        systemImage: "cup.and.saucer.fill"
-                    ) { openShop(category: "coffee-beans") }
-                }
-
-                homeCompactShortcut(
-                    title: AppLocalization.text("your_beans_rewards", fallback: "Beans & rewards"),
-                    detail: loyaltyAccount.map { String(format: AppLocalization.text("beans_tier_format", fallback: "%d Beans · %@"), $0.pointsBalance, $0.tier) } ?? AppLocalization.text("rewards_membership_detail", fallback: "View your rewards"),
-                    systemImage: "sparkles"
-                ) { openAccountSection(AccountSectionView.ScrollTarget.loyalty) }
-            }
-
-            if let brew = brewAgainHistoryItems.first {
-                Button {
-                    continueHomeBrew(brew)
-                } label: {
-                    HStack(spacing: 7) {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text(AppLocalization.text("continue_last_brew", fallback: "Continue your last brew"))
-                        Text("· \(brew.title)").lineLimit(1)
-                        Spacer(minLength: 0)
-                        Image(systemName: "arrow.right")
-                    }
-                    .font(labelFont(size: 10, weight: .semibold))
-                    .foregroundColor(secondaryTextColor)
-                    .padding(.top, 1)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 8)
-        .padding(.bottom, 20)
-    }
-
-    func homeFeaturedBrewCard(_ product: Product) -> some View {
-        Button {
-            startBrewing(product: product, useRecommendedRecipe: true)
-        } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(AppLocalization.text("brew_this_morning", fallback: "Brew this morning").uppercased())
-                        .font(labelFont(size: 9, weight: .bold))
-                        .tracking(AppLocalization.letterSpacing(1.5))
-                        .foregroundColor(Color(hex: 0xE7C28D))
-                        .lineLimit(1)
                     Text(customerFacingProductName(for: product))
-                        .font(displayFont(size: isCompact ? 21 : 25))
-                        .foregroundColor(Color(hex: 0xFFF8EF))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Text(homeHasPersonalizationSignals
-                         ? productTasteSummary(for: product)
-                         : AppLocalization.text("brew_guide_detail", fallback: "A Talla brewing guide for this coffee"))
                         .font(bodyFont(size: 11))
-                        .foregroundColor(Color(hex: 0xE9DED0).opacity(0.86))
-                        .lineLimit(2)
-                    HStack(spacing: 6) {
-                        Text(AppLocalization.text("start_brewing", fallback: "Start brewing"))
-                            .font(labelFont(size: 10, weight: .bold))
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 9, weight: .bold))
-                    }
-                    .foregroundColor(Color(hex: 0x29190D))
-                    .padding(.horizontal, 12)
-                    .frame(height: 34)
-                    .background(Color(hex: 0xD7AD78), in: Capsule())
-                    .padding(.top, 2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                ProductThumbnail(imageURL: product.imageURL, size: isCompact ? 104 : 126, cornerRadius: 17)
-                    .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(Color(hex: 0xD7AD78).opacity(0.3), lineWidth: 1))
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: isCompact ? 178 : 202, alignment: .leading)
-            .background(
-                LinearGradient(
-                    colors: [Color(hex: 0x322116), Color(hex: 0x1C130D)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: RoundedRectangle(cornerRadius: 23, style: .continuous)
-            )
-            .overlay(RoundedRectangle(cornerRadius: 23, style: .continuous).stroke(Color(hex: 0xC8965A).opacity(0.3), lineWidth: 0.8))
-        }
-        .buttonStyle(.plain)
-    }
-
-    var homeEmptyBrewCard: some View {
-        Button { openShop() } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "cup.and.saucer.fill")
-                    .font(.system(size: 24, weight: .light))
-                    .foregroundColor(Color(hex: 0xE7C28D))
-                    .frame(width: 56, height: 56)
-                    .background(Color.white.opacity(0.08), in: Circle())
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(AppLocalization.text("discover_at_talla", fallback: "Discover at Talla"))
-                        .font(displayFont(size: 20))
-                        .foregroundColor(Color(hex: 0xFFF8EF))
-                    Text(AppLocalization.text("first_brew_detail", fallback: "Choose a coffee and Talla will help you make your first cup."))
-                        .font(bodyFont(size: 12))
-                        .foregroundColor(Color(hex: 0xE9DED0).opacity(0.85))
-                        .lineLimit(2)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right")
-                    .foregroundColor(Color(hex: 0xE7C28D))
-            }
-            .padding(18)
-            .frame(maxWidth: .infinity, minHeight: 112)
-            .background(LinearGradient(colors: [Color(hex: 0x322116), Color(hex: 0x1C130D)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 23, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    func homeCompactShortcut(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(readableBrandGoldColor)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(labelFont(size: 9, weight: .bold))
-                        .foregroundColor(primaryTextColor)
-                        .lineLimit(1)
-                    Text(detail)
-                        .font(bodyFont(size: 10))
                         .foregroundColor(secondaryTextColor)
                         .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(readableBrandGoldColor)
                 }
-                Spacer(minLength: 0)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 11)
-            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-            .background(cardFillColor)
-            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 0.8))
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
         }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
     }
 
     func homeShortcutCard(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
@@ -652,17 +479,6 @@ extension ContentView {
         .frame(width: isCompact ? 174 : 206, height: isCompact ? 194 : 210, alignment: .topLeading)
     }
 
-    func continueHomeBrew(_ brew: BrewRecipeRecord) {
-        brewRecipeName = brew.title
-        if let coffeeGrams = brew.coffeeGrams {
-            ratioCoffeeInput = formattedRatioValue(coffeeGrams)
-        }
-        if let ratio = brew.ratio {
-            ratioValueInput = formattedRatioValue(ratio)
-        }
-        openBrewing()
-    }
-
     func openTasteProfileEditor() {
         openShop()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
@@ -673,6 +489,7 @@ extension ContentView {
     var homeView: some View {
         VStack(spacing: 0) {
             homePurchasedCoffeeShelf
+            homeUsualRow
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }
@@ -703,95 +520,81 @@ extension ContentView {
     @ViewBuilder
     var homePurchasedCoffeeShelf: some View {
         if !homePurchasedCoffeeProducts.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .center, spacing: 12) {
-                    Text(AppLocalization.text("coffee_shelf", fallback: "Coffee Shelf"))
-                        .font(.system(size: isCompact ? 20 : 22, weight: .bold))
-                        .foregroundColor(Color(hex: 0x4A2410))
+            ZStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("My coffee shelf")
+                            .font(.system(size: isCompact ? 17 : 19, weight: .bold))
+                            .foregroundColor(Color(hex: 0xFFF1DA))
+                            .shadow(color: .black.opacity(0.48), radius: 3, x: 0, y: 1)
 
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 11)
-                .background(woodPlankGradient)
-                .overlay(Rectangle().fill(Color.white.opacity(0.22)).frame(height: 1), alignment: .top)
-                .overlay(Rectangle().fill(Color(hex: 0x6E3415).opacity(0.42)).frame(height: 2), alignment: .bottom)
-
-                ZStack(alignment: .bottom) {
-                    LinearGradient(
-                        colors: [Color(hex: 0xEDBC70), Color(hex: 0xCF8741), Color(hex: 0xE5A95A)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-
-                    LinearGradient(
-                        colors: [Color(hex: 0x6E3415).opacity(0.34), .clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 22)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .allowsHitTesting(false)
-
-                    VStack(spacing: 27) {
-                        ForEach(0..<8, id: \.self) { _ in
-                            Rectangle()
-                                .fill(Color(hex: 0x7B401D).opacity(0.075))
-                                .frame(height: 1)
-                        }
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 8)
-                    .allowsHitTesting(false)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(walnutShelfSurface(tint: Color(hex: 0x6A3B1F), tintOpacity: 0.12))
+                    .overlay(Rectangle().fill(Color.white.opacity(0.16)).frame(height: 1), alignment: .top)
+                    .overlay(Rectangle().fill(Color(hex: 0x24140D).opacity(0.58)).frame(height: 2), alignment: .bottom)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(alignment: .bottom, spacing: isCompact ? 12 : 20) {
-                            ForEach(homePurchasedCoffeeProducts) { product in
-                                homePurchasedCoffeeBagCard(product)
+                    ZStack(alignment: .bottom) {
+                        walnutShelfSurface(tint: Color(hex: 0x4A2818), tintOpacity: 0.16)
+
+                        LinearGradient(
+                            colors: [Color(hex: 0x24140D).opacity(0.30), .clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 24)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        .allowsHitTesting(false)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(alignment: .bottom, spacing: isCompact ? 12 : 20) {
+                                ForEach(homePurchasedCoffeeProducts) { product in
+                                    homePurchasedCoffeeBagCard(product)
+                                }
                             }
+                            .padding(.horizontal, 14)
+                            .frame(height: isCompact ? 100 : 116, alignment: .bottom)
                         }
-                        .padding(.horizontal, 14)
-                        .frame(height: isCompact ? 164 : 180, alignment: .bottom)
+                        .frame(height: isCompact ? 100 : 116, alignment: .bottom)
+                        .scrollClipDisabled()
                     }
-                    .frame(height: isCompact ? 164 : 180, alignment: .bottom)
+                    .frame(height: isCompact ? 100 : 116)
 
+                    VStack(spacing: 0) {
+                        Rectangle()
+                            .fill(Color(hex: 0xD9B181))
+                            .frame(height: 6)
+                            .overlay(Rectangle().fill(Color.white.opacity(0.20)).frame(height: 1), alignment: .top)
+                            .shadow(color: .black.opacity(0.38), radius: 5, y: -3)
+                        walnutShelfSurface(tint: Color(hex: 0x4A2818), tintOpacity: 0.06)
+                            .frame(height: isCompact ? 14 : 17)
+                            .overlay(Rectangle().fill(Color.black.opacity(0.28)).frame(height: 2), alignment: .bottom)
+                    }
                 }
-                .frame(height: isCompact ? 164 : 180)
-                .clipped()
-
-                VStack(spacing: 0) {
-                    Rectangle()
-                        .fill(Color(hex: 0xF8D99A))
-                        .frame(height: 7)
-                        .shadow(color: .black.opacity(0.32), radius: 5, y: -3)
-                    Rectangle()
-                        .fill(woodPlankGradient)
-                        .frame(height: 19)
-                        .overlay(Rectangle().fill(Color.black.opacity(0.22)).frame(height: 2), alignment: .bottom)
-                }
+                .background(walnutShelfSurface(tint: Color(hex: 0x4A2818), tintOpacity: 0.10))
             }
-            .background(woodCabinetGradient)
-            .clipShape(Rectangle())
-            .shadow(color: .black.opacity(isLightAppearance ? 0.20 : 0.42), radius: 18, y: 11)
-            .padding(.bottom, 22)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: 0xD8AE7C).opacity(0.55), lineWidth: 0.8))
+            .shadow(color: .black.opacity(isLightAppearance ? 0.16 : 0.32), radius: 10, y: 5)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 14)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.purchasedCoffeeShelf")
         }
     }
 
-    var woodPlankGradient: LinearGradient {
-        LinearGradient(
-            colors: [Color(hex: 0xF5D08A), Color(hex: 0xD89A4F), Color(hex: 0xEDBE70)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
-    var woodCabinetGradient: LinearGradient {
-        LinearGradient(
-            colors: [Color(hex: 0xE7B366), Color(hex: 0xB86D32), Color(hex: 0xD99549)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    func walnutShelfSurface(tint: Color, tintOpacity: Double) -> some View {
+        GeometryReader { geometry in
+            Image("CoffeeShelfWalnut")
+                .resizable()
+                .scaledToFill()
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .clipped()
+                .overlay(tint.opacity(tintOpacity))
+        }
+        .allowsHitTesting(false)
     }
 
     func shelfBagImage(for product: Product) -> some View {
@@ -833,11 +636,11 @@ extension ContentView {
         } label: {
             ZStack(alignment: .topTrailing) {
                 shelfBagImage(for: product)
-                    .frame(width: isCompact ? 100 : 116, height: isCompact ? 154 : 170)
-                    .scaleEffect(1.18, anchor: .bottom)
+                    .frame(width: isCompact ? 76 : 88, height: isCompact ? 92 : 106)
+                    .scaleEffect(1.06, anchor: .bottom)
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                     .shadow(color: .black.opacity(0.30), radius: 6, x: 1, y: 4)
-                    .offset(y: isCompact ? 7 : 8)
+                    .offset(y: 10)
 
                 if availableBagCount > 1 {
                     Text(availableBagCount > 99 ? "99+" : "\(availableBagCount)")
@@ -860,7 +663,7 @@ extension ContentView {
                 ? "\(customerFacingProductName(for: product)), \(availableBagCount) bags remaining"
                 : customerFacingProductName(for: product)
         )
-        .frame(width: isCompact ? 116 : 138, alignment: .bottom)
+        .frame(width: isCompact ? 92 : 104, alignment: .bottom)
     }
 
     var homeMoreSectionsToggle: some View {
