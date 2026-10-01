@@ -287,7 +287,8 @@ extension AdminContentArea {
             .init("coffeeClub.enabled", "Available in customer app", .toggle),
             .init("coffeeClub.shipmentCount", "Prepaid shipments", .integer),
             .init("coffeeClub.intervalWeeks", "Weeks between shipments", .integer),
-            .init("coffeeClub.discountPercent", "Coffee discount (%)", .integer)
+            .init("coffeeClub.discountPercent", "Coffee discount (%)", .integer),
+            .init("coffeeClub.productIDs", "Coffee Club products", .products(100, false))
         ]),
         .init("Coffee memory", [
             .init("coffeeMemory.enabled", "Coffee memory enabled", .toggle),

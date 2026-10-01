@@ -107,7 +107,9 @@ struct CoffeeSampleInput: Codable, Equatable {
     var endedAt: Date?; var doseGrams: Double?; var yieldGrams: Double?; var waterGrams: Double?
     var notes: String?
     var completionReasonRaw: String?
-    var isReference: Bool
+    // Optional so existing SwiftData stores can add this field without
+    // failing a lightweight migration when older brew sessions have no value.
+    var isReference: Bool?
     var referenceLabel: String?
     init(id: UUID = UUID(), kind: BrewSessionKind, recipeVersionID: UUID? = nil, purchasedCoffeeID: UUID? = nil, grinderID: UUID? = nil, brewerID: UUID? = nil, machineID: UUID? = nil, basketID: UUID? = nil, startedAt: Date = .now, endedAt: Date? = nil, doseGrams: Double? = nil, yieldGrams: Double? = nil, waterGrams: Double? = nil, notes: String? = nil, completionReason: BrewCompletionReason? = nil, isReference: Bool = false, referenceLabel: String? = nil, ownerID: String? = nil, createdAt: Date = .now, updatedAt: Date = .now, deletedAt: Date? = nil, revision: Int64 = 0, syncState: CoffeeSyncState = .dirty) {
         self.id=id; self.kindRaw=kind.rawValue; self.recipeVersionID=recipeVersionID; self.purchasedCoffeeID=purchasedCoffeeID; self.grinderID=grinderID; self.brewerID=brewerID; self.machineID=machineID; self.basketID=basketID; self.startedAt=startedAt; self.endedAt=endedAt; self.doseGrams=doseGrams; self.yieldGrams=yieldGrams; self.waterGrams=waterGrams; self.notes=notes; self.completionReasonRaw=completionReason?.rawValue; self.isReference=isReference; self.referenceLabel=referenceLabel; self.ownerID=ownerID; self.createdAt=createdAt; self.updatedAt=updatedAt; self.deletedAt=deletedAt; self.revision=revision; self.syncStateRaw=syncState.rawValue

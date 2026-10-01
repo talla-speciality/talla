@@ -74,6 +74,7 @@ struct ContentView: View {
     enum SettingsDetail: String, Identifiable {
         case language
         case notifications
+        case appIcon
         case aboutTalla
         case deleteAccount
 
@@ -211,6 +212,7 @@ struct ContentView: View {
             let shipmentCount: Int
             let intervalWeeks: Int
             let discountPercent: Int
+            let productIDs: [String]?
         }
 
         struct CoffeeMemory: Decodable {
@@ -2198,11 +2200,10 @@ struct ContentView: View {
         // Network bootstrap is deliberately performed after the splash is
         // dismissed. Storefront, notification, and account services are
         // optional at launch and must never prevent the local UI from opening.
-        await loadAppSettings()
-        guard !Task.isCancelled else { return }
-        await loadProductsIfNeeded()
-        guard !Task.isCancelled else { return }
-        await refreshNotificationStatus()
+        async let bootstrapTask: Void = loadProductsIfNeeded()
+        async let notificationTask: Void = refreshNotificationStatus()
+        await bootstrapTask
+        await notificationTask
         guard !Task.isCancelled else { return }
         await syncRemotePushTokenIfPossible()
     }
@@ -2973,7 +2974,11 @@ struct ContentView: View {
     }
 
     func bottomScrollPadding(for tab: Tab) -> CGFloat {
-        tab == .account ? 56 : 28
+        switch tab {
+        case .home: 104
+        case .account: 56
+        default: 28
+        }
     }
 
     func dismissKeyboard() {

@@ -355,6 +355,9 @@ struct Talla_SpecialityApp: App {
                     TallaAppShortcuts.updateAppShortcutParameters()
 #endif
                     TallaTelemetry.shared.appReady()
+                    // Give the first local frame a chance to render before
+                    // legacy migration and account synchronization do work.
+                    await Task.yield()
                     try? coffeeData.migrateLegacyJSON()
                     await coffeeData.retryCurrentAccountSynchronization()
                 }

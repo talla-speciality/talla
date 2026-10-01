@@ -210,6 +210,16 @@ extension ContentView {
                 settingsDivider
 
                 settingsRow(
+                    title: AppLocalization.text("app_icon", fallback: "App Icon"),
+                    value: currentAppIconTitle,
+                    systemImage: "app.badge.fill"
+                ) {
+                    selectedSettingsDetail = .appIcon
+                }
+
+                settingsDivider
+
+                settingsRow(
                     title: AppLocalization.text("whatsapp_support", fallback: "WhatsApp Support"),
                     systemImage: "message.fill"
                 ) {
@@ -267,6 +277,15 @@ extension ContentView {
 
     var currentLanguageTitle: String {
         (AppLanguage(rawValue: savedAppLanguage) ?? .system).title
+    }
+
+    var currentAppIconTitle: String {
+        let currentName = UIApplication.shared.alternateIconName
+        if currentName == "TallaIcon1" || currentName == nil {
+            return "Bahrain Pink"
+        }
+        return TallaAppIconOption.all.first(where: { $0.iconName == currentName })?.title
+            ?? "Bahrain Pink"
     }
 
     var settingsDivider: some View {
@@ -358,6 +377,8 @@ extension ContentView {
             return AppLocalization.text("language", fallback: "Language")
         case .notifications:
             return AppLocalization.text("notifications", fallback: "Notifications")
+        case .appIcon:
+            return AppLocalization.text("app_icon", fallback: "App Icon")
         case .aboutTalla:
             return AppLocalization.text("about_talla", fallback: "About Talla")
         case .deleteAccount:
@@ -372,6 +393,8 @@ extension ContentView {
             languagePreferenceCard
         case .notifications:
             notificationSettingsCard
+        case .appIcon:
+            appIconPickerCard
         case .aboutTalla:
             accountStatusTile(
                 title: AppLocalization.text("about_talla", fallback: "About Talla"),
@@ -380,6 +403,16 @@ extension ContentView {
         case .deleteAccount:
             deleteAccountSettingsCard
         }
+    }
+
+    var appIconPickerCard: some View {
+        TallaAppIconPicker(
+            accentColor: TallaTheme.Colors.accent,
+            cardColor: cardFillColor,
+            primaryTextColor: primaryTextColor,
+            secondaryTextColor: secondaryTextColor,
+            onError: { showToast(message: $0) }
+        )
     }
 
     var notificationSettingsCard: some View {
@@ -1540,17 +1573,23 @@ extension ContentView {
     @MainActor
     func loadProductsIfNeeded() async {
         guard !hasLoadedProducts else { return }
-        await loadProducts()
-        await loadBrewingMethodsIfNeeded()
+        async let productsTask: Void = loadProducts()
+        async let methodsTask: Void = loadBrewingMethodsIfNeeded()
+        await productsTask
+        await methodsTask
 
+        var customerTask: Task<Void, Never>?
+        var loyaltyTask: Task<Void, Never>?
         if !savedCustomerAccessToken.isEmpty, customerProfile == nil {
-            await loadCustomerProfile()
+            customerTask = Task { @MainActor in await loadCustomerProfile() }
         }
 
         if !savedLoyaltyEmail.isEmpty, loyaltyEmail.isEmpty {
             loyaltyEmail = savedLoyaltyEmail
-            await loadLoyaltyAccount()
+            loyaltyTask = Task { @MainActor in await loadLoyaltyAccount() }
         }
+        await customerTask?.value
+        await loyaltyTask?.value
     }
 
     @MainActor
@@ -2390,10 +2429,14 @@ extension ContentView {
             }
             hasLoadedProducts = true
             lastProductsRefreshAt = Date()
-            await loadHomeSettings()
-            await loadPassportSettings()
-            await loadAppSettings()
-            await loadEventSettings()
+            async let homeSettingsTask: Void = loadHomeSettings()
+            async let passportSettingsTask: Void = loadPassportSettings()
+            async let appSettingsTask: Void = loadAppSettings()
+            async let eventSettingsTask: Void = loadEventSettings()
+            await homeSettingsTask
+            await passportSettingsTask
+            await appSettingsTask
+            await eventSettingsTask
 
             if !availableCategories.contains(where: { $0.key == activeCategory }) {
                 activeCategory = "all"
@@ -2516,8 +2559,10 @@ extension ContentView {
             loyaltyAccount = try await LoyaltyService.fetchAccount(email: trimmedEmail)
             savedLoyaltyEmail = trimmedEmail
             syncWidgetSharedState(reload: true)
-            await loadAvailableVouchers(for: trimmedEmail)
-            await refreshWalletPassPresence()
+            async let vouchersTask: Void = loadAvailableVouchers(for: trimmedEmail)
+            async let walletTask: Void = refreshWalletPassPresence()
+            await vouchersTask
+            await walletTask
             showToast(message: AppLocalization.text("rewards_loaded_toast", fallback: "Rewards loaded"))
         } catch {
             loyaltyAccount = nil
@@ -2624,6 +2669,163 @@ extension ContentView {
 #endif
     }
 
+}
+
+private struct TallaAppIconOption: Identifiable {
+    let iconName: String?
+    let previewAsset: String
+    let title: String
+
+    var id: String { iconName ?? "primary" }
+
+    static let all: [TallaAppIconOption] = [
+        TallaAppIconOption(iconName: nil, previewAsset: "AppIconPreview1", title: "Bahrain Pink"),
+        TallaAppIconOption(iconName: "TallaOriginal", previewAsset: "AppIconPreviewOriginal", title: "Original"),
+        TallaAppIconOption(iconName: "TallaIcon2", previewAsset: "AppIconPreview2", title: "Pink Cup"),
+        TallaAppIconOption(iconName: "TallaIcon4", previewAsset: "AppIconPreview4", title: "Gold Cup"),
+        TallaAppIconOption(iconName: "TallaIcon5", previewAsset: "AppIconPreview5", title: "Witch Cup"),
+        TallaAppIconOption(iconName: "TallaIcon6", previewAsset: "AppIconPreview6", title: "Talla Wordmark")
+    ]
+}
+
+private struct TallaAppIconPicker: View {
+    let accentColor: Color
+    let cardColor: Color
+    let primaryTextColor: Color
+    let secondaryTextColor: Color
+    let onError: (String) -> Void
+
+    @State private var selectedIconName: String?
+    @State private var pendingIconID: String?
+
+    init(
+        accentColor: Color,
+        cardColor: Color,
+        primaryTextColor: Color,
+        secondaryTextColor: Color,
+        onError: @escaping (String) -> Void
+    ) {
+        self.accentColor = accentColor
+        self.cardColor = cardColor
+        self.primaryTextColor = primaryTextColor
+        self.secondaryTextColor = secondaryTextColor
+        self.onError = onError
+        _selectedIconName = State(initialValue: UIApplication.shared.alternateIconName)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(AppLocalization.text("choose_app_icon", fallback: "Choose your Talla icon"))
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(primaryTextColor)
+
+                Text(AppLocalization.text(
+                    "choose_app_icon_detail",
+                    fallback: "Your selection appears on the Home Screen, in Spotlight, and in Settings."
+                ))
+                .font(.system(size: 13, weight: .regular, design: .rounded))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 14)], spacing: 18) {
+                ForEach(TallaAppIconOption.all) { option in
+                    iconButton(option)
+                }
+            }
+
+            if !UIApplication.shared.supportsAlternateIcons {
+                Text(AppLocalization.text(
+                    "alternate_icons_unavailable",
+                    fallback: "Alternate icons are unavailable on this device."
+                ))
+                .font(.footnote)
+                .foregroundColor(secondaryTextColor)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardColor)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(accentColor.opacity(0.16), lineWidth: 1)
+        )
+        .onAppear {
+            selectedIconName = UIApplication.shared.alternateIconName
+        }
+    }
+
+    private func iconButton(_ option: TallaAppIconOption) -> some View {
+        let normalizedSelectedName = selectedIconName == "TallaIcon1" ? nil : selectedIconName
+        let isSelected = normalizedSelectedName == option.iconName
+        let isPending = pendingIconID == option.id
+
+        return Button {
+            select(option)
+        } label: {
+            VStack(spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    Image(option.previewAsset)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 76, height: 76)
+                        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                .stroke(isSelected ? accentColor : primaryTextColor.opacity(0.10), lineWidth: isSelected ? 3 : 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.14), radius: 5, y: 3)
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 21, weight: .bold))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, accentColor)
+                            .background(Circle().fill(Color.white))
+                            .offset(x: 6, y: -6)
+                    } else if isPending {
+                        ProgressView()
+                            .tint(accentColor)
+                            .frame(width: 22, height: 22)
+                            .background(Circle().fill(cardColor))
+                            .offset(x: 6, y: -6)
+                    }
+                }
+
+                Text(option.title)
+                    .font(.system(size: 12, weight: isSelected ? .bold : .semibold, design: .rounded))
+                    .foregroundColor(isSelected ? accentColor : primaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .disabled(!UIApplication.shared.supportsAlternateIcons || pendingIconID != nil || isSelected)
+        .accessibilityLabel(option.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func select(_ option: TallaAppIconOption) {
+        guard UIApplication.shared.supportsAlternateIcons else {
+            onError(AppLocalization.text("alternate_icons_unavailable", fallback: "Alternate icons are unavailable on this device."))
+            return
+        }
+
+        pendingIconID = option.id
+        UIApplication.shared.setAlternateIconName(option.iconName) { error in
+            DispatchQueue.main.async {
+                pendingIconID = nil
+                if let error {
+                    onError(error.localizedDescription)
+                } else {
+                    selectedIconName = option.iconName
+                }
+            }
+        }
+    }
 }
 
 private struct SavedBrewRecipeEditor: View {

@@ -289,7 +289,8 @@ function defaultAppSettings() {
             enabled: false,
             shipmentCount: 3,
             intervalWeeks: 4,
-            discountPercent: 10
+            discountPercent: 10,
+            productIDs: []
         },
         coffeeMemory: { ...defaultCoffeeMemorySettings },
         fulfillment: {
@@ -478,7 +479,10 @@ function normalizeAppSettings(value = {}) {
             enabled: coffeeClub.enabled === undefined ? fallback.coffeeClub.enabled : Boolean(coffeeClub.enabled),
             shipmentCount: Math.round(boundedNumber(coffeeClub.shipmentCount, fallback.coffeeClub.shipmentCount, 2, 12)),
             intervalWeeks: Math.round(boundedNumber(coffeeClub.intervalWeeks, fallback.coffeeClub.intervalWeeks, 1, 12)),
-            discountPercent: Math.round(boundedNumber(coffeeClub.discountPercent, fallback.coffeeClub.discountPercent, 0, 30))
+            discountPercent: Math.round(boundedNumber(coffeeClub.discountPercent, fallback.coffeeClub.discountPercent, 0, 30)),
+            productIDs: Array.isArray(coffeeClub.productIDs)
+                ? [...new Set(coffeeClub.productIDs.map((productID) => String(productID || "").trim()).filter(Boolean))].slice(0, 100)
+                : fallback.coffeeClub.productIDs
         },
         coffeeMemory: normalizeCoffeeMemorySettings(value.coffeeMemory),
         fulfillment: {

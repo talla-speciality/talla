@@ -1,6 +1,7 @@
 {
+  "coffee_shelf": {"ar": "رف القهوة"},
   "your_coffee_today": {"ar": "قهوتك اليوم"},
-  "coffee_os_home_title": {"ar": "شاشة تعرف طقوس قهوتك"},
+  "coffee_os_home_title": {"ar": "قهوتك على إيقاعك"},
   "edit_taste": {"ar": "تعديل التفضيلات"},
   "your_taste_profile": {"ar": "ملف ذوقك"},
   "taste_profile_empty": {"ar": "أخبرنا بما تحب لتتعرف تلة على قهوتك المفضلة."},

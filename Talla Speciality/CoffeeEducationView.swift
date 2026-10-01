@@ -17,6 +17,7 @@ struct CoffeeEducationView: View {
     @AppStorage("loyalty.email") private var loyaltyEmail = ""
     @AppStorage("talla.education.rewardClaimed.v1") private var educationRewardClaimed = false
     @State private var claimingEducationReward = false
+    @State private var hasRequestedRemoteQuestions = false
 
     private let families: [(name: String, color: Color, notes: [String], description: String)] = [
         ("Fruity", Color(red: 0.89, green: 0.32, blue: 0.28), ["Berry", "Citrus", "Stone fruit"], "Bright, juicy notes often found in lightly roasted coffees."),
@@ -37,7 +38,6 @@ struct CoffeeEducationView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 38) {
-            intro
             learningPath
             flavourWheel
             brewLab
@@ -45,14 +45,17 @@ struct CoffeeEducationView: View {
             methodsSection
             basics
         }
-            .padding(.horizontal, 22)
-            .padding(.top, 12)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 128)
             .sheet(item: $selectedMethod) { MethodLessonSheet(lesson: $0) }
             .onAppear {
                 completedLessons = Set(persistedCompletedLessons.split(separator: ",").map(String.init))
                 quizScore = persistedQuizScore
                 questionsAnswered = persistedQuestionsAnswered
                 loadNewQuestion()
+                guard !hasRequestedRemoteQuestions else { return }
+                hasRequestedRemoteQuestions = true
                 Task { await loadRemoteQuestions() }
             }
     }
@@ -89,6 +92,23 @@ struct CoffeeEducationView: View {
     }
     private var learningPath: some View {
         VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("COFFEE SCHOOL")
+                        .font(.caption.weight(.bold))
+                        .tracking(2.4)
+                        .foregroundStyle(Color(hex: 0xD19A5A))
+                    Text("Learn with Talla")
+                        .font(.system(size: 34, weight: .bold, design: .serif))
+                        .foregroundStyle(Color(hex: 0x24180E))
+                }
+                Spacer()
+                Image(systemName: "book.closed.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color(hex: 0xD19A5A))
+                    .frame(width: 46, height: 46)
+                    .background(Color.white.opacity(0.42), in: Circle())
+            }
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -98,6 +118,7 @@ struct CoffeeEducationView: View {
                             .foregroundStyle(accent)
                         Text(learningLevel.title)
                             .font(.system(.title2, design: .serif, weight: .bold))
+                            .foregroundStyle(Color(hex: 0x24180E))
                         Text(learningLevel.detail)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -120,8 +141,8 @@ struct CoffeeEducationView: View {
                     schoolBadge(title: "Bean brain", earned: quizScore > 0, icon: "brain.head.profile")
                 }
             }
-            .padding(16)
-            .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
+            .padding(18)
+            .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             HStack { sectionTitle("Your learning path"); Spacer(); Text("\(completedLessons.count)/3").font(.subheadline.weight(.bold)).foregroundStyle(accent) }
             Text("Build a better palate in three small steps.").foregroundStyle(.secondary)
@@ -139,6 +160,11 @@ struct CoffeeEducationView: View {
                 }.buttonStyle(.plain)
             }
         }
+        .padding(20)
+        .background(
+            LinearGradient(colors: [Color(hex: 0xF5E8D5), Color(hex: 0xE8CDAA)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 25, style: .continuous)
+        )
     }
     private var learningLevel: (title: String, detail: String, icon: String) {
         switch completedLessons.count {
@@ -161,37 +187,65 @@ struct CoffeeEducationView: View {
             sectionTitle("Explore the flavour wheel")
             Text("Tap a family to see the notes you may find in your cup.").foregroundStyle(.secondary)
             ZStack {
-                Circle().fill(Color.primary.opacity(0.055)).frame(width: 220, height: 220)
-                Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1).frame(width: 148, height: 148)
-                Circle().fill(selectedColor.opacity(0.16)).frame(width: 94, height: 94)
-                Text(selectedFamily).font(.headline).multilineTextAlignment(.center).frame(width: 78)
+                Circle().fill(Color(hex: 0xF3E7D6)).frame(width: 220, height: 220)
+                Circle().stroke(Color(hex: 0xD19A5A).opacity(0.30), lineWidth: 1).frame(width: 148, height: 148)
+                Circle().fill(Color(hex: 0xD19A5A).opacity(0.22)).frame(width: 94, height: 94)
+                Text(selectedFamily).font(.headline).foregroundStyle(Color(hex: 0x24180E)).multilineTextAlignment(.center).frame(width: 78)
                 ForEach(Array(families.enumerated()), id: \.element.name) { index, family in
                     let angle = Angle.degrees(Double(index) * 60 - 90)
-                    Button { withAnimation { selectedFamily = family.name } } label: { Text(family.name).font(.caption.bold()).foregroundStyle(.primary).padding(.horizontal, 9).padding(.vertical, 7).background(family.color.opacity(selectedFamily == family.name ? 0.85 : 0.22), in: Capsule()) }.offset(x: CGFloat(cos(angle.radians)) * 135, y: CGFloat(sin(angle.radians)) * 135)
+                    Button { withAnimation { selectedFamily = family.name } } label: { Text(family.name).font(.caption.bold()).foregroundStyle(selectedFamily == family.name ? Color.white : Color(hex: 0x5D371D)).padding(.horizontal, 10).padding(.vertical, 8).background(selectedFamily == family.name ? Color(hex: 0xB87838) : Color.white.opacity(0.75), in: Capsule()).overlay(Capsule().stroke(Color(hex: 0xD19A5A).opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1)) }.buttonStyle(.plain).offset(x: CGFloat(cos(angle.radians)) * 135, y: CGFloat(sin(angle.radians)) * 135)
                 }
             }.frame(maxWidth: .infinity).padding(.vertical, 18)
-            if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).padding(.horizontal, 10).padding(.vertical, 7).background(family.color.opacity(0.16), in: Capsule()) } } }.padding(16).background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 18)) }
+            if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description).foregroundStyle(Color(hex: 0x4A2A16)); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).foregroundStyle(Color(hex: 0x5D371D)).padding(.horizontal, 10).padding(.vertical, 7).background(Color(hex: 0xE8CDAA).opacity(0.55), in: Capsule()) } } }.padding(16).background(Color(hex: 0xFFF8EF), in: RoundedRectangle(cornerRadius: 18, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0xD19A5A).opacity(0.18), lineWidth: 1)) }
             }
     }
-    private var methodsSection: some View { VStack(alignment: .leading, spacing: 14) { sectionTitle("Every method, explained"); Text("Choose a method to learn its character and starting point.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) { ForEach(methods) { method in Button { selectedMethod = method } label: { VStack(alignment: .leading, spacing: 10) { Image(systemName: method.icon).font(.title2).foregroundStyle(accent); Text(method.name).font(.headline).foregroundStyle(.primary); Text("\(method.time) · \(method.grind)").font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(16).educationCard(cornerRadius: 18, accent: accent) }.buttonStyle(.plain) } } } }
+    private var methodsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionTitle("Every method, explained")
+            Text("Choose a method to learn its character and starting point.").foregroundStyle(.secondary)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(methods) { method in
+                    Button { selectedMethod = method } label: {
+                        VStack(alignment: .leading, spacing: 11) {
+                            HStack {
+                                Image(systemName: method.icon).font(.title2).foregroundStyle(Color(hex: 0xD19A5A))
+                                Spacer()
+                                Image(systemName: "arrow.up.right").font(.caption.weight(.bold)).foregroundStyle(Color(hex: 0xD19A5A).opacity(0.7))
+                            }
+                            Text(method.name).font(.headline).foregroundStyle(Color(hex: 0x24180E))
+                            Text("\(method.time) · \(method.grind)").font(.caption).foregroundStyle(Color(hex: 0x4A2A16).opacity(0.65))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
+                        .padding(16)
+                        .background(Color(hex: 0xFFF8EF), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0xD19A5A).opacity(0.18), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
     private var brewLab: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionTitle("Brew lab")
             Text("Move the dial to see how extraction changes. Aim for balance.").foregroundStyle(.secondary)
-            Slider(value: $extraction, in: 0...100, step: 1).tint(accent).onChange(of: extraction) { _, _ in completedLessons.insert("2") }
+            Slider(value: $extraction, in: 0...100, step: 1).tint(Color(hex: 0xB87838)).onChange(of: extraction) { _, _ in completedLessons.insert("2"); persistProgress() }
             HStack { Text("Under-extracted").font(.caption); Spacer(); Text("Balanced").font(.caption.bold()); Spacer(); Text("Over-extracted").font(.caption) }.foregroundStyle(.secondary)
             Text(extraction < 38 ? "Sour, sharp, or thin? Try a finer grind, hotter water, or more brew time." : extraction > 66 ? "Bitter, dry, or harsh? Try a coarser grind, cooler water, or less brew time." : "Sweet, clear, and balanced. This is the zone to look for when dialing in a recipe.")
-                .font(.body).padding(14).frame(maxWidth: .infinity, alignment: .leading).background(accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 14))
+                .font(.body).foregroundStyle(Color(hex: 0x4A2A16)).padding(16).frame(maxWidth: .infinity, alignment: .leading).background(Color(hex: 0xF5E8D5), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
+        .padding(20)
+        .background(Color(hex: 0x24180E), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .foregroundStyle(Color(hex: 0xFFF8EF))
     }
     private var knowledgeCheck: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack { sectionTitle("Quick check"); Spacer(); Text("\(quizScore)/\(questionsAnswered)").font(.subheadline.weight(.bold)).foregroundStyle(accent) }
             if let question = currentQuestion {
-                Text(question.prompt).font(.headline)
+                Text(question.prompt).font(.headline).foregroundStyle(Color(hex: 0x24180E))
                 ForEach(question.options, id: \.self) { answer in
                     Button { answerQuestion(answer, question: question) } label: {
-                        HStack { Text(answer); Spacer(); if quizChoice == answer { Image(systemName: answer == question.correctAnswer ? "checkmark.circle.fill" : "xmark.circle.fill").foregroundStyle(answer == question.correctAnswer ? .green : .red) } }.padding(13).background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13))
+                        HStack { Text(answer).foregroundStyle(Color(hex: 0x4A2A16)); Spacer(); if quizChoice == answer { Image(systemName: answer == question.correctAnswer ? "checkmark.circle.fill" : "xmark.circle.fill").foregroundStyle(answer == question.correctAnswer ? .green : .red) } }.padding(13).background(Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                     }.buttonStyle(.plain).disabled(!quizChoice.isEmpty)
                 }
                 if !quizChoice.isEmpty {
@@ -201,6 +255,8 @@ struct CoffeeEducationView: View {
                 }
             }
         }
+        .padding(20)
+        .background(Color(hex: 0xF5E8D5), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func answerQuestion(_ answer: String, question: EducationQuestion) {
@@ -221,7 +277,9 @@ struct CoffeeEducationView: View {
     private func loadRemoteQuestions() async {
         guard let baseURL = BackendConfiguration.serviceBaseURL else { return }
         do {
-            let (data, response) = try await URLSession.shared.data(from: baseURL.appending(path: "/education-content"))
+            var request = URLRequest(url: baseURL.appending(path: "/education-content"))
+            request.timeoutInterval = 4
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return }
             let payload = try JSONDecoder().decode(EducationContentPayload.self, from: data)
             guard !payload.questions.isEmpty else { return }
@@ -261,12 +319,14 @@ struct CoffeeEducationView: View {
         Text(title).font(.system(.title2, design: .serif, weight: .bold))
     }
 
-    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline); Text(item.1).font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14)) } } } }
+    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline).foregroundStyle(Color(hex: 0x24180E)); Text(item.1).font(.caption).foregroundStyle(Color(hex: 0x4A2A16).opacity(0.65)) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(Color(hex: 0xFFF8EF), in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: 0xD19A5A).opacity(0.16), lineWidth: 1)) } } } }
 }
 
 private extension View {
     func educationCard(cornerRadius: CGFloat, accent: Color) -> some View {
         self
+            .background(Color(hex: 0xFFF8EF), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(accent.opacity(0.18), lineWidth: 1))
     }
 }
 

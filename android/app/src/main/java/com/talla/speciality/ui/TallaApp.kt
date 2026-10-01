@@ -462,6 +462,12 @@ private fun HomeScreen(
     val app = state.remoteSettings.app
     val quickDrinks = productsInAdminOrder(state.products, home.quickDrinkProductIds, 6)
     val signatureRoasts = productsInAdminOrder(state.products, home.signatureRoastProductIds, 4)
+    val freshRoasts = state.products.filter { product ->
+        isBrewableProduct(product) && product.defaultVariant?.available == true && product.roastDate?.let {
+            it <= System.currentTimeMillis() && System.currentTimeMillis() - it <= 7L * 24 * 60 * 60 * 1000
+        } == true
+    }.sortedByDescending { it.roastDate ?: 0L }
+    val roastShelf = freshRoasts.ifEmpty { signatureRoasts }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
@@ -471,8 +477,6 @@ private fun HomeScreen(
         item {
             PersonalizedCoffeeHomeSection(
                 state = state,
-                quickDrinks = quickDrinks,
-                signatureRoasts = signatureRoasts,
                 open = open,
                 add = add,
                 openShop = openShop,
@@ -495,7 +499,8 @@ private fun HomeScreen(
         }
         if (app.homeSections.showQuickDrinks && (quickDrinks.isNotEmpty() || state.loading)) {
             item {
-                HomeSectionHeader(stringResource(R.string.talla_express), stringResource(R.string.quick_drinks_title), stringResource(R.string.see_all), openShop)
+                val preferredCity = state.addresses.firstOrNull { it.isPreferred }?.city?.takeIf(String::isNotBlank)
+                HomeSectionHeader(preferredCity?.let { homeCopy("NEAR YOU · $it", "بالقرب منك · $it") } ?: stringResource(R.string.talla_express), stringResource(R.string.quick_drinks_title), stringResource(R.string.see_all), openShop)
                 ProductStatus(state, retry) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(quickDrinks.ifEmpty { state.products.take(6) }, key = { it.id }) { product ->
@@ -508,10 +513,14 @@ private fun HomeScreen(
         }
         if (app.homeSections.showSignatureRoasts) {
             item {
-                HomeSectionHeader(stringResource(R.string.roastery_selection), stringResource(R.string.signature_roasts), stringResource(R.string.browse_shop), openShop)
+                HomeSectionHeader(
+                    if (freshRoasts.isNotEmpty()) homeCopy("JUST ROASTED", "تحميص حديث") else stringResource(R.string.roastery_selection),
+                    if (freshRoasts.isNotEmpty()) homeCopy("Fresh this week", "طازج هذا الأسبوع") else stringResource(R.string.signature_roasts),
+                    stringResource(R.string.browse_shop), openShop,
+                )
                 ProductStatus(state, retry) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(signatureRoasts.ifEmpty { state.products.take(4) }, key = { it.id }) { product ->
+                        items(roastShelf.ifEmpty { signatureRoasts.ifEmpty { state.products.take(4) } }, key = { it.id }) { product ->
                             SignatureRoastCard(product, add, open)
                         }
                     }
@@ -529,8 +538,6 @@ private fun homeCopy(en: String, ar: String): String = if (LocalConfiguration.cu
 @Composable
 private fun PersonalizedCoffeeHomeSection(
     state: TallaUiState,
-    quickDrinks: List<Product>,
-    signatureRoasts: List<Product>,
     open: (Product) -> Unit,
     add: (Product) -> Unit,
     openShop: () -> Unit,
@@ -570,40 +577,37 @@ private fun PersonalizedCoffeeHomeSection(
         score
     }
     val recommend = ranked.firstOrNull()
-    val fresh = state.products.filter { product -> isBrewableProduct(product) && product.defaultVariant?.available == true && product.roastDate?.let { it <= System.currentTimeMillis() && System.currentTimeMillis() - it <= 7L * 24 * 60 * 60 * 1000 } == true }
-    val freshProducts = fresh.ifEmpty { productsInAdminOrder(state.products, state.remoteSettings.home.signatureRoastProductIds, 4).filter { it.defaultVariant?.available == true && isBrewableProduct(it) }.ifEmpty { signatureRoasts.filter { it.defaultVariant?.available == true && isBrewableProduct(it) } } }
-    val freshTitle = if (fresh.isNotEmpty()) homeCopy("Freshly roasted this week", "تحميص طازج هذا الأسبوع") else homeCopy("Explore signature roasts", "اكتشف تحميصاتنا المميزة")
     val latestBrew = state.brewJournal.firstOrNull()
-    val nearDrink = quickDrinks.firstOrNull { it.defaultVariant?.available == true }
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(top = 14.dp, bottom = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(homeCopy("YOUR COFFEE, YOUR WAY", "قهوتك، على ذوقك"), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
-                Text(homeCopy("Made personal", "تجربة شخصية"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(homeCopy("YOUR COFFEE TODAY", "قهوتك اليوم"), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Text(homeCopy("A better cup starts here", "كوب أفضل يبدأ من هنا"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             TextButton(onClick = { editingProfile = true }) { Text(homeCopy(if (configured) "Edit taste" else "Set taste", if (configured) "تعديل الذوق" else "حدّد ذوقك")) }
         }
         Card(
             onClick = { editingProfile = true },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = TallaCard),
+            border = androidx.compose.foundation.BorderStroke(0.7.dp, Sand.copy(alpha = .35f)),
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text(homeCopy("Your taste profile", "ملف ذوقك"), fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Icon(Icons.Default.Contrast, null, tint = TallaGoldText, modifier = Modifier.size(16.dp))
                 Text(
                     if (configured) homeCopy(
                         "${state.tasteProfile.roast.replaceFirstChar { it.uppercase() }} roast · ${state.tasteProfile.body} body · ${state.tasteProfile.temperature} · ${if (state.tasteProfile.style == "arabic") "Arabic coffee" else "modern specialty"}",
                         "تحميص ${state.tasteProfile.roast} · قوام ${state.tasteProfile.body} · ${state.tasteProfile.temperature} · ${if (state.tasteProfile.style == "arabic") "قهوة عربية" else "قهوة مختصة"}",
-                    ) else homeCopy("Set acidity, sweetness, body, roast, temperature and coffee style to shape your recommendations.", "حدّد الحموضة والحلاوة والقوام والتحميص والحرارة ونوع القهوة لتخصيص اقتراحاتك."),
-                    color = Ink.copy(alpha = .68f), style = MaterialTheme.typography.bodyMedium,
+                    ) else homeCopy("Set your taste to personalize coffee picks", "حدّد ذوقك لتخصيص اقتراحات القهوة"),
+                    modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, color = Ink.copy(alpha = .76f), style = MaterialTheme.typography.bodySmall,
                 )
-                if (configured) Text(homeCopy("Acidity: ${state.tasteProfile.acidity} · Sweetness: ${state.tasteProfile.sweetness}", "الحموضة: ${state.tasteProfile.acidity} · الحلاوة: ${state.tasteProfile.sweetness}"), color = TallaGoldText, style = MaterialTheme.typography.labelMedium)
+                Icon(Icons.Default.Refresh, null, tint = TallaGoldText, modifier = Modifier.size(15.dp))
             }
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
-                PersonalizedHomeCard(homeCopy("Your usual", "طلبك المعتاد"), usual?.name ?: homeCopy("Your go-to will appear after your first order", "سيظهر طلبك المفضل بعد أول طلب"), usual?.imageUrl, homeCopy("Order again", "اطلب مجدداً"), enabled = usual != null) { usual?.let(add) }
+                PersonalizedHomeCard(homeCopy("Your usual", "طلبك المعتاد"), usual?.name ?: homeCopy("Your go-to will appear after your first order", "سيظهر طلبك المفضل بعد أول طلب"), usual?.imageUrl, homeCopy(if (usual == null) "Find your usual" else "Order again", if (usual == null) "اختر طلبك المعتاد" else "اطلب مجدداً"), enabled = true) { usual?.let(add) ?: openShop() }
             }
             item {
                 val brewCoffee = recommend ?: state.products.firstOrNull { isBrewableProduct(it) && it.defaultVariant?.available == true }
@@ -624,21 +628,13 @@ private fun PersonalizedCoffeeHomeSection(
                     if (!hasSignals) editingProfile = true else product?.let(open)
                 }
             }
+        }
+        LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
-                val address = state.addresses.firstOrNull { it.isPreferred }
-                val drink = nearDrink
-                PersonalizedHomeCard(homeCopy("Near you now", "بالقرب منك الآن"), address?.city ?: homeCopy("Talla Express · order for delivery", "تالا إكسبرس · اطلب للتوصيل"), drink?.imageUrl, if (drink == null) homeCopy("Browse drinks", "تصفح المشروبات") else homeCopy("Order", "اطلب"), enabled = true) { if (drink != null) add(drink) else openShop() }
-            }
-            item {
-                val freshPick = freshProducts.firstOrNull()
-                PersonalizedHomeCard(freshTitle, freshPick?.name ?: homeCopy("New coffees landing regularly", "قهوات جديدة تصل باستمرار"), freshPick?.imageUrl, homeCopy("Explore", "استكشف"), enabled = freshPick != null) { freshPick?.let(open) }
-            }
-            item {
-                val points = state.loyalty?.pointsBalance ?: 0
-                PersonalizedHomeCard(homeCopy("Your Beans and rewards", "حبّاتك ومكافآتك"), homeCopy("$points Beans · ${state.loyalty?.nextReward ?: "Rewards await"}", "$points حبّة · ${state.loyalty?.nextReward ?: "مكافآت بانتظارك"}"), null, homeCopy("View rewards", "عرض المكافآت"), enabled = true, icon = Icons.Default.Star) { openAccount() }
+                HomeShortcutCard(homeCopy("Beans & rewards", "الحبّات والمكافآت"), "${state.loyalty?.pointsBalance ?: 0} Beans", Icons.Default.Star) { openAccount() }
             }
             if (latestBrew != null) item {
-                PersonalizedHomeCard(homeCopy("Continue your last brew", "أكمل تحضيرك الأخير"), "${latestBrew.title} · ${latestBrew.method}", null, homeCopy("Brew again", "حضّر مجدداً"), enabled = true, icon = Icons.Default.Coffee) {
+                HomeShortcutCard(homeCopy("Brew again", "حضّر مجدداً"), "${latestBrew.title} · ${latestBrew.method}", Icons.Default.Coffee) {
                     onLaunchBrew(latestBrew.title, latestBrew.method, latestBrew.coffeeGrams, latestBrew.ratio)
                 }
             }
@@ -648,14 +644,27 @@ private fun PersonalizedCoffeeHomeSection(
 }
 
 @Composable
+private fun HomeShortcutCard(title: String, detail: String, icon: ImageVector, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.width(190.dp).height(58.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = TallaCard), border = androidx.compose.foundation.BorderStroke(0.7.dp, Sand.copy(alpha = .25f))) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Icon(icon, null, tint = TallaGoldText, modifier = Modifier.size(18.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, style = MaterialTheme.typography.labelSmall, color = Ink.copy(alpha = .65f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
 private fun PersonalizedHomeCard(title: String, detail: String, image: String?, action: String, enabled: Boolean, icon: ImageVector = Icons.Default.Coffee, onClick: () -> Unit) {
-    Card(onClick = onClick, enabled = enabled, modifier = Modifier.width(220.dp).height(208.dp), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = TallaCard)) {
-        Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            if (image != null) RemoteImage(image, title, Modifier.fillMaxWidth().height(82.dp).clip(RoundedCornerShape(13.dp)))
-            else Box(Modifier.size(40.dp).clip(CircleShape).background(Sand.copy(alpha = .16f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = TallaGoldText) }
-            Text(title, style = MaterialTheme.typography.labelMedium, color = TallaGoldText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(detail, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(action.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Ink)
+    Card(onClick = onClick, enabled = enabled, modifier = Modifier.width(205.dp).height(158.dp), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = TallaCard), border = androidx.compose.foundation.BorderStroke(0.7.dp, Sand.copy(alpha = .26f))) {
+        Column(Modifier.fillMaxSize().padding(11.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (image != null) RemoteImage(image, title, Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(13.dp)))
+            else Box(Modifier.size(30.dp).clip(CircleShape).background(Sand.copy(alpha = .16f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = TallaGoldText, modifier = Modifier.size(17.dp)) }
+            Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText, maxLines = 1, overflow = TextOverflow.Ellipsis, letterSpacing = 1.15.sp)
+            Text(detail, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(action.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Ink.copy(alpha = .8f))
         }
     }
 }
@@ -724,13 +733,12 @@ private fun HeroCard(home: com.talla.speciality.data.HomeSettings, openShop: () 
             .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(Color(0xFFFFF7ED), Color(0xFFEAD9C3))))
             .border(1.dp, Sand.copy(alpha = .16f), RoundedCornerShape(24.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(home.heroEyebrow ?: stringResource(R.string.roastery), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
-                Text(stringResource(R.string.coffee_daily_rituals), style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
             }
             Text(
                 "✦  ${(home.heroBadge ?: stringResource(R.string.fresh_roast)).uppercase()}",
@@ -739,8 +747,8 @@ private fun HeroCard(home: com.talla.speciality.data.HomeSettings, openShop: () 
                 color = Color(0xFF8B5B2A),
             )
         }
-        Text(home.heroTitle ?: "Specialty coffee,\nroasted with intention", style = MaterialTheme.typography.displaySmall, color = Ink)
-        Text(home.heroSubtitle ?: "Thoughtful coffees, roasted in Bahrain for expressive cups and everyday rituals.", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = .72f))
+        Text(home.heroTitle ?: "Specialty coffee, roasted with intention", style = MaterialTheme.typography.displaySmall.copy(fontSize = 27.sp, lineHeight = 31.sp), color = Ink)
+        Text(home.heroSubtitle ?: "Freshly roasted in Bahrain, ready for your next cup.", style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .72f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
                 onClick = openShop,

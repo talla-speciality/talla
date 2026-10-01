@@ -390,7 +390,7 @@ struct LoyaltyWalletCallToActionView: View {
 
 struct ClubSectionView: View {
     private enum ClubArea: String, CaseIterable, Identifiable {
-        case overview, rewards, coffeeClub, coffeeSchool
+        case overview, rewards, coffeeClub, coffeeSchool, appIcon
         var id: String { rawValue }
 
         var title: String {
@@ -399,12 +399,14 @@ struct ClubSectionView: View {
             case .rewards: return "Rewards"
             case .coffeeClub: return "Coffee Club"
             case .coffeeSchool: return "Coffee School"
+            case .appIcon: return "App Icon"
             }
         }
     }
 
     let rewardsContent: AnyView
     let coffeeSchoolContent: AnyView
+    let appIconContent: AnyView
     let beansBalance: Int
     let membershipTier: String
     let isCustomerSignedIn: Bool
@@ -433,15 +435,10 @@ struct ClubSectionView: View {
     @State private var configuredFulfillment: TallaFulfillmentMethod = .delivery
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            clubHero
+        VStack(alignment: .leading, spacing: 14) {
+            clubWelcomeHeader
 
             clubNavigation
-
-            Text(selectedClubArea == .overview ? "INSIDE THE CLUB" : selectedClubArea.title.uppercased())
-                .font(.system(size: 11, weight: .bold))
-                .tracking(2.4)
-                .foregroundColor(accentColor)
 
             clubAreaContent
         }
@@ -477,17 +474,16 @@ struct ClubSectionView: View {
     private var clubAreaContent: some View {
         switch selectedClubArea {
         case .overview:
-            VStack(alignment: .leading, spacing: 16) {
-                membershipDashboard
-                rewardsCard
-                coffeeClubCard
+            VStack(alignment: .leading, spacing: 14) {
+                coffeeClubOverviewCard
+                overviewSnapshot
                 ForYourRitualCard(
                     primaryTextColor: primaryTextColor,
                     secondaryTextColor: secondaryTextColor,
                     cardFillColor: cardFillColor,
                     accentColor: accentColor
                 )
-                coffeeSchoolCard
+                overviewShortcuts
                 clubExclusives
             }
         case .rewards:
@@ -499,63 +495,189 @@ struct ClubSectionView: View {
         case .coffeeSchool:
             coffeeSchoolContent
                 .padding(.top, 2)
+        case .appIcon:
+            appIconContent
+                .padding(.top, 2)
         }
     }
 
-    private var clubHero: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("THE TALLA CLUB")
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(2.5)
-                    .foregroundColor(Color(hex: 0x3A2112))
-                Spacer()
-                Text("EST. 2024")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .tracking(1.5)
-                    .foregroundColor(Color(hex: 0x3A2112).opacity(0.65))
-            }
-            Text(isCustomerSignedIn ? "Welcome back, \(memberName)." : "A better coffee ritual, built around you.")
-                .font(.system(size: 37, weight: .bold, design: .serif))
-                .foregroundColor(Color(hex: 0x24180E))
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Rewards, curated coffee, and lessons to help you brew with more confidence.")
-                .font(.system(size: 15))
-                .foregroundColor(Color(hex: 0x4A2A16).opacity(0.82))
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) {
-                clubHeroStat(value: "\(beansBalance)", label: "BEANS")
-                clubHeroStat(value: membershipTier.uppercased(), label: "TIER")
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: 0xF2D4A8), Color(hex: 0xD19A5A)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 30, style: .continuous)
-        )
-        .overlay(alignment: .bottomTrailing) {
+    private var clubWelcomeHeader: some View {
+        HStack(alignment: .center, spacing: 13) {
             Image(systemName: "cup.and.saucer.fill")
-                .font(.system(size: 76, weight: .thin))
-                .foregroundColor(Color(hex: 0x6D431F).opacity(0.17))
-                .rotationEffect(.degrees(-12))
-                .offset(x: 8, y: 10)
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundColor(Color(hex: 0x24180E))
+                .frame(width: 44, height: 44)
+                .background(accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("THE TALLA CLUB")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(2.0)
+                    .foregroundColor(accentColor)
+                Text(isCustomerSignedIn ? "Welcome back, \(memberName)." : "Your coffee ritual, in one place.")
+                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("\(beansBalance)")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(primaryTextColor)
+                Text("BEANS")
+                    .font(.system(size: 8, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundColor(secondaryTextColor)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(accentColor.opacity(0.18), lineWidth: 1))
+    }
+
+    private var coffeeClubOverviewCard: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("COFFEE CLUB")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(2.0)
+                        .foregroundColor(Color(hex: 0xEFD6AF))
+                    Text(coffeeClubEnabled ? "Your next bag is already\nwithin reach." : "Coffee Club is\ncoming soon.")
+                        .font(.system(size: 27, weight: .bold, design: .serif))
+                        .foregroundColor(.white)
+                }
+                Spacer()
+                Image(systemName: "shippingbox.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(Color(hex: 0xD19A5A))
+                    .frame(width: 42, height: 42)
+                    .background(Color.white.opacity(0.10), in: Circle())
+            }
+
+            Text(coffeeClubEnabled
+                 ? "Choose your coffee once, then enjoy a considered delivery every few weeks — prepaid and without auto-renewal."
+                 : "A considered subscription for your daily ritual.")
+                .font(.system(size: 14))
+                .foregroundColor(Color.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 7) {
+                overviewClubFact("\(coffeeClubShipmentCount) bags", icon: "shippingbox")
+                overviewClubFact("Every \(coffeeClubIntervalWeeks) weeks", icon: "calendar")
+                overviewClubFact("\(coffeeClubDiscountPercent)% saving", icon: "percent")
+            }
+
+            Button(coffeeClubEnabled ? "EXPLORE COFFEE CLUB" : "LEARN MORE") {
+                selectedClubArea = .coffeeClub
+            }
+            .clubPrimaryButton(accent: Color(hex: 0xD19A5A))
+        }
+        .padding(20)
+        .background(
+            LinearGradient(colors: [Color(hex: 0x24180E), Color(hex: 0x56331C)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+    }
+
+    private func overviewClubFact(_ title: String, icon: String) -> some View {
+        Label(title, systemImage: icon)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(Color.white.opacity(0.82))
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.09), in: Capsule())
+    }
+
+    private var overviewSnapshot: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                Text("YOUR SNAPSHOT")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(2.0)
+                    .foregroundColor(accentColor)
+                Spacer()
+                Text(membershipTier.uppercased())
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundColor(secondaryTextColor)
+            }
+            HStack(spacing: 9) {
+                overviewMetric(value: "\(beansBalance)", label: "BEANS", icon: "sparkles")
+                overviewMetric(value: "\(savedRecipeCount)", label: "RECIPES", icon: "book.closed.fill")
+                overviewMetric(value: coffeeClubOrders.isEmpty ? "—" : "Active", label: "COFFEE CLUB", icon: "shippingbox.fill")
+            }
+            Button(isCustomerSignedIn ? "VIEW REWARDS" : "OPEN REWARDS") {
+                selectedClubArea = .rewards
+            }
+            .clubSecondaryButton(accent: accentColor, foreground: primaryTextColor)
+        }
+        .padding(18)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(accentColor.opacity(0.16), lineWidth: 1))
+    }
+
+    private func overviewMetric(value: String, label: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(accentColor)
+            Text(value)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(primaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(label)
+                .font(.system(size: 8, weight: .bold))
+                .tracking(1.1)
+                .foregroundColor(secondaryTextColor)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(11)
+        .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var overviewShortcuts: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            Text("KEEP EXPLORING")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(2.0)
+                .foregroundColor(accentColor)
+            HStack(spacing: 9) {
+                overviewShortcut(title: "Coffee School", detail: "Learn your next brew", icon: "drop.fill") {
+                    selectedClubArea = .coffeeSchool
+                }
+                overviewShortcut(title: "App Icon", detail: "Make Talla yours", icon: "app.gift.fill") {
+                    selectedClubArea = .appIcon
+                }
+            }
         }
     }
 
-    private func clubHeroStat(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.system(size: 15, weight: .bold, design: .rounded))
-            Text(label).font(.system(size: 8, weight: .bold)).tracking(1.4).opacity(0.65)
+    private func overviewShortcut(title: String, detail: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(accentColor)
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundColor(primaryTextColor)
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
+            .padding(13)
+            .background(cardFillColor, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(accentColor.opacity(0.15), lineWidth: 1))
         }
-        .foregroundColor(Color(hex: 0x24180E))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(Color.white.opacity(0.30), in: Capsule())
+        .buttonStyle(.plain)
     }
 
     private var membershipDashboard: some View {
@@ -1237,6 +1359,18 @@ private extension View {
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .background(accent, in: Capsule())
+            .buttonStyle(.plain)
+    }
+
+    func clubSecondaryButton(accent: Color, foreground: Color) -> some View {
+        self
+            .font(.system(size: 11, weight: .bold))
+            .tracking(1.5)
+            .foregroundColor(foreground)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 42)
+            .background(accent.opacity(0.12), in: Capsule())
+            .overlay(Capsule().stroke(accent.opacity(0.22), lineWidth: 1))
             .buttonStyle(.plain)
     }
 }

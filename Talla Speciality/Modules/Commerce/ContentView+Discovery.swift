@@ -322,6 +322,28 @@ extension ContentView {
         reorderPrompt?.product ?? orderedProducts.first
     }
 
+    var homePurchasedCoffeeProducts: [Product] {
+        orderedProducts.filter { product in
+            ["coffee-beans", "arabic-coffee-beans"].contains(product.categoryKey)
+        }
+    }
+
+    func homePurchasedQuantity(for product: Product) -> Int {
+        orderHistory.reduce(into: 0) { total, order in
+            let status = order.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !order.isRefunded,
+                  !["cancelled", "canceled", "failed", "voided"].contains(status) else { return }
+
+            for item in order.items ?? [] {
+                let matchedProduct = matchingProduct(for: item.productTitle ?? item.name)
+                    ?? matchingProduct(for: item.name)
+                if matchedProduct?.id == product.id {
+                    total += max(item.quantity, 1)
+                }
+            }
+        }
+    }
+
     var homeBrewRecommendation: Product? {
         let coffeeProducts = recommendedProducts.filter(isBrewableCoffee)
         return coffeeProducts.first ?? signatureRoastProducts.first(where: isBrewableCoffee)
@@ -363,151 +385,241 @@ extension ContentView {
     @ViewBuilder
     var homePersonalizedHub: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .lastTextBaseline) {
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("your_coffee_today", fallback: "Your coffee today"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .tracking(AppLocalization.letterSpacing(2.2))
+                        .tracking(AppLocalization.letterSpacing(2.1))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
-                    Text(AppLocalization.text("coffee_os_home_title", fallback: "A home screen that knows your ritual"))
-                        .font(titleFont(size: isCompact ? 21 : 24))
+                    Text(AppLocalization.text("todays_brew_title", fallback: "Today's brew"))
+                        .font(displayFont(size: isCompact ? 24 : 28))
                         .foregroundColor(primaryTextColor)
                 }
                 Spacer(minLength: 8)
                 Button {
                     openTasteProfileEditor()
                 } label: {
-                    Text(AppLocalization.text(tasteProfileConfigured ? "edit_taste" : "taste_setup_action", fallback: tasteProfileConfigured ? "Edit taste" : "Set your taste"))
-                        .font(labelFont(size: 10, weight: .bold))
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(readableBrandGoldColor)
+                        .frame(width: 40, height: 40)
+                        .background(cardFillColor, in: Circle())
+                        .overlay(Circle().stroke(TallaTheme.Colors.accent.opacity(0.22), lineWidth: 0.8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text(tasteProfileConfigured ? "edit_taste" : "taste_setup_action", fallback: tasteProfileConfigured ? "Edit taste" : "Set your taste"))
+            }
+
+            if let product = homeBrewRecommendation {
+                homeFeaturedBrewCard(product)
+            } else {
+                homeEmptyBrewCard
+            }
+
+            HStack(spacing: 10) {
+                if homePurchasedCoffeeProducts.isEmpty, let product = homeUsualProduct {
+                    homeCompactShortcut(
+                        title: AppLocalization.text("your_usual", fallback: "Your usual"),
+                        detail: customerFacingProductName(for: product),
+                        systemImage: "cup.and.saucer.fill"
+                    ) { quickBuyDrink(product) }
+                } else if homePurchasedCoffeeProducts.isEmpty {
+                    homeCompactShortcut(
+                        title: AppLocalization.text("your_usual", fallback: "Your usual"),
+                        detail: AppLocalization.text("usual_empty_detail", fallback: "Your go-to coffee will appear here after your first order."),
+                        systemImage: "cup.and.saucer.fill"
+                    ) { openShop(category: "coffee-beans") }
+                }
+
+                homeCompactShortcut(
+                    title: AppLocalization.text("your_beans_rewards", fallback: "Beans & rewards"),
+                    detail: loyaltyAccount.map { String(format: AppLocalization.text("beans_tier_format", fallback: "%d Beans · %@"), $0.pointsBalance, $0.tier) } ?? AppLocalization.text("rewards_membership_detail", fallback: "View your rewards"),
+                    systemImage: "sparkles"
+                ) { openAccountSection(AccountSectionView.ScrollTarget.loyalty) }
+            }
+
+            if let brew = brewAgainHistoryItems.first {
+                Button {
+                    continueHomeBrew(brew)
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text(AppLocalization.text("continue_last_brew", fallback: "Continue your last brew"))
+                        Text("· \(brew.title)").lineLimit(1)
+                        Spacer(minLength: 0)
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(labelFont(size: 10, weight: .semibold))
+                    .foregroundColor(secondaryTextColor)
+                    .padding(.top, 1)
                 }
                 .buttonStyle(.plain)
             }
-
-            Button {
-                openTasteProfileEditor()
-            } label: {
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "slider.horizontal.3")
-                            .foregroundColor(readableBrandGoldColor)
-                        Text(AppLocalization.text("your_taste_profile", fallback: "Your taste profile"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .tracking(AppLocalization.letterSpacing(1.4))
-                            .textCase(.uppercase)
-                            .foregroundColor(primaryTextColor)
-                    }
-                    Text(homeTasteProfileSummary)
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(cardFillColor)
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
-            .buttonStyle(.plain)
-
-            LazyVGrid(columns: homeQuickActionColumns, spacing: 10) {
-                if let product = homeUsualProduct {
-                    homePersonalizedProductCard(title: AppLocalization.text("your_usual", fallback: "Your usual"), detail: reorderPrompt.map { String(format: AppLocalization.text("last_ordered_days_ago", fallback: "Last ordered %d days ago"), $0.daysAgo) } ?? AppLocalization.text("familiar_cup_detail", fallback: "A familiar cup, ready when you are"), product: product) {
-                        quickBuyDrink(product)
-                    }
-                } else {
-                    homePersonalizedActionCard(title: AppLocalization.text("your_usual", fallback: "Your usual"), detail: AppLocalization.text("usual_empty_detail", fallback: "Your go-to coffee will appear here after your first order."), systemImage: "cup.and.saucer") {
-                        openShop(category: "coffee-beans")
-                    }
-                }
-
-                if let product = homeBrewRecommendation {
-                    let brewDetailKey = homeHasPersonalizationSignals ? "brew_profile_match_detail" : "brew_guide_detail"
-                    let brewDetailFallback = homeHasPersonalizationSignals ? "A recipe matched to your coffee preferences" : "A Talla brewing guide for this coffee"
-                    homePersonalizedProductCard(title: AppLocalization.text("brew_this_morning", fallback: "Brew this morning"), detail: AppLocalization.text(brewDetailKey, fallback: brewDetailFallback), product: product) {
-                        startBrewing(product: product, useRecommendedRecipe: true)
-                    }
-                } else {
-                    homePersonalizedActionCard(title: AppLocalization.text("brew_this_morning", fallback: "Brew this morning"), detail: AppLocalization.text("first_brew_detail", fallback: "Choose a coffee and Talla will help you make your first cup."), systemImage: "sun.max.fill") {
-                        openBrewing()
-                    }
-                }
-
-                if homeHasPersonalizationSignals, let product = recommendedProducts.first {
-                    homePersonalizedProductCard(title: AppLocalization.text("based_on_your_taste", fallback: "Based on your taste"), detail: productTasteSummary(for: product), product: product) {
-                        selectedProduct = product
-                    }
-                } else {
-                    homePersonalizedActionCard(title: AppLocalization.text("discover_at_talla", fallback: "Discover at Talla"), detail: AppLocalization.text("discover_taste_setup_detail", fallback: "Set your taste preferences to get coffee picks shaped around you."), systemImage: "sparkle.magnifyingglass") {
-                        openTasteProfileEditor()
-                    }
-                }
-
-                if let product = homeNearYouProducts.first {
-                    homePersonalizedProductCard(title: homeNearYouTitle, detail: homeNearYouDetail, product: product) {
-                        quickBuyDrink(product)
-                    }
-                } else {
-                    homePersonalizedActionCard(title: AppLocalization.text("talla_express", fallback: "Talla Express"), detail: AppLocalization.text("ready_drinks_explore_detail", fallback: "See ready-to-drink options from Talla."), systemImage: "takeoutbag.and.cup.and.straw") {
-                        openDrinksSection()
-                    }
-                }
-
-                if let product = homeFreshRoastProducts.first {
-                    homePersonalizedProductCard(title: AppLocalization.text("fresh_roast_week", fallback: "Freshly roasted this week"), detail: product.roastDate.map { String(format: AppLocalization.text("roasted_date_format", fallback: "Roasted %@"), $0.formatted(date: .abbreviated, time: .omitted)) } ?? AppLocalization.text("recently_roasted", fallback: "Recently roasted"), product: product) {
-                        selectedProduct = product
-                    }
-                } else if let product = signatureRoastProducts.first {
-                    homePersonalizedProductCard(title: AppLocalization.text("explore_signature_roasts", fallback: "Explore signature roasts"), detail: productTasteSummary(for: product), product: product) {
-                        selectedProduct = product
-                    }
-                }
-
-                homePersonalizedActionCard(
-                    title: AppLocalization.text("your_beans_rewards", fallback: "Your Beans and rewards"),
-                    detail: loyaltyAccount.map { String(format: AppLocalization.text("beans_tier_format", fallback: "%d Beans · %@"), $0.pointsBalance, $0.tier) } ?? AppLocalization.text("rewards_membership_detail", fallback: "See your rewards and membership"),
-                    systemImage: "sparkles"
-                ) {
-                    openAccountSection(AccountSectionView.ScrollTarget.loyalty)
-                }
-
-                if let brew = brewAgainHistoryItems.first {
-                    homePersonalizedActionCard(title: AppLocalization.text("continue_last_brew", fallback: "Continue your last brew"), detail: brew.detail, systemImage: "arrow.clockwise") {
-                        continueHomeBrew(brew)
-                    }
-                }
-            }
         }
         .padding(.horizontal, 18)
-        .padding(.bottom, 18)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
+    }
+
+    func homeFeaturedBrewCard(_ product: Product) -> some View {
+        Button {
+            startBrewing(product: product, useRecommendedRecipe: true)
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(AppLocalization.text("brew_this_morning", fallback: "Brew this morning").uppercased())
+                        .font(labelFont(size: 9, weight: .bold))
+                        .tracking(AppLocalization.letterSpacing(1.5))
+                        .foregroundColor(Color(hex: 0xE7C28D))
+                        .lineLimit(1)
+                    Text(customerFacingProductName(for: product))
+                        .font(displayFont(size: isCompact ? 21 : 25))
+                        .foregroundColor(Color(hex: 0xFFF8EF))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Text(homeHasPersonalizationSignals
+                         ? productTasteSummary(for: product)
+                         : AppLocalization.text("brew_guide_detail", fallback: "A Talla brewing guide for this coffee"))
+                        .font(bodyFont(size: 11))
+                        .foregroundColor(Color(hex: 0xE9DED0).opacity(0.86))
+                        .lineLimit(2)
+                    HStack(spacing: 6) {
+                        Text(AppLocalization.text("start_brewing", fallback: "Start brewing"))
+                            .font(labelFont(size: 10, weight: .bold))
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .foregroundColor(Color(hex: 0x29190D))
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background(Color(hex: 0xD7AD78), in: Capsule())
+                    .padding(.top, 2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ProductThumbnail(imageURL: product.imageURL, size: isCompact ? 104 : 126, cornerRadius: 17)
+                    .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(Color(hex: 0xD7AD78).opacity(0.3), lineWidth: 1))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 178 : 202, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [Color(hex: 0x322116), Color(hex: 0x1C130D)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 23, style: .continuous)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 23, style: .continuous).stroke(Color(hex: 0xC8965A).opacity(0.3), lineWidth: 0.8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    var homeEmptyBrewCard: some View {
+        Button { openShop() } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "cup.and.saucer.fill")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundColor(Color(hex: 0xE7C28D))
+                    .frame(width: 56, height: 56)
+                    .background(Color.white.opacity(0.08), in: Circle())
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("discover_at_talla", fallback: "Discover at Talla"))
+                        .font(displayFont(size: 20))
+                        .foregroundColor(Color(hex: 0xFFF8EF))
+                    Text(AppLocalization.text("first_brew_detail", fallback: "Choose a coffee and Talla will help you make your first cup."))
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(Color(hex: 0xE9DED0).opacity(0.85))
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .foregroundColor(Color(hex: 0xE7C28D))
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: 112)
+            .background(LinearGradient(colors: [Color(hex: 0x322116), Color(hex: 0x1C130D)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 23, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    func homeCompactShortcut(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(readableBrandGoldColor)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(labelFont(size: 9, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+                    Text(detail)
+                        .font(bodyFont(size: 10))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 11)
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+
+    func homeShortcutCard(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(readableBrandGoldColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(labelFont(size: 9, weight: .bold)).foregroundColor(primaryTextColor).lineLimit(1)
+                    Text(detail).font(bodyFont(size: 10)).foregroundColor(secondaryTextColor).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 13)
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .background(cardFillColor.opacity(isLightAppearance ? 0.78 : 0.62))
+            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     func homePersonalizedProductCard(title: String, detail: String, product: Product, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 8) {
                 ProductThumbnail(imageURL: product.imageURL, size: nil, cornerRadius: 13)
-                    .frame(height: isCompact ? 82 : 96)
+                    .frame(height: isCompact ? 64 : 78)
                 Text(title)
-                    .font(labelFont(size: 10, weight: .bold))
+                    .font(labelFont(size: 9, weight: .bold))
+                    .tracking(AppLocalization.letterSpacing(0.8))
                     .foregroundColor(readableBrandGoldColor)
                     .lineLimit(1)
                 Text(customerFacingProductName(for: product))
-                    .font(titleFont(size: 14))
+                    .font(displayFont(size: 16))
                     .foregroundColor(primaryTextColor)
                     .lineLimit(2)
                 Text(detail)
                     .font(bodyFont(size: 11))
                     .foregroundColor(secondaryTextColor)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardFillColor)
-            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1))
+            .background(cardFillColor.opacity(isLightAppearance ? 0.78 : 0.64))
+            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.2), lineWidth: 0.8))
             .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
         }
         .buttonStyle(.plain)
+        .frame(width: isCompact ? 174 : 206, height: isCompact ? 194 : 210, alignment: .topLeading)
     }
 
     func homePersonalizedActionCard(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
@@ -526,12 +638,13 @@ extension ContentView {
                     .lineLimit(3)
             }
             .padding(13)
-            .frame(maxWidth: .infinity, minHeight: isCompact ? 132 : 146, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 110 : 120, alignment: .topLeading)
             .background(cardFillColor)
             .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
         }
         .buttonStyle(.plain)
+        .frame(width: isCompact ? 174 : 206, height: isCompact ? 194 : 210, alignment: .topLeading)
     }
 
     func continueHomeBrew(_ brew: BrewRecipeRecord) {
@@ -554,17 +667,16 @@ extension ContentView {
 
     var homeView: some View {
         VStack(spacing: 0) {
-            heroSection
-            homePersonalizedHub
-            appAnnouncementCard
-            optionalAppUpdateCard
-            seasonalEventsSection
+            homePurchasedCoffeeShelf
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }
             if remoteAppSettings?.homeSections.showSignatureRoasts != false {
                 featuredProducts
             }
+            seasonalEventsSection
+            appAnnouncementCard
+            optionalAppUpdateCard
 
             homeMoreSectionsToggle
 
@@ -576,12 +688,194 @@ extension ContentView {
                     if remoteAppSettings?.homeSections.showPassport != false {
                         tallaPassportSection
                     }
-                    homeFavoritesShelf
                     homeRecentlyViewedShelf
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+    }
+
+    @ViewBuilder
+    var homePurchasedCoffeeShelf: some View {
+        if !homePurchasedCoffeeProducts.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .center, spacing: 12) {
+                    Text(AppLocalization.text("coffee_shelf", fallback: "Coffee Shelf"))
+                        .font(.system(size: isCompact ? 20 : 22, weight: .bold))
+                        .foregroundColor(Color(hex: 0x4A2410))
+
+                    Spacer(minLength: 8)
+
+                    Button {
+                        openShop(category: "coffee-beans")
+                    } label: {
+                        Text(AppLocalization.text("shop", fallback: "Shop"))
+                            .font(labelFont(size: 10, weight: .bold))
+                            .foregroundColor(Color(hex: 0x4A2410))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: 0xF4CA83), Color(hex: 0xC98A43)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            )
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color(hex: 0x7D431F).opacity(0.48), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+                .background(woodPlankGradient)
+                .overlay(Rectangle().fill(Color.white.opacity(0.22)).frame(height: 1), alignment: .top)
+                .overlay(Rectangle().fill(Color(hex: 0x6E3415).opacity(0.42)).frame(height: 2), alignment: .bottom)
+
+                ZStack(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [Color(hex: 0xEDBC70), Color(hex: 0xCF8741), Color(hex: 0xE5A95A)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+
+                    LinearGradient(
+                        colors: [Color(hex: 0x6E3415).opacity(0.34), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 22)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .allowsHitTesting(false)
+
+                    VStack(spacing: 27) {
+                        ForEach(0..<8, id: \.self) { _ in
+                            Rectangle()
+                                .fill(Color(hex: 0x7B401D).opacity(0.075))
+                                .frame(height: 1)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .allowsHitTesting(false)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .bottom, spacing: isCompact ? 12 : 20) {
+                            ForEach(homePurchasedCoffeeProducts) { product in
+                                homePurchasedCoffeeBagCard(product)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: isCompact ? 164 : 180, alignment: .bottom)
+                    }
+                    .frame(height: isCompact ? 164 : 180, alignment: .bottom)
+
+                }
+                .frame(height: isCompact ? 164 : 180)
+                .clipped()
+
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color(hex: 0xF8D99A))
+                        .frame(height: 7)
+                        .shadow(color: .black.opacity(0.32), radius: 5, y: -3)
+                    Rectangle()
+                        .fill(woodPlankGradient)
+                        .frame(height: 19)
+                        .overlay(Rectangle().fill(Color.black.opacity(0.22)).frame(height: 2), alignment: .bottom)
+                }
+            }
+            .background(woodCabinetGradient)
+            .clipShape(Rectangle())
+            .shadow(color: .black.opacity(isLightAppearance ? 0.20 : 0.42), radius: 18, y: 11)
+            .padding(.bottom, 22)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.purchasedCoffeeShelf")
+        }
+    }
+
+    var woodPlankGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(hex: 0xF5D08A), Color(hex: 0xD89A4F), Color(hex: 0xEDBE70)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    var woodCabinetGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(hex: 0xE7B366), Color(hex: 0xB86D32), Color(hex: 0xD99549)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    func shelfBagImage(for product: Product) -> some View {
+        ZStack {
+            if let imageURL = product.imageURL {
+                AsyncImage(url: imageURL, transaction: Transaction(animation: nil)) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView().tint(Color(hex: 0x9B5A2B))
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .interpolation(.high)
+                            .scaledToFill()
+                    case .failure:
+                        Image(systemName: "bag.fill")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundColor(Color(hex: 0x9B5A2B).opacity(0.72))
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            } else {
+                Image(systemName: "bag.fill")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(Color(hex: 0x9B5A2B).opacity(0.72))
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    func homePurchasedCoffeeBagCard(_ product: Product) -> some View {
+        let purchasedQuantity = homePurchasedQuantity(for: product)
+
+        return Button {
+            recordRecentlyViewed(product)
+            selectedProduct = product
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                shelfBagImage(for: product)
+                    .frame(width: isCompact ? 100 : 116, height: isCompact ? 154 : 170)
+                    .scaleEffect(1.18, anchor: .bottom)
+                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .shadow(color: .black.opacity(0.30), radius: 6, x: 1, y: 4)
+                    .offset(y: isCompact ? 7 : 8)
+
+                if purchasedQuantity > 1 {
+                    Text(purchasedQuantity > 99 ? "99+" : "\(purchasedQuantity)")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(minWidth: 23, minHeight: 23)
+                        .padding(.horizontal, purchasedQuantity > 99 ? 3 : 0)
+                        .background(Color(hex: 0xE53B36), in: Capsule())
+                        .overlay(Capsule().stroke(Color.white.opacity(0.88), lineWidth: 1.5))
+                        .shadow(color: .black.opacity(0.28), radius: 3, y: 2)
+                        .offset(x: isCompact ? 3 : 5, y: -3)
+                        .accessibilityLabel("\(purchasedQuantity) bags purchased")
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.purchasedCoffeeShelf.bag.\(product.id)")
+        .accessibilityLabel(
+            purchasedQuantity > 1
+                ? "\(customerFacingProductName(for: product)), \(purchasedQuantity) bags purchased"
+                : customerFacingProductName(for: product)
+        )
+        .frame(width: isCompact ? 116 : 138, alignment: .bottom)
     }
 
     var homeMoreSectionsToggle: some View {
@@ -595,7 +889,7 @@ extension ContentView {
                     Text(AppLocalization.text("more_from_talla", fallback: "More from Talla"))
                         .font(titleFont(size: 17))
                         .foregroundColor(primaryTextColor)
-                    Text(AppLocalization.text("more_from_talla_summary", fallback: "Surprise picks, passport, favourites, and recent items"))
+                    Text(AppLocalization.text("more_from_talla_summary", fallback: "Surprise picks, passport, and recent discoveries"))
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -839,7 +1133,7 @@ extension ContentView {
         HStack(alignment: .lastTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Label(
-                    AppLocalization.text("talla_express", fallback: "Talla Express"),
+                    homeNearYouTitle,
                     systemImage: "bolt.fill"
                 )
                 .font(labelFont(size: 9, weight: .bold))
@@ -847,7 +1141,9 @@ extension ContentView {
                 .textCase(.uppercase)
                 .foregroundColor(readableBrandGoldColor)
 
-                Text(AppLocalization.text("quick_drinks_title", fallback: "Drinks, one tap away"))
+                Text((preferredAddress?.city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                    ? AppLocalization.text("quick_drinks_title", fallback: "Drinks, one tap away")
+                    : homeNearYouDetail)
                     .font(titleFont(size: isCompact ? 21 : 23))
                     .foregroundColor(primaryTextColor)
             }
@@ -2248,7 +2544,7 @@ extension ContentView {
 
     var heroSection: some View {
         heroIntroduction
-        .padding(isCompact ? 18 : 24)
+        .padding(isCompact ? 16 : 20)
         .background(
             LinearGradient(
                 colors: isLightAppearance
@@ -2261,12 +2557,12 @@ extension ContentView {
         )
         .padding(.horizontal, 18)
         .padding(.top, 8)
-        .padding(.bottom, 24)
+        .padding(.bottom, 14)
         .accessibilityIdentifier("home.hero")
     }
 
     var heroIntroduction: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 12) {
             (dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
                 : AnyLayout(HStackLayout(alignment: .top, spacing: 12))) {
@@ -2277,9 +2573,6 @@ extension ContentView {
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
-                    Text(AppLocalization.text("coffee_daily_rituals", fallback: "Coffee for daily rituals"))
-                        .font(bodyFont(size: 12))
-                        .foregroundColor(secondaryTextColor)
                 }
 
                 Spacer(minLength: 12)
@@ -2307,7 +2600,7 @@ extension ContentView {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(homeSettingText(remoteHomeSettings?.heroTitle, arabicValue: remoteHomeSettings?.heroTitleAR, localizationKey: "hero_title", fallback: "Better coffee starts here"))
-                    .font(displayFont(size: isCompact ? 28 : 36))
+                    .font(displayFont(size: isCompact ? 26 : 32))
                     .lineSpacing(1)
                     .foregroundColor(primaryTextColor)
 
@@ -2530,10 +2823,39 @@ extension ContentView {
         activeSeasonalEvents.filter { $0.enabled }.map { "\($0.name) · \($0.subtitleEN)" }
     }
 
+    /// Coffee Club is explicitly curated in Admin > Live Controls > Coffee Club.
+    /// Until products are selected there, keep the legacy coffee-bean fallback but
+    /// never expose drip bags as subscription choices.
+    var coffeeClubEligibleProducts: [ContentView.Product] {
+        let configuredIDs = Set(remoteAppSettings?.coffeeClub?.productIDs ?? [])
+        if !configuredIDs.isEmpty {
+            return products.filter { configuredIDs.contains($0.id) && $0.isAvailableForSale }
+        }
+
+        return products.filter { product in
+            let category = product.categoryKey.lowercased()
+            let normalizedName = product.name.lowercased().replacingOccurrences(of: "&", with: "and")
+            let excludedAccessoryNames = [
+                "coffee brew water", "coffee scale", "coffee server", "coffee spoon",
+                "rdt", "bean doser", "v60 dripper", "v60 filters"
+            ]
+            let isAccessory = excludedAccessoryNames.contains { normalizedName.contains($0) }
+            let isDripBag = category == "drip-bags"
+                || normalizedName.contains("drip bag")
+                || normalizedName.contains("drip-bags")
+            let isHawarIslandsCoffee = normalizedName.contains("hawar islands")
+            return (["coffee-beans", "arabic-coffee-beans"].contains(category) || isHawarIslandsCoffee)
+                && !isAccessory
+                && !isDripBag
+                && product.isAvailableForSale
+        }
+    }
+
     var clubView: some View {
         ClubSectionView(
             rewardsContent: AnyView(loyaltySection),
             coffeeSchoolContent: AnyView(CoffeeEducationView()),
+            appIconContent: AnyView(appIconPickerCard),
             beansBalance: loyaltyAccount?.pointsBalance ?? 0,
             membershipTier: loyaltyAccount?.tier ?? AppLocalization.text("bronze", fallback: "Bronze"),
             isCustomerSignedIn: customerProfile != nil,
@@ -2541,19 +2863,7 @@ extension ContentView {
             coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
             coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks,
             coffeeClubDiscountPercent: configuredCoffeeClubDiscountPercent,
-            coffeeClubProducts: products.filter {
-                let category = $0.categoryKey.lowercased()
-                let normalizedName = $0.name.lowercased().replacingOccurrences(of: "&", with: "and")
-                let excludedAccessoryNames = [
-                    "coffee brew water", "coffee scale", "coffee server", "coffee spoon",
-                    "rdt", "bean doser", "v60 dripper", "v60 filters"
-                ]
-                let isAccessory = excludedAccessoryNames.contains { normalizedName.contains($0) }
-                let isHawarIslandsCoffee = normalizedName.contains("hawar islands")
-                return (["coffee-beans", "arabic-coffee-beans"].contains(category) || isHawarIslandsCoffee)
-                    && !isAccessory
-                    && $0.isAvailableForSale
-            },
+            coffeeClubProducts: coffeeClubEligibleProducts,
             memberName: customerProfile?.displayName ?? AppLocalization.text("coffee_friend", fallback: "coffee friend"),
             coffeeClubOrders: orderHistory.filter { $0.details?.coffeeClub != nil },
             seasonalEvents: activeSeasonalEvents,
@@ -2807,9 +3117,7 @@ extension ContentView {
             cardFillColor: cardFillColor,
             isLightAppearance: isLightAppearance,
             tasteMemoryLookup: tasteMemoryLookup,
-            coffeeClubProducts: products.filter {
-                ["coffee-beans", "arabic-coffee-beans"].contains($0.categoryKey)
-            },
+            coffeeClubProducts: coffeeClubEligibleProducts,
             deliveryAddresses: addresses,
             buyAgainAction: { order in
                 buyAgain(order: order)
@@ -2850,16 +3158,18 @@ extension ContentView {
     }
 
     var featuredProducts: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let freshRoasts = homeFreshRoastProducts
+        let showingFreshRoasts = !freshRoasts.isEmpty
+        return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .lastTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(AppLocalization.text("roastery_selection", fallback: "Roastery Selection"))
+                    Text(AppLocalization.text(showingFreshRoasts ? "recently_roasted" : "roastery_selection", fallback: showingFreshRoasts ? "Just roasted" : "Roastery Selection"))
                         .font(labelFont(size: 10, weight: .semibold))
                         .tracking(AppLocalization.letterSpacing(3))
                         .textCase(.uppercase)
                         .foregroundColor(readableBrandGoldColor)
 
-                    Text(AppLocalization.text("signature_roasts", fallback: "Signature Roasts"))
+                    Text(AppLocalization.text(showingFreshRoasts ? "fresh_roast_week" : "signature_roasts", fallback: showingFreshRoasts ? "Freshly roasted this week" : "Signature Roasts"))
                         .font(displayFont(size: 24))
                         .tracking(AppLocalization.letterSpacing(0.5))
                         .foregroundColor(primaryTextColor)
@@ -2883,7 +3193,7 @@ extension ContentView {
             } else if let loadingError, products.isEmpty {
                 errorSection(message: loadingError)
             } else {
-                let roasts = Array(signatureRoastProducts.prefix(4))
+                let roasts = Array((showingFreshRoasts ? freshRoasts : signatureRoastProducts).prefix(4))
 
                 if isCompact {
                     ScrollView(.horizontal, showsIndicators: false) {
