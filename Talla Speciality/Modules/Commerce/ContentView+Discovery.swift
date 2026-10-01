@@ -325,22 +325,27 @@ extension ContentView {
     var homePurchasedCoffeeProducts: [Product] {
         orderedProducts.filter { product in
             ["coffee-beans", "arabic-coffee-beans"].contains(product.categoryKey)
+                && homeAvailableBagCount(for: product) > 0
         }
     }
 
-    func homePurchasedQuantity(for product: Product) -> Int {
-        orderHistory.reduce(into: 0) { total, order in
-            let status = order.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            guard !order.isRefunded,
-                  !["cancelled", "canceled", "failed", "voided"].contains(status) else { return }
+    func homeAvailableBagCount(for product: Product) -> Int {
+        _ = coffeeData.changeToken
+        let lotsByID = Dictionary(uniqueKeysWithValues: coffeeData.beanLots().map { ($0.id, $0) })
 
-            for item in order.items ?? [] {
-                let matchedProduct = matchingProduct(for: item.productTitle ?? item.name)
-                    ?? matchingProduct(for: item.name)
-                if matchedProduct?.id == product.id {
-                    total += max(item.quantity, 1)
+        return coffeeData.inventory().reduce(into: 0) { count, inventory in
+            let lot = inventory.lotID.flatMap { lotsByID[$0] }
+            let matchesProduct = lot?.productID == product.id
+                || matchingProduct(for: inventory.productName)?.id == product.id
+            guard inventory.remainingQuantityGrams > 0, matchesProduct else { return }
+
+            let variant = lot?.variantID.flatMap { variantID in
+                product.variants.first {
+                    $0.id == variantID || $0.id.hasSuffix("/\(variantID)") || variantID.hasSuffix("/\($0.id)")
                 }
             }
+            let unitGrams = max(variant?.weightGrams ?? product.defaultVariant?.weightGrams ?? inventory.initialQuantityGrams, 1)
+            count += max(1, Int(ceil(inventory.remainingQuantityGrams / unitGrams)))
         }
     }
 
@@ -704,27 +709,7 @@ extension ContentView {
                         .font(.system(size: isCompact ? 20 : 22, weight: .bold))
                         .foregroundColor(Color(hex: 0x4A2410))
 
-                    Spacer(minLength: 8)
-
-                    Button {
-                        openShop(category: "coffee-beans")
-                    } label: {
-                        Text(AppLocalization.text("shop", fallback: "Shop"))
-                            .font(labelFont(size: 10, weight: .bold))
-                            .foregroundColor(Color(hex: 0x4A2410))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 9)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: 0xF4CA83), Color(hex: 0xC98A43)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                ),
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            )
-                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color(hex: 0x7D431F).opacity(0.48), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
+                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 11)
@@ -840,7 +825,7 @@ extension ContentView {
     }
 
     func homePurchasedCoffeeBagCard(_ product: Product) -> some View {
-        let purchasedQuantity = homePurchasedQuantity(for: product)
+        let availableBagCount = homeAvailableBagCount(for: product)
 
         return Button {
             recordRecentlyViewed(product)
@@ -854,25 +839,25 @@ extension ContentView {
                     .shadow(color: .black.opacity(0.30), radius: 6, x: 1, y: 4)
                     .offset(y: isCompact ? 7 : 8)
 
-                if purchasedQuantity > 1 {
-                    Text(purchasedQuantity > 99 ? "99+" : "\(purchasedQuantity)")
+                if availableBagCount > 1 {
+                    Text(availableBagCount > 99 ? "99+" : "\(availableBagCount)")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .frame(minWidth: 23, minHeight: 23)
-                        .padding(.horizontal, purchasedQuantity > 99 ? 3 : 0)
+                        .padding(.horizontal, availableBagCount > 99 ? 3 : 0)
                         .background(Color(hex: 0xE53B36), in: Capsule())
                         .overlay(Capsule().stroke(Color.white.opacity(0.88), lineWidth: 1.5))
                         .shadow(color: .black.opacity(0.28), radius: 3, y: 2)
                         .offset(x: isCompact ? 3 : 5, y: -3)
-                        .accessibilityLabel("\(purchasedQuantity) bags purchased")
+                        .accessibilityLabel("\(availableBagCount) bags remaining")
                 }
             }
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.purchasedCoffeeShelf.bag.\(product.id)")
         .accessibilityLabel(
-            purchasedQuantity > 1
-                ? "\(customerFacingProductName(for: product)), \(purchasedQuantity) bags purchased"
+            availableBagCount > 1
+                ? "\(customerFacingProductName(for: product)), \(availableBagCount) bags remaining"
                 : customerFacingProductName(for: product)
         )
         .frame(width: isCompact ? 116 : 138, alignment: .bottom)
