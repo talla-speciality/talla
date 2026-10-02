@@ -91,13 +91,13 @@ extension ContentView {
                 remoteAppSettings = try? JSONDecoder().decode(AppSettings.self, from: Data(settingsJSON.utf8))
             }
         case "account-deletion":
-            activeTab = .account
+            activeTab = .more
             customerProfile = ShopifyCustomerProfile(
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
             selectedSettingsDetail = .deleteAccount
         case "account-orders-replay":
-            activeTab = .account
+            activeTab = .more
             customerProfile = ShopifyCustomerProfile(
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )

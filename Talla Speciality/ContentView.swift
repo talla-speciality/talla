@@ -45,14 +45,17 @@ struct ContentView: View {
     @Environment(\.requestReview) var requestReview
     @Environment(\.openURL) var openURL
 
-    enum Tab: String, CaseIterable {
+    enum Tab: String, CaseIterable, Identifiable {
         case home
         case shop
         case club
         case brewing
         case map
         case account
+        case more
         case search
+
+        var id: String { rawValue }
 
         var systemImage: String {
             switch self {
@@ -68,6 +71,8 @@ struct ContentView: View {
                 return "map"
             case .account:
                 return "person"
+            case .more:
+                return "ellipsis"
             case .search:
                 return "magnifyingglass"
             }
@@ -2827,25 +2832,14 @@ struct ContentView: View {
             }
 
             SwiftUI.Tab(
-                "Map",
-                systemImage: Tab.map.systemImage,
-                value: Tab.map
+                "More",
+                systemImage: Tab.more.systemImage,
+                value: Tab.more
             ) {
-                tabScreen(tab: .map) {
-                    gulfCoffeeMapView
+                tabScreen(tab: .more) {
+                    moreView
                 }
-                .accessibilityIdentifier("tab.map")
-            }
-
-            SwiftUI.Tab(
-                AppLocalization.text("account", fallback: "Account"),
-                systemImage: Tab.account.systemImage,
-                value: Tab.account
-            ) {
-                tabScreen(tab: .account) {
-                    accountView
-                }
-                .accessibilityIdentifier("tab.account")
+                .accessibilityIdentifier("tab.more")
             }
         }
         .toolbar(.visible, for: .tabBar)
@@ -2882,17 +2876,11 @@ struct ContentView: View {
                 .tabItem {
                     Label(AppLocalization.text("brew", fallback: "Brew"), systemImage: Tab.brewing.systemImage)
                 }
-            tabScreen(tab: .map) { gulfCoffeeMapView }
-                .tag(Tab.map)
-                .accessibilityIdentifier("tab.map")
+            tabScreen(tab: .more) { moreView }
+                .tag(Tab.more)
+                .accessibilityIdentifier("tab.more")
                 .tabItem {
-                    Label("Map", systemImage: Tab.map.systemImage)
-                }
-            tabScreen(tab: .account) { accountView }
-                .tag(Tab.account)
-                .accessibilityIdentifier("tab.account")
-                .tabItem {
-                    Label(AppLocalization.text("account", fallback: "Account"), systemImage: Tab.account.systemImage)
+                    Label("More", systemImage: Tab.more.systemImage)
                 }
 
         }
@@ -2989,6 +2977,117 @@ struct ContentView: View {
         return isOLEDAppearance ? .black : Color(hex: 0x100D0A).opacity(0.98)
     }
 
+    var moreView: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("TALLA SPECIALITY")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .tracking(1.6)
+                    .foregroundStyle(readableBrandGoldColor)
+                Text("Everything in one place.")
+                    .font(.system(size: 30, weight: .semibold, design: .serif))
+                    .foregroundStyle(primaryTextColor)
+                Text("Explore the Gulf coffee guide or manage your Talla account.")
+                    .font(.system(size: 15, design: .rounded))
+                    .foregroundStyle(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 12) {
+                NavigationLink {
+                    gulfCoffeeMapView
+                } label: {
+                    moreNavigationRow(
+                        title: "Gulf Coffee Map",
+                        detail: "Find cafés, roasters and places carrying Talla beans.",
+                        systemImage: "map.fill"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    accountView
+                } label: {
+                    moreNavigationRow(
+                        title: "Account",
+                        detail: "Orders, rewards, saved coffees and settings.",
+                        systemImage: "person.fill"
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text("More from Talla")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(tertiaryTextColor)
+                .textCase(.uppercase)
+                .tracking(1.1)
+
+            HStack(spacing: 12) {
+                moreFeatureTile(title: "Brew", detail: "Dial in", systemImage: "drop.fill") {
+                    openTab(.brewing)
+                }
+                moreFeatureTile(title: "Club", detail: "Earn beans", systemImage: "sparkles") {
+                    openTab(.club)
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 40)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(pageBackgroundColor)
+        .navigationTitle("More")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    func moreNavigationRow(title: String, detail: String, systemImage: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(readableBrandGoldColor)
+                .frame(width: 48, height: 48)
+                .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.16), in: RoundedRectangle(cornerRadius: 14))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(primaryTextColor)
+                Text(detail)
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundStyle(secondaryTextColor)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(tertiaryTextColor)
+        }
+        .padding(16)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1))
+    }
+
+    func moreFeatureTile(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(readableBrandGoldColor)
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(primaryTextColor)
+                Text(detail)
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundStyle(secondaryTextColor)
+            }
+            .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
+            .padding(14)
+            .background(elevatedSurfaceColor, in: RoundedRectangle(cornerRadius: 18))
+        }
+        .buttonStyle(.plain)
+    }
+
     func topScrollPadding(for tab: Tab) -> CGFloat {
         tab == .account ? 8 : 0
     }
@@ -3064,7 +3163,7 @@ struct ContentView: View {
             break
         }
 
-        activeTab = .account
+        activeTab = .more
         accountScrollTarget = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
             accountScrollTarget = target
