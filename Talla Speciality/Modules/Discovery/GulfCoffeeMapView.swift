@@ -8,6 +8,7 @@ extension ContentView {
 }
 
 private struct GulfCoffeeMapView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State private var searchText = ""
     @State private var selectedCountry = "All GCC"
     @State private var selectedCategory = "All"
@@ -25,6 +26,12 @@ private struct GulfCoffeeMapView: View {
 
     private let countries = ["All GCC", "Bahrain", "Saudi Arabia", "UAE", "Kuwait", "Qatar", "Oman"]
     private let categories = ["All", "Cafés", "Roasters", "Trucks", "Green beans", "Equipment", "Cuppings & workshops", "Work-friendly", "Drive-through", "Family-friendly"]
+
+    private var pageBackground: Color { colorScheme == .dark ? Color(hex: 0x0B0A09) : Color(hex: 0xF7F1E8) }
+    private var surface: Color { colorScheme == .dark ? Color(hex: 0x1B1714) : Color(hex: 0xFFFDF8) }
+    private var cardSurface: Color { colorScheme == .dark ? Color(hex: 0x171310) : Color(hex: 0xFFF8EF) }
+    private var primaryText: Color { colorScheme == .dark ? Color(hex: 0xFFF7EA) : Color(hex: 0x24140D) }
+    private var secondaryText: Color { colorScheme == .dark ? Color(hex: 0xBFB3A6) : Color(hex: 0x6F5B4E) }
 
     private var filteredSpots: [GulfCoffeeSpot] {
         spots.filter { spot in
@@ -64,7 +71,7 @@ private struct GulfCoffeeMapView: View {
             .padding(.bottom, 40)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color(hex: 0x0B0A09))
+        .background(pageBackground)
         .navigationTitle("Gulf Coffee Map")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedSpot) { spot in
@@ -117,7 +124,7 @@ private struct GulfCoffeeMapView: View {
 
             Text("A considered guide to cafés, beans and the people making coffee better across the Gulf.")
                 .font(.system(size: 16, weight: .regular, design: .rounded))
-                .foregroundStyle(Color(hex: 0xD9BFA4))
+                .foregroundStyle(colorScheme == .dark ? Color(hex: 0xD9BFA4) : Color(hex: 0x6F5B4E))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
@@ -141,7 +148,7 @@ private struct GulfCoffeeMapView: View {
                 .foregroundStyle(Color(hex: 0xD8A35D))
             TextField("Search a city, café, bean or brew…", text: $searchText)
                 .font(.system(size: 16, design: .rounded))
-                .foregroundStyle(Color(hex: 0xFFF7EA))
+                .foregroundStyle(primaryText)
                 .textInputAutocapitalization(.never)
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
@@ -153,7 +160,7 @@ private struct GulfCoffeeMapView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
-        .background(Color(hex: 0x1B1714), in: RoundedRectangle(cornerRadius: 16))
+        .background(surface, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08)))
     }
 
@@ -161,7 +168,7 @@ private struct GulfCoffeeMapView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Explore the GCC")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0xAFA196))
+                .foregroundStyle(secondaryText)
                 .textCase(.uppercase)
                 .tracking(1.1)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -184,17 +191,17 @@ private struct GulfCoffeeMapView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("The Gulf, one cup at a time")
                         .font(.system(size: 23, weight: .semibold, design: .serif))
-                        .foregroundStyle(Color(hex: 0xFFF7EA))
+                        .foregroundStyle(primaryText)
                     Text("Start with the places Talla is watching closely.")
                         .font(.system(size: 14, design: .rounded))
-                        .foregroundStyle(Color(hex: 0xAFA196))
+                        .foregroundStyle(secondaryText)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(filteredSpots.count) places")
                     Text("\(mappedSpots.count) map pins")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(hex: 0xAFA196))
+                    .foregroundStyle(secondaryText)
                 }
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(hex: 0xD8A35D))
@@ -242,15 +249,15 @@ private struct GulfCoffeeMapView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(verificationSummary)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0xFFF7EA))
+                    .foregroundStyle(primaryText)
                 Text("Only verified or link-verified places appear as map pins. Other entries are pilots awaiting admin review.")
                     .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(Color(hex: 0xBFB3A6))
+                    .foregroundStyle(secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(12)
-        .background(Color(hex: 0x1B1714), in: RoundedRectangle(cornerRadius: 15))
+        .background(surface, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color(hex: 0xD8A35D).opacity(0.22)))
     }
 
@@ -258,7 +265,7 @@ private struct GulfCoffeeMapView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Browse by what you need")
                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0xAFA196))
+                .foregroundStyle(secondaryText)
                 .textCase(.uppercase)
                 .tracking(1.1)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -280,7 +287,7 @@ private struct GulfCoffeeMapView: View {
             HStack {
                 Text(selectedCategory == "All" ? "Talla picks" : selectedCategory)
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0xFFF7EA))
+                    .foregroundStyle(primaryText)
                 Spacer()
                 Text("Rate the item")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -289,7 +296,7 @@ private struct GulfCoffeeMapView: View {
 
             if filteredSpots.isEmpty {
                 ContentUnavailableView("No places yet", systemImage: "mappin.slash", description: Text("Try a different country, category or search.") )
-                    .foregroundStyle(Color(hex: 0xBFB3A6))
+                    .foregroundStyle(secondaryText)
                     .padding(.vertical, 24)
             } else {
                 ForEach(filteredSpots) { spot in
@@ -307,11 +314,11 @@ private struct GulfCoffeeMapView: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(isSelected ? Color(hex: 0x17110B) : Color(hex: 0xD6C7B8))
+                .foregroundStyle(isSelected ? Color(hex: 0x17110B) : secondaryText)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 9)
-                .background(isSelected ? Color(hex: 0xD8A35D) : Color(hex: 0x1B1714), in: Capsule())
-                .overlay(Capsule().stroke(isSelected ? .clear : Color.white.opacity(0.08)))
+                .background(isSelected ? Color(hex: 0xD8A35D) : surface, in: Capsule())
+                .overlay(Capsule().stroke(isSelected ? .clear : Color.primary.opacity(0.10)))
         }
         .buttonStyle(.plain)
     }
@@ -345,10 +352,15 @@ private struct GulfCoffeeMapView: View {
 }
 
 private struct GulfCoffeeSpotCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let spot: GulfCoffeeSpot
     let rating: Int?
     let onOpen: () -> Void
     let onRate: (GulfCoffeeOffering) -> Void
+
+    private var cardSurface: Color { colorScheme == .dark ? Color(hex: 0x171310) : Color(hex: 0xFFF8EF) }
+    private var primaryText: Color { colorScheme == .dark ? Color(hex: 0xFFF7EA) : Color(hex: 0x24140D) }
+    private var secondaryText: Color { colorScheme == .dark ? Color(hex: 0xBFB3A6) : Color(hex: 0x6F5B4E) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -367,7 +379,7 @@ private struct GulfCoffeeSpotCard: View {
                         HStack(spacing: 7) {
                             Text(spot.name)
                                 .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color(hex: 0xFFF7EA))
+                                .foregroundStyle(primaryText)
                             if spot.isFeatured {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.system(size: 13))
@@ -376,7 +388,7 @@ private struct GulfCoffeeSpotCard: View {
                         }
                         Text("\(spot.city) · \(spot.country)")
                             .font(.system(size: 14, design: .rounded))
-                            .foregroundStyle(Color(hex: 0xBFB3A6))
+                            .foregroundStyle(secondaryText)
                         Text(spot.relationshipLabel)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color(hex: 0xD8A35D))
@@ -408,7 +420,7 @@ private struct GulfCoffeeSpotCard: View {
                 }
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(Color(hex: 0x938579))
+            .foregroundStyle(secondaryText)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -421,10 +433,10 @@ private struct GulfCoffeeSpotCard: View {
                                     .font(.system(size: 10, weight: .bold))
                             }
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color(hex: 0xEED9B9))
+                            .foregroundStyle(colorScheme == .dark ? Color(hex: 0xEED9B9) : Color(hex: 0x6F4328))
                             .padding(.horizontal, 11)
                             .padding(.vertical, 9)
-                            .background(Color(hex: 0x292019), in: Capsule())
+                            .background(colorScheme == .dark ? Color(hex: 0x292019) : Color(hex: 0xF1E0C9), in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
@@ -433,8 +445,8 @@ private struct GulfCoffeeSpotCard: View {
             .scrollClipDisabled()
         }
         .padding(16)
-        .background(Color(hex: 0x171310), in: RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.07)))
+        .background(cardSurface, in: RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.primary.opacity(0.09)))
     }
 }
 
