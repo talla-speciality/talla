@@ -17,8 +17,8 @@ private struct GulfCoffeeMapView: View {
     @State private var spots = GulfCoffeeSpot.seed
     @State private var mapPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 25.6, longitude: 51.4),
-            span: MKCoordinateSpan(latitudeDelta: 8.8, longitudeDelta: 10.2)
+            center: CLLocationCoordinate2D(latitude: 25.3, longitude: 51.2),
+            span: MKCoordinateSpan(latitudeDelta: 10.8, longitudeDelta: 13.8)
         )
     )
     @AppStorage("gulfCoffeeMap.ratings") private var ratingStore = ""
@@ -38,6 +38,16 @@ private struct GulfCoffeeMapView: View {
         }
     }
 
+    private var mappedSpots: [GulfCoffeeSpot] {
+        filteredSpots.filter { !$0.isOnline && $0.isVerifiedForMap }
+    }
+
+    private var verificationSummary: String {
+        let verified = filteredSpots.filter(\.isVerifiedForMap).count
+        let awaiting = filteredSpots.count - verified
+        return awaiting == 0 ? "\(verified) verified listings" : "\(verified) verified · \(awaiting) awaiting review"
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
@@ -45,6 +55,7 @@ private struct GulfCoffeeMapView: View {
                 searchField
                 countryFilters
                 regionOverview
+                verificationNotice
                 categoryFilters
                 directorySection
             }
@@ -157,14 +168,19 @@ private struct GulfCoffeeMapView: View {
                         .foregroundStyle(Color(hex: 0xAFA196))
                 }
                 Spacer()
-                Text("\(filteredSpots.count) places")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0xD8A35D))
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(filteredSpots.count) places")
+                    Text("\(mappedSpots.count) map pins")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color(hex: 0xAFA196))
+                }
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(hex: 0xD8A35D))
             }
 
             ZStack(alignment: .bottomLeading) {
                 Map(position: $mapPosition, interactionModes: [.pan, .zoom]) {
-                    ForEach(filteredSpots.filter { !$0.isOnline }) { spot in
+                    ForEach(mappedSpots) { spot in
                         Annotation(spot.name, coordinate: spot.coordinate) {
                             Button { selectedSpot = spot } label: {
                                 Image(systemName: spot.icon)
@@ -190,9 +206,28 @@ private struct GulfCoffeeMapView: View {
                     .background(Color.black.opacity(0.62), in: Capsule())
                     .padding(14)
             }
-            .frame(height: 178)
+            .frame(minHeight: 238, idealHeight: 238, maxHeight: 238)
             .clipped()
         }
+    }
+
+    private var verificationNotice: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.shield.fill")
+                .foregroundStyle(Color(hex: 0xD8A35D))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verificationSummary)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color(hex: 0xFFF7EA))
+                Text("Only verified or link-verified places appear as map pins. Other entries are pilots awaiting admin review.")
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundStyle(Color(hex: 0xBFB3A6))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .background(Color(hex: 0x1B1714), in: RoundedRectangle(cornerRadius: 15))
+        .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color(hex: 0xD8A35D).opacity(0.22)))
     }
 
     private var categoryFilters: some View {
@@ -318,6 +353,11 @@ private struct GulfCoffeeSpotCard: View {
                         Text(spot.relationshipLabel)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color(hex: 0xD8A35D))
+                        if !spot.isVerifiedForMap {
+                            Label("Awaiting verification", systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color(hex: 0xE5B77A))
+                        }
                         Text(spot.shortDescription)
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundStyle(Color(hex: 0xD8A35D))
@@ -545,6 +585,9 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
     }
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
     var isOnline: Bool { id == "not-just-beans" }
+    var isVerifiedForMap: Bool {
+        ["verified", "link-verified", "manually-verified"].contains(verificationStatus.lowercased())
+    }
     var websiteURL: URL? {
         if let externalURL, !externalURL.isEmpty, let url = URL(string: externalURL) { return url }
         switch id {
@@ -557,7 +600,8 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
     var relationshipLabel: String {
         if id == "bhr-seef" { return "Talla location" }
         let partnerSellerIDs = ["not-just-beans", "hambella-riffa", "tumma-roast-zinj"]
-        return partnerSellerIDs.contains(id) ? "Bean seller / partner listing" : "Directory listing"
+        if partnerSellerIDs.contains(id) { return "Bean seller / partner listing" }
+        return isVerifiedForMap ? "Directory listing" : "Pilot listing · admin review"
     }
 
     func applying(remote: GulfCoffeeMapRatingService.RemotePlace?) -> GulfCoffeeSpot {
@@ -587,15 +631,15 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
     }
 
     static let seed: [GulfCoffeeSpot] = [
-        .init(id: "bhr-seef", name: "Talla Speciality", city: "Manama", country: "Bahrain", neighborhood: "Seef", categories: ["Cafés", "Roasters", "Work-friendly"], tags: ["pour over", "quiet", "single origin"], shortDescription: "Talla’s home location for coffee, conversation and beans.", longDescription: "Talla’s single owned location in Bahrain. Use this listing for the home experience, while the bean-seller listings show other places where Talla coffee can be purchased.", primaryCategory: "Talla home location", icon: "flame.fill", tint: Color(hex: 0xD7A866), mapOffset: CGSize(width: -108, height: -24), isFeatured: true, offerings: [.init(id: "bhr-seef-v60", name: "Ethiopia V60", detail: "Floral · peach · tea-like", kind: .drink), .init(id: "bhr-seef-bean", name: "House seasonal lot", detail: "250 g · light roast", kind: .bean)]),
+        .init(id: "bhr-seef", name: "Talla Speciality", city: "Manama", country: "Bahrain", neighborhood: "Seef", categories: ["Cafés", "Roasters", "Work-friendly"], tags: ["pour over", "quiet", "single origin"], shortDescription: "Talla’s home location for coffee, conversation and beans.", longDescription: "Talla’s single owned location in Bahrain. Use this listing for the home experience, while the bean-seller listings show other places where Talla coffee can be purchased.", primaryCategory: "Talla home location", icon: "flame.fill", tint: Color(hex: 0xD7A866), mapOffset: CGSize(width: -108, height: -24), isFeatured: true, offerings: [.init(id: "bhr-seef-v60", name: "Ethiopia V60", detail: "Floral · peach · tea-like", kind: .drink), .init(id: "bhr-seef-bean", name: "House seasonal lot", detail: "250 g · light roast", kind: .bean)], verificationStatus: "verified"),
         .init(id: "ksa-riyadh", name: "Origin Room", city: "Riyadh", country: "Saudi Arabia", neighborhood: "Al Olaya", categories: ["Cafés", "Cuppings & workshops", "Work-friendly"], tags: ["cupping", "espresso", "work tables"], shortDescription: "A social room for espresso, filter and coffee talk.", longDescription: "A Talla pilot listing for a Riyadh coffee room with flexible seating and a calendar built around tastings, throwdowns and guest roaster pop-ups.", primaryCategory: "Café + events", icon: "sparkles", tint: Color(hex: 0xE6B57D), mapOffset: CGSize(width: -42, height: -42), isFeatured: true, offerings: [.init(id: "ksa-riyadh-espresso", name: "House espresso", detail: "Chocolate · date · silky", kind: .drink), .init(id: "ksa-riyadh-cupping", name: "Friday cupping", detail: "Public · guided tasting", kind: .workshop)]),
         .init(id: "uae-dubai", name: "Night Shift Roasters", city: "Dubai", country: "UAE", neighborhood: "Al Quoz", categories: ["Roasters", "Green beans", "Equipment"], tags: ["green coffee", "gear", "training"], shortDescription: "Roasting, green coffee and gear under one roof.", longDescription: "A Talla pilot listing for a roastery-led destination where home brewers can browse green lots, dial in a grinder and leave with a clear next experiment.", primaryCategory: "Roaster + gear", icon: "gearshape.fill", tint: Color(hex: 0xD5B58D), mapOffset: CGSize(width: 34, height: -36), isFeatured: false, offerings: [.init(id: "uae-dubai-natural", name: "Colombia natural", detail: "1 kg green · berry-led", kind: .bean), .init(id: "uae-dubai-grinder", name: "Hand grinder clinic", detail: "Workshop · bookable", kind: .workshop)]),
         .init(id: "kwt-kuwait", name: "Grounds & Co.", city: "Kuwait City", country: "Kuwait", neighborhood: "Sharq", categories: ["Cafés", "Drive-through", "Family-friendly"], tags: ["drive through", "family", "iced latte"], shortDescription: "Easy coffee runs with a menu for every pace.", longDescription: "A Talla pilot listing for a family-friendly stop with a quick lane, generous seating and a menu that keeps both the espresso regular and the iced-coffee explorer happy.", primaryCategory: "Café + drive-through", icon: "car.fill", tint: Color(hex: 0xC6A27B), mapOffset: CGSize(width: -2, height: 2), isFeatured: false, offerings: [.init(id: "kwt-kuwait-spanish", name: "Spanish latte", detail: "Cold · creamy · cardamom", kind: .drink), .init(id: "kwt-kuwait-beans", name: "Weekend blend", detail: "250 g · medium roast", kind: .bean)]),
         .init(id: "qat-doha", name: "Saddleback Coffee Truck", city: "Doha", country: "Qatar", neighborhood: "Msheireb", categories: ["Trucks", "Cafés", "Cuppings & workshops"], tags: ["truck", "pop-up", "throwdown"], shortDescription: "Find the truck, then stay for the coffee conversation.", longDescription: "A Talla pilot listing for a mobile coffee bar that moves with the city and publishes its next stop, guest brewer and throwdown schedule.", primaryCategory: "Coffee truck", icon: "truck.box.fill", tint: Color(hex: 0xD4A36A), mapOffset: CGSize(width: 47, height: 40), isFeatured: true, offerings: [.init(id: "qat-doha-aeropress", name: "AeroPress special", detail: "Citrus · cacao · clean", kind: .drink), .init(id: "qat-doha-throwdown", name: "Open throwdown", detail: "Monthly · all levels", kind: .workshop)]),
         .init(id: "omn-muscat", name: "Wadi Coffee Supply", city: "Muscat", country: "Oman", neighborhood: "Al Khuwair", categories: ["Equipment", "Green beans", "Work-friendly"], tags: ["equipment", "beans", "brew bar"], shortDescription: "A practical stop for beans, brewers and better habits.", longDescription: "A Talla pilot listing for an equipment-forward coffee shop with approachable advice, green bean leads and enough table space to plan the next brew.", primaryCategory: "Supply + brew bar", icon: "drop.fill", tint: Color(hex: 0xCFAE83), mapOffset: CGSize(width: 88, height: 60), isFeatured: false, offerings: [.init(id: "omn-muscat-kenya", name: "Kenya AA", detail: "250 g · currant · lime", kind: .bean), .init(id: "omn-muscat-brew", name: "Brew setup consult", detail: "30 min · practical", kind: .workshop)])
-        , .init(id: "not-just-beans", name: "Not Just Beans", city: "Online", country: "GCC", neighborhood: "Online store", categories: ["Green beans"], tags: ["online store", "Talla beans", "delivery"], shortDescription: "Order Talla beans online from a partner seller.", longDescription: "A Talla partner listing for Not Just Beans, an online store carrying Talla beans. This listing is intentionally not shown as a physical map pin.", primaryCategory: "Online bean seller", icon: "cart.fill", tint: Color(hex: 0xB98B62), mapOffset: .zero, isFeatured: true, offerings: [.init(id: "not-just-beans-talla", name: "Talla beans", detail: "Available online · partner seller", kind: .bean)])
-        , .init(id: "hambella-riffa", name: "Hambella", city: "Riffa", country: "Bahrain", neighborhood: "Riffa", categories: ["Green beans"], tags: ["Talla beans", "partner seller"], shortDescription: "Find Talla beans at Hambella in Riffa.", longDescription: "A Talla partner listing for Hambella in Riffa, where customers can find Talla beans. This is a seller location, not a Talla-owned location.", primaryCategory: "Bean seller", icon: "bag.fill", tint: Color(hex: 0xB98B62), mapOffset: .zero, isFeatured: true, offerings: [.init(id: "hambella-riffa-talla", name: "Talla beans", detail: "Available in Riffa · partner seller", kind: .bean)])
-        , .init(id: "tumma-roast-zinj", name: "Tumma Roast", city: "Manama", country: "Bahrain", neighborhood: "Zinj", categories: ["Green beans"], tags: ["Talla beans", "partner seller"], shortDescription: "Find Talla beans at Tumma Roast in Zinj.", longDescription: "A Talla partner listing for Tumma Roast in Zinj, where customers can find Talla beans. This is a seller location, not a Talla-owned location.", primaryCategory: "Bean seller", icon: "bag.fill", tint: Color(hex: 0xB98B62), mapOffset: .zero, isFeatured: true, offerings: [.init(id: "tumma-roast-zinj-talla", name: "Talla beans", detail: "Available in Zinj · partner seller", kind: .bean)])
+        , .init(id: "not-just-beans", name: "Not Just Beans", city: "Online", country: "GCC", neighborhood: "Online store", categories: ["Green beans"], tags: ["online store", "Talla beans", "delivery"], shortDescription: "Order Talla beans online from a partner seller.", longDescription: "A Talla partner listing for Not Just Beans, an online store carrying Talla beans. This listing is intentionally not shown as a physical map pin.", primaryCategory: "Online bean seller", icon: "cart.fill", tint: Color(hex: 0xB98B62), mapOffset: .zero, isFeatured: true, offerings: [.init(id: "not-just-beans-talla", name: "Talla beans", detail: "Available online · partner seller", kind: .bean)], verificationStatus: "link-verified")
+        , .init(id: "hambella-riffa", name: "Hambella", city: "Riffa", country: "Bahrain", neighborhood: "Riffa", categories: ["Green beans"], tags: ["Talla beans", "partner seller"], shortDescription: "Find Talla beans at Hambella in Riffa.", longDescription: "A Talla partner listing for Hambella in Riffa, where customers can find Talla beans. This is a seller location, not a Talla-owned location.", primaryCategory: "Bean seller", icon: "bag.fill", tint: Color(hex: 0xB98B62), mapOffset: .zero, isFeatured: true, offerings: [.init(id: "hambella-riffa-talla", name: "Talla beans", detail: "Available in Riffa · partner seller", kind: .bean)], verificationStatus: "link-verified")
+        , .init(id: "tumma-roast-zinj", name: "Tumma Roast", city: "Manama", country: "Bahrain", neighborhood: "Zinj", categories: ["Green beans"], tags: ["Talla beans", "partner seller"], shortDescription: "Find Talla beans at Tumma Roast in Zinj.", longDescription: "A Talla partner listing for Tumma Roast in Zinj, where customers can find Talla beans. This is a seller location, not a Talla-owned location.", primaryCategory: "Bean seller", icon: "bag.fill", tint: Color(hex: 0xB98B62), mapOffset: .zero, isFeatured: true, offerings: [.init(id: "tumma-roast-zinj-talla", name: "Talla beans", detail: "Available in Zinj · partner seller", kind: .bean)], verificationStatus: "link-verified")
     ]
 }
 
