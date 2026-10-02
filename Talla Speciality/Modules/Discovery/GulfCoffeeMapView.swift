@@ -63,6 +63,7 @@ private struct GulfCoffeeMapView: View {
             .padding(.top, 12)
             .padding(.bottom, 40)
         }
+        .scrollBounceBehavior(.basedOnSize)
         .background(Color(hex: 0x0B0A09))
         .navigationTitle("Gulf Coffee Map")
         .navigationBarTitleDisplayMode(.inline)
@@ -144,16 +145,24 @@ private struct GulfCoffeeMapView: View {
     }
 
     private var countryFilters: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(countries, id: \.self) { country in
-                    filterPill(country, isSelected: selectedCountry == country) {
-                        selectedCountry = country
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Explore the GCC")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(Color(hex: 0xAFA196))
+                .textCase(.uppercase)
+                .tracking(1.1)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(countries, id: \.self) { country in
+                        filterPill(country, isSelected: selectedCountry == country) {
+                            selectedCountry = country
+                        }
                     }
                 }
             }
+            .defaultScrollAnchor(.leading)
+            .scrollIndicators(.hidden)
         }
-        .scrollClipDisabled()
     }
 
     private var regionOverview: some View {
@@ -197,6 +206,7 @@ private struct GulfCoffeeMapView: View {
                     }
                 }
                 .mapStyle(.standard)
+                .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 22))
                 Label("Tap a pin to open a place", systemImage: "hand.tap.fill")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -206,7 +216,8 @@ private struct GulfCoffeeMapView: View {
                     .background(Color.black.opacity(0.62), in: Capsule())
                     .padding(14)
             }
-            .frame(minHeight: 238, idealHeight: 238, maxHeight: 238)
+            .frame(maxWidth: .infinity)
+            .frame(height: 238)
             .clipped()
         }
     }
@@ -246,7 +257,8 @@ private struct GulfCoffeeMapView: View {
                     }
                 }
             }
-            .scrollClipDisabled()
+            .defaultScrollAnchor(.leading)
+            .scrollIndicators(.hidden)
         }
     }
 
