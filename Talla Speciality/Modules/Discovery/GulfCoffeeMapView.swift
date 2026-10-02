@@ -97,29 +97,42 @@ private struct GulfCoffeeMapView: View {
     private var mapHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("TALLA / FIELD NOTES", systemImage: "location.north.line")
+                Label("TALLA SPECIALITY", systemImage: "cup.and.saucer.fill")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .tracking(1.6)
-                    .foregroundStyle(Color(hex: 0xD8A35D))
+                    .foregroundStyle(Color(hex: 0xF2D09A))
                 Spacer()
-                Text("BETA")
+                Text("GCC GUIDE")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x0B0A09))
+                    .foregroundStyle(Color(hex: 0x2A160E))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Color(hex: 0xD8A35D), in: Capsule())
+                    .background(Color(hex: 0xF2D09A), in: Capsule())
             }
 
-            Text("Find the cup worth the detour.")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .foregroundStyle(Color(hex: 0xFFF7EA))
+            Text("Find your next\nTalla coffee stop.")
+                .font(.system(size: 34, weight: .semibold, design: .serif))
+                .foregroundStyle(Color(hex: 0xFFF4DE))
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Talla’s home location, plus three trusted places where you can find our beans.")
+            Text("A considered guide to cafés, beans and the people making coffee better across the Gulf.")
                 .font(.system(size: 16, weight: .regular, design: .rounded))
-                .foregroundStyle(Color(hex: 0xBFB3A6))
+                .foregroundStyle(Color(hex: 0xD9BFA4))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: 0x4A2818), Color(hex: 0x25150F)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 26)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26)
+                .stroke(Color(hex: 0xD9B181).opacity(0.22), lineWidth: 1)
+        )
     }
 
     private var searchField: some View {
@@ -170,7 +183,7 @@ private struct GulfCoffeeMapView: View {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("The Gulf, one cup at a time")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 23, weight: .semibold, design: .serif))
                         .foregroundStyle(Color(hex: 0xFFF7EA))
                     Text("Start with the places Talla is watching closely.")
                         .font(.system(size: 14, design: .rounded))
@@ -317,8 +330,10 @@ private struct GulfCoffeeMapView: View {
 
     private func syncRemoteData() async {
         if let remoteDirectory = try? await GulfCoffeeMapRatingService.fetchDirectory() {
-            let remoteByID = Dictionary(uniqueKeysWithValues: remoteDirectory.map { ($0.id, $0) })
-            let mergedSpots = GulfCoffeeSpot.seed.map { $0.applying(remote: remoteByID[$0.id]) }
+            // The admin directory is authoritative. Never resurrect a deleted local seed.
+            let mergedSpots = remoteDirectory.compactMap { remote in
+                GulfCoffeeSpot.seed.first(where: { $0.id == remote.id })?.applying(remote: remote)
+            }
             await MainActor.run { spots = mergedSpots }
         }
         guard !TallaAccountCredentialStore.accessToken.isEmpty,

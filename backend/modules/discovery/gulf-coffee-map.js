@@ -30,7 +30,8 @@ function normalizeRatingInput(email, body) {
 
 function normalizeStore(store) {
     const ratings = store && typeof store.ratings === "object" && !Array.isArray(store.ratings) ? store.ratings : {};
-    const directory = Array.isArray(store?.directory) && store.directory.length > 0 ? store.directory : defaultDirectory;
+    // An explicitly saved empty directory is intentional: admin removals must persist.
+    const directory = Array.isArray(store?.directory) ? store.directory : defaultDirectory;
     return { version: 1, directory, ratings };
 }
 
@@ -40,7 +41,7 @@ function directoryFor(store) {
 
 function replaceDirectory(store, directory) {
     const normalized = normalizeStore(store);
-    if (!Array.isArray(directory) || directory.length === 0 || directory.length > 500) return null;
+    if (!Array.isArray(directory) || directory.length > 500) return null;
     const next = directory.map((place) => ({
         ...place,
         id: String(place.id || "").trim().slice(0, 100),

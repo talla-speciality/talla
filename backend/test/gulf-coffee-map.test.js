@@ -6,6 +6,7 @@ const {
     directoryFor,
     normalizeRatingInput,
     normalizeStore,
+    replaceDirectory,
     ratingsFor,
     saveRating
 } = require("../modules/discovery/gulf-coffee-map");
@@ -52,4 +53,9 @@ test("Gulf Coffee Map directory has one pilot entry per GCC market and supports 
     assert.deepEqual(new Set(defaultDirectory.filter((place) => place.country !== "GCC").map((place) => place.country)), new Set([
         "Bahrain", "Saudi Arabia", "UAE", "Kuwait", "Qatar", "Oman"
     ]));
+});
+
+test("an explicitly empty admin directory stays empty", () => {
+    const next = replaceDirectory(normalizeStore({}), []);
+    assert.deepEqual(directoryFor(next), []);
 });
