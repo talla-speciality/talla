@@ -1,4 +1,62 @@
 {
   "version": 1,
+  "directory": [
+    {
+      "id": "bhr-seef",
+      "name": "Talla Speciality",
+      "city": "Manama",
+      "country": "Bahrain",
+      "neighborhood": "Seef",
+      "categories": ["Cafés", "Roasters", "Work-friendly"],
+      "tags": ["pour over", "quiet", "single origin"],
+      "offerings": [
+        {"id": "bhr-seef-v60", "name": "Ethiopia V60", "kind": "drink"},
+        {"id": "bhr-seef-bean", "name": "House seasonal lot", "kind": "bean"}
+      ],
+      "verificationStatus": "verified"
+    },
+    {
+      "id": "not-just-beans",
+      "name": "Not Just Beans",
+      "city": "Online",
+      "country": "GCC",
+      "neighborhood": "Online store",
+      "websiteURL": "https://notjustbeans.shop/collections/talla-speciality-roasters",
+      "categories": ["Green beans"],
+      "tags": ["online store", "Talla beans", "delivery"],
+      "offerings": [{"id": "not-just-beans-talla", "name": "Talla beans", "kind": "bean"}],
+      "verificationStatus": "link-verified"
+    },
+    {
+      "id": "hambella-riffa",
+      "name": "Hambella",
+      "city": "Riffa",
+      "country": "Bahrain",
+      "neighborhood": "Riffa",
+      "websiteURL": "https://maps.app.goo.gl/DU2Gy8kmZ1rGYVLy6?g_st=ic",
+      "address": "Shop No. 523G, Block 913 Road 1311, Riffa 913",
+      "phone": "3332 2609",
+      "hours": "See Google Maps for current hours",
+      "categories": ["Green beans"],
+      "tags": ["Talla beans", "partner seller"],
+      "offerings": [{"id": "hambella-riffa-talla", "name": "Talla beans", "kind": "bean"}],
+      "verificationStatus": "link-verified"
+    },
+    {
+      "id": "tumma-roast-zinj",
+      "name": "Tumma Roast",
+      "city": "Manama",
+      "country": "Bahrain",
+      "neighborhood": "Zinj",
+      "websiteURL": "https://maps.app.goo.gl/Kd7Fwxq9afe4nirt8?g_st=ic",
+      "address": "Building 308 Road 58, Zinj 358",
+      "phone": "3201 6614",
+      "hours": "See Google Maps for current hours",
+      "categories": ["Green beans"],
+      "tags": ["Talla beans", "partner seller"],
+      "offerings": [{"id": "tumma-roast-zinj-talla", "name": "Talla beans", "kind": "bean"}],
+      "verificationStatus": "link-verified"
+    }
+  ],
   "ratings": {}
 }
