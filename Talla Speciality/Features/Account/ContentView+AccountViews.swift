@@ -139,6 +139,30 @@ extension ContentView {
         }
     }
 
+    var accountPresentationView: some View {
+        NavigationStack {
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    accountView
+                    Color.clear
+                        .frame(height: 24)
+                        .id("account-bottom")
+                }
+                .onChange(of: accountScrollTarget) { _, target in
+                    guard let target else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            proxy.scrollTo(target, anchor: .top)
+                        }
+                        accountScrollTarget = nil
+                    }
+                }
+            }
+            .navigationTitle("Account")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+
     var languagePreferenceCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {

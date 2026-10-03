@@ -706,8 +706,9 @@ extension ContentView {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink {
-                    accountView
+                Button {
+                    accountScrollTarget = nil
+                    isAccountPresentedFromMore = true
                 } label: {
                     moreNavigationRow(
                         title: "Account",
@@ -738,6 +739,9 @@ extension ContentView {
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(pageBackgroundColor)
+        .sheet(isPresented: $isAccountPresentedFromMore) {
+            accountPresentationView
+        }
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.large)
     }

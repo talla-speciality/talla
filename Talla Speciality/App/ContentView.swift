@@ -262,6 +262,7 @@ struct ContentView: View {
     @State var isCartSaveEntryExpanded = false
     @State var isTallaPassportExpanded = false
     @State var selectedSettingsDetail: SettingsDetail?
+    @State var isAccountPresentedFromMore = false
     @State var didConfigureReleaseUITest = false
     @State var accountScrollTarget: String?
     @State var tabScrollTarget: Tab?
