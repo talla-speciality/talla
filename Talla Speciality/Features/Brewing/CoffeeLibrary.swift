@@ -431,10 +431,7 @@ extension CoffeeDataStore {
     ) throws {
         let kind: BrewSessionKind = method.localizedCaseInsensitiveContains("espresso") ? .espresso : .filter
         let startedAt = Date().addingTimeInterval(-Double(durationSeconds ?? 0))
-        let availablePurchases = inventory().filter { $0.remainingQuantityGrams > 0 }
-        let activePurchase = purchasedCoffeeID.flatMap { id in availablePurchases.first { $0.id == id } }
-            ?? availablePurchases.filter { $0.openedAt != nil }.sorted { $0.openedAt! > $1.openedAt! }.first
-            ?? (availablePurchases.count == 1 ? availablePurchases.first : nil)
+        let activePurchase = activePurchase(requestedID: purchasedCoffeeID)
         let isReference = UserDefaults.standard.bool(forKey: "talla.brewing.referencePending.v1")
         let session = CoffeeBrewSession(
             id: id,
@@ -485,12 +482,27 @@ extension CoffeeDataStore {
             ])
         }
         if let purchase = activePurchase, let coffeeGrams, coffeeGrams > 0 {
-            try recordDose(sessionID: id, purchaseID: purchase.id, grams: coffeeGrams)
-            try updateRemainingQuantity(recordID: purchase.id, remainingGrams: purchase.remainingQuantityGrams - coffeeGrams)
+            if try recordDose(sessionID: id, purchaseID: purchase.id, grams: coffeeGrams) {
+                try updateRemainingQuantity(recordID: purchase.id, remainingGrams: purchase.remainingQuantityGrams - coffeeGrams)
+            }
         }
         try container.mainContext.save()
         UserDefaults.standard.set(false, forKey: "talla.brewing.referencePending.v1")
         notifyCoffeeChange()
+    }
+
+    func consumeCoffeeForBrew(sessionID: UUID, purchasedCoffeeID: UUID?, grams: Double) throws {
+        guard grams.isFinite, grams > 0, let purchase = activePurchase(requestedID: purchasedCoffeeID) else { return }
+        if try recordDose(sessionID: sessionID, purchaseID: purchase.id, grams: grams) {
+            try updateRemainingQuantity(recordID: purchase.id, remainingGrams: purchase.remainingQuantityGrams - grams)
+        }
+    }
+
+    private func activePurchase(requestedID: UUID?) -> CoffeeInventoryRecord? {
+        let availablePurchases = inventory().filter { $0.remainingQuantityGrams > 0 }
+        return requestedID.flatMap { id in availablePurchases.first { $0.id == id } }
+            ?? availablePurchases.filter { $0.openedAt != nil }.sorted { $0.openedAt! > $1.openedAt! }.first
+            ?? (availablePurchases.count == 1 ? availablePurchases.first : nil)
     }
 
     func pendingConflicts() -> [CoffeeDataConflict] {
@@ -535,6 +547,7 @@ struct CoffeeLibraryView: View {
     @State private var roastLevel = ""
     @State private var tastingNotes = ""
     @State private var quantity = "250"
+    @State private var quickDose = "18"
     @State private var roastDate = Date()
     @State private var hasRoastDate = true
     @State private var equipmentID: UUID?
@@ -698,6 +711,14 @@ struct CoffeeLibraryView: View {
                     )
                     .frame(maxWidth: .infinity)
                 } else {
+                    HStack(spacing: 10) {
+                        TextField("Dose (g)", text: $quickDose)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(.roundedBorder)
+                        Text("Tap a bag below to deduct this dose without saving a journal entry.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     ForEach(bags) { coffee in
                         coffeeInventoryCard(coffee)
                     }
@@ -756,6 +777,24 @@ struct CoffeeLibraryView: View {
                 }
                 .buttonStyle(.tallaPrimary)
                 .accessibilityIdentifier("coffee.inventory.brew")
+            }
+            if let grams = Double(quickDose), grams > 0, coffee.remainingQuantityGrams > 0 {
+                Button {
+                    do {
+                        try coffeeData.consumeCoffeeForBrew(
+                            sessionID: UUID(),
+                            purchasedCoffeeID: coffee.id,
+                            grams: grams
+                        )
+                        errorMessage = nil
+                    } catch {
+                        errorMessage = error.localizedDescription
+                    }
+                } label: {
+                    Label("Deduct \(grams, specifier: "%.0f") g", systemImage: "minus.circle")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("coffee.inventory.deduct")
             }
             Text("Original bag weight: \(coffee.initialQuantityGrams, specifier: "%.0f") g")
                 .font(.caption)

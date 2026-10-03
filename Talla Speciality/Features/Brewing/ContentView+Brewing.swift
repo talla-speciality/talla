@@ -83,6 +83,13 @@ extension ContentView {
                     purchasedCoffeeID: purchasedCoffeeID,
                     samples: samples
                 )
+                if let brewID = pendingBrewHealthID {
+                    try? coffeeData.consumeCoffeeForBrew(
+                        sessionID: brewID,
+                        purchasedCoffeeID: purchasedCoffeeID,
+                        grams: coffeeAmount
+                    )
+                }
             },
             guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, purchasedCoffeeID, samples in
                 prepareJournalEntryFromGuidedBrew(

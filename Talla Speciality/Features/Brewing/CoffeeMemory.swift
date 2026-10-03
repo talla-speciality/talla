@@ -215,11 +215,12 @@ extension CoffeeDataStore {
         records(DoseUsageRecord.self, entity: "doseUsage").filter { $0.purchasedCoffeeID == purchaseID && $0.grams.isFinite && $0.grams > 0 }.reduce(0) { $0 + $1.grams }
     }
 
-    func recordDose(sessionID: UUID, purchaseID: UUID, grams: Double) throws {
+    func recordDose(sessionID: UUID, purchaseID: UUID, grams: Double) throws -> Bool {
         guard grams.isFinite, grams > 0, inventory().contains(where: { $0.id == purchaseID }) else { throw CoffeeDataError.invalidResponse }
-        guard !records(DoseUsageRecord.self, entity: "doseUsage").contains(where: { $0.id == sessionID }) else { return }
+        guard !records(DoseUsageRecord.self, entity: "doseUsage").contains(where: { $0.id == sessionID }) else { return false }
         let usage = DoseUsageRecord(id: sessionID, purchasedCoffeeID: purchaseID, grams: grams, createdAt: .now)
         try saveRecord(usage, id: usage.id, entity: "doseUsage")
+        return true
     }
 
     func saveWater(_ water: WaterProfileRecord) throws {
