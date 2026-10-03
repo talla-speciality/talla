@@ -114,30 +114,40 @@ extension ContentView {
     }
 
     var homePurchasedCoffeeProducts: [Product] {
-        orderedProducts.filter { product in
-            ["coffee-beans", "arabic-coffee-beans"].contains(product.categoryKey)
-                && homeAvailableBagCount(for: product) > 0
-        }
+        cachedHomePurchasedCoffeeProducts
     }
 
     func homeAvailableBagCount(for product: Product) -> Int {
-        _ = coffeeData.changeToken
+        cachedHomeBagCounts[product.id, default: 0]
+    }
+
+    @MainActor
+    func refreshHomeShelfCache() {
+        let inventory = coffeeData.inventory()
         let lotsByID = Dictionary(uniqueKeysWithValues: coffeeData.beanLots().map { ($0.id, $0) })
-
-        return coffeeData.inventory().reduce(into: 0) { count, inventory in
-            let lot = inventory.lotID.flatMap { lotsByID[$0] }
-            let matchesProduct = lot?.productID == product.id
-                || matchingProduct(for: inventory.productName)?.id == product.id
-            guard inventory.remainingQuantityGrams > 0, matchesProduct else { return }
-
-            let variant = lot?.variantID.flatMap { variantID in
-                product.variants.first {
-                    $0.id == variantID || $0.id.hasSuffix("/\(variantID)") || variantID.hasSuffix("/\($0.id)")
-                }
-            }
-            let unitGrams = max(variant?.weightGrams ?? product.defaultVariant?.weightGrams ?? inventory.initialQuantityGrams, 1)
-            count += max(1, Int(ceil(inventory.remainingQuantityGrams / unitGrams)))
+        let orderedCoffee = orderedProducts.filter {
+            ["coffee-beans", "arabic-coffee-beans"].contains($0.categoryKey.lowercased())
         }
+
+        var bagCounts: [String: Int] = [:]
+        for product in orderedCoffee {
+            for bag in inventory where bag.remainingQuantityGrams > 0 {
+                let lot = bag.lotID.flatMap { lotsByID[$0] }
+                guard lot?.productID == product.id || matchingProduct(for: bag.productName)?.id == product.id else {
+                    continue
+                }
+                let variant = lot?.variantID.flatMap { variantID in
+                    product.variants.first {
+                        $0.id == variantID || $0.id.hasSuffix("/\(variantID)") || variantID.hasSuffix("/\($0.id)")
+                    }
+                }
+                let unitGrams = max(variant?.weightGrams ?? product.defaultVariant?.weightGrams ?? bag.initialQuantityGrams, 1)
+                bagCounts[product.id, default: 0] += max(1, Int(ceil(bag.remainingQuantityGrams / unitGrams)))
+            }
+        }
+
+        cachedHomeBagCounts = bagCounts
+        cachedHomePurchasedCoffeeProducts = orderedCoffee.filter { bagCounts[$0.id, default: 0] > 0 }
     }
 
     var homeFreshRoastProducts: [Product] {

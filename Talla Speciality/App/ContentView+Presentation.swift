@@ -148,6 +148,18 @@ extension ContentView {
             syncWidgetSharedState(reload: true)
         }
         .task {
+            refreshHomeShelfCache()
+        }
+        .onChange(of: coffeeData.changeToken) { _, _ in
+            refreshHomeShelfCache()
+        }
+        .onChange(of: lastProductsRefreshAt) { _, _ in
+            refreshHomeShelfCache()
+        }
+        .onChange(of: orderHistory.count) { _, _ in
+            refreshHomeShelfCache()
+        }
+        .task {
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(nanoseconds: 30_000_000_000)

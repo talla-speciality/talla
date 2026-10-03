@@ -149,6 +149,8 @@ struct ContentView: View {
     @State var isFavoriteShelfPresented = false
     @State var isHomeShelfExpanded = false
     @State var isHomeMoreExpanded = false
+    @State var cachedHomePurchasedCoffeeProducts: [Product] = []
+    @State var cachedHomeBagCounts: [String: Int] = [:]
     @State var voucherCodeInput = ""
     @State var appliedVoucher: VoucherRecord?
     @State var isApplyingVoucher = false
