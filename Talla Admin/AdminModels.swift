@@ -15,6 +15,7 @@ struct AdminOrder: Codable, Identifiable, Hashable {
     let payment: AdminOrderPayment?
     var supportCase: AdminSupportCase? = nil
     let coffeeClub: AdminCoffeeClub?
+    var cafePass: AdminCafePass? = nil
     let source: String?
     let updatedAt: String?
 
@@ -31,6 +32,22 @@ struct AdminOrder: Codable, Identifiable, Hashable {
         )
     }
     var isActive: Bool { !isCancelled && !isCompleted }
+}
+
+struct AdminCafePass: Codable, Hashable {
+    let creditCount: Int
+    let redeemedCredits: Int
+    let drinkName: String
+    let status: String
+    let activatedAt: String?
+    let expiresAt: String?
+    let redemptions: [AdminCafePassRedemption]
+    var remainingCredits: Int { max(0, creditCount - redeemedCredits) }
+}
+
+struct AdminCafePassRedemption: Codable, Hashable {
+    let redeemedAt: String
+    let redeemedBy: String
 }
 
 struct AdminCoffeeClub: Codable, Hashable {

@@ -74,6 +74,9 @@ function createAdminOrderDetailService(dependencies) {
         })).filter((item) => item.coffeeName || item.variantId);
         const firstCoffeeItem = coffeeItems[0] || { coffeeName: null, variantId: null };
         return {
+            planType: ["beans", "drip-bags", "filters", "seasonal-box"].includes(String(value.planType || "").toLowerCase())
+                ? String(value.planType).toLowerCase()
+                : "beans",
             shipmentCount,
             intervalWeeks,
             discountPercent: Math.max(0, Math.min(100, Math.round(Number(value.discountPercent) || 0))),
@@ -245,6 +248,24 @@ function createAdminOrderDetailService(dependencies) {
         const tracking = details.tracking && typeof details.tracking === "object" ? details.tracking : {};
         const supportCase = details.supportCase && typeof details.supportCase === "object" ? details.supportCase : {};
         const coffeeClub = normalizeCoffeeClub(details.coffeeClub);
+        const rawCafePass = details.cafePass && typeof details.cafePass === "object" ? details.cafePass : null;
+        const cafePassExpiry = rawCafePass ? validISODate(rawCafePass.expiresAt) : "";
+        const cafePassStatus = rawCafePass && String(rawCafePass.status || "").toLowerCase() === "active"
+            && cafePassExpiry && Date.parse(cafePassExpiry) <= Date.now() ? "expired"
+            : String(rawCafePass?.status || "").toLowerCase();
+        const cafePass = rawCafePass ? {
+            creditCount: 20,
+            redeemedCredits: Math.max(0, Math.min(20, Math.round(Number(rawCafePass.redeemedCredits) || 0))),
+            drinkName: trimText(rawCafePass.drinkName, 180),
+            status: ["pending_payment", "active", "expired", "exhausted"].includes(cafePassStatus)
+                ? cafePassStatus : "pending_payment",
+            activatedAt: validISODate(rawCafePass.activatedAt) || null,
+            expiresAt: cafePassExpiry || null,
+            redemptions: (Array.isArray(rawCafePass.redemptions) ? rawCafePass.redemptions : []).slice(-20).map((entry) => ({
+                redeemedAt: validISODate(entry?.redeemedAt),
+                redeemedBy: trimText(entry?.redeemedBy, 120)
+            }))
+        } : null;
         return {
             source: trimText(details.source, 60),
             customer: {
@@ -280,7 +301,8 @@ function createAdminOrderDetailService(dependencies) {
                 createdAt: trimText(supportCase.createdAt, 40),
                 updatedAt: trimText(supportCase.updatedAt, 40)
             },
-            coffeeClub
+            coffeeClub,
+            cafePass
         };
     }
 
@@ -402,6 +424,7 @@ function createAdminOrderDetailService(dependencies) {
                 notes: fulfillment.notes || preferredAddress.notes || ""
             },
             coffeeClub: snapshot.coffeeClub,
+            cafePass: snapshot.cafePass,
             supportCase: snapshot.supportCase,
             payment,
             source: snapshot.source || (String(order.id).startsWith("shopify_") ? "Shopify" : "Talla app")

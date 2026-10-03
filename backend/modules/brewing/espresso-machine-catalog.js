@@ -1,7 +1,6 @@
 const espressoMachineCatalog = [
     { id: "decent-de1", name: "Decent DE1 / DE1XL", manufacturer: "Decent Espresso", supportLevel: "officialCompanionApp", accessMode: "readOnly", streams: ["pressure", "flow", "temperature"], notes: "Read-only telemetry through a local Decaid gateway." },
     { id: "linea-mini", name: "La Marzocco Linea Mini / Mini R", manufacturer: "La Marzocco", supportLevel: "officialCompanionApp", accessMode: "officialControl", streams: ["temperature"] },
-    { id: "home-connect-coffee", name: "Home Connect coffee machines", manufacturer: "BSH Home Connect", supportLevel: "officialCloudAPI", accessMode: "officialControl", streams: ["temperature"] },
     { id: "jura-smart-connect", name: "JURA Smart Connect / Wi-Fi Connect", manufacturer: "JURA", supportLevel: "officialCompanionApp", accessMode: "officialControl", streams: ["temperature"] },
     { id: "victoria-arduino-e1-prima", name: "Victoria Arduino E1 Prima", manufacturer: "Victoria Arduino", supportLevel: "officialCompanionApp", accessMode: "officialControl", streams: ["temperature"] },
     { id: "acaia-lunar-pearl", name: "Acaia Lunar / Pearl", manufacturer: "Acaia", supportLevel: "officialSDK", accessMode: "readOnly", streams: ["flow"] },

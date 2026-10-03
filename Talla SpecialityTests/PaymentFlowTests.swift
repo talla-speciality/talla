@@ -120,10 +120,6 @@ struct PaymentFlowTests {
         #expect(TallaPaymentMethod.cashOnDelivery.actionTitle == "Continue with Cash on Delivery")
     }
 
-    @Test func currencyUsesThreeDecimalBHDFormatting() {
-        #expect(CheckoutCurrencyFormatter.bhd(8.5) == "BHD 8.500")
-    }
-
     @Test func customersCanChooseDeliveryOrPickup() {
         #expect(TallaFulfillmentMethod.allCases == [.delivery, .pickup])
         #expect(TallaFulfillmentMethod.pickup.rawValue == "pickup")

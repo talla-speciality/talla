@@ -373,6 +373,7 @@ struct OrderDetailView: View {
                     VStack(spacing: 16) {
                         overview(order)
                         if order.coffeeClub != nil { coffeeClubSection(order) }
+                        if order.cafePass != nil { cafePassSection(order) }
                         customerSection(order)
                         fulfillmentSection(order)
                         paymentSection(order)
@@ -701,6 +702,28 @@ struct OrderDetailView: View {
                         isUpdatingShipment = false
                     }
                 }
+            }
+        }
+    }
+
+    private func cafePassSection(_ order: AdminOrder) -> some View {
+        AdminDetailCard(title: "Daily cup café pass", icon: "cup.and.saucer.fill") {
+            if let pass = order.cafePass {
+                detailRow("Drink", pass.drinkName)
+                detailRow("Credits", "\(pass.remainingCredits) of \(pass.creditCount) remaining")
+                detailRow("Status", pass.status.replacingOccurrences(of: "_", with: " ").capitalized)
+                if let expiresAt = pass.expiresAt, let date = ISO8601DateFormatter().date(from: expiresAt) {
+                    detailRow("Valid until", date.formatted(date: .abbreviated, time: .shortened))
+                }
+                Button {
+                    Task { await session.redeemCafePass(order) }
+                } label: {
+                    Label("Redeem one drink", systemImage: "checkmark.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(TallaAdminStyle.caramel)
+                .disabled(pass.status != "active" || pass.remainingCredits == 0)
             }
         }
     }

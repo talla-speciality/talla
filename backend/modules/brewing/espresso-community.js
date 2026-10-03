@@ -61,23 +61,4 @@ function normalizeRoasterRecipe(body, publisherEmail) {
     };
 }
 
-function visibleCommunity(store, ownerEmail, equipment) {
-    const matchesEquipment = (item) => !equipment
-        || item.machine === equipment
-        || item.equipment === equipment
-        || item.profile?.machine === equipment
-        || (item.equipmentTags || []).includes(equipment)
-        || (item.profile?.equipmentTags || []).includes(equipment);
-    return {
-        profiles: (Array.isArray(store.profiles) ? store.profiles : [])
-            .filter((item) => (item.status === "approved" && matchesEquipment(item)) || item.ownerEmail === ownerEmail),
-        roasterRecipes: (Array.isArray(store.roasterRecipes) ? store.roasterRecipes : [])
-            .filter((item) => item.status === "approved"),
-        startingPoints: (Array.isArray(store.startingPoints) ? store.startingPoints : [])
-            .filter(matchesEquipment),
-        videoAssessments: (Array.isArray(store.videoAssessments) ? store.videoAssessments : [])
-            .filter((item) => item.ownerEmail === ownerEmail)
-    };
-}
-
-module.exports = { normalizeProfile, normalizeRoasterRecipe, visibleCommunity };
+module.exports = { normalizeProfile, normalizeRoasterRecipe };

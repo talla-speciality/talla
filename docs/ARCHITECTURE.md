@@ -6,12 +6,12 @@ The iOS and backend entry points are composition roots. They may assemble depend
 
 | Domain | Apple client | Backend |
 | --- | --- | --- |
-| Commerce | `Talla Speciality/Modules/Commerce` | `backend/modules/commerce` |
-| Brewing | `Talla Speciality/Modules/Brewing` | `backend/modules/brewing` |
-| Espresso | `Talla Speciality/Modules/Espresso` | Brew and sample sync contracts in `backend/modules/brewing` |
-| Loyalty | `Talla Speciality/Modules/Loyalty` | `backend/modules/loyalty` |
-| Account | `Talla Speciality/Modules/Account` | `backend/modules/account` |
-| Observability | `Talla Speciality/Modules/Observability` | `backend/modules/observability` |
+| Commerce | `Talla Speciality/Features/Commerce` | `backend/modules/commerce` |
+| Brewing | `Talla Speciality/Features/Brewing` | `backend/modules/brewing` |
+| Espresso | `Talla Speciality/Features/Espresso` | Brew and sample sync contracts in `backend/modules/brewing` |
+| Loyalty | `Talla Speciality/Features/Loyalty` | `backend/modules/loyalty` |
+| Account | `Talla Speciality/Features/Account` | `backend/modules/account` |
+| Observability | `Talla Speciality/Services/Observability` | `backend/modules/observability` |
 
 `ContentView.swift` owns the app shell and shared navigation state. Its feature screens and services live in the directories above. `BrewingSectionView.swift` owns the brewing navigation shell; setup, recipe building, guided runs, runtime support, and espresso profiles are separate files.
 

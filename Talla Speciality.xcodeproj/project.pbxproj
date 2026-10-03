@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E08588462FD94DB8003B3E9D /* CoffeeConciergeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E08588452FD94DB8003B3E9D /* CoffeeConciergeService.swift */; };
 		E08588482FD95597003B3E9D /* TallaAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E08588472FD95597003B3E9D /* TallaAppIntents.swift */; };
 		E085884A2FD9583B003B3E9D /* TallaWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = E08588492FD9583B003B3E9D /* TallaWidgets.swift */; };
 		E08588522FD959E3003B3E9D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E08588512FD959E3003B3E9D /* WidgetKit.framework */; };
@@ -140,7 +139,6 @@
 
 /* Begin PBXFileReference section */
 		E06853D1300593D700D7DBC3 /* Talla WidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Talla WidgetsExtension.entitlements"; sourceTree = "<group>"; };
-		E08588452FD94DB8003B3E9D /* CoffeeConciergeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoffeeConciergeService.swift; sourceTree = "<group>"; };
 		E08588472FD95597003B3E9D /* TallaAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TallaAppIntents.swift; sourceTree = "<group>"; };
 		E08588492FD9583B003B3E9D /* TallaWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TallaWidgets.swift; sourceTree = "<group>"; };
 		E085884F2FD959E3003B3E9D /* Talla WidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Talla WidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -366,7 +364,6 @@
 				E09687DB3007968C001FBDAD /* Talla Watch Widgets */,
 				E08588502FD959E3003B3E9D /* Frameworks */,
 				E08D10AA2F66FF140092272C /* Products */,
-				E08588452FD94DB8003B3E9D /* CoffeeConciergeService.swift */,
 				E08588472FD95597003B3E9D /* TallaAppIntents.swift */,
 				E08588492FD9583B003B3E9D /* TallaWidgets.swift */,
 				E0130FB9306A532700C7D606 /* Recovered References */,
@@ -769,7 +766,6 @@
 			files = (
 				E085884A2FD9583B003B3E9D /* TallaWidgets.swift in Sources */,
 				E08588482FD95597003B3E9D /* TallaAppIntents.swift in Sources */,
-				E08588462FD94DB8003B3E9D /* CoffeeConciergeService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

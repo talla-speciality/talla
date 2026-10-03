@@ -211,7 +211,7 @@ test("Coffee Club rejects non-coffee products, vouchers, cash on delivery, and i
             16.8,
             { coffeeClub, voucherCode: "BAG" }
         ), "customer@example.com"),
-        (error) => error.code === "COFFEE_CLUB_VOUCHER_UNSUPPORTED"
+        (error) => error.code === "PREPAID_VOUCHER_UNSUPPORTED"
     );
     await assert.rejects(
         service({ nodes: [coffee] })(body(
@@ -265,13 +265,13 @@ test("GCC delivery uses verified Shopify weights and the configured tier", async
     const verify = service({ nodes: [node(coffeeID, "4.500")] });
     const result = await verify(body(
         [{ variantId: coffeeID, quantity: 3 }],
-        20,
+        21.35,
         { fulfillment: { countryCode: "SA" } }
     ), "customer@example.com");
 
-    assert.equal(result.subtotal, 13.5);
+    assert.equal(result.subtotal, 14.85);
     assert.equal(result.shipping, 6.5);
-    assert.equal(result.total, 20);
+    assert.equal(result.total, 21.35);
 });
 
 test("unavailable inventory is rejected", async () => {

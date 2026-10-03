@@ -1,8 +1,7 @@
 const { snapshotCheckoutOptions } = require("../commerce/order-item-options");
 const { createEducationContentStore } = require("./education-content");
-const { normalizeProfile, normalizeRoasterRecipe, visibleCommunity } = require("../brewing/espresso-community");
+const { normalizeProfile, normalizeRoasterRecipe } = require("../brewing/espresso-community");
 const { espressoMachineCatalog } = require("../brewing/espresso-machine-catalog");
-const { createHomeConnectAdapter, openSecret, randomState, sealSecret } = require("../brewing/home-connect-adapter");
 const path = require("path");
 module.exports = function createServer(dependencies) {
     const {
@@ -154,10 +153,6 @@ module.exports = function createServer(dependencies) {
         customerLibraryStorePath,
         communityRecipesStorePath,
         espressoCommunityStorePath,
-        homeConnectTokensStorePath,
-        homeConnectClientID,
-        homeConnectClientSecret,
-        homeConnectRedirectURI,
         cuppingRecordsStorePath,
         customerPhoneForShopifyOrder,
         customerTokenHours,
@@ -468,6 +463,7 @@ module.exports = function createServer(dependencies) {
         updateOrderStatusAndAward,
         updateOrderStatusByID,
         updateCoffeeClubShipmentByID,
+        redeemCafePassByOrderID,
         updateOrderStatusRecord,
         updateShopifyAdminProduct,
         updateShopifyProductInventory,
@@ -1526,6 +1522,29 @@ module.exports = function createServer(dependencies) {
             } catch (error) {
                 sendJSON(response, 400, { error: "Invalid order update payload." });
             }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/orders/cafe-pass/redeem") {
+            try {
+                const body = await readBody(request);
+                const orderID = String(body.orderID || body.id || "").trim();
+                if (!orderID) { sendJSON(response, 400, { error: "Provide an orderID." }); return; }
+                const result = await redeemCafePassByOrderID(orderID, admin.username);
+                if (!result.order) {
+                    const errors = {
+                        not_found: [404, "Order not found."], not_pass: [409, "This order has no café pass."],
+                        unpaid: [409, "The café pass is not paid yet."], inactive: [410, "The café pass has expired or is inactive."],
+                        exhausted: [409, "All café pass drinks have been redeemed."]
+                    };
+                    const [statusCode, message] = errors[result.reason] || [400, "Unable to redeem café pass credit."];
+                    sendJSON(response, statusCode, { error: message }); return;
+                }
+                const pass = result.order.cafePass;
+                await createAdminAuditLog({ adminUser: admin.username, action: "cafe_pass_redeemed", targetEmail: result.order.email,
+                    detail: `Café pass credit redeemed for order ${orderID}`, metadata: { orderID, redeemedCredits: pass.redeemedCredits } });
+                sendJSON(response, 200, { order: result.order, orders: await allOrdersPayload() });
+            } catch (error) { sendJSON(response, 400, { error: "Invalid café pass redemption request." }); }
             return;
         }
 
@@ -4700,153 +4719,6 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
-    if (request.method === "GET" && url.pathname === "/integrations/home-connect/authorize") {
-        const authenticated = parseAuthenticatedCustomer(request, response);
-        if (!authenticated) return;
-        const customer = await resolveCustomerSession(authenticated, response);
-        if (!customer) return;
-        if (!homeConnectClientID || !homeConnectClientSecret || !homeConnectRedirectURI || !customerTokenSecret) {
-            sendJSON(response, 503, { error: "Home Connect integration is not configured." });
-            return;
-        }
-        const state = randomState();
-        const stateHash = crypto.createHash("sha256").update(state).digest("hex");
-        const store = readJSON(homeConnectTokensStorePath);
-        store.states = (Array.isArray(store.states) ? store.states : []).filter((item) => new Date(item.expiresAt).getTime() > Date.now());
-        store.states.push({ stateHash, email: customer.email, expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
-        writeJSON(homeConnectTokensStorePath, store);
-        const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
-        sendJSON(response, 200, { authorizationURL: adapter.authorizationURL(state), expiresInSeconds: 600 });
-        return;
-    }
-
-    // Home Connect requires an HTTPS redirect URI. Keep this endpoint public,
-    // then hand the short-lived code/state back to the signed-in native app.
-    if (request.method === "GET" && url.pathname === "/integrations/home-connect/redirect") {
-        const callback = new URL("talla://home-connect/callback");
-        for (const name of ["code", "state", "error", "error_description"]) {
-            const value = trimText(url.searchParams.get(name), 4096);
-            if (value) callback.searchParams.set(name, value);
-        }
-        response.writeHead(302, { Location: callback.toString(), "Cache-Control": "no-store" });
-        response.end();
-        return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/integrations/home-connect/callback") {
-        try {
-            const body = await readBody(request);
-            const authenticated = parseAuthenticatedCustomer(request, response);
-            if (!authenticated) return;
-            const customer = await resolveCustomerSession(authenticated, response);
-            if (!customer) return;
-            const code = trimText(body.code, 4096);
-            const stateHash = crypto.createHash("sha256").update(trimText(body.state, 4096)).digest("hex");
-            const store = readJSON(homeConnectTokensStorePath);
-            const stateIndex = (Array.isArray(store.states) ? store.states : []).findIndex((item) => item.stateHash === stateHash && item.email === customer.email && new Date(item.expiresAt).getTime() > Date.now());
-            if (!code || stateIndex < 0) { sendJSON(response, 400, { error: "Invalid or expired Home Connect authorization state." }); return; }
-            store.states.splice(stateIndex, 1);
-            const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
-            const token = await adapter.exchangeCode(code);
-            store.connections = store.connections && typeof store.connections === "object" ? store.connections : {};
-            store.connections[customer.email] = {
-                accessToken: sealSecret(token.accessToken, customerTokenSecret),
-                refreshToken: sealSecret(token.refreshToken, customerTokenSecret),
-                expiresAt: token.expiresAt,
-                scope: token.scope,
-                updatedAt: new Date().toISOString()
-            };
-            writeJSON(homeConnectTokensStorePath, store);
-            sendJSON(response, 200, { connected: true, expiresAt: token.expiresAt, scope: token.scope });
-        } catch (error) {
-            sendJSON(response, error.statusCode || 400, { error: "Home Connect authorization failed." });
-        }
-        return;
-    }
-
-    if (request.method === "GET" && url.pathname === "/integrations/home-connect/appliances") {
-        try {
-            const authenticated = parseAuthenticatedCustomer(request, response);
-            if (!authenticated) return;
-            const customer = await resolveCustomerSession(authenticated, response);
-            if (!customer) return;
-            const store = readJSON(homeConnectTokensStorePath);
-            const connection = store.connections?.[customer.email];
-            if (!connection) { sendJSON(response, 404, { error: "Home Connect is not connected." }); return; }
-            const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
-            let accessToken = openSecret(connection.accessToken, customerTokenSecret);
-            if (new Date(connection.expiresAt).getTime() <= Date.now() + 60_000) {
-                const token = await adapter.refresh(openSecret(connection.refreshToken, customerTokenSecret));
-                connection.accessToken = sealSecret(token.accessToken, customerTokenSecret);
-                connection.refreshToken = sealSecret(token.refreshToken, customerTokenSecret);
-                connection.expiresAt = token.expiresAt;
-                connection.scope = token.scope;
-                connection.updatedAt = new Date().toISOString();
-                writeJSON(homeConnectTokensStorePath, store);
-                accessToken = token.accessToken;
-            }
-            const payload = await adapter.listAppliances(accessToken);
-            sendJSON(response, 200, { appliances: payload?.data?.homeAppliances || payload?.homeAppliances || [] });
-        } catch (error) {
-            sendJSON(response, error.statusCode || 400, { error: "Home Connect appliance discovery failed." });
-        }
-        return;
-    }
-
-    const homeConnectEspressoMatch = request.method === "POST" && url.pathname.match(/^\/integrations\/home-connect\/appliances\/([^/]+)\/espresso$/);
-    if (homeConnectEspressoMatch) {
-        try {
-            const authenticated = parseAuthenticatedCustomer(request, response);
-            if (!authenticated) return;
-            const customer = await resolveCustomerSession(authenticated, response);
-            if (!customer) return;
-            const body = await readBody(request);
-            const store = readJSON(homeConnectTokensStorePath);
-            const connection = store.connections?.[customer.email];
-            if (!connection) { sendJSON(response, 404, { error: "Home Connect is not connected." }); return; }
-            if (!/(^| )(CoffeeMaker|CoffeeMaker-Control|Control)( |$)/.test(connection.scope || "")) {
-                sendJSON(response, 403, { error: "Home Connect control permission was not granted." });
-                return;
-            }
-            const adapter = createHomeConnectAdapter({ clientID: homeConnectClientID, clientSecret: homeConnectClientSecret, redirectURI: homeConnectRedirectURI });
-            let accessToken = openSecret(connection.accessToken, customerTokenSecret);
-            if (new Date(connection.expiresAt).getTime() <= Date.now() + 60_000) {
-                const token = await adapter.refresh(openSecret(connection.refreshToken, customerTokenSecret));
-                connection.accessToken = sealSecret(token.accessToken, customerTokenSecret);
-                connection.refreshToken = sealSecret(token.refreshToken, customerTokenSecret);
-                connection.expiresAt = token.expiresAt;
-                connection.scope = token.scope;
-                connection.updatedAt = new Date().toISOString();
-                writeJSON(homeConnectTokensStorePath, store);
-                accessToken = token.accessToken;
-            }
-            const statusPayload = await adapter.getStatus(accessToken, homeConnectEspressoMatch[1]);
-            const statusItems = statusPayload?.data?.items || statusPayload?.items || [];
-            const status = Object.fromEntries(statusItems.map((item) => [item.key, item.value]));
-            if (status["BSH.Common.Status.RemoteControlActive"] !== true || status["BSH.Common.Status.RemoteControlStartAllowed"] !== true || status["BSH.Common.Status.LocalControlActive"] === true || status["BSH.Common.Status.OperationState"] !== "BSH.Common.EnumType.OperationState.Ready") {
-                sendJSON(response, 409, { error: "Remote start is not currently allowed by the appliance." });
-                return;
-            }
-            await adapter.setPowerState(accessToken, homeConnectEspressoMatch[1], "BSH.Common.EnumType.PowerState.On");
-            await adapter.startEspresso(accessToken, homeConnectEspressoMatch[1], body);
-            sendJSON(response, 202, { accepted: true, applianceID: homeConnectEspressoMatch[1], program: "espresso" });
-        } catch (error) {
-            sendJSON(response, error.statusCode || 400, { error: "Home Connect espresso start failed." });
-        }
-        return;
-    }
-
-    if (request.method === "GET" && url.pathname === "/community/espresso") {
-        const authenticated = parseAuthenticatedCustomer(request, response);
-        if (!authenticated) return;
-        const customer = await resolveCustomerSession(authenticated, response);
-        if (!customer) return;
-        const store = readJSON(espressoCommunityStorePath);
-        const equipment = trimText(url.searchParams.get("equipment"), 120);
-        sendJSON(response, 200, visibleCommunity(store, customer.email, equipment));
-        return;
-    }
-
     if (request.method === "POST" && url.pathname === "/community/espresso/profiles") {
         try {
             const body = await readBody(request);
@@ -5153,7 +5025,7 @@ module.exports = function createServer(dependencies) {
                     gift: gift && (gift.recipientName || gift.recipientPhone || gift.message) ? gift : null,
                     coffeeClub: verifiedPricing?.coffeeClub ? {
                         ...verifiedPricing.coffeeClub,
-                        coffeeItems: items.map((item) => ({
+                        coffeeItems: verifiedPricing.coffeeClubItems || items.map((item) => ({
                             coffeeName: item.name,
                             variantId: item.variantId,
                             quantity: Math.max(1, Math.round(Number(item.quantity) || 1))
@@ -5161,6 +5033,14 @@ module.exports = function createServer(dependencies) {
                         startedAt: createdAt,
                         termsAcceptedAt: createdAt,
                         status: "active"
+                    } : null,
+                    cafePass: verifiedPricing?.cafePass ? {
+                        ...verifiedPricing.cafePass,
+                        creditCount: 20,
+                        redeemedCredits: 0,
+                        status: "pending_payment",
+                        expiresAt: null,
+                        redemptions: []
                     } : null
                 }),
                 createdAt

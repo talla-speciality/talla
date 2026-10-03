@@ -131,6 +131,13 @@ struct AdminAPI {
         return try await orders()
     }
 
+    func redeemCafePass(orderID: String) async throws -> [AdminOrder] {
+        let data = try await request("/admin/api/orders/cafe-pass/redeem", method: "POST", body: ["orderID": orderID])
+        let response = try JSONDecoder().decode(AdminStatusUpdateResponse.self, from: data)
+        if let updatedOrders = response.orders { return updatedOrders }
+        return try await orders()
+    }
+
     func notifyReady(orderID: String) async throws -> AdminPushDeliveryResult {
         let data = try await request("/admin/api/orders/notify-ready", method: "POST", body: ["orderID": orderID])
         return try JSONDecoder().decode(AdminNotifyReadyResponse.self, from: data).push

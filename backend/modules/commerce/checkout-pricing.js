@@ -94,6 +94,8 @@ function isCoffeeBag(node) {
     const source = [title, productType, ...tags]
         .map((value) => String(value || "").trim().toLowerCase())
         .join(" ");
+    const isDripBag = handles.includes("drip-bags") || /drip[- ]bags?/.test(source);
+    if (isDripBag) return true;
     const isAccessory = /(?:scale|server|spoon|doser|dripper|filter|grinder|kettle|equipment|accessor|mug|cup|water|gift|box|bundle)/.test(source);
 
     return !isAccessory && (handles.some((handle) => ["coffee-beans", "arabic-coffee-beans"].includes(handle))
@@ -101,6 +103,26 @@ function isCoffeeBag(node) {
         || ["coffee", "coffee beans", "coffee-beans", "arabic coffee", "arabic coffee beans", "arabic-coffee-beans", "beans"]
             .some((value) => tags.some((tag) => String(tag).trim().toLowerCase() === value))
         || /(?:coffee|espresso|roast|roasted|single[- ]origin|decaf|qahwa|gahwa|shamali|northern coffee)/.test(source));
+}
+
+function isCoffeeFilterPack(node) {
+    const handles = (node?.product?.collections?.nodes || [])
+        .map((collection) => String(collection?.handle || "").trim().toLowerCase());
+    const source = [node?.product?.title, node?.product?.productType, ...(node?.product?.tags || [])]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .join(" ");
+    return (handles.includes("coffee-equipment") || /coffee equipment/.test(source))
+        && /(?:v60|aeropress|kalita|chemex|coffee).{0,24}filters?|filters?.{0,24}(?:v60|aeropress|kalita|chemex|coffee)/.test(source);
+}
+
+function isSeasonalDiscoveryBox(node) {
+    const handles = (node?.product?.collections?.nodes || [])
+        .map((collection) => String(collection?.handle || "").trim().toLowerCase());
+    const source = [node?.product?.title, node?.product?.productType, ...(node?.product?.tags || [])]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .join(" ");
+    return handles.includes("gifts")
+        && /(?:box|discovery|seasonal|صندوق|علبة)/.test(source);
 }
 
 function normalizeCoffeeClub(value, settings = {}) {
@@ -111,16 +133,23 @@ function normalizeCoffeeClub(value, settings = {}) {
     }
     const shipmentCount = Number(value?.shipmentCount);
     const intervalWeeks = Number(value?.intervalWeeks);
+    const planType = String(value?.planType || "beans").trim().toLowerCase();
     const configuredShipmentCount = Number(configured.shipmentCount) || 3;
     const configuredIntervalWeeks = Number(configured.intervalWeeks) || 4;
     const discountPercent = Number(configured.discountPercent);
-    if (shipmentCount !== configuredShipmentCount || intervalWeeks !== configuredIntervalWeeks) {
+    const expectedIntervalWeeks = planType === "drip-bags" ? 1
+        : planType === "filters" ? 12
+            : planType === "seasonal-box" ? 13 : configuredIntervalWeeks;
+    if (!["beans", "drip-bags", "filters", "seasonal-box"].includes(planType)
+        || shipmentCount !== configuredShipmentCount
+        || intervalWeeks !== expectedIntervalWeeks) {
         fail("COFFEE_CLUB_INVALID", 400, "The Coffee Club plan changed. Refresh your bag and review it again.");
     }
     if (value?.termsAccepted !== true) {
         fail("COFFEE_CLUB_TERMS_REQUIRED", 409, "Accept the Coffee Club prepaid plan terms before checkout.");
     }
     return {
+        ...(planType !== "beans" ? { planType } : {}),
         shipmentCount,
         intervalWeeks,
         discountPercent: Number.isFinite(discountPercent) ? Math.max(0, Math.min(30, discountPercent)) : 10
@@ -192,7 +221,13 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
     return async function verifyCheckoutPricing(body, email) {
         const submitted = normalizeSubmittedItems(body?.items);
         const settings = appSettings();
+        const submittedCountryCode = String(body?.fulfillment?.countryCode || "").trim().toUpperCase();
+        const customerPriceMultiplier = submittedCountryCode && submittedCountryCode !== "BH" ? 1.10 : 1;
         const coffeeClub = normalizeCoffeeClub(body?.coffeeClub, settings);
+        const cafePass = body?.cafePass == null ? null : body.cafePass;
+        if (cafePass && (cafePass.termsAccepted !== true || Number(cafePass.creditCount) !== 20 || coffeeClub)) {
+            fail("CAFE_PASS_INVALID", 400, "The café pass terms changed. Refresh checkout and try again.");
+        }
         let data;
         try {
             data = await shopifyAdminGraphQLRequest(
@@ -217,7 +252,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
         const lines = submitted.map((line) => {
             const node = nodes.get(line.variantId);
             if (!node) fail("CHECKOUT_PRODUCT_NOT_FOUND", 409, "A product in your bag is no longer available.");
-            const requiredQuantity = line.quantity * (coffeeClub?.shipmentCount || 1);
+            const requiredQuantity = line.quantity * (coffeeClub?.shipmentCount || (cafePass ? 20 : 1));
             if (node.availableForSale === false
                 || (String(node.inventoryPolicy).toUpperCase() === "DENY"
                     && Number.isFinite(Number(node.inventoryQuantity))
@@ -228,21 +263,33 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 ...line,
                 name: String(node.displayName || "Item").trim().slice(0, 180) || "Item",
                 ...orderItemOptions({ productTitle: node.product?.title, variantTitle: node.title, selectedOptions: node.selectedOptions }),
-                unitPriceFils: toFils(node.price),
+                unitPriceFils: Math.round(toFils(node.price) * customerPriceMultiplier),
                 requiresShipping: node.inventoryItem?.requiresShipping !== false,
                 weightGrams: weightInGrams(node.inventoryItem?.measurement?.weight),
                 eligibleDrink: isEligibleDrink(node),
                 pickupOnly: isPickupOnly(node),
-                coffeeBag: isCoffeeBag(node)
+                coffeeBag: isCoffeeBag(node),
+                coffeeFilterPack: isCoffeeFilterPack(node),
+                seasonalBox: isSeasonalDiscoveryBox(node),
+                dripBag: /drip[- ]bags?/i.test([node.product?.title, node.product?.productType, ...(node.product?.tags || [])].join(" "))
+                    || (node.product?.collections?.nodes || []).some((collection) => String(collection?.handle || "").trim().toLowerCase() === "drip-bags")
             };
         });
-        if (coffeeClub && !lines.every((line) => line.coffeeBag)) {
-            fail("COFFEE_CLUB_ITEMS_INVALID", 409, "Coffee Club can contain coffee bags only.");
+        if ((coffeeClub && !lines.every((line) => line.coffeeBag || line.coffeeFilterPack || line.seasonalBox))
+            || coffeeClub?.planType === "drip-bags" && !lines.every((line) => line.dripBag)
+            || coffeeClub?.planType === "beans" && lines.some((line) => line.dripBag || line.coffeeFilterPack || line.seasonalBox)
+            || coffeeClub?.planType === "drip-bags" && lines.some((line) => line.coffeeFilterPack || line.seasonalBox)
+            || coffeeClub?.planType === "filters" && !lines.every((line) => line.coffeeFilterPack)
+            || coffeeClub?.planType === "seasonal-box" && !lines.every((line) => line.seasonalBox)) {
+            fail("COFFEE_CLUB_ITEMS_INVALID", 409, "Choose only products that match this prepaid plan.");
+        }
+        if (cafePass && (lines.length !== 1 || lines[0].quantity !== 1 || !lines[0].eligibleDrink)) {
+            fail("CAFE_PASS_ITEMS_INVALID", 409, "A café pass must contain exactly one eligible ready-made drink.");
         }
         let voucher = null;
         const voucherCode = String(body?.voucherCode || "").trim().toUpperCase();
-        if (coffeeClub && voucherCode) {
-            fail("COFFEE_CLUB_VOUCHER_UNSUPPORTED", 409, "Coffee Club's 10% saving cannot be combined with another voucher.");
+        if ((coffeeClub || cafePass) && voucherCode) {
+            fail("PREPAID_VOUCHER_UNSUPPORTED", 409, "Prepaid Coffee Club and café pass purchases cannot be combined with another voucher.");
         }
         if (voucherCode) {
             try {
@@ -251,7 +298,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 throw voucherError(error);
             }
         }
-        const shipmentCount = coffeeClub?.shipmentCount || 1;
+        const shipmentCount = coffeeClub?.shipmentCount || (cafePass ? 20 : 1);
         const subtotalFils = lines.reduce((total, line) => total + line.unitPriceFils * line.quantity, 0) * shipmentCount;
         const discountFils = coffeeClub
             ? Math.round(subtotalFils * coffeeClub.discountPercent / 100)
@@ -266,6 +313,12 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
         }
         if (coffeeClub && String(body?.paymentMethod || "").trim().toLowerCase() === "cashondelivery") {
             fail("COFFEE_CLUB_PREPAYMENT_REQUIRED", 409, "Coffee Club must be paid in full before its first shipment.");
+        }
+        if (cafePass && String(body?.paymentMethod || "").trim().toLowerCase() === "cashondelivery") {
+            fail("CAFE_PASS_PREPAYMENT_REQUIRED", 409, "The café pass must be paid in full before it can be used.");
+        }
+        if (cafePass && fulfillmentMethod !== "pickup") {
+            fail("CAFE_PASS_PICKUP_ONLY", 409, "The café pass is for café pickup only.");
         }
         if (coffeeClub && fulfillmentMethod === "delivery" && countryCode !== "BH") {
             fail("COFFEE_CLUB_BAHRAIN_ONLY", 409, "Coffee Club delivery is currently available in Bahrain only.");
@@ -302,7 +355,13 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
             shipping: deliveryFils / 1000,
             total: totalFils / 1000,
             voucherCode: voucher?.code || null,
-            coffeeClub
+            coffeeClub,
+            cafePass: cafePass ? { creditCount: 20, drinkName: lines[0].name } : null,
+            coffeeClubItems: coffeeClub ? lines.map((line) => ({
+                    coffeeName: line.name,
+                    variantId: line.variantId,
+                    quantity: line.quantity
+                })) : null
         };
     };
 }

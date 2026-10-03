@@ -64,7 +64,6 @@ const tasteMemoryStorePath = config.stores.tasteMemory;
 const customerLibraryStorePath = config.stores.customerLibrary;
 const communityRecipesStorePath = config.stores.communityRecipes;
 const espressoCommunityStorePath = config.stores.espressoCommunity;
-const homeConnectTokensStorePath = config.stores.homeConnectTokens;
 const cuppingRecordsStorePath = config.stores.cuppingRecords;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
@@ -89,9 +88,6 @@ const webPushVapidSubject = config.webPushVapidSubject;
 const customerTokenSecret = config.customerTokenSecret;
 const customerTokenHours = config.customerTokenHours;
 const customerRefreshTokenDays = config.customerRefreshTokenDays;
-const homeConnectClientID = config.homeConnectClientID;
-const homeConnectClientSecret = config.homeConnectClientSecret;
-const homeConnectRedirectURI = config.homeConnectRedirectURI;
 const resendAPIKey = config.resendAPIKey;
 const emailFromAddress = config.emailFromAddress;
 const appleSignInClientID = config.appleSignInClientID;
@@ -213,7 +209,6 @@ ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(customerLibraryStorePath, { customerLibrary: {} });
 ensureStoreFile(communityRecipesStorePath, { recipes: [] });
 ensureStoreFile(espressoCommunityStorePath, { profiles: [], roasterRecipes: [], startingPoints: [], videoAssessments: [] });
-ensureStoreFile(homeConnectTokensStorePath, { connections: {}, states: [] });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
 ensureStoreFile(cardPaymentsStorePath, { payments: {} });
@@ -3794,6 +3789,49 @@ const { adminOrderDetailPayload, normalizeOrderDetails, shopifyAdminOrderDetails
 });
 
 const updateCoffeeClubShipmentByID = createCoffeeClubShipmentService({ adminOrderDetailPayload, database, findOrderByID, normalizeEmail, normalizeOrderDetails, orderRowToRecord, ordersStorePath, readJSON, updateCoffeeClubProgress, writeJSON }); const coffeeClubNotifications = createCoffeeClubNotificationService({ adminNativePushDevices, allOrdersPayload, apnsAdminBundleID, googleMobileServices, pushDevicesForEmail, remotePushConfigured, sendRemotePushToDevice, updateCoffeeClubShipmentByID });
+const cafePassLocks = new Map();
+async function redeemCafePassByOrderID(orderID, actor) {
+    const perform = async () => {
+        const now = new Date().toISOString();
+        if (database.isEnabled()) {
+            const client = await database.connect();
+            try {
+                await client.query("BEGIN");
+                const result = await client.query("SELECT id, email, title, total, status, items, details, created_at, updated_at FROM orders WHERE id = $1 FOR UPDATE", [orderID]);
+                if (!result.rowCount) { await client.query("ROLLBACK"); return { reason: "not_found" }; }
+                const order = orderRowToRecord(result.rows[0]);
+                const pass = order.details?.cafePass;
+                if (!pass) { await client.query("ROLLBACK"); return { reason: "not_pass" }; }
+                if (!new Set(["Confirmed", "Completed", "Fulfilled", "Delivered", "Ready"]).has(order.status)) { await client.query("ROLLBACK"); return { reason: "unpaid" }; }
+                if (pass.status !== "active" || !pass.expiresAt || Date.parse(pass.expiresAt) <= Date.parse(now)) { await client.query("ROLLBACK"); return { reason: "inactive" }; }
+                if (Number(pass.redeemedCredits) >= Number(pass.creditCount || 20)) { await client.query("ROLLBACK"); return { reason: "exhausted" }; }
+                const nextPass = { ...pass, redeemedCredits: Number(pass.redeemedCredits || 0) + 1, redemptions: [...(pass.redemptions || []), { redeemedAt: now, redeemedBy: actor }].slice(-20) };
+                if (nextPass.redeemedCredits >= Number(pass.creditCount || 20)) nextPass.status = "exhausted";
+                const details = { ...order.details, cafePass: nextPass };
+                const updated = await client.query("UPDATE orders SET details = $2::jsonb, updated_at = NOW() WHERE id = $1 RETURNING id, email, title, total, status, items, details, created_at, updated_at", [orderID, JSON.stringify(details)]);
+                await client.query("COMMIT");
+                return { order: await adminOrderDetailPayload({ ...orderRowToRecord(updated.rows[0]), email: normalizeEmail(updated.rows[0].email) }) };
+            } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+        }
+        const order = await findOrderByID(orderID);
+        if (!order) return { reason: "not_found" };
+        const pass = order.details?.cafePass;
+        if (!pass) return { reason: "not_pass" };
+        if (!new Set(["Confirmed", "Completed", "Fulfilled", "Delivered", "Ready"]).has(order.status)) return { reason: "unpaid" };
+        if (pass.status !== "active" || !pass.expiresAt || Date.parse(pass.expiresAt) <= Date.parse(now)) return { reason: "inactive" };
+        if (Number(pass.redeemedCredits) >= Number(pass.creditCount || 20)) return { reason: "exhausted" };
+        const store = readJSON(ordersStorePath); const orders = store.orders[order.email] || []; const index = orders.findIndex((entry) => entry.id === orderID);
+        if (index < 0) return { reason: "not_found" };
+        const nextPass = { ...pass, redeemedCredits: Number(pass.redeemedCredits || 0) + 1, redemptions: [...(pass.redemptions || []), { redeemedAt: now, redeemedBy: actor }].slice(-20) };
+        if (nextPass.redeemedCredits >= Number(pass.creditCount || 20)) nextPass.status = "exhausted";
+        orders[index] = { ...orders[index], details: { ...orders[index].details, cafePass: nextPass }, updatedAt: now };
+        store.orders[order.email] = orders; writeJSON(ordersStorePath, store);
+        return { order: await adminOrderDetailPayload({ ...orders[index], email: order.email }) };
+    };
+    const prior = cafePassLocks.get(orderID) || Promise.resolve();
+    const task = prior.then(perform); cafePassLocks.set(orderID, task);
+    try { return await task; } finally { if (cafePassLocks.get(orderID) === task) cafePassLocks.delete(orderID); }
+}
 const { sendStatusPush: sendCoffeeClubStatusPush, startReminderMonitor: startCoffeeClubReminderMonitor } = coffeeClubNotifications;
 function completedOrderStatuses() {
     return new Set(["Completed", "Fulfilled", "Delivered"]);
@@ -3846,6 +3884,7 @@ async function orderPayloadWithRewardState(email, order) {
     return {
         ...order,
         coffeeClub: normalizeOrderDetails(order.details).coffeeClub,
+        cafePass: normalizeOrderDetails(order.details).cafePass,
         beansAwarded,
         pointsAwarded: beansAwarded ? pointsAwarded : 0
     };
@@ -4918,6 +4957,7 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
     const order = payment ? await findOrderByID(payment.localOrderID) : null;
     const transaction = verifyConfirmedMpgsOrder(payment, order, gatewayOrder);
     const completedAt = new Date().toISOString();
+    const passExpiry = new Date(Date.parse(completedAt) + 30 * 86_400_000).toISOString();
 
     if (database.isEnabled()) {
         const client = await database.connect();
@@ -4951,10 +4991,11 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
             await client.query(
                 `UPDATE orders
                  SET status = CASE WHEN status IN ('Completed', 'Fulfilled', 'Delivered') THEN status ELSE 'Confirmed' END,
+                     details = CASE WHEN details ? 'cafePass' THEN jsonb_set(jsonb_set(jsonb_set(details, '{cafePass,status}', '"active"'::jsonb, true), '{cafePass,activatedAt}', to_jsonb($2::text), true), '{cafePass,expiresAt}', to_jsonb($3::text), true) ELSE details END,
                      updated_at = NOW()
                  WHERE id = $1
                  RETURNING id, email, title, total, status, items, details, created_at, updated_at`,
-                [lockedOrder.id]
+                [lockedOrder.id, completedAt, passExpiry]
             );
             await client.query(
                 `UPDATE card_payments
@@ -4994,6 +5035,7 @@ async function applyConfirmedMpgsPayment(paymentID, gatewayOrder) {
         orders[index] = {
             ...orders[index],
             status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Confirmed",
+            details: orders[index].details?.cafePass ? { ...orders[index].details, cafePass: { ...orders[index].details.cafePass, status: "active", activatedAt: completedAt, expiresAt: passExpiry } } : orders[index].details,
             updatedAt: completedAt
         };
         ordersStore.orders[storedPayment.email] = orders;
@@ -5736,6 +5778,7 @@ async function applyBenefitNotification(trackID, notification) {
     verifyBenefitNotification(payment, order, notification);
     const isCaptured = notification.result === "CAPTURED";
     const processedAt = new Date().toISOString();
+    const passExpiry = new Date(Date.parse(processedAt) + 30 * 86_400_000).toISOString();
 
     if (database.isEnabled()) {
         const client = await database.connect();
@@ -5777,10 +5820,11 @@ async function applyBenefitNotification(trackID, notification) {
                             WHEN status IN ('Completed', 'Fulfilled', 'Delivered') THEN status
                             ELSE 'Confirmed'
                          END,
+                         details = CASE WHEN details ? 'cafePass' THEN jsonb_set(jsonb_set(jsonb_set(details, '{cafePass,status}', '"active"'::jsonb, true), '{cafePass,activatedAt}', to_jsonb($2::text), true), '{cafePass,expiresAt}', to_jsonb($3::text), true) ELSE details END,
                          updated_at = NOW()
                      WHERE id = $1
                      RETURNING id`,
-                    [lockedOrder.id]
+                    [lockedOrder.id, processedAt, passExpiry]
                 );
                 award = { awarded: false, points: 0, reason: "MANUAL_COMPLETION_REQUIRED" };
                 await client.query(
@@ -5825,6 +5869,7 @@ async function applyBenefitNotification(trackID, notification) {
         orders[index] = {
             ...orders[index],
             status: completedOrderStatuses().has(orders[index].status) ? orders[index].status : "Confirmed",
+            details: orders[index].details?.cafePass ? { ...orders[index].details, cafePass: { ...orders[index].details.cafePass, status: "active", activatedAt: processedAt, expiresAt: passExpiry } } : orders[index].details,
             updatedAt: processedAt
         };
         ordersStore.orders[payment.email] = orders;
@@ -9103,10 +9148,6 @@ const server = createServer({
     customerLibraryStorePath,
     communityRecipesStorePath,
     espressoCommunityStorePath,
-    homeConnectTokensStorePath,
-    homeConnectClientID,
-    homeConnectClientSecret,
-    homeConnectRedirectURI,
     cuppingRecordsStorePath,
     customerPhoneForShopifyOrder,
     customerTokenHours,
@@ -9417,6 +9458,7 @@ const server = createServer({
     updateOrderStatusAndAward,
     updateOrderStatusByID,
     updateCoffeeClubShipmentByID,
+    redeemCafePassByOrderID,
     updateOrderStatusRecord,
     updateShopifyAdminProduct,
     updateShopifyProductInventory,

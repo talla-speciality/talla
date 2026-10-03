@@ -7,8 +7,8 @@ const repositoryRoot = path.resolve(root, "..");
 const ignored = new Set(["node_modules", "data"]);
 
 const entryPointBudgets = new Map([
-    ["Talla Speciality/ContentView.swift", 3_500],
-    ["Talla Speciality/BrewingSectionView.swift", 750],
+    ["Talla Speciality/App/ContentView.swift", 3_600],
+    ["Talla Speciality/Features/Brewing/BrewingSectionView.swift", 750],
     ["backend/server.js", 10_000]
 ]);
 

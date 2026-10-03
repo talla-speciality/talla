@@ -158,6 +158,20 @@ final class AdminSession: ObservableObject {
         }
     }
 
+    func redeemCafePass(_ order: AdminOrder) async {
+        message = nil
+        errorMessage = nil
+        do {
+            orders = try await api.redeemCafePass(orderID: order.id).sorted {
+                ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast)
+            }
+            let detailedOrder = try await api.orderDetail(id: order.id)
+            if let index = orders.firstIndex(where: { $0.id == order.id }) { orders[index] = detailedOrder }
+            lastRefreshAt = .now
+            if let pass = detailedOrder.cafePass { message = "Café pass: \(pass.remainingCredits) drinks remaining." }
+        } catch { handle(error) }
+    }
+
     func refreshOrderDetail(id: String) async {
         guard isAuthenticated else { return }
         do {
