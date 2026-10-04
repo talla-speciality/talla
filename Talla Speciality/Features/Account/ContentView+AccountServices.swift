@@ -1037,7 +1037,7 @@ extension ContentView {
     }
 
     @MainActor
-    func redeemReward(points: Int, reward: String) async {
+    func redeemReward(points: Int, rewardID: String, rewardTitle: String) async {
         let trimmedEmail = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmail.isEmpty else {
             loyaltyError = AppLocalization.text("enter_rewards_email_first", fallback: "Enter the email tied to your rewards account first.")
@@ -1048,13 +1048,13 @@ extension ContentView {
         loyaltyError = nil
 
         do {
-            loyaltyAccount = try await LoyaltyService.redeemReward(email: trimmedEmail, points: points, reward: reward)
+            loyaltyAccount = try await LoyaltyService.redeemReward(email: trimmedEmail, points: points, reward: rewardID)
             syncWidgetSharedState(reload: true)
             let voucherCode = loyaltyAccount?.transactions.first(where: { $0.type == "redeem" })?.voucherCode
             if let voucherCode, !voucherCode.isEmpty {
-                showToast(message: String(format: AppLocalization.text("reward_redeemed_with_code", fallback: "%@ redeemed • %@"), reward, voucherCode))
+                showToast(message: String(format: AppLocalization.text("reward_redeemed_with_code", fallback: "%@ redeemed • %@"), rewardTitle, voucherCode))
             } else {
-                showToast(message: String(format: AppLocalization.text("reward_redeemed", fallback: "%@ redeemed"), reward))
+                showToast(message: String(format: AppLocalization.text("reward_redeemed", fallback: "%@ redeemed"), rewardTitle))
             }
             await refreshWalletPassPresence()
         } catch {

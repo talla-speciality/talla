@@ -13,7 +13,7 @@ struct LoyaltyRewardsActionsView: View {
     let accentColor: Color
     let isLightAppearance: Bool
     let isRedeemingReward: Bool
-    let redeemAction: (Int, String) -> Void
+    let redeemAction: (Int, String, String) -> Void
 
     private struct RewardOption: Identifiable {
         let id: String
@@ -109,7 +109,7 @@ struct LoyaltyRewardsActionsView: View {
         let remaining = max(reward.points - account.pointsBalance, 0)
 
         return Button {
-            redeemAction(reward.points, reward.reward)
+            redeemAction(reward.points, reward.id, reward.title)
         } label: {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .top, spacing: 6) {

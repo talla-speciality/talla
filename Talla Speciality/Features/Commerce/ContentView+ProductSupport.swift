@@ -1292,9 +1292,9 @@ extension ContentView {
             accentColor: TallaTheme.Colors.accent,
             isLightAppearance: isLightAppearance,
             isRedeemingReward: isRedeemingReward,
-            redeemAction: { points, reward in
+            redeemAction: { points, rewardID, rewardTitle in
                 Task {
-                    await redeemReward(points: points, reward: reward)
+                    await redeemReward(points: points, rewardID: rewardID, rewardTitle: rewardTitle)
                 }
             }
         )
