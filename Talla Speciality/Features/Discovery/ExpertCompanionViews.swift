@@ -250,14 +250,43 @@ struct PrivacyControlsView: View {
     @AppStorage("privacy.community.sharing.optOut") private var communitySharingOptOut = false
 
     var body: some View {
-        Form {
-            Section("Controls") {
+        VStack(alignment: .leading, spacing: 18) {
+            privacySection("Controls") {
                 Toggle("Anonymous product analytics", isOn: Binding(get: { !analyticsOptOut }, set: { analyticsOptOut = !$0 })).tint(accent)
                 Toggle("Use taste profile for recommendations", isOn: Binding(get: { !personalizationOptOut }, set: { personalizationOptOut = !$0 })).tint(accent)
                 Toggle("Allow community recipe sharing", isOn: Binding(get: { !communitySharingOptOut }, set: { communitySharingOptOut = !$0 })).tint(accent)
             }
-            Section("How recommendations work") { Text("Talla ranks available products using your saved taste preferences, favorites, recent orders, coffee library matches, and availability. Turning off personalization removes taste-profile weighting from new recommendations.").foregroundStyle(secondary) }
-            Section("Your data") { Text("Brew sessions, cupping notes, and taste preferences remain local unless you are signed in and choose to sync them.").foregroundStyle(secondary); Button("Delete local expert data", role: .destructive) { UserDefaults.standard.removeObject(forKey: "talla.cupping.entries.v1"); UserDefaults.standard.removeObject(forKey: "talla.community.recipes.v1") } }
-        }.scrollContentBackground(.hidden).background(background).navigationTitle("Privacy & explanations")
+
+            privacySection("How recommendations work") {
+                Text("Talla ranks available products using your saved taste preferences, favorites, recent orders, coffee library matches, and availability. Turning off personalization removes taste-profile weighting from new recommendations.")
+                    .foregroundStyle(secondary)
+            }
+
+            privacySection("Your data") {
+                Text("Brew sessions, cupping notes, and taste preferences remain local unless you are signed in and choose to sync them.")
+                    .foregroundStyle(secondary)
+                Button("Delete local expert data", role: .destructive) {
+                    UserDefaults.standard.removeObject(forKey: "talla.cupping.entries.v1")
+                    UserDefaults.standard.removeObject(forKey: "talla.community.recipes.v1")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 12)
+        .background(background)
+        .navigationTitle("Privacy & explanations")
+    }
+
+    @ViewBuilder
+    private func privacySection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(primary)
+            VStack(alignment: .leading, spacing: 12, content: content)
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
     }
 }
