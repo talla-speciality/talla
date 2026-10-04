@@ -180,7 +180,7 @@ struct AdminContentView: View {
         defer { busy = false }
         do { document = try await session.api.document(area.endpoint); baseline = document }
         catch { handle(error); return }
-        if area == .home || area == .events {
+        if area == .home || area == .controls || area == .events {
             do { products = try await session.api.document("/admin/api/products?limit=250")["products"].array }
             catch { self.error = "Settings loaded, but products could not load: \(error.localizedDescription)" }
         }
