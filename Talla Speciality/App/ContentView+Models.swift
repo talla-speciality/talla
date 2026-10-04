@@ -190,6 +190,13 @@ extension ContentView {
             let showPassport: Bool
         }
 
+        struct AppFeatures: Decodable {
+            let showBrewingGuides: Bool
+            let showCommunityRecipes: Bool
+            let showEspressoWorkspace: Bool
+            let showGulfCoffeeMap: Bool
+        }
+
         struct Payments: Decodable {
             let applePayEnabled: Bool
             let benefitPayEnabled: Bool
@@ -312,6 +319,7 @@ extension ContentView {
         let announcement: Announcement
         let support: Support
         let homeSections: HomeSections
+        let appFeatures: AppFeatures?
         let payments: Payments?
         let coffeeClub: CoffeeClub?
         let coffeeMemory: CoffeeMemory?

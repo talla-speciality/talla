@@ -707,16 +707,18 @@ extension ContentView {
             .padding(.horizontal, 4)
 
             VStack(spacing: 12) {
-                NavigationLink {
-                    gulfCoffeeMapView
-                } label: {
-                    moreNavigationRow(
-                        title: "Gulf Coffee Map",
-                        detail: "Find cafés, roasters and places carrying Talla beans.",
-                        systemImage: "map.fill"
-                    )
+                if remoteAppSettings?.appFeatures?.showGulfCoffeeMap != false {
+                    NavigationLink {
+                        gulfCoffeeMapView
+                    } label: {
+                        moreNavigationRow(
+                            title: "Gulf Coffee Map",
+                            detail: "Find cafés, roasters and places carrying Talla beans.",
+                            systemImage: "map.fill"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Button {
                     accountScrollTarget = nil

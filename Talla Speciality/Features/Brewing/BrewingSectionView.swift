@@ -295,6 +295,9 @@ struct BrewingSectionView: View {
     let isCustomerSignedIn: Bool
     let coffeeMemoryEnabled: Bool
     let roastDateOCREnabled: Bool
+    let brewingGuidesEnabled: Bool
+    let communityRecipesEnabled: Bool
+    let espressoWorkspaceEnabled: Bool
     let primaryTextColor: Color
     let secondaryTextColor: Color
     let tertiaryTextColor: Color

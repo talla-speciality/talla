@@ -527,17 +527,21 @@ extension BrewingSectionView {
             brewingLinkedRow(title: AppLocalization.text("brew_coach", fallback: "Brew Coach"), detail: "Small adjustments for the next cup.", value: nil) {
                 activeDashboardDestination = .brewCoach
             }
-            brewDivider
-            brewingLinkedRow(title: "Espresso Workspace", detail: "Dial in and compare espresso shots.", value: nil) {
-                activeDashboardDestination = .espressoWorkspace
+            if espressoWorkspaceEnabled {
+                brewDivider
+                brewingLinkedRow(title: "Espresso Workspace", detail: "Dial in and compare espresso shots.", value: nil) {
+                    activeDashboardDestination = .espressoWorkspace
+                }
             }
             brewDivider
             brewingLinkedRow(title: AppLocalization.text("cupping_mode", fallback: "Cupping Mode"), detail: "Compare aroma, body, and clarity.", value: nil) {
                 activeDashboardDestination = .cuppingMode
             }
-            brewDivider
-            brewingLinkedRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: "Browse reviewed recipes.", value: nil) {
-                activeDashboardDestination = .communityRecipes
+            if communityRecipesEnabled {
+                brewDivider
+                brewingLinkedRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: "Browse reviewed recipes.", value: nil) {
+                    activeDashboardDestination = .communityRecipes
+                }
             }
             brewDivider
             brewingLinkedRow(title: AppLocalization.text("privacy_controls", fallback: "Privacy & Explanations"), detail: "Personalization and recommendations.", value: nil) {
@@ -630,17 +634,21 @@ extension BrewingSectionView {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .brewCoach
                         }
-                        toolMenuRow(title: "Espresso Workspace", detail: "Dial in and compare shots", icon: "dial.medium") {
-                            isToolsMenuPresented = false
-                            activeDashboardDestination = .espressoWorkspace
+                        if espressoWorkspaceEnabled {
+                            toolMenuRow(title: "Espresso Workspace", detail: "Dial in and compare shots", icon: "dial.medium") {
+                                isToolsMenuPresented = false
+                                activeDashboardDestination = .espressoWorkspace
+                            }
                         }
                         toolMenuRow(title: AppLocalization.text("cupping_mode", fallback: "Cupping Mode"), detail: "Compare aroma, body, and clarity", icon: "circle.grid.3x3") {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .cuppingMode
                         }
-                        toolMenuRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: "Browse reviewed recipes", icon: "person.2") {
-                            isToolsMenuPresented = false
-                            activeDashboardDestination = .communityRecipes
+                        if communityRecipesEnabled {
+                            toolMenuRow(title: AppLocalization.text("community_recipes", fallback: "Community Recipes"), detail: "Browse reviewed recipes", icon: "person.2") {
+                                isToolsMenuPresented = false
+                                activeDashboardDestination = .communityRecipes
+                            }
                         }
                     }
 
@@ -924,7 +932,7 @@ extension BrewingSectionView {
 
     var exploreBrewingGuidesSection: some View {
         Group {
-            if !displayedMethods.isEmpty {
+            if brewingGuidesEnabled && !displayedMethods.isEmpty {
                 if isBrewingGuidesExpanded {
                         if displayedMethods.count > 3 {
                             HStack {

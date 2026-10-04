@@ -273,6 +273,12 @@ function defaultAppSettings() {
             showSignatureRoasts: true,
             showPassport: true
         },
+        appFeatures: {
+            showBrewingGuides: true,
+            showCommunityRecipes: true,
+            showEspressoWorkspace: true,
+            showGulfCoffeeMap: true
+        },
         payments: {
             applePayEnabled: true,
             benefitPayEnabled: true,
@@ -401,6 +407,7 @@ function normalizeAppSettings(value = {}) {
     const announcement = value.announcement || {};
     const support = value.support || {};
     const homeSections = value.homeSections || {};
+    const appFeatures = value.appFeatures || {};
     const payments = value.payments || {};
     const coffeeClub = value.coffeeClub || {};
     const fulfillment = value.fulfillment || {};
@@ -486,6 +493,12 @@ function normalizeAppSettings(value = {}) {
             showFunPick: homeSections.showFunPick === undefined ? true : Boolean(homeSections.showFunPick),
             showSignatureRoasts: homeSections.showSignatureRoasts === undefined ? true : Boolean(homeSections.showSignatureRoasts),
             showPassport: homeSections.showPassport === undefined ? true : Boolean(homeSections.showPassport)
+        },
+        appFeatures: {
+            showBrewingGuides: appFeatures.showBrewingGuides === undefined ? true : Boolean(appFeatures.showBrewingGuides),
+            showCommunityRecipes: appFeatures.showCommunityRecipes === undefined ? true : Boolean(appFeatures.showCommunityRecipes),
+            showEspressoWorkspace: appFeatures.showEspressoWorkspace === undefined ? true : Boolean(appFeatures.showEspressoWorkspace),
+            showGulfCoffeeMap: appFeatures.showGulfCoffeeMap === undefined ? true : Boolean(appFeatures.showGulfCoffeeMap)
         },
         payments: {
             applePayEnabled: payments.applePayEnabled === undefined ? fallback.payments.applePayEnabled : Boolean(payments.applePayEnabled),

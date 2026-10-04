@@ -304,6 +304,12 @@ extension AdminContentArea {
             .init("homeSections.showSignatureRoasts", "Signature roasts", .toggle),
             .init("homeSections.showPassport", "Coffee passport", .toggle)
         ]),
+        .init("Customer features", [
+            .init("appFeatures.showBrewingGuides", "Brewing guides", .toggle),
+            .init("appFeatures.showCommunityRecipes", "Community recipes", .toggle),
+            .init("appFeatures.showEspressoWorkspace", "Espresso workspace", .toggle),
+            .init("appFeatures.showGulfCoffeeMap", "Gulf Coffee Map", .toggle)
+        ]),
         .init("Payment methods", [
             .init("payments.applePayEnabled", "Apple Pay", .toggle),
             .init("payments.benefitPayEnabled", "BenefitPay", .toggle),
