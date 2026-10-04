@@ -25,7 +25,9 @@ struct LoyaltyRewardsActionsView: View {
 
     private var rewardOptions: [RewardOption] {
         if let configuration {
-            return configuration.rewards.filter { $0.enabled && $0.reward.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "free drink" }.map { reward in
+            return configuration.rewards.filter { reward in
+                reward.enabled && ["free drink", "brew bar credit", "pastry pairing"].contains(reward.reward.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+            }.map { reward in
                 RewardOption(
                     id: reward.id,
                     title: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? reward.titleAR : reward.titleEN,

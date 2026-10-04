@@ -381,7 +381,9 @@ function defaultAppSettings() {
             goldThreshold: 300,
             rewardStep: 50,
             rewards: [
-                { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" }
+                { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" },
+                { id: "brew-bar-credit", enabled: true, titleEN: "Brew Bar Credit", titleAR: "رصيد بار القهوة", detailEN: "Save BHD 3 on your next order", detailAR: "خصم ٣ دنانير بحرينية على طلبك القادم", points: 100, reward: "Brew Bar Credit" },
+                { id: "pastry-pairing", enabled: true, titleEN: "Pastry Pairing", titleAR: "حلوى مع القهوة", detailEN: "Save BHD 2 on your next order", detailAR: "خصم دينارين بحرينيين على طلبك القادم", points: 150, reward: "Pastry Pairing" }
             ]
         },
         updatedAt: null
@@ -458,6 +460,7 @@ function normalizeAppSettings(value = {}) {
             .sort((a, b) => a.maximumWeightGrams - b.maximumWeightGrams)
             .slice(0, 20)
         : fallback.fulfillment.khaleejiTiers;
+    const supportedRewards = new Set(["free drink", "brew bar credit", "pastry pairing"]);
     const normalizedRewards = Array.isArray(loyalty.rewards)
         ? loyalty.rewards.map((reward, index) => ({
             id: trimText(reward?.id || `reward-${index + 1}`, 60).toLowerCase().replace(/[^a-z0-9-]/g, "-") || `reward-${index + 1}`,
@@ -468,7 +471,7 @@ function normalizeAppSettings(value = {}) {
             detailAR: trimText(reward?.detailAR, 160),
             points: Math.round(boundedNumber(reward?.points, 50, 1, 1_000_000)),
             reward: trimText(reward?.reward, 100)
-        })).filter((reward) => reward.titleEN && reward.reward.toLowerCase() === "free drink").slice(0, 30)
+        })).filter((reward) => reward.titleEN && supportedRewards.has(reward.reward.toLowerCase())).slice(0, 30)
         : fallback.loyalty.rewards;
     const silverThreshold = Math.round(boundedNumber(loyalty.silverThreshold, fallback.loyalty.silverThreshold, 1, 1_000_000));
     const goldThreshold = Math.max(
