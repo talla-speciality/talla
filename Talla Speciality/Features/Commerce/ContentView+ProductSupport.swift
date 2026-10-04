@@ -400,6 +400,10 @@ extension ContentView {
     }
 
     func productCountryOfOrigin(for product: Product) -> String? {
+        // A gift box can contain coffees from several origins, but the box
+        // itself does not have a single coffee origin.
+        guard product.categoryKey != "gifts" else { return nil }
+
         if let countryOfOrigin = product.countryOfOrigin {
             return AppLocalization.catalogOption(countryOfOrigin)
         }
@@ -497,6 +501,10 @@ extension ContentView {
     func productBrewRecommendation(for product: Product) -> String {
         let searchableText = normalizedSearchText(for: product)
 
+        if product.categoryKey == "gifts" {
+            return AppLocalization.text("best_for_gifts", fallback: "A curated gift box for sharing and special moments.")
+        }
+
         if product.categoryKey == "ready-made-drinks" {
             return AppLocalization.text("best_ready_to_drink", fallback: "Best served chilled and ready to drink.")
         }
@@ -533,6 +541,13 @@ extension ContentView {
     }
 
     func productMetadataChips(for product: Product) -> [(icon: String, title: String)] {
+        if product.categoryKey == "gifts" {
+            return [
+                ("gift.fill", AppLocalization.text("gift_box", fallback: "Gift box")),
+                ("tag.fill", product.categoryLabel)
+            ]
+        }
+
         let searchableText = normalizedSearchText(for: product)
         var chips: [(icon: String, title: String)] = []
 
@@ -990,14 +1005,17 @@ extension ContentView {
 
     @ViewBuilder
     func productFactsSection(_ product: Product) -> some View {
+        let isGiftBox = product.categoryKey == "gifts"
         let origin = productCountryOfOrigin(for: product)
         let summary = productTasteSummary(for: product)
-        let facts: [(String, String)] = [
-            (AppLocalization.text("origin", fallback: "Origin"), origin ?? "—"),
-            (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary.isEmpty ? "—" : summary)
-        ]
+        let facts: [(String, String)] = isGiftBox
+            ? [(AppLocalization.text("contents", fallback: "Contents"), summary.isEmpty ? AppLocalization.text("gift_box", fallback: "Gift box") : summary)]
+            : [
+                (AppLocalization.text("origin", fallback: "Origin"), origin ?? "—"),
+                (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary.isEmpty ? "—" : summary)
+            ]
         VStack(alignment: .leading, spacing: 10) {
-            Text(AppLocalization.text("coffee_facts", fallback: "Coffee facts"))
+            Text(AppLocalization.text(isGiftBox ? "box_details" : "coffee_facts", fallback: isGiftBox ? "Box details" : "Coffee facts"))
                 .font(labelFont(size: 10, weight: .bold))
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
