@@ -415,6 +415,7 @@ struct ClubSectionView: View {
     let coffeeClubShipmentCount: Int
     let coffeeClubIntervalWeeks: Int
     let coffeeClubDiscountPercent: Int
+    let subscriptionPlans: [ContentView.AppSettings.CoffeeClub.Plan]?
     let coffeeClubProducts: [ContentView.Product]
     let memberName: String
     let coffeeClubOrders: [ContentView.AccountOrder]
@@ -429,6 +430,7 @@ struct ClubSectionView: View {
     let isLightAppearance: Bool
     let openCoffeeClubAction: () -> Void
     let openShopCategoryAction: (String) -> Void
+    let openSubscriptionPlanAction: (String, String) -> Void
     let addCoffeeToClubAction: (ContentView.Product, ContentView.Product.Variant, Int, TallaFulfillmentMethod) -> Void
     @State private var selectedClubArea: ClubArea = .overview
     @State private var configuredCoffee: ContentView.Product?
@@ -450,26 +452,36 @@ struct ClubSectionView: View {
     }
 
     private var clubNavigation: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(ClubArea.allCases) { area in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            selectedClubArea = area
-                        }
-                    } label: {
-                        Text(area.title)
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(selectedClubArea == area ? Color(hex: 0x24180E) : secondaryTextColor)
-                            .padding(.horizontal, 15)
-                            .frame(minHeight: 40)
-                            .background(selectedClubArea == area ? accentColor : cardFillColor, in: Capsule())
-                            .overlay(Capsule().stroke(accentColor.opacity(selectedClubArea == area ? 0 : 0.18), lineWidth: 1))
+        Menu {
+            ForEach(ClubArea.allCases) { area in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        selectedClubArea = area
                     }
-                    .buttonStyle(.plain)
+                } label: {
+                    if selectedClubArea == area {
+                        Label(area.title, systemImage: "checkmark")
+                    } else {
+                        Text(area.title)
+                    }
                 }
             }
+        } label: {
+            HStack(spacing: 9) {
+                Text(selectedClubArea.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(primaryTextColor)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(accentColor)
+            }
+            .padding(.horizontal, 14)
+            .frame(width: 220, height: 42)
+            .background(cardFillColor, in: Capsule())
+            .overlay(Capsule().stroke(accentColor.opacity(0.18), lineWidth: 1))
         }
+        .accessibilityIdentifier("club.sectionPicker")
     }
 
     @ViewBuilder
@@ -477,23 +489,23 @@ struct ClubSectionView: View {
         switch selectedClubArea {
         case .overview:
             VStack(alignment: .leading, spacing: 14) {
-                coffeeClubOverviewCard
-                overviewSnapshot
+                membershipDashboard
                 ForYourRitualCard(
                     primaryTextColor: primaryTextColor,
                     secondaryTextColor: secondaryTextColor,
                     cardFillColor: cardFillColor,
                     accentColor: accentColor
                 )
-                overviewShortcuts
-                clubExclusives
             }
         case .subscriptions:
             subscriptionsDetail
                 .padding(.top, 2)
         case .rewards:
-            rewardsContent
-                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 14) {
+                rewardsContent
+                clubExclusives
+            }
+            .padding(.top, 2)
         case .coffeeClub:
             coffeeClubDetail
                 .padding(.top, 2)
@@ -693,127 +705,71 @@ struct ClubSectionView: View {
             return club.lifecycleStatus == "active" || club.lifecycleStatus == "paused"
         })
 
-        return VStack(alignment: .leading, spacing: 17) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("MEMBERSHIP DASHBOARD")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(2.1)
+        return VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("YOUR CLUB")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(1.8)
                         .foregroundColor(accentColor)
-                    Text("Your coffee, at a glance")
-                        .font(.system(size: 24, weight: .semibold, design: .serif))
+                    Text("A little closer to your next cup.")
+                        .font(.system(size: 20, weight: .semibold, design: .serif))
                         .foregroundColor(primaryTextColor)
                 }
                 Spacer()
-                Image(systemName: "chart.bar.xaxis")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(accentColor)
-                    .frame(width: 44, height: 44)
-                    .background(accentColor.opacity(0.12), in: Circle())
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Next reward")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(primaryTextColor)
-                    Spacer()
-                    Text("\(beansBalance) / \(nextRewardTarget) Beans")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(accentColor)
-                }
-                ProgressView(value: rewardProgress == 0 && beansBalance > 0 ? 0.02 : rewardProgress)
-                    .tint(accentColor)
-                Text(beansBalance >= nextRewardTarget
-                     ? "Your next reward is ready to redeem."
-                     : "\(max(nextRewardTarget - beansBalance, 0)) Beans to go")
-                    .font(.system(size: 12))
+                Text("\(beansBalance)")
+                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .foregroundColor(primaryTextColor)
+                Text("BEANS")
+                    .font(.system(size: 8, weight: .bold))
+                    .tracking(1)
                     .foregroundColor(secondaryTextColor)
             }
 
             HStack(spacing: 8) {
-                dashboardStat(
-                    title: "CLUB STATUS",
-                    value: activeOrder == nil ? "Ready" : (activeOrder?.details?.coffeeClub?.lifecycleStatus.capitalized ?? "Active"),
-                    icon: "shippingbox.fill"
-                )
-                dashboardStat(
-                    title: "SAVED RECIPES",
-                    value: "\(savedRecipeCount)",
-                    icon: "book.closed.fill"
-                )
+                Text("Next reward")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(secondaryTextColor)
+                Spacer()
+                Text("\(beansBalance) / \(nextRewardTarget)")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(accentColor)
             }
+            ProgressView(value: rewardProgress == 0 && beansBalance > 0 ? 0.02 : rewardProgress)
+                .tint(accentColor)
 
             if let club = activeOrder?.details?.coffeeClub {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("UPCOMING DELIVERY")
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(1.7)
+                HStack(spacing: 9) {
+                    Image(systemName: "shippingbox.fill")
                         .foregroundColor(accentColor)
-                    HStack(spacing: 10) {
-                        Image(systemName: activeOrder?.isPickup == true ? "storefront.fill" : "shippingbox.fill")
-                            .foregroundColor(accentColor)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(club.preference?.coffeeName ?? "Your saved coffee")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(primaryTextColor)
-                            Text(club.nextShipmentAt.map { formattedClubDate($0) } ?? "Schedule updating")
-                                .font(.system(size: 12))
-                                .foregroundColor(secondaryTextColor)
-                        }
-                        Spacer()
-                        Text("\(club.remainingCount) left")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(club.preference?.coffeeName ?? "Coffee Club delivery")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(primaryTextColor)
+                        Text(club.nextShipmentAt.map { formattedClubDate($0) } ?? "\(club.remainingCount) deliveries remaining")
+                            .font(.system(size: 11))
+                            .foregroundColor(secondaryTextColor)
                     }
+                    Spacer()
+                    Text(club.lifecycleStatus.capitalized)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(accentColor)
                 }
-                .padding(13)
-                .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            } else {
-                Text("Coffee Club is ready when you are — choose a coffee, size, quantity, and delivery preference.")
-                    .font(.system(size: 13))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
+                .padding(11)
+                .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
 
-            HStack(spacing: 8) {
-                dashboardPreferenceChip(title: activeOrder?.details?.coffeeClub?.preference?.coffeeName ?? "Choose coffee", icon: "cup.and.saucer.fill")
-                dashboardPreferenceChip(title: activeOrder?.isPickup == true ? "Pickup" : "Delivery", icon: activeOrder?.isPickup == true ? "storefront.fill" : "truck.box.fill")
-            }
-
-            if !coffeeClubOrders.isEmpty {
-                VStack(alignment: .leading, spacing: 9) {
-                    Text("SHIPMENT HISTORY")
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(1.7)
-                        .foregroundColor(accentColor)
-                    ForEach(coffeeClubOrders.prefix(3)) { order in
-                        HStack(spacing: 9) {
-                            Image(systemName: order.historyStatus == "collected" || order.historyStatus == "delivered" ? "checkmark.circle.fill" : "shippingbox.fill")
-                                .foregroundColor(order.historyStatus == "collected" || order.historyStatus == "delivered" ? .green : accentColor)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(order.details?.coffeeClub?.preference?.coffeeName ?? order.title)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(primaryTextColor)
-                                    .lineLimit(1)
-                                Text(order.historyStatus.capitalized)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(secondaryTextColor)
-                            }
-                            Spacer()
-                            Text(formattedClubDate(order.createdAt))
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(tertiaryTextColor)
-                        }
-                    }
-                }
-                .padding(13)
-                .background(accentColor.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
+            Button("OPEN REWARDS") { selectedClubArea = .rewards }
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.2)
+                .foregroundColor(primaryTextColor)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .background(accentColor.opacity(0.13), in: Capsule())
+                .buttonStyle(.plain)
         }
-        .padding(21)
-        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(accentColor.opacity(0.18), lineWidth: 1))
+        .padding(16)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(accentColor.opacity(0.16), lineWidth: 1))
     }
 
     private func dashboardStat(title: String, value: String, icon: String) -> some View {
@@ -1109,21 +1065,29 @@ struct ClubSectionView: View {
     }
 
     private var coffeeClubDetail: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("A prepaid plan for your coffee routine.")
-                .font(.system(size: 30, weight: .bold, design: .serif))
-                .foregroundColor(primaryTextColor)
-            Text("Choose eligible beans, drip bags, filters, or seasonal boxes. Pay for the full set of deliveries up front and renew manually when it ends.")
-                .font(.system(size: 16))
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Coffee Club")
+                    .font(.system(size: 28, weight: .semibold, design: .serif))
+                    .foregroundColor(primaryTextColor)
+                Spacer()
+                Text("PREPAID")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundColor(accentColor)
+            }
+            Text("Build your next set of deliveries. Pay once; renew when you’re ready.")
+                .font(.system(size: 14))
                 .foregroundColor(secondaryTextColor)
-            HStack(spacing: 10) {
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 7) {
                 clubFact("\(coffeeClubShipmentCount) deliveries", icon: "shippingbox.fill")
                 clubFact("Every \(coffeeClubIntervalWeeks) weeks", icon: "calendar")
+                clubFact("\(coffeeClubDiscountPercent)% off", icon: "percent")
             }
-            clubFact("\(coffeeClubDiscountPercent)% coffee saving", icon: "percent")
-            Text("CHOOSE ITEMS FOR YOUR PLAN")
+            Text("PICK YOUR COFFEE")
                 .font(.system(size: 10, weight: .bold))
-                .tracking(2.1)
+                .tracking(1.8)
                 .foregroundColor(accentColor)
 
             if coffeeClubProducts.isEmpty {
@@ -1156,118 +1120,173 @@ struct ClubSectionView: View {
     }
 
     private var subscriptionsDetail: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Subscriptions for the way you drink coffee.")
-                .font(.system(size: 30, weight: .bold, design: .serif))
-                .foregroundColor(primaryTextColor)
-            Text("Prepay a fixed set of coffee deliveries or 20 café drinks. Shipments renew manually; the café pass is valid for 30 days after payment.")
-                .font(.system(size: 16))
-                .foregroundColor(secondaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 25) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text("SUBSCRIPTIONS")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(2.2)
+                    .foregroundColor(accentColor)
+                Text("Coffee, on your terms.")
+                    .font(.system(size: 30, weight: .medium, design: .serif))
+                    .foregroundColor(primaryTextColor)
+                Text("A good ritual, made easy to keep.")
+                    .font(.system(size: 15))
+                    .foregroundColor(secondaryTextColor)
+            }
 
             subscriptionFlexibilityNote
 
-            VStack(spacing: 12) {
-                subscriptionPlanCard(
-                    eyebrow: coffeeClubEnabled ? "PREPAID PLAN · LIVE NOW" : "CURRENTLY UNAVAILABLE",
-                    title: "Prepaid bean deliveries",
-                    detail: "\(coffeeClubShipmentCount) shipments every \(coffeeClubIntervalWeeks) weeks, paid up front with \(coffeeClubDiscountPercent)% off. The plan does not auto-renew; place a new order when it ends.",
-                    icon: "shippingbox.fill",
-                    actionTitle: coffeeClubEnabled ? "CHOOSE YOUR BEANS" : nil,
-                    isAvailable: coffeeClubEnabled,
-                    action: coffeeClubEnabled ? { selectedClubArea = .coffeeClub } : nil
-                )
-                subscriptionPlanCard(eyebrow: "PREPAID · WEEKLY", title: "Weekly drip-bag plan", detail: "Choose drip bags in the shop, then prepay \(coffeeClubShipmentCount) weekly shipments at checkout. The plan does not renew automatically.", icon: "drop.fill", actionTitle: "CHOOSE DRIP BAGS") {
-                    openShopCategoryAction("drip-bags")
-                }
-                subscriptionPlanCard(eyebrow: "PREPAID · BEANS", title: "Office coffee plan", detail: "Choose bean quantities for your team and prepay the configured Coffee Club shipments. Renew manually when they are complete.", icon: "building.2.fill", actionTitle: "CHOOSE COFFEE") {
-                    openShopCategoryAction("coffee-beans")
-                }
-                subscriptionPlanCard(eyebrow: "PREPAID · 20 DRINKS", title: "Daily cup café pass", detail: "Add one ready-made drink to your bag, then choose the pass at checkout. It costs the current menu price × 20, is pickup-only, and expires 30 days after payment.", icon: "cup.and.saucer.fill", actionTitle: "CHOOSE A DRINK") {
-                    openShopCategoryAction("ready-made-drinks")
-                }
-                subscriptionPlanCard(eyebrow: "PREPAID · SEASONAL", title: "Seasonal discovery box", detail: "Choose an eligible coffee or seasonal box in the shop and prepay the configured number of seasonal deliveries. Renew manually.", icon: "sparkles", actionTitle: "CHOOSE A BOX") {
-                    openShopCategoryAction("gifts")
-                }
-                subscriptionPlanCard(eyebrow: "PREPAID · BEANS", title: "Arabic coffee replenishment", detail: "Choose Arabic coffee and prepay the configured bean shipments. Renew manually when your supply runs low.", icon: "flame.fill", actionTitle: "CHOOSE ARABIC COFFEE") {
-                    openShopCategoryAction("arabic-coffee-beans")
-                }
-                subscriptionPlanCard(eyebrow: "PREPAID · EVERY 12 WEEKS", title: "Filter replenishment", detail: "Choose eligible coffee filters in the shop and prepay the configured number of deliveries. Renew manually; brewers and other equipment stay one-time purchases.", icon: "wrench.and.screwdriver.fill", actionTitle: "CHOOSE FILTERS") {
-                    openShopCategoryAction("coffee-equipment")
+            VStack(alignment: .leading, spacing: 9) {
+                subscriptionGroupHeading("AT HOME", detail: "Your coffee shelf, taken care of.")
+                VStack(spacing: 0) {
+                    subscriptionPlanCards(group: "home")
                 }
             }
+
+            VStack(alignment: .leading, spacing: 9) {
+                subscriptionGroupHeading("FOR YOUR DAY", detail: "At work or on the way.")
+                VStack(spacing: 0) {
+                    subscriptionPlanCards(group: "day")
+                    if subscriptionPlans?.contains(where: { $0.enabled && $0.group == "day" }) == true {
+                        subscriptionRowDivider
+                    }
+                    subscriptionPlanCard(title: "Daily cup pass", detail: "20 drinks · pickup · valid for 30 days.", icon: "cup.and.saucer", actionTitle: "Choose a drink") {
+                        openShopCategoryAction("ready-made-drinks")
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func subscriptionPlanCards(group: String) -> some View {
+        if let plans = subscriptionPlans {
+            let visiblePlans = plans.filter { $0.enabled && $0.group == group }
+            ForEach(Array(visiblePlans.enumerated()), id: \.element.id) { index, plan in
+                subscriptionPlanCard(
+                    title: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" && !plan.titleAR.isEmpty ? plan.titleAR : plan.titleEN,
+                    detail: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" && !plan.detailAR.isEmpty ? plan.detailAR : plan.detailEN,
+                    icon: plan.icon,
+                    actionTitle: coffeeClubEnabled ? subscriptionCTA(for: plan.id) : nil,
+                    action: coffeeClubEnabled ? { openSubscriptionPlanAction(plan.id, plan.categoryKey) } : nil
+                )
+                if index < visiblePlans.count - 1 { subscriptionRowDivider }
+            }
+        } else if group == "home" {
+            subscriptionPlanCard(title: "Bean deliveries", detail: "\(coffeeClubShipmentCount) deliveries · every \(coffeeClubIntervalWeeks) weeks · \(coffeeClubDiscountPercent)% off", icon: "shippingbox", actionTitle: coffeeClubEnabled ? "Choose beans" : nil, action: coffeeClubEnabled ? { openSubscriptionPlanAction("beans", "coffee-beans") } : nil)
+            subscriptionRowDivider
+            subscriptionPlanCard(title: "Drip bags", detail: "A fresh cup, every week.", icon: "drop", actionTitle: coffeeClubEnabled ? "Choose drip bags" : nil, action: coffeeClubEnabled ? { openSubscriptionPlanAction("drip-bags", "drip-bags") } : nil)
+            subscriptionRowDivider
+            subscriptionPlanCard(title: "Discovery box", detail: "A new seasonal selection.", icon: "sparkles", actionTitle: coffeeClubEnabled ? "Choose a box" : nil, action: coffeeClubEnabled ? { openSubscriptionPlanAction("seasonal-box", "gifts") } : nil)
+            subscriptionRowDivider
+            subscriptionPlanCard(title: "Qahwa replenishment", detail: "Arabic coffee, ready when you are.", icon: "flame", actionTitle: coffeeClubEnabled ? "Choose Qahwa" : nil, action: coffeeClubEnabled ? { openSubscriptionPlanAction("arabic-coffee", "arabic-coffee-beans") } : nil)
+            subscriptionRowDivider
+            subscriptionPlanCard(title: "Machine care", detail: "Cleaning and descaling essentials.", icon: "wrench.and.screwdriver", actionTitle: coffeeClubEnabled ? "Choose supplies" : nil, action: coffeeClubEnabled ? { openSubscriptionPlanAction("equipment", "coffee-equipment") } : nil)
+            subscriptionRowDivider
+            subscriptionPlanCard(title: "Coffee filters", detail: "V60 · AeroPress · Kalita · Chemex.", icon: "line.3.horizontal.decrease", actionTitle: coffeeClubEnabled ? "Choose filters" : nil, action: coffeeClubEnabled ? { openSubscriptionPlanAction("filters", "coffee-equipment") } : nil)
+        } else {
+            subscriptionPlanCard(title: "Office coffee", detail: "Multi-bag supply · pickup or Bahrain delivery.", icon: "building.2", actionTitle: coffeeClubEnabled ? "Build a plan" : nil, action: coffeeClubEnabled ? { openSubscriptionPlanAction("office", "coffee-beans") } : nil)
+        }
+    }
+
+    private func subscriptionCTA(for planID: String) -> String {
+        switch planID {
+        case "beans": return "Choose beans"
+        case "drip-bags": return "Choose drip bags"
+        case "seasonal-box": return "Choose a box"
+        case "arabic-coffee": return "Choose Qahwa"
+        case "equipment": return "Choose supplies"
+        case "filters": return "Choose filters"
+        case "office": return "Build a plan"
+        default: return "Choose plan"
         }
     }
 
     private var subscriptionFlexibilityNote: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 9) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(accentColor)
-                .frame(width: 38, height: 38)
-                .background(accentColor.opacity(isLightAppearance ? 0.13 : 0.18), in: Circle())
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Built around your routine")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(primaryTextColor)
-                Text("Bean and drip-bag plans can be skipped, paused, resumed, or changed from your account. Prepaid shipment plans never renew automatically.")
-                    .font(.system(size: 13))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text("Prepaid, never auto-renews")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(secondaryTextColor)
+            Text("·")
+                .foregroundColor(tertiaryTextColor)
+            Text("Skip · pause · swap")
+                .font(.system(size: 12))
+                .foregroundColor(secondaryTextColor)
+            Spacer(minLength: 0)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(accentColor.opacity(0.16), lineWidth: 1))
+        .padding(.vertical, 12)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(accentColor.opacity(0.18)).frame(height: 1)
+        }
+    }
+
+    private var subscriptionRowDivider: some View {
+        Rectangle()
+            .fill(accentColor.opacity(0.16))
+            .frame(height: 1)
+            .padding(.leading, 45)
+    }
+
+    private func subscriptionGroupHeading(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.8)
+                .foregroundColor(accentColor)
+            Text(detail)
+                .font(.system(size: 13))
+                .foregroundColor(secondaryTextColor)
+        }
     }
 
     private func subscriptionPlanCard(
-        eyebrow: String,
         title: String,
         detail: String,
         icon: String,
         actionTitle: String? = nil,
-        isAvailable: Bool = false,
         action: (() -> Void)? = nil
     ) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(isAvailable ? Color(hex: 0x24180E) : accentColor)
-                .frame(width: 42, height: 42)
-                .background(isAvailable ? accentColor : accentColor.opacity(isLightAppearance ? 0.12 : 0.18), in: Circle())
+        Button {
+            action?()
+        } label: {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(accentColor)
+                    .frame(width: 32, height: 36)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(eyebrow)
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(1.6)
-                        .foregroundColor(isAvailable || action != nil ? accentColor : tertiaryTextColor)
-                Text(title)
-                    .font(.system(size: 18, weight: .semibold, design: .serif))
-                    .foregroundColor(primaryTextColor)
-                Text(detail)
-                    .font(.system(size: 13))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let actionTitle, let action {
-                    Button(actionTitle, action: action)
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1.2)
-                        .foregroundColor(Color(hex: 0x24180E))
-                        .padding(.horizontal, 13)
-                        .frame(minHeight: 34)
-                        .background(accentColor, in: Capsule())
-                        .buttonStyle(.plain)
-                        .padding(.top, 3)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .medium, design: .serif))
+                        .foregroundColor(primaryTextColor)
+                        .lineLimit(1)
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                if action != nil {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(accentColor)
+                } else {
+                    Text("SOON")
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(1)
+                        .foregroundColor(tertiaryTextColor)
                 }
             }
-            Spacer(minLength: 0)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(accentColor.opacity(isAvailable || action != nil ? 0.32 : 0.14), lineWidth: 1))
+        .buttonStyle(.plain)
+        .disabled(action == nil)
+        .accessibilityLabel("\(title). \(detail). \(actionTitle ?? "Coming soon")")
     }
 
     private func coffeeClubProductCard(_ product: ContentView.Product) -> some View {

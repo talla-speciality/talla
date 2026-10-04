@@ -43,6 +43,7 @@ extension ContentView {
             coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
             coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks,
             coffeeClubDiscountPercent: configuredCoffeeClubDiscountPercent,
+            subscriptionPlans: remoteAppSettings?.coffeeClub?.plans,
             coffeeClubProducts: coffeeClubEligibleProducts,
             memberName: customerProfile?.displayName ?? AppLocalization.text("coffee_friend", fallback: "coffee friend"),
             coffeeClubOrders: orderHistory.filter { $0.details?.coffeeClub != nil },
@@ -56,11 +57,19 @@ extension ContentView {
             pageBackgroundColor: pageBackgroundColor,
             isLightAppearance: isLightAppearance,
             openCoffeeClubAction: {
+                requestedSubscriptionPlanType = ""
                 activeCategory = "coffee-beans"
                 shopSearchQuery = ""
                 openTab(.shop)
             },
             openShopCategoryAction: { category in
+                requestedSubscriptionPlanType = ""
+                activeCategory = category
+                shopSearchQuery = ""
+                openTab(.shop)
+            },
+            openSubscriptionPlanAction: { planType, category in
+                requestedSubscriptionPlanType = planType
                 activeCategory = category
                 shopSearchQuery = ""
                 openTab(.shop)
@@ -303,6 +312,7 @@ extension ContentView {
             isLightAppearance: isLightAppearance,
             tasteMemoryLookup: tasteMemoryLookup,
             coffeeClubProducts: coffeeClubEligibleProducts,
+            cafePassProducts: products.filter { $0.isAvailableForSale && ["ready-made-drinks", "summer-drinks"].contains($0.categoryKey) },
             deliveryAddresses: addresses,
             buyAgainAction: { order in
                 buyAgain(order: order)
@@ -338,6 +348,9 @@ extension ContentView {
                     fulfillmentMethod: fulfillmentMethod,
                     coffeeItems: coffeeItems
                 )
+            },
+            swapCafePassAction: { order, variantID in
+                await swapCafePassDrink(order: order, variantID: variantID)
             }
         )
     }

@@ -41,7 +41,12 @@ test("production app controls preserve safe defaults and validate operational va
 
     assert.equal(settings.payments.applePayEnabled, true);
     assert.equal(settings.payments.benefitPayEnabled, false);
-    assert.deepEqual(settings.coffeeClub, { enabled: false, shipmentCount: 3, intervalWeeks: 4, discountPercent: 10, productIDs: [] });
+    assert.equal(settings.coffeeClub.enabled, false);
+    assert.equal(settings.coffeeClub.shipmentCount, 3);
+    assert.equal(settings.coffeeClub.intervalWeeks, 4);
+    assert.equal(settings.coffeeClub.discountPercent, 10);
+    assert.deepEqual(settings.coffeeClub.productIDs, []);
+    assert.ok(settings.coffeeClub.plans.some((plan) => plan.id === "seasonal-box"));
     assert.equal(settings.fulfillment.bahrainRate, 2.75);
     assert.deepEqual(settings.fulfillment.khaleejiTiers.map((tier) => tier.maximumWeightGrams), [500, 1000]);
     assert.equal(settings.release.maintenanceEnabled, true);
@@ -64,13 +69,12 @@ test("Coffee Club controls are bounded and survive normalization", () => {
         intervalWeeks: 0,
         discountPercent: 80
     } });
-    assert.deepEqual(settings.coffeeClub, {
-        enabled: false,
-        shipmentCount: 12,
-        intervalWeeks: 1,
-        discountPercent: 30,
-        productIDs: []
-    });
+    assert.equal(settings.coffeeClub.enabled, false);
+    assert.equal(settings.coffeeClub.shipmentCount, 12);
+    assert.equal(settings.coffeeClub.intervalWeeks, 1);
+    assert.equal(settings.coffeeClub.discountPercent, 30);
+    assert.deepEqual(settings.coffeeClub.productIDs, []);
+    assert.equal(settings.coffeeClub.plans.length, 7);
 });
 
 test("unsafe links, invalid rates, and malformed rewards cannot reach the public settings", () => {

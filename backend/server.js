@@ -288,7 +288,16 @@ function defaultAppSettings() {
             shipmentCount: 3,
             intervalWeeks: 4,
             discountPercent: 10,
-            productIDs: []
+            productIDs: [],
+            plans: [
+                { id: "beans", enabled: true, group: "home", icon: "shippingbox", titleEN: "Bean deliveries", titleAR: "توصيل حبوب القهوة", detailEN: "3 deliveries · every 4 weeks · 10% off", detailAR: "٣ توصيلات · كل ٤ أسابيع · خصم ١٠٪", categoryKey: "coffee-beans" },
+                { id: "drip-bags", enabled: true, group: "home", icon: "drop", titleEN: "Drip bags", titleAR: "أكياس التقطير", detailEN: "A fresh cup, every week.", detailAR: "قهوة طازجة كل أسبوع.", categoryKey: "drip-bags" },
+                { id: "seasonal-box", enabled: true, group: "home", icon: "sparkles", titleEN: "Discovery box", titleAR: "صندوق الاكتشاف", detailEN: "A new seasonal selection.", detailAR: "اختيار موسمي جديد.", categoryKey: "gifts" },
+                { id: "arabic-coffee", enabled: true, group: "home", icon: "flame", titleEN: "Qahwa replenishment", titleAR: "تجديد القهوة العربية", detailEN: "Arabic coffee, ready when you are.", detailAR: "قهوة عربية جاهزة عندما تحتاجها.", categoryKey: "arabic-coffee-beans" },
+                { id: "equipment", enabled: true, group: "home", icon: "wrench.and.screwdriver", titleEN: "Machine care", titleAR: "العناية بالمعدات", detailEN: "Cleaning and descaling essentials.", detailAR: "مستلزمات التنظيف وإزالة الترسبات.", categoryKey: "coffee-equipment" },
+                { id: "filters", enabled: true, group: "home", icon: "line.3.horizontal.decrease", titleEN: "Coffee filters", titleAR: "فلاتر القهوة", detailEN: "V60 · AeroPress · Kalita · Chemex.", detailAR: "V60 · AeroPress · Kalita · Chemex.", categoryKey: "coffee-equipment" },
+                { id: "office", enabled: true, group: "day", icon: "building.2", titleEN: "Office coffee", titleAR: "قهوة المكتب", detailEN: "Multi-bag supply · pickup or Bahrain delivery.", detailAR: "توفير عدة أكياس · استلام أو توصيل داخل البحرين.", categoryKey: "coffee-beans" }
+            ]
         },
         coffeeMemory: { ...defaultCoffeeMemorySettings },
         fulfillment: {
@@ -397,6 +406,23 @@ function normalizeAppSettings(value = {}) {
     const fulfillment = value.fulfillment || {};
     const release = value.release || {};
     const loyalty = value.loyalty || {};
+    const defaultPlans = fallback.coffeeClub.plans;
+    const normalizedPlans = Array.isArray(coffeeClub.plans)
+        ? coffeeClub.plans.map((plan, index) => ({
+            id: trimText(plan?.id || defaultPlans[index]?.id || `plan-${index + 1}`, 40).toLowerCase().replace(/[^a-z0-9-]/g, "-") || `plan-${index + 1}`,
+            enabled: plan?.enabled === undefined ? true : Boolean(plan.enabled),
+            group: ["home", "day"].includes(String(plan?.group || "")) ? String(plan.group) : "home",
+            icon: trimText(plan?.icon || "shippingbox", 50),
+            titleEN: trimText(plan?.titleEN, 80),
+            titleAR: trimText(plan?.titleAR, 80),
+            detailEN: trimText(plan?.detailEN, 180),
+            detailAR: trimText(plan?.detailAR, 180),
+            categoryKey: trimText(plan?.categoryKey, 50),
+            productIDs: Array.isArray(plan?.productIDs)
+                ? [...new Set(plan.productIDs.map((productID) => String(productID || "").trim()).filter(Boolean))].slice(0, 100)
+                : []
+        })).filter((plan) => plan.id && plan.titleEN && plan.categoryKey).slice(0, 20)
+        : defaultPlans;
     const requestedDeliveryEnabled = fulfillment.deliveryEnabled === undefined
         ? fallback.fulfillment.deliveryEnabled
         : Boolean(fulfillment.deliveryEnabled);
@@ -480,7 +506,8 @@ function normalizeAppSettings(value = {}) {
             discountPercent: Math.round(boundedNumber(coffeeClub.discountPercent, fallback.coffeeClub.discountPercent, 0, 30)),
             productIDs: Array.isArray(coffeeClub.productIDs)
                 ? [...new Set(coffeeClub.productIDs.map((productID) => String(productID || "").trim()).filter(Boolean))].slice(0, 100)
-                : fallback.coffeeClub.productIDs
+                : fallback.coffeeClub.productIDs,
+            plans: normalizedPlans.length ? normalizedPlans : defaultPlans
         },
         coffeeMemory: normalizeCoffeeMemorySettings(value.coffeeMemory),
         fulfillment: {

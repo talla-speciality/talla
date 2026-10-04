@@ -72,6 +72,20 @@ extension AdminContentArea {
             .init("Collection", [.init("productIDs", "Products", .products(40, false))])
         ], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New event"), "enabled": .bool(false), "priority": .number(0), "titleEN": .string("New event"), "productIDs": .array([]), "symbol": .string("sparkles"), "accentHex": .string("#C8965A"), "secondaryHex": .string("#2A1D14")]))]
         case .controls: return [
+            .init(path: "coffeeClub.plans", title: "Subscription plans", groups: [
+                .init("Plan", [
+                    .init("id", "Plan identifier", required: true),
+                    .init("enabled", "Enabled", .toggle),
+                    .init("group", "Section", .choice(["home", "day"])),
+                    .init("icon", "Icon name"),
+                    .init("titleEN", "English title", required: true),
+                    .init("titleAR", "Arabic title"),
+                    .init("detailEN", "English detail", .multiline),
+                    .init("detailAR", "Arabic detail", .multiline),
+                    .init("categoryKey", "Shop category", .choice(["coffee-beans", "arabic-coffee-beans", "drip-bags", "gifts", "coffee-equipment"])),
+                    .init("productIDs", "Plan products", .products(100, false))
+                ])
+            ], blank: .object(["id": .string("new-plan"), "enabled": .bool(false), "group": .string("home"), "icon": .string("shippingbox"), "titleEN": .string("New subscription plan"), "categoryKey": .string("coffee-beans"), "productIDs": .array([])])),
             .init(path: "fulfillment.khaleejiTiers", title: "GCC shipping tiers", groups: [.init("Shipping tier", [.init("maximumWeightGrams", "Maximum weight (grams)", .integer), .init("rate", "Rate (BHD)", .number)])], blank: .object(["maximumWeightGrams": .number(500), "rate": .number(5.5)])),
             .init(path: "fulfillment.locations", title: "Locations and pickup slots", groups: [.init("Location", [
                 .init("id", "Location identifier", required: true), .init("nameEN", "English name", required: true), .init("nameAR", "Arabic name", required: true),

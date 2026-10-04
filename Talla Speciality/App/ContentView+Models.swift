@@ -202,11 +202,25 @@ extension ContentView {
         }
 
         struct CoffeeClub: Decodable {
+            struct Plan: Decodable, Identifiable {
+                let id: String
+                let enabled: Bool
+                let group: String
+                let icon: String
+                let titleEN: String
+                let titleAR: String
+                let detailEN: String
+                let detailAR: String
+                let categoryKey: String
+                let productIDs: [String]?
+            }
+
             let enabled: Bool
             let shipmentCount: Int
             let intervalWeeks: Int
             let discountPercent: Int
             let productIDs: [String]?
+            let plans: [Plan]?
         }
 
         struct CoffeeMemory: Decodable {
@@ -468,6 +482,8 @@ extension ContentView {
                 let drinkName: String
                 let status: String
                 let expiresAt: String?
+                let variantId: String?
+                let unitPriceFils: Int?
                 var remainingCredits: Int { max(0, creditCount - redeemedCredits) }
             }
             struct SupportCase: Decodable {
