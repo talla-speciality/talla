@@ -54,6 +54,7 @@ extension ContentView {
         }
 
         checkoutError = nil
+        autoApplyAvailableFreeDrinkVoucherIfNeeded()
         triggerCartCelebration()
         let variantSuffix = product.hasVariantChoices ? " (\(variant.title))" : ""
         showToast(message: String(format: AppLocalization.text("product_added_to_cart", fallback: "%@%@ added to bag"), product.name, variantSuffix))
@@ -628,6 +629,16 @@ extension ContentView {
     }
 
     @MainActor
+    func autoApplyAvailableFreeDrinkVoucherIfNeeded() {
+        guard appliedVoucher == nil, cartDiscountForFreeDrink > 0 else { return }
+        guard let voucher = availableVouchers.first(where: { LoyaltyVoucherRules.isFreeDrink($0.reward) }) else { return }
+
+        appliedVoucher = voucher
+        voucherCodeInput = voucher.code
+        showToast(message: "Free drink added to your bag")
+    }
+
+    @MainActor
     func preparePostPaymentContext(orderID: String, method: TallaPaymentMethod) {
         postPaymentOrderID = orderID
         postPaymentTotal = formattedCustomerCurrency(cartTotal)
@@ -1187,16 +1198,6 @@ extension ContentView {
         switch voucher.reward.lowercased() {
         case "free drink":
             return AppLocalization.text("one_eligible_drink", fallback: "1 eligible drink")
-        case "pastry pairing":
-            return "BHD 2.000"
-        case "bag discount":
-            return "10% off"
-        case "brew bar credit":
-            return "BHD 3.000"
-        case "talla box reward":
-            return "15% off"
-        case "roastery gold reward":
-            return "20% off"
         default:
             return voucher.detail
         }

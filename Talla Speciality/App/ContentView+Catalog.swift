@@ -79,16 +79,6 @@ extension ContentView {
                     )
                 }
             )
-        case "pastry pairing":
-            return min(cartSubtotal, 2.000)
-        case "bag discount":
-            return cartSubtotal * 0.10
-        case "brew bar credit":
-            return min(cartSubtotal, 3.000)
-        case "talla box reward":
-            return cartSubtotal * 0.15
-        case "roastery gold reward":
-            return cartSubtotal * 0.20
         default:
             return 0
         }

@@ -161,16 +161,6 @@ function voucherDiscountFils(voucher, lines, subtotalFils) {
     switch (reward) {
     case "free drink":
         return Math.max(0, ...lines.filter((line) => line.eligibleDrink).map((line) => line.unitPriceFils));
-    case "pastry pairing":
-        return Math.min(subtotalFils, 2000);
-    case "bag discount":
-        return Math.round(subtotalFils * 0.10);
-    case "brew bar credit":
-        return Math.min(subtotalFils, 3000);
-    case "talla box reward":
-        return Math.round(subtotalFils * 0.15);
-    case "roastery gold reward":
-        return Math.round(subtotalFils * 0.20);
     default:
         return 0;
     }

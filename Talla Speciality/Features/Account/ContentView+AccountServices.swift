@@ -1052,7 +1052,21 @@ extension ContentView {
             syncWidgetSharedState(reload: true)
             let voucherCode = loyaltyAccount?.transactions.first(where: { $0.type == "redeem" })?.voucherCode
             if let voucherCode, !voucherCode.isEmpty {
-                showToast(message: String(format: AppLocalization.text("reward_redeemed_with_code", fallback: "%@ redeemed • %@"), rewardTitle, voucherCode))
+                do {
+                    let voucher = try await AccountService.previewVoucher(code: voucherCode, email: trimmedEmail)
+                    if cartDiscountForFreeDrink > 0 {
+                        appliedVoucher = voucher
+                        voucherCodeInput = voucherCode
+                        showToast(message: "Free drink added to your bag")
+                    } else {
+                        availableVouchers.removeAll { $0.code == voucher.code }
+                        availableVouchers.insert(voucher, at: 0)
+                        showToast(message: String(format: AppLocalization.text("reward_redeemed_with_code", fallback: "%@ redeemed • %@"), rewardTitle, voucherCode))
+                    }
+                } catch {
+                    await loadAvailableVouchers(for: trimmedEmail)
+                    showToast(message: String(format: AppLocalization.text("reward_redeemed_with_code", fallback: "%@ redeemed • %@"), rewardTitle, voucherCode))
+                }
             } else {
                 showToast(message: String(format: AppLocalization.text("reward_redeemed", fallback: "%@ redeemed"), rewardTitle))
             }
