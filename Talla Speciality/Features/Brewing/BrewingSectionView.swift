@@ -404,6 +404,7 @@ struct BrewingSectionView: View {
     @State var isBrewingLibraryExpanded = false
     @State var isBrewingGuidesExpanded = false
     @State var areAllBrewingGuidesVisible = false
+    @State var selectedBrewingGuide: ContentView.BrewingMethod?
     @State var methodSearchText = ""
     @State var methodCategoryFilter = "All"
     @State var selectedMethodChoiceID = ""
@@ -488,6 +489,9 @@ struct BrewingSectionView: View {
             savedEquipmentEditor
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedBrewingGuide) { method in
+            brewingGuideSheet(for: method)
         }
         .fullScreenCover(isPresented: $isHomeScalePickerPresented) {
             floatingBluetoothScalePicker {

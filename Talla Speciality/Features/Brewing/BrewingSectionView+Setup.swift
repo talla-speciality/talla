@@ -943,7 +943,7 @@ extension BrewingSectionView {
                         }
 
                         VStack(spacing: 0) {
-                            ForEach(Array(visibleBrewingGuides.enumerated()), id: \.element.id) { index, method in
+            ForEach(Array(visibleBrewingGuides.enumerated()), id: \.element.id) { index, method in
                                 if index > 0 {
                                     brewDivider
                                 }
@@ -971,6 +971,11 @@ extension BrewingSectionView {
             Button {
                 selectedBrewModeMethodID = method.id
                 activeCategory = method.categories.first ?? activeCategory
+                if let articleURL = method.articleURL {
+                    openArticleAction(articleURL)
+                } else {
+                    selectedBrewingGuide = method
+                }
             } label: {
                 HStack(alignment: .center, spacing: 16) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -1183,6 +1188,82 @@ extension BrewingSectionView {
                 || method.description.lowercased().contains(search)
             return matchesCategory && matchesSearch
         }
+    }
+
+    @ViewBuilder
+    func brewingGuideSheet(for method: ContentView.BrewingMethod) -> some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(method.name)
+                            .font(Font.custom("Georgia-Bold", size: 29))
+                            .foregroundColor(brewPrimaryTextColor)
+
+                        Text(method.summary)
+                            .font(bodyFont)
+                            .foregroundColor(brewSecondaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack(spacing: 8) {
+                        guideSheetTag(method.difficulty, systemImage: "chart.bar.fill")
+                        guideSheetTag(method.brewTime, systemImage: "clock.fill")
+                        if let category = method.categories.first, !category.isEmpty {
+                            guideSheetTag(category, systemImage: "tag.fill")
+                        }
+                    }
+
+                    if !method.detail.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(AppLocalization.text("brewing_guide", fallback: "Brewing Guide"))
+                                .font(sectionTitleFont)
+                                .tracking(AppLocalization.letterSpacing(2))
+                                .textCase(.uppercase)
+                                .foregroundColor(brewAccentColor)
+
+                            Text(method.detail)
+                                .font(bodyFont)
+                                .foregroundColor(brewPrimaryTextColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    Button {
+                        selectedBrewingGuide = nil
+                        beginBrewSetup(with: methodChoice(from: method))
+                    } label: {
+                        Text(AppLocalization.text("use_this_method", fallback: "Use This Method"))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(brewPrimaryTextColor)
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .background(brewAccentColor.opacity(0.18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(brewAccentColor, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(brewBackgroundColor)
+            .navigationTitle(AppLocalization.text("read_guide", fallback: "Read Guide"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    func guideSheetTag(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(brewAccentColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(brewAccentColor.opacity(0.10))
+            .clipShape(Capsule(style: .continuous))
     }
 
     var deduplicatedFavoriteMethodChoices: [BrewingMethodChoice] {
