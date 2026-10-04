@@ -115,22 +115,56 @@ extension ContentView {
     }
 
     func prepaidPlanType(for product: Product) -> String? {
+        let detectedPlan = defaultPrepaidPlanType(for: product)
+        return ProductCatalogRules.subscriptionPlanType(
+            detectedPlan: detectedPlan,
+            requestedPlan: requestedSubscriptionPlanType
+        )
+    }
+
+    func defaultPrepaidPlanType(for product: Product) -> String? {
         let name = product.name.lowercased()
+        // Gift boxes may contain Arabic coffee, but the subscription belongs
+        // to the Discovery Box plan rather than Qahwa replenishment.
+        if product.categoryKey == "gifts" {
+            return ["box", "discovery", "seasonal", "صندوق", "علبة"].contains(where: { name.contains($0) }) ? "seasonal-box" : nil
+        }
+        if product.categoryKey == "arabic-coffee-beans"
+            || ProductCatalogRules.isArabicCoffeeProduct(product.catalogClassificationText) {
+            return "arabic-coffee"
+        }
         switch product.categoryKey {
-        case "coffee-beans", "arabic-coffee-beans": return "beans"
+        case "coffee-beans": return "beans"
+        case "arabic-coffee-beans": return "arabic-coffee"
         case "drip-bags": return "drip-bags"
         case "coffee-equipment":
-            return name.contains("filter") || name.contains("فلاتر") || name.contains("فلتر") ? "filters" : nil
-        case "gifts":
-            return ["box", "discovery", "seasonal", "صندوق", "علبة"].contains(where: { name.contains($0) }) ? "seasonal-box" : nil
+            if Self.isCoffeeFilterPack(product) { return "filters" }
+            return isEquipmentConsumable(product) ? "equipment" : nil
         default: return nil
         }
+    }
+
+    func isEquipmentConsumable(_ product: Product) -> Bool {
+        let text = product.catalogClassificationText.lowercased()
+        let consumableTerms = ["filter", "paper refill", "cleaning tablet", "cleaner", "descaler", "descaling", "backflush", "water cartridge", "فلاتر", "فلتر", "منظف", "تنظيف"]
+        return consumableTerms.contains(where: text.contains)
+    }
+
+    static func isCoffeeFilterPack(_ product: Product) -> Bool {
+        guard product.categoryKey == "coffee-equipment" else { return false }
+        let text = product.catalogClassificationText.lowercased()
+        let hasFilter = ["filter", "فلاتر", "فلتر"].contains(where: text.contains)
+        guard hasFilter else { return false }
+        return ["coffee", "v60", "aeropress", "kalita", "chemex", "فلاتر", "فلتر"].contains(where: text.contains)
     }
 
     var prepaidPlanDisplayName: String {
         switch coffeeClubPlanType {
         case "drip-bags": return "Weekly Drip Bag Plan"
         case "filters": return "Filter Replenishment Plan"
+        case "equipment": return "Equipment Consumables Plan"
+        case "office": return "Office Coffee Plan"
+        case "arabic-coffee": return "Arabic Coffee Replenishment Plan"
         case "seasonal-box": return "Seasonal Discovery Box Plan"
         default: return "Talla Coffee Club"
         }
@@ -140,6 +174,7 @@ extension ContentView {
         switch coffeeClubPlanType {
         case "drip-bags": return 1
         case "filters": return 12
+        case "equipment": return 12
         case "seasonal-box": return 13
         default: return configuredCoffeeClubIntervalWeeks
         }
@@ -157,7 +192,8 @@ extension ContentView {
         guard !isCafePassActive else { return false }
         guard (remoteAppSettings?.coffeeClub?.enabled ?? false), !cartItems.isEmpty else { return false }
         guard let first = cartItems.first.flatMap({ prepaidPlanType(for: $0.product) }) else { return false }
-        return cartItems.allSatisfy { prepaidPlanType(for: $0.product) == first }
+        guard cartItems.allSatisfy({ prepaidPlanType(for: $0.product) == first }) else { return false }
+        return first != "office" || cartItems.reduce(0) { $0 + $1.quantity } >= 2
     }
 
     var isCoffeeClubActive: Bool {
@@ -374,72 +410,93 @@ extension ContentView {
         .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.08 : 0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    var coffeeClubOfferSection: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.18)) {
-                isCoffeeClubPrepaid.toggle()
-                if isCoffeeClubPrepaid {
-                    appliedVoucher = nil
-                    voucherCodeInput = ""
-                    voucherError = nil
-                    if paymentFlow.selectedMethod == .cashOnDelivery {
-                        paymentFlow.clearSelection()
-                    }
-                } else {
-                    coffeeClubTermsAccepted = false
-                }
-            }
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: isCoffeeClubActive ? "checkmark.seal.fill" : "cup.and.saucer.fill")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(readableBrandGoldColor)
-                    .frame(width: 40, height: 40)
-                    .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.16))
-                    .clipShape(Circle())
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(coffeeClubPlanType == "drip-bags"
-                        ? "Prepay \(configuredCoffeeClubShipmentCount) weekly drip-bag shipments"
-                        : coffeeClubPlanType == "filters"
-                            ? "Prepay \(configuredCoffeeClubShipmentCount) filter shipments"
-                            : coffeeClubPlanType == "seasonal-box"
-                                ? "Prepay \(configuredCoffeeClubShipmentCount) seasonal box shipments"
-                            : String(format: AppLocalization.text("coffee_club_prepaid_title", fallback: "Prepay %d Coffee Club shipments"), configuredCoffeeClubShipmentCount))
-                        .font(labelFont(size: 11, weight: .bold))
-                        .foregroundColor(primaryTextColor)
-                    Text(coffeeClubPlanType == "drip-bags"
-                        ? "Save \(configuredCoffeeClubDiscountPercent)% on every shipment. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No renewal."
-                        : coffeeClubPlanType == "filters"
-                            ? "One filter shipment every 12 weeks. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No automatic renewal."
-                            : coffeeClubPlanType == "seasonal-box"
-                                ? "One discovery box every season. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No automatic renewal."
-                        : String(format: AppLocalization.text(
-                            "coffee_club_prepaid_detail",
-                            fallback: "Save %d%% on every bag. One shipment every %d weeks; delivery is charged for all %d shipments. No renewal."
-                        ), configuredCoffeeClubDiscountPercent, coffeeClubIntervalWeeks, configuredCoffeeClubShipmentCount))
-                    .font(bodyFont(size: 12))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 8)
-
-                Image(systemName: isCoffeeClubActive ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(readableBrandGoldColor)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(TallaTheme.Colors.accent.opacity(isCoffeeClubActive ? 0.45 : 0.16), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    var coffeeClubOfferTitle: String {
+        switch coffeeClubPlanType {
+        case "beans":
+            return "Prepaid bean deliveries"
+        case "drip-bags":
+            return "Weekly drip-bag plan"
+        case "filters":
+            return "Coffee filter replenishment"
+        case "equipment":
+            return "Coffee care replenishment"
+        case "office":
+            return "Office coffee plan"
+        case "arabic-coffee":
+            return "Arabic coffee replenishment"
+        case "seasonal-box":
+            return "Seasonal discovery box"
+        default:
+            return "Prepaid coffee plan"
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("cart.coffeeClubPrepaid")
-        .accessibilityValue(isCoffeeClubActive ? "Selected" : "Not selected")
+    }
+
+    var coffeeClubOfferDetail: String {
+        switch coffeeClubPlanType {
+        case "drip-bags":
+            return "Save \(configuredCoffeeClubDiscountPercent)% on every shipment. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No renewal."
+        case "filters":
+            return "One filter shipment every 12 weeks. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No automatic renewal."
+        case "equipment":
+            return "One consumables shipment every 12 weeks. Delivery is charged for all shipments. No automatic renewal."
+        case "office":
+            return "Multi-bag office supply every \(coffeeClubIntervalWeeks) weeks. Prepaid and manually renewed; choose at least two bags per shipment for your team."
+        case "arabic-coffee":
+            return "\(configuredCoffeeClubShipmentCount) deliveries every \(coffeeClubIntervalWeeks) weeks. Prepaid; no automatic renewal."
+        case "seasonal-box":
+            return "One discovery box every season. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No automatic renewal."
+        default:
+            return String(
+                format: AppLocalization.text(
+                    "coffee_club_prepaid_detail",
+                    fallback: "Save %d%% on every bag. One shipment every %d weeks; delivery is charged for all %d shipments. No renewal."
+                ),
+                configuredCoffeeClubDiscountPercent,
+                coffeeClubIntervalWeeks,
+                configuredCoffeeClubShipmentCount
+            )
+        }
+    }
+
+    var coffeeClubOfferSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(isOn: $isCoffeeClubPrepaid) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(coffeeClubOfferTitle)
+                        .font(labelFont(size: 14, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                    Text(coffeeClubOfferDetail)
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if coffeeClubPlanType == "office", cartItems.reduce(0, { $0 + $1.quantity }) < 2 {
+                        Text("Office plans start at two bags per shipment.")
+                            .font(labelFont(size: 11, weight: .semibold))
+                            .foregroundColor(readableBrandGoldColor)
+                    }
+                }
+            }
+            .tint(readableBrandGoldColor)
+            .onChange(of: isCoffeeClubPrepaid) { _, enabled in
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    if enabled {
+                        appliedVoucher = nil
+                        voucherCodeInput = ""
+                        voucherError = nil
+                        if paymentFlow.selectedMethod == .cashOnDelivery {
+                            paymentFlow.clearSelection()
+                        }
+                    } else {
+                        coffeeClubTermsAccepted = false
+                    }
+                }
+            }
+            .disabled(coffeeClubPlanType == "office" && cartItems.reduce(0) { $0 + $1.quantity } < 2)
+            .accessibilityIdentifier("cart.coffeeClubPrepaid")
+            .accessibilityValue(isCoffeeClubPrepaid ? "Selected" : "Not selected")
+        }
+        .padding(14)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     var coffeeClubTermsSection: some View {
@@ -605,6 +662,9 @@ extension ContentView {
 
                         cartFulfillmentMethodSection
                         checkoutDestinationSection
+                        if isCoffeeClubActive && coffeeClubPlanType == "office" {
+                            officeCoffeeDetailsSection
+                        }
                         cartPaymentMethodsSection
                         cartOrderSummarySection
                     }
@@ -671,6 +731,28 @@ extension ContentView {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+    }
+
+    var officeCoffeeDetailsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Business order details", systemImage: "building.2.fill")
+                .font(labelFont(size: 14, weight: .bold))
+                .foregroundColor(primaryTextColor)
+            Text("Prepaid now for all plan shipments. These details will be attached to your order for business records; this plan does not renew automatically.")
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+            TextField("Company legal name (required)", text: $officeCompanyName)
+                .textContentType(.organizationName)
+                .textFieldStyle(.talla)
+            TextField("VAT registration number (optional)", text: $officeVATNumber)
+                .textFieldStyle(.talla)
+            TextField("Commercial registration number (optional)", text: $officeCommercialRegistrationNumber)
+                .textFieldStyle(.talla)
+            TextField("Purchase order reference (optional)", text: $officePurchaseOrderReference)
+                .textFieldStyle(.talla)
+        }
+        .padding(14)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     var checkoutDestinationSection: some View {
