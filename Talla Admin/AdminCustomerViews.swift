@@ -40,7 +40,7 @@ struct AdminCustomersView: View {
             Section {
                 Picker("Accounts", selection: $account) { ForEach(["All", "Active", "Deactivated"], id: \.self) { Text($0) } }.pickerStyle(.segmented)
                 DisclosureGroup("Filters and sorting") {
-                    Picker("Loyalty tier", selection: $tier) { ForEach(["All", "Bronze", "Silver", "Gold"], id: \.self) { Text($0) } }
+                    Picker("Loyalty tier", selection: $tier) { ForEach(["All", "Bronze", "Silver", "Gold", "Reserve"], id: \.self) { Text($0) } }
                     Picker("Active voucher", selection: $voucher) { ForEach(["Any", "Yes", "No"], id: \.self) { Text($0) } }
                     Picker("Has orders", selection: $orders) { ForEach(["Any", "Yes", "No"], id: \.self) { Text($0) } }
                     Picker("Stock alerts", selection: $alerts) { ForEach(["Any", "Yes", "No"], id: \.self) { Text($0) } }
@@ -166,9 +166,12 @@ struct AdminCustomerDetailView: View {
     }
     private var loyaltySection: some View {
         Section("Loyalty and vouchers") {
-            AdminRecordRows(record: customer["loyalty"], fields: [.init("tier", "Tier"), .init("pointsBalance", "Beans"), .init("memberID", "Member ID"), .init("nextReward", "Next reward")])
+            AdminRecordRows(record: customer["loyalty"], fields: [.init("tier", "Tier"), .init("pointsBalance", "Beans"), .init("memberID", "Member ID"), .init("nextReward", "Next reward"), .init("crossCafeVisits", "Distinct cafés"), .init("visitStreakDays", "Visit streak")])
             NavigationLink("Adjust loyalty Beans") {
                 AdminActionForm(title: "Adjust Beans", endpoint: "/admin/api/loyalty/adjust", groups: [.init("Adjustment", [.init("points", "Beans to add or remove", .integer), .init("note", "Reason", required: true)])], confirmation: "Positive amounts add Beans; negative amounts remove them from \(email).", onSaved: changed, document: .object(["email": .string(email), "points": .number(0)]))
+            }
+            NavigationLink("Record café activity") {
+                AdminActionForm(title: "Record Café Activity", endpoint: "/admin/api/loyalty/activity", groups: [.init("Activity", [.init("type", "Type (visit or event)", required: true), .init("activityID", "Unique activity ID", required: true), .init("cafeID", "Café ID"), .init("note", "Event note")])], confirmation: "Award the matching Beans reward and record this verified activity for \(email).", onSaved: changed, document: .object(["email": .string(email), "type": .string("visit"), "activityID": .string(""), "cafeID": .string("")]))
             }
             NavigationLink("Create voucher") {
                 AdminActionForm(title: "Create Voucher", endpoint: "/admin/api/vouchers/create", groups: [.init("Voucher", Self.voucherFields)], confirmation: "Grant this voucher to \(email).", onSaved: changed, document: .object(["email": .string(email), "points": .number(50), "expiresInDays": .number(30)]))

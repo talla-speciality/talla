@@ -379,9 +379,16 @@ function defaultAppSettings() {
             pointsPerBHD: 5,
             silverThreshold: 150,
             goldThreshold: 300,
+            reserveThreshold: 600,
             rewardStep: 50,
+            doubleBeanDays: [5, 6],
+            freeDeliveryThresholds: { Silver: 20, Gold: 15, Reserve: 0 },
+            earlyAccessEnabled: true,
+            earlyAccessMinimumTier: "Gold",
             rewards: [
-                { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" }
+                { id: "espresso-pour", enabled: true, titleEN: "Drink of Your Choice", titleAR: "مشروب من اختيارك", detailEN: "Choose any eligible drink", detailAR: "اختر أي مشروب مؤهل", points: 50, reward: "Free Drink" },
+                { id: "pastry-pairing", enabled: true, titleEN: "Pastry Pairing", titleAR: "حلوى مع القهوة", detailEN: "One pastry on the house", detailAR: "حلوى مجانية", points: 90, reward: "Pastry Pairing" },
+                { id: "coffee-bag-credit", enabled: true, titleEN: "Coffee Bag Credit", titleAR: "رصيد كيس قهوة", detailEN: "BHD 4 off one coffee bag", detailAR: "خصم ٤ د.ب على كيس قهوة", points: 180, reward: "Coffee Bag Credit" }
             ]
         },
         updatedAt: null
@@ -458,7 +465,7 @@ function normalizeAppSettings(value = {}) {
             .sort((a, b) => a.maximumWeightGrams - b.maximumWeightGrams)
             .slice(0, 20)
         : fallback.fulfillment.khaleejiTiers;
-    const supportedRewards = new Set(["free drink"]);
+    const supportedRewards = new Set(["free drink", "pastry pairing", "coffee bag credit"]);
     const normalizedRewards = Array.isArray(loyalty.rewards)
         ? loyalty.rewards.map((reward, index) => ({
             id: trimText(reward?.id || `reward-${index + 1}`, 60).toLowerCase().replace(/[^a-z0-9-]/g, "-") || `reward-${index + 1}`,
@@ -476,6 +483,23 @@ function normalizeAppSettings(value = {}) {
         Math.round(boundedNumber(loyalty.goldThreshold, fallback.loyalty.goldThreshold, 1, 1_000_000)),
         silverThreshold + 1
     );
+    const reserveThreshold = Math.max(
+        Math.round(boundedNumber(loyalty.reserveThreshold, fallback.loyalty.reserveThreshold, 1, 1_000_000)),
+        goldThreshold + 1
+    );
+    const doubleBeanDays = Array.isArray(loyalty.doubleBeanDays)
+        ? loyalty.doubleBeanDays.map((day) => Math.round(Number(day))).filter((day) => day >= 0 && day <= 6).slice(0, 7)
+        : fallback.loyalty.doubleBeanDays;
+    const configuredFreeDeliveryThresholds = loyalty.freeDeliveryThresholds && typeof loyalty.freeDeliveryThresholds === "object"
+        ? loyalty.freeDeliveryThresholds
+        : fallback.loyalty.freeDeliveryThresholds;
+    const freeDeliveryThresholds = Object.fromEntries(["Silver", "Gold", "Reserve"].map((tier) => [
+        tier,
+        Math.max(0, Number.isFinite(Number(configuredFreeDeliveryThresholds[tier])) ? Number(configuredFreeDeliveryThresholds[tier]) : fallback.loyalty.freeDeliveryThresholds[tier])
+    ]));
+    const earlyAccessMinimumTier = ["Gold", "Reserve"].includes(String(loyalty.earlyAccessMinimumTier || ""))
+        ? String(loyalty.earlyAccessMinimumTier)
+        : fallback.loyalty.earlyAccessMinimumTier;
     return {
         announcement: {
             enabled: Boolean(announcement.enabled),
@@ -593,7 +617,12 @@ function normalizeAppSettings(value = {}) {
             pointsPerBHD: boundedNumber(loyalty.pointsPerBHD, fallback.loyalty.pointsPerBHD, 0, 10_000),
             silverThreshold,
             goldThreshold,
+            reserveThreshold,
             rewardStep: Math.round(boundedNumber(loyalty.rewardStep, fallback.loyalty.rewardStep, 1, 1_000_000)),
+            doubleBeanDays: [...new Set(doubleBeanDays)],
+            freeDeliveryThresholds,
+            earlyAccessEnabled: loyalty.earlyAccessEnabled === undefined ? fallback.loyalty.earlyAccessEnabled : Boolean(loyalty.earlyAccessEnabled),
+            earlyAccessMinimumTier,
             rewards: normalizedRewards.length ? normalizedRewards : fallback.loyalty.rewards
         },
         updatedAt: value.updatedAt || fallback.updatedAt
@@ -2479,6 +2508,7 @@ async function runBirthdayRewardScan() {
         if (account.transactions?.some((transaction) => transaction.id === transactionID)) continue;
         const updated = await updateLoyaltyAccount(email, (working) => {
             working.pointsBalance += 50;
+            working.birthdayRewardAvailable = true;
             working.transactions = working.transactions || [];
             working.transactions.unshift({
                 id: transactionID,
@@ -2528,18 +2558,70 @@ async function awardMonthlyMissionIfComplete(email, journal) {
             });
         }
     }
-    const usefulReview = (Array.isArray(journal) ? journal : []).some((entry) => Number(entry.rating) >= 4 && String(entry.notes || "").trim().length >= 20);
-    if (usefulReview) {
-        const reviewID = "phase6:review";
-        const refreshed = await ensureLoyaltyAccount(email);
-        if (!refreshed.transactions?.some((transaction) => transaction.id === reviewID)) {
-            await updateLoyaltyAccount(email, (working) => {
-                working.pointsBalance += 25;
-                working.transactions = working.transactions || [];
-                working.transactions.unshift({ id: reviewID, type: "earn", points: 25, note: "Useful brew review", createdAt: now.toISOString() });
-            });
-        }
+}
+
+function journalDate(value) {
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : null;
+}
+
+function brewStreakDays(journal) {
+    const dates = [...new Set((Array.isArray(journal) ? journal : [])
+        .map((entry) => journalDate(entry.createdAt))
+        .filter(Boolean))].sort().reverse();
+    if (!dates.length) return 0;
+    let streak = 1;
+    for (let index = 1; index < dates.length; index += 1) {
+        const previous = Date.parse(`${dates[index - 1]}T00:00:00Z`);
+        const current = Date.parse(`${dates[index]}T00:00:00Z`);
+        if (previous - current !== 86_400_000) break;
+        streak += 1;
     }
+    return streak;
+}
+
+async function awardBrewJournalRewards(email, journal) {
+    const entries = Array.isArray(journal) ? journal : [];
+    const account = await ensureLoyaltyAccount(email);
+    if (!account) return null;
+    const existingIDs = new Set((account.transactions || []).map((transaction) => transaction.id));
+    const now = new Date().toISOString();
+    const doubleBeanDays = new Set(runtimeAppSettings.value.loyalty.doubleBeanDays || []);
+    const streakDays = brewStreakDays(entries);
+    const latestDate = entries.map((entry) => journalDate(entry.createdAt)).filter(Boolean).sort().pop() || null;
+
+    return updateLoyaltyAccount(email, (working) => {
+        working.transactions = working.transactions || [];
+        for (const entry of entries) {
+            const entryID = String(entry.id || "").trim();
+            const date = journalDate(entry.createdAt);
+            if (!entryID || !date || existingIDs.has(`brew:${entryID}`)) continue;
+            const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+            const doubled = doubleBeanDays.has(weekday);
+            const points = doubled ? 10 : 5;
+            working.pointsBalance += points;
+            working.transactions.unshift({
+                id: `brew:${entryID}`,
+                type: "earn",
+                points,
+                note: doubled ? "Brew logged • Double Beans day" : "Brew logged",
+                createdAt: now
+            });
+
+            const reviewID = `review:${entryID}`;
+            if (Number(entry.rating) >= 4 && String(entry.notes || "").trim().length >= 20 && !existingIDs.has(reviewID)) {
+                working.pointsBalance += 25;
+                working.transactions.unshift({ id: reviewID, type: "earn", points: 25, note: "Useful brew review", createdAt: now });
+            }
+        }
+
+        working.streakDays = streakDays;
+        working.lastBrewDate = latestDate;
+        if (streakDays >= 3 && latestDate && !existingIDs.has(`brew-streak:${latestDate}`)) {
+            working.pointsBalance += 15;
+            working.transactions.unshift({ id: `brew-streak:${latestDate}`, type: "earn", points: 15, note: `${streakDays}-day brew streak`, createdAt: now });
+        }
+    });
 }
 
 let birthdayRewardTimer = null;
@@ -2565,12 +2647,25 @@ function accountRecordFromRow(row) {
 }
 
 function loyaltyPayload(account) {
+    const tier = loyaltyTierProgress(account.pointsBalance);
     return {
         memberID: account.memberID,
         pointsBalance: account.pointsBalance,
         tier: account.tier,
         nextReward: account.nextReward,
         perks: loyaltyPerksFor(account.pointsBalance),
+        streakDays: Number(account.streakDays || 0),
+        nextTier: tier.nextTier,
+        beansUntilNextTier: tier.remaining,
+        birthdayRewardAvailable: Boolean(account.birthdayRewardAvailable),
+        crossCafeVisits: Number(account.crossCafeVisits || 0),
+        visitedCafeIDs: Array.isArray(account.visitedCafeIDs) ? account.visitedCafeIDs : [],
+        crossCafeReward: {
+            requiredCafes: 2,
+            bonusBeans: 25,
+            completed: Array.isArray(account.visitedCafeIDs) && account.visitedCafeIDs.length >= 2
+        },
+        visitStreakDays: Number(account.visitStreakDays || 0),
         transactions: account.transactions || []
     };
 }
@@ -2590,24 +2685,34 @@ function adminAuditRowToRecord(row) {
 function defaultLoyaltyPerks() {
     return [
         "Collect Beans across coffees, beans, and accessories",
-        "Unlock seasonal offers and member-only extras"
+        "Birthday reward and free delivery at BHD 20",
+        "Double Beans on selected brew days"
     ];
 }
 
 function loyaltyPerksFor(pointsBalance) {
-    if (pointsBalance >= 300) {
+    const loyalty = runtimeAppSettings.value.loyalty;
+    if (pointsBalance >= loyalty.reserveThreshold) {
         return [
-            "Everything in Silver",
-            "Priority access to limited roast drops",
-            "Exclusive Gold-only reward unlocks and concierge WhatsApp support"
+            "Everything in Gold",
+            "First access to limited lots and Reserve tastings",
+            "Reserve status • Free delivery on every order"
         ];
     }
 
-    if (pointsBalance >= 150) {
+    if (pointsBalance >= loyalty.goldThreshold) {
+        return [
+            "Everything in Silver",
+            "Priority access to limited roast drops",
+            "Gold-only rewards • Free delivery from BHD 15"
+        ];
+    }
+
+    if (pointsBalance >= loyalty.silverThreshold) {
         return [
             "Collect Beans across coffees, beans, and accessories",
-            "Early access to seasonal offers and member-only extras",
-            "Silver status recognition across future loyalty promos"
+            "Silver status • Early access to seasonal offers and member-only extras",
+            "Free delivery from BHD 20"
         ];
     }
 
@@ -3238,7 +3343,7 @@ async function getLoyaltyAccount(email) {
     }
 
     const result = await database.query(
-        `SELECT email, member_id, points_balance, tier, next_reward, perks
+        `SELECT email, member_id, points_balance, tier, next_reward, perks, streak_days, birthday_reward_available, cross_cafe_visits, last_brew_date, visit_streak_days, last_visit_date, visited_cafe_ids
          FROM loyalty_accounts
          WHERE email = $1`,
         [email]
@@ -3254,7 +3359,16 @@ async function getLoyaltyAccount(email) {
         pointsBalance: row.points_balance,
         tier: row.tier,
         nextReward: row.next_reward,
-        perks: loyaltyPerksFor(row.points_balance)
+        perks: loyaltyPerksFor(row.points_balance),
+        streakDays: Number(row.streak_days || 0),
+        nextTier: loyaltyTierProgress(row.points_balance).nextTier,
+        beansUntilNextTier: loyaltyTierProgress(row.points_balance).remaining,
+        birthdayRewardAvailable: Boolean(row.birthday_reward_available),
+        crossCafeVisits: Number(row.cross_cafe_visits || 0),
+        visitedCafeIDs: Array.isArray(row.visited_cafe_ids) ? row.visited_cafe_ids : [],
+        lastBrewDate: row.last_brew_date,
+        visitStreakDays: Number(row.visit_streak_days || 0),
+        lastVisitDate: row.last_visit_date
     };
 }
 
@@ -3277,6 +3391,13 @@ async function ensureLoyaltyAccount(email) {
             tier: tierFor(0),
             nextReward: nextRewardText(0),
             perks: loyaltyPerksFor(0),
+            streakDays: 0,
+            birthdayRewardAvailable: false,
+            crossCafeVisits: 0,
+            visitedCafeIDs: [],
+            lastBrewDate: null,
+            visitStreakDays: 0,
+            lastVisitDate: null,
             transactions: []
         };
 
@@ -3298,13 +3419,20 @@ async function ensureLoyaltyAccount(email) {
         pointsBalance: 0,
         tier: tierFor(0),
         nextReward: nextRewardText(0),
-        perks: loyaltyPerksFor(0)
+        perks: loyaltyPerksFor(0),
+        streakDays: 0,
+        birthdayRewardAvailable: false,
+        crossCafeVisits: 0,
+        visitedCafeIDs: [],
+        lastBrewDate: null,
+        visitStreakDays: 0,
+        lastVisitDate: null
     };
 
     await database.query(
-        `INSERT INTO loyalty_accounts (email, member_id, points_balance, tier, next_reward, perks)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
-        [email, created.memberID, created.pointsBalance, created.tier, created.nextReward, JSON.stringify(created.perks)]
+        `INSERT INTO loyalty_accounts (email, member_id, points_balance, tier, next_reward, perks, streak_days, birthday_reward_available, cross_cafe_visits, last_brew_date, visit_streak_days, last_visit_date, visited_cafe_ids)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13::jsonb)`,
+        [email, created.memberID, created.pointsBalance, created.tier, created.nextReward, JSON.stringify(created.perks), created.streakDays, created.birthdayRewardAvailable, created.crossCafeVisits, created.lastBrewDate, created.visitStreakDays, created.lastVisitDate, JSON.stringify(created.visitedCafeIDs)]
     );
 
     return {
@@ -3349,9 +3477,11 @@ async function updateLoyaltyAccount(email, mutate) {
 
     await database.query(
         `UPDATE loyalty_accounts
-         SET points_balance = $2, tier = $3, next_reward = $4, perks = $5::jsonb
+         SET points_balance = $2, tier = $3, next_reward = $4, perks = $5::jsonb,
+             streak_days = $6, birthday_reward_available = $7, cross_cafe_visits = $8, last_brew_date = $9,
+             visit_streak_days = $10, last_visit_date = $11, visited_cafe_ids = $12::jsonb
          WHERE email = $1`,
-        [email, working.pointsBalance, working.tier, working.nextReward, JSON.stringify(working.perks)]
+        [email, working.pointsBalance, working.tier, working.nextReward, JSON.stringify(working.perks), Number(working.streakDays || 0), Boolean(working.birthdayRewardAvailable), Number(working.crossCafeVisits || 0), working.lastBrewDate || null, Number(working.visitStreakDays || 0), working.lastVisitDate || null, JSON.stringify(Array.isArray(working.visitedCafeIDs) ? working.visitedCafeIDs : [])]
     );
 
     if (working.transactions.length > beforeCount) {
@@ -4258,6 +4388,10 @@ async function mutateCustomerLibrary(email, body) {
         store.customerLibrary = store.customerLibrary || {};
         store.customerLibrary[normalizedEmail] = next;
         writeJSON(customerLibraryStorePath, store);
+        if (action === "merge" || action === "saveJournal") {
+            await awardBrewJournalRewards(normalizedEmail, next.brewJournal);
+            await awardMonthlyMissionIfComplete(normalizedEmail, next.brewJournal);
+        }
         return next;
     }
 
@@ -4319,7 +4453,12 @@ async function mutateCustomerLibrary(email, body) {
         await database.query(`DELETE FROM brew_journal_entries WHERE email = $1 AND id = $2`, [normalizedEmail, journalID]);
     }
 
-    return customerLibraryPayload(normalizedEmail);
+    const payload = await customerLibraryPayload(normalizedEmail);
+    if (action === "merge" || action === "saveJournal") {
+        await awardBrewJournalRewards(normalizedEmail, payload.brewJournal);
+        await awardMonthlyMissionIfComplete(normalizedEmail, payload.brewJournal);
+    }
+    return payload;
 }
 
 async function findOrderByID(orderID) {
@@ -6885,9 +7024,24 @@ function memberIDFor(email) {
 
 function tierFor(pointsBalance) {
     const loyalty = runtimeAppSettings.value.loyalty;
+    if (pointsBalance >= loyalty.reserveThreshold) return "Reserve";
     if (pointsBalance >= loyalty.goldThreshold) return "Gold";
     if (pointsBalance >= loyalty.silverThreshold) return "Silver";
     return "Bronze";
+}
+
+function loyaltyTierProgress(pointsBalance) {
+    const loyalty = runtimeAppSettings.value.loyalty;
+    const tiers = [
+        ["Silver", loyalty.silverThreshold],
+        ["Gold", loyalty.goldThreshold],
+        ["Reserve", loyalty.reserveThreshold]
+    ];
+    const next = tiers.find(([, threshold]) => pointsBalance < threshold);
+    return {
+        nextTier: next ? next[0] : null,
+        remaining: next ? Math.max(next[1] - pointsBalance, 0) : 0
+    };
 }
 
 function nextRewardText(pointsBalance) {
@@ -8532,6 +8686,10 @@ async function adminAnalyticsSummary() {
             createdAt: account.createdAt,
             loyaltyTier: loyalty.tier,
             pointsBalance: loyalty.pointsBalance,
+            streakDays: loyalty.streakDays || 0,
+            visitStreakDays: loyalty.visitStreakDays || 0,
+            crossCafeVisits: loyalty.crossCafeVisits || 0,
+            birthdayRewardAvailable: Boolean(loyalty.birthdayRewardAvailable),
             orders,
             vouchers,
             alerts
@@ -8604,6 +8762,11 @@ async function adminAnalyticsSummary() {
             tasteMemory: tasteMemory.length,
             customersWithTasteMemory,
             averagePoints,
+            averageBrewStreakDays: customers.length ? Math.round(customers.reduce((sum, customer) => sum + (customer.streakDays || 0), 0) / customers.length) : 0,
+            activeBrewStreakCustomers: customers.filter((customer) => (customer.streakDays || 0) >= 3).length,
+            averageVisitStreakDays: customers.length ? Math.round(customers.reduce((sum, customer) => sum + (customer.visitStreakDays || 0), 0) / customers.length) : 0,
+            verifiedCafeVisits: customers.reduce((sum, customer) => sum + (customer.crossCafeVisits || 0), 0),
+            birthdayRewardsAvailable: customers.filter((customer) => customer.birthdayRewardAvailable).length,
             newCustomersLast7Days,
             repeatCustomers, repeatPurchaseRatePercent: customersWithOrders > 0 ? Math.round((repeatCustomers / customersWithOrders) * 100) : 0,
             activeCoffeeClubPlans, checkoutStartedLast30Days: checkoutStarted, purchasesCompletedLast30Days: purchasesCompleted, checkoutConversionPercent, paymentFailuresLast30Days: paymentFailures,

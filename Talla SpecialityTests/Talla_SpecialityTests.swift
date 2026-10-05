@@ -405,6 +405,23 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Coffee Beans")
     }
 
+    @Test func subscriptionProductRoutingKeepsProductsInTheChosenPlan() {
+        #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: "arabic-coffee", requestedPlan: "arabic-coffee") == "arabic-coffee")
+        #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: "beans", requestedPlan: "arabic-coffee") == nil)
+        #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: "arabic-coffee", requestedPlan: "office") == "office")
+        #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: "drip-bags", requestedPlan: "office") == nil)
+        #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: "filters", requestedPlan: "equipment") == nil)
+        #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: "seasonal-box", requestedPlan: "seasonal-box") == "seasonal-box")
+    }
+
+    @Test func identifiesArabicCoffeeEvenWhenCatalogCategoryIsGeneric() {
+        #expect(ProductCatalogRules.isArabicCoffeeProduct("Qahwa Bahrain · Coffee Beans · app-category:coffee-beans"))
+        #expect(ProductCatalogRules.isArabicCoffeeProduct("Shamali Coffee"))
+        #expect(ProductCatalogRules.isArabicCoffeeProduct("قهوة عربية"))
+        #expect(!ProductCatalogRules.isArabicCoffeeProduct("Arabica Ethiopia Natural"))
+        #expect(!ProductCatalogRules.isArabicCoffeeProduct("Colombia Washed Coffee Beans"))
+    }
+
     @Test func mapsHawarIslandsToCoffeeBeansDespiteConflictingTags() {
         let coffeeKey = ProductCatalogRules.categoryKey(
             productType: "CRMB",

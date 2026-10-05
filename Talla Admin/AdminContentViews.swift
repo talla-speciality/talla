@@ -213,6 +213,7 @@ struct AdminContentView: View {
             if area == .controls {
                 guard body.at("fulfillment.deliveryEnabled").flag || body.at("fulfillment.pickupEnabled").flag else { throw AdminAPIError.server("Keep delivery or pickup enabled.") }
                 guard body.at("loyalty.goldThreshold").number > body.at("loyalty.silverThreshold").number else { throw AdminAPIError.server("Gold must have a higher points threshold than Silver.") }
+                guard body.at("loyalty.reserveThreshold").number > body.at("loyalty.goldThreshold").number else { throw AdminAPIError.server("Reserve must have a higher points threshold than Gold.") }
                 guard !body.at("fulfillment.khaleejiTiers").array.isEmpty, !body.at("loyalty.rewards").array.isEmpty else { throw AdminAPIError.server("Keep at least one shipping tier and loyalty reward.") }
                 guard (2...12).contains(Int(body.at("coffeeClub.shipmentCount").number)) else { throw AdminAPIError.server("Coffee Club shipments must be between 2 and 12.") }
                 guard (1...12).contains(Int(body.at("coffeeClub.intervalWeeks").number)) else { throw AdminAPIError.server("Coffee Club interval must be between 1 and 12 weeks.") }
@@ -370,7 +371,13 @@ extension AdminContentArea {
             .init("loyalty.pointsPerBHD", "Points per BHD", .number),
             .init("loyalty.silverThreshold", "Silver threshold", .integer),
             .init("loyalty.goldThreshold", "Gold threshold", .integer),
-            .init("loyalty.rewardStep", "Reward step", .integer)
+            .init("loyalty.reserveThreshold", "Reserve threshold", .integer),
+            .init("loyalty.rewardStep", "Reward step", .integer),
+            .init("loyalty.freeDeliveryThresholds.Silver", "Silver free delivery threshold", .number),
+            .init("loyalty.freeDeliveryThresholds.Gold", "Gold free delivery threshold", .number),
+            .init("loyalty.freeDeliveryThresholds.Reserve", "Reserve free delivery threshold", .number),
+            .init("loyalty.earlyAccessEnabled", "Limited-lot early access", .toggle),
+            .init("loyalty.earlyAccessMinimumTier", "Limited-lot minimum tier", .text)
         ]),
         .init("Support and policies", [
             .init("support.whatsappURL", "WhatsApp link", .text),

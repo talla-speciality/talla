@@ -43,9 +43,16 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
             fulfillment: { method: "delivery", line1: "Road 1", city: "Manama", countryCode: "bh" },
             payment: { method: "applePay" },
             coffeeClub: {
+                planType: "office",
                 shipmentCount: 3,
                 intervalWeeks: 4,
                 discountPercent: 10,
+                officeDetails: {
+                    companyName: "Talla Offices",
+                    vatRegistrationNumber: "VAT-1",
+                    commercialRegistrationNumber: "CR-2",
+                    purchaseOrderReference: "PO-3"
+                },
                 coffeeItems: [
                     { coffeeName: "Colombia", variantId: "variant-250", quantity: 2 },
                     { coffeeName: "Ethiopia", variantId: "variant-1000", quantity: 1 }
@@ -71,6 +78,12 @@ test("admin order detail includes customer, fulfilment, and card payment facts",
     assert.equal(order.coffeeClub.coffeeItems[0].quantity, 2);
     assert.equal(order.coffeeClub.fulfillmentOverride.method, "pickup");
     assert.equal(order.coffeeClub.fulfillmentOverride.pickupSlot, "10:00–12:00");
+    assert.deepEqual(order.coffeeClub.officeDetails, {
+        companyName: "Talla Offices",
+        vatRegistrationNumber: "VAT-1",
+        commercialRegistrationNumber: "CR-2",
+        purchaseOrderReference: "PO-3"
+    });
     assert.equal(order.status, "Confirmed");
 });
 

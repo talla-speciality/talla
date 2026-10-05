@@ -322,7 +322,9 @@ enum AdminReport: String, CaseIterable, Identifiable {
             .init("totals.checkoutConversionPercent", "Checkout conversion %"),
             .init("totals.paymentFailuresLast30Days", "Payment failures · 30 days"),
             .init("totals.pendingOrders", "Pending orders"), .init("totals.activeVouchers", "Active vouchers"),
-            .init("totals.usedVouchers", "Used vouchers"), .init("totals.averagePoints", "Average Beans")
+            .init("totals.usedVouchers", "Used vouchers"), .init("totals.averagePoints", "Average Beans"),
+            .init("totals.verifiedCafeVisits", "Verified café visits"), .init("totals.averageBrewStreakDays", "Average brew streak"),
+            .init("totals.averageVisitStreakDays", "Average visit streak"), .init("totals.birthdayRewardsAvailable", "Birthday rewards ready")
         ]
         case .operations: [.init("totals.requestsLastHour", "Requests / hour"), .init("totals.errorsLastHour", "Server errors / hour"), .init("totals.rateLimitedLastHour", "Rate limits / hour"), .init("totals.avgDurationMs", "Average duration (ms)")]
         default: []

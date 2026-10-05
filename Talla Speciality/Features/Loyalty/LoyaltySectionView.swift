@@ -107,6 +107,8 @@ struct LoyaltySectionView: View {
             }
 
             stampProgressCard(pointsBalance: account.pointsBalance)
+            tierJourneyCard(account: account)
+            earningGuideCard(account: account)
 
             VStack(spacing: 10) {
                 Button {
@@ -145,6 +147,109 @@ struct LoyaltySectionView: View {
                 .stroke(accentColor.opacity(isLightAppearance ? 0.20 : 0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    private func tierJourneyCard(account: ContentView.LoyaltyAccount) -> some View {
+        let progress = tierProgress
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("YOUR CLUB TIER")
+                    .font(Font.custom("AvenirNext-Bold", size: 10))
+                    .tracking(AppLocalization.letterSpacing(1.8))
+                    .foregroundColor(secondaryTextColor)
+                Spacer()
+                Text(account.tier)
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(AppLocalization.letterSpacing(1.4))
+                    .textCase(.uppercase)
+                    .foregroundColor(accentColor)
+            }
+
+            if let progress {
+                ProgressView(value: progress.fraction)
+                    .tint(accentColor)
+
+                Text(progress.remaining == 0
+                    ? "Reserve is yours. Keep brewing for more Club moments."
+                    : "\(progress.remaining) Beans to \(progress.label) — perks unlock automatically.")
+                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .background(cardFillColor)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func earningGuideCard(account: ContentView.LoyaltyAccount) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("MORE WAYS TO EARN")
+                .font(Font.custom("AvenirNext-Bold", size: 10))
+                .tracking(AppLocalization.letterSpacing(1.8))
+                .foregroundColor(accentColor)
+
+            let actions = [
+                ("drop.fill", "Brew at home", "Log a brew to keep your streak moving"),
+                ("star.bubble.fill", "Share your cup", "Reviews earn Beans after your order"),
+                ("person.2.fill", "Bring a friend", "Referrals and events count across cafés")
+            ]
+            ForEach(actions, id: \.1) { action in
+                HStack(spacing: 10) {
+                    Image(systemName: action.0)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(accentColor)
+                        .frame(width: 28, height: 28)
+                        .background(accentColor.opacity(0.12), in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(action.1)
+                            .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                            .foregroundColor(primaryTextColor)
+                        Text(action.2)
+                            .font(Font.custom("AvenirNext-Regular", size: 11))
+                            .foregroundColor(secondaryTextColor)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+
+            if let streakDays = account.streakDays, streakDays > 0 {
+                Text("🔥 \(streakDays)-day brew streak")
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(primaryTextColor)
+            }
+
+            if let visits = account.crossCafeVisits, visits > 0 {
+                Text("☕ \(visits) verified café visit\(visits == 1 ? "" : "s")")
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(primaryTextColor)
+            }
+
+            if let crossCafeReward = account.crossCafeReward, !crossCafeReward.completed {
+                Text("☕ \(crossCafeReward.requiredCafes - (account.visitedCafeIDs?.count ?? 0)) more café visit to unlock +\(crossCafeReward.bonusBeans) Beans")
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(primaryTextColor)
+            } else if account.crossCafeReward?.completed == true {
+                Text("☕ Cross-café reward unlocked: +\(account.crossCafeReward?.bonusBeans ?? 25) Beans")
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(primaryTextColor)
+            }
+
+            if let visitStreakDays = account.visitStreakDays, visitStreakDays > 0 {
+                Text("🔥 \(visitStreakDays)-day café visit streak")
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(primaryTextColor)
+            }
+
+            if account.birthdayRewardAvailable == true {
+                Text("🎂 Birthday reward added to your Beans balance")
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .foregroundColor(primaryTextColor)
+            }
+        }
+        .padding(14)
+        .background(cardFillColor)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var nextRewardLabel: String {

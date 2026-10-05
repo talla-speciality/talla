@@ -72,9 +72,16 @@ function createAdminOrderDetailService(dependencies) {
             variantId: trimText(item?.variantId, 180) || null,
             quantity: Math.max(1, Math.min(12, Math.round(Number(item?.quantity) || 1)))
         })).filter((item) => item.coffeeName || item.variantId);
+        const rawOfficeDetails = value.officeDetails && typeof value.officeDetails === "object" ? value.officeDetails : null;
+        const officeDetails = String(value.planType || "").toLowerCase() === "office" && rawOfficeDetails ? {
+            companyName: trimText(rawOfficeDetails.companyName, 160),
+            vatRegistrationNumber: trimText(rawOfficeDetails.vatRegistrationNumber, 80),
+            commercialRegistrationNumber: trimText(rawOfficeDetails.commercialRegistrationNumber, 80),
+            purchaseOrderReference: trimText(rawOfficeDetails.purchaseOrderReference, 100)
+        } : null;
         const firstCoffeeItem = coffeeItems[0] || { coffeeName: null, variantId: null };
         return {
-            planType: ["beans", "drip-bags", "filters", "seasonal-box"].includes(String(value.planType || "").toLowerCase())
+            planType: ["beans", "office", "arabic-coffee", "drip-bags", "filters", "equipment", "seasonal-box"].includes(String(value.planType || "").toLowerCase())
                 ? String(value.planType).toLowerCase()
                 : "beans",
             shipmentCount,
@@ -97,6 +104,7 @@ function createAdminOrderDetailService(dependencies) {
                 ? String(value.refundStatus).toLowerCase()
                 : "none",
             refundAmount: Math.max(0, Number(value.refundAmount) || 0),
+            ...(officeDetails ? { officeDetails } : {}),
             refundNote: trimText(value.refundNote, 500) || null,
             refundedAt: validISODate(value.refundedAt) || null,
             termsAcceptedAt: validISODate(value.termsAcceptedAt) || null,
@@ -257,6 +265,8 @@ function createAdminOrderDetailService(dependencies) {
             creditCount: 20,
             redeemedCredits: Math.max(0, Math.min(20, Math.round(Number(rawCafePass.redeemedCredits) || 0))),
             drinkName: trimText(rawCafePass.drinkName, 180),
+            variantId: trimText(rawCafePass.variantId, 180) || null,
+            unitPriceFils: Math.max(0, Math.round(Number(rawCafePass.unitPriceFils) || 0)),
             status: ["pending_payment", "active", "expired", "exhausted"].includes(cafePassStatus)
                 ? cafePassStatus : "pending_payment",
             activatedAt: validISODate(rawCafePass.activatedAt) || null,

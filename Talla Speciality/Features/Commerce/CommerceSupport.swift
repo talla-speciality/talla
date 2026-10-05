@@ -1056,6 +1056,12 @@ struct CoffeeClubManageResponse: Decodable {
 }
 
 struct CustomerCoffeeClub: Decodable {
+    struct OfficeDetails: Decodable {
+        let companyName: String?
+        let vatRegistrationNumber: String?
+        let commercialRegistrationNumber: String?
+        let purchaseOrderReference: String?
+    }
     struct Preference: Decodable { let coffeeName, variantId: String? }
     struct CoffeeItem: Decodable, Identifiable {
         let coffeeName: String?
@@ -1078,6 +1084,7 @@ struct CustomerCoffeeClub: Decodable {
     let preference: Preference?
     let coffeeItems: [CoffeeItem]?
     let fulfillmentOverride: FulfillmentOverride?
+    let officeDetails: OfficeDetails?
 
     var deliveredCount: Int { min(shipmentCount, max(0, deliveredShipments ?? 0)) }
     var remainingCount: Int { min(shipmentCount, max(0, remainingShipments ?? (shipmentCount - deliveredCount))) }
@@ -1110,6 +1117,25 @@ struct ServiceErrorResponse: Decodable {
 }
 
 enum ProductCatalogRules {
+    static func isArabicCoffeeProduct(_ value: String) -> Bool {
+        let normalized = value.lowercased()
+        let sourceSlug = slug(from: value)
+        let exactTokens = Set(sourceSlug.split(separator: "-").map(String.init))
+        return sourceSlug.contains("arabic-coffee")
+            || sourceSlug.contains("northern-coffee")
+            || ["qahwa", "gahwa", "shamali"].contains(where: exactTokens.contains)
+            || ["قهوة عربية", "قهوة خليجية", "قهوة شمالية", "قهوة الشمالي", "قهوة شمالي"].contains(where: normalized.contains)
+    }
+
+    static func subscriptionPlanType(detectedPlan: String?, requestedPlan: String) -> String? {
+        guard !requestedPlan.isEmpty else { return detectedPlan }
+        if requestedPlan == "office" {
+            return ["beans", "arabic-coffee"].contains(detectedPlan ?? "") ? "office" : nil
+        }
+        let supportedPlans = ["beans", "arabic-coffee", "drip-bags", "filters", "equipment", "seasonal-box"]
+        return supportedPlans.contains(requestedPlan) && detectedPlan == requestedPlan ? requestedPlan : nil
+    }
+
     static func shouldInclude(title: String, productType: String, tags: [String]) -> Bool {
         let source = ([title, productType] + tags)
             .joined(separator: " ")
@@ -1125,6 +1151,10 @@ enum ProductCatalogRules {
 
         if isHawarIslandsCoffee {
             return "coffee-beans"
+        }
+
+        if normalizedTitle.contains("drip-bag") {
+            return "drip-bags"
         }
 
         if let appCategory = appCategoryOverride(from: tags) {
@@ -1425,6 +1455,7 @@ extension ContentView.Product {
             additionalImageURLs: shopifyNode.images?.nodes.map(\.url) ?? [],
             desc: AppLocalization.catalogText(localizedNode?.description ?? shopifyNode.description, source: shopifyNode.description, key: "catalog_\(shopifyNode.handle)_description"),
             tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
+            tags: shopifyNode.tags,
             countryOfOrigin: countryOfOrigin,
             roastDate: roastDate,
             isAvailableForSale: defaultVariant?.isAvailableForSale ?? false,

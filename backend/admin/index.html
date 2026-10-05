@@ -876,7 +876,14 @@
                         <label>Beans per BHD<input id="app-points-per-bhd" type="number" min="0" max="10000" step="0.1"></label>
                         <label>Silver threshold<input id="app-silver-threshold" type="number" min="1" max="1000000" step="1"></label>
                         <label>Gold threshold<input id="app-gold-threshold" type="number" min="1" max="1000000" step="1"></label>
+                        <label>Reserve threshold<input id="app-reserve-threshold" type="number" min="1" max="1000000" step="1"></label>
                         <label>Next reward step<input id="app-reward-step" type="number" min="1" max="1000000" step="1"></label>
+                        <label>Double-Bean weekdays (0=Sun)<input id="app-double-bean-days" type="text" placeholder="5, 6"></label>
+                        <label>Silver free delivery from BHD<input id="app-silver-free-delivery" type="number" min="0" max="1000000" step="0.001"></label>
+                        <label>Gold free delivery from BHD<input id="app-gold-free-delivery" type="number" min="0" max="1000000" step="0.001"></label>
+                        <label>Reserve free delivery from BHD<input id="app-reserve-free-delivery" type="number" min="0" max="1000000" step="0.001"></label>
+                        <label><input id="app-early-access-enabled" type="checkbox" style="width:auto; margin-right:8px;">Limited-lot early access</label>
+                        <label>Early access minimum tier<select id="app-early-access-tier"><option>Gold</option><option>Reserve</option></select></label>
                     </div>
                     <textarea id="app-loyalty-rewards" style="width:100%; min-height:180px; margin-top:12px; resize:vertical;" placeholder="One reward per line: enabled | id | points | code | English title | Arabic title | English detail | Arabic detail"></textarea>
                     <div class="subcopy">Keep the pipe-separated format. Disabled rewards start with “no”; enabled rewards start with “yes”.</div>
@@ -1226,6 +1233,16 @@
                         <button id="adjust">Apply Adjustment</button>
                         <div class="muted">Positive numbers add points. Negative numbers remove points.</div>
                     </div>
+                    <div class="list-item" style="margin-top:14px;">
+                        <strong>Verified café activity</strong>
+                        <div class="grid" style="margin-top:12px;">
+                            <select id="activity-type"><option value="visit">Café visit · 10 Beans</option><option value="event">Event attendance · 50 Beans</option></select>
+                            <input id="activity-id" type="text" placeholder="Unique activity ID">
+                            <input id="activity-cafe-id" type="text" placeholder="Café ID (optional)">
+                            <input id="activity-note" type="text" placeholder="Note or event name">
+                        </div>
+                        <button id="record-activity" class="secondary" style="margin-top:12px;">Record Verified Activity</button>
+                    </div>
                 </div>
             </details>
         </section>
@@ -1376,6 +1393,11 @@
         const adjustButton = document.getElementById("adjust");
         const pointsInput = document.getElementById("points");
         const noteInput = document.getElementById("note");
+        const activityTypeInput = document.getElementById("activity-type");
+        const activityIDInput = document.getElementById("activity-id");
+        const activityCafeIDInput = document.getElementById("activity-cafe-id");
+        const activityNoteInput = document.getElementById("activity-note");
+        const recordActivityButton = document.getElementById("record-activity");
         const statusEl = document.getElementById("status");
         const snapshotEl = document.getElementById("snapshot");
         const customerDirectoryEl = document.getElementById("customer-directory");
@@ -1617,7 +1639,14 @@
             input("app-points-per-bhd").value = loyalty.pointsPerBHD ?? 5;
             input("app-silver-threshold").value = loyalty.silverThreshold ?? 150;
             input("app-gold-threshold").value = loyalty.goldThreshold ?? 300;
+            input("app-reserve-threshold").value = loyalty.reserveThreshold ?? 600;
             input("app-reward-step").value = loyalty.rewardStep ?? 50;
+            input("app-double-bean-days").value = (loyalty.doubleBeanDays || [5, 6]).join(", ");
+            input("app-silver-free-delivery").value = loyalty.freeDeliveryThresholds?.Silver ?? 20;
+            input("app-gold-free-delivery").value = loyalty.freeDeliveryThresholds?.Gold ?? 15;
+            input("app-reserve-free-delivery").value = loyalty.freeDeliveryThresholds?.Reserve ?? 0;
+            input("app-early-access-enabled").checked = loyalty.earlyAccessEnabled !== false;
+            input("app-early-access-tier").value = loyalty.earlyAccessMinimumTier || "Gold";
             input("app-loyalty-rewards").value = (loyalty.rewards || []).map((reward) => [
                 reward.enabled === false ? "no" : "yes", reward.id, reward.points, reward.reward,
                 reward.titleEN, reward.titleAR, reward.detailEN, reward.detailAR
@@ -1792,7 +1821,16 @@
                             pointsPerBHD: Number(input("app-points-per-bhd").value),
                             silverThreshold: Number(input("app-silver-threshold").value),
                             goldThreshold: Number(input("app-gold-threshold").value),
+                            reserveThreshold: Number(input("app-reserve-threshold").value),
                             rewardStep: Number(input("app-reward-step").value),
+                            doubleBeanDays: input("app-double-bean-days").value.split(",").map((value) => Number(value.trim())).filter((value) => Number.isInteger(value) && value >= 0 && value <= 6),
+                            freeDeliveryThresholds: {
+                                Silver: Number(input("app-silver-free-delivery").value),
+                                Gold: Number(input("app-gold-free-delivery").value),
+                                Reserve: Number(input("app-reserve-free-delivery").value)
+                            },
+                            earlyAccessEnabled: input("app-early-access-enabled").checked,
+                            earlyAccessMinimumTier: input("app-early-access-tier").value,
                             rewards: loyaltyRewards
                         }
                     })
@@ -2942,6 +2980,18 @@
                         <span class="label">Avg Points</span>
                         <div class="value">${totals.averagePoints || 0}</div>
                     </div>
+                    <div class="grid-card">
+                        <span class="label">Verified Café Visits</span>
+                        <div class="value">${totals.verifiedCafeVisits || 0}</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Avg Brew Streak</span>
+                        <div class="value">${totals.averageBrewStreakDays || 0} days</div>
+                    </div>
+                    <div class="grid-card">
+                        <span class="label">Birthday Rewards Ready</span>
+                        <div class="value">${totals.birthdayRewardsAvailable || 0}</div>
+                    </div>
                 </div>
                 <div class="grid" style="margin-bottom:18px;">
                     <div class="grid-card">
@@ -3217,6 +3267,15 @@
                             <span class="label">Member ID</span>
                             <div class="value">${loyalty.memberID}</div>
                         </div>
+                        <div class="grid-card">
+                            <span class="label">Brew streak</span>
+                            <div class="value">${loyalty.streakDays || 0} days</div>
+                        </div>
+                        <div class="grid-card">
+                            <span class="label">Café visits</span>
+                            <div class="value">${loyalty.crossCafeVisits || 0}</div>
+                            <div class="muted">${loyalty.visitStreakDays || 0}-day visit streak${loyalty.crossCafeReward?.completed ? " • Cross-café reward awarded" : ` • ${Math.max(0, (loyalty.crossCafeReward?.requiredCafes || 2) - (loyalty.visitedCafeIDs || []).length)} café remaining`}</div>
+                        </div>
                     </div>
                 </details>
                 <details class="mini-section" open>
@@ -3254,7 +3313,7 @@
                     <summary class="panel-summary" style="padding:0;">
                         <h2 style="margin-top:0;">Orders</h2>
                     </summary>
-                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${escapeHTML(order.status || "No status")} • ${new Date(order.createdAt).toLocaleString()}</div>${order.details?.coffeeClub ? `<div class="muted"><strong>Talla Coffee Club</strong> • ${Number(order.details.coffeeClub.shipmentCount || 3)} prepaid shipments • every ${Number(order.details.coffeeClub.intervalWeeks || 4)} weeks</div>` : ""}${order.beansAwarded ? `<div class="muted">${Number(order.pointsAwarded || 0)} Beans awarded</div>` : ""}<div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${orderStatuses.map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button>${String(order.id).startsWith("shopify_") ? `<button class="execute-order-refund secondary" data-order-id="${escapeHTML(order.id)}">Execute Shopify Refund</button>` : ""}</div></div>`, "No orders yet.")}</div>
+                    <div class="list">${renderList(orders, order => `<div class="list-item"><strong>${order.title}</strong><div class="muted">${order.total} • ${escapeHTML(order.status || "No status")} • ${new Date(order.createdAt).toLocaleString()}</div>${order.details?.coffeeClub ? `<div class="muted"><strong>Talla Coffee Club</strong> • ${Number(order.details.coffeeClub.shipmentCount || 3)} prepaid shipments • every ${Number(order.details.coffeeClub.intervalWeeks || 4)} weeks</div>${order.details.coffeeClub.officeDetails?.companyName ? `<div class="muted"><strong>Office:</strong> ${escapeHTML(order.details.coffeeClub.officeDetails.companyName)}${order.details.coffeeClub.officeDetails.purchaseOrderReference ? ` • PO ${escapeHTML(order.details.coffeeClub.officeDetails.purchaseOrderReference)}` : ""}${order.details.coffeeClub.officeDetails.vatRegistrationNumber ? ` • VAT ${escapeHTML(order.details.coffeeClub.officeDetails.vatRegistrationNumber)}` : ""}${order.details.coffeeClub.officeDetails.commercialRegistrationNumber ? ` • CR ${escapeHTML(order.details.coffeeClub.officeDetails.commercialRegistrationNumber)}` : ""}</div>` : ""}` : ""}${order.beansAwarded ? `<div class="muted">${Number(order.pointsAwarded || 0)} Beans awarded</div>` : ""}<div class="order-admin-row" style="margin-top:10px;"><select class="order-status-input" data-order-id="${escapeHTML(order.id)}">${orderStatuses.map(status => `<option value="${escapeHTML(status)}" ${order.status === status ? "selected" : ""}>${escapeHTML(status)}</option>`).join("")}</select><button class="save-order-status secondary" data-order-id="${escapeHTML(order.id)}">Save Status</button>${String(order.id).startsWith("shopify_") ? `<button class="execute-order-refund secondary" data-order-id="${escapeHTML(order.id)}">Execute Shopify Refund</button>` : ""}</div></div>`, "No orders yet.")}</div>
                 </details>
                 <details class="mini-section" open>
                     <summary class="panel-summary" style="padding:0;">
@@ -3823,6 +3882,37 @@
             }
         }
 
+        async function recordLoyaltyActivity() {
+            if (!state.currentEmail) {
+                setStatus("Look up a customer before recording activity.", "error");
+                return;
+            }
+            const activityID = activityIDInput.value.trim();
+            if (!activityID) {
+                setStatus("Enter a unique activity ID so duplicate scans cannot award Beans twice.", "error");
+                return;
+            }
+            setStatus("Recording verified café activity...", "info");
+            setButtonBusy(recordActivityButton, true, "Record Verified Activity", "Recording...");
+            try {
+                const response = await fetch("/admin/api/loyalty/activity", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: state.currentEmail, type: activityTypeInput.value, activityID, cafeID: activityCafeIDInput.value.trim(), note: activityNoteInput.value.trim() })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not record activity.");
+                activityIDInput.value = "";
+                activityNoteInput.value = "";
+                await lookupCustomer();
+                setStatus(payload.duplicate ? "That activity was already recorded." : `Recorded activity and awarded ${payload.pointsAwarded || 0} Beans.`, "success");
+            } catch (error) {
+                setStatus(error.message, "error");
+            } finally {
+                setButtonBusy(recordActivityButton, false, "Record Verified Activity");
+            }
+        }
+
         async function createProduct() {
             const title = newProductTitleInput.value.trim();
             const price = newProductPriceInput.value.trim();
@@ -4377,6 +4467,7 @@
         lookupButton.addEventListener("click", lookupCustomer);
         refreshButton.addEventListener("click", () => state.currentEmail ? lookupCustomer() : setStatus("No customer loaded yet."));
         adjustButton.addEventListener("click", adjustLoyalty);
+        recordActivityButton.addEventListener("click", recordLoyaltyActivity);
         refreshCustomersButton.addEventListener("click", refreshCustomers);
         refreshOrdersButton.addEventListener("click", loadAdminOrders);
         toggleOrderNotificationsButton.addEventListener("click", toggleOrderNotifications);

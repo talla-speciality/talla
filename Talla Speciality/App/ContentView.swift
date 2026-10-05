@@ -83,6 +83,7 @@ struct ContentView: View {
     @State var isCoffeeClubPrepaid = false
     @State var coffeeClubTermsAccepted = false
     @State var isCafePassPrepaid = false
+    @State var requestedSubscriptionPlanType = ""
     @State var cartOpen = false
     enum PaymentPresentation {
         case hosted(CheckoutSession)
@@ -233,6 +234,10 @@ struct ContentView: View {
     @State var giftRecipientName = ""
     @State var giftRecipientPhone = ""
     @State var giftMessage = ""
+    @State var officeCompanyName = ""
+    @State var officeVATNumber = ""
+    @State var officeCommercialRegistrationNumber = ""
+    @State var officePurchaseOrderReference = ""
     @State var isSavingAddress = false
     @State var selectingAddressID: String?
     @State var isAccountOnboardingPresented = false

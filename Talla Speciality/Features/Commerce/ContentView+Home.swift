@@ -2427,7 +2427,7 @@ extension ContentView {
         let configuredIDs = Set(remoteAppSettings?.coffeeClub?.productIDs ?? [])
         if !configuredIDs.isEmpty {
             return products.filter {
-                (prepaidPlanType(for: $0) != nil || configuredIDs.contains($0.id)) && $0.isAvailableForSale
+                (defaultPrepaidPlanType(for: $0) != nil || isEquipmentConsumable($0) || configuredIDs.contains($0.id)) && $0.isAvailableForSale
             }
         }
 
@@ -2439,8 +2439,8 @@ extension ContentView {
             ]
             let isAccessory = excludedAccessoryNames.contains { normalizedName.contains($0) }
             let isHawarIslandsCoffee = normalizedName.contains("hawar islands")
-            return (prepaidPlanType(for: product) != nil || isHawarIslandsCoffee)
-                && (!isAccessory || prepaidPlanType(for: product) != nil)
+            return (defaultPrepaidPlanType(for: product) != nil || isEquipmentConsumable(product) || isHawarIslandsCoffee)
+                && (!isAccessory || defaultPrepaidPlanType(for: product) != nil)
                 && product.isAvailableForSale
         }
     }

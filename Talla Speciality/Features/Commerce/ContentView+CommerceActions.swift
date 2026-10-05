@@ -37,7 +37,20 @@ extension ContentView {
             return
         }
 
-        if cartItems.isEmpty || prepaidPlanType(for: product) == nil {
+        let chosenPlanType = requestedSubscriptionPlanType
+        let productPlanType = prepaidPlanType(for: product)
+        if !chosenPlanType.isEmpty {
+            guard productPlanType == chosenPlanType,
+                  cartItems.allSatisfy({ prepaidPlanType(for: $0.product) == chosenPlanType }) else {
+                showToast(message: "Keep this prepaid plan in a separate bag from other products.")
+                return
+            }
+        }
+
+        if !chosenPlanType.isEmpty {
+            isCoffeeClubPrepaid = true
+            coffeeClubTermsAccepted = false
+        } else if cartItems.isEmpty || productPlanType == nil {
             isCoffeeClubPrepaid = false
             coffeeClubTermsAccepted = false
         }
@@ -116,6 +129,7 @@ extension ContentView {
             coffeeClubTermsAccepted = false
         }
         if cartItems.isEmpty || !isCafePassEligible { isCafePassPrepaid = false }
+        if cartItems.isEmpty { requestedSubscriptionPlanType = "" }
         checkoutError = nil
     }
 
@@ -255,6 +269,7 @@ extension ContentView {
         }
 
         cartItems = []
+        requestedSubscriptionPlanType = ""
         for (product, variant, quantity) in matchedItems {
             cartItems.append(
                 CartItem(
@@ -767,6 +782,13 @@ extension ContentView {
             return
         }
 
+        if isCoffeeClubActive && coffeeClubPlanType == "office"
+            && officeCompanyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            paymentFlow.transition(to: .failed)
+            checkoutError = "Add your company name for the office coffee order."
+            return
+        }
+
         guard canStartCheckoutWithShipping else {
             paymentFlow.transition(to: .failed)
             checkoutError = cartShipmentWeightGrams == nil
@@ -905,7 +927,13 @@ extension ContentView {
                 giftOrder: isGiftOrder,
                 giftRecipientName: giftRecipientName,
                 giftRecipientPhone: giftRecipientPhone,
-                giftMessage: giftMessage
+                giftMessage: giftMessage,
+                officeDetails: isCoffeeClubActive && coffeeClubPlanType == "office" ? [
+                    "companyName": officeCompanyName,
+                    "vatRegistrationNumber": officeVATNumber,
+                    "commercialRegistrationNumber": officeCommercialRegistrationNumber,
+                    "purchaseOrderReference": officePurchaseOrderReference
+                ] : nil
             )
             if let appliedVoucher {
                 if checkoutStart.pricingVersion != 2 {
@@ -1241,6 +1269,7 @@ extension ContentView {
                     return
                 }
                 cartItems.removeAll()
+                requestedSubscriptionPlanType = ""
                 appliedVoucher = nil
                 voucherCodeInput = ""
                 voucherError = nil

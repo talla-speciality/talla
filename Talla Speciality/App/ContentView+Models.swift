@@ -130,6 +130,7 @@ extension ContentView {
         var additionalImageURLs: [URL] = []
         let desc: String
         let tag: String?
+        var tags: [String] = []
         let countryOfOrigin: String?
         var roastDate: Date? = nil
         let isAvailableForSale: Bool
@@ -312,7 +313,11 @@ extension ContentView {
             let pointsPerBHD: Double
             let silverThreshold: Int
             let goldThreshold: Int
+            let reserveThreshold: Int?
             let rewardStep: Int
+            let freeDeliveryThresholds: [String: Double]?
+            let earlyAccessEnabled: Bool?
+            let earlyAccessMinimumTier: String?
             let rewards: [Reward]
         }
 
@@ -432,6 +437,20 @@ extension ContentView {
         let nextReward: String
         let perks: [String]
         let transactions: [Transaction]
+        let streakDays: Int?
+        let nextTier: String?
+        let beansUntilNextTier: Int?
+        let birthdayRewardAvailable: Bool?
+        let crossCafeVisits: Int?
+        let visitedCafeIDs: [String]?
+        let crossCafeReward: CrossCafeReward?
+        let visitStreakDays: Int?
+
+        struct CrossCafeReward: Codable {
+            let requiredCafes: Int
+            let bonusBeans: Int
+            let completed: Bool
+        }
     }
 
     struct ShopifyCustomerProfile {

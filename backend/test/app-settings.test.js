@@ -92,7 +92,7 @@ test("unsafe links, invalid rates, and malformed rewards cannot reach the public
     assert.equal(settings.fulfillment.bahrainRate, 0);
     assert.equal(settings.fulfillment.khaleejiTiers.length, 8);
     assert.equal(settings.release.appStoreURL, "");
-    assert.equal(settings.loyalty.rewards.length, 1);
+    assert.equal(settings.loyalty.rewards.length, 3);
 });
 
 
@@ -105,7 +105,9 @@ test("only supported rewards remain redeemable from a previously saved mixed cat
         { id: "coffee-bag-credit", enabled: true, titleEN: "Coffee Bag Credit", points: 150, reward: "Coffee bag credit" }
     ] } });
     assert.deepEqual(settings.loyalty.rewards.map(({ reward, points }) => ({ reward, points })), [
-        { reward: "Free Drink", points: 50 }
+        { reward: "Free Drink", points: 50 },
+        { reward: "Pastry pairing", points: 75 },
+        { reward: "Coffee bag credit", points: 150 }
     ]);
     assert.equal(settings.loyalty.rewardStep, 50);
     assert.equal(settings.loyalty.pointsPerBHD, 5);
@@ -115,6 +117,6 @@ test("a catalog containing only retired rewards falls back to the supported defa
     const settings = normalizeAppSettings({ loyalty: { rewards: [
         { id: "gift", enabled: true, titleEN: "Gift", points: 250, reward: "Gold club gift" }
     ] } });
-    assert.equal(settings.loyalty.rewards.length, 1);
-    assert.equal(settings.loyalty.rewards[0].reward, "Free Drink");
+    assert.equal(settings.loyalty.rewards.length, 3);
+    assert.deepEqual(settings.loyalty.rewards.map((reward) => reward.reward), ["Free Drink", "Pastry Pairing", "Coffee Bag Credit"]);
 });

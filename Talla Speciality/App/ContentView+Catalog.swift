@@ -101,6 +101,11 @@ extension ContentView {
         if fulfillmentMethod == .pickup {
             return 0
         }
+        if let loyaltyAccount,
+           let threshold = remoteAppSettings?.loyalty?.freeDeliveryThresholds?[loyaltyAccount.tier],
+           cartSubtotal >= threshold {
+            return 0
+        }
         guard let countryCode = preferredAddress?.country.rawValue else { return nil }
         if countryCode == SupportedDeliveryCountry.bahrain.rawValue {
             return shippingConfiguration.bahrainRate * Double(coffeeClubShipmentCount)
@@ -460,14 +465,26 @@ extension ContentView {
     }
 
     var filteredProducts: [Product] {
+        let eligibleProducts = products.filter { product in
+            guard remoteAppSettings?.loyalty?.earlyAccessEnabled != false,
+                  product.tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == "LIMITED" }) else { return true }
+            let minimumTier = remoteAppSettings?.loyalty?.earlyAccessMinimumTier ?? "Gold"
+            let tier = loyaltyAccount?.tier ?? "Bronze"
+            let rank = ["Bronze": 0, "Silver": 1, "Gold": 2, "Reserve": 3]
+            return (rank[tier] ?? 0) >= (rank[minimumTier] ?? 2)
+        }
         let categoryFilteredProducts: [Product]
-        if activeCategory == "all" {
-            categoryFilteredProducts = products
+        if !requestedSubscriptionPlanType.isEmpty {
+            categoryFilteredProducts = eligibleProducts.filter {
+                prepaidPlanType(for: $0) == requestedSubscriptionPlanType
+            }
+        } else if activeCategory == "all" {
+            categoryFilteredProducts = eligibleProducts
         } else if let event = eventForCategory(activeCategory) {
             let eventProductIDs = Set(event.productIDs)
-            categoryFilteredProducts = products.filter { eventProductIDs.contains($0.id) }
+            categoryFilteredProducts = eligibleProducts.filter { eventProductIDs.contains($0.id) }
         } else {
-            categoryFilteredProducts = products.filter { $0.categoryKey == activeCategory }
+            categoryFilteredProducts = eligibleProducts.filter { $0.categoryKey == activeCategory }
         }
         let normalizedQuery = shopSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
@@ -741,6 +758,7 @@ extension ContentView {
     func tierProgress(for points: Int) -> (label: String, current: Int, target: Int, remaining: Int, fraction: Double) {
         let silver = max(remoteAppSettings?.loyalty?.silverThreshold ?? 150, 1)
         let gold = max(remoteAppSettings?.loyalty?.goldThreshold ?? 300, silver + 1)
+        let reserve = max(remoteAppSettings?.loyalty?.reserveThreshold ?? 600, gold + 1)
         if points < silver {
             let target = silver
             return (
@@ -764,8 +782,20 @@ extension ContentView {
             )
         }
 
+        if points < reserve {
+            let current = points - gold
+            let span = reserve - gold
+            return (
+                label: "Reserve",
+                current: current,
+                target: span,
+                remaining: reserve - points,
+                fraction: min(max(Double(current) / Double(span), 0), 1)
+            )
+        }
+
         return (
-            label: "Top Tier Unlocked",
+            label: "Reserve Unlocked",
             current: 1,
             target: 1,
             remaining: 0,

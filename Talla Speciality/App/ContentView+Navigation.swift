@@ -340,6 +340,7 @@ extension ContentView {
         switch status {
         case "success", "succeeded", "paid", "captured", "approved":
             cartItems.removeAll()
+            requestedSubscriptionPlanType = ""
             appliedVoucher = nil
             voucherCodeInput = ""
             voucherError = nil
@@ -384,6 +385,7 @@ extension ContentView {
                 let status = payment.status.lowercased()
                 if payment.confirmed {
                     cartItems.removeAll()
+                    requestedSubscriptionPlanType = ""
                     appliedVoucher = nil
                     voucherCodeInput = ""
                     voucherError = nil
@@ -454,6 +456,7 @@ extension ContentView {
                 let status = try await AccountService.fetchBenefitPaymentStatus(orderID: orderID)
                 if status.paid || status.status == "succeeded" {
                     cartItems.removeAll()
+                    requestedSubscriptionPlanType = ""
                     appliedVoucher = nil
                     voucherCodeInput = ""
                     voucherError = nil

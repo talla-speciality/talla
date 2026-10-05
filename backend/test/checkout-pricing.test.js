@@ -87,6 +87,32 @@ test("verified checkout uses Shopify prices and backend Bahrain delivery", async
     }]);
 });
 
+test("Gold tier receives free delivery at its configured threshold", async () => {
+    const configuredSettings = {
+        ...settings(),
+        loyalty: { freeDeliveryThresholds: { Silver: 20, Gold: 15, Reserve: 0 } }
+    };
+    const verify = service({ nodes: [node(coffeeID, "8.000")], configuredSettings });
+    const result = await verify(body([{ variantId: coffeeID, quantity: 2 }], 16), "customer@example.com", {
+        tier: "Gold"
+    });
+
+    assert.equal(result.subtotal, 16);
+    assert.equal(result.shipping, 0);
+    assert.equal(result.total, 16);
+});
+
+test("limited lots require the configured early-access tier", async () => {
+    const limited = node(coffeeID, "8.000", { product: { ...node(coffeeID, "8.000").product, tags: ["LIMITED"] } });
+    const verify = service({ nodes: [limited], configuredSettings: { ...settings(), loyalty: { earlyAccessEnabled: true, earlyAccessMinimumTier: "Gold" } } });
+    await assert.rejects(
+        verify(body([{ variantId: coffeeID, quantity: 1 }], 10), "customer@example.com", { tier: "Silver" }),
+        (error) => error instanceof CheckoutPricingError && error.code === "LIMITED_LOT_EARLY_ACCESS"
+    );
+    const allowed = await verify(body([{ variantId: coffeeID, quantity: 1 }], 10), "customer@example.com", { tier: "Gold" });
+    assert.equal(allowed.subtotal, 8);
+});
+
 test("prepaid Coffee Club prices three shipments with a 10 percent saving and paid delivery each time", async () => {
     const verify = service({ nodes: [node(coffeeID, "4.000")] });
     const result = await verify(body(
@@ -169,6 +195,135 @@ test("Coffee Club checkout requires explicit prepaid terms acceptance", async ()
         ), "customer@example.com"),
         (error) => error.code === "COFFEE_CLUB_TERMS_REQUIRED"
     );
+});
+
+test("office coffee plan accepts prepaid multi-bag bean shipments", async () => {
+    const verify = service({ nodes: [node(coffeeID, "4.000", {
+        product: {
+            title: "Bahrain Office Coffee Beans",
+            productType: "Coffee Beans",
+            collections: { nodes: [{ handle: "coffee-beans" }] }
+        }
+    })] });
+    const result = await verify(body(
+        [{ variantId: coffeeID, quantity: 4 }],
+        49.2,
+        { coffeeClub: { planType: "office", shipmentCount: 3, intervalWeeks: 4, termsAccepted: true, officeDetails: { companyName: "Talla" } } }
+    ), "office@example.com");
+
+    assert.equal(result.coffeeClub.planType, "office");
+    assert.equal(result.items[0].quantity, 12);
+
+    await assert.rejects(
+        verify(body(
+            [{ variantId: coffeeID, quantity: 1 }],
+            16.8,
+            { coffeeClub: { planType: "office", shipmentCount: 3, intervalWeeks: 4, termsAccepted: true, officeDetails: { companyName: "Talla" } } }
+        ), "office@example.com"),
+        (error) => error.code === "COFFEE_CLUB_ITEMS_INVALID"
+    );
+});
+
+test("office plan requires and safely bounds business order details", async () => {
+    const verify = service({ nodes: [node(coffeeID, "4.000", {
+        product: { title: "Bahrain Office Coffee Beans", productType: "Coffee Beans", collections: { nodes: [{ handle: "coffee-beans" }] } }
+    })] });
+    const request = { planType: "office", shipmentCount: 3, intervalWeeks: 4, termsAccepted: true };
+    await assert.rejects(
+        verify(body([{ variantId: coffeeID, quantity: 2 }], 25.2, { coffeeClub: request }), "office@example.com"),
+        (error) => error.code === "COFFEE_CLUB_OFFICE_DETAILS_REQUIRED"
+    );
+    const result = await verify(body([{ variantId: coffeeID, quantity: 2 }], 27.6, {
+        coffeeClub: { ...request, officeDetails: {
+            companyName: "  Talla   Office  ",
+            vatRegistrationNumber: "V".repeat(100),
+            commercialRegistrationNumber: "CR-22",
+            purchaseOrderReference: "PO-12"
+        } }
+    }), "office@example.com");
+    assert.deepEqual(result.coffeeClub.officeDetails, {
+        companyName: "Talla Office",
+        vatRegistrationNumber: "V".repeat(80),
+        commercialRegistrationNumber: "CR-22",
+        purchaseOrderReference: "PO-12"
+    });
+});
+
+test("Arabic coffee replenishment is distinct from the general bean plan", async () => {
+    const qahwa = node(coffeeID, "4.000", {
+        displayName: "Bahrain Qahwa",
+        product: {
+            title: "Bahrain Qahwa",
+            productType: "Arabic Coffee",
+            collections: { nodes: [{ handle: "arabic-coffee-beans" }] }
+        }
+    });
+    const plan = { planType: "arabic-coffee", shipmentCount: 3, intervalWeeks: 4, termsAccepted: true };
+    const result = await service({ nodes: [qahwa] })(body(
+        [{ variantId: coffeeID, quantity: 1 }], 16.8,
+        { coffeeClub: plan }
+    ), "qahwa@example.com");
+    assert.equal(result.coffeeClub.planType, "arabic-coffee");
+
+    await assert.rejects(
+        service({ nodes: [qahwa] })(body(
+            [{ variantId: coffeeID, quantity: 1 }], 16.8,
+            { coffeeClub: { ...plan, planType: "beans" } }
+        ), "qahwa@example.com"),
+        (error) => error.code === "COFFEE_CLUB_ITEMS_INVALID"
+    );
+});
+
+test("equipment replenishment accepts consumables and rejects durable gear", async () => {
+    const cleaner = node(coffeeID, "4.000", {
+        displayName: "Espresso Machine Descaler",
+        product: {
+            title: "Espresso Machine Descaler",
+            productType: "Coffee Equipment Consumable",
+            collections: { nodes: [{ handle: "coffee-equipment" }] }
+        }
+    });
+    const plan = { planType: "equipment", shipmentCount: 3, intervalWeeks: 12, termsAccepted: true };
+    const valid = await service({ nodes: [cleaner] })(body(
+        [{ variantId: coffeeID, quantity: 1 }], 16.8,
+        { coffeeClub: plan }
+    ), "equipment@example.com");
+    assert.equal(valid.coffeeClub.planType, "equipment");
+
+    const grinder = node(coffeeID, "4.000", {
+        displayName: "Coffee Grinder",
+        product: {
+            title: "Coffee Grinder",
+            productType: "Coffee Equipment",
+            collections: { nodes: [{ handle: "coffee-equipment" }] }
+        }
+    });
+    await assert.rejects(
+        service({ nodes: [grinder] })(body(
+            [{ variantId: coffeeID, quantity: 1 }], 16.8,
+            { coffeeClub: plan }
+        ), "equipment@example.com"),
+        (error) => error.code === "COFFEE_CLUB_ITEMS_INVALID"
+    );
+});
+
+test("dedicated filter replenishment accepts compatible coffee filter packs", async () => {
+    const filterPack = node(coffeeID, "4.000", {
+        displayName: "V60 Paper Filters",
+        product: {
+            title: "V60 Paper Filters",
+            productType: "Coffee Equipment",
+            collections: { nodes: [{ handle: "coffee-equipment" }] }
+        }
+    });
+    const result = await service({ nodes: [filterPack] })(body(
+        [{ variantId: coffeeID, quantity: 1 }],
+        16.8,
+        { coffeeClub: { planType: "filters", shipmentCount: 3, intervalWeeks: 12, termsAccepted: true } }
+    ), "filters@example.com");
+
+    assert.equal(result.coffeeClub.planType, "filters");
+    assert.equal(result.items[0].quantity, 3);
 });
 
 test("Coffee Club uses admin-controlled plan values and can be switched off", async () => {

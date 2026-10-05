@@ -223,6 +223,7 @@ struct OrderHistorySectionView: View {
     let isLightAppearance: Bool
     let tasteMemoryLookup: [String: ContentView.TasteMemoryRecord]
     let coffeeClubProducts: [ContentView.Product]
+    let cafePassProducts: [ContentView.Product]
     let deliveryAddresses: [ContentView.DeliveryAddress]
     let buyAgainAction: (ContentView.AccountOrder) -> Void
     let saveTasteMemoryAction: (ContentView.AccountOrder, ContentView.AccountOrder.Item, String, [String]) -> Void
@@ -231,6 +232,7 @@ struct OrderHistorySectionView: View {
     let orderSupportAction: (ContentView.AccountOrder) -> Void
     let customerOrderAction: (ContentView.AccountOrder, String) async -> Bool
     let manageCoffeeClubAction: (ContentView.AccountOrder, String, String?, String?, String?, [(name: String, variantID: String, quantity: Int)], ContentView.DeliveryAddress?, TallaFulfillmentMethod) async -> Bool
+    let swapCafePassAction: (ContentView.AccountOrder, String) async -> Bool
 
     @State private var managedCoffeeClubOrder: ContentView.AccountOrder?
     @State private var selectedCoffeeName = ""
@@ -440,6 +442,27 @@ struct OrderHistorySectionView: View {
                                 Text("\(pass.drinkName) · \(pass.status.replacingOccurrences(of: "_", with: " ").capitalized)\(pass.expiresAt.flatMap { formattedOrderDate($0).isEmpty ? nil : " · Expires \(formattedOrderDate($0))" } ?? "")")
                                     .font(Font.custom("AvenirNext-Regular", size: 11))
                                     .foregroundColor(secondaryTextColor)
+                                if pass.status == "active", pass.remainingCredits > 0, !cafePassProducts.isEmpty {
+                                    Menu {
+                                        ForEach(cafePassProducts) { product in
+                                            ForEach(product.variants.filter { variant in
+                                                guard variant.isAvailableForSale,
+                                                      let maximumPriceFils = pass.unitPriceFils,
+                                                      maximumPriceFils > 0,
+                                                      let candidatePriceFils = priceInFils(variant.price) else { return false }
+                                                return candidatePriceFils <= maximumPriceFils
+                                            }) { variant in
+                                                Button(cafePassSwapTitle(product: product, variant: variant)) {
+                                                    Task { _ = await swapCafePassAction(order, variant.id) }
+                                                }
+                                            }
+                                        }
+                                    } label: {
+                                        Label("Swap drink for remaining credits", systemImage: "arrow.triangle.swap")
+                                            .font(Font.custom("AvenirNext-Bold", size: 10))
+                                    }
+                                    .tint(accentColor)
+                                }
                             }
                         }
 
@@ -571,15 +594,39 @@ struct OrderHistorySectionView: View {
         }
     }
 
+    private func priceInFils(_ rawValue: String) -> Int? {
+        let numeric = rawValue.replacingOccurrences(of: ",", with: "")
+            .filter { $0.isNumber || $0 == "." }
+        guard let amount = Double(numeric), amount >= 0 else { return nil }
+        return Int((amount * 1_000).rounded())
+    }
+
+    private func cafePassSwapTitle(product: ContentView.Product, variant: ContentView.Product.Variant) -> String {
+        guard product.hasVariantChoices,
+              !variant.title.localizedCaseInsensitiveContains("default") else { return product.name }
+        return "\(product.name) · \(variant.title)"
+    }
+
     private func productsForCoffeeClub(_ order: ContentView.AccountOrder) -> [ContentView.Product] {
+        if order.details?.coffeeClub?.planType == "office" {
+            return coffeeClubProducts.filter { ["coffee-beans", "arabic-coffee-beans"].contains($0.categoryKey) }
+        }
+        if order.details?.coffeeClub?.planType == "arabic-coffee" {
+            return coffeeClubProducts.filter { $0.categoryKey == "arabic-coffee-beans" }
+        }
+        if order.details?.coffeeClub?.planType == "equipment" {
+            return coffeeClubProducts.filter {
+                let text = $0.catalogClassificationText.lowercased()
+                let consumableTerms = ["filter", "paper refill", "cleaning tablet", "cleaner", "descaler", "descaling", "backflush", "water cartridge", "فلاتر", "فلتر", "منظف", "تنظيف"]
+                return $0.categoryKey == "coffee-equipment"
+                    && consumableTerms.contains(where: text.contains)
+            }
+        }
         if order.details?.coffeeClub?.planType == "drip-bags" {
             return coffeeClubProducts.filter { $0.categoryKey == "drip-bags" }
         }
         if order.details?.coffeeClub?.planType == "filters" {
-            return coffeeClubProducts.filter {
-                $0.categoryKey == "coffee-equipment"
-                    && ($0.name.localizedCaseInsensitiveContains("filter") || $0.name.contains("فلتر") || $0.name.contains("فلاتر"))
-            }
+            return coffeeClubProducts.filter { ContentView.isCoffeeFilterPack($0) }
         }
         if order.details?.coffeeClub?.planType == "seasonal-box" {
             return coffeeClubProducts.filter { product in
@@ -627,6 +674,18 @@ struct OrderHistorySectionView: View {
                 if let club = order.details?.coffeeClub {
                     Section(AppLocalization.text("coffee_club_schedule", fallback: "Schedule")) {
                         LabeledContent(AppLocalization.text("status", fallback: "Status"), value: coffeeClubStatusText(club))
+                        if let office = club.officeDetails {
+                            LabeledContent("Company", value: office.companyName ?? "—")
+                            if let reference = office.purchaseOrderReference, !reference.isEmpty {
+                                LabeledContent("Purchase order", value: reference)
+                            }
+                            if let vat = office.vatRegistrationNumber, !vat.isEmpty {
+                                LabeledContent("VAT number", value: vat)
+                            }
+                            if let cr = office.commercialRegistrationNumber, !cr.isEmpty {
+                                LabeledContent("Commercial registration", value: cr)
+                            }
+                        }
                         if let next = club.nextShipmentAt, club.remainingCount > 0 {
                             LabeledContent(
                                 AppLocalization.text("next_shipment", fallback: "Next shipment"),

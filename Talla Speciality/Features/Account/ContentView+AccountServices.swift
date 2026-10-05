@@ -564,6 +564,18 @@ extension ContentView {
     }
 
     @MainActor
+    func swapCafePassDrink(order: AccountOrder, variantID: String) async -> Bool {
+        do {
+            orderHistory = try await AccountService.swapCafePassDrink(orderID: order.id, variantID: variantID)
+            showToast(message: "Café pass drink swapped")
+            return true
+        } catch {
+            showToast(message: customerFacingServiceMessage(for: error, fallback: "The café pass drink could not be changed."))
+            return false
+        }
+    }
+
+    @MainActor
     func submitCustomerOrderAction(order: AccountOrder, action: String) async -> Bool {
         do {
             orderHistory = try await AccountService.submitCustomerOrderAction(orderID: order.id, action: action)

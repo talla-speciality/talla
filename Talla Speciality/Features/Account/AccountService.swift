@@ -613,6 +613,26 @@ enum AccountService {
         throw ContentView.LoyaltyServiceError.operationFailed("The Coffee Club update could not be completed.")
     }
 
+    static func swapCafePassDrink(orderID: String, variantID: String) async throws -> [ContentView.AccountOrder] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The café pass service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/orders/cafe-pass/swap"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["orderID": orderID, "variantId": variantID])
+        let (data, response) = try await data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw ContentView.LoyaltyServiceError.operationFailed("The café pass service returned an invalid response.") }
+        if 200 ..< 300 ~= http.statusCode {
+            struct Response: Decodable { let orders: [ContentView.AccountOrder] }
+            return try JSONDecoder().decode(Response.self, from: data).orders
+        }
+        if let payload = try? JSONDecoder().decode(ServiceErrorResponse.self, from: data) {
+            throw ContentView.LoyaltyServiceError.operationFailed(payload.error)
+        }
+        throw ContentView.LoyaltyServiceError.operationFailed("The café pass drink could not be changed.")
+    }
+
     static func fetchTasteMemory(email: String) async throws -> [ContentView.TasteMemoryRecord] {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
@@ -673,7 +693,8 @@ enum AccountService {
         giftOrder: Bool = false,
         giftRecipientName: String? = nil,
         giftRecipientPhone: String? = nil,
-        giftMessage: String? = nil
+        giftMessage: String? = nil,
+        officeDetails: [String: String]? = nil
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -706,6 +727,9 @@ enum AccountService {
             switch coffeeClubPlanType {
             case "drip-bags": payload["title"] = "Talla Weekly Drip Bag Plan"
             case "filters": payload["title"] = "Talla Filter Replenishment Plan"
+            case "equipment": payload["title"] = "Talla Equipment Consumables Plan"
+            case "office": payload["title"] = "Talla Office Coffee Plan"
+            case "arabic-coffee": payload["title"] = "Talla Arabic Coffee Replenishment Plan"
             case "seasonal-box": payload["title"] = "Talla Seasonal Discovery Box Plan"
             default: payload["title"] = "Talla Coffee Club"
             }
@@ -718,7 +742,8 @@ enum AccountService {
                     "coffeeName": $0.name,
                     "variantId": $0.variantID,
                     "quantity": $0.quantity
-                ] }
+                ] },
+                "officeDetails": officeDetails ?? [:]
             ]
         }
         if prepaidCafePass {

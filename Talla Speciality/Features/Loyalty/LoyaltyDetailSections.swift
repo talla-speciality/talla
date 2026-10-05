@@ -26,7 +26,7 @@ struct LoyaltyRewardsActionsView: View {
     private var rewardOptions: [RewardOption] {
         if let configuration {
             return configuration.rewards.filter { reward in
-                reward.enabled && reward.reward.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "free drink"
+                reward.enabled && ["free drink", "pastry pairing", "coffee bag credit"].contains(reward.reward.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
             }.map { reward in
                 RewardOption(
                     id: reward.id,
@@ -92,8 +92,10 @@ struct LoyaltyRewardsActionsView: View {
                     .tracking(AppLocalization.letterSpacing(2))
                     .foregroundColor(accentColor)
                 clubOfferCard(title: "Early access", detail: "Taste seasonal coffees before they reach the wider shop.", icon: "clock.badge.checkmark")
-                clubOfferCard(title: "Member pricing", detail: "Coffee Club members receive preferred pricing on selected drops.", icon: "tag.fill")
-                clubOfferCard(title: "Tasting table", detail: "Get first notice for workshops and guided tasting events.", icon: "person.3.fill")
+                clubOfferCard(title: "Birthday reward", detail: "A little something from Talla during your birthday month.", icon: "birthday.cake.fill")
+                clubOfferCard(title: "Free delivery", detail: "Your tier unlocks a lower delivery threshold, up to free delivery at Reserve.", icon: "shippingbox.fill")
+                clubOfferCard(title: "Double-Bean brew days", detail: "Watch the Club for selected days where every brew earns twice.", icon: "2.circle.fill")
+                clubOfferCard(title: "Across the café", detail: "Visits, referrals, reviews, and events earn in the same Beans balance.", icon: "arrow.triangle.2.circlepath")
             }
 
             let firstRewardPoints = rewardOptions.map(\.points).min() ?? 50

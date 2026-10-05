@@ -419,6 +419,7 @@ extension ContentView {
             if status.paid || status.status == "PAID" {
                 activeEazyShopifyPaymentID = ""
                 cartItems.removeAll()
+                requestedSubscriptionPlanType = ""
                 appliedVoucher = nil
                 voucherCodeInput = ""
                 voucherError = nil
@@ -463,6 +464,7 @@ extension ContentView {
     func resetPaymentFlowAfterMastercardDismiss() {
         if paymentFlow.state == .succeeded {
             cartItems.removeAll()
+            requestedSubscriptionPlanType = ""
             appliedVoucher = nil
             voucherCodeInput = ""
             voucherError = nil

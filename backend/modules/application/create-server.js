@@ -1,4 +1,6 @@
 const { snapshotCheckoutOptions } = require("../commerce/order-item-options");
+const { isEligibleDrink } = require("../commerce/checkout-pricing");
+const { coffeeClubProductEligible } = require("../commerce/coffee-club-products");
 const { createEducationContentStore } = require("./education-content");
 const { normalizeProfile, normalizeRoasterRecipe } = require("../brewing/espresso-community");
 const { espressoMachineCatalog } = require("../brewing/espresso-machine-catalog");
@@ -2774,6 +2776,75 @@ module.exports = function createServer(dependencies) {
             return;
         }
 
+        if (request.method === "POST" && url.pathname === "/admin/api/loyalty/activity") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const type = String(body.type || "").trim().toLowerCase();
+                const activityID = String(body.activityID || "").trim().slice(0, 120);
+                const cafeID = String(body.cafeID || "").trim().slice(0, 80);
+                const definitions = {
+                    visit: { points: 10, note: cafeID ? `Café visit • ${cafeID}` : "Café visit" },
+                    event: { points: 50, note: String(body.note || "Event attendance").trim() || "Event attendance" }
+                };
+                const definition = definitions[type];
+                if (!email || !activityID || !definition || (type === "visit" && !cafeID)) {
+                    sendJSON(response, 400, { error: "Provide a customer, activity ID, café ID for visits, and a supported activity type (visit or event)." });
+                    return;
+                }
+                if (!await getAccountByEmail(email)) {
+                    sendJSON(response, 404, { error: "Customer not found." });
+                    return;
+                }
+                const account = await ensureLoyaltyAccount(email);
+                const transactionID = `activity:${type}:${activityID}`;
+                if (account.transactions?.some((transaction) => transaction.id === transactionID)) {
+                    sendJSON(response, 200, { status: "already_recorded", duplicate: true, account: loyaltyPayload(account) });
+                    return;
+                }
+                let pointsAwarded = definition.points;
+                const updated = await updateLoyaltyAccount(email, (loyaltyAccount) => {
+                    loyaltyAccount.transactions = loyaltyAccount.transactions || [];
+                    loyaltyAccount.pointsBalance += definition.points;
+                    loyaltyAccount.visitedCafeIDs = Array.isArray(loyaltyAccount.visitedCafeIDs) ? loyaltyAccount.visitedCafeIDs : [];
+                    const normalizedCafeID = cafeID.toLowerCase();
+                    const isNewCafe = type === "visit" && !loyaltyAccount.visitedCafeIDs.includes(normalizedCafeID);
+                    if (isNewCafe) {
+                        loyaltyAccount.visitedCafeIDs.push(normalizedCafeID);
+                        loyaltyAccount.crossCafeVisits = loyaltyAccount.visitedCafeIDs.length;
+                        if (loyaltyAccount.visitedCafeIDs.length >= 2 && !loyaltyAccount.transactions.some((transaction) => transaction.id === "cross-cafe:2")) {
+                            const bonus = 25;
+                            loyaltyAccount.pointsBalance += bonus;
+                            pointsAwarded += bonus;
+                            loyaltyAccount.transactions.unshift({ id: "cross-cafe:2", type: "earn", points: bonus, note: "Cross-café reward", createdAt: new Date().toISOString() });
+                        }
+                    }
+                    if (type === "visit") {
+                        const today = new Date().toISOString().slice(0, 10);
+                        const previous = loyaltyAccount.lastVisitDate ? Date.parse(`${loyaltyAccount.lastVisitDate}T00:00:00Z`) : NaN;
+                        const current = Date.parse(`${today}T00:00:00Z`);
+                        const isYesterday = Number.isFinite(previous) && current - previous === 86_400_000;
+                        const isToday = Number.isFinite(previous) && current === previous;
+                        loyaltyAccount.visitStreakDays = isToday ? Number(loyaltyAccount.visitStreakDays || 0) : (isYesterday ? Number(loyaltyAccount.visitStreakDays || 0) + 1 : 1);
+                        loyaltyAccount.lastVisitDate = today;
+                        if (!isToday && loyaltyAccount.visitStreakDays >= 3) {
+                            const streakID = `visit-streak:${today}`;
+                            if (!loyaltyAccount.transactions.some((transaction) => transaction.id === streakID)) {
+                                loyaltyAccount.pointsBalance += 15;
+                                loyaltyAccount.transactions.unshift({ id: streakID, type: "earn", points: 15, note: `${loyaltyAccount.visitStreakDays}-day visit streak`, createdAt: new Date().toISOString() });
+                            }
+                        }
+                    }
+                    loyaltyAccount.transactions.unshift({ id: transactionID, type: "earn", points: definition.points, note: definition.note, createdAt: new Date().toISOString() });
+                });
+                await createAdminAuditLog({ adminUser: admin.username, action: "loyalty_activity", targetEmail: email, detail: definition.note, metadata: { type, activityID, cafeID } });
+                sendJSON(response, 200, { status: "recorded", duplicate: false, pointsAwarded, account: loyaltyPayload(updated) });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Loyalty activity failed." });
+            }
+            return;
+        }
+
         sendJSON(response, 404, { error: "Admin route not found." });
         return;
     }
@@ -4516,6 +4587,69 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "POST" && url.pathname === "/orders/cafe-pass/swap") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const orderID = String(body.orderID || "").trim();
+            const variantID = String(body.variantId || "").trim();
+            if (!orderID || !variantID.startsWith("gid://shopify/ProductVariant/")) {
+                sendJSON(response, 400, { error: "Choose a valid ready-made drink." }); return;
+            }
+            const catalog = await shopifyAdminGraphQLRequest(`query CafePassSwap($ids: [ID!]!) {
+                nodes(ids: $ids) { ... on ProductVariant { id displayName title price availableForSale product { productType collections(first: 20) { nodes { handle } } } } }
+            }`, { ids: [variantID] });
+            const variant = (catalog.nodes || []).find((item) => item?.id === variantID);
+            if (!variant || variant.availableForSale === false || !isEligibleDrink(variant)) {
+                sendJSON(response, 409, { error: "Choose an available ready-made drink." }); return;
+            }
+            const requestedPriceFils = Math.round(Number(variant.price) * 1000);
+            if (database.isEnabled()) {
+                const client = await database.connect();
+                try {
+                    await client.query("BEGIN");
+                    const result = await client.query("SELECT id,email,title,total,status,items,details,created_at,updated_at FROM orders WHERE id=$1 FOR UPDATE", [orderID]);
+                    if (!result.rowCount || normalizeEmail(result.rows[0].email) !== normalizeEmail(customer.email)) {
+                        await client.query("ROLLBACK"); sendJSON(response, 404, { error: "Pass order not found." }); return;
+                    }
+                    const order = orderRowToRecord(result.rows[0]);
+                    const pass = order.details?.cafePass;
+                    if (!pass || pass.status !== "active" || !pass.expiresAt || Date.parse(pass.expiresAt) <= Date.now() || Number(pass.redeemedCredits) >= 20) {
+                        await client.query("ROLLBACK"); sendJSON(response, 409, { error: "This pass has no unredeemed active credits to swap." }); return;
+                    }
+                    if (!Number.isFinite(requestedPriceFils) || requestedPriceFils > Number(pass.unitPriceFils || 0)) {
+                        await client.query("ROLLBACK"); sendJSON(response, 409, { error: "Pass swaps are limited to drinks at the original price or less." }); return;
+                    }
+                    const details = { ...order.details, cafePass: { ...pass, drinkName: String(variant.displayName || variant.title || "Drink").slice(0,180), variantId: variantID } };
+                    await client.query("UPDATE orders SET details=$2::jsonb,updated_at=NOW() WHERE id=$1", [orderID, JSON.stringify(details)]);
+                    await client.query("COMMIT");
+                } catch (error) { await client.query("ROLLBACK"); throw error; }
+                finally { client.release(); }
+            } else {
+                const store = readJSON(ordersStorePath);
+                const email = normalizeEmail(customer.email);
+                const orders = store.orders[email] || [];
+                const index = orders.findIndex((entry) => entry.id === orderID);
+                if (index < 0) { sendJSON(response, 404, { error: "Pass order not found." }); return; }
+                const order = orders[index]; const pass = order.details?.cafePass;
+                if (order.email !== email || !pass || pass.status !== "active" || !pass.expiresAt || Date.parse(pass.expiresAt) <= Date.now() || Number(pass.redeemedCredits) >= 20) {
+                    sendJSON(response, 409, { error: "This pass has no unredeemed active credits to swap." }); return;
+                }
+                if (!Number.isFinite(requestedPriceFils) || requestedPriceFils > Number(pass.unitPriceFils || 0)) {
+                    sendJSON(response, 409, { error: "Pass swaps are limited to drinks at the original price or less." }); return;
+                }
+                orders[index] = { ...order, details: { ...order.details, cafePass: { ...pass, drinkName: String(variant.displayName || variant.title || "Drink").slice(0,180), variantId: variantID } }, updatedAt: new Date().toISOString() };
+                store.orders[email] = orders; writeJSON(ordersStorePath, store);
+            }
+            await createAdminAuditLog({ adminUser: "customer", action: "cafe_pass_drink_swapped", targetEmail: customer.email, detail: `Café pass drink changed for order ${orderID}`, metadata: { orderID, variantID } });
+            sendJSON(response, 200, { orders: await ordersPayload(customer.email) });
+        } catch (error) { sendJSON(response, 400, { error: "Unable to change the café pass drink." }); }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/orders/coffee-club/manage") {
         try {
             const body = await readBody(request);
@@ -4531,6 +4665,49 @@ module.exports = function createServer(dependencies) {
                 sendJSON(response, 400, { error: "Provide an orderID and a valid Coffee Club action." });
                 return;
             }
+            let preferenceChanges = {};
+            if (action === "update_preferences") {
+                const order = await findOrderByID(orderID);
+                const club = order && normalizeEmail(order.email) === normalizeEmail(customer.email)
+                    ? normalizeOrderDetails(order.details).coffeeClub
+                    : null;
+                if (!club) {
+                    sendJSON(response, 404, { error: "Coffee Club plan not found." });
+                    return;
+                }
+                const requestedItems = Array.isArray(body.coffeeItems) && body.coffeeItems.length
+                    ? body.coffeeItems
+                    : body.variantId ? [{ variantId: body.variantId, quantity: 1 }] : [];
+                const variantIDs = requestedItems.map((item) => String(item?.variantId || "").trim());
+                if (!requestedItems.length || requestedItems.length > 6
+                    || variantIDs.some((id) => !id.startsWith("gid://shopify/ProductVariant/"))
+                    || new Set(variantIDs).size !== variantIDs.length) {
+                    sendJSON(response, 400, { error: "Choose up to six distinct products for the next shipment." });
+                    return;
+                }
+                const catalog = await shopifyAdminGraphQLRequest(`query CoffeeClubPreferenceVariants($ids: [ID!]!) {
+                    nodes(ids: $ids) { ... on ProductVariant { id availableForSale product { title productType tags collections(first: 20) { nodes { handle } } } } }
+                }`, { ids: variantIDs });
+                const variants = new Map((catalog.nodes || []).filter(Boolean).map((variant) => [variant.id, variant]));
+                const validatedItems = [];
+                for (const item of requestedItems) {
+                    const variantID = String(item.variantId).trim();
+                    const variant = variants.get(variantID);
+                    const quantity = Number(item.quantity || 1);
+                    if (!variant || variant.availableForSale === false
+                        || !Number.isInteger(quantity) || quantity < 1 || quantity > 12
+                        || !coffeeClubProductEligible(club.planType, variant)) {
+                        sendJSON(response, 409, { error: "Choose available products that match this plan." });
+                        return;
+                    }
+                    validatedItems.push({
+                        coffeeName: String(variant.product?.title || "Coffee").slice(0, 180),
+                        variantId: variantID,
+                        quantity
+                    });
+                }
+                preferenceChanges = { coffeeItems: validatedItems };
+            }
             if (action === "update_preferences") {
                 const fulfillment = body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : null;
                 if (fulfillment && String(fulfillment.countryCode || "").trim().toUpperCase() !== "BH") {
@@ -4543,7 +4720,7 @@ module.exports = function createServer(dependencies) {
                 note: body.note,
                 coffeeName: body.coffeeName,
                 variantId: body.variantId,
-                coffeeItems: body.coffeeItems,
+                coffeeItems: preferenceChanges.coffeeItems || body.coffeeItems,
                 fulfillment: body.fulfillment
             }, customer.email);
             if (!result.order) {
@@ -4963,7 +5140,7 @@ module.exports = function createServer(dependencies) {
 
             const pricingVersion = Number(body.pricingVersion) === 2 ? 2 : 1;
             const verifiedPricing = pricingVersion === 2
-                ? await verifyCheckoutPricing(body, customer.email)
+                ? await verifyCheckoutPricing(body, customer.email, typeof ensureLoyaltyAccount === "function" ? await ensureLoyaltyAccount(customer.email) : null)
                 : null;
             const submittedItems = Array.isArray(body.items) ? body.items : [];
             let items = verifiedPricing?.items || submittedItems
@@ -5638,7 +5815,8 @@ module.exports = function createServer(dependencies) {
             const body = await readBody(request);
             const requestedReward = String(body.reward || "").trim();
             const loyaltySettings = (await getAppSettings()).loyalty;
-            const catalogReward = loyaltySettings.rewards.find((entry) => entry.enabled && entry.reward.toLowerCase() === "free drink" && (
+            const supportedRewards = new Set(["free drink", "pastry pairing", "coffee bag credit"]);
+            const catalogReward = loyaltySettings.rewards.find((entry) => entry.enabled && supportedRewards.has(entry.reward.toLowerCase()) && (
                 entry.id.toLowerCase() === requestedReward.toLowerCase()
                 || entry.reward.toLowerCase() === requestedReward.toLowerCase()
             ));
