@@ -6,6 +6,7 @@ const {
     directoryFor,
     normalizeRatingInput,
     normalizeStore,
+    publicReviews,
     replaceDirectory,
     ratingsFor,
     saveRating
@@ -18,14 +19,16 @@ test("Gulf Coffee Map ratings validate, upsert per offering, and aggregate", () 
     const first = saveRating(store, "reader@example.com", {
         spotID: "bhr-seef",
         offeringID: "bhr-seef-v60",
-        rating: 4
+        rating: 4,
+        note: "Peach and tea-like."
     });
     assert.equal(first.rating, 4);
 
     saveRating(store, "reader@example.com", {
         spotID: "bhr-seef",
         offeringID: "bhr-seef-v60",
-        rating: 5
+        rating: 5,
+        note: "Still bright after the update."
     });
     saveRating(store, "second@example.com", {
         spotID: "bhr-seef",
@@ -35,7 +38,10 @@ test("Gulf Coffee Map ratings validate, upsert per offering, and aggregate", () 
 
     assert.equal(ratingsFor(store, "reader@example.com").length, 1);
     assert.equal(ratingsFor(store, "reader@example.com")[0].rating, 5);
-    assert.deepEqual(aggregateRatings(store), [{ offeringID: "bhr-seef-v60", count: 2, average: 4 }]);
+    assert.deepEqual(aggregateRatings(store), [{ offeringID: "bhr-seef-v60", count: 2, average: 4, reviewCount: 1 }]);
+    assert.deepEqual(publicReviews(store).map(({ offeringID, rating, note }) => ({ offeringID, rating, note })), [
+        { offeringID: "bhr-seef-v60", rating: 5, note: "Still bright after the update." }
+    ]);
 });
 
 test("Gulf Coffee Map directory has one pilot entry per GCC market and supports replacement", () => {

@@ -22,7 +22,7 @@ Talla should help a customer discover better coffee, buy it with confidence, bre
 ### 2. Buy without friction
 
 - Fast checkout with delivery versus Riffa pickup clearly separated.
-- Subscriptions and scheduled reorders based on estimated consumption.
+- Prepaid Coffee Club plans with flexible pause, skip, swap, cancellation, and scheduled reorders based on estimated consumption. True automatic renewal is intentionally deferred until vaulted payment methods and renewal failure handling are production-ready.
 - Gift flows, bundles, waitlists, back-in-stock alerts, and order tracking.
 - Loyalty wallet with points, tiers, rewards, referrals, and Apple Wallet continuity.
 

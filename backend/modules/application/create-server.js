@@ -864,6 +864,12 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/gulf-coffee-map/reviews") {
+        const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+        sendJSON(response, 200, { reviews: publicGulfCoffeeReviews(store) }, { "Cache-Control": "public, max-age=60" });
+        return;
+    }
+
     if (request.method === "POST" && ["/shopify/webhooks/orders", "/webhooks/shopify/orders-create"].includes(url.pathname)) {
         try {
             const rawBody = await readRawBody(request, 262_144);

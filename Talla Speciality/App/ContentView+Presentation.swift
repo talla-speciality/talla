@@ -286,7 +286,7 @@ extension ContentView {
             productDetailSheet(product: product)
         }
         .sheet(item: $socialCoffeeInvite) { invite in
-            SocialCoffeeGroupInviteView(invite: invite, products: products, isSignedIn: customerProfile != nil, accountAction: {
+            SocialCoffeeGroupInviteView(invite: invite, products: products, isSignedIn: customerProfile != nil, hasItemsInBag: { !cartItems.isEmpty }, clearBagAction: clearBagForNewFlow, accountAction: {
                 accountScrollTarget = nil
                 isAccountPresentedFromMore = true
             }, checkoutAction: { group in
@@ -295,6 +295,11 @@ extension ContentView {
                     cartOpen = true
                     return
                 }
+                requestedSubscriptionPlanType = ""
+                cartSubscriptionPlanType = ""
+                isCoffeeClubPrepaid = false
+                isCafePassPrepaid = false
+                suspendedCoffeePass = false
                 for line in group.items {
                     guard let product = products.first(where: { $0.id == line.productID }),
                           let variant = product.variants.first(where: { $0.id == line.variantID }),
@@ -351,6 +356,19 @@ extension ContentView {
             }
         } message: {
             Text(AppLocalization.text("empty_bag_confirmation_message", fallback: "Remove the last item from your bag?"))
+        }
+        .confirmationDialog("Replace current bag?", isPresented: $isConfirmingCartReplacement, titleVisibility: .visible) {
+            Button("Replace bag and continue", role: .destructive) {
+                let action = pendingCartReplacementAction
+                pendingCartReplacementAction = nil
+                clearBagForNewFlow()
+                action?()
+            }
+            Button("Keep current bag", role: .cancel) {
+                pendingCartReplacementAction = nil
+            }
+        } message: {
+            Text("These items can’t be checked out together. Replace the \(cartCount) item\(cartCount == 1 ? "" : "s") in your bag to start \(pendingCartReplacementFlowName)?")
         }
 #if canImport(PassKit)
         .sheet(item: $loyaltyWalletPass, onDismiss: {
@@ -761,6 +779,14 @@ extension ContentView {
                         secondary: secondaryTextColor,
                         products: products,
                         isSignedIn: customerProfile != nil,
+                        cartCount: cartCount,
+                        hasItemsInBag: { !cartItems.isEmpty },
+                        canContinueGiftShopping: {
+                            isGiftOrder && !isCoffeeClubPrepaid && !isCafePassPrepaid
+                                && !cartItems.contains(where: { $0.product.isGiftCardProduct })
+                        },
+                        clearBagAction: clearBagForNewFlow,
+                        openCartAction: { cartOpen = true },
                         accountAction: {
                             accountScrollTarget = nil
                             isAccountPresentedFromMore = true
@@ -768,8 +794,10 @@ extension ContentView {
                         addGiftCardAction: { product, variantID, recipientName, recipientEmail, recipientMessage in
                             guard cartItems.isEmpty else {
                                 showToast(message: "Finish your current bag before starting a gift-card checkout.")
+                                cartOpen = true
                                 return
                             }
+                            requestedSubscriptionPlanType = ""
                             selectedVariantIDs[product.id] = variantID
                             giftRecipientName = recipientName.trimmingCharacters(in: .whitespacesAndNewlines)
                             giftRecipientEmail = recipientEmail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -781,8 +809,10 @@ extension ContentView {
                         addCoffeeGiftAction: { product, variantID, recipientName, recipientMessage in
                             guard cartItems.isEmpty else {
                                 showToast(message: "Finish your current bag before sending a coffee gift.")
+                                cartOpen = true
                                 return
                             }
+                            requestedSubscriptionPlanType = ""
                             selectedVariantIDs[product.id] = variantID
                             addToCart(product: product)
                             isCafePassPrepaid = true
@@ -798,8 +828,10 @@ extension ContentView {
                         addSuspendedCoffeeAction: { product, variantID, count in
                             guard cartItems.isEmpty else {
                                 showToast(message: "Finish your current bag before sponsoring counter coffees.")
+                                cartOpen = true
                                 return
                             }
+                            requestedSubscriptionPlanType = ""
                             selectedVariantIDs[product.id] = variantID
                             addToCart(product: product)
                             isCafePassPrepaid = true
@@ -810,6 +842,15 @@ extension ContentView {
                             cartOpen = true
                         },
                         shopAction: { category in
+                            let canAddToCurrentGift = ["coffee-beans", "coffee-equipment"].contains(category)
+                                && isGiftOrder && !isCoffeeClubPrepaid && !isCafePassPrepaid
+                                && !cartItems.contains(where: { $0.product.isGiftCardProduct })
+                            guard cartItems.isEmpty || canAddToCurrentGift else {
+                                showToast(message: "Finish or clear your current bag before starting a Social Coffee gift.")
+                                cartOpen = true
+                                return
+                            }
+                            requestedSubscriptionPlanType = ""
                             isGiftOrder = true
                             openShop(category: category)
                         },

@@ -87,14 +87,31 @@ function aggregateRatings(store) {
             const current = aggregates[entry.offeringID] || { offeringID: entry.offeringID, count: 0, total: 0 };
             current.count += 1;
             current.total += Number(entry.rating) || 0;
+            if (String(entry.note || "").trim()) current.reviewCount = (current.reviewCount || 0) + 1;
             aggregates[entry.offeringID] = current;
         }
     }
     return Object.values(aggregates).map((entry) => ({
         offeringID: entry.offeringID,
         count: entry.count,
-        average: entry.count ? Math.round((entry.total / entry.count) * 10) / 10 : null
+        average: entry.count ? Math.round((entry.total / entry.count) * 10) / 10 : null,
+        reviewCount: entry.reviewCount || 0
     }));
 }
 
-module.exports = { aggregateRatings, defaultDirectory, directoryFor, normalizeRatingInput, normalizeStore, ratingsFor, replaceDirectory, saveRating };
+function publicReviews(store) {
+    const normalized = normalizeStore(store);
+    return Object.values(normalized.ratings).flatMap((entries) => (Array.isArray(entries) ? entries : []))
+        .filter((entry) => entry?.offeringID && String(entry.note || "").trim())
+        .map((entry) => ({
+            id: entry.id,
+            offeringID: entry.offeringID,
+            rating: entry.rating,
+            note: String(entry.note).trim(),
+            updatedAt: entry.updatedAt
+        }))
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 500);
+}
+
+module.exports = { aggregateRatings, defaultDirectory, directoryFor, normalizeRatingInput, normalizeStore, publicReviews, ratingsFor, replaceDirectory, saveRating };

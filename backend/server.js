@@ -23,7 +23,7 @@ const {
 const { createCoffeeSyncService } = require("./modules/brewing/coffee-sync"); const { importShopifyCoffeePurchases } = require("./modules/brewing/shopify-coffee-memory");
 const { coffeeMetadataFromTags, createCoffeeAdminService, defaultCoffeeMemorySettings, nextCoffeeTags, normalizeCoffeeMemorySettings } = require("./modules/brewing/coffee-admin");
 const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent } = require("./modules/observability/telemetry"); const { createTokenPair, hashToken, publicTokenPair } = require("./modules/account/session-tokens");
-const { aggregateRatings: aggregateGulfCoffeeRatings, directoryFor: gulfCoffeeDirectoryFor, normalizeStore: normalizeGulfCoffeeMapStore, ratingsFor: gulfCoffeeRatingsFor, replaceDirectory: replaceGulfCoffeeDirectory, saveRating: saveGulfCoffeeRating } = require("./modules/discovery/gulf-coffee-map");
+const { aggregateRatings: aggregateGulfCoffeeRatings, directoryFor: gulfCoffeeDirectoryFor, normalizeStore: normalizeGulfCoffeeMapStore, publicReviews: publicGulfCoffeeReviews, ratingsFor: gulfCoffeeRatingsFor, replaceDirectory: replaceGulfCoffeeDirectory, saveRating: saveGulfCoffeeRating } = require("./modules/discovery/gulf-coffee-map");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail"); const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments"); const { createCoffeeClubNotificationService } = require("./modules/commerce/coffee-club-notifications");
 const { orderItemOptions } = require("./modules/commerce/order-item-options"); const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
 const { giftPassFields } = require("./modules/commerce/social-coffee-gifts");
@@ -9412,6 +9412,7 @@ const server = createServer({
     fs,
     gulfCoffeeMapStorePath,
     aggregateGulfCoffeeRatings,
+    publicGulfCoffeeReviews,
     gulfCoffeeDirectoryFor,
     normalizeGulfCoffeeMapStore,
     replaceGulfCoffeeDirectory,

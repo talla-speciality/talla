@@ -8,6 +8,11 @@ struct SocialCoffeeView: View {
     let secondary: Color
     let products: [ContentView.Product]
     let isSignedIn: Bool
+    let cartCount: Int
+    let hasItemsInBag: () -> Bool
+    let canContinueGiftShopping: () -> Bool
+    let clearBagAction: () -> Void
+    let openCartAction: () -> Void
     let accountAction: () -> Void
     let addGiftCardAction: (ContentView.Product, String, String, String, String) -> Void
     let addCoffeeGiftAction: (ContentView.Product, String, String, String) -> Void
@@ -17,6 +22,8 @@ struct SocialCoffeeView: View {
 
     @Environment(\.openURL) private var openURL
     @State private var presentedFlow: SocialCoffeeFlow?
+    @State private var pendingShopCategory: String?
+    @State private var isConfirmingShopReplacement = false
     @AppStorage("socialCoffee.wishListEnabled") private var isWishListEnabled = true
     @AppStorage("socialCoffee.latestTastingNote") private var tastingNote = ""
     @AppStorage("socialCoffee.latestTastingNote.visibility") private var noteVisibility = "Private"
@@ -39,6 +46,7 @@ struct SocialCoffeeView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 22) {
                 hero
+                bagButton
                 quickActions
                 giftingSection
                 gatheringSection
@@ -52,8 +60,19 @@ struct SocialCoffeeView: View {
         .navigationTitle(AppLocalization.text("social_coffee_title", fallback: "Social Coffee"))
         .navigationBarTitleDisplayMode(.large)
         .sheet(item: $presentedFlow, onDismiss: { Task { await loadGroups() } }) { flow in
-            SocialCoffeeFlowSheet(flow: flow, accent: accent, background: background, surface: surface, primary: primary, secondary: secondary, openURL: openURL, products: products, isSignedIn: isSignedIn, accountAction: accountAction, addGiftCardAction: addGiftCardAction, addCoffeeGiftAction: addCoffeeGiftAction, addSuspendedCoffeeAction: addSuspendedCoffeeAction, shopAction: shopAction)
+            SocialCoffeeFlowSheet(flow: flow, accent: accent, background: background, surface: surface, primary: primary, secondary: secondary, openURL: openURL, products: products, isSignedIn: isSignedIn, hasItemsInBag: hasItemsInBag, clearBagAction: clearBagAction, accountAction: accountAction, addGiftCardAction: addGiftCardAction, addCoffeeGiftAction: addCoffeeGiftAction, addSuspendedCoffeeAction: addSuspendedCoffeeAction, shopAction: shopAction)
                 .presentationDetents([.medium, .large])
+        }
+        .confirmationDialog("Replace current bag?", isPresented: $isConfirmingShopReplacement, titleVisibility: .visible) {
+            Button("Replace bag and continue", role: .destructive) {
+                let category = pendingShopCategory
+                pendingShopCategory = nil
+                clearBagAction()
+                if let category { shopAction(category) }
+            }
+            Button("Keep current bag", role: .cancel) { pendingShopCategory = nil }
+        } message: {
+            Text("This Social Coffee gift needs its own bag. Replace the items in your current bag to continue?")
         }
         .task(id: isSignedIn) { await loadCloudProfile() }
         .task { await loadPublicNotes() }
@@ -80,6 +99,32 @@ struct SocialCoffeeView: View {
                 .font(.subheadline)
                 .foregroundStyle(secondary)
         }
+    }
+
+    private var bagButton: some View {
+        Button(action: openCartAction) {
+            HStack(spacing: 12) {
+                Image(systemName: "bag.fill")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your bag")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(primary)
+                    Text(cartCount == 0 ? "Ready for something to share" : "\(cartCount) item\(cartCount == 1 ? "" : "s") in your bag")
+                        .font(.caption)
+                        .foregroundStyle(secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(secondary)
+            }
+            .padding(14)
+            .background(surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open bag, \(cartCount) item\(cartCount == 1 ? "" : "s")")
     }
 
     private var quickActions: some View {
@@ -112,9 +157,9 @@ struct SocialCoffeeView: View {
                 Button { presentedFlow = .sendCoffee } label: { flowLabel(AppLocalization.text("social_coffee_whatsapp", fallback: "WhatsApp"), systemImage: "message.fill") }
             }
             HStack(spacing: 10) {
-                Button { shopAction("coffee-beans") } label: { flowLabel(AppLocalization.text("social_coffee_gift_beans", fallback: "Gift beans"), systemImage: "shippingbox.fill") }
+                Button { openGiftShop("coffee-beans") } label: { flowLabel(AppLocalization.text("social_coffee_gift_beans", fallback: "Gift beans"), systemImage: "shippingbox.fill") }
                     .buttonStyle(.bordered).tint(accent)
-                Button { shopAction("coffee-equipment") } label: { flowLabel(AppLocalization.text("social_coffee_gift_kit", fallback: "Gift a brew kit"), systemImage: "cup.and.saucer.fill") }
+                Button { openGiftShop("coffee-equipment") } label: { flowLabel(AppLocalization.text("social_coffee_gift_kit", fallback: "Gift a brew kit"), systemImage: "cup.and.saucer.fill") }
                     .buttonStyle(.bordered).tint(accent)
             }
             Button { presentedFlow = .suspendedCoffee } label: {
@@ -122,6 +167,12 @@ struct SocialCoffeeView: View {
                     .font(.subheadline.weight(.semibold)).foregroundStyle(accent)
             }.buttonStyle(.plain)
         }
+    }
+
+    private func openGiftShop(_ category: String) {
+        guard hasItemsInBag() && !canContinueGiftShopping() else { shopAction(category); return }
+        pendingShopCategory = category
+        isConfirmingShopReplacement = true
     }
 
     private var gatheringSection: some View {
@@ -601,6 +652,8 @@ struct SocialCoffeeGroupInviteView: View {
     let invite: SocialCoffeeInvite
     let products: [ContentView.Product]
     let isSignedIn: Bool
+    let hasItemsInBag: () -> Bool
+    let clearBagAction: () -> Void
     let accountAction: () -> Void
     let checkoutAction: (SocialCoffeeGroup) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -611,6 +664,8 @@ struct SocialCoffeeGroupInviteView: View {
     @State private var quantity = 1
     @State private var error = ""
     @State private var busy = false
+    @State private var isConfirmingBagReplacement = false
+    @State private var replaceBagOnCheckout = false
     private var availableProducts: [ContentView.Product] { products.filter { $0.isAvailableForSale && !$0.variants.filter(\.isAvailableForSale).isEmpty } }
     private var selectedProduct: ContentView.Product? { availableProducts.first(where: { $0.id == productID }) ?? availableProducts.first }
     private var availableVariants: [ContentView.Product.Variant] { selectedProduct?.variants.filter(\.isAvailableForSale) ?? [] }
@@ -657,6 +712,15 @@ struct SocialCoffeeGroupInviteView: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
             .onChange(of: productID) { _, _ in variantID = selectedProduct?.defaultVariant?.id ?? availableVariants.first?.id ?? "" }
             .onAppear { loadExistingGroup() }
+            .confirmationDialog("Replace current bag?", isPresented: $isConfirmingBagReplacement, titleVisibility: .visible) {
+                Button("Replace bag and review group order", role: .destructive) {
+                    replaceBagOnCheckout = true
+                    closeAndCheckout()
+                }
+                Button("Keep current bag", role: .cancel) {}
+            } message: {
+                Text("This group order needs its own bag. Replace the items in your current bag to continue?")
+            }
         }
     }
 
@@ -684,10 +748,17 @@ struct SocialCoffeeGroupInviteView: View {
             return !product.isAvailableForSale || !variant.isAvailableForSale
         }
         guard unavailableItems.isEmpty else {
+            replaceBagOnCheckout = false
             error = "One or more coffees in this group are no longer available. Ask the member to choose an available item before closing the order."
             return
         }
+        if hasItemsInBag() && !replaceBagOnCheckout {
+            isConfirmingBagReplacement = true
+            return
+        }
         if group.status == "closed" {
+            if replaceBagOnCheckout { clearBagAction() }
+            replaceBagOnCheckout = false
             checkoutAction(group)
             dismiss()
             return
@@ -696,9 +767,14 @@ struct SocialCoffeeGroupInviteView: View {
         Task {
             do {
                 let closed = try await AccountService.closeSocialCoffeeGroup(id: group.id)
+                if replaceBagOnCheckout { clearBagAction() }
+                replaceBagOnCheckout = false
                 checkoutAction(closed)
                 dismiss()
-            } catch { self.error = "Only the host can close this order. Please check your sign-in and try again." }
+            } catch {
+                replaceBagOnCheckout = false
+                self.error = "Only the host can close this order. Please check your sign-in and try again."
+            }
             busy = false
         }
     }
@@ -722,6 +798,8 @@ private struct SocialCoffeeFlowSheet: View {
     let openURL: OpenURLAction
     let products: [ContentView.Product]
     let isSignedIn: Bool
+    let hasItemsInBag: () -> Bool
+    let clearBagAction: () -> Void
     let accountAction: () -> Void
     let addGiftCardAction: (ContentView.Product, String, String, String, String) -> Void
     let addCoffeeGiftAction: (ContentView.Product, String, String, String) -> Void
@@ -742,6 +820,8 @@ private struct SocialCoffeeFlowSheet: View {
     @State private var createdGroup: SocialCoffeeGroup?
     @State private var groupError = ""
     @State private var isCreatingGroup = false
+    @State private var pendingBagAction: (() -> Void)?
+    @State private var isConfirmingBagReplacement = false
 
     private var giftCardProducts: [ContentView.Product] {
         products.filter { $0.isGiftCardProduct && $0.isAvailableForSale && $0.variants.contains(where: \.isAvailableForSale) }
@@ -805,8 +885,10 @@ private struct SocialCoffeeFlowSheet: View {
                             Section {
                                 Button {
                                     guard let product = selectedSuspendedProduct, let variant = selectedSuspendedVariant else { return }
-                                    addCoffeeGiftAction(product, variant.id, recipient.trimmingCharacters(in: .whitespacesAndNewlines), message.trimmingCharacters(in: .whitespacesAndNewlines))
-                                    dismiss()
+                                    beginBagAction {
+                                        addCoffeeGiftAction(product, variant.id, recipient.trimmingCharacters(in: .whitespacesAndNewlines), message.trimmingCharacters(in: .whitespacesAndNewlines))
+                                        dismiss()
+                                    }
                                 } label: { Label("Add prepaid coffee gift to bag", systemImage: "gift.fill") }
                                 .disabled(recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedSuspendedVariant == nil)
                                 Text("After online payment, share the redeemable gift link or send it on WhatsApp from your order. Staff redeem it once at the counter.")
@@ -847,8 +929,10 @@ private struct SocialCoffeeFlowSheet: View {
                         Section {
                             Button {
                                 guard let product = selectedGiftCard, let variant = selectedGiftVariant else { return }
-                                addGiftCardAction(product, variant.id, recipient, recipientEmail, message)
-                                dismiss()
+                                beginBagAction {
+                                    addGiftCardAction(product, variant.id, recipient, recipientEmail, message)
+                                    dismiss()
+                                }
                             } label: { Label("Continue to secure checkout", systemImage: "bag.badge.plus") }
                             .disabled(selectedGiftCard == nil || selectedGiftVariant == nil || !isValidEmail(recipientEmail))
                         }
@@ -902,15 +986,17 @@ private struct SocialCoffeeFlowSheet: View {
                                     .font(.caption).foregroundStyle(secondary)
                                 Button {
                                     guard let product = selectedSuspendedProduct, let variant = selectedSuspendedVariant else { return }
-                                    addSuspendedCoffeeAction(product, variant.id, quantity)
-                                    dismiss()
+                                    beginBagAction {
+                                        addSuspendedCoffeeAction(product, variant.id, quantity)
+                                        dismiss()
+                                    }
                                 } label: { Label("Add sponsored coffees to bag", systemImage: "heart.fill") }
                                     .disabled(selectedSuspendedProduct == nil || selectedSuspendedVariant == nil)
                             }
                         } else {
                             Section("No eligible drinks available") {
                                 Text("A suspended coffee needs a ready-made drink in the Talla catalog. Ask Talla to add an eligible drink before sponsoring one.").font(.caption).foregroundStyle(secondary)
-                                Button { shopAction("ready-made-drinks"); dismiss() } label: { Label("Browse drinks", systemImage: "cup.and.saucer.fill") }
+                                Button { beginBagAction { shopAction("ready-made-drinks"); dismiss() } } label: { Label("Browse drinks", systemImage: "cup.and.saucer.fill") }
                             }
                         }
                     } else {
@@ -929,7 +1015,24 @@ private struct SocialCoffeeFlowSheet: View {
             }
             .onChange(of: selectedGiftCardID) { _, _ in selectedGiftVariantID = selectedGiftCard?.defaultVariant?.id ?? "" }
             .onChange(of: selectedSuspendedProductID) { _, _ in selectedSuspendedVariantID = selectedSuspendedProduct?.defaultVariant?.id ?? suspendedVariants.first?.id ?? "" }
+            .confirmationDialog("Replace current bag?", isPresented: $isConfirmingBagReplacement, titleVisibility: .visible) {
+                Button("Replace bag and continue", role: .destructive) {
+                    let action = pendingBagAction
+                    pendingBagAction = nil
+                    clearBagAction()
+                    action?()
+                }
+                Button("Keep current bag", role: .cancel) { pendingBagAction = nil }
+            } message: {
+                Text("This Social Coffee purchase needs its own bag. Replace the items in your current bag to continue?")
+            }
         }
+    }
+
+    private func beginBagAction(_ action: @escaping () -> Void) {
+        guard hasItemsInBag() else { action(); return }
+        pendingBagAction = action
+        isConfirmingBagReplacement = true
     }
 
     private var flowDetail: String {

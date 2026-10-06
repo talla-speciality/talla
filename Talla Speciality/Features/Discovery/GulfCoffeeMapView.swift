@@ -1,6 +1,21 @@
 import SwiftUI
 import MapKit
 
+private struct GulfCoffeeRatingSummary: Hashable {
+    let offeringID: String
+    let count: Int
+    let average: Double?
+    let reviewCount: Int
+}
+
+private struct GulfCoffeePublicReview: Hashable, Decodable {
+    let id: String
+    let offeringID: String
+    let rating: Int
+    let note: String
+    let updatedAt: String
+}
+
 extension ContentView {
     var gulfCoffeeMapView: some View {
         GulfCoffeeMapView()
@@ -15,6 +30,9 @@ private struct GulfCoffeeMapView: View {
     @State private var selectedSpot: GulfCoffeeSpot?
     @State private var ratingTarget: GulfCoffeeOffering?
     @State private var ratings: [String: Int] = [:]
+    @State private var ratingSummaries: [String: GulfCoffeeRatingSummary] = [:]
+    @State private var ratingNotes: [String: String] = [:]
+    @State private var publicReviews: [String: [GulfCoffeePublicReview]] = [:]
     @State private var spots = GulfCoffeeSpot.seed
     @State private var mapPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -23,6 +41,7 @@ private struct GulfCoffeeMapView: View {
         )
     )
     @AppStorage("gulfCoffeeMap.ratings") private var ratingStore = ""
+    @AppStorage("gulfCoffeeMap.ratingNotes") private var ratingNotesStore = ""
 
     private let countries = ["All GCC", "Bahrain", "Saudi Arabia", "UAE", "Kuwait", "Qatar", "Oman"]
     private let categories = ["All", "Cafés", "Roasters", "Trucks", "Green beans", "Equipment", "Cuppings & workshops", "Work-friendly", "Drive-through", "Family-friendly"]
@@ -75,29 +94,34 @@ private struct GulfCoffeeMapView: View {
         .navigationTitle("Gulf Coffee Map")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedSpot) { spot in
-            GulfCoffeeSpotDetail(spot: spot, ratings: $ratings, ratingTarget: $ratingTarget)
+            GulfCoffeeSpotDetail(spot: spot, ratings: $ratings, ratingSummaries: ratingSummaries, ratingNotes: $ratingNotes, publicReviews: publicReviews, ratingTarget: $ratingTarget)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
         .sheet(item: $ratingTarget) { offering in
-            GulfCoffeeRatingSheet(offering: offering, savedRating: ratings[offering.id] ?? 0) { rating in
+            GulfCoffeeRatingSheet(offering: offering, savedRating: ratings[offering.id] ?? 0, savedNote: ratingNotes[offering.id] ?? "") { rating, note in
                 ratings[offering.id] = rating
+                ratingNotes[offering.id] = note
                 ratingTarget = nil
                 guard let spotID = spots.first(where: { offering.id.hasPrefix($0.id) })?.id,
                       !TallaAccountCredentialStore.accessToken.isEmpty else { return }
                 Task {
-                    try? await GulfCoffeeMapRatingService.saveRating(spotID: spotID, offeringID: offering.id, rating: rating)
+                    try? await GulfCoffeeMapRatingService.saveRating(spotID: spotID, offeringID: offering.id, rating: rating, note: note)
                 }
             }
-            .presentationDetents([.height(310)])
+            .presentationDetents([.height(420)])
             .presentationDragIndicator(.visible)
         }
         .onAppear {
             ratings = decodeRatings(ratingStore)
+            ratingNotes = decodeNotes(ratingNotesStore)
             Task { await syncRemoteData() }
         }
         .onChange(of: ratings) { _, value in
             ratingStore = encodeRatings(value)
+        }
+        .onChange(of: ratingNotes) { _, value in
+            ratingNotesStore = encodeNotes(value)
         }
     }
 
@@ -300,7 +324,7 @@ private struct GulfCoffeeMapView: View {
                     .padding(.vertical, 24)
             } else {
                 ForEach(filteredSpots) { spot in
-                    GulfCoffeeSpotCard(spot: spot, rating: spot.offerings.compactMap { ratings[$0.id] }.first) {
+                    GulfCoffeeSpotCard(spot: spot, rating: spot.offerings.compactMap { ratings[$0.id] }.first, ratingSummaries: ratingSummaries) {
                         selectedSpot = spot
                     } onRate: { offering in
                         ratingTarget = offering
@@ -335,6 +359,20 @@ private struct GulfCoffeeMapView: View {
         values.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "|")
     }
 
+    private func decodeNotes(_ value: String) -> [String: String] {
+        value.split(separator: "|", omittingEmptySubsequences: true).reduce(into: [:]) { result, item in
+            let parts = item.split(separator: "=", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { return }
+            result[parts[0]] = parts[1].replacingOccurrences(of: "\\n", with: "\n")
+        }
+    }
+
+    private func encodeNotes(_ values: [String: String]) -> String {
+        values.sorted { $0.key < $1.key }.map {
+            "\($0.key)=\($0.value.replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "|", with: " "))"
+        }.joined(separator: "|")
+    }
+
     private func syncRemoteData() async {
         if let remoteDirectory = try? await GulfCoffeeMapRatingService.fetchDirectory() {
             // The admin directory is authoritative. Never resurrect a deleted local seed.
@@ -343,11 +381,26 @@ private struct GulfCoffeeMapView: View {
             }
             await MainActor.run { spots = mergedSpots }
         }
+        let summaries = (try? await GulfCoffeeMapRatingService.fetchRatingSummary()) ?? []
+        let reviews = (try? await GulfCoffeeMapRatingService.fetchPublicReviews()) ?? []
+        await MainActor.run {
+            ratingSummaries = Dictionary(uniqueKeysWithValues: summaries.map {
+                ($0.offeringID, GulfCoffeeRatingSummary(offeringID: $0.offeringID, count: $0.count, average: $0.average, reviewCount: $0.reviewCount))
+            })
+            publicReviews = Dictionary(grouping: reviews, by: \.offeringID)
+        }
         guard !TallaAccountCredentialStore.accessToken.isEmpty,
               let remoteRatings = try? await GulfCoffeeMapRatingService.fetchRatings() else { return }
         var merged = ratings
-        for rating in remoteRatings { merged[rating.offeringID] = rating.rating }
-        await MainActor.run { ratings = merged }
+        var mergedNotes = ratingNotes
+        for rating in remoteRatings {
+            merged[rating.offeringID] = rating.rating
+            mergedNotes[rating.offeringID] = rating.note ?? ""
+        }
+        await MainActor.run {
+            ratings = merged
+            ratingNotes = mergedNotes
+        }
     }
 }
 
@@ -355,6 +408,7 @@ private struct GulfCoffeeSpotCard: View {
     @Environment(\.colorScheme) private var colorScheme
     let spot: GulfCoffeeSpot
     let rating: Int?
+    let ratingSummaries: [String: GulfCoffeeRatingSummary]
     let onOpen: () -> Void
     let onRate: (GulfCoffeeOffering) -> Void
 
@@ -418,6 +472,11 @@ private struct GulfCoffeeSpotCard: View {
                     Label("You \(rating)/5", systemImage: "star.fill")
                         .foregroundStyle(TallaTheme.Colors.accent)
                 }
+                if let summary = spot.offerings.compactMap({ ratingSummaries[$0.id] }).first,
+                   let average = summary.average {
+                    Label(String(format: "%.1f · %d", average, summary.count), systemImage: "person.2.fill")
+                        .foregroundStyle(TallaTheme.Colors.accent)
+                }
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundStyle(secondaryText)
@@ -453,6 +512,9 @@ private struct GulfCoffeeSpotCard: View {
 private struct GulfCoffeeSpotDetail: View {
     let spot: GulfCoffeeSpot
     @Binding var ratings: [String: Int]
+    let ratingSummaries: [String: GulfCoffeeRatingSummary]
+    @Binding var ratingNotes: [String: String]
+    let publicReviews: [String: [GulfCoffeePublicReview]]
     @Binding var ratingTarget: GulfCoffeeOffering?
     @Environment(\.openURL) private var openURL
 
@@ -505,6 +567,11 @@ private struct GulfCoffeeSpotDetail: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(offering.name)
                                             .foregroundStyle(.primary)
+                                        if let summary = ratingSummaries[offering.id], let average = summary.average {
+                                            Text(String(format: "%.1f/5 · %d ratings · %d reviews", average, summary.count, summary.reviewCount))
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                .foregroundStyle(TallaTheme.Colors.readableAccentLight)
+                                        }
                                         Text(offering.detail)
                                             .font(.system(size: 13, design: .rounded))
                                             .foregroundStyle(.secondary)
@@ -522,6 +589,24 @@ private struct GulfCoffeeSpotDetail: View {
                                 .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             }
                             .buttonStyle(.plain)
+                            if let note = ratingNotes[offering.id], !note.isEmpty {
+                                Text("Your note: \(note)")
+                                    .font(.system(size: 13, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.leading, 13)
+                            }
+                            if let reviews = publicReviews[offering.id], !reviews.isEmpty {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Community reviews")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    ForEach(reviews.prefix(3), id: \.id) { review in
+                                        Text("★\(review.rating)  \(review.note)")
+                                            .font(.system(size: 13, design: .rounded))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding(.leading, 13)
+                            }
                         }
                     }
                 }
@@ -536,8 +621,10 @@ private struct GulfCoffeeSpotDetail: View {
 private struct GulfCoffeeRatingSheet: View {
     let offering: GulfCoffeeOffering
     let savedRating: Int
-    let onSave: (Int) -> Void
+    let savedNote: String
+    let onSave: (Int, String) -> Void
     @State private var rating = 0
+    @State private var note = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -559,12 +646,24 @@ private struct GulfCoffeeRatingSheet: View {
                     .accessibilityLabel("Rate \(value) out of 5")
                 }
             }
-            Button("Save rating") { onSave(rating) }
+            TextEditor(text: $note)
+                .frame(minHeight: 70, maxHeight: 100)
+                .padding(8)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.25)))
+                .overlay(alignment: .topLeading) {
+                    if note.isEmpty {
+                        Text("Optional tasting note")
+                            .foregroundStyle(.secondary)
+                            .padding(13)
+                            .allowsHitTesting(false)
+                    }
+                }
+            Button("Save rating") { onSave(rating, note.trimmingCharacters(in: .whitespacesAndNewlines)) }
                 .buttonStyle(.tallaPrimary)
                 .disabled(rating == 0)
         }
         .padding(24)
-        .onAppear { rating = savedRating }
+        .onAppear { rating = savedRating; note = savedNote }
     }
 }
 
@@ -703,6 +802,14 @@ private enum GulfCoffeeMapRatingService {
     struct Rating: Decodable {
         let offeringID: String
         let rating: Int
+        let note: String?
+    }
+
+    struct RatingSummary: Decodable {
+        let offeringID: String
+        let count: Int
+        let average: Double?
+        let reviewCount: Int
     }
 
     static func fetchDirectory() async throws -> [RemotePlace] {
@@ -726,14 +833,32 @@ private enum GulfCoffeeMapRatingService {
         return try JSONDecoder().decode(Envelope.self, from: data).ratings
     }
 
-    static func saveRating(spotID: String, offeringID: String, rating: Int) async throws {
+    static func fetchRatingSummary() async throws -> [RatingSummary] {
+        guard let baseURL = AccountService.baseURL else { throw URLError(.badURL) }
+        let request = URLRequest(url: baseURL.appending(path: "/gulf-coffee-map/ratings/summary"))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let ratings: [RatingSummary] }
+        return try JSONDecoder().decode(Envelope.self, from: data).ratings
+    }
+
+    static func fetchPublicReviews() async throws -> [GulfCoffeePublicReview] {
+        guard let baseURL = AccountService.baseURL else { throw URLError(.badURL) }
+        let request = URLRequest(url: baseURL.appending(path: "/gulf-coffee-map/reviews"))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let reviews: [GulfCoffeePublicReview] }
+        return try JSONDecoder().decode(Envelope.self, from: data).reviews
+    }
+
+    static func saveRating(spotID: String, offeringID: String, rating: Int, note: String) async throws {
         guard let baseURL = AccountService.baseURL else { throw URLError(.badURL) }
         var request = URLRequest(url: baseURL.appending(path: "/gulf-coffee-map/ratings"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         try AccountService.authorize(&request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["spotID": spotID, "offeringID": offeringID, "rating": rating])
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["spotID": spotID, "offeringID": offeringID, "rating": rating, "note": note])
         let (_, response) = try await AccountService.data(for: request)
         guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw URLError(.badServerResponse) }
     }

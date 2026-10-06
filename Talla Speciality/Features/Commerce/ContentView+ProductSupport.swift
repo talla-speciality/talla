@@ -852,9 +852,8 @@ extension ContentView {
 
                         if let setupProduct = starterSetupProduct(for: product) {
                             Button {
-                                addToCart(product: product)
-                                addToCart(product: setupProduct)
-                                showToast(message: AppLocalization.text("setup_added_to_bag", fallback: "Coffee and starter setup added to your bag."))
+                                addStarterSetupToCart(coffee: product, setup: setupProduct)
+                                selectedProduct = nil
                             } label: {
                                 Label(
                                     AppLocalization.text("buy_the_setup", fallback: "Buy the Setup"),

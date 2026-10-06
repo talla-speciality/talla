@@ -88,6 +88,7 @@ struct ContentView: View {
     @State var cafePassCreditCount = 20
     @State var suspendedCoffeePass = false
     @State var requestedSubscriptionPlanType = ""
+    @State var cartSubscriptionPlanType = ""
     @State var cartOpen = false
     enum PaymentPresentation {
         case hosted(CheckoutSession)
@@ -145,6 +146,9 @@ struct ContentView: View {
     @State var isCartRewardsPresented = false
     @State var pendingCartRemovalID: String?
     @State var isConfirmingEmptyBag = false
+    @State var isConfirmingCartReplacement = false
+    @State var pendingCartReplacementFlowName = ""
+    @State var pendingCartReplacementAction: (() -> Void)?
     @State var checkoutSession: CheckoutSession?
     @State var eazyShopifyBrowserKind: CheckoutSession.Kind?
     @State var benefitPaySession: BenefitPaySession?

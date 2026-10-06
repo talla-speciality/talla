@@ -69,10 +69,18 @@ extension ContentView {
                 openTab(.shop)
             },
             openSubscriptionPlanAction: { planType, category in
-                requestedSubscriptionPlanType = planType
-                activeCategory = category
-                shopSearchQuery = ""
-                openTab(.shop)
+                let startPlan = {
+                    if cartItems.isEmpty { isGiftOrder = false }
+                    requestedSubscriptionPlanType = planType
+                    activeCategory = category
+                    shopSearchQuery = ""
+                    openTab(.shop)
+                }
+                if bagSupportsSubscription(planType) {
+                    startPlan()
+                } else {
+                    offerToReplaceBag(for: "a new subscription", then: startPlan)
+                }
             },
             addCoffeeToClubAction: { product, variant, quantity, fulfillment in
                 addCoffeeClubToCart(product: product, variant: variant, quantity: quantity, fulfillment: fulfillment)

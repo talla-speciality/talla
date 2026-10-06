@@ -31,11 +31,47 @@ import UIKit
 #endif
 
 extension ContentView {
+    func bagSupportsSubscription(_ planType: String) -> Bool {
+        guard !cartItems.isEmpty else { return true }
+        let currentPlan = cartSubscriptionPlanType.isEmpty ? coffeeClubPlanType : cartSubscriptionPlanType
+        return isCoffeeClubPrepaid
+            && !isCafePassPrepaid
+            && !isGiftOrder
+            && currentPlan == planType
+            && cartItems.allSatisfy { item in
+                ProductCatalogRules.subscriptionPlanType(
+                    detectedPlan: defaultPrepaidPlanType(for: item.product),
+                    requestedPlan: planType
+                ) == planType
+            }
+    }
+
+    func offerToReplaceBag(for flowName: String, then action: @escaping () -> Void) {
+        pendingCartReplacementFlowName = flowName
+        pendingCartReplacementAction = action
+        isConfirmingCartReplacement = true
+    }
+
+    func clearBagForNewFlow() {
+        cartItems.removeAll()
+        cartSubscriptionPlanType = ""
+        isCoffeeClubPrepaid = false
+        coffeeClubTermsAccepted = false
+        isCafePassPrepaid = false
+        suspendedCoffeePass = false
+        isGiftOrder = false
+        giftRecipientName = ""
+        giftRecipientEmail = ""
+        giftRecipientPhone = ""
+        giftMessage = ""
+        appliedVoucher = nil
+        voucherCodeInput = ""
+        voucherError = nil
+        checkoutError = nil
+        cartOpen = false
+    }
+
     func addToCart(product: Product) {
-        guard !isCafePassActive else {
-            showToast(message: "Finish or remove the prepaid coffee pass before adding other products.")
-            return
-        }
         guard let variant = selectedVariant(for: product), variant.isAvailableForSale else {
             showToast(message: String(format: AppLocalization.text("product_unavailable_toast", fallback: "%@ is unavailable"), product.name))
             return
@@ -43,19 +79,30 @@ extension ContentView {
 
         let chosenPlanType = requestedSubscriptionPlanType
         let productPlanType = prepaidPlanType(for: product)
-        if !chosenPlanType.isEmpty {
-            guard productPlanType == chosenPlanType,
-                  cartItems.allSatisfy({ prepaidPlanType(for: $0.product) == chosenPlanType }) else {
-                showToast(message: "Keep this prepaid plan in a separate bag from other products.")
+        if !chosenPlanType.isEmpty, productPlanType != chosenPlanType {
+            showToast(message: "This product is not available for the selected prepaid plan.")
+            return
+        }
+        if !cartItems.isEmpty {
+            let hasExclusiveItem = isCafePassPrepaid || isCoffeeClubPrepaid
+                || product.isGiftCardProduct
+                || cartItems.contains(where: { $0.product.isGiftCardProduct })
+                || (isGiftOrder && cartItems.contains(where: { $0.variant.requiresShipping != variant.requiresShipping }))
+            let incompatibleSubscription = !chosenPlanType.isEmpty && !bagSupportsSubscription(chosenPlanType)
+            if (hasExclusiveItem && chosenPlanType.isEmpty) || incompatibleSubscription {
+                let flowName = chosenPlanType.isEmpty ? "this new order" : "a new subscription"
+                offerToReplaceBag(for: flowName) { addToCart(product: product) }
                 return
             }
         }
-
         if !chosenPlanType.isEmpty {
             isCoffeeClubPrepaid = true
+            cartSubscriptionPlanType = chosenPlanType
+            isGiftOrder = false
             coffeeClubTermsAccepted = false
         } else if cartItems.isEmpty || productPlanType == nil {
             isCoffeeClubPrepaid = false
+            cartSubscriptionPlanType = ""
             coffeeClubTermsAccepted = false
         }
         isCafePassPrepaid = false
@@ -85,9 +132,15 @@ extension ContentView {
             return
         }
 
-        let selectedPlanType = prepaidPlanType(for: product) ?? "beans"
-        cartItems.removeAll { item in
-            return prepaidPlanType(for: item.product) != selectedPlanType
+        guard let selectedPlanType = prepaidPlanType(for: product) else {
+            showToast(message: "This product is not available for a prepaid plan.")
+            return
+        }
+        guard bagSupportsSubscription(selectedPlanType) else {
+            offerToReplaceBag(for: "a new subscription") {
+                addCoffeeClubToCart(product: product, variant: variant, quantity: quantity, fulfillment: fulfillment)
+            }
+            return
         }
         recordRecentlyViewed(product)
 
@@ -101,6 +154,8 @@ extension ContentView {
 
         fulfillmentMethod = fulfillment
         isCoffeeClubPrepaid = true
+        cartSubscriptionPlanType = selectedPlanType
+        isGiftOrder = false
         isCafePassPrepaid = false
         coffeeClubTermsAccepted = false
         checkoutError = nil
@@ -108,6 +163,27 @@ extension ContentView {
         cartOpen = true
         let variantSuffix = product.hasVariantChoices ? " (\(variant.title))" : ""
         showToast(message: String(format: AppLocalization.text("product_added_to_cart", fallback: "%@%@ added to bag"), product.name, variantSuffix))
+    }
+
+    func addStarterSetupToCart(coffee: Product, setup: Product) {
+        guard selectedVariant(for: coffee)?.isAvailableForSale == true,
+              selectedVariant(for: setup)?.isAvailableForSale == true else {
+            showToast(message: "The coffee or starter setup is currently unavailable.")
+            return
+        }
+        let incompatibleBag = !cartItems.isEmpty && (isCoffeeClubPrepaid || isCafePassPrepaid
+            || isGiftOrder || !requestedSubscriptionPlanType.isEmpty
+            || cartItems.contains(where: { $0.product.isGiftCardProduct }))
+        if incompatibleBag {
+            offerToReplaceBag(for: "a coffee and starter setup order") {
+                addStarterSetupToCart(coffee: coffee, setup: setup)
+            }
+            return
+        }
+        requestedSubscriptionPlanType = ""
+        addToCart(product: coffee)
+        addToCart(product: setup)
+        showToast(message: AppLocalization.text("setup_added_to_bag", fallback: "Coffee and starter setup added to your bag."))
     }
 
     func triggerCartCelebration() {
@@ -130,13 +206,24 @@ extension ContentView {
 
     func removeFromCart(id: String) {
         cartItems.removeAll { $0.id == id }
-        if cartItems.isEmpty || !isCoffeeClubEligible {
+        let subscriptionItemsStillMatch = !cartSubscriptionPlanType.isEmpty
+            && cartItems.allSatisfy { item in
+                ProductCatalogRules.subscriptionPlanType(
+                    detectedPlan: defaultPrepaidPlanType(for: item.product),
+                    requestedPlan: cartSubscriptionPlanType
+                ) == cartSubscriptionPlanType
+            }
+        if cartItems.isEmpty || !subscriptionItemsStillMatch {
             isCoffeeClubPrepaid = false
+            cartSubscriptionPlanType = ""
             coffeeClubTermsAccepted = false
         }
         if cartItems.isEmpty || !isCafePassEligible { isCafePassPrepaid = false }
         if cartItems.isEmpty || !isCafePassEligible { suspendedCoffeePass = false }
-        if cartItems.isEmpty { requestedSubscriptionPlanType = "" }
+        if cartItems.isEmpty {
+            requestedSubscriptionPlanType = ""
+            isGiftOrder = false
+        }
         checkoutError = nil
     }
 
@@ -260,6 +347,11 @@ extension ContentView {
     }
 
     func applySavedCart(_ savedCart: SavedCart) {
+        guard cartItems.isEmpty else {
+            showToast(message: "Finish or clear your current bag before loading a saved bag.")
+            cartOpen = true
+            return
+        }
         let matchedItems = savedCart.items.compactMap { item -> (Product, Product.Variant, Int)? in
             if let product = products.first(where: { $0.id == item.productID }) ?? matchingProduct(for: item.productName) {
                 let variant = item.variantID.flatMap { savedID in
@@ -278,6 +370,11 @@ extension ContentView {
 
         cartItems = []
         requestedSubscriptionPlanType = ""
+        cartSubscriptionPlanType = ""
+        isCoffeeClubPrepaid = false
+        isCafePassPrepaid = false
+        suspendedCoffeePass = false
+        isGiftOrder = false
         for (product, variant, quantity) in matchedItems {
             cartItems.append(
                 CartItem(
@@ -404,6 +501,12 @@ extension ContentView {
     }
 
     func buyAgain(order: AccountOrder) {
+        guard cartItems.isEmpty || (!isCoffeeClubPrepaid && !isCafePassPrepaid && !isGiftOrder
+            && !cartItems.contains(where: { $0.product.isGiftCardProduct })) else {
+            showToast(message: "Finish or clear your current bag before adding another order.")
+            cartOpen = true
+            return
+        }
         guard let items = order.items, !items.isEmpty else { return }
 
         let matchedProducts = items.compactMap { item -> (Product, Int)? in
@@ -414,6 +517,15 @@ extension ContentView {
         guard !matchedProducts.isEmpty else {
             showToast(message: AppLocalization.text("items_unavailable_currently", fallback: "Those items are currently unavailable"))
             return
+        }
+
+        if cartItems.isEmpty {
+            requestedSubscriptionPlanType = ""
+            cartSubscriptionPlanType = ""
+            isCoffeeClubPrepaid = false
+            isCafePassPrepaid = false
+            suspendedCoffeePass = false
+            isGiftOrder = false
         }
 
         for (product, quantity) in matchedProducts {

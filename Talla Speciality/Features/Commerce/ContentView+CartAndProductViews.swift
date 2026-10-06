@@ -110,8 +110,17 @@ extension ContentView {
     }
 
     var coffeeClubPlanType: String {
-        guard let first = cartItems.first.flatMap({ prepaidPlanType(for: $0.product) }) else { return "beans" }
-        return cartItems.allSatisfy({ prepaidPlanType(for: $0.product) == first }) ? first : "beans"
+        guard let first = cartItems.first.flatMap({ cartPrepaidPlanType(for: $0.product) }) else { return "beans" }
+        return cartItems.allSatisfy({ cartPrepaidPlanType(for: $0.product) == first }) ? first : "beans"
+    }
+
+    func cartPrepaidPlanType(for product: Product) -> String? {
+        let plan = isCoffeeClubPrepaid && !cartSubscriptionPlanType.isEmpty
+            ? cartSubscriptionPlanType : requestedSubscriptionPlanType
+        return ProductCatalogRules.subscriptionPlanType(
+            detectedPlan: defaultPrepaidPlanType(for: product),
+            requestedPlan: plan
+        )
     }
 
     func prepaidPlanType(for product: Product) -> String? {
@@ -191,8 +200,8 @@ extension ContentView {
     var isCoffeeClubEligible: Bool {
         guard !isCafePassActive else { return false }
         guard (remoteAppSettings?.coffeeClub?.enabled ?? false), !cartItems.isEmpty else { return false }
-        guard let first = cartItems.first.flatMap({ prepaidPlanType(for: $0.product) }) else { return false }
-        guard cartItems.allSatisfy({ prepaidPlanType(for: $0.product) == first }) else { return false }
+        guard let first = cartItems.first.flatMap({ cartPrepaidPlanType(for: $0.product) }) else { return false }
+        guard cartItems.allSatisfy({ cartPrepaidPlanType(for: $0.product) == first }) else { return false }
         return first != "office" || cartItems.reduce(0) { $0 + $1.quantity } >= 2
     }
 
@@ -460,22 +469,22 @@ extension ContentView {
     var coffeeClubOfferDetail: String {
         switch coffeeClubPlanType {
         case "drip-bags":
-            return "Save \(configuredCoffeeClubDiscountPercent)% on every shipment. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No renewal."
+            return "Prepaid plan: save \(configuredCoffeeClubDiscountPercent)% on every shipment. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments."
         case "filters":
-            return "One filter shipment every 12 weeks. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No automatic renewal."
+            return "Prepaid filter plan: one shipment every 12 weeks. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments."
         case "equipment":
-            return "One consumables shipment every 12 weeks. Delivery is charged for all shipments. No automatic renewal."
+            return "Prepaid consumables plan: one shipment every 12 weeks. Delivery is charged for all shipments."
         case "office":
-            return "Multi-bag office supply every \(coffeeClubIntervalWeeks) weeks. Prepaid and manually renewed; choose at least two bags per shipment for your team."
+            return "Prepaid office supply every \(coffeeClubIntervalWeeks) weeks; choose at least two bags per shipment for your team. Start a new plan when this one is complete."
         case "arabic-coffee":
-            return "\(configuredCoffeeClubShipmentCount) deliveries every \(coffeeClubIntervalWeeks) weeks. Prepaid; no automatic renewal."
+            return "Prepaid plan: \(configuredCoffeeClubShipmentCount) deliveries every \(coffeeClubIntervalWeeks) weeks. Start a new plan when this one is complete."
         case "seasonal-box":
-            return "One discovery box every season. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments. No automatic renewal."
+            return "Prepaid discovery plan: one box every season. Delivery is charged for all \(configuredCoffeeClubShipmentCount) shipments."
         default:
             return String(
                 format: AppLocalization.text(
                     "coffee_club_prepaid_detail",
-                    fallback: "Save %d%% on every bag. One shipment every %d weeks; delivery is charged for all %d shipments. No renewal."
+                    fallback: "Prepaid plan: save %d%% on every bag. One shipment every %d weeks; delivery is charged for all %d shipments."
                 ),
                 configuredCoffeeClubDiscountPercent,
                 coffeeClubIntervalWeeks,
@@ -534,10 +543,10 @@ extension ContentView {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(readableBrandGoldColor)
                 Text(coffeeClubPlanType != "beans"
-                    ? "I agree this plan is prepaid and does not renew automatically. Delivery is charged for every shipment. Changes apply only to undelivered shipments; cancellations or refunds require Talla approval."
+                    ? "I agree this is a prepaid plan. It will not charge me again automatically; I will start a new plan after the included shipments. Delivery is charged for every shipment. Changes apply only to undelivered shipments; cancellations or refunds require Talla approval."
                     : AppLocalization.text(
                         "coffee_club_terms_consent",
-                        fallback: "I agree that Coffee Club is prepaid, does not renew automatically, delivery is charged for every shipment, future changes apply only to undelivered shipments, and cancellations or refunds require Talla approval."
+                        fallback: "I agree that Coffee Club is prepaid, will not charge me automatically again, delivery is charged for every shipment, future changes apply only to undelivered shipments, and cancellations or refunds require Talla approval."
                     ))
                 .font(bodyFont(size: 11))
                 .foregroundColor(secondaryTextColor)

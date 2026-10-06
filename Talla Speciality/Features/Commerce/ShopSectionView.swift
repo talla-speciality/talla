@@ -243,14 +243,14 @@ struct ShopSectionView: View {
 
     private var coffeeClubPrepaidFact: some View {
         coffeeClubFact(
-            AppLocalization.text("coffee_club_intro_prepaid", fallback: "Prepaid"),
+            AppLocalization.text("coffee_club_intro_prepaid", fallback: "Prepaid Coffee Club"),
             systemImage: "checkmark.shield.fill"
         )
     }
 
     private var coffeeClubRenewalFact: some View {
         coffeeClubFact(
-            AppLocalization.text("coffee_club_intro_no_renewal_short", fallback: "No auto-renewal"),
+            AppLocalization.text("coffee_club_intro_no_renewal_short", fallback: "No automatic charge"),
             systemImage: "calendar.badge.checkmark"
         )
     }
