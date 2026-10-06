@@ -37,6 +37,7 @@ extension ContentView {
             .tint(TallaTheme.Colors.accent)
             .textFieldStyle(.talla)
             .buttonBorderShape(.roundedRectangle(radius: TallaTheme.CornerRadius.control))
+            .controlSize(.large)
             .sensoryFeedback(.selection, trigger: activeTab)
             .onOpenURL(perform: handleDeepLink)
             .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
@@ -607,6 +608,7 @@ extension ContentView {
         .toolbar(.visible, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarBackground(tabBarBackgroundColor, for: .tabBar)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: activeTab)
     }
 
     var legacyTabView: some View {
@@ -649,6 +651,7 @@ extension ContentView {
         .toolbar(.visible, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarBackground(tabBarBackgroundColor, for: .tabBar)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: activeTab)
     }
 
     func tabScreen<Content: View>(tab: Tab, @ViewBuilder content: @escaping () -> Content) -> some View {
@@ -929,8 +932,7 @@ extension ContentView {
                 .foregroundStyle(tertiaryTextColor)
         }
         .padding(16)
-        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1))
+        .tallaCard(.standard, cornerRadius: TallaTheme.CornerRadius.card)
     }
 
     func moreFeatureTile(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
@@ -947,8 +949,8 @@ extension ContentView {
                     .foregroundStyle(secondaryTextColor)
             }
             .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
-            .padding(14)
-            .background(elevatedSurfaceColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(16)
+            .tallaCard(.elevated, cornerRadius: TallaTheme.CornerRadius.card)
         }
         .buttonStyle(.plain)
     }

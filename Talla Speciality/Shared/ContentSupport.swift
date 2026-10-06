@@ -42,6 +42,9 @@ extension ContentView {
 enum TallaTheme {
     enum Colors {
         static let accent = Color(hex: 0xC8965A)
+        static let accentHighlight = Color(hex: 0xE4BC88)
+        static let espresso = Color(hex: 0x20150D)
+        static let warmWhite = Color(hex: 0xFFFDF9)
         static let readableAccentLight = Color(hex: 0x7A4F25)
         static let readableAccentDark = Color(hex: 0xD7A76C)
         static let lightBackground = Color(hex: 0xFFFDF9)
@@ -60,10 +63,12 @@ enum TallaTheme {
     }
 
     enum Spacing {
+        static let hairline: CGFloat = 4
         static let compact: CGFloat = 8
         static let standard: CGFloat = 12
         static let section: CGFloat = 18
         static let page: CGFloat = 20
+        static let spacious: CGFloat = 28
     }
 
     enum Fonts {
@@ -72,6 +77,57 @@ enum TallaTheme {
         static let button = Font.system(.callout, design: .rounded).weight(.bold)
         static let sectionTitle = Font.system(.headline, design: .rounded).weight(.bold)
         static let display = Font.system(.largeTitle, design: .serif).weight(.bold)
+    }
+
+    enum Shadow {
+        static let cardRadius: CGFloat = 14
+        static let cardY: CGFloat = 6
+    }
+}
+
+struct TallaCardModifier: ViewModifier {
+    enum Prominence {
+        case standard
+        case elevated
+    }
+
+    @Environment(\.colorScheme) private var colorScheme
+    let prominence: Prominence
+    let cornerRadius: CGFloat
+
+    private var fill: Color {
+        switch (colorScheme, prominence) {
+        case (.dark, .standard): TallaTheme.Colors.darkSurface
+        case (.dark, .elevated): TallaTheme.Colors.darkElevatedSurface
+        case (_, .standard): TallaTheme.Colors.lightSurface
+        case (_, .elevated): TallaTheme.Colors.lightElevatedSurface
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background(fill, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.16 : 0.13),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(
+                color: Color.black.opacity(colorScheme == .dark ? 0.18 : 0.07),
+                radius: prominence == .elevated ? TallaTheme.Shadow.cardRadius : 8,
+                y: prominence == .elevated ? TallaTheme.Shadow.cardY : 3
+            )
+    }
+}
+
+extension View {
+    func tallaCard(
+        _ prominence: TallaCardModifier.Prominence = .standard,
+        cornerRadius: CGFloat = TallaTheme.CornerRadius.card
+    ) -> some View {
+        modifier(TallaCardModifier(prominence: prominence, cornerRadius: cornerRadius))
     }
 }
 

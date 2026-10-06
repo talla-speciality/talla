@@ -608,16 +608,25 @@ struct ToastBannerView: View {
     let foregroundColor: Color
 
     var body: some View {
-        Text(message)
-            .font(font)
-            .tracking(AppLocalization.letterSpacing(1))
-            .padding(.vertical, 10)
-            .padding(.horizontal, 14)
-            .background(backgroundColor)
-            .foregroundColor(foregroundColor)
-            .cornerRadius(2)
+        Label {
+            Text(message)
+                .font(font)
+        } icon: {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.body.weight(.semibold))
+        }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .background(backgroundColor, in: Capsule(style: .continuous))
+            .foregroundStyle(foregroundColor)
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+            }
+            .shadow(color: Color.black.opacity(0.18), radius: 12, y: 6)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .padding(.trailing, 20)
-            .padding(.bottom, 24)
+            .padding(.horizontal, TallaTheme.Spacing.page)
+            .padding(.bottom, TallaTheme.Spacing.section)
+            .accessibilityAddTraits(.isStaticText)
     }
 }
