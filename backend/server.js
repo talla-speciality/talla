@@ -26,6 +26,7 @@ const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent 
 const { aggregateRatings: aggregateGulfCoffeeRatings, directoryFor: gulfCoffeeDirectoryFor, normalizeStore: normalizeGulfCoffeeMapStore, ratingsFor: gulfCoffeeRatingsFor, replaceDirectory: replaceGulfCoffeeDirectory, saveRating: saveGulfCoffeeRating } = require("./modules/discovery/gulf-coffee-map");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail"); const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments"); const { createCoffeeClubNotificationService } = require("./modules/commerce/coffee-club-notifications");
 const { orderItemOptions } = require("./modules/commerce/order-item-options"); const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
+const { giftPassFields } = require("./modules/commerce/social-coffee-gifts");
 const {
     defaultCampaignSettings,
     normalizeCampaignSettings,
@@ -65,6 +66,7 @@ const customerLibraryStorePath = config.stores.customerLibrary;
 const communityRecipesStorePath = config.stores.communityRecipes;
 const espressoCommunityStorePath = config.stores.espressoCommunity;
 const cuppingRecordsStorePath = config.stores.cuppingRecords;
+const socialCoffeeStorePath = config.stores.socialCoffee;
 const passwordResetTokensStorePath = config.stores.passwordResetTokens;
 const benefitPaymentsStorePath = config.stores.benefitPayments;
 const cardPaymentsStorePath = config.stores.cardPayments;
@@ -209,6 +211,7 @@ ensureStoreFile(tasteMemoryStorePath, { tasteMemory: {} });
 ensureStoreFile(customerLibraryStorePath, { customerLibrary: {} });
 ensureStoreFile(communityRecipesStorePath, { recipes: [] });
 ensureStoreFile(espressoCommunityStorePath, { profiles: [], roasterRecipes: [], startingPoints: [], videoAssessments: [] });
+ensureStoreFile(socialCoffeeStorePath, { customers: {} });
 ensureStoreFile(passwordResetTokensStorePath, { tokens: [] });
 ensureStoreFile(benefitPaymentsStorePath, { payments: {} });
 ensureStoreFile(cardPaymentsStorePath, { payments: {} });
@@ -4052,10 +4055,11 @@ async function orderPayloadWithRewardState(email, order) {
         ? await hasLoyaltyTransaction(email, loyaltyTransactionIDForOrder(order))
         : false;
 
+    const cafePass = normalizeOrderDetails(order.details).cafePass;
     return {
         ...order,
+        ...giftPassFields(order, cafePass, customerTokenSecret),
         coffeeClub: normalizeOrderDetails(order.details).coffeeClub,
-        cafePass: normalizeOrderDetails(order.details).cafePass,
         beansAwarded,
         pointsAwarded: beansAwarded ? pointsAwarded : 0
     };
@@ -9353,6 +9357,7 @@ const server = createServer({
     communityRecipesStorePath,
     espressoCommunityStorePath,
     cuppingRecordsStorePath,
+    socialCoffeeStorePath,
     customerPhoneForShopifyOrder,
     customerTokenHours,
     customerTokenSecret,
@@ -9724,7 +9729,7 @@ async function startServer() {
     try {
         await database.initializeDatabase();
         await getAppSettings();
-        console.log("Postgres storage enabled for accounts and loyalty.");
+        console.log("Postgres storage enabled for accounts, loyalty, and Social Coffee.");
         startOpsAlertMonitor();
         startCoffeeClubReminderMonitor();
         startBirthdayRewardMonitor();
@@ -9783,6 +9788,8 @@ module.exports = {
     mpgsResultIndicatorMatches,
     mergeCustomerLibraryRecords,
     normalizeBrewJournalEntry,
+    orderPayloadWithRewardState,
+    redeemCafePassByOrderID,
     renderClickToPayLaunch,
     renderBenefitResultPage,
     renderMpgsResultPage,

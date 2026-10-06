@@ -153,6 +153,7 @@ module.exports = {
         communityRecipes: path.join(dataDirectory, "communityRecipes.json"),
         espressoCommunity: path.join(dataDirectory, "espressoCommunity.json"),
         cuppingRecords: path.join(dataDirectory, "cuppingRecords.json"),
+        socialCoffee: path.join(dataDirectory, "socialCoffee.json"),
         passwordResetTokens: path.join(dataDirectory, "passwordResetTokens.json"),
         benefitPayments: path.join(dataDirectory, "benefitPayments.json"),
         cardPayments: path.join(dataDirectory, "cardPayments.json"),

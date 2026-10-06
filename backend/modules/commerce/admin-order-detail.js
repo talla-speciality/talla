@@ -262,8 +262,10 @@ function createAdminOrderDetailService(dependencies) {
             && cafePassExpiry && Date.parse(cafePassExpiry) <= Date.now() ? "expired"
             : String(rawCafePass?.status || "").toLowerCase();
         const cafePass = rawCafePass ? {
-            creditCount: 20,
-            redeemedCredits: Math.max(0, Math.min(20, Math.round(Number(rawCafePass.redeemedCredits) || 0))),
+            creditCount: Math.max(1, Math.min(20, Math.round(Number(rawCafePass.creditCount) || 20))),
+            redeemedCredits: Math.max(0, Math.min(Math.max(1, Math.min(20, Math.round(Number(rawCafePass.creditCount) || 20))), Math.round(Number(rawCafePass.redeemedCredits) || 0))),
+            suspendedCoffee: rawCafePass.suspendedCoffee === true,
+            giftedCoffee: rawCafePass.giftedCoffee === true,
             drinkName: trimText(rawCafePass.drinkName, 180),
             variantId: trimText(rawCafePass.variantId, 180) || null,
             unitPriceFils: Math.max(0, Math.round(Number(rawCafePass.unitPriceFils) || 0)),

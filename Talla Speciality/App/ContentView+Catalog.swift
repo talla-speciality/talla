@@ -97,7 +97,12 @@ extension ContentView {
         }
     }
 
+    var isDigitalGiftCardOnlyCart: Bool {
+        !cartItems.isEmpty && cartItems.allSatisfy { $0.product.isGiftCardProduct && !$0.variant.requiresShipping }
+    }
+
     var cartShippingCost: Double? {
+        if isDigitalGiftCardOnlyCart { return 0 }
         if fulfillmentMethod == .pickup {
             return 0
         }
@@ -120,11 +125,13 @@ extension ContentView {
     }
 
     var usesShopifyCalculatedShipping: Bool {
-        fulfillmentMethod == .delivery
+        !isDigitalGiftCardOnlyCart
+            && fulfillmentMethod == .delivery
             && preferredAddress.map { !$0.country.isKhaleeji } == true
     }
 
     var canStartCheckoutWithShipping: Bool {
+        if isDigitalGiftCardOnlyCart { return true }
         if fulfillmentMethod == .pickup { return true }
         guard preferredAddress != nil else { return false }
         if usesShopifyCalculatedShipping {
@@ -140,6 +147,9 @@ extension ContentView {
     }
 
     var cartShippingLabel: String {
+        if isDigitalGiftCardOnlyCart {
+            return AppLocalization.text("free", fallback: "Free")
+        }
         if fulfillmentMethod == .pickup {
             return AppLocalization.text("free", fallback: "Free")
         }
@@ -1101,7 +1111,7 @@ extension ContentView {
     }
 
     var checkoutReadinessTitle: String {
-        fulfillmentMethod == .delivery && preferredAddress == nil
+        !isDigitalGiftCardOnlyCart && fulfillmentMethod == .delivery && preferredAddress == nil
             ? AppLocalization.text("almost_ready", fallback: "Almost ready")
             : AppLocalization.text("ready_to_checkout_checked", fallback: "Ready to checkout ✓")
     }
@@ -1111,7 +1121,9 @@ extension ContentView {
         let itemFallback = cartCount == 1 ? "%d item" : "%d items"
         let itemText = String(format: AppLocalization.text(itemKey, fallback: itemFallback), cartCount)
         let addressText: String
-        if fulfillmentMethod == .pickup {
+        if isDigitalGiftCardOnlyCart {
+            addressText = isArabicInterface ? "تُرسل بالبريد الإلكتروني" : "Sent by email"
+        } else if fulfillmentMethod == .pickup {
             addressText = AppLocalization.text("pickup_at_talla", fallback: "Pickup at Talla")
         } else {
             addressText = preferredAddress == nil

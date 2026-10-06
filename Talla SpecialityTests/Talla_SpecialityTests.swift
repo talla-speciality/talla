@@ -4,6 +4,24 @@ import Testing
 
 struct Talla_SpecialityTests {
 
+    @Test func socialCoffeeLinksAcceptPublishedPagesAndLegacyRoutes() {
+        let id = "0123456789abcdef"
+        let invite = "0123456789abcdef0123456789abcdef"
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://talla.me/pages/group-coffee-order?id=\(id)&invite=\(invite)")!) == .group(id: id, inviteCode: invite))
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://www.talla.me/app/group-order?id=\(id)&invite=\(invite)")!) == .group(id: id, inviteCode: invite))
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://talla.me/pages/coffee-gift?order=checkout_1234")!) == .gift(orderID: "checkout_1234", token: nil))
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://talla.me/app/suspended-coffee?order=checkout_1234")!) == .gift(orderID: "checkout_1234", token: nil))
+        let token = String(repeating: "a", count: 64)
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://talla.me/pages/coffee-gift?order=checkout_1234#\(token)")!) == .gift(orderID: "checkout_1234", token: token))
+    }
+
+    @Test func socialCoffeeLinksRejectForeignHostsAndMalformedInvites() {
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://other.example/pages/coffee-gift?order=checkout_1234")!) == nil)
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://talla.me/pages/group-coffee-order?id=bad&invite=bad")!) == nil)
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://talla.me/pages/coffee-gift?order=x")!) == nil)
+        #expect(SocialCoffeeSharedLink.parse(URL(string: "https://talla.me/pages/coffee-gift?order=checkout_1234#bad")!) == nil)
+    }
+
     @Test func caffeineEstimateUsesDoseAndBrewStyle() {
         #expect(TallaCaffeineEstimator.estimate(milligramsForDoseGrams: 20, method: "V60") == 200)
         #expect(TallaCaffeineEstimator.estimate(milligramsForDoseGrams: 18, method: "Espresso") == 117)

@@ -57,7 +57,6 @@ The server reads configuration from environment variables:
 - `CUSTOMER_REFRESH_TOKEN_DAYS`: rotating refresh-token lifetime; production default is 30 days
 - `ADMIN_USERS_JSON`: protected JSON array of `{ "username", "password", "role" }` records; roles are `viewer`, `support`, `operations`, `manager`, and `owner`
 - `ADMIN_APP_ROLES_JSON`: protected JSON object mapping mobile-admin email addresses to roles
-- `CUSTOMER_TOKEN_HOURS`: customer session lifetime in hours, defaults to `168`
 - `RESEND_API_KEY`: Resend API key used for customer password reset emails
 - `EMAIL_FROM_ADDRESS`: verified sender for password reset emails, such as `Talla Speciality <no-reply@your-domain.com>`
 - `PASSWORD_RESET_TOKEN_HOURS`: password reset link lifetime in hours, defaults to `1`
@@ -212,6 +211,26 @@ Authenticated MPGS routes enforce order ownership and derive BHD totals from bac
 GET /accounts/session
 Authorization: Bearer <access-token>
 ```
+
+### Social Coffee profile
+
+```http
+GET /social-coffee/profile
+PUT /social-coffee/profile
+Authorization: Bearer <access-token>
+```
+
+```http
+GET /social-coffee/notes
+```
+
+Signed-in members can recover unexpired group orders, including closed groups awaiting checkout, with `GET /social-coffee/groups`. The response excludes invite codes and member email addresses. Hosts can reopen a closed group in the app to rebuild its bag after an interrupted checkout; closing a group does not charge anyone.
+
+The profile is scoped to the authenticated customer and stores their coffee wish list, sharing preference, followed friends/baristas/roasters, selected public display name, and latest tasting note with its visibility setting. `GET /social-coffee/notes` returns only notes explicitly marked public and does not expose account email addresses. In production these profiles and group orders are persisted transactionally in Postgres (`social_coffee_state`); `socialCoffee.json` is a local-development fallback only. Customer account deletion removes the associated social data. The iOS app keeps a local copy and syncs it after sign-in.
+
+Suspended coffees use the existing prepaid café-pass checkout and redemption ledger: a customer chooses 1–20 eligible ready-made drinks, pays the verified menu price, and receives a shareable order QR after payment. Credits expire 30 days after activation. Staff find the order by scanning/searching its order ID in Talla Admin and redeem credits one at a time; the existing admin redemption action enforces paid, active, unexpired, and remaining-credit checks.
+
+Paid one-cup gifts include an HMAC share token in the authenticated customer's order pass. The iOS share link keeps that token in the URL fragment, so Shopify's fallback page does not receive it. The recipient app sends it only as `X-Talla-Gift-Token` to `GET /social-coffee/gifts/<order-id>/status`. This read-only endpoint returns the drink and `pending`, `ready`, `redeemed`, or `expired` state, never customer details. Invalid or missing tokens receive 404; responses are not cached. Staff still perform the actual redemption in Talla Admin. Keep `CUSTOMER_TOKEN_SECRET` stable so already-shared links remain valid.
 
 ### Customer login
 

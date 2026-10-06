@@ -37,6 +37,8 @@ struct AdminOrder: Codable, Identifiable, Hashable {
 struct AdminCafePass: Codable, Hashable {
     let creditCount: Int
     let redeemedCredits: Int
+    let suspendedCoffee: Bool?
+    let giftedCoffee: Bool?
     let drinkName: String
     let status: String
     let activatedAt: String?

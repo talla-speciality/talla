@@ -386,6 +386,83 @@ test("Coffee Club rejects non-coffee products, vouchers, cash on delivery, and i
     );
 });
 
+test("suspended coffees price as undiscounted, prepaid café-pass credits", async () => {
+    const sponsoredPass = {
+        creditCount: 3,
+        termsAccepted: true
+    };
+    const verify = service({ nodes: [node(drinkID, "2.200")] });
+    const result = await verify(body(
+        [{ variantId: drinkID, quantity: 1 }],
+        6.6,
+        {
+            fulfillmentMethod: "pickup",
+            paymentMethod: "card",
+            cafePass: sponsoredPass,
+            suspendedCoffeePass: true
+        }
+    ), "sponsor@example.com");
+
+    assert.equal(result.cafePass.creditCount, 3);
+    assert.equal(result.cafePass.suspendedCoffee, true);
+    assert.equal(result.items[0].quantity, 3);
+    assert.equal(result.total, 6.6);
+});
+
+test("a named coffee gift charges for one drink and creates one redeemable credit", async () => {
+    const verify = service({ nodes: [node(drinkID, "2.200")] });
+    const result = await verify(body(
+        [{ variantId: drinkID, quantity: 1 }],
+        2.2,
+        {
+            fulfillmentMethod: "pickup",
+            paymentMethod: "card",
+            cafePass: { creditCount: 1, termsAccepted: true },
+            suspendedCoffeePass: true,
+            gift: { recipientName: "Mariam", message: "Coffee on me" }
+        }
+    ), "sender@example.com");
+
+    assert.equal(result.cafePass.creditCount, 1);
+    assert.equal(result.cafePass.giftedCoffee, true);
+    assert.equal(result.items[0].quantity, 1);
+    assert.equal(result.total, 2.2);
+});
+
+test("a named coffee gift cannot be expanded into a multi-credit pass", async () => {
+    const verify = service({ nodes: [node(drinkID, "2.200")] });
+    await assert.rejects(
+        verify(body(
+            [{ variantId: drinkID, quantity: 1 }],
+            4.4,
+            {
+                fulfillmentMethod: "pickup",
+                cafePass: { creditCount: 2, termsAccepted: true },
+                suspendedCoffeePass: true,
+                gift: { recipientName: "Mariam" }
+            }
+        ), "sender@example.com"),
+        (error) => error instanceof CheckoutPricingError && error.code === "COFFEE_GIFT_INVALID"
+    );
+});
+
+test("suspended coffees reject more credits than the supported pass limit", async () => {
+    const verify = service({ nodes: [node(drinkID, "2.200")] });
+    await assert.rejects(
+        verify(body(
+            [{ variantId: drinkID, quantity: 1 }],
+            46.2,
+            {
+                fulfillmentMethod: "pickup",
+                paymentMethod: "card",
+                cafePass: { creditCount: 21, termsAccepted: true },
+                suspendedCoffeePass: true
+            }
+        ), "sponsor@example.com"),
+        (error) => error instanceof CheckoutPricingError && error.code === "CAFE_PASS_INVALID"
+    );
+});
+
 test("tampered or stale client totals are rejected before payment", async () => {
     const verify = service({ nodes: [node(coffeeID, "4.500")] });
     await assert.rejects(

@@ -853,6 +853,7 @@ struct CheckoutActionBar: View {
     let enabled: Bool
     let applePayAvailable: Bool
     let accentColor: Color
+    var hostedCheckoutTitle: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -870,7 +871,7 @@ struct CheckoutActionBar: View {
                     .monospacedDigit()
             }
 
-            if method == .applePay && applePayAvailable {
+            if hostedCheckoutTitle == nil && method == .applePay && applePayAvailable {
                 TallaApplePayButton(action: action)
                     .frame(height: 50)
                     .allowsHitTesting(enabled && !state.isBusy)
@@ -892,7 +893,7 @@ struct CheckoutActionBar: View {
                         }
                         Text(state.isBusy
                             ? AppLocalization.text("payment_preparing", fallback: "Preparing secure checkout…")
-                            : method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
+                            : hostedCheckoutTitle ?? method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
                             .font(.headline)
                         if !dynamicTypeSize.isAccessibilitySize {
                             Spacer()
@@ -910,7 +911,7 @@ struct CheckoutActionBar: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!enabled || state.isBusy)
-                .accessibilityLabel("\(method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay")), \(amountText)")
+                .accessibilityLabel("\(hostedCheckoutTitle ?? method?.actionTitle ?? AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay")), \(amountText)")
                 .accessibilityIdentifier("checkout.submit")
             }
 

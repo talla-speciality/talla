@@ -75,6 +75,8 @@ struct ContentView: View {
     @AppStorage("tasteProfile.configured") var tasteProfileConfigured = false
     @State var products: [Product] = []
     @State var pendingUniversalLinkProductHandle = ""
+    @State var socialCoffeeInvite: SocialCoffeeInvite?
+    @State var socialCoffeePassGift: SocialCoffeePassGift?
     @State var pendingBrewingCoffeeName = ""
     @State var pendingBrewingCoffeeOrigin = ""
     @State var pendingBrewingCoffeeNotes = ""
@@ -83,6 +85,8 @@ struct ContentView: View {
     @State var isCoffeeClubPrepaid = false
     @State var coffeeClubTermsAccepted = false
     @State var isCafePassPrepaid = false
+    @State var cafePassCreditCount = 20
+    @State var suspendedCoffeePass = false
     @State var requestedSubscriptionPlanType = ""
     @State var cartOpen = false
     enum PaymentPresentation {
@@ -232,6 +236,7 @@ struct ContentView: View {
     @State var addressNotes = ""
     @State var isGiftOrder = false
     @State var giftRecipientName = ""
+    @State var giftRecipientEmail = ""
     @State var giftRecipientPhone = ""
     @State var giftMessage = ""
     @State var officeCompanyName = ""

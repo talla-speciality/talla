@@ -614,7 +614,7 @@ enum ShopifyStorefrontClient {
         customerEmail: String? = nil,
         checkoutAddress: ShopifyCheckoutAddress? = nil,
         tallaPaymentID: String? = nil,
-        fulfillmentMethod: TallaFulfillmentMethod = .delivery,
+        fulfillmentMethod: TallaFulfillmentMethod? = .delivery,
         pickupSlot: String? = nil,
         giftOrder: Bool = false,
         giftRecipientName: String? = nil,
@@ -624,14 +624,18 @@ enum ShopifyStorefrontClient {
         let lineInputs = lines.map { line in
             [
                 "merchandiseId": line.merchandiseId,
-                "quantity": line.quantity
+                "quantity": line.quantity,
+                "attributes": line.attributes
             ] as [String: Any]
         }
 
         var input: [String: Any] = [
             "lines": lineInputs
         ]
-        var attributes = [["key": "talla_fulfillment_method", "value": fulfillmentMethod.rawValue]]
+        var attributes: [[String: String]] = []
+        if let fulfillmentMethod {
+            attributes.append(["key": "talla_fulfillment_method", "value": fulfillmentMethod.rawValue])
+        }
         if let pickupSlot = pickupSlot?.trimmingCharacters(in: .whitespacesAndNewlines), !pickupSlot.isEmpty {
             attributes.append(["key": "talla_pickup_slot", "value": pickupSlot])
         }
@@ -885,6 +889,13 @@ enum ShopifyError: LocalizedError {
 struct ShopifyCheckoutLine {
     let merchandiseId: String
     let quantity: Int
+    let attributes: [[String: String]]
+
+    init(merchandiseId: String, quantity: Int, attributes: [[String: String]] = []) {
+        self.merchandiseId = merchandiseId
+        self.quantity = quantity
+        self.attributes = attributes
+    }
 }
 
 struct ShopifyCheckoutAddress {

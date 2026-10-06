@@ -34,7 +34,6 @@ ADMIN_SESSION_HOURS=12
 CUSTOMER_TOKEN_SECRET=replace-with-a-different-random-secret
 CUSTOMER_TOKEN_HOURS=1
 CUSTOMER_REFRESH_TOKEN_DAYS=30
-CUSTOMER_TOKEN_HOURS=168
 RESEND_API_KEY=re_xxx
 EMAIL_FROM_ADDRESS=Talla Speciality <no-reply@your-domain.com>
 PASSWORD_RESET_TOKEN_HOURS=1
@@ -93,6 +92,7 @@ Notes:
 - `APP_URL` should be your real public URL
 - `DATA_DIRECTORY` should be backed by persistent storage, not ephemeral container disk
 - `DATABASE_URL` should point to your managed Postgres instance
+- Social Coffee profiles, tasting notes, wish lists, and group orders require this Postgres database in production; migration `032_social_coffee_state.sql` is applied before the server accepts requests. The local `socialCoffee.json` file is not a production data source.
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` power the admin login and signed session cookie
 - `CUSTOMER_TOKEN_SECRET` enables customer session issuance; set it explicitly in production
 - `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` enable customer password reset emails

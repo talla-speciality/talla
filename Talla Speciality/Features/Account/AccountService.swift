@@ -7,6 +7,62 @@ import Security
 #if canImport(UIKit)
 import UIKit
 #endif
+
+struct SocialCoffeeFollowRecord: Codable, Hashable, Identifiable {
+    var id: String { profileID ?? name.lowercased() }
+    let name: String
+    let role: String
+    var profileID: String? = nil
+}
+
+struct SocialCoffeePublicNote: Codable, Identifiable, Hashable {
+    let profileID: String
+    let displayName: String
+    let role: String?
+    let note: String
+    let updatedAt: String
+    var id: String { profileID }
+}
+
+struct SocialCoffeeProfile: Codable, Equatable {
+    var displayName: String? = nil
+    var role: String? = nil
+    var wishList: [String] = []
+    var wishListEnabled = true
+    var followedPeople: [SocialCoffeeFollowRecord] = []
+    var tastingNote = ""
+    var tastingNoteVisibility = "Private"
+}
+
+struct SocialCoffeeGiftStatus: Decodable {
+    let status: String
+    let drinkName: String
+    let remainingCredits: Int
+    let expiresAt: String?
+}
+
+struct SocialCoffeeGroup: Codable, Identifiable, Equatable {
+    struct Item: Codable, Identifiable, Equatable {
+        let id: String
+        let participantName: String
+        let productID: String
+        let variantID: String
+        let quantity: Int
+        let createdAt: String
+    }
+    struct Participant: Codable, Equatable { let name: String }
+    let id: String
+    let name: String
+    let hostName: String
+    let participants: [Participant]
+    let status: String
+    let items: [Item]
+    let createdAt: String
+    let expiresAt: String
+    let closedAt: String?
+    var inviteCode: String?
+    var isHost: Bool?
+}
 #if canImport(AuthenticationServices)
 import AuthenticationServices
 #endif
@@ -170,6 +226,96 @@ enum AccountService {
         guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
         struct Envelope: Decodable { let entries: [CuppingEntry] }
         return try JSONDecoder().decode(Envelope.self, from: data).entries
+    }
+
+    static func fetchSocialCoffeeProfile() async throws -> SocialCoffeeProfile? {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The Social Coffee service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/social-coffee/profile"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try authorize(&request)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let state: SocialCoffeeProfile? }
+        return try JSONDecoder().decode(Envelope.self, from: data).state
+    }
+
+    @discardableResult
+    static func saveSocialCoffeeProfile(_ profile: SocialCoffeeProfile) async throws -> SocialCoffeeProfile {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The Social Coffee service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/social-coffee/profile"))
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try authorize(&request)
+        request.httpBody = try JSONEncoder().encode(profile)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let state: SocialCoffeeProfile }
+        return try JSONDecoder().decode(Envelope.self, from: data).state
+    }
+
+    static func fetchPublicSocialCoffeeNotes() async throws -> [SocialCoffeePublicNote] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The Social Coffee service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/social-coffee/notes"))
+        request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let notes: [SocialCoffeePublicNote] }
+        return try JSONDecoder().decode(Envelope.self, from: data).notes
+    }
+
+    static func fetchSocialCoffeeGiftStatus(orderID: String, token: String) async throws -> SocialCoffeeGiftStatus {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The coffee gift service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/social-coffee/gifts/\(orderID)/status"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(token, forHTTPHeaderField: "X-Talla-Gift-Token")
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let gift: SocialCoffeeGiftStatus }
+        return try JSONDecoder().decode(Envelope.self, from: data).gift
+    }
+
+    static func createSocialCoffeeGroup(name: String, hostName: String) async throws -> SocialCoffeeGroup {
+        try await socialCoffeeGroupRequest(path: "/social-coffee/groups", method: "POST", body: ["name": name, "hostName": hostName])
+    }
+
+    static func fetchSocialCoffeeGroups() async throws -> [SocialCoffeeGroup] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The group order service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/social-coffee/groups"))
+        request.httpMethod = "GET"; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let groups: [SocialCoffeeGroup] }
+        return try JSONDecoder().decode(Envelope.self, from: data).groups
+    }
+
+    static func joinSocialCoffeeGroup(id: String, inviteCode: String, name: String) async throws -> SocialCoffeeGroup {
+        try await socialCoffeeGroupRequest(path: "/social-coffee/groups/\(id)/join", method: "POST", body: ["inviteCode": inviteCode, "name": name])
+    }
+
+    static func fetchSocialCoffeeGroup(id: String) async throws -> SocialCoffeeGroup {
+        try await socialCoffeeGroupRequest(path: "/social-coffee/groups/\(id)", method: "GET")
+    }
+
+    static func addSocialCoffeeGroupItem(id: String, productID: String, variantID: String, quantity: Int) async throws -> SocialCoffeeGroup {
+        try await socialCoffeeGroupRequest(path: "/social-coffee/groups/\(id)/items", method: "POST", body: ["productID": productID, "variantID": variantID, "quantity": quantity])
+    }
+
+    static func closeSocialCoffeeGroup(id: String) async throws -> SocialCoffeeGroup {
+        try await socialCoffeeGroupRequest(path: "/social-coffee/groups/\(id)/close", method: "POST")
+    }
+
+    private static func socialCoffeeGroupRequest(path: String, method: String, body: [String: Any]? = nil) async throws -> SocialCoffeeGroup {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The group order service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: path))
+        request.httpMethod = method; request.setValue("application/json", forHTTPHeaderField: "Accept"); try authorize(&request)
+        if let body { request.setValue("application/json", forHTTPHeaderField: "Content-Type"); request.httpBody = try JSONSerialization.data(withJSONObject: body) }
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
+        struct Envelope: Decodable { let group: SocialCoffeeGroup }
+        return try JSONDecoder().decode(Envelope.self, from: data).group
     }
 
     static func saveCuppingEntry(_ entry: CuppingEntry) async throws -> CuppingEntry {
@@ -694,7 +840,9 @@ enum AccountService {
         giftRecipientName: String? = nil,
         giftRecipientPhone: String? = nil,
         giftMessage: String? = nil,
-        officeDetails: [String: String]? = nil
+        officeDetails: [String: String]? = nil,
+        cafePassCreditCount: Int = 20,
+        suspendedCoffeePass: Bool = false
     ) async throws -> CheckoutStartResult {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The orders service is unavailable.")
@@ -748,7 +896,9 @@ enum AccountService {
         }
         if prepaidCafePass {
             payload["title"] = "Talla Daily Cup Café Pass"
-            payload["cafePass"] = ["creditCount": 20, "termsAccepted": true]
+            payload["title"] = suspendedCoffeePass && giftOrder ? "Coffee gift" : suspendedCoffeePass ? "Suspended coffee contribution" : "Talla Daily Cup Café Pass"
+            payload["cafePass"] = ["creditCount": cafePassCreditCount, "termsAccepted": true]
+            payload["suspendedCoffeePass"] = suspendedCoffeePass
         }
         if let address {
             payload["customer"] = ["fullName": address.fullName, "phone": address.phone]

@@ -28,6 +28,18 @@ the source of the live file.
 - `https://talla.me/app/brewing`
 - `https://talla.me/app/concierge?q=<query>`
 - `https://talla.me/app/shelf`
+- `https://talla.me/pages/coffee-gift?order=<paid-order-id>#<gift-share-token>` (paid coffee gifts; the fragment lets the iOS app verify redemption status without sending the token to Shopify)
+- `https://talla.me/pages/coffee-gift?order=<paid-order-id>` (older gifts and suspended counter credits; staff verify the code)
+- `https://talla.me/pages/group-coffee-order?id=<group-id>&invite=<private-code>` (group invite; Shopify-hosted fallback without the app)
+
+The older `/app/suspended-coffee` links remain accepted by the iOS app, but new
+shares use the published Coffee Gift page so recipients without the app do not
+land on a 404 page. The share message also includes the code for counter lookup.
+The iOS recipient screen shows a gift as ready only after the backend confirms
+its paid, active, unexpired single-use pass with the share token. Older links
+without the fragment remain readable but are not marked verified in the app.
+Older `/app/group-order` links also remain accepted; new group invites use the
+published Group Coffee Order page and retain the same private invite parameters.
 
 After the association file is live, install a freshly signed app build on a
 physical device before testing links from Messages, Mail, or Notes.

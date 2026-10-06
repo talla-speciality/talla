@@ -32,6 +32,10 @@ import UIKit
 
 extension ContentView {
     func addToCart(product: Product) {
+        guard !isCafePassActive else {
+            showToast(message: "Finish or remove the prepaid coffee pass before adding other products.")
+            return
+        }
         guard let variant = selectedVariant(for: product), variant.isAvailableForSale else {
             showToast(message: String(format: AppLocalization.text("product_unavailable_toast", fallback: "%@ is unavailable"), product.name))
             return
@@ -55,6 +59,8 @@ extension ContentView {
             coffeeClubTermsAccepted = false
         }
         isCafePassPrepaid = false
+        suspendedCoffeePass = false
+        if product.isGiftCardProduct { isGiftOrder = true }
 
         recordRecentlyViewed(product)
 
@@ -129,6 +135,7 @@ extension ContentView {
             coffeeClubTermsAccepted = false
         }
         if cartItems.isEmpty || !isCafePassEligible { isCafePassPrepaid = false }
+        if cartItems.isEmpty || !isCafePassEligible { suspendedCoffeePass = false }
         if cartItems.isEmpty { requestedSubscriptionPlanType = "" }
         checkoutError = nil
     }
@@ -144,6 +151,7 @@ extension ContentView {
 
     func updateCartItemQuantity(at index: Int, quantity: Int) {
         guard cartItems.indices.contains(index) else { return }
+        guard !isCafePassActive || quantity == 1 else { return }
         var updatedItem = cartItems[index]
         updatedItem.quantity = max(quantity, 1)
         cartItems[index] = updatedItem
@@ -658,7 +666,10 @@ extension ContentView {
         postPaymentOrderID = orderID
         postPaymentTotal = formattedCustomerCurrency(cartTotal)
         postPaymentMethodTitle = method.title
-        if fulfillmentMethod == .pickup {
+        if isDigitalGiftCardOnlyCart {
+            postPaymentFulfillmentTitle = isArabicInterface ? "إرسال رقمي" : "Digital delivery"
+            postPaymentDestination = giftRecipientEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if fulfillmentMethod == .pickup {
             postPaymentFulfillmentTitle = AppLocalization.text("pickup", fallback: "Pickup")
             postPaymentDestination = managedPickupName
         } else {
@@ -709,7 +720,7 @@ extension ContentView {
     func prepareCheckout() {
         guard !cartItems.isEmpty else { return }
 
-        if cartRequiresPickup { fulfillmentMethod = .pickup }
+        if cartRequiresPickup || isCafePassActive { fulfillmentMethod = .pickup }
 
         guard remoteAppSettings?.release?.checkoutMaintenanceEnabled != true,
               remoteAppSettings?.release?.maintenanceEnabled != true else {
@@ -717,13 +728,17 @@ extension ContentView {
             return
         }
 
-        guard (fulfillmentMethod == .delivery && remoteAppSettings?.fulfillment?.deliveryEnabled != false)
+        guard isDigitalGiftCardOnlyCart || isCafePassActive
+                || (fulfillmentMethod == .delivery && remoteAppSettings?.fulfillment?.deliveryEnabled != false)
                 || (fulfillmentMethod == .pickup && remoteAppSettings?.fulfillment?.pickupEnabled != false && !pickupTemporarilyClosed && !pickupTimeSlots.isEmpty) else {
             checkoutError = isArabicInterface ? "طريقة الاستلام هذه غير متاحة حالياً." : "This fulfillment method is currently unavailable."
             return
         }
 
-        if paymentFlow.selectedMethod == nil {
+        if cartItems.contains(where: { $0.product.isGiftCardProduct }) {
+            // Shopify Checkout chooses the actual online method; the app must not promise a local gateway.
+            paymentFlow.select(.card)
+        } else if paymentFlow.selectedMethod == nil {
             if isApplePayAvailable && MastercardSDKAvailability.isAvailable {
                 paymentFlow.select(.applePay)
             } else if BenefitPaySDKConfiguration.isAvailable {
@@ -740,18 +755,19 @@ extension ContentView {
 
     @MainActor
     func beginCheckout() async {
+        let containsDigitalGiftCard = cartItems.contains { $0.product.isGiftCardProduct }
         guard let selectedPaymentMethod = paymentFlow.selectedMethod else {
             isPaymentMethodSheetPresented = true
             return
         }
 
-        guard paymentAvailability.isEnabled(selectedPaymentMethod) else {
+        guard containsDigitalGiftCard || paymentAvailability.isEnabled(selectedPaymentMethod) else {
             paymentFlow.transition(to: .failed)
             checkoutError = isArabicInterface ? "طريقة الدفع هذه غير متاحة حالياً." : "This payment method is currently unavailable."
             return
         }
 
-        if selectedPaymentMethod == .applePay, !isApplePayAvailable {
+        if !containsDigitalGiftCard, selectedPaymentMethod == .applePay, !isApplePayAvailable {
 #if canImport(PassKit)
             PKPassLibrary().openPaymentSetup()
 #endif
@@ -776,10 +792,30 @@ extension ContentView {
             return
         }
 
-        if isGiftOrder && giftRecipientName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if isGiftOrder && !cartItems.contains(where: { $0.product.isGiftCardProduct })
+            && giftRecipientName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             paymentFlow.transition(to: .failed)
             checkoutError = AppLocalization.text("gift_recipient_required", fallback: "Add the recipient name before placing a gift order.")
             return
+        }
+
+        let trimmedGiftRecipientEmail = giftRecipientEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        if containsDigitalGiftCard {
+            let emailParts = trimmedGiftRecipientEmail.split(separator: "@", omittingEmptySubsequences: false)
+            guard emailParts.count == 2,
+                  !emailParts[0].isEmpty,
+                  emailParts[1].contains("."),
+                  !emailParts[1].hasPrefix("."),
+                  !emailParts[1].hasSuffix(".") else {
+                paymentFlow.transition(to: .failed)
+                checkoutError = "Enter a valid recipient email for the digital gift card."
+                return
+            }
+            guard selectedPaymentMethod != .cashOnDelivery else {
+                paymentFlow.transition(to: .failed)
+                checkoutError = "Digital gift cards require online payment. Choose a card or Benefit payment method."
+                return
+            }
         }
 
         if isCoffeeClubActive && coffeeClubPlanType == "office"
@@ -853,7 +889,7 @@ extension ContentView {
                 )
             }
 
-            if selectedPaymentMethod.route == .shopifyCashOnDelivery {
+            if selectedPaymentMethod.route == .shopifyCashOnDelivery || containsDigitalGiftCard {
                 guard appliedVoucher == nil else {
                     throw LoyaltyServiceError.operationFailed(
                         AppLocalization.text(
@@ -862,8 +898,25 @@ extension ContentView {
                         )
                     )
                 }
-                let lines = cartItems.map { ShopifyCheckoutLine(merchandiseId: $0.variant.id, quantity: $0.quantity) }
-                let checkoutAddress = fulfillmentMethod == .delivery ? preferredAddress.map { address in
+                let lines = cartItems.map { item -> ShopifyCheckoutLine in
+                    guard item.product.isGiftCardProduct else {
+                        return ShopifyCheckoutLine(merchandiseId: item.variant.id, quantity: item.quantity)
+                    }
+                    var attributes = [
+                        ["key": "Recipient email", "value": trimmedGiftRecipientEmail],
+                        ["key": "__shopify_send_gift_card_to_recipient", "value": "true"]
+                    ]
+                    let recipientName = giftRecipientName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !recipientName.isEmpty {
+                        attributes.append(["key": "Recipient name", "value": String(recipientName.prefix(120))])
+                    }
+                    let message = giftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !message.isEmpty {
+                        attributes.append(["key": "Message", "value": String(message.prefix(200))])
+                    }
+                    return ShopifyCheckoutLine(merchandiseId: item.variant.id, quantity: item.quantity, attributes: attributes)
+                }
+                let checkoutAddress = !isDigitalGiftCardOnlyCart && fulfillmentMethod == .delivery ? preferredAddress.map { address in
                     ShopifyCheckoutAddress(
                         email: profile.email,
                         fullName: address.fullName,
@@ -877,8 +930,8 @@ extension ContentView {
                     lines: lines,
                     customerEmail: profile.email,
                     checkoutAddress: checkoutAddress,
-                    fulfillmentMethod: fulfillmentMethod,
-                    pickupSlot: fulfillmentMethod == .pickup ? selectedPickupSlot : nil,
+                    fulfillmentMethod: isDigitalGiftCardOnlyCart ? nil : fulfillmentMethod,
+                    pickupSlot: !isDigitalGiftCardOnlyCart && fulfillmentMethod == .pickup ? selectedPickupSlot : nil,
                     giftOrder: isGiftOrder,
                     giftRecipientName: giftRecipientName,
                     giftRecipientPhone: giftRecipientPhone,
@@ -887,7 +940,9 @@ extension ContentView {
                 paymentFlow.transition(to: .awaitingCustomer)
                 cartOpen = false
                 presentPayment(.hosted(CheckoutSession(url: checkoutURL)))
-                let checkoutPrompt = fulfillmentMethod == .pickup
+                let checkoutPrompt = containsDigitalGiftCard
+                    ? "Complete online payment in Shopify Checkout. Shopify will email the digital gift card to the recipient after fulfillment."
+                    : fulfillmentMethod == .pickup
                     ? AppLocalization.text(
                         "cash_on_pickup_shopify_prompt",
                         fallback: "Choose local pickup and Cash on Delivery in Shopify Checkout to place your order."
@@ -914,8 +969,8 @@ extension ContentView {
                 total: cartTotal,
                 fulfillmentMethod: fulfillmentMethod,
                 address: fulfillmentMethod == .delivery ? preferredAddress : nil,
-                pickupSlot: fulfillmentMethod == .pickup ? selectedPickupSlot : nil,
-                pickupLocationID: fulfillmentMethod == .pickup ? selectedPickupLocationID : nil,
+                pickupSlot: fulfillmentMethod == .pickup && !isCafePassActive ? selectedPickupSlot : nil,
+                pickupLocationID: fulfillmentMethod == .pickup && !isCafePassActive ? selectedPickupLocationID : nil,
                 paymentMethod: selectedPaymentMethod,
                 voucherCode: isCafePassActive ? nil : appliedVoucher?.code,
                 prepaidCoffeeClub: isCoffeeClubActive,
@@ -933,7 +988,9 @@ extension ContentView {
                     "vatRegistrationNumber": officeVATNumber,
                     "commercialRegistrationNumber": officeCommercialRegistrationNumber,
                     "purchaseOrderReference": officePurchaseOrderReference
-                ] : nil
+                ] : nil,
+                cafePassCreditCount: cafePassCreditCount,
+                suspendedCoffeePass: suspendedCoffeePass
             )
             if let appliedVoucher {
                 if checkoutStart.pricingVersion != 2 {

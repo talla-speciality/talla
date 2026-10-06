@@ -140,6 +140,12 @@ extension ContentView {
             catalogSourceText ?? "\(name) \(desc) \(categoryLabel)"
         }
 
+        var isGiftCardProduct: Bool {
+            let text = ([name, handle, categoryKey, categoryLabel, desc, catalogSourceText ?? ""] + tags)
+                .joined(separator: " ").lowercased().replacingOccurrences(of: "-", with: " ")
+            return text.contains("gift card") || text.contains("giftcard") || text.contains("e gift")
+        }
+
         var imageURLs: [URL] {
             ([imageURL].compactMap { $0 } + additionalImageURLs).reduce(into: []) { result, url in
                 if !result.contains(url) { result.append(url) }
@@ -488,6 +494,7 @@ extension ContentView {
         let createdAt: String
         let beansAwarded: Bool?
         let pointsAwarded: Int?
+        var isPaidForCafePass: Bool { ["Confirmed", "Completed", "Fulfilled", "Delivered", "Ready"].contains(status) }
 
         struct Details: Decodable {
             struct Fulfillment: Decodable {
@@ -506,6 +513,9 @@ extension ContentView {
             struct CafePass: Decodable {
                 let creditCount: Int
                 let redeemedCredits: Int
+                let suspendedCoffee: Bool?
+                let giftedCoffee: Bool?
+                let giftToken: String?
                 let drinkName: String
                 let status: String
                 let expiresAt: String?

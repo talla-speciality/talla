@@ -1,6 +1,8 @@
 const { snapshotCheckoutOptions } = require("../commerce/order-item-options");
 const { isEligibleDrink } = require("../commerce/checkout-pricing");
 const { coffeeClubProductEligible } = require("../commerce/coffee-club-products");
+const { validGiftToken } = require("../commerce/social-coffee-gifts");
+const { createSocialCoffeeStore } = require("../commerce/social-coffee-store");
 const { createEducationContentStore } = require("./education-content");
 const { normalizeProfile, normalizeRoasterRecipe } = require("../brewing/espresso-community");
 const { espressoMachineCatalog } = require("../brewing/espresso-machine-catalog");
@@ -156,6 +158,7 @@ module.exports = function createServer(dependencies) {
         communityRecipesStorePath,
         espressoCommunityStorePath,
         cuppingRecordsStorePath,
+        socialCoffeeStorePath,
         customerPhoneForShopifyOrder,
         customerTokenHours,
         customerTokenSecret,
@@ -513,8 +516,48 @@ module.exports = function createServer(dependencies) {
         writeWalletStampStrips
     } = dependencies;
     const educationContent = createEducationContentStore();
+    const socialCoffeeStore = createSocialCoffeeStore({ database, path: socialCoffeeStorePath, readJSON, writeJSON });
+    const readSocialCoffeeStore = async (response) => {
+        try { return await socialCoffeeStore.read(); }
+        catch {
+            sendJSON(response, 503, { error: "Social Coffee is temporarily unavailable." });
+            return null;
+        }
+    };
+    const mutateSocialCoffeeStore = async (response, change) => {
+        try { return { value: await socialCoffeeStore.mutate(change) }; }
+        catch {
+            sendJSON(response, 503, { error: "Social Coffee is temporarily unavailable." });
+            return null;
+        }
+    };
 
     const trimText = (value, maximumLength) => String(value || "").trim().slice(0, maximumLength);
+    const publicSocialCoffeeGroup = (group) => ({
+        id: group.id,
+        name: group.name,
+        hostName: group.hostName,
+        participants: (Array.isArray(group.participants) ? group.participants : []).map(({ name }) => ({ name })),
+        status: group.status,
+        items: (Array.isArray(group.items) ? group.items : []).map(({ id, participantName, productID, variantID, quantity, createdAt }) => ({ id, participantName, productID, variantID, quantity, createdAt })),
+        createdAt: group.createdAt,
+        expiresAt: group.expiresAt,
+        closedAt: group.closedAt
+    });
+    const removeSocialCoffeeAccountData = async (email) => socialCoffeeStore.mutate((store) => {
+        let changed = false;
+        if (store.customers[email]) { delete store.customers[email]; changed = true; }
+        for (const [id, group] of Object.entries(store.groups)) {
+            if (group.hostEmail === email) { delete store.groups[id]; changed = true; continue; }
+            const members = (Array.isArray(group.memberEmails) ? group.memberEmails : []).filter((member) => member !== email);
+            const participants = (Array.isArray(group.participants) ? group.participants : []).filter((person) => person.email !== email);
+            const items = (Array.isArray(group.items) ? group.items : []).filter((item) => item.participantEmail !== email);
+            if (members.length !== (group.memberEmails || []).length || participants.length !== (group.participants || []).length || items.length !== (group.items || []).length) {
+                group.memberEmails = members; group.participants = participants; group.items = items; changed = true;
+            }
+        }
+        return { changed, result: changed };
+    });
 
     return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -2293,6 +2336,7 @@ module.exports = function createServer(dependencies) {
                 }
 
                 await revokeCustomerSessionsForEmail(email);
+                await removeSocialCoffeeAccountData(email);
                 const deleted = await deleteAccountRecord(email);
                 if (!deleted) {
                     sendJSON(response, 404, { error: "Customer not found." });
@@ -3084,6 +3128,7 @@ module.exports = function createServer(dependencies) {
         try {
             // Related customer records use ON DELETE CASCADE in Postgres. The
             // JSON-store implementation performs the equivalent cleanup.
+            await removeSocialCoffeeAccountData(customer.email);
             const deleted = await deleteAccountRecord(customer.email);
             if (!deleted) {
                 sendJSON(response, 404, { error: "Account not found" });
@@ -5008,6 +5053,307 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/social-coffee/groups") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = await readSocialCoffeeStore(response);
+        if (!store) return;
+        const groups = Object.values(store.groups || {})
+            .filter((group) => group.memberEmails?.includes(customer.email) && Date.parse(group.expiresAt) > Date.now())
+            .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+            .map((group) => ({ ...publicSocialCoffeeGroup(group), isHost: group.hostEmail === customer.email }));
+        sendJSON(response, 200, { groups });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/social-coffee/groups") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const name = trimText(body.name, 100);
+            const hostName = trimText(body.hostName, 80);
+            if (!name || !hostName) {
+                sendJSON(response, 400, { error: "Add names for the group order and host." });
+                return;
+            }
+            const id = crypto.randomBytes(8).toString("hex");
+            const inviteCode = crypto.randomBytes(16).toString("hex");
+            const group = {
+                id,
+                name,
+                hostEmail: customer.email,
+                hostName,
+                memberEmails: [customer.email],
+                participants: [{ email: customer.email, name: hostName }],
+                inviteCodeHash: crypto.createHash("sha256").update(inviteCode).digest("hex"),
+                status: "open",
+                items: [],
+                createdAt: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+            };
+            const stored = await mutateSocialCoffeeStore(response, (store) => {
+                store.groups[id] = group;
+                return { changed: true, result: null };
+            });
+            if (!stored) return;
+            sendJSON(response, 201, { group: { ...publicSocialCoffeeGroup(group), inviteCode, isHost: true } });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid group order request." });
+        }
+        return;
+    }
+
+    const socialGroupMatch = url.pathname.match(/^\/social-coffee\/groups\/([a-f0-9]{16})(?:\/(join|items|close|invite))?$/i);
+    if (socialGroupMatch && request.method === "POST" && socialGroupMatch[2] === "join") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const inviteCode = trimText(body.inviteCode, 64);
+            const inviteHash = crypto.createHash("sha256").update(inviteCode).digest("hex");
+            const name = trimText(body.name, 80);
+            const stored = await mutateSocialCoffeeStore(response, (store) => {
+                const group = store.groups[socialGroupMatch[1]];
+                if (group?.memberEmails?.includes(customer.email) && Date.parse(group.expiresAt) > Date.now()) {
+                    return { changed: false, result: { status: 200, body: { group: { ...publicSocialCoffeeGroup(group), isHost: customer.email === group.hostEmail } } } };
+                }
+                if (!group || group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()
+                    || inviteHash !== group.inviteCodeHash) {
+                    return { changed: false, result: { status: 404, body: { error: "This group invite is invalid, closed, or expired." } } };
+                }
+                if (!name) {
+                    return { changed: false, result: { status: 400, body: { error: "Add your name to join this group." } } };
+                }
+                if (group.memberEmails.length >= 100) {
+                    return { changed: false, result: { status: 409, body: { error: "This group has reached its member limit." } } };
+                }
+                group.memberEmails.push(customer.email);
+                group.participants.push({ email: customer.email, name });
+                return { changed: true, result: { status: 200, body: { group: { ...publicSocialCoffeeGroup(group), isHost: customer.email === group.hostEmail } } } };
+            });
+            if (!stored) return;
+            const outcome = stored.value;
+            sendJSON(response, outcome.status, outcome.body);
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid group invite." });
+        }
+        return;
+    }
+
+    if (socialGroupMatch && request.method === "GET" && !socialGroupMatch[2]) {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = await readSocialCoffeeStore(response);
+        if (!store) return;
+        const group = store.groups?.[socialGroupMatch[1]];
+        if (!group || !group.memberEmails.includes(customer.email)) {
+            sendJSON(response, 404, { error: "Group order not found." });
+            return;
+        }
+        if (new Date(group.expiresAt).getTime() <= Date.now()) {
+            sendJSON(response, 410, { error: "This group order has expired." });
+            return;
+        }
+        sendJSON(response, 200, { group: { ...publicSocialCoffeeGroup(group), isHost: customer.email === group.hostEmail } });
+        return;
+    }
+
+    if (socialGroupMatch && request.method === "POST" && socialGroupMatch[2] === "items") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const productID = trimText(body.productID, 200);
+            const variantID = trimText(body.variantID, 200);
+            const stored = await mutateSocialCoffeeStore(response, (store) => {
+                const group = store.groups[socialGroupMatch[1]];
+                if (!group || !group.memberEmails.includes(customer.email)) {
+                    return { changed: false, result: { status: 404, body: { error: "Group order not found." } } };
+                }
+                if (group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()) {
+                    return { changed: false, result: { status: 410, body: { error: "This group order is closed or expired." } } };
+                }
+                if (group.items.length >= 300) {
+                    return { changed: false, result: { status: 409, body: { error: "This group order has reached its item limit." } } };
+                }
+                if (!productID || !variantID) {
+                    return { changed: false, result: { status: 400, body: { error: "Select an available product and size." } } };
+                }
+                group.items.push({
+                    id: crypto.randomBytes(8).toString("hex"),
+                    participantEmail: customer.email,
+                    participantName: group.participants.find((person) => person.email === customer.email)?.name || "Coffee guest",
+                    productID,
+                    variantID,
+                    quantity: Math.min(20, Math.max(1, Math.round(Number(body.quantity) || 1))),
+                    createdAt: new Date().toISOString()
+                });
+                return { changed: true, result: { status: 201, body: { group: { ...publicSocialCoffeeGroup(group), isHost: customer.email === group.hostEmail } } } };
+            });
+            if (!stored) return;
+            const outcome = stored.value;
+            sendJSON(response, outcome.status, outcome.body);
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid group order item." });
+        }
+        return;
+    }
+
+    if (socialGroupMatch && request.method === "POST" && socialGroupMatch[2] === "close") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const stored = await mutateSocialCoffeeStore(response, (store) => {
+            const group = store.groups[socialGroupMatch[1]];
+            if (!group || group.hostEmail !== customer.email) {
+                return { changed: false, result: { status: 404, body: { error: "Group order not found." } } };
+            }
+            if (Date.parse(group.expiresAt) <= Date.now()) {
+                return { changed: false, result: { status: 410, body: { error: "This group order has expired." } } };
+            }
+            if (group.status !== "open") {
+                return { changed: false, result: { status: 409, body: { error: "This group order is already closed." } } };
+            }
+            group.status = "closed";
+            group.closedAt = new Date().toISOString();
+            return { changed: true, result: { status: 200, body: { group: { ...publicSocialCoffeeGroup(group), isHost: true } } } };
+        });
+        if (!stored) return;
+        const outcome = stored.value;
+        sendJSON(response, outcome.status, outcome.body);
+        return;
+    }
+
+    if (socialGroupMatch && request.method === "POST" && socialGroupMatch[2] === "invite") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const stored = await mutateSocialCoffeeStore(response, (store) => {
+            const group = store.groups[socialGroupMatch[1]];
+            if (!group || group.hostEmail !== customer.email || group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()) {
+                return { changed: false, result: { status: 404, body: { error: "Open group order not found." } } };
+            }
+            const inviteCode = crypto.randomBytes(16).toString("hex");
+            group.inviteCodeHash = crypto.createHash("sha256").update(inviteCode).digest("hex");
+            return { changed: true, result: { status: 200, body: { group: { ...publicSocialCoffeeGroup(group), inviteCode, isHost: true } } } };
+        });
+        if (!stored) return;
+        const outcome = stored.value;
+        sendJSON(response, outcome.status, outcome.body);
+        return;
+    }
+
+    const socialGiftMatch = url.pathname.match(/^\/social-coffee\/gifts\/([A-Za-z0-9_-]{4,128})\/status$/);
+    if (request.method === "GET" && socialGiftMatch) {
+        response.setHeader("Cache-Control", "no-store");
+        const orderID = socialGiftMatch[1];
+        if (!validGiftToken(orderID, request.headers["x-talla-gift-token"], customerTokenSecret)) {
+            sendJSON(response, 404, { error: "Coffee gift not found." });
+            return;
+        }
+        try {
+            const order = await findOrderByID(orderID);
+            const pass = order?.details?.cafePass;
+            if (pass?.giftedCoffee !== true || pass.suspendedCoffee !== true || Number(pass.creditCount) !== 1) {
+                sendJSON(response, 404, { error: "Coffee gift not found." });
+                return;
+            }
+            const paid = new Set(["Confirmed", "Completed", "Fulfilled", "Delivered", "Ready"]).has(order.status);
+            const remainingCredits = Math.max(0, 1 - Number(pass.redeemedCredits || 0));
+            const expiryTime = Date.parse(pass.expiresAt || "");
+            const expired = !Number.isFinite(expiryTime) || expiryTime <= Date.now();
+            const status = !paid ? "pending"
+                : pass.status === "active" && !expired && remainingCredits > 0 ? "ready"
+                : pass.status === "exhausted" || remainingCredits === 0 ? "redeemed"
+                : pass.status === "expired" || (pass.status === "active" && expired) ? "expired" : "pending";
+            sendJSON(response, 200, {
+                gift: { status, drinkName: trimText(pass.drinkName, 180), remainingCredits: status === "ready" ? remainingCredits : 0, expiresAt: pass.expiresAt || null }
+            });
+        } catch {
+            sendJSON(response, 503, { error: "Coffee gift status is temporarily unavailable." });
+        }
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/social-coffee/notes") {
+        const store = await readSocialCoffeeStore(response);
+        if (!store) return;
+        const notes = Object.entries(store.customers || {}).flatMap(([email, state]) => {
+            if (state.tastingNoteVisibility !== "Public" || !trimText(state.tastingNote, 2_000)) return [];
+            return [{
+                profileID: crypto.createHmac("sha256", customerTokenSecret).update(email).digest("hex").slice(0, 24),
+                displayName: trimText(state.displayName, 80) || "Coffee lover",
+                role: ["Friend", "Barista", "Roaster"].includes(state.role) ? state.role : "Friend",
+                note: trimText(state.tastingNote, 2_000),
+                updatedAt: state.updatedAt || ""
+            }];
+        }).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)).slice(0, 100);
+        sendJSON(response, 200, { notes });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/social-coffee/profile") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = await readSocialCoffeeStore(response);
+        if (!store) return;
+        sendJSON(response, 200, { state: store.customers?.[customer.email] || null });
+        return;
+    }
+
+    if (request.method === "PUT" && url.pathname === "/social-coffee/profile") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const normalizeList = (value, limit, maxLength) => [...new Set((Array.isArray(value) ? value : [])
+                .map((item) => trimText(item, maxLength)).filter(Boolean))].slice(0, limit);
+            const people = (Array.isArray(body.followedPeople) ? body.followedPeople : []).slice(0, 200)
+                .map((person) => ({
+                    name: trimText(person?.name, 100),
+                    role: ["Friend", "Barista", "Roaster"].includes(person?.role) ? person.role : "Friend",
+                    profileID: /^[a-f0-9]{24}$/i.test(person?.profileID || "") ? person.profileID.toLowerCase() : null
+                }))
+                .filter((person) => person.name);
+            const state = {
+                displayName: trimText(body.displayName, 80) || "Coffee lover",
+                role: ["Friend", "Barista", "Roaster"].includes(body.role) ? body.role : "Friend",
+                wishList: normalizeList(body.wishList, 100, 160),
+                wishListEnabled: Boolean(body.wishListEnabled),
+                followedPeople: [...new Map(people.map((person) => [person.profileID || person.name.toLocaleLowerCase(), person])).values()],
+                tastingNote: trimText(body.tastingNote, 2_000),
+                tastingNoteVisibility: body.tastingNoteVisibility === "Public" ? "Public" : "Private",
+                updatedAt: new Date().toISOString()
+            };
+            const stored = await mutateSocialCoffeeStore(response, (store) => {
+                store.customers[customer.email] = state;
+                return { changed: true, result: null };
+            });
+            if (!stored) return;
+            sendJSON(response, 200, { state });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid Social Coffee profile." });
+        }
+        return;
+    }
+
     if (request.method === "GET" && url.pathname === "/cupping/entries") {
         const authenticated = parseAuthenticatedCustomer(request, response);
         if (!authenticated) return;
@@ -5213,7 +5559,6 @@ module.exports = function createServer(dependencies) {
                     } : null,
                     cafePass: verifiedPricing?.cafePass ? {
                         ...verifiedPricing.cafePass,
-                        creditCount: 20,
                         redeemedCredits: 0,
                         status: "pending_payment",
                         expiresAt: null,

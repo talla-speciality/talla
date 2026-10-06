@@ -67,7 +67,8 @@ struct OrderQueueView: View {
 
     private var filteredOrders: [AdminOrder] {
         guard !searchText.isEmpty else { return queueOrders }
-        return queueOrders.filter { order in
+        // Counter gift codes may belong to an order already moved to Completed.
+        return session.orders.filter { order in
             order.title.localizedCaseInsensitiveContains(searchText)
                 || order.email.localizedCaseInsensitiveContains(searchText)
                 || order.id.localizedCaseInsensitiveContains(searchText)
@@ -707,8 +708,13 @@ struct OrderDetailView: View {
     }
 
     private func cafePassSection(_ order: AdminOrder) -> some View {
-        AdminDetailCard(title: "Daily cup café pass", icon: "cup.and.saucer.fill") {
+        AdminDetailCard(title: order.cafePass?.giftedCoffee == true ? "Prepaid coffee gift" : order.cafePass?.suspendedCoffee == true ? "Suspended coffee pool" : "Daily cup café pass", icon: "cup.and.saucer.fill") {
             if let pass = order.cafePass {
+                if pass.giftedCoffee == true {
+                    Text("Redeem the paid gift code once when the recipient collects their coffee.").font(.caption).foregroundStyle(.secondary)
+                } else if pass.suspendedCoffee == true {
+                    Text("Donated counter credits. Redeem one drink per guest; the server records each use.").font(.caption).foregroundStyle(.secondary)
+                }
                 detailRow("Drink", pass.drinkName)
                 detailRow("Credits", "\(pass.remainingCredits) of \(pass.creditCount) remaining")
                 detailRow("Status", pass.status.replacingOccurrences(of: "_", with: " ").capitalized)

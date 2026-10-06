@@ -8,6 +8,7 @@ const test = require("node:test");
 const testResourceKey = "0123456789ABCDEF0123456789ABCDEF";
 const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "talla-benefit-test-"));
 process.env.DATA_DIRECTORY = dataDirectory;
+process.env.CUSTOMER_TOKEN_SECRET = "benefit-gift-test-secret";
 process.env.BENEFIT_TRANPORTAL_ID = "test-terminal";
 process.env.BENEFIT_TRANPORTAL_PASSWORD = "test-password";
 process.env.BENEFIT_RESOURCE_KEY = testResourceKey;
@@ -31,7 +32,9 @@ const {
     benefitClientPaymentStatus,
     benefitGatewayHostEnvironment,
     normalizeBenefitPayMPQRText,
+    orderPayloadWithRewardState,
     queryBenefitPayTransaction,
+    redeemCafePassByOrderID,
     renderBenefitResultPage,
     server,
     validateBenefitHostedPaymentURL,
@@ -179,6 +182,7 @@ function resetStores(options = {}) {
                 totalNumber: 12.8,
                 status: "Pending",
                 items: [{ name: "Coffee", quantity: 1 }],
+                ...(options.cafePass ? { details: { cafePass: options.cafePass } } : {}),
                 createdAt: "2026-07-30T10:00:00.000Z"
             }]
         }
@@ -332,6 +336,49 @@ test("approved CAPTURED notification acknowledges first and applies payment once
     assert.equal(order.status, "Confirmed");
     assert.equal(loyalty.pointsBalance, 0);
     assert.equal(loyalty.transactions.length, 0);
+});
+
+test("captured BENEFIT payment activates a single-use coffee gift; declined payment does not", async () => {
+    const giftPass = {
+        creditCount: 1,
+        redeemedCredits: 0,
+        suspendedCoffee: true,
+        giftedCoffee: true,
+        drinkName: "Iced Karak",
+        status: "pending_payment",
+        expiresAt: null
+    };
+    resetStores({ cafePass: giftPass });
+    await postEncryptedNotification({ result: "NOT CAPTURED", authRespCode: "05" });
+    await waitForPaymentStatus("Declined");
+    let order = JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[customerEmail][0];
+    assert.equal(order.status, "Pending");
+    assert.equal(order.details.cafePass.status, "pending_payment");
+    assert.equal((await redeemCafePassByOrderID(orderID, "barista-test")).reason, "unpaid");
+
+    resetStores({ cafePass: giftPass });
+    await postEncryptedNotification();
+    await waitForPaymentStatus("Captured");
+    order = JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[customerEmail][0];
+    assert.equal(order.status, "Confirmed");
+    assert.equal(order.details.cafePass.status, "active");
+    assert.equal(order.details.cafePass.redeemedCredits, 0);
+    assert.ok(Date.parse(order.details.cafePass.expiresAt) > Date.parse(order.details.cafePass.activatedAt));
+    const ownerPayload = await orderPayloadWithRewardState(customerEmail, order);
+    assert.match(ownerPayload.details.cafePass.giftToken, /^[a-f0-9]{64}$/);
+    const giftStatusURL = `${serverBaseURL}/social-coffee/gifts/${orderID}/status`;
+    const giftHeaders = { "X-Talla-Gift-Token": ownerPayload.details.cafePass.giftToken };
+    assert.equal((await fetch(giftStatusURL)).status, 404);
+    const ready = await fetch(giftStatusURL, { headers: giftHeaders });
+    assert.equal(ready.status, 200);
+    assert.equal((await ready.json()).gift.status, "ready");
+    const redeemed = await redeemCafePassByOrderID(orderID, "barista-test");
+    assert.equal(redeemed.order.cafePass.status, "exhausted");
+    assert.equal(redeemed.order.cafePass.redeemedCredits, 1);
+    assert.equal((await redeemCafePassByOrderID(orderID, "barista-test")).reason, "inactive");
+    const afterRedemption = await fetch(giftStatusURL, { headers: giftHeaders });
+    assert.equal(afterRedemption.status, 200);
+    assert.equal((await afterRedemption.json()).gift.status, "redeemed");
 });
 
 test("production CAPTURED notification may omit echoed udf2", async () => {

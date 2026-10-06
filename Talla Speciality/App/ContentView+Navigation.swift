@@ -199,6 +199,17 @@ extension ContentView {
             return
         }
 
+        if isUniversalLink, let socialLink = SocialCoffeeSharedLink.parse(url) {
+            hasSeenWelcome = true
+            switch socialLink {
+            case let .group(id, inviteCode):
+                socialCoffeeInvite = SocialCoffeeInvite(id: id, inviteCode: inviteCode)
+            case let .gift(orderID, token):
+                socialCoffeePassGift = SocialCoffeePassGift(orderID: orderID, token: token)
+            }
+            return
+        }
+
         if isUniversalLink, pathTokens.first == "collections", let handle = pathTokens.dropFirst().first {
             openShop(category: appCategoryKey(forCollectionHandle: handle), searchQuery: searchQuery)
             return

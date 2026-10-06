@@ -257,8 +257,13 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
         const customerPriceMultiplier = submittedCountryCode && submittedCountryCode !== "BH" ? 1.10 : 1;
         const coffeeClub = normalizeCoffeeClub(body?.coffeeClub, settings);
         const cafePass = body?.cafePass == null ? null : body.cafePass;
-        if (cafePass && (cafePass.termsAccepted !== true || Number(cafePass.creditCount) !== 20 || coffeeClub)) {
+        const cafePassCreditCount = cafePass ? Number(cafePass.creditCount) : 0;
+        if (cafePass && (cafePass.termsAccepted !== true || !Number.isInteger(cafePassCreditCount) || cafePassCreditCount < 1 || cafePassCreditCount > 20 || coffeeClub)) {
             fail("CAFE_PASS_INVALID", 400, "The café pass terms changed. Refresh checkout and try again.");
+        }
+        const giftedCoffee = body?.suspendedCoffeePass === true && String(body?.gift?.recipientName || "").trim().length > 0;
+        if (giftedCoffee && cafePassCreditCount !== 1) {
+            fail("COFFEE_GIFT_INVALID", 400, "A coffee gift must contain exactly one prepaid drink.");
         }
         let data;
         try {
@@ -290,7 +295,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 && tierRank(loyaltyAccount?.tier) < tierRank(requiredTier)) {
                 fail("LIMITED_LOT_EARLY_ACCESS", 409, `${requiredTier} members get early access to this limited lot.`);
             }
-            const requiredQuantity = line.quantity * (coffeeClub?.shipmentCount || (cafePass ? 20 : 1));
+            const requiredQuantity = line.quantity * (coffeeClub?.shipmentCount || (cafePass ? cafePassCreditCount : 1));
             if (node.availableForSale === false
                 || (String(node.inventoryPolicy).toUpperCase() === "DENY"
                     && Number.isFinite(Number(node.inventoryQuantity))
@@ -342,7 +347,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
                 throw voucherError(error);
             }
         }
-        const shipmentCount = coffeeClub?.shipmentCount || (cafePass ? 20 : 1);
+        const shipmentCount = coffeeClub?.shipmentCount || (cafePass ? cafePassCreditCount : 1);
         const subtotalFils = lines.reduce((total, line) => total + line.unitPriceFils * line.quantity, 0) * shipmentCount;
         const discountFils = coffeeClub
             ? Math.round(subtotalFils * coffeeClub.discountPercent / 100)
@@ -406,7 +411,7 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
             total: totalFils / 1000,
             voucherCode: voucher?.code || null,
             coffeeClub,
-            cafePass: cafePass ? { creditCount: 20, drinkName: lines[0].name, variantId: lines[0].variantId, unitPriceFils: lines[0].unitPriceFils } : null,
+            cafePass: cafePass ? { creditCount: cafePassCreditCount, drinkName: lines[0].name, variantId: lines[0].variantId, unitPriceFils: lines[0].unitPriceFils, suspendedCoffee: body?.suspendedCoffeePass === true, giftedCoffee } : null,
             coffeeClubItems: coffeeClub ? lines.map((line) => ({
                     coffeeName: line.name,
                     variantId: line.variantId,

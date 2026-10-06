@@ -96,7 +96,7 @@ extension ContentView {
 
     var cartSubtotal: Double {
         if isCafePassActive {
-            return cartItems.reduce(0) { $0 + priceValue(from: $1.variant.price) * Double($1.quantity) } * 20
+            return cartItems.reduce(0) { $0 + priceValue(from: $1.variant.price) * Double($1.quantity) } * Double(cafePassCreditCount)
         }
         return cartSingleShipmentSubtotal * Double(coffeeClubShipmentCount)
     }
@@ -213,6 +213,9 @@ extension ContentView {
     }
 
     var cartDeliveryTitle: String {
+        if isDigitalGiftCardOnlyCart {
+            return isArabicInterface ? "إرسال رقمي" : "Digital delivery"
+        }
         if fulfillmentMethod == .pickup {
             return AppLocalization.text("pickup", fallback: "Pickup")
         }
@@ -242,7 +245,9 @@ extension ContentView {
                 false
             ), at: 0)
         }
-        if fulfillmentMethod == .pickup {
+        if isDigitalGiftCardOnlyCart {
+            rows.append((isArabicInterface ? "المستلم" : "Recipient", giftRecipientEmail.trimmingCharacters(in: .whitespacesAndNewlines), false))
+        } else if fulfillmentMethod == .pickup {
             rows.append((
                 AppLocalization.text("pickup_location", fallback: "Pickup location"),
                 managedPickupName,
@@ -353,20 +358,27 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 10) {
             Toggle(isOn: $isCafePassPrepaid) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Daily cup café pass")
+                    Text(suspendedCoffeePass && isGiftOrder ? "A prepaid coffee gift" : suspendedCoffeePass ? "Suspended coffees for the community" : "Daily cup café pass")
                         .font(labelFont(size: 14, weight: .bold))
                         .foregroundColor(primaryTextColor)
-                    Text("Prepay 20 of this drink at its current menu price. Valid for 30 days after payment; no discount.")
+                    Text("Prepay \(cafePassCreditCount) of this drink at its current menu price. Valid for 30 days after payment; no discount.")
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
                 }
             }
             .tint(readableBrandGoldColor)
+            .disabled(suspendedCoffeePass && isGiftOrder)
             .onChange(of: isCafePassPrepaid) { _, enabled in
                 if enabled {
                     isCoffeeClubPrepaid = false
                     coffeeClubTermsAccepted = false
+                } else {
+                    suspendedCoffeePass = false
                 }
+            }
+            if isCafePassPrepaid && !(suspendedCoffeePass && isGiftOrder) {
+                Stepper("Drinks to sponsor: \(cafePassCreditCount)", value: $cafePassCreditCount, in: 1...20)
+                    .font(bodyFont(size: 12))
             }
         }
         .padding(14)
@@ -384,6 +396,7 @@ extension ContentView {
                 .foregroundColor(primaryTextColor)
             }
             .tint(readableBrandGoldColor)
+            .disabled(suspendedCoffeePass && isGiftOrder)
             .accessibilityIdentifier("checkout.gift.toggle")
 
             if isGiftOrder {
@@ -401,6 +414,19 @@ extension ContentView {
                         .lineLimit(2...4)
                         .textFieldStyle(.talla)
                         .accessibilityIdentifier("checkout.gift.message")
+                }
+                .padding(12)
+                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            if cartItems.contains(where: { $0.product.isGiftCardProduct }) {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Gift card recipient email", text: $giftRecipientEmail)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .textContentType(.emailAddress)
+                        .textFieldStyle(.talla)
+                    Text("Shopify sends the gift card code to this email after the order is fulfilled.")
+                        .font(bodyFont(size: 11)).foregroundColor(secondaryTextColor)
                 }
                 .padding(12)
                 .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -660,8 +686,10 @@ extension ContentView {
                             }
                         }
 
-                        cartFulfillmentMethodSection
-                        checkoutDestinationSection
+                        if !isDigitalGiftCardOnlyCart && !isCafePassActive {
+                            cartFulfillmentMethodSection
+                            checkoutDestinationSection
+                        }
                         if isCoffeeClubActive && coffeeClubPlanType == "office" {
                             officeCoffeeDetailsSection
                         }
@@ -714,13 +742,13 @@ extension ContentView {
                 applePayAvailable: isApplePaySupported,
                 gatewaySDKAvailable: MastercardSDKAvailability.isAvailable,
                 availability: paymentAvailability,
-                disabledMethods: isCoffeeClubActive ? [.cashOnDelivery] : [],
+                disabledMethods: (isCoffeeClubActive || isCafePassActive || cartItems.contains(where: { $0.product.isGiftCardProduct })) ? [.cashOnDelivery] : [],
                 primaryColor: primaryTextColor,
                 secondaryColor: secondaryTextColor,
                 accentColor: TallaTheme.Colors.accent,
                 surfaceColor: elevatedSurfaceColor
             ) { method in
-                guard !(isCoffeeClubActive && method == .cashOnDelivery) else { return }
+                guard !((isCoffeeClubActive || isCafePassActive || cartItems.contains(where: { $0.product.isGiftCardProduct })) && method == .cashOnDelivery) else { return }
                 paymentFlow.select(method)
             }
             .presentationDetents([.medium, .large])
@@ -1021,6 +1049,28 @@ extension ContentView {
         return String(format: AppLocalization.text("order_number_format", fallback: "Order #%@"), identifier)
     }
 
+    var postPaymentCoffeeGiftURL: URL? {
+        guard let order = postPaymentOrder,
+              order.isPaidForCafePass,
+              let pass = order.details?.cafePass,
+              pass.giftedCoffee == true,
+              pass.status == "active",
+              pass.remainingCredits > 0,
+              let token = pass.giftToken,
+              token.range(of: "^[a-fA-F0-9]{64}$", options: .regularExpression) != nil else { return nil }
+        var components = URLComponents(string: "https://talla.me/pages/coffee-gift")
+        components?.queryItems = [URLQueryItem(name: "order", value: order.id)]
+        components?.fragment = token
+        return components?.url
+    }
+
+    var postPaymentCoffeeGiftWhatsAppURL: URL? {
+        guard let giftURL = postPaymentCoffeeGiftURL else { return nil }
+        var components = URLComponents(string: "https://wa.me/")
+        components?.queryItems = [URLQueryItem(name: "text", value: "I sent you a coffee from Talla ☕️ Show staff the gift code in this link: \(giftURL.absoluteString)")]
+        return components?.url
+    }
+
     var postPaymentView: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -1222,6 +1272,24 @@ extension ContentView {
     var postPaymentActions: some View {
         VStack(spacing: 11) {
             if paymentFlow.state == .succeeded {
+                if let giftURL = postPaymentCoffeeGiftURL {
+                    ShareLink(item: giftURL, subject: Text("A coffee from Talla"), message: Text("Your paid coffee gift is ready to share ☕️")) {
+                        Label("Share paid coffee gift", systemImage: "square.and.arrow.up")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(TallaTheme.Colors.accent)
+                    if let whatsAppURL = postPaymentCoffeeGiftWhatsAppURL {
+                        Button { openURL(whatsAppURL) } label: {
+                            Label("Send gift on WhatsApp", systemImage: "message.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(TallaTheme.Colors.accent)
+                    }
+                }
                 Button {
                     dismissPostPayment(openOrders: true)
                 } label: {
@@ -1465,7 +1533,7 @@ extension ContentView {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if fulfillmentMethod == .delivery && preferredAddress == nil {
+            if !isDigitalGiftCardOnlyCart && fulfillmentMethod == .delivery && preferredAddress == nil {
                 Button {
                     checkoutError = nil
                     if customerProfile == nil {
@@ -1495,7 +1563,10 @@ extension ContentView {
                     state: paymentFlow.state,
                     enabled: !cartItems.isEmpty && !isCheckingOut && paymentFlow.canStart && canStartCheckoutWithShipping,
                     applePayAvailable: isApplePayAvailable,
-                    accentColor: TallaTheme.Colors.accent
+                    accentColor: TallaTheme.Colors.accent,
+                    hostedCheckoutTitle: cartItems.contains(where: { $0.product.isGiftCardProduct })
+                        ? (isArabicInterface ? "المتابعة إلى دفع Shopify" : "Continue to Shopify Checkout")
+                        : nil
                 ) {
                     checkoutError = nil
                     Task {
@@ -1533,7 +1604,18 @@ extension ContentView {
 
     var cartPaymentMethodsSection: some View {
         VStack(spacing: 10) {
-            CompactPaymentMethodRow(
+            if cartItems.contains(where: { $0.product.isGiftCardProduct }) {
+                Label(
+                    isArabicInterface
+                        ? "اختر طريقة الدفع المتاحة في صفحة دفع Shopify الآمنة. بطاقات الهدايا لا تدعم الدفع عند الاستلام."
+                        : "Choose an available online payment method in secure Shopify Checkout. Cash on delivery is unavailable for gift cards.",
+                    systemImage: "lock.shield.fill"
+                )
+                .font(bodyFont(size: 12))
+                .foregroundColor(secondaryTextColor)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                CompactPaymentMethodRow(
                 selectedMethod: paymentFlow.selectedMethod,
                 enabled: paymentFlow.canChangeMethod,
                 primaryColor: primaryTextColor,
@@ -1542,6 +1624,7 @@ extension ContentView {
                 surfaceColor: cardFillColor
             ) {
                 isPaymentMethodSheetPresented = true
+            }
             }
 
             if usesShopifyCalculatedShipping {
@@ -1661,6 +1744,7 @@ extension ContentView {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .disabled(isCafePassActive)
                     .accessibilityLabel(AppLocalization.text("increase_quantity", fallback: "Increase quantity"))
                 }
                 .foregroundColor(readableBrandGoldColor)

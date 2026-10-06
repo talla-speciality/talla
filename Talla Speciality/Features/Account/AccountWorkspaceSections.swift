@@ -1,4 +1,6 @@
 import SwiftUI
+import CoreImage
+import CoreImage.CIFilterBuiltins
 
 struct ProfileManagementSectionView: View {
     let primaryTextColor: Color
@@ -212,6 +214,7 @@ struct PasswordResetSectionView: View {
 }
 
 struct OrderHistorySectionView: View {
+    @Environment(\.openURL) private var openURL
     let orders: [ContentView.AccountOrder]
     let isLoadingOrders: Bool
     let ordersError: String?
@@ -436,13 +439,13 @@ struct OrderHistorySectionView: View {
 
                         if let pass = order.details?.cafePass {
                             VStack(alignment: .leading, spacing: 5) {
-                                Label("Daily cup café pass · \(pass.remainingCredits) of \(pass.creditCount) drinks remaining", systemImage: "cup.and.saucer.fill")
+                                Label("\(pass.giftedCoffee == true ? "Coffee gift" : pass.suspendedCoffee == true ? "Suspended coffee" : "Daily cup café pass") · \(pass.remainingCredits) of \(pass.creditCount) drinks remaining", systemImage: "cup.and.saucer.fill")
                                     .font(Font.custom("AvenirNext-DemiBold", size: 12))
                                     .foregroundColor(accentColor)
                                 Text("\(pass.drinkName) · \(pass.status.replacingOccurrences(of: "_", with: " ").capitalized)\(pass.expiresAt.flatMap { formattedOrderDate($0).isEmpty ? nil : " · Expires \(formattedOrderDate($0))" } ?? "")")
                                     .font(Font.custom("AvenirNext-Regular", size: 11))
                                     .foregroundColor(secondaryTextColor)
-                                if pass.status == "active", pass.remainingCredits > 0, !cafePassProducts.isEmpty {
+                                if pass.status == "active", pass.remainingCredits > 0, pass.suspendedCoffee != true, !cafePassProducts.isEmpty {
                                     Menu {
                                         ForEach(cafePassProducts) { product in
                                             ForEach(product.variants.filter { variant in
@@ -462,6 +465,31 @@ struct OrderHistorySectionView: View {
                                             .font(Font.custom("AvenirNext-Bold", size: 10))
                                     }
                                     .tint(accentColor)
+                                }
+                                if order.isPaidForCafePass, pass.suspendedCoffee == true, pass.status == "active", pass.remainingCredits > 0 {
+                                    HStack(spacing: 12) {
+                                        SuspendedCoffeePassQR(orderID: order.id).frame(width: 116, height: 116)
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text(pass.giftedCoffee == true
+                                                ? "Send this link after payment. The recipient shows the code at the Talla counter to redeem one coffee."
+                                                : "Show this QR at the Talla counter. Staff will look up the pass and redeem one drink per guest.")
+                                                .font(Font.custom("AvenirNext-Regular", size: 11)).foregroundColor(secondaryTextColor)
+                                            ShareLink(item: suspendedCoffeeGiftLink(orderID: order.id, token: pass.giftToken), subject: Text("A coffee from Talla"), message: Text("A \(pass.drinkName) is waiting for you at the Talla counter. Show staff gift code \(order.id) to redeem it.")) {
+                                                Label(pass.giftedCoffee == true ? "Share paid coffee gift" : "Share counter code", systemImage: "square.and.arrow.up").font(Font.custom("AvenirNext-DemiBold", size: 11))
+                                            }.tint(accentColor)
+                                            if pass.giftedCoffee == true,
+                                               let whatsappURL = coffeeGiftWhatsAppURL(orderID: order.id, drinkName: pass.drinkName, token: pass.giftToken) {
+                                                Button {
+                                                    openURL(whatsappURL)
+                                                } label: {
+                                                    Label("Send gift on WhatsApp", systemImage: "message.fill")
+                                                        .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                                                }.tint(accentColor)
+                                            }
+                                        }
+                                    }
+                                    .padding(10)
+                                    .background(cardFillColor, in: RoundedRectangle(cornerRadius: 12))
                                 }
                             }
                         }
@@ -1284,5 +1312,41 @@ struct OrderHistorySectionView: View {
         default:
             return secondaryTextColor
         }
+    }
+}
+
+private func suspendedCoffeeGiftLink(orderID: String, token: String? = nil) -> URL {
+    var components = URLComponents(string: "https://talla.me/pages/coffee-gift")!
+    components.queryItems = [URLQueryItem(name: "order", value: orderID)]
+    if let token, !token.isEmpty { components.fragment = token }
+    return components.url!
+}
+
+private func coffeeGiftWhatsAppURL(orderID: String, drinkName: String, token: String?) -> URL? {
+    var components = URLComponents(string: "https://wa.me/")
+    components?.queryItems = [URLQueryItem(
+        name: "text",
+        value: "I sent you a \(drinkName) from Talla ☕️ Show staff gift code \(orderID) at the counter: \(suspendedCoffeeGiftLink(orderID: orderID, token: token).absoluteString)"
+    )]
+    return components?.url
+}
+
+private struct SuspendedCoffeePassQR: View {
+    let orderID: String
+
+    private var code: CGImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(orderID.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)) else { return nil }
+        return CIContext().createCGImage(output, from: output.extent)
+    }
+
+    var body: some View {
+        Group {
+            if let code { Image(decorative: code, scale: 1).interpolation(.none).resizable().scaledToFit().padding(5).background(.white, in: RoundedRectangle(cornerRadius: 8)) }
+            else { Image(systemName: "qrcode").resizable().scaledToFit().padding(20) }
+        }
+        .accessibilityLabel("Suspended coffee counter code for order \(orderID)")
     }
 }

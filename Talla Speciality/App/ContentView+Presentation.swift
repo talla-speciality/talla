@@ -285,6 +285,36 @@ extension ContentView {
         .sheet(item: $selectedProduct) { product in
             productDetailSheet(product: product)
         }
+        .sheet(item: $socialCoffeeInvite) { invite in
+            SocialCoffeeGroupInviteView(invite: invite, products: products, isSignedIn: customerProfile != nil, accountAction: {
+                accountScrollTarget = nil
+                isAccountPresentedFromMore = true
+            }, checkoutAction: { group in
+                guard cartItems.isEmpty else {
+                    showToast(message: "Finish or clear your current bag before reviewing this group order.")
+                    cartOpen = true
+                    return
+                }
+                for line in group.items {
+                    guard let product = products.first(where: { $0.id == line.productID }),
+                          let variant = product.variants.first(where: { $0.id == line.variantID }),
+                          product.isAvailableForSale, variant.isAvailableForSale else { continue }
+                    let itemID = cartItemIdentifier(productID: product.id, variantID: variant.id)
+                    if let index = cartItems.firstIndex(where: { $0.id == itemID }) {
+                        updateCartItemQuantity(at: index, quantity: cartItems[index].quantity + line.quantity)
+                    } else {
+                        cartItems.append(CartItem(id: itemID, product: product, variant: variant, quantity: line.quantity))
+                    }
+                }
+                isGiftOrder = false
+                cartOpen = !cartItems.isEmpty
+            })
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $socialCoffeePassGift) { gift in
+            SocialCoffeePassGiftView(gift: gift)
+                .presentationDetents([.medium, .large])
+        }
         .sheet(isPresented: $isFavoriteShelfPresented) {
             favoriteShelfSheet
         }
@@ -721,6 +751,80 @@ extension ContentView {
                     }
                     .buttonStyle(.plain)
                 }
+
+                NavigationLink {
+                    SocialCoffeeView(
+                        accent: TallaTheme.Colors.accent,
+                        background: pageBackgroundColor,
+                        surface: cardFillColor,
+                        primary: primaryTextColor,
+                        secondary: secondaryTextColor,
+                        products: products,
+                        isSignedIn: customerProfile != nil,
+                        accountAction: {
+                            accountScrollTarget = nil
+                            isAccountPresentedFromMore = true
+                        },
+                        addGiftCardAction: { product, variantID, recipientName, recipientEmail, recipientMessage in
+                            guard cartItems.isEmpty else {
+                                showToast(message: "Finish your current bag before starting a gift-card checkout.")
+                                return
+                            }
+                            selectedVariantIDs[product.id] = variantID
+                            giftRecipientName = recipientName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            giftRecipientEmail = recipientEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+                            giftMessage = recipientMessage
+                            isGiftOrder = true
+                            addToCart(product: product)
+                            cartOpen = true
+                        },
+                        addCoffeeGiftAction: { product, variantID, recipientName, recipientMessage in
+                            guard cartItems.isEmpty else {
+                                showToast(message: "Finish your current bag before sending a coffee gift.")
+                                return
+                            }
+                            selectedVariantIDs[product.id] = variantID
+                            addToCart(product: product)
+                            isCafePassPrepaid = true
+                            cafePassCreditCount = 1
+                            suspendedCoffeePass = true
+                            isGiftOrder = true
+                            giftRecipientName = recipientName
+                            giftRecipientPhone = ""
+                            giftMessage = recipientMessage
+                            fulfillmentMethod = .pickup
+                            cartOpen = true
+                        },
+                        addSuspendedCoffeeAction: { product, variantID, count in
+                            guard cartItems.isEmpty else {
+                                showToast(message: "Finish your current bag before sponsoring counter coffees.")
+                                return
+                            }
+                            selectedVariantIDs[product.id] = variantID
+                            addToCart(product: product)
+                            isCafePassPrepaid = true
+                            cafePassCreditCount = count
+                            suspendedCoffeePass = true
+                            isGiftOrder = false
+                            fulfillmentMethod = .pickup
+                            cartOpen = true
+                        },
+                        shopAction: { category in
+                            isGiftOrder = true
+                            openShop(category: category)
+                        },
+                        openGroupAction: { id in
+                            socialCoffeeInvite = SocialCoffeeInvite(id: id, inviteCode: "")
+                        }
+                    )
+                } label: {
+                    moreNavigationRow(
+                        title: "Social Coffee",
+                        detail: "Send, gift, gather, and keep your coffee people close.",
+                        systemImage: "person.2.wave.2.fill"
+                    )
+                }
+                .buttonStyle(.plain)
 
                 Button {
                     accountScrollTarget = nil
