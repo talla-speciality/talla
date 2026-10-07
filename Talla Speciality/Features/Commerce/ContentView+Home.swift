@@ -1937,7 +1937,7 @@ extension ContentView {
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
             }
-            .foregroundColor(isStamped ? Color(hex: 0x151515) : primaryTextColor)
+            .foregroundColor(isStamped ? .white : primaryTextColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)

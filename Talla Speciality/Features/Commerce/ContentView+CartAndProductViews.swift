@@ -1430,7 +1430,7 @@ extension ContentView {
         } label: {
             Label(title, systemImage: systemImage)
                 .font(labelFont(size: 11, weight: .bold))
-                .foregroundStyle(isSelected ? Color(hex: 0x151515) : primaryTextColor)
+                .foregroundStyle(isSelected ? .white : primaryTextColor)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
                     isSelected ? TallaTheme.Colors.accent : cardFillColor,

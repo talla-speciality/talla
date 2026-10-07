@@ -388,7 +388,7 @@ extension BrewingSectionView {
                 HStack {
                     Image(systemName: profile.icon)
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(isSelected ? Color(hex: 0x151515) : accentColor)
+                        .foregroundColor(isSelected ? .white : accentColor)
                         .frame(width: 30, height: 30)
                         .background(isSelected ? Color(hex: 0x151515).opacity(0.08) : accentColor.opacity(0.10))
                         .clipShape(Circle())
@@ -404,7 +404,7 @@ extension BrewingSectionView {
 
                 Text(profile.title)
                     .font(Font.custom("Georgia-Bold", size: 17))
-                    .foregroundColor(isSelected ? Color(hex: 0x151515) : primaryTextColor)
+                    .foregroundColor(isSelected ? .white : primaryTextColor)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
 
@@ -412,7 +412,7 @@ extension BrewingSectionView {
                     .font(Font.custom("AvenirNext-Bold", size: 10))
                     .tracking(AppLocalization.letterSpacing(0.8))
                     .textCase(.uppercase)
-                    .foregroundColor(isSelected ? Color(hex: 0x151515).opacity(0.75) : accentColor)
+                    .foregroundColor(isSelected ? Color.white.opacity(0.75) : accentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.74)
             }
@@ -874,7 +874,7 @@ extension BrewingSectionView {
                     systemImage: scaleManager.isConnected ? "arrow.counterclockwise" : "play.fill"
                 )
                 .font(Font.custom("AvenirNext-DemiBold", size: 13))
-                .foregroundColor(Color(hex: 0x1C1A17))
+                .foregroundColor(brewAccentForegroundColor)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 48)
                 .background(brewAccentColor)
@@ -1294,7 +1294,7 @@ extension BrewingSectionView {
                     systemImage: scaleManager.isConnected ? "arrow.counterclockwise" : "play.fill"
                 )
                     .font(Font.custom("AvenirNext-DemiBold", size: 14))
-                    .foregroundColor(Color(hex: 0x1C1A17))
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
                     .background(brewAccentColor)

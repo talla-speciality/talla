@@ -390,7 +390,7 @@ extension BrewingSectionView {
         } label: {
             Label(title, systemImage: "arrow.clockwise")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Color(hex: 0x1C1A17))
+                .foregroundColor(brewAccentForegroundColor)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(brewAccentColor)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

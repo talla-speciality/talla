@@ -194,7 +194,7 @@ extension BrewingSectionView {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: icon)
                         .font(.system(size: 19, weight: .semibold))
-                        .foregroundColor(isSelected ? brewPrimaryTextColor : brewAccentColor)
+                        .foregroundColor(isSelected ? brewAccentForegroundColor : brewAccentColor)
                         .frame(width: 58, height: 58)
                         .background(isSelected ? brewAccentColor : brewSurfaceColor.opacity(0.72), in: Circle())
                         .overlay(Circle().stroke(brewAccentColor.opacity(isSelected ? 0 : 0.28), lineWidth: 1))
@@ -202,7 +202,7 @@ extension BrewingSectionView {
                     if let value {
                         Text(value)
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundColor(brewPrimaryTextColor)
+                            .foregroundColor(brewAccentForegroundColor)
                             .frame(minWidth: 19, minHeight: 19)
                             .background(brewAccentColor, in: Circle())
                             .overlay(Circle().stroke(brewBackgroundColor, lineWidth: 2))
@@ -232,7 +232,7 @@ extension BrewingSectionView {
             HStack(alignment: .center, spacing: 14) {
                 Image(systemName: "dial.medium")
                     .font(.system(size: 19, weight: .bold))
-                    .foregroundColor(brewPrimaryTextColor)
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(width: 46, height: 46)
                     .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
 
@@ -346,7 +346,7 @@ extension BrewingSectionView {
                         .frame(maxWidth: .infinity, minHeight: 48)
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(brewingColorScheme == .dark ? brewPrimaryTextColor : .white)
+                .foregroundColor(brewAccentForegroundColor)
                 .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 if hasPreviousBrew {
@@ -764,7 +764,7 @@ extension BrewingSectionView {
                                 .frame(maxWidth: .infinity, minHeight: 50)
                         }
                         .buttonStyle(.plain)
-                        .foregroundColor(brewingColorScheme == .dark ? brewPrimaryTextColor : .white)
+                        .foregroundColor(brewAccentForegroundColor)
                         .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                         Button {
@@ -1604,7 +1604,7 @@ extension BrewingSectionView {
                     .font(.system(size: 12, weight: .semibold))
                     .tracking(AppLocalization.letterSpacing(1.1))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x1C1A17))
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 46)
                     .background(brewAccentColor)

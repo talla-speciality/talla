@@ -577,7 +577,11 @@ struct BrewingSectionView: View {
     }
 
     var brewAccentColor: Color {
-        Color(hex: 0xC99550)
+        brewingColorScheme == .dark ? .white : TallaTheme.Colors.accent
+    }
+
+    var brewAccentForegroundColor: Color {
+        brewingColorScheme == .dark ? .black : .white
     }
 
     var brewColumnMaxWidth: CGFloat {

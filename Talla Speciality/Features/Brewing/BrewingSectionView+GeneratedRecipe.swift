@@ -257,7 +257,7 @@ extension BrewingSectionView {
 
                 Image(systemName: isComplete ? "checkmark" : isActive ? "sparkle" : "circle")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(isComplete ? Color(hex: 0x2B170F) : accentColor)
+                    .foregroundColor(isComplete ? .white : accentColor)
                     .symbolEffect(.pulse, value: recipeGenerationStageIndex)
             }
             .accessibilityHidden(true)
@@ -481,7 +481,7 @@ extension BrewingSectionView {
                     .font(.system(size: 13, weight: .semibold))
                     .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x1C1A17))
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 48)
                     .background(brewAccentColor)

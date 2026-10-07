@@ -90,7 +90,7 @@ extension BrewingSectionView {
                             .font(Font.custom("AvenirNext-Bold", size: 11))
                             .tracking(AppLocalization.letterSpacing(1.6))
                             .textCase(.uppercase)
-                            .foregroundColor(activeCategory == category ? Color(hex: 0x151515) : secondaryTextColor)
+                            .foregroundColor(activeCategory == category ? .white : secondaryTextColor)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(
@@ -1203,7 +1203,7 @@ extension BrewingSectionView {
 
                 Image(systemName: isComplete ? "checkmark" : "drop.fill")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(isActive ? Color(hex: 0x151515) : accentColor)
+                    .foregroundColor(isActive ? .white : accentColor)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -1238,7 +1238,7 @@ extension BrewingSectionView {
             HStack(spacing: 10) {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(isPrimary ? Color(hex: 0x151515) : accentColor)
+                    .foregroundColor(isPrimary ? .white : accentColor)
                     .frame(width: 28, height: 28)
                     .background(isPrimary ? Color(hex: 0x151515).opacity(0.10) : accentColor.opacity(0.10))
                     .clipShape(Circle())
@@ -1246,12 +1246,12 @@ extension BrewingSectionView {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.title)
                         .font(Font.custom("AvenirNext-Bold", size: isPrimary ? 14 : 13))
-                        .foregroundColor(isPrimary ? Color(hex: 0x151515) : primaryTextColor)
+                        .foregroundColor(isPrimary ? .white : primaryTextColor)
                         .lineLimit(1)
 
                     Text(item.detail)
                         .font(Font.custom("AvenirNext-Regular", size: 12))
-                        .foregroundColor(isPrimary ? Color(hex: 0x151515).opacity(0.72) : secondaryTextColor)
+                        .foregroundColor(isPrimary ? Color.white.opacity(0.72) : secondaryTextColor)
                         .lineLimit(1)
                 }
 
@@ -1261,7 +1261,7 @@ extension BrewingSectionView {
                     .font(Font.custom("AvenirNext-Bold", size: 10))
                     .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
-                    .foregroundColor(isPrimary ? Color(hex: 0x151515) : accentColor)
+                    .foregroundColor(isPrimary ? .white : accentColor)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
                     .background(isPrimary ? Color(hex: 0x151515).opacity(0.08) : accentColor.opacity(0.10))
@@ -1990,13 +1990,13 @@ extension BrewingSectionView {
             VStack(spacing: 3) {
                 Text("1:\(ratio)")
                     .font(Font.custom("AvenirNext-Bold", size: 12))
-                    .foregroundColor(isSelected ? Color(hex: 0x151515) : primaryTextColor)
+                    .foregroundColor(isSelected ? .white : primaryTextColor)
 
                 Text(title)
                     .font(Font.custom("AvenirNext-DemiBold", size: 10))
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
-                    .foregroundColor(isSelected ? Color(hex: 0x151515).opacity(0.72) : tertiaryTextColor)
+                    .foregroundColor(isSelected ? Color.white.opacity(0.72) : tertiaryTextColor)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)

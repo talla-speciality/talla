@@ -220,7 +220,7 @@ struct ShopSectionView: View {
                             Image(systemName: "arrow.forward")
                                 .font(.system(size: 12, weight: .bold))
                         }
-                        .foregroundColor(isLightAppearance ? Color(hex: 0x151515) : .black)
+                        .foregroundColor(.white)
                         .padding(.horizontal, 15)
                         .frame(minHeight: 48)
                         .background(accentColor, in: RoundedRectangle(cornerRadius: 15, style: .continuous))

@@ -427,7 +427,7 @@ extension ContentView {
                 .font(labelFont(size: 10, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .foregroundColor(isSelected ? Color(hex: 0x151515) : primaryTextColor)
+                .foregroundColor(isSelected ? .white : primaryTextColor)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)

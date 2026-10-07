@@ -212,7 +212,7 @@ extension BrewingSectionView {
             } label: {
                 Text(AppLocalization.text("refine_next_brew", fallback: "Refine Next Brew"))
                     .font(Font.custom("AvenirNext-DemiBold", size: 14))
-                    .foregroundColor(Color(hex: 0x1C1A17))
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 52)
                     .background(brewAccentColor)
@@ -381,7 +381,7 @@ extension BrewingSectionView {
             Button(action: saveCurrentRecipe) {
                 Label(AppLocalization.text("save_recipe", fallback: "Save Recipe"), systemImage: "bookmark.fill")
                     .font(Font.custom("AvenirNext-DemiBold", size: 13))
-                    .foregroundColor(Color(hex: 0x1C1A17))
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
@@ -591,7 +591,7 @@ extension BrewingSectionView {
         Button(action: action) {
             Text(title)
                 .font(Font.custom("AvenirNext-DemiBold", size: 14))
-                .foregroundColor(isPrimary ? Color(hex: 0x1C1A17) : brewPrimaryTextColor)
+                .foregroundColor(isPrimary ? brewAccentForegroundColor : brewPrimaryTextColor)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 52)
                 .background(isPrimary ? brewAccentColor : brewSurfaceColor)
@@ -1010,7 +1010,7 @@ extension BrewingSectionView {
                 .font(Font.custom("AvenirNext-DemiBold", size: isPrimary ? 14 : 12))
                 .lineLimit(1)
                 .minimumScaleFactor(0.74)
-                .foregroundColor(isPrimary ? Color(hex: 0x1C1A17) : brewPrimaryTextColor)
+                .foregroundColor(isPrimary ? brewAccentForegroundColor : brewPrimaryTextColor)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: isPrimary ? 54 : 50)
                 .background(isPrimary ? brewAccentColor : brewSurfaceColor)

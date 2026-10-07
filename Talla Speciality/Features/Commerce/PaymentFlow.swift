@@ -889,7 +889,7 @@ struct CheckoutActionBar: View {
                 Button(action: action) {
                     HStack(spacing: 8) {
                         if state.isBusy {
-                            ProgressView().tint(Color.black.opacity(0.75))
+                            ProgressView().tint(.white)
                         }
                         Text(state.isBusy
                             ? AppLocalization.text("payment_preparing", fallback: "Preparing secure checkout…")
@@ -902,7 +902,7 @@ struct CheckoutActionBar: View {
                                 .monospacedDigit()
                         }
                     }
-                    .foregroundStyle(Color(red: 0.08, green: 0.065, blue: 0.04))
+                    .foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 17)
                     .padding(.vertical, 12)
