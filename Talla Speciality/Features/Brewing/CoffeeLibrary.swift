@@ -582,6 +582,8 @@ struct CoffeeLibraryView: View {
                 .font(.system(size: 28, weight: .semibold, design: .serif))
                 .accessibilityAddTraits(.isHeader)
 
+            coffeeSyncStatusBanner
+
             GroupBox(AppLocalization.text("add_coffee", fallback: "Add coffee")) {
                 VStack(spacing: 12) {
                     TextField(AppLocalization.text("coffee_name", fallback: "Coffee name"), text: $name)
@@ -840,13 +842,15 @@ struct CoffeeLibraryView: View {
         case .offline, .failed(_):
             VStack(alignment: .leading, spacing: 10) {
                 Label(AppLocalization.text("coffee_offline_cache", fallback: "Offline. Showing saved coffee data."), systemImage: "icloud.slash")
-                    .accessibilityIdentifier("offline.status")
                 Button(AppLocalization.text("retry", fallback: "Retry connection")) {
                     Task { await coffeeData.retryCurrentAccountSynchronization() }
                 }
                 .buttonStyle(.tallaSecondary)
                 .accessibilityIdentifier("offline.retry")
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(AppLocalization.text("coffee_offline_cache", fallback: "Offline. Showing saved coffee data."))
+            .accessibilityIdentifier("offline.status")
         }
     }
 

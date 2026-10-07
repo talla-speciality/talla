@@ -21,6 +21,7 @@ struct SocialCoffeeView: View {
     let openGroupAction: (String) -> Void
 
     @Environment(\.openURL) private var openURL
+    @ScaledMetric(relativeTo: .subheadline) private var giftingTileHeight: CGFloat = 82
     @State private var presentedFlow: SocialCoffeeFlow?
     @State private var pendingShopCategory: String?
     @State private var isConfirmingShopReplacement = false
@@ -152,21 +153,41 @@ struct SocialCoffeeView: View {
         socialCard(title: AppLocalization.text("social_coffee_gifting_title", fallback: "Gifting that feels personal"), eyebrow: AppLocalization.text("social_coffee_gifting_eyebrow", fallback: "SEND WITH INTENTION"), icon: "gift") {
             Text(AppLocalization.text("social_coffee_gifting_detail", fallback: "Send a coffee by link or WhatsApp, gift beans or a brew kit, or leave a suspended coffee for whoever needs a good moment."))
                 .font(.subheadline).foregroundStyle(secondary)
-            HStack(spacing: 10) {
-                flowButton("Send by link", systemImage: "link", flow: .sendCoffee)
-                Button { presentedFlow = .sendCoffee } label: { flowLabel(AppLocalization.text("social_coffee_whatsapp", fallback: "WhatsApp"), systemImage: "message.fill") }
-            }
-            HStack(spacing: 10) {
-                Button { openGiftShop("coffee-beans") } label: { flowLabel(AppLocalization.text("social_coffee_gift_beans", fallback: "Gift beans"), systemImage: "shippingbox.fill") }
-                    .buttonStyle(.bordered).tint(accent)
-                Button { openGiftShop("coffee-equipment") } label: { flowLabel(AppLocalization.text("social_coffee_gift_kit", fallback: "Gift a brew kit"), systemImage: "cup.and.saucer.fill") }
-                    .buttonStyle(.bordered).tint(accent)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                giftingAction("Send by link", systemImage: "link", highlighted: true) { presentedFlow = .sendCoffee }
+                giftingAction(AppLocalization.text("social_coffee_whatsapp", fallback: "WhatsApp"), systemImage: "message.fill") { presentedFlow = .sendCoffee }
+                giftingAction(AppLocalization.text("social_coffee_gift_beans", fallback: "Gift beans"), systemImage: "shippingbox.fill") { openGiftShop("coffee-beans") }
+                giftingAction(AppLocalization.text("social_coffee_gift_kit", fallback: "Gift a brew kit"), systemImage: "cup.and.saucer.fill") { openGiftShop("coffee-equipment") }
             }
             Button { presentedFlow = .suspendedCoffee } label: {
                 HStack { Image(systemName: "cup.and.saucer.fill"); Text(AppLocalization.text("social_coffee_suspended", fallback: "Leave a suspended coffee")); Spacer(); Image(systemName: "chevron.right").font(.caption.weight(.bold)) }
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(accent)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(primary)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .background(background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }.buttonStyle(.plain)
         }
+    }
+
+    private func giftingAction(_ title: String, systemImage: String, highlighted: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 7) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(highlighted ? Color.white : accent)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(highlighted ? Color.white : primary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: giftingTileHeight)
+            .background(highlighted ? accent : background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func openGiftShop(_ category: String) {
@@ -282,14 +303,35 @@ struct SocialCoffeeView: View {
                     }
                 }
                 if !wishListProducts.isEmpty {
-                    HStack {
-                        Picker("Add from Talla catalog", selection: $selectedWishProductID) {
-                            Text("Choose a product").tag("")
-                            ForEach(wishListProducts) { product in Text(product.name).tag(product.id) }
+                    HStack(spacing: 12) {
+                        Menu {
+                            ForEach(wishListProducts) { product in
+                                Button(product.name) { selectedWishProductID = product.id }
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(wishListProducts.first(where: { $0.id == selectedWishProductID })?.name ?? "Choose a product")
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 12)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
-                        Button { addWishListProduct() } label: { Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(accent) }
-                            .disabled(selectedWishProductID.isEmpty)
-                            .accessibilityLabel("Add selected product to wish list")
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Add from Talla catalog")
+                        Button { addWishListProduct() } label: {
+                            Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(accent)
+                                .frame(width: 44, height: 44)
+                        }
+                        .disabled(selectedWishProductID.isEmpty)
+                        .accessibilityLabel("Add selected product to wish list")
                     }
                 }
                 HStack {

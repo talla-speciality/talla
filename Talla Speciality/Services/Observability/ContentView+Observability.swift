@@ -78,32 +78,43 @@ extension ContentView {
             )
             isCheckoutPresented = scenario == "checkout" || scenario == "arabic"
             if scenario == "layout" {
-                // UI tests and launch shortcuts must start from a deterministic tab,
-                // regardless of the tab persisted by a previous app session.
-                activeTab = .home
+                // Apply navigation after the tab hierarchy mounts so persisted state
+                // cannot win the initial selection race.
                 DispatchQueue.main.async {
+                    activeTab = .home
                     tabScrollTarget = .home
                 }
             }
             if scenario == "coffee-club-intro" {
-                activeTab = .shop
                 let settingsJSON = #"{"announcement":{"enabled":false,"title":"","message":"","actionLabel":"","actionURL":""},"support":{"whatsappURL":"","privacyURL":"","termsURL":""},"homeSections":{"showQuickDrinks":true,"showFunPick":true,"showSignatureRoasts":true,"showPassport":true},"coffeeClub":{"enabled":true,"shipmentCount":3,"intervalWeeks":4,"discountPercent":10}}"#
                 remoteAppSettings = try? JSONDecoder().decode(AppSettings.self, from: Data(settingsJSON.utf8))
+                DispatchQueue.main.async {
+                    activeTab = .shop
+                }
             }
         case "account-deletion":
-            activeTab = .more
             customerProfile = ShopifyCustomerProfile(
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
-            selectedSettingsDetail = .deleteAccount
+            DispatchQueue.main.async {
+                activeTab = .more
+                isAccountPresentedFromMore = true
+            }
         case "account-orders-replay":
-            activeTab = .more
             customerProfile = ShopifyCustomerProfile(
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
-            accountOrdersPresentationRequest = 1
+            DispatchQueue.main.async {
+                activeTab = .more
+                isAccountPresentedFromMore = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                accountOrdersPresentationRequest = 1
+            }
         case "offline-recovery", "bluetooth-interruption":
-            activeTab = .brewing
+            DispatchQueue.main.async {
+                activeTab = .brewing
+            }
         default:
             break
         }

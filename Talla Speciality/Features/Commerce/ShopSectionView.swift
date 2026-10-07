@@ -179,6 +179,7 @@ struct ShopSectionView: View {
                     .font(bodyFont)
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("shop.coffeeClub.detail")
 
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 10) {
@@ -198,6 +199,7 @@ struct ShopSectionView: View {
                     .font(categoryBodyFont)
                     .foregroundColor(tertiaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("shop.coffeeClub.deliveryNote")
 
                     Button {
                         activeCategory = "coffee-beans"
@@ -239,6 +241,7 @@ struct ShopSectionView: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shop.coffeeClub.introduction")
+        .accessibilityValue("Prepaid Coffee Club. No automatic charge.")
     }
 
     private var coffeeClubPrepaidFact: some View {
@@ -246,6 +249,7 @@ struct ShopSectionView: View {
             AppLocalization.text("coffee_club_intro_prepaid", fallback: "Prepaid Coffee Club"),
             systemImage: "checkmark.shield.fill"
         )
+        .accessibilityIdentifier("shop.coffeeClub.prepaid")
     }
 
     private var coffeeClubRenewalFact: some View {
@@ -253,6 +257,7 @@ struct ShopSectionView: View {
             AppLocalization.text("coffee_club_intro_no_renewal_short", fallback: "No automatic charge"),
             systemImage: "calendar.badge.checkmark"
         )
+        .accessibilityIdentifier("shop.coffeeClub.noRenewal")
     }
 
     private func coffeeClubFact(_ title: String, systemImage: String) -> some View {

@@ -286,6 +286,7 @@ extension ContentView {
                 ) {
                     selectedSettingsDetail = .deleteAccount
                 }
+                .accessibilityIdentifier("account.navigation.deleteAccount")
             }
             .background(cardFillColor)
             .overlay(

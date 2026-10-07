@@ -186,16 +186,32 @@ struct CoffeeEducationView: View {
         VStack(alignment: .leading, spacing: 16) {
             sectionTitle("Explore the flavour wheel")
             Text("Tap a family to see the notes you may find in your cup.").foregroundStyle(.secondary)
-            ZStack {
-                Circle().fill(Color(hex: 0xF3E7D6)).frame(width: 220, height: 220)
-                Circle().stroke(Color(hex: 0xD19A5A).opacity(0.30), lineWidth: 1).frame(width: 148, height: 148)
-                Circle().fill(Color(hex: 0xD19A5A).opacity(0.22)).frame(width: 94, height: 94)
-                Text(selectedFamily).font(.headline).foregroundStyle(Color(hex: 0x24180E)).multilineTextAlignment(.center).frame(width: 78)
-                ForEach(Array(families.enumerated()), id: \.element.name) { index, family in
-                    let angle = Angle.degrees(Double(index) * 60 - 90)
-                    Button { withAnimation { selectedFamily = family.name } } label: { Text(family.name).font(.caption.bold()).foregroundStyle(selectedFamily == family.name ? Color.white : Color(hex: 0x5D371D)).padding(.horizontal, 10).padding(.vertical, 8).background(selectedFamily == family.name ? Color(hex: 0xB87838) : Color.white.opacity(0.75), in: Capsule()).overlay(Capsule().stroke(Color(hex: 0xD19A5A).opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1)) }.buttonStyle(.plain).offset(x: CGFloat(cos(angle.radians)) * 135, y: CGFloat(sin(angle.radians)) * 135)
+            GeometryReader { geometry in
+                let diameter = min(220, max(150, geometry.size.width - 110))
+                let labelRadius = diameter / 2 + 25
+                ZStack {
+                    Circle().fill(Color(hex: 0xF3E7D6)).frame(width: diameter, height: diameter)
+                    Circle().stroke(Color(hex: 0xD19A5A).opacity(0.30), lineWidth: 1).frame(width: diameter * 0.67, height: diameter * 0.67)
+                    Circle().fill(Color(hex: 0xD19A5A).opacity(0.22)).frame(width: diameter * 0.43, height: diameter * 0.43)
+                    Text(selectedFamily).font(.headline).foregroundStyle(Color(hex: 0x24180E)).multilineTextAlignment(.center).frame(width: 78)
+                    ForEach(Array(families.enumerated()), id: \.element.name) { index, family in
+                        let angle = Angle.degrees(Double(index) * 60 - 90)
+                        Button { withAnimation { selectedFamily = family.name } } label: {
+                            Text(family.name)
+                                .font(.caption.bold())
+                                .foregroundStyle(selectedFamily == family.name ? Color.white : Color(hex: 0x5D371D))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(selectedFamily == family.name ? Color(hex: 0xB87838) : Color.white.opacity(0.75), in: Capsule())
+                                .overlay(Capsule().stroke(Color(hex: 0xD19A5A).opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .offset(x: CGFloat(cos(angle.radians)) * labelRadius, y: CGFloat(sin(angle.radians)) * labelRadius)
+                    }
                 }
-            }.frame(maxWidth: .infinity).padding(.vertical, 18)
+                .frame(width: geometry.size.width, height: 330)
+            }
+            .frame(height: 330)
             if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description).foregroundStyle(Color(hex: 0x4A2A16)); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).foregroundStyle(Color(hex: 0x5D371D)).padding(.horizontal, 10).padding(.vertical, 7).background(Color(hex: 0xE8CDAA).opacity(0.55), in: Capsule()) } } }.padding(16).background(Color(hex: 0xFFF8EF), in: RoundedRectangle(cornerRadius: 18, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0xD19A5A).opacity(0.18), lineWidth: 1)) }
             }
     }

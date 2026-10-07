@@ -178,6 +178,9 @@ extension ContentView {
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
+#if DEBUG
+            guard ProcessInfo.processInfo.environment["TALLA_UI_TEST_SCENARIO"] == nil else { return }
+#endif
             synchronizeBrewTimerWithClock()
             Task {
                 let restoredCredential = restoreSyncedCustomerCredential()
@@ -881,6 +884,7 @@ extension ContentView {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("more.account")
             }
 
             Text("More from Talla")

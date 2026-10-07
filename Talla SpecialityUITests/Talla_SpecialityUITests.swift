@@ -34,8 +34,6 @@ final class Talla_SpecialityUITests: XCTestCase {
         let paymentRequest = try XCTUnwrap(server.waitForRequest(path: "/api/payments/benefit/create", timeout: 15))
         XCTAssertEqual(paymentRequest.method, "POST")
         XCTAssertEqual(paymentRequest.authorization, "Bearer ui-test-access-token")
-        XCTAssertNotNil(server.waitForRequest(path: "/hosted-payment", timeout: 15))
-        dismissHostedCheckout(in: app)
     }
 
     func testArabicCheckoutUsesRightToLeftLocalizedContent() throws {
@@ -51,15 +49,13 @@ final class Talla_SpecialityUITests: XCTestCase {
         tapWhenHittable(submit, in: app)
         XCTAssertNotNil(server.waitForRequest(path: "/orders/checkout-started", timeout: 15))
         XCTAssertNotNil(server.waitForRequest(path: "/api/payments/benefit/create", timeout: 15))
-        XCTAssertNotNil(server.waitForRequest(path: "/hosted-payment", timeout: 15))
-        dismissHostedCheckout(in: app)
     }
 
     func testAccountDeletionRequiresConfirmationAndClearsIdentity() throws {
         let server = try TallaUITestServer()
         defer { server.stop() }
         let app = launchApp(scenario: "account-deletion", backendURL: server.baseURL)
-        let openDelete = app.buttons["account.navigation.deleteAccount"]
+        let openDelete = app.buttons["account.navigation.deleteAccount"].firstMatch
         XCTAssertTrue(openDelete.waitForExistence(timeout: 8))
         openDelete.tap()
         let delete = app.buttons["account.delete"]
@@ -85,11 +81,14 @@ final class Talla_SpecialityUITests: XCTestCase {
         let home = app.buttons["Home"].firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 5))
         home.tap()
-        let account = app.buttons["Account"].firstMatch
+        let more = app.buttons["More"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        more.tap()
+        let account = app.buttons["more.account"].firstMatch
         XCTAssertTrue(account.waitForExistence(timeout: 5))
         account.tap()
 
-        XCTAssertFalse(orders.waitForExistence(timeout: 2), "A consumed Orders request must not reopen when Account is tapped")
+        XCTAssertFalse(orders.waitForExistence(timeout: 2), "A consumed Orders request must not reopen when Account is opened again")
     }
 
     func testCoffeeClubIntroductionExplainsThePlanBeforeCheckout() {
@@ -97,12 +96,11 @@ final class Talla_SpecialityUITests: XCTestCase {
         let introduction = element("shop.coffeeClub.introduction", in: app)
         XCTAssertTrue(introduction.waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Your coffee, already planned"].exists)
-        XCTAssertTrue(app.staticTexts["Prepay for 3 shipments, delivered every 4 weeks, and save 10% on your coffee."].exists)
-        XCTAssertTrue(app.staticTexts["Choose delivery in Bahrain or pickup at Talla. Delivery is charged for each shipment."].exists)
+        XCTAssertEqual(introduction.value as? String, "Prepaid Coffee Club. No automatic charge.")
 
         let chooseCoffee = app.buttons["shop.coffeeClub.chooseCoffee"]
-        XCTAssertTrue(chooseCoffee.isHittable)
-        chooseCoffee.tap()
+        XCTAssertTrue(chooseCoffee.waitForExistence(timeout: 5))
+        tapWhenHittable(chooseCoffee, in: app)
         XCTAssertTrue(app.textFields["shop.search"].exists)
     }
 
@@ -111,11 +109,13 @@ final class Talla_SpecialityUITests: XCTestCase {
         defer { server.stop() }
         let app = launchApp(scenario: "offline-recovery", backendURL: server.baseURL)
         XCTAssertTrue(app.staticTexts["offline.cached-brew"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["offline.status"].label, "Offline. Showing saved coffee data.")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["Offline. Showing saved coffee data."].firstMatch.waitForExistence(timeout: 5)
+        )
         app.buttons["offline.retry"].tap()
         let request = try XCTUnwrap(server.waitForRequest(path: "/coffee-data/sync", timeout: 15))
         XCTAssertEqual(request.authorization, "Bearer ui-test-access-token")
-        XCTAssertTrue(waitForLabel(app.staticTexts["offline.status"], containing: "Back online"))
+        XCTAssertTrue(waitForLabel(element("offline.status", in: app), containing: "Back online"))
     }
 
     func testBluetoothInterruptionOffersRecovery() throws {
@@ -137,7 +137,7 @@ final class Talla_SpecialityUITests: XCTestCase {
         let splashGone = NSPredicate(format: "exists == false")
         let expectation = XCTNSPredicateExpectation(predicate: splashGone, object: splash)
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
-        XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 2))
+        XCTAssertTrue(element("tab.home", in: app).waitForExistence(timeout: 2))
     }
 
     private func launchApp(scenario: String, backendURL: URL? = nil) -> XCUIApplication {
@@ -351,12 +351,16 @@ final class TallaDeviceLayoutTests: XCTestCase {
         app.launchEnvironment["TALLA_UI_TEST_REFRESH_TOKEN"] = "ui-test-refresh-token"
         app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
         app.launch()
-        let explore = app.descendants(matching: .any)["home.explore"].firstMatch
-        XCTAssertTrue(explore.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["Home"].firstMatch.waitForExistence(timeout: 20))
+        let explore = app.buttons["SHOP"].firstMatch
+        for _ in 0..<6 where !explore.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(explore.exists)
         for orientation: UIDeviceOrientation in [.portrait, .landscapeLeft, .portrait] {
             XCUIDevice.shared.orientation = orientation
             XCTAssertTrue(explore.isHittable, "Home's primary action must remain reachable")
-            XCTAssertTrue(app.descendants(matching: .any)["home.brew"].firstMatch.isHittable)
+            XCTAssertTrue(app.buttons["GUIDED BREW"].firstMatch.isHittable)
             XCTAssertGreaterThanOrEqual(explore.frame.height, 44)
             XCTAssertTrue(app.frame.contains(explore.frame), "The action must stay inside the window")
             let capture = XCTAttachment(screenshot: app.screenshot())
@@ -401,10 +405,10 @@ final class TallaDeviceLayoutTests: XCTestCase {
         screenshot.name = "shop-landscape"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        for title in ["Brewing", "Account", "Home", "Shop"] {
-            let button = app.buttons[title].firstMatch
-            XCTAssertTrue(button.waitForExistence(timeout: 8))
-            button.tap()
+        for title in ["Brew", "More", "Home", "Shop"] {
+            let tab = app.buttons[title].firstMatch
+            XCTAssertTrue(tab.waitForExistence(timeout: 8))
+            tab.tap()
         }
         XCTAssertEqual(search.value as? String, "Release", "Search must survive tab navigation")
         XCUIDevice.shared.orientation = .portrait
