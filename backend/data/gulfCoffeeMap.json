@@ -4,9 +4,11 @@
     {
       "id": "bhr-seef",
       "name": "Talla Speciality",
-      "city": "Manama",
+      "city": "Riffa",
       "country": "Bahrain",
-      "neighborhood": "Seef",
+      "neighborhood": "Riffa 913",
+      "websiteURL": "https://maps.app.goo.gl/PaaVd6sz66JGk4KS9?g_st=ic",
+      "address": "Villa 336, Street 1307, Riffa 913",
       "categories": ["Cafés", "Roasters", "Work-friendly"],
       "tags": ["pour over", "quiet", "single origin"],
       "offerings": [
