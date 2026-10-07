@@ -523,6 +523,13 @@ private struct GulfCoffeeStoreLogo: View {
                 .scaledToFit()
                 .padding(8)
                 .accessibilityLabel("Not Just Beans logo")
+        } else if spot.id == "hambella-riffa" {
+            Image("HambellaLogo")
+                .resizable()
+                .scaledToFit()
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(7)
+                .accessibilityLabel("Hambella logo")
         } else if let logoURL = spot.logoURL, let url = URL(string: logoURL) {
             AsyncImage(url: url, transaction: Transaction(animation: nil)) { phase in
                 switch phase {
