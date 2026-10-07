@@ -41,18 +41,19 @@ extension ContentView {
 
 enum TallaTheme {
     enum Colors {
-        static let accent = Color(hex: 0xC8965A)
-        static let accentHighlight = Color(hex: 0xE4BC88)
-        static let espresso = Color(hex: 0x20150D)
-        static let warmWhite = Color(hex: 0xFFFDF9)
-        static let readableAccentLight = Color(hex: 0x7A4F25)
-        static let readableAccentDark = Color(hex: 0xD7A76C)
-        static let lightBackground = Color(hex: 0xFFFDF9)
-        static let darkBackground = Color(hex: 0x181411)
-        static let lightSurface = Color(hex: 0xFFFBF6)
-        static let darkSurface = Color(hex: 0x1A1511)
-        static let lightElevatedSurface = Color(hex: 0xFFFCF8)
-        static let darkElevatedSurface = Color(hex: 0x15110E)
+        // Talla website palette: white, near-black, charcoal hover, and coffee gold.
+        static let accent = Color(hex: 0xBC9B6A)
+        static let accentHighlight = Color(hex: 0xD6BB91)
+        static let espresso = Color(hex: 0x151515)
+        static let warmWhite = Color(hex: 0xFFFFFF)
+        static let readableAccentLight = Color(hex: 0xA8834B)
+        static let readableAccentDark = Color(hex: 0xBC9B6A)
+        static let lightBackground = Color(hex: 0xFFFFFF)
+        static let darkBackground = Color(hex: 0x151515)
+        static let lightSurface = Color(hex: 0xFFFFFF)
+        static let darkSurface = Color(hex: 0x202020)
+        static let lightElevatedSurface = Color(hex: 0xF2F2F2)
+        static let darkElevatedSurface = Color(hex: 0x2B2B2B)
     }
 
     enum CornerRadius {
@@ -164,14 +165,14 @@ struct TallaPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(TallaTheme.Fonts.button)
-            .foregroundStyle(Color(hex: 0x20150D))
+            .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)
             .background(
                 LinearGradient(
                     colors: [
-                        TallaTheme.Colors.accent,
-                        colorScheme == .dark ? Color(hex: 0xE0B27B) : Color(hex: 0xD9A468)
+                        TallaTheme.Colors.espresso,
+                        colorScheme == .dark ? Color(hex: 0x3B3B3B) : TallaTheme.Colors.espresso
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -183,7 +184,7 @@ struct TallaPrimaryButtonStyle: ButtonStyle {
             }
             .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
             .shadow(
-                color: TallaTheme.Colors.accent.opacity(configuration.isPressed ? 0.12 : 0.28),
+                color: TallaTheme.Colors.espresso.opacity(configuration.isPressed ? 0.12 : 0.20),
                 radius: configuration.isPressed ? 3 : 9,
                 y: configuration.isPressed ? 1 : 5
             )

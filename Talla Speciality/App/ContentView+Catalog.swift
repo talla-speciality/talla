@@ -245,23 +245,23 @@ extension ContentView {
     var backgroundGradientColors: [Color] {
         if isLightAppearance {
             return [
-                Color(hex: 0xFAF7F1),
-                Color(hex: 0xF4EBDD),
-                Color(hex: 0xECE0D0)
+                Color(hex: 0xFFFFFF),
+                Color(hex: 0xFAFAFA),
+                Color(hex: 0xF2F2F2)
             ]
         }
 
         return isOLEDAppearance
             ? [.black, .black, .black]
             : [
-                Color(hex: 0x080706),
-                Color(hex: 0x12100D),
-                Color(hex: 0x1A1511)
+                Color(hex: 0x151515),
+                Color(hex: 0x202020),
+                Color(hex: 0x2B2B2B)
             ]
     }
 
     var primaryTextColor: Color {
-        isLightAppearance ? Color(hex: 0x20150D) : Color(hex: 0xF5EDE0)
+        isLightAppearance ? Color(hex: 0x151515) : Color(hex: 0xFFFFFF)
     }
 
     var readableBrandGoldColor: Color {
