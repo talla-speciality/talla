@@ -280,7 +280,7 @@ struct ShopSectionView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(accentColor)
 
-            TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search summer boxes, cups, CRMB..."), text: $searchQuery)
+            TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search products"), text: $searchQuery)
                 .font(bodyFont)
                 .foregroundColor(primaryTextColor)
                 .focused($isSearchFocused)

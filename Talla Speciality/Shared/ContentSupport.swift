@@ -42,10 +42,10 @@ extension ContentView {
 enum TallaTheme {
     enum Colors {
         // Talla website palette: white, near-black, charcoal hover, and coffee gold.
-        // The site uses black as its primary action/selection color. Gold remains
-        // reserved for photography, product art, and brand details.
-        static let accent = Color(hex: 0x151515)
-        static let accentHighlight = Color(hex: 0x3B3B3B)
+        // Gold is the shared brand accent; primary actions use the near-black button
+        // style below so text remains legible in both light and dark appearance.
+        static let accent = Color(hex: 0xBC9B6A)
+        static let accentHighlight = Color(hex: 0xA9824E)
         static let espresso = Color(hex: 0x151515)
         static let warmWhite = Color(hex: 0xFFFFFF)
         static let readableAccentLight = Color(hex: 0x151515)
@@ -241,13 +241,17 @@ extension ButtonStyle where Self == TallaSecondaryButtonStyle {
 
 
 extension View {
-    @ViewBuilder
     func tallaGlassCapsule(tint: Color, enabled: Bool = true) -> some View {
-        if #available(iOS 26.0, *) {
-            glassEffect(enabled ? .regular.tint(tint).interactive() : .clear, in: .capsule)
-        } else {
-            background(enabled ? tint : Color.clear, in: Capsule(style: .continuous))
-        }
+        foregroundStyle(enabled ? TallaTheme.Colors.espresso : Color.secondary)
+            .background(
+                enabled ? tint : tint.opacity(0.12),
+                in: Capsule(style: .continuous)
+            )
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(tint.opacity(enabled ? 0.28 : 0.12), lineWidth: 1)
+            }
+            .contentShape(Capsule(style: .continuous))
     }
 
     @ViewBuilder

@@ -875,7 +875,7 @@ extension ContentView {
                     .resizable()
                     .renderingMode(.template)
                     .scaledToFit()
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundStyle(.white)
                     .padding(isSurprisePickExpanded ? 10 : 8)
                     .frame(width: isSurprisePickExpanded ? 40 : 32, height: isSurprisePickExpanded ? 40 : 32)
                     .background(TallaTheme.Colors.accent)

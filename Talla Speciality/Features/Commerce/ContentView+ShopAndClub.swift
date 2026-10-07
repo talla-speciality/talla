@@ -587,7 +587,7 @@ extension ContentView {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundStyle(.white)
                     .frame(width: 34, height: 34)
                     .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
@@ -618,7 +618,7 @@ extension ContentView {
                         Image(systemName: isCoffeeQuizExpanded ? "chevron.up" : "arrow.forward")
                             .font(.system(size: 10, weight: .bold))
                     }
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .background(TallaTheme.Colors.accent)
@@ -682,7 +682,7 @@ extension ContentView {
                 } label: {
                     Text(AppLocalization.text("save_taste_profile", fallback: "Save taste profile"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(TallaTheme.Colors.accent)

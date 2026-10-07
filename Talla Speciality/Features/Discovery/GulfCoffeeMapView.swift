@@ -338,7 +338,7 @@ private struct GulfCoffeeMapView: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(isSelected ? Color(hex: 0x17110B) : secondaryText)
+                .foregroundStyle(isSelected ? Color.white : secondaryText)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 9)
                 .background(isSelected ? TallaTheme.Colors.accent : surface, in: Capsule())

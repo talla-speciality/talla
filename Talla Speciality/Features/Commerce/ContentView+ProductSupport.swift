@@ -104,27 +104,27 @@ extension ContentView {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(product.categoryLabel)
                         .font(labelFont(size: 10, weight: .semibold))
                         .tracking(AppLocalization.letterSpacing(1.4))
                         .textCase(.uppercase)
                         .foregroundColor(tertiaryTextColor)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.75)
-
-                    Spacer(minLength: 2)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if let countryOfOrigin = productCountryOfOrigin(for: product) {
                         Label(countryOfOrigin, systemImage: "globe.europe.africa.fill")
                             .font(labelFont(size: 9, weight: .semibold))
                             .foregroundColor(readableBrandGoldColor)
-                            .lineLimit(1)
+                            .lineLimit(2)
                             .minimumScaleFactor(0.7)
+                            .fixedSize(horizontal: false, vertical: true)
                             .accessibilityLabel("\(AppLocalization.text("country_of_origin", fallback: "Country of origin")): \(countryOfOrigin)")
                     }
                 }
-                .frame(minHeight: 13, alignment: .leading)
+                .frame(minHeight: 42, alignment: .topLeading)
 
                 Text(product.name)
                     .font(titleFont(size: showDescription ? (isCompact ? 16 : 18) : (isCompact ? 18 : 20)))
@@ -192,7 +192,7 @@ extension ContentView {
                             .minimumScaleFactor(0.7)
                     }
                     .frame(maxWidth: .infinity, minHeight: 18)
-                    .foregroundColor(product.isAvailableForSale ? Color(hex: 0x151515) : tertiaryTextColor)
+                    .foregroundStyle(product.isAvailableForSale ? Color.white : tertiaryTextColor)
                     .padding(.horizontal, isCompact ? 10 : 12)
                     .padding(.vertical, 10)
                     .tallaGlassCapsule(tint: TallaTheme.Colors.accent, enabled: product.isAvailableForSale)
@@ -285,7 +285,7 @@ extension ContentView {
                         .textCase(.uppercase)
                         .lineLimit(1)
                         .minimumScaleFactor(0.68)
-                        .foregroundColor(product.isAvailableForSale ? Color(hex: 0x151515) : tertiaryTextColor)
+                        .foregroundStyle(product.isAvailableForSale ? Color.white : tertiaryTextColor)
                         .frame(width: 82)
                         .padding(.vertical, 7)
                         .tallaGlassCapsule(tint: TallaTheme.Colors.accent, enabled: product.isAvailableForSale)
@@ -689,7 +689,7 @@ extension ContentView {
             .font(labelFont(size: 8, weight: .bold))
             .tracking(AppLocalization.letterSpacing(1.2))
             .textCase(.uppercase)
-            .foregroundColor(Color(hex: 0x151515))
+            .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(TallaTheme.Colors.accent)
@@ -912,7 +912,7 @@ extension ContentView {
                             .font(labelFont(size: 11, weight: .bold))
                             .tracking(AppLocalization.letterSpacing(2))
                             .textCase(.uppercase)
-                            .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? Color(hex: 0x151515) : tertiaryTextColor)
+                            .foregroundStyle((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? Color.white : tertiaryTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .tallaGlassCapsule(

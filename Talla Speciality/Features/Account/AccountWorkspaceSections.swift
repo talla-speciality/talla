@@ -72,7 +72,7 @@ struct ProfileManagementSectionView: View {
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .tallaGlassCapsule(tint: accentColor)

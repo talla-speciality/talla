@@ -709,6 +709,7 @@ extension ContentView {
                     }
                     .padding(.top, topScrollPadding(for: tab))
                 }
+                .safeAreaPadding(.top, tab == .home ? 1 : 0)
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: accountScrollTarget) { _, target in
                     guard activeTab == .account, let target else { return }
@@ -971,9 +972,10 @@ extension ContentView {
 
     func bottomScrollPadding(for tab: Tab) -> CGFloat {
         switch tab {
-        case .home: 36
-        case .account: 56
-        default: 28
+        case .home: 120
+        case .account: 120
+        case .more: 96
+        default: 112
         }
     }
 }

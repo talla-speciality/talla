@@ -413,7 +413,7 @@ struct LoyaltySectionView: View {
                     : AppLocalization.text("check_rewards", fallback: "CHECK REWARDS"))
                     .font(Font.custom("AvenirNext-Bold", size: 12))
                     .tracking(AppLocalization.letterSpacing(2.5))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .tallaGlassCapsule(tint: accentColor)
