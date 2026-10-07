@@ -1128,6 +1128,10 @@ struct ServiceErrorResponse: Decodable {
 }
 
 enum ProductCatalogRules {
+    static func shopCategoryKey(for productCategoryKey: String) -> String {
+        productCategoryKey == "drip-bags" ? "coffee-beans" : productCategoryKey
+    }
+
     static func isArabicCoffeeProduct(_ value: String) -> Bool {
         let normalized = value.lowercased()
         let sourceSlug = slug(from: value)

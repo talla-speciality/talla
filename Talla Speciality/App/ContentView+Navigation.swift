@@ -46,7 +46,7 @@ extension ContentView {
     }
 
     func openShop(category: String = "all", searchQuery: String = "") {
-        activeCategory = category
+        activeCategory = ProductCatalogRules.shopCategoryKey(for: category)
         shopSearchQuery = searchQuery
         openTab(.shop)
     }
@@ -262,7 +262,7 @@ extension ContentView {
 
     func appCategoryKey(forCollectionHandle handle: String) -> String {
         switch handle {
-        case "coffee-beans":
+        case "coffee-beans", "drip-bags":
             return "coffee-beans"
         case "arabic-coffee", "arabic-coffee-beans", "northern-coffee":
             return "arabic-coffee-beans"

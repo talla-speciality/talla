@@ -65,7 +65,7 @@ struct CartDrawerView: View {
                 }
                 .padding(24)
                 .frame(maxWidth: min(geometry.size.width - 24, 560))
-                .frame(maxHeight: min(geometry.size.height * 0.82, 720), alignment: .top)
+                .frame(height: min(geometry.size.height * 0.82, 720), alignment: .top)
                 .background(elevatedSurfaceColor)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .shadow(color: Color.black.opacity(0.18), radius: 28, x: 0, y: -8)

@@ -330,7 +330,7 @@ struct BrewingSectionView: View {
     let openArticleAction: (URL) -> Void
     let reorderCoffeeAction: (String) -> Void
     let guidedBrewFinishedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int, UUID?, [CoffeeSampleInput]) -> Void
-    let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int, UUID?, [CoffeeSampleInput]) -> Void
+    let guidedBrewCompletedAction: (ContentView.BrewingMethod?, Double, Double, Double, Int, UUID?, [CoffeeSampleInput], [String], String) -> Void
     let brewTimerSection: AnyView
     let coffeeJournalSection: AnyView
     let loadingView: AnyView

@@ -94,7 +94,7 @@ extension ContentView {
                     )
                 }
             },
-            guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, purchasedCoffeeID, samples in
+            guidedBrewCompletedAction: { method, coffeeAmount, ratio, waterAmount, brewTime, purchasedCoffeeID, samples, feedbackTags, feedbackNotes in
                 prepareJournalEntryFromGuidedBrew(
                     method: method,
                     coffeeAmount: coffeeAmount,
@@ -102,7 +102,9 @@ extension ContentView {
                     waterAmount: waterAmount,
                     brewTime: brewTime,
                     purchasedCoffeeID: purchasedCoffeeID,
-                    samples: samples
+                    samples: samples,
+                    feedbackTags: feedbackTags,
+                    feedbackNotes: feedbackNotes
                 )
             },
             brewTimerSection: AnyView(brewTimerSection),
@@ -128,7 +130,7 @@ extension ContentView {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "timer")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(width: 38, height: 38)
                     .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
@@ -212,7 +214,7 @@ extension ContentView {
                 } label: {
                     Label(brewTimerPrimaryActionTitle, systemImage: isBrewTimerRunning ? "pause.fill" : "play.fill")
                         .font(labelFont(size: 11, weight: .bold))
-                        .foregroundColor(Color(hex: 0x0A0804))
+                        .foregroundColor(Color(hex: 0x151515))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(TallaTheme.Colors.accent)
@@ -332,7 +334,7 @@ extension ContentView {
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(TallaTheme.Colors.accent)
@@ -425,7 +427,7 @@ extension ContentView {
                 .font(labelFont(size: 10, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                .foregroundColor(isSelected ? Color(hex: 0x151515) : primaryTextColor)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -717,6 +719,7 @@ extension ContentView {
             durationSeconds: entry.brewTimeSeconds,
             rating: entry.rating,
             notes: entry.notes,
+            feedbackTags: pendingBrewFeedbackTags,
             purchasedCoffeeID: selectedJournalCoffeeID,
             ownerID: customerProfile?.email.lowercased(),
             samples: pendingBrewSamples
@@ -749,6 +752,7 @@ extension ContentView {
         journalTitleInput = ""
         pendingBrewHealthID = nil
         selectedJournalCoffeeID = nil
+        pendingBrewFeedbackTags = []
         journalNotesInput = ""
         clearJournalBrewDetails()
         showToast(message: AppLocalization.text("journal_saved_toast", fallback: "Coffee note saved"))
@@ -779,7 +783,7 @@ extension ContentView {
         }
     }
 
-    func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int, purchasedCoffeeID: UUID?, samples: [CoffeeSampleInput]) {
+    func prepareJournalEntryFromGuidedBrew(method: BrewingMethod?, coffeeAmount: Double, ratio: Double, waterAmount: Double, brewTime: Int, purchasedCoffeeID: UUID?, samples: [CoffeeSampleInput], feedbackTags: [String] = [], feedbackNotes: String = "") {
         let methodName = method?.name ?? (activeBrewingCategory == "All" ? selectedBrewTimerName : activeBrewingCategory)
         let recipeName = methodName.isEmpty ? defaultBrewRecipeName() : methodName
 
@@ -791,7 +795,8 @@ extension ContentView {
         journalBrewTimeSeconds = brewTime
         selectedJournalCoffeeID = purchasedCoffeeID
         pendingBrewSamples = samples
-        journalNotesInput = ""
+        pendingBrewFeedbackTags = feedbackTags
+        journalNotesInput = feedbackNotes
         brewRecipeName = recipeName
         showToast(message: AppLocalization.text("guided_brew_journal_ready", fallback: "Journal entry prepared"))
     }

@@ -512,6 +512,7 @@ extension ContentView {
         .buttonStyle(.plain)
         .padding(.horizontal, 18)
         .padding(.bottom, 18)
+        .accessibilityIdentifier("home.more")
         .accessibilityValue(isHomeMoreExpanded
             ? AppLocalization.text("expanded", fallback: "Expanded")
             : AppLocalization.text("collapsed", fallback: "Collapsed"))
@@ -799,7 +800,7 @@ extension ContentView {
                 .font(labelFont(size: 9, weight: .bold))
                 .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
                 .textCase(.uppercase)
-                .foregroundColor(Color(hex: 0x0A0804))
+                .foregroundColor(Color(hex: 0x151515))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
                 .frame(maxWidth: .infinity)
@@ -845,7 +846,7 @@ extension ContentView {
         .background(
             LinearGradient(
                 colors: isLightAppearance
-                    ? [Color(hex: 0xFFF8EF), Color(hex: 0xF0DEC5)]
+                    ? [Color(hex: 0xF2F2F2), Color(hex: 0xF0DEC5)]
                     : (isOLEDAppearance
                         ? [.black, .black]
                         : [Color(hex: 0x21170F), Color(hex: 0x120D08)]),
@@ -874,7 +875,7 @@ extension ContentView {
                     .resizable()
                     .renderingMode(.template)
                     .scaledToFit()
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .padding(isSurprisePickExpanded ? 10 : 8)
                     .frame(width: isSurprisePickExpanded ? 40 : 32, height: isSurprisePickExpanded ? 40 : 32)
                     .background(TallaTheme.Colors.accent)
@@ -923,7 +924,7 @@ extension ContentView {
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x0A0804))
+                        .foregroundColor(Color(hex: 0x151515))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .padding(.horizontal, 12)
@@ -971,7 +972,7 @@ extension ContentView {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .foregroundColor(Color(hex: 0x0A0804))
+                        .foregroundColor(Color(hex: 0x151515))
                         .padding(24)
                         .frame(width: 104, height: 104)
                         .background(TallaTheme.Colors.accent)
@@ -1020,7 +1021,7 @@ extension ContentView {
                             .font(labelFont(size: 8, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0x0A0804))
+                            .foregroundColor(Color(hex: 0x151515))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .background(TallaTheme.Colors.accent.opacity(0.9))
@@ -1057,7 +1058,7 @@ extension ContentView {
                 } label: {
                     Label(AppLocalization.text("add_pick_to_bag", fallback: "Add"), systemImage: "bag.badge.plus")
                         .font(labelFont(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: 0x0A0804))
+                        .foregroundColor(Color(hex: 0x151515))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity)
@@ -1243,7 +1244,7 @@ extension ContentView {
                     } label: {
                         Image(systemName: "books.vertical.fill")
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(Color(hex: 0x0A0804))
+                            .foregroundColor(Color(hex: 0x151515))
                             .frame(width: 38, height: 38)
                             .background(TallaTheme.Colors.accent)
                             .clipShape(Circle())
@@ -1488,7 +1489,7 @@ extension ContentView {
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(TallaTheme.Colors.accent)
@@ -1554,7 +1555,7 @@ extension ContentView {
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 11)
                     .tallaGlassCapsule(tint: TallaTheme.Colors.accent)
@@ -1633,7 +1634,7 @@ extension ContentView {
             } label: {
                 Image(systemName: recommended.hasVariantChoices ? "slider.horizontal.3" : "plus")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(width: 38, height: 38)
                     .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
@@ -1707,7 +1708,7 @@ extension ContentView {
             HStack(spacing: 10) {
                 Image(systemName: "books.vertical.fill")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(width: 38, height: 38)
                     .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
@@ -1895,7 +1896,7 @@ extension ContentView {
                 .fill(TallaTheme.Colors.accent)
 
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color(hex: 0x0A0804))
+                .fill(Color(hex: 0x151515))
                 .frame(width: 16, height: 20)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -1936,7 +1937,7 @@ extension ContentView {
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
             }
-            .foregroundColor(isStamped ? Color(hex: 0x0A0804) : primaryTextColor)
+            .foregroundColor(isStamped ? Color(hex: 0x151515) : primaryTextColor)
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1951,7 +1952,7 @@ extension ContentView {
                         .font(labelFont(size: 7, weight: .black))
                         .tracking(AppLocalization.letterSpacing(0.8))
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x0A0804))
+                        .foregroundColor(Color(hex: 0x151515))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 4)
                         .background(Color(hex: 0xF7E1B7).opacity(0.9))
@@ -2073,7 +2074,7 @@ extension ContentView {
                                 .font(labelFont(size: 10, weight: .bold))
                                 .tracking(AppLocalization.letterSpacing(1.8))
                                 .textCase(.uppercase)
-                                .foregroundColor(Color(hex: 0x0A0804))
+                                .foregroundColor(Color(hex: 0x151515))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
                                 .background(TallaTheme.Colors.accent)
@@ -2224,8 +2225,9 @@ extension ContentView {
         } label: {
             Text(homeSettingText(remoteHomeSettings?.primaryButtonTitle, arabicValue: remoteHomeSettings?.primaryButtonTitleAR, localizationKey: "explore_coffees", fallback: "SHOP").uppercased())
                 .font(labelFont(size: 11, weight: .bold))
+                .accessibilityIdentifier("home.explore")
                 .tracking(AppLocalization.letterSpacing(2))
-                .foregroundColor(Color(hex: 0x0A0804))
+                .foregroundColor(Color(hex: 0x151515))
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12)
@@ -2241,6 +2243,7 @@ extension ContentView {
         } label: {
             Text(homeSettingText(remoteHomeSettings?.secondaryButtonTitle, arabicValue: remoteHomeSettings?.secondaryButtonTitleAR, localizationKey: "brewing_guide", fallback: "GUIDED BREW").uppercased())
                 .font(labelFont(size: 11, weight: .bold))
+                .accessibilityIdentifier("home.brew")
                 .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)

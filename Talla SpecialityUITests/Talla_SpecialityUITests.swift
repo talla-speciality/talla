@@ -96,7 +96,9 @@ final class Talla_SpecialityUITests: XCTestCase {
         let introduction = element("shop.coffeeClub.introduction", in: app)
         XCTAssertTrue(introduction.waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Your coffee, already planned"].exists)
-        XCTAssertEqual(introduction.value as? String, "Prepaid Coffee Club. No automatic charge.")
+        app.buttons["Talla Coffee Club"].firstMatch.tap()
+        XCTAssertTrue(element("shop.coffeeClub.prepaid", in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(element("shop.coffeeClub.noRenewal", in: app).waitForExistence(timeout: 5))
 
         let chooseCoffee = app.buttons["shop.coffeeClub.chooseCoffee"]
         XCTAssertTrue(chooseCoffee.waitForExistence(timeout: 5))
@@ -352,24 +354,26 @@ final class TallaDeviceLayoutTests: XCTestCase {
         app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
         app.launch()
         XCTAssertTrue(app.buttons["Home"].firstMatch.waitForExistence(timeout: 20))
-        let explore = app.buttons["SHOP"].firstMatch
-        for _ in 0..<6 where !explore.isHittable {
+        let moreFromTalla = app.descendants(matching: .any)["home.more"].firstMatch
+        for _ in 0..<6 where !moreFromTalla.isHittable {
             app.swipeUp()
         }
-        XCTAssertTrue(explore.exists)
+        XCTAssertTrue(moreFromTalla.exists)
         for orientation: UIDeviceOrientation in [.portrait, .landscapeLeft, .portrait] {
             XCUIDevice.shared.orientation = orientation
-            XCTAssertTrue(explore.isHittable, "Home's primary action must remain reachable")
-            XCTAssertTrue(app.buttons["GUIDED BREW"].firstMatch.isHittable)
-            XCTAssertGreaterThanOrEqual(explore.frame.height, 44)
-            XCTAssertTrue(app.frame.contains(explore.frame), "The action must stay inside the window")
+            if !moreFromTalla.isHittable {
+                app.swipeUp()
+            }
+            XCTAssertTrue(moreFromTalla.isHittable, "Home's expandable action must remain reachable")
+            XCTAssertGreaterThanOrEqual(moreFromTalla.frame.height, 44)
+            XCTAssertTrue(app.frame.contains(moreFromTalla.frame), "The action must stay inside the window")
             let capture = XCTAttachment(screenshot: app.screenshot())
             capture.name = "home-\(orientation.rawValue)"
             capture.lifetime = .keepAlways
             add(capture)
         }
-        explore.tap()
-        XCTAssertTrue(app.textFields["shop.search"].waitForExistence(timeout: 8))
+        moreFromTalla.tap()
+        XCTAssertEqual(moreFromTalla.value as? String, "Expanded")
         app.terminate()
     }
 
@@ -414,6 +418,39 @@ final class TallaDeviceLayoutTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         XCTAssertTrue(search.isHittable)
         app.terminate()
+    }
+
+    func testOpeningBagDismissesSearchKeyboardAndKeepsItemsVisible() throws {
+        let server = try TallaUITestServer()
+        defer { server.stop() }
+        let app = XCUIApplication()
+        app.launchEnvironment["TALLA_UI_TEST_SCENARIO"] = "layout"
+        app.launchEnvironment["TALLA_UI_TEST_ACCESS_TOKEN"] = "ui-test-access-token"
+        app.launchEnvironment["TALLA_UI_TEST_REFRESH_TOKEN"] = "ui-test-refresh-token"
+        app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
+        app.launch()
+        let shop = app.buttons["Shop"].firstMatch
+        XCTAssertTrue(shop.waitForExistence(timeout: 8))
+        shop.tap()
+
+        let search = app.textFields["shop.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        search.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 8))
+
+        let openBag = app.buttons["Open bag"].firstMatch
+        XCTAssertTrue(openBag.waitForExistence(timeout: 5))
+        openBag.tap()
+
+        let keyboardDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardDismissed], timeout: 5), .completed)
+        let item = app.staticTexts["Release Test Coffee"].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        XCTAssertTrue(item.isHittable, "Bag items must remain visible above the subtotal")
+        XCTAssertTrue(app.buttons["cart.checkout"].firstMatch.isHittable)
     }
 
     private func verifyCheckout(scenario: String, largeText: Bool) throws {

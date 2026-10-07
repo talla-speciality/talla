@@ -7,7 +7,7 @@ struct ContentCanvasPreview: View {
             HStack(spacing: 10) {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x0A0804))
+                    .foregroundStyle(Color(hex: 0x151515))
                     .frame(width: 40, height: 40)
                     .background(TallaTheme.Colors.accent, in: Circle())
 

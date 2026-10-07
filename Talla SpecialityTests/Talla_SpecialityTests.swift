@@ -359,6 +359,9 @@ struct Talla_SpecialityTests {
 
         #expect(key == "drip-bags")
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Drip Bags")
+        #expect(ProductCatalogRules.shopCategoryKey(for: key) == "coffee-beans")
+        #expect(ProductCatalogRules.shopCategoryKey(for: "coffee-beans") == "coffee-beans")
+        #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: key, requestedPlan: "drip-bags") == "drip-bags")
     }
 
     @Test func appCategoryTagOverridesAutomaticCategory() {
@@ -506,6 +509,33 @@ struct Talla_SpecialityTests {
 
         let kinds = Set(store.legacyObjects(entityType: "sample").compactMap { $0["kind"] as? String })
         #expect(kinds == Set(SampleKind.allCases.map(\.rawValue)))
+    }
+
+    @MainActor @Test func completedBrewPersistsTasteSignalsForBrewCoach() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        let sessionID = UUID()
+
+        try store.recordCompletedBrew(
+            id: sessionID, title: "Ethiopia Natural", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 190, rating: 4, notes: "More sweetness next time",
+            feedbackTags: ["Sweet", "Too acidic"],
+            samples: [
+                CoffeeSampleInput(kind: .weight, elapsedMilliseconds: 0, value: 0, unit: "g"),
+                CoffeeSampleInput(kind: .weight, elapsedMilliseconds: 190_000, value: 318, unit: "g"),
+                CoffeeSampleInput(kind: .flow, elapsedMilliseconds: 190_000, value: 2.4, unit: "g/s")
+            ]
+        )
+
+        let feedback = try #require(store.legacyObjects(entityType: "tasteFeedback").first)
+        #expect(feedback["tags"] as? [String] == ["Sweet", "Too acidic"])
+        #expect(feedback["notes"] as? String == "More sweetness next time")
+
+        let context = store.brewCoachHistoryContext()
+        #expect(context.contains("Ethiopia Natural"))
+        #expect(context.contains("signals: Sweet, Too acidic"))
+        #expect(context.contains("rating 4/5"))
+        #expect(context.contains("curve: final 318.0 g, 2.4 g/s recent flow"))
+        #expect(store.brewCoachFallbackAdjustment() == "Recent brews leaned acidic, so start the next cup slightly finer or with a little more contact time.")
     }
 
     @MainActor @Test func legacyCoffeeJSONMigratesOnce() throws {

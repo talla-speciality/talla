@@ -141,9 +141,9 @@ struct LoyaltyRewardsActionsView: View {
                     ? String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), reward.points)
                     : String(format: AppLocalization.text("beans_remaining_format", fallback: "%d Beans remaining"), remaining))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .foregroundColor(isUnlocked ? Color(hex: 0x0A0804) : accentColor)
+                    .foregroundColor(isUnlocked ? Color(hex: 0x151515) : accentColor)
             }
-            .foregroundColor(isUnlocked ? Color(hex: 0x0A0804) : primaryTextColor)
+            .foregroundColor(isUnlocked ? Color(hex: 0x151515) : primaryTextColor)
             .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
@@ -526,7 +526,7 @@ struct ClubSectionView: View {
         HStack(alignment: .center, spacing: 13) {
             Image(systemName: "cup.and.saucer.fill")
                 .font(.system(size: 19, weight: .semibold))
-                .foregroundColor(Color(hex: 0x24180E))
+                .foregroundColor(Color(hex: 0x151515))
                 .frame(width: 44, height: 44)
                 .background(accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
@@ -573,7 +573,7 @@ struct ClubSectionView: View {
                 Spacer()
                 Image(systemName: "shippingbox.fill")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xD19A5A))
+                    .foregroundColor(Color(hex: 0xBC9B6A))
                     .frame(width: 42, height: 42)
                     .background(Color.white.opacity(0.10), in: Circle())
             }
@@ -594,11 +594,11 @@ struct ClubSectionView: View {
             Button(coffeeClubEnabled ? "EXPLORE COFFEE CLUB" : "LEARN MORE") {
                 selectedClubArea = .coffeeClub
             }
-            .clubPrimaryButton(accent: Color(hex: 0xD19A5A))
+            .clubPrimaryButton(accent: Color(hex: 0xBC9B6A))
         }
         .padding(20)
         .background(
-            LinearGradient(colors: [Color(hex: 0x24180E), Color(hex: 0x56331C)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [Color(hex: 0x151515), Color(hex: 0x56331C)], startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
     }
@@ -860,7 +860,7 @@ struct ClubSectionView: View {
                 .frame(width: 34, height: 34)
                 .background(Color.white.opacity(0.45), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: 0x24180E))
+                Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: 0x151515))
                 Text(detail).font(.system(size: 12)).foregroundColor(Color(hex: 0x4A2A16).opacity(0.78))
             }
             Spacer()
@@ -938,7 +938,7 @@ struct ClubSectionView: View {
                     .foregroundColor(Color(hex: 0xEFD6AF))
                 Spacer()
                 Image(systemName: "shippingbox.fill")
-                    .foregroundColor(Color(hex: 0xD19A5A))
+                    .foregroundColor(Color(hex: 0xBC9B6A))
             }
             Text(coffeeClubEnabled ? "Your coffee,\non repeat." : "Coffee Club\nis coming soon.")
                 .font(.system(size: 32, weight: .bold, design: .serif))
@@ -958,18 +958,18 @@ struct ClubSectionView: View {
             Button("EXPLORE COFFEE CLUB") {
                 selectedClubArea = .coffeeClub
             }
-            .clubPrimaryButton(accent: Color(hex: 0xD19A5A))
+            .clubPrimaryButton(accent: Color(hex: 0xBC9B6A))
         }
         .padding(22)
         .background(
-            LinearGradient(colors: [Color(hex: 0x24180E), Color(hex: 0x4A2A16)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [Color(hex: 0x151515), Color(hex: 0x4A2A16)], startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 25, style: .continuous)
         )
     }
 
     private func coffeeClubStep(number: String, title: String) -> some View {
         VStack(spacing: 5) {
-            Text(number).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(Color(hex: 0xD19A5A))
+            Text(number).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(Color(hex: 0xBC9B6A))
             Text(title).font(.system(size: 8, weight: .bold)).tracking(1.2).foregroundColor(Color.white.opacity(0.72))
         }
         .frame(maxWidth: .infinity)
@@ -992,7 +992,7 @@ struct ClubSectionView: View {
                 .foregroundColor(Color(hex: 0x5D371D))
                 Text("Taste more.\nUnderstand more.")
                     .font(.system(size: 31, weight: .bold, design: .serif))
-                    .foregroundColor(Color(hex: 0x24180E))
+                    .foregroundColor(Color(hex: 0x151515))
                     .multilineTextAlignment(.leading)
                 Text("A guided path from flavour notes to confident brewing.")
                     .font(.system(size: 14))
@@ -1006,7 +1006,7 @@ struct ClubSectionView: View {
             .padding(22)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                LinearGradient(colors: [Color(hex: 0xF5E8D5), Color(hex: 0xE8CDAA)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                LinearGradient(colors: [Color(hex: 0xFFFFFF), Color(hex: 0xE8CDAA)], startPoint: .topLeading, endPoint: .bottomTrailing),
                 in: RoundedRectangle(cornerRadius: 25, style: .continuous)
             )
         }
@@ -1051,21 +1051,21 @@ struct ClubSectionView: View {
             Button(actionTitle, action: action)
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.5)
-                .foregroundColor(Color(hex: 0x24180E))
+                .foregroundColor(Color(hex: 0x151515))
                 .padding(.horizontal, 16)
                 .frame(minHeight: 42)
-                .background(emphasis ? Color(hex: 0xD19A5A) : accentColor, in: Capsule())
+                .background(emphasis ? Color(hex: 0xBC9B6A) : accentColor, in: Capsule())
                 .buttonStyle(.plain)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             emphasis
-                ? AnyShapeStyle(LinearGradient(colors: [Color(hex: 0x24180E), Color(hex: 0x4A2A16)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                ? AnyShapeStyle(LinearGradient(colors: [Color(hex: 0x151515), Color(hex: 0x4A2A16)], startPoint: .topLeading, endPoint: .bottomTrailing))
                 : AnyShapeStyle(cardFillColor),
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(emphasis ? Color(hex: 0xD19A5A).opacity(0.32) : accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(emphasis ? Color(hex: 0xBC9B6A).opacity(0.32) : accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1))
     }
 
     private var coffeeClubDetail: some View {
@@ -1114,7 +1114,7 @@ struct ClubSectionView: View {
                 }
                 .font(.system(size: 12, weight: .bold))
                 .tracking(1.6)
-                .foregroundColor(Color(hex: 0x24180E))
+                .foregroundColor(Color(hex: 0x151515))
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 52)
                 .background(accentColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -1327,7 +1327,7 @@ struct ClubSectionView: View {
             }
             .font(.system(size: 9, weight: .bold))
             .tracking(1.0)
-            .foregroundColor(Color(hex: 0x24180E))
+            .foregroundColor(Color(hex: 0x151515))
             .frame(width: 150)
             .frame(minHeight: 34)
             .background(accentColor, in: Capsule())
@@ -1498,7 +1498,7 @@ private extension View {
         self
             .font(.system(size: 11, weight: .bold))
             .tracking(1.5)
-            .foregroundColor(Color(hex: 0x24180E))
+            .foregroundColor(Color(hex: 0x151515))
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .background(accent, in: Capsule())

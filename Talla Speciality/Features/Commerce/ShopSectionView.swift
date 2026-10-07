@@ -12,6 +12,7 @@ struct ShopSectionView: View {
     let coffeeClubShipmentCount: Int
     let coffeeClubIntervalWeeks: Int
     let coffeeClubDiscountPercent: Int
+    let isCartOpen: Bool
     @Binding var activeCategory: String
     @Binding var searchQuery: String
     @Binding var sortMode: ContentView.ShopSortMode
@@ -107,6 +108,9 @@ struct ShopSectionView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
+        .onChange(of: isCartOpen) { _, open in
+            if open { isSearchFocused = false }
+        }
         .confirmationDialog(
             AppLocalization.text("sort_by", fallback: "Sort by"),
             isPresented: $isSortDialogPresented,
@@ -204,6 +208,7 @@ struct ShopSectionView: View {
                     Button {
                         activeCategory = "coffee-beans"
                         searchQuery = ""
+                        isSearchFocused = false
                         categorySelected()
                     } label: {
                         HStack {
@@ -215,7 +220,7 @@ struct ShopSectionView: View {
                             Image(systemName: "arrow.forward")
                                 .font(.system(size: 12, weight: .bold))
                         }
-                        .foregroundColor(isLightAppearance ? Color(hex: 0x24180E) : .black)
+                        .foregroundColor(isLightAppearance ? Color(hex: 0x151515) : .black)
                         .padding(.horizontal, 15)
                         .frame(minHeight: 48)
                         .background(accentColor, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
@@ -241,7 +246,6 @@ struct ShopSectionView: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shop.coffeeClub.introduction")
-        .accessibilityValue("Prepaid Coffee Club. No automatic charge.")
     }
 
     private var coffeeClubPrepaidFact: some View {
@@ -300,6 +304,19 @@ struct ShopSectionView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(AppLocalization.text("clear_search", fallback: "Clear search"))
             }
+
+            if isSearchFocused {
+                Button {
+                    isSearchFocused = false
+                } label: {
+                    Image(systemName: "keyboard.chevron.compact.down")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Hide keyboard")
+                .accessibilityIdentifier("shop.search.dismissKeyboard")
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -353,6 +370,7 @@ struct ShopSectionView: View {
                     ForEach(items.indices, id: \.self) { index in
                         let item = items[index]
                         Button {
+                            isSearchFocused = false
                             selectQuickSearch(item.query, item.categoryKey)
                         } label: {
                             Text(item.title)
@@ -512,6 +530,7 @@ struct ShopSectionView: View {
                     ForEach(availableCategories) { category in
                         Button {
                             activeCategory = category.key
+                            isSearchFocused = false
                             categorySelected()
                         } label: {
                             if activeCategory == category.key {
@@ -559,6 +578,7 @@ struct ShopSectionView: View {
 
         return Button {
             activeCategory = category.key
+            isSearchFocused = false
             categorySelected()
         } label: {
             HStack(spacing: 7) {
@@ -687,7 +707,7 @@ struct ShopSectionView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)
                     .background(accentColor)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .cornerRadius(2)
             }
             .buttonStyle(.plain)
@@ -715,7 +735,7 @@ struct ShopSectionView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)
                     .background(accentColor)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .cornerRadius(2)
             }
             .buttonStyle(.plain)

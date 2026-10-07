@@ -425,6 +425,7 @@ extension CoffeeDataStore {
         durationSeconds: Int?,
         rating: Int,
         notes: String,
+        feedbackTags: [String] = [],
         purchasedCoffeeID: UUID? = nil,
         ownerID: String? = nil,
         samples: [CoffeeSampleInput] = []
@@ -447,7 +448,9 @@ extension CoffeeDataStore {
             referenceLabel: isReference ? "Best measured brew" : nil,
             ownerID: ownerID
         )
-        let feedback = CoffeeTasteFeedback(id: id, sessionID: id, rating: rating, notes: notes, ownerID: ownerID)
+        let encodedTags = (try? JSONEncoder().encode(feedbackTags))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        let feedback = CoffeeTasteFeedback(id: id, sessionID: id, rating: rating, tagsJSON: encodedTags, notes: notes, ownerID: ownerID)
         container.mainContext.insert(session)
         container.mainContext.insert(feedback)
         try saveEnvelope(entityType: "brewSession", id: id, jsonObject: [
@@ -458,7 +461,7 @@ extension CoffeeDataStore {
             "isReference": isReference, "referenceLabel": session.referenceLabel ?? NSNull()
         ])
         try saveEnvelope(entityType: "tasteFeedback", id: id, jsonObject: [
-            "id": id.uuidString, "sessionID": id.uuidString, "rating": rating, "notes": notes
+            "id": id.uuidString, "sessionID": id.uuidString, "rating": rating, "tags": feedbackTags, "notes": notes
         ])
         var capturedSamples = samples.filter { $0.value.isFinite }
         if let waterGrams, !capturedSamples.contains(where: { $0.kind == .weight }) {
@@ -1170,7 +1173,7 @@ private struct CoffeeLotEditorView: View {
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             }
             .scrollContentBackground(.hidden)
-            .background((colorScheme == .dark ? Color(hex: 0x0A0804) : Color(hex: 0xFBF8F1)).ignoresSafeArea())
+            .background((colorScheme == .dark ? Color(hex: 0x151515) : Color(hex: 0xFBF8F1)).ignoresSafeArea())
             .navigationTitle("Edit bean lot")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1240,6 +1243,67 @@ extension CoffeeDataStore {
             return BrewMeasurementRecommendation(title: "Increase the final pour", detail: "The measured brew finished \(String(format: "%.1f", targetWeight - last.weightGrams)) g below target.", confidence: 0.71)
         }
         return BrewMeasurementRecommendation(title: "Keep the next brew steady", detail: "The measured curve is close to target. Repeat the timing and refine from taste.", confidence: 0.58)
+    }
+
+    /// Compact, user-owned brew history for the on-device Brew Coach.
+    /// Feedback is treated as data by the caller and is never interpreted as instructions.
+    func brewCoachHistoryContext(limit: Int = 8) -> String {
+        let feedbackBySession = Dictionary(uniqueKeysWithValues: legacyObjects(entityType: "tasteFeedback").compactMap { row -> (String, [String: Any])? in
+            guard let sessionID = row["sessionID"] as? String else { return nil }
+            return (sessionID, row)
+        })
+
+        let rows = legacyObjects(entityType: "brewSession").prefix(max(0, limit)).map { row -> String in
+            let id = row["id"] as? String ?? "unknown"
+            let feedback = feedbackBySession[id]
+            let method = row["method"] as? String ?? "Unknown method"
+            let title = row["title"] as? String ?? "Untitled coffee"
+            let dose = (row["coffeeGrams"] as? NSNumber).map { String(format: "%.1f g", $0.doubleValue) } ?? "unknown dose"
+            let water = (row["waterGrams"] as? NSNumber).map { String(format: "%.1f g", $0.doubleValue) } ?? "unknown water"
+            let duration = (row["brewTimeSeconds"] as? NSNumber).map { "\($0.intValue)s" } ?? "unknown time"
+            let rating = (feedback?["rating"] as? NSNumber)?.intValue ?? (row["rating"] as? NSNumber)?.intValue
+            let tags = (feedback?["tags"] as? [String] ?? []).joined(separator: ", ")
+            let notes = feedback?["notes"] as? String ?? row["notes"] as? String ?? ""
+            let measured = UUID(uuidString: id).flatMap { sessionID -> String? in
+                let curve = measuredCurve(for: sessionID)
+                guard let last = curve.last else { return nil }
+                let flowValues = curve.suffix(8).compactMap(\.flowGramsPerSecond)
+                let flow = flowValues.isEmpty ? nil : String(format: "%.1f g/s recent flow", flowValues.reduce(0, +) / Double(flowValues.count))
+                return [String(format: "final %.1f g", last.weightGrams), flow].compactMap { $0 }.joined(separator: ", ")
+            }
+            let taste = [rating.map { "rating \($0)/5" }, tags.isEmpty ? nil : "signals: \(tags)", measured.map { "curve: \($0)" }, notes.isEmpty ? nil : "note: \(notes)"]
+                .compactMap { $0 }
+                .joined(separator: " · ")
+            return "- \(title) · \(method) · dose \(dose) · water \(water) · time \(duration) · \(taste.isEmpty ? "no taste feedback" : taste)"
+        }
+
+        return rows.isEmpty ? "No completed brew history yet." : rows.joined(separator: "\n")
+    }
+
+    /// Offline-safe taste guidance derived from the customer's recent brew feedback.
+    /// This intentionally stays explainable: one dominant signal produces one small adjustment.
+    func brewCoachFallbackAdjustment(limit: Int = 8) -> String? {
+        let recentFeedback = legacyObjects(entityType: "tasteFeedback").prefix(max(0, limit))
+        var counts: [String: Int] = [:]
+        for row in recentFeedback {
+            let tags = row["tags"] as? [String] ?? []
+            for tag in tags {
+                let value = tag.lowercased()
+                if value.contains("sour") || value.contains("acid") { counts["acidic"] = (counts["acidic"] ?? 0) + 1 }
+                if value.contains("bitter") || value.contains("dry") { counts["bitter"] = (counts["bitter"] ?? 0) + 1 }
+                if value.contains("weak") { counts["weak"] = (counts["weak"] ?? 0) + 1 }
+                if value.contains("heavy") { counts["heavy"] = (counts["heavy"] ?? 0) + 1 }
+            }
+        }
+
+        guard let signal = counts.max(by: { $0.value < $1.value }), signal.value > 0 else { return nil }
+        switch signal.key {
+        case "acidic": return "Recent brews leaned acidic, so start the next cup slightly finer or with a little more contact time."
+        case "bitter": return "Recent brews leaned bitter or dry, so start the next cup slightly coarser or a degree cooler."
+        case "weak": return "Recent brews leaned weak, so keep the grind steady and try a slightly stronger ratio."
+        case "heavy": return "Recent brews leaned heavy, so reduce agitation or move to a slightly weaker ratio."
+        default: return nil
+        }
     }
 
     func shareableBrewCard(sessionID: UUID, title: String, method: String, doseGrams: Double?, isReference: Bool = false) -> ShareableBrewCard {

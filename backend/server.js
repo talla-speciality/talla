@@ -300,7 +300,7 @@ function defaultAppSettings() {
             productIDs: [],
             plans: [
                 { id: "beans", enabled: true, group: "home", icon: "shippingbox", titleEN: "Bean deliveries", titleAR: "توصيل حبوب القهوة", detailEN: "3 deliveries · every 4 weeks · 10% off", detailAR: "٣ توصيلات · كل ٤ أسابيع · خصم ١٠٪", categoryKey: "coffee-beans" },
-                { id: "drip-bags", enabled: true, group: "home", icon: "drop", titleEN: "Drip bags", titleAR: "أكياس التقطير", detailEN: "A fresh cup, every week.", detailAR: "قهوة طازجة كل أسبوع.", categoryKey: "drip-bags" },
+                { id: "drip-bags", enabled: true, group: "home", icon: "drop", titleEN: "Drip bags", titleAR: "أكياس التقطير", detailEN: "A fresh cup, every week.", detailAR: "قهوة طازجة كل أسبوع.", categoryKey: "coffee-beans" },
                 { id: "seasonal-box", enabled: true, group: "home", icon: "sparkles", titleEN: "Discovery box", titleAR: "صندوق الاكتشاف", detailEN: "A new seasonal selection.", detailAR: "اختيار موسمي جديد.", categoryKey: "gifts" },
                 { id: "arabic-coffee", enabled: true, group: "home", icon: "flame", titleEN: "Qahwa replenishment", titleAR: "تجديد القهوة العربية", detailEN: "Arabic coffee, ready when you are.", detailAR: "قهوة عربية جاهزة عندما تحتاجها.", categoryKey: "arabic-coffee-beans" },
                 { id: "equipment", enabled: true, group: "home", icon: "wrench.and.screwdriver", titleEN: "Machine care", titleAR: "العناية بالمعدات", detailEN: "Cleaning and descaling essentials.", detailAR: "مستلزمات التنظيف وإزالة الترسبات.", categoryKey: "coffee-equipment" },

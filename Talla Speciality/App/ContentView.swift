@@ -136,6 +136,7 @@ struct ContentView: View {
     @State var journalWaterGrams: Double?
     @State var journalBrewTimeSeconds: Int?
     @State var pendingBrewSamples: [CoffeeSampleInput] = []
+    @State var pendingBrewFeedbackTags: [String] = []
     @State var pendingBrewHealthID: UUID?
     @State var journalRating = 4
     @State var cartSaveName = ""
@@ -289,9 +290,8 @@ struct ContentView: View {
     let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
         ShopCategory(key: "summer-drinks", title: "Summer Boxes", subtitle: "Four seasonal drink boxes", symbol: "shippingbox.fill"),
-        ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Whole bean roasts", symbol: "leaf.fill"),
+        ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Beans & single-serve brews", symbol: "leaf.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
-        ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve brews", symbol: "drop.fill"),
         ShopCategory(key: "cups", title: "Cups", subtitle: "Mugs, tumblers, and drinkware", symbol: "cup.and.saucer.fill"),
         ShopCategory(key: "ready-made-drinks", title: "Drinks", subtitle: "Ready cups and bottled drinks", symbol: "takeoutbag.and.cup.and.straw.fill"),
         ShopCategory(key: "desserts", title: "CRMB", subtitle: "Sweet CRMB picks", symbol: "birthday.cake.fill"),

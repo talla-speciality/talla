@@ -153,14 +153,14 @@ struct CustomerAccountSectionView: View {
                 HStack(spacing: 10) {
                     if isSigningIn || isCreatingAccount || isResettingPassword {
                         ProgressView()
-                            .tint(Color(hex: 0x0A0804))
+                            .tint(Color(hex: 0x151515))
                     }
 
                     Text(primaryActionTitle)
                         .font(Font.custom("AvenirNext-Bold", size: 12))
                         .tracking(AppLocalization.letterSpacing(2.5))
                 }
-                .foregroundColor(Color(hex: 0x0A0804))
+                .foregroundColor(Color(hex: 0x151515))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .tallaGlassCapsule(tint: accentColor)
@@ -283,7 +283,7 @@ struct CustomerAccountSectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 10))
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
-                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : secondaryTextColor)
+                .foregroundColor(isSelected ? Color(hex: 0x151515) : secondaryTextColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(

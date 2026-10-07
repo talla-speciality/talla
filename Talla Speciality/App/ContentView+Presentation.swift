@@ -127,6 +127,12 @@ extension ContentView {
 
             }
         }
+        .onChange(of: cartOpen) { _, open in
+            if open { dismissKeyboard() }
+        }
+        .onChange(of: activeTab) { oldTab, newTab in
+            if oldTab != newTab { dismissKeyboard() }
+        }
     }
 
     var lifecycleContent: some View {

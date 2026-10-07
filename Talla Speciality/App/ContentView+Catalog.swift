@@ -354,7 +354,7 @@ extension ContentView {
     }
 
     var availableCategories: [ShopCategory] {
-        let dynamic = Set(products.map(\.categoryKey))
+        let dynamic = Set(products.map { ProductCatalogRules.shopCategoryKey(for: $0.categoryKey) })
         let ordered = categoryCatalog.filter { $0.key == "all" || dynamic.contains($0.key) }
         let knownKeys = Set(categoryCatalog.map(\.key))
         let extras = dynamic
@@ -494,7 +494,9 @@ extension ContentView {
             let eventProductIDs = Set(event.productIDs)
             categoryFilteredProducts = eligibleProducts.filter { eventProductIDs.contains($0.id) }
         } else {
-            categoryFilteredProducts = eligibleProducts.filter { $0.categoryKey == activeCategory }
+            categoryFilteredProducts = eligibleProducts.filter {
+                ProductCatalogRules.shopCategoryKey(for: $0.categoryKey) == activeCategory
+            }
         }
         let normalizedQuery = shopSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 

@@ -64,7 +64,7 @@ extension ContentView {
             },
             openShopCategoryAction: { category in
                 requestedSubscriptionPlanType = ""
-                activeCategory = category
+                activeCategory = ProductCatalogRules.shopCategoryKey(for: category)
                 shopSearchQuery = ""
                 openTab(.shop)
             },
@@ -72,7 +72,7 @@ extension ContentView {
                 let startPlan = {
                     if cartItems.isEmpty { isGiftOrder = false }
                     requestedSubscriptionPlanType = planType
-                    activeCategory = category
+                    activeCategory = ProductCatalogRules.shopCategoryKey(for: category)
                     shopSearchQuery = ""
                     openTab(.shop)
                 }
@@ -495,6 +495,7 @@ extension ContentView {
             coffeeClubShipmentCount: configuredCoffeeClubShipmentCount,
             coffeeClubIntervalWeeks: configuredCoffeeClubIntervalWeeks,
             coffeeClubDiscountPercent: configuredCoffeeClubDiscountPercent,
+            isCartOpen: cartOpen,
             activeCategory: $activeCategory,
             searchQuery: $shopSearchQuery,
             sortMode: $shopSortMode,
@@ -586,7 +587,7 @@ extension ContentView {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(width: 34, height: 34)
                     .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
@@ -617,7 +618,7 @@ extension ContentView {
                         Image(systemName: isCoffeeQuizExpanded ? "chevron.up" : "arrow.forward")
                             .font(.system(size: 10, weight: .bold))
                     }
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .background(TallaTheme.Colors.accent)
@@ -681,7 +682,7 @@ extension ContentView {
                 } label: {
                     Text(AppLocalization.text("save_taste_profile", fallback: "Save taste profile"))
                         .font(labelFont(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: 0x0A0804))
+                        .foregroundColor(Color(hex: 0x151515))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(TallaTheme.Colors.accent)
@@ -732,7 +733,7 @@ extension ContentView {
                     } label: {
                         Text(option.title)
                             .font(bodyFont(size: 13))
-                            .foregroundColor(selection.wrappedValue == option.id ? Color(hex: 0x0A0804) : primaryTextColor)
+                            .foregroundColor(selection.wrappedValue == option.id ? Color(hex: 0x151515) : primaryTextColor)
                             .lineLimit(1)
                             .minimumScaleFactor(0.78)
                             .frame(maxWidth: .infinity)
@@ -783,7 +784,7 @@ extension ContentView {
                             .font(labelFont(size: 9, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0x0A0804))
+                            .foregroundColor(Color(hex: 0x151515))
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
                             .frame(maxWidth: .infinity)

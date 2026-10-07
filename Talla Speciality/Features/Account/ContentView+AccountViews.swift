@@ -464,7 +464,7 @@ extension ContentView {
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.6))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(TallaTheme.Colors.accent)
@@ -597,7 +597,7 @@ extension ContentView {
                 .font(labelFont(size: 10, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .foregroundColor(isSelected ? Color(hex: 0x0A0804) : primaryTextColor)
+                .foregroundColor(isSelected ? Color(hex: 0x151515) : primaryTextColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(isSelected ? TallaTheme.Colors.accent : cardFillColor)
@@ -657,7 +657,7 @@ extension ContentView {
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(TallaTheme.Colors.accent)
@@ -950,7 +950,7 @@ extension ContentView {
                         HStack(spacing: 9) {
                             if isSavingAddress {
                                 ProgressView()
-                                    .tint(Color(hex: 0x0A0804))
+                                    .tint(Color(hex: 0x151515))
                             }
                             Text(isSavingAddress
                                 ? AppLocalization.text("saving", fallback: "Saving...")
@@ -959,7 +959,7 @@ extension ContentView {
                                 .tracking(AppLocalization.letterSpacing(1.8))
                                 .textCase(.uppercase)
                         }
-                        .foregroundColor(Color(hex: 0x0A0804))
+                        .foregroundColor(Color(hex: 0x151515))
                         .frame(maxWidth: .infinity, minHeight: 52)
                         .background(TallaTheme.Colors.accent)
                         .clipShape(Capsule())
@@ -1118,7 +1118,7 @@ extension ContentView {
                 HStack(spacing: 9) {
                     if isSavingAddress {
                         ProgressView()
-                            .tint(Color(hex: 0x0A0804))
+                            .tint(Color(hex: 0x151515))
                     }
                     Text(isSavingAddress
                         ? AppLocalization.text("saving", fallback: "Saving...")
@@ -1127,7 +1127,7 @@ extension ContentView {
                         .tracking(AppLocalization.letterSpacing(1.8))
                         .textCase(.uppercase)
                 }
-                .foregroundColor(Color(hex: 0x0A0804))
+                .foregroundColor(Color(hex: 0x151515))
                 .frame(maxWidth: .infinity, minHeight: 54)
                 .background(TallaTheme.Colors.accent)
                 .clipShape(Capsule())
@@ -1314,7 +1314,7 @@ extension ContentView {
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(AppLocalization.letterSpacing(1.8))
                                         .textCase(.uppercase)
-                                        .foregroundColor(Color(hex: 0x0A0804))
+                                        .foregroundColor(Color(hex: 0x151515))
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
                                         .background(TallaTheme.Colors.accent)
@@ -1404,7 +1404,7 @@ extension ContentView {
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(AppLocalization.letterSpacing(1.8))
                                         .textCase(.uppercase)
-                                        .foregroundColor(Color(hex: 0x0A0804))
+                                        .foregroundColor(Color(hex: 0x151515))
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
                                         .background(TallaTheme.Colors.accent)
@@ -1534,7 +1534,7 @@ extension ContentView {
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x0A0804))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(TallaTheme.Colors.accent)

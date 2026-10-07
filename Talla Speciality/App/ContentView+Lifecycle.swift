@@ -60,7 +60,7 @@ extension ContentView {
                             : [
                                 Color(hex: 0x100B07),
                                 Color(hex: 0x1A120C),
-                                Color(hex: 0x0A0804)
+                                Color(hex: 0x151515)
                             ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing

@@ -1200,6 +1200,9 @@ extension ContentView {
     }
 
     func categoryDefinition(for key: String) -> ShopCategory {
+        if key == "drip-bags" {
+            return categoryDefinition(for: "coffee-beans")
+        }
         if let event = eventForCategory(key) {
             return ShopCategory(
                 key: key,
