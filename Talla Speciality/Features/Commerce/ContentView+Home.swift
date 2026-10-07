@@ -607,7 +607,7 @@ extension ContentView {
     }
 
     func seasonalEventCard(_ event: EventSettings.SeasonalEvent) -> some View {
-        let accent = eventColor(event.accentHex, fallback: 0xC8965A)
+        let accent = eventColor(event.accentHex, fallback: 0x151515)
         let secondary = eventColor(event.secondaryHex, fallback: 0x2A1D14)
         let targetCategory = seasonalEventCategories.contains(where: { $0.key == eventCategoryKey(event) })
             ? eventCategoryKey(event)

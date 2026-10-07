@@ -1313,12 +1313,23 @@ extension BrewingSectionView {
     var currentCoffeeHistory: [BrewRecipeRecord] {
         let identity = currentCoffeeIdentity
         guard !identity.isEmpty else { return [] }
-        return brewHistoryItems.filter { normalizedCoffeeIdentity($0.title) == identity }
+        return brewHistoryItems.filter {
+            guard normalizedCoffeeIdentity($0.title) == identity else { return false }
+            guard let recipeMethod = $0.methodID, let selectedBrewModeMethodID else { return true }
+            return recipeMethod == selectedBrewModeMethodID
+        }
+    }
+
+    var currentCoffeeMethodCalibrationIdentity: String {
+        let method = selectedBrewModeMethodID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let methodIdentity = method.flatMap { $0.isEmpty ? nil : $0 } ?? "default"
+        return [currentCoffeeIdentity, methodIdentity].joined(separator: "::")
     }
 
     var activeCoffeeCalibration: CoffeeCalibrationRecord? {
         guard !coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return coffeeCalibrationRecords.first { $0.id == currentCoffeeIdentity }
+        return coffeeCalibrationRecords.first { $0.id == currentCoffeeMethodCalibrationIdentity }
+            ?? coffeeCalibrationRecords.first { $0.id == currentCoffeeIdentity }
     }
 
     func persistCoffeeCalibrations(_ records: [CoffeeCalibrationRecord]) {
@@ -1331,8 +1342,8 @@ extension BrewingSectionView {
     func rememberTallaDialInCalibration(from changes: [RecipeRevisionChange]) {
         guard !coffeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         var records = coffeeCalibrationRecords
-        let identity = currentCoffeeIdentity
-        let existing = records.first(where: { $0.id == identity })?.calibration
+        let identity = currentCoffeeMethodCalibrationIdentity
+        let existing = activeCoffeeCalibration?.calibration
         var calibration = existing ?? SmartBrewCalibration(grindMicronOffset: 0, temperatureOffset: 0, pourCountOffset: 0, preferredAgitation: nil, brewCount: 0, lastFeedback: [])
 
         if let grind = changes.first(where: { $0.id == "grind" }) {

@@ -42,12 +42,14 @@ extension ContentView {
 enum TallaTheme {
     enum Colors {
         // Talla website palette: white, near-black, charcoal hover, and coffee gold.
-        static let accent = Color(hex: 0xBC9B6A)
-        static let accentHighlight = Color(hex: 0xD6BB91)
+        // The site uses black as its primary action/selection color. Gold remains
+        // reserved for photography, product art, and brand details.
+        static let accent = Color(hex: 0x151515)
+        static let accentHighlight = Color(hex: 0x3B3B3B)
         static let espresso = Color(hex: 0x151515)
         static let warmWhite = Color(hex: 0xFFFFFF)
-        static let readableAccentLight = Color(hex: 0xA8834B)
-        static let readableAccentDark = Color(hex: 0xBC9B6A)
+        static let readableAccentLight = Color(hex: 0x151515)
+        static let readableAccentDark = Color(hex: 0xFFFFFF)
         static let lightBackground = Color(hex: 0xFFFFFF)
         static let darkBackground = Color(hex: 0x151515)
         static let lightSurface = Color(hex: 0xFFFFFF)

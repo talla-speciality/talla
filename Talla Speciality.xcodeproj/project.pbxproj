@@ -421,13 +421,11 @@
 				FB20000430B0000000000004 /* Embed BenefitPay Framework */,
 				E08D10A72F66FF140092272C /* Resources */,
 				E085886A2FD959E5003B3E9D /* Embed Foundation Extensions */,
-				E09687CD3006F5AA001FBDAD /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				E08588642FD959E5003B3E9D /* PBXTargetDependency */,
-				E09687C83006F5AA001FBDAD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				E08D10AB2F66FF140092272C /* Talla Speciality */,

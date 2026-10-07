@@ -97,7 +97,7 @@ struct CoffeeEducationView: View {
                     Text("COFFEE SCHOOL")
                         .font(.caption.weight(.bold))
                         .tracking(2.4)
-                        .foregroundStyle(Color(hex: 0xBC9B6A))
+                        .foregroundStyle(Color(hex: 0x151515))
                     Text("Learn with Talla")
                         .font(.system(size: 34, weight: .bold, design: .serif))
                         .foregroundStyle(Color(hex: 0x151515))
@@ -105,7 +105,7 @@ struct CoffeeEducationView: View {
                 Spacer()
                 Image(systemName: "book.closed.fill")
                     .font(.title2)
-                    .foregroundStyle(Color(hex: 0xBC9B6A))
+                    .foregroundStyle(Color(hex: 0x151515))
                     .frame(width: 46, height: 46)
                     .background(Color.white.opacity(0.42), in: Circle())
             }
@@ -191,8 +191,8 @@ struct CoffeeEducationView: View {
                 let labelRadius = diameter / 2 + 25
                 ZStack {
                     Circle().fill(Color(hex: 0xF3E7D6)).frame(width: diameter, height: diameter)
-                    Circle().stroke(Color(hex: 0xBC9B6A).opacity(0.30), lineWidth: 1).frame(width: diameter * 0.67, height: diameter * 0.67)
-                    Circle().fill(Color(hex: 0xBC9B6A).opacity(0.22)).frame(width: diameter * 0.43, height: diameter * 0.43)
+                    Circle().stroke(Color(hex: 0x151515).opacity(0.30), lineWidth: 1).frame(width: diameter * 0.67, height: diameter * 0.67)
+                    Circle().fill(Color(hex: 0x151515).opacity(0.22)).frame(width: diameter * 0.43, height: diameter * 0.43)
                     Text(selectedFamily).font(.headline).foregroundStyle(Color(hex: 0x151515)).multilineTextAlignment(.center).frame(width: 78)
                     ForEach(Array(families.enumerated()), id: \.element.name) { index, family in
                         let angle = Angle.degrees(Double(index) * 60 - 90)
@@ -203,7 +203,7 @@ struct CoffeeEducationView: View {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 8)
                                 .background(selectedFamily == family.name ? Color(hex: 0xB87838) : Color.white.opacity(0.75), in: Capsule())
-                                .overlay(Capsule().stroke(Color(hex: 0xBC9B6A).opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1))
+                                .overlay(Capsule().stroke(Color(hex: 0x151515).opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                         .offset(x: CGFloat(cos(angle.radians)) * labelRadius, y: CGFloat(sin(angle.radians)) * labelRadius)
@@ -212,7 +212,7 @@ struct CoffeeEducationView: View {
                 .frame(width: geometry.size.width, height: 330)
             }
             .frame(height: 330)
-            if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description).foregroundStyle(Color(hex: 0x4A2A16)); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).foregroundStyle(Color(hex: 0x5D371D)).padding(.horizontal, 10).padding(.vertical, 7).background(Color(hex: 0xE8CDAA).opacity(0.55), in: Capsule()) } } }.padding(16).background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 18, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0xBC9B6A).opacity(0.18), lineWidth: 1)) }
+            if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description).foregroundStyle(Color(hex: 0x4A2A16)); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).foregroundStyle(Color(hex: 0x5D371D)).padding(.horizontal, 10).padding(.vertical, 7).background(Color(hex: 0xE8CDAA).opacity(0.55), in: Capsule()) } } }.padding(16).background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 18, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0x151515).opacity(0.18), lineWidth: 1)) }
             }
     }
     private var methodsSection: some View {
@@ -224,9 +224,9 @@ struct CoffeeEducationView: View {
                     Button { selectedMethod = method } label: {
                         VStack(alignment: .leading, spacing: 11) {
                             HStack {
-                                Image(systemName: method.icon).font(.title2).foregroundStyle(Color(hex: 0xBC9B6A))
+                                Image(systemName: method.icon).font(.title2).foregroundStyle(Color(hex: 0x151515))
                                 Spacer()
-                                Image(systemName: "arrow.up.right").font(.caption.weight(.bold)).foregroundStyle(Color(hex: 0xBC9B6A).opacity(0.7))
+                                Image(systemName: "arrow.up.right").font(.caption.weight(.bold)).foregroundStyle(Color(hex: 0x151515).opacity(0.7))
                             }
                             Text(method.name).font(.headline).foregroundStyle(Color(hex: 0x151515))
                             Text("\(method.time) · \(method.grind)").font(.caption).foregroundStyle(Color(hex: 0x4A2A16).opacity(0.65))
@@ -234,7 +234,7 @@ struct CoffeeEducationView: View {
                         .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
                         .padding(16)
                         .background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0xBC9B6A).opacity(0.18), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0x151515).opacity(0.18), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -335,7 +335,7 @@ struct CoffeeEducationView: View {
         Text(title).font(.system(.title2, design: .serif, weight: .bold))
     }
 
-    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline).foregroundStyle(Color(hex: 0x151515)); Text(item.1).font(.caption).foregroundStyle(Color(hex: 0x4A2A16).opacity(0.65)) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: 0xBC9B6A).opacity(0.16), lineWidth: 1)) } } } }
+    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline).foregroundStyle(Color(hex: 0x151515)); Text(item.1).font(.caption).foregroundStyle(Color(hex: 0x4A2A16).opacity(0.65)) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: 0x151515).opacity(0.16), lineWidth: 1)) } } } }
 }
 
 private extension View {

@@ -267,7 +267,7 @@ struct LoyaltyTransactionsSectionView: View {
                 ForEach(account.transactions.prefix(4)) { transaction in
                     HStack(alignment: .top, spacing: 12) {
                         Circle()
-                            .fill(Color(hex: transaction.type == "redeem" ? 0x8A5E30 : 0xC8965A))
+                            .fill(Color(hex: transaction.type == "redeem" ? 0x8A5E30 : 0x151515))
                             .frame(width: 8, height: 8)
                             .padding(.top, 6)
 
@@ -573,7 +573,7 @@ struct ClubSectionView: View {
                 Spacer()
                 Image(systemName: "shippingbox.fill")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xBC9B6A))
+                    .foregroundColor(Color(hex: 0x151515))
                     .frame(width: 42, height: 42)
                     .background(Color.white.opacity(0.10), in: Circle())
             }
@@ -594,7 +594,7 @@ struct ClubSectionView: View {
             Button(coffeeClubEnabled ? "EXPLORE COFFEE CLUB" : "LEARN MORE") {
                 selectedClubArea = .coffeeClub
             }
-            .clubPrimaryButton(accent: Color(hex: 0xBC9B6A))
+            .clubPrimaryButton(accent: Color(hex: 0x151515))
         }
         .padding(20)
         .background(
@@ -938,7 +938,7 @@ struct ClubSectionView: View {
                     .foregroundColor(Color(hex: 0xEFD6AF))
                 Spacer()
                 Image(systemName: "shippingbox.fill")
-                    .foregroundColor(Color(hex: 0xBC9B6A))
+                    .foregroundColor(Color(hex: 0x151515))
             }
             Text(coffeeClubEnabled ? "Your coffee,\non repeat." : "Coffee Club\nis coming soon.")
                 .font(.system(size: 32, weight: .bold, design: .serif))
@@ -958,7 +958,7 @@ struct ClubSectionView: View {
             Button("EXPLORE COFFEE CLUB") {
                 selectedClubArea = .coffeeClub
             }
-            .clubPrimaryButton(accent: Color(hex: 0xBC9B6A))
+            .clubPrimaryButton(accent: Color(hex: 0x151515))
         }
         .padding(22)
         .background(
@@ -969,7 +969,7 @@ struct ClubSectionView: View {
 
     private func coffeeClubStep(number: String, title: String) -> some View {
         VStack(spacing: 5) {
-            Text(number).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(Color(hex: 0xBC9B6A))
+            Text(number).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(Color(hex: 0x151515))
             Text(title).font(.system(size: 8, weight: .bold)).tracking(1.2).foregroundColor(Color.white.opacity(0.72))
         }
         .frame(maxWidth: .infinity)
@@ -1054,7 +1054,7 @@ struct ClubSectionView: View {
                 .foregroundColor(Color(hex: 0x151515))
                 .padding(.horizontal, 16)
                 .frame(minHeight: 42)
-                .background(emphasis ? Color(hex: 0xBC9B6A) : accentColor, in: Capsule())
+                .background(emphasis ? Color(hex: 0x151515) : accentColor, in: Capsule())
                 .buttonStyle(.plain)
         }
         .padding(20)
@@ -1065,7 +1065,7 @@ struct ClubSectionView: View {
                 : AnyShapeStyle(cardFillColor),
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(emphasis ? Color(hex: 0xBC9B6A).opacity(0.32) : accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(emphasis ? Color(hex: 0x151515).opacity(0.32) : accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1))
     }
 
     private var coffeeClubDetail: some View {
