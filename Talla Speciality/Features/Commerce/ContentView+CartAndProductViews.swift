@@ -621,7 +621,7 @@ extension ContentView {
                     } label: {
                         Text(isApplyingVoucher ? "…" : AppLocalization.text("apply", fallback: "Apply"))
                             .font(labelFont(size: 11, weight: .bold))
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                             .padding(.horizontal, 16)
                             .frame(minHeight: 48)
                             .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -1016,7 +1016,7 @@ extension ContentView {
                                 : AppLocalization.text("save_address", fallback: "Save address"))
                                 .font(.headline)
                         }
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity, minHeight: 54)
                         .background(TallaTheme.Colors.accent, in: Capsule())
                         .contentShape(Capsule())
@@ -1559,7 +1559,7 @@ extension ContentView {
                         Spacer()
                         Image(systemName: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
                     }
-                    .foregroundStyle(Color(hex: 0x151515))
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 17)
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 13, style: .continuous))

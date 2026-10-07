@@ -52,7 +52,7 @@ extension ContentView {
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(width: 30, height: 30)
                     .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
@@ -95,7 +95,7 @@ extension ContentView {
                 } label: {
                     Image(systemName: isRunningConcierge ? "hourglass" : "arrow.forward")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(width: 38, height: 38)
                         .background(TallaTheme.Colors.accent)
                         .clipShape(Circle())

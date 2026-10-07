@@ -784,7 +784,7 @@ extension ContentView {
                             .font(labelFont(size: 9, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
                             .frame(maxWidth: .infinity)
