@@ -733,7 +733,7 @@ extension ContentView {
                     } label: {
                         Text(option.title)
                             .font(bodyFont(size: 13))
-                            .foregroundColor(selection.wrappedValue == option.id ? Color(hex: 0x151515) : primaryTextColor)
+                            .foregroundColor(selection.wrappedValue == option.id ? Color.white : primaryTextColor)
                             .lineLimit(1)
                             .minimumScaleFactor(0.78)
                             .frame(maxWidth: .infinity)

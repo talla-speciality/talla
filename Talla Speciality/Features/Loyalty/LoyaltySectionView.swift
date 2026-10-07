@@ -118,7 +118,7 @@ struct LoyaltySectionView: View {
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(AppLocalization.letterSpacing(1.4))
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(accentColor)

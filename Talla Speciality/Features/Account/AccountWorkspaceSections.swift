@@ -282,7 +282,7 @@ struct OrderHistorySectionView: View {
                             .font(Font.custom("AvenirNext-Bold", size: 10))
                             .tracking(AppLocalization.letterSpacing(1.5))
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(accentColor)
@@ -572,7 +572,7 @@ struct OrderHistorySectionView: View {
                                     .font(Font.custom("AvenirNext-Bold", size: 10))
                                     .tracking(AppLocalization.letterSpacing(1.5))
                                     .textCase(.uppercase)
-                                    .foregroundColor(Color(hex: 0x151515))
+                                    .foregroundColor(.white)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 10)
                                     .background(accentColor)
@@ -888,7 +888,7 @@ struct OrderHistorySectionView: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "storefront.fill")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(width: 34, height: 34)
                     .background(accentColor)
                     .clipShape(Circle())
@@ -910,7 +910,7 @@ struct OrderHistorySectionView: View {
                     .font(Font.custom("AvenirNext-Bold", size: 10))
                     .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(accentColor)
@@ -944,7 +944,7 @@ struct OrderHistorySectionView: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "heart.text.square.fill")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(width: 32, height: 32)
                     .background(accentColor)
                     .clipShape(Circle())
@@ -1073,7 +1073,7 @@ struct OrderHistorySectionView: View {
                                 if index < currentIndex {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 7, weight: .bold))
-                                        .foregroundColor(Color(hex: 0x151515))
+                                        .foregroundColor(.white)
                                 }
                             }
                             .frame(maxWidth: .infinity)

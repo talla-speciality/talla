@@ -1021,7 +1021,7 @@ extension ContentView {
                             .font(labelFont(size: 8, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1)
                             .textCase(.uppercase)
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .background(TallaTheme.Colors.accent.opacity(0.9))
@@ -1058,7 +1058,7 @@ extension ContentView {
                 } label: {
                     Label(AppLocalization.text("add_pick_to_bag", fallback: "Add"), systemImage: "bag.badge.plus")
                         .font(labelFont(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity)
@@ -1244,7 +1244,7 @@ extension ContentView {
                     } label: {
                         Image(systemName: "books.vertical.fill")
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                             .frame(width: 38, height: 38)
                             .background(TallaTheme.Colors.accent)
                             .clipShape(Circle())

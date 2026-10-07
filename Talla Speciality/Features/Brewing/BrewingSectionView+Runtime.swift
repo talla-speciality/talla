@@ -163,7 +163,7 @@ extension BrewingSectionView {
                         Image(systemName: "arrow.forward")
                             .font(.system(size: 10, weight: .bold))
                     }
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(accentColor)
@@ -1949,7 +1949,7 @@ extension BrewingSectionView {
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(accentColor)

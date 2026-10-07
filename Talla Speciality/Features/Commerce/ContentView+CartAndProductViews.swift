@@ -335,7 +335,7 @@ extension ContentView {
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(TallaTheme.Colors.accent)
@@ -1304,7 +1304,7 @@ extension ContentView {
                 } label: {
                     Text(AppLocalization.text("track_order", fallback: "Track order"))
                         .font(.headline)
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity, minHeight: 52)
                         .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
@@ -1325,7 +1325,7 @@ extension ContentView {
                 } label: {
                     Text(AppLocalization.text("retry_payment", fallback: "Try payment again"))
                         .font(.headline)
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity, minHeight: 52)
                         .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
@@ -1523,7 +1523,7 @@ extension ContentView {
                         .font(.subheadline.weight(.semibold))
                         .monospacedDigit()
                 }
-                .foregroundColor(Color(hex: 0x151515))
+                .foregroundColor(.white)
                 .padding(.horizontal, 17)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
@@ -1854,7 +1854,7 @@ extension ContentView {
                         Text(isApplyingVoucher ? "..." : AppLocalization.text("apply", fallback: "Apply"))
                             .font(labelFont(size: 11, weight: .bold))
                             .tracking(AppLocalization.letterSpacing(1.5))
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
                             .background(TallaTheme.Colors.accent)
@@ -2073,7 +2073,7 @@ extension ContentView {
                         Text(AppLocalization.text("save", fallback: "Save"))
                             .font(labelFont(size: 11, weight: .bold))
                             .tracking(AppLocalization.letterSpacing(1.5))
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
                             .background(TallaTheme.Colors.accent)
@@ -2202,7 +2202,7 @@ extension ContentView {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)
                     .background(TallaTheme.Colors.accent)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .cornerRadius(2)
             }
             .buttonStyle(.plain)
@@ -2234,7 +2234,7 @@ extension ContentView {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)
                     .background(TallaTheme.Colors.accent)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .cornerRadius(2)
             }
             .buttonStyle(.plain)

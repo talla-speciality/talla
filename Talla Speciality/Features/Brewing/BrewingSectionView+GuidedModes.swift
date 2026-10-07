@@ -23,7 +23,7 @@ extension BrewingSectionView {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(width: 38, height: 38)
                     .background(accentColor)
                     .clipShape(Circle())
@@ -191,7 +191,7 @@ extension BrewingSectionView {
                     .textCase(.uppercase)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(accentColor)
@@ -265,7 +265,7 @@ extension BrewingSectionView {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(width: 38, height: 38)
                     .background(accentColor)
                     .clipShape(Circle())
@@ -398,7 +398,7 @@ extension BrewingSectionView {
                     if isSelected {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color(hex: 0x151515))
+                            .foregroundColor(.white)
                     }
                 }
 
@@ -450,7 +450,7 @@ extension BrewingSectionView {
                 } label: {
                     Image(systemName: "play.fill")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(width: 42, height: 42)
                         .background(accentColor)
                         .clipShape(Circle())
@@ -492,7 +492,7 @@ extension BrewingSectionView {
                         HStack(alignment: .top, spacing: 10) {
                             Text("\(index + 1)")
                                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                                .foregroundColor(Color(hex: 0x151515))
+                                .foregroundColor(.white)
                                 .frame(width: 24, height: 24)
                                 .background(accentColor)
                                 .clipShape(Circle())
@@ -598,7 +598,7 @@ extension BrewingSectionView {
                 } label: {
                     Image(systemName: isGeneratingBrewCoachAnswer ? "hourglass" : "arrow.right")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(width: 40, height: 40)
                         .background(accentColor)
                         .clipShape(Circle())

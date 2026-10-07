@@ -707,7 +707,7 @@ struct ShopSectionView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)
                     .background(accentColor)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .cornerRadius(2)
             }
             .buttonStyle(.plain)
@@ -735,7 +735,7 @@ struct ShopSectionView: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 16)
                     .background(accentColor)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .cornerRadius(2)
             }
             .buttonStyle(.plain)

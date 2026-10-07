@@ -526,7 +526,7 @@ struct ClubSectionView: View {
         HStack(alignment: .center, spacing: 13) {
             Image(systemName: "cup.and.saucer.fill")
                 .font(.system(size: 19, weight: .semibold))
-                .foregroundColor(Color(hex: 0x151515))
+                .foregroundColor(.white)
                 .frame(width: 44, height: 44)
                 .background(accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
@@ -573,7 +573,7 @@ struct ClubSectionView: View {
                 Spacer()
                 Image(systemName: "shippingbox.fill")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(width: 42, height: 42)
                     .background(Color.white.opacity(0.10), in: Circle())
             }
@@ -938,7 +938,7 @@ struct ClubSectionView: View {
                     .foregroundColor(Color(hex: 0xEFD6AF))
                 Spacer()
                 Image(systemName: "shippingbox.fill")
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
             }
             Text(coffeeClubEnabled ? "Your coffee,\non repeat." : "Coffee Club\nis coming soon.")
                 .font(.system(size: 32, weight: .bold, design: .serif))
@@ -969,7 +969,7 @@ struct ClubSectionView: View {
 
     private func coffeeClubStep(number: String, title: String) -> some View {
         VStack(spacing: 5) {
-            Text(number).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(Color(hex: 0x151515))
+            Text(number).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(.white)
             Text(title).font(.system(size: 8, weight: .bold)).tracking(1.2).foregroundColor(Color.white.opacity(0.72))
         }
         .frame(maxWidth: .infinity)
@@ -1051,7 +1051,7 @@ struct ClubSectionView: View {
             Button(actionTitle, action: action)
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.5)
-                .foregroundColor(Color(hex: 0x151515))
+                .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .frame(minHeight: 42)
                 .background(emphasis ? Color(hex: 0x151515) : accentColor, in: Capsule())
@@ -1114,7 +1114,7 @@ struct ClubSectionView: View {
                 }
                 .font(.system(size: 12, weight: .bold))
                 .tracking(1.6)
-                .foregroundColor(Color(hex: 0x151515))
+                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 52)
                 .background(accentColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -1327,7 +1327,7 @@ struct ClubSectionView: View {
             }
             .font(.system(size: 9, weight: .bold))
             .tracking(1.0)
-            .foregroundColor(Color(hex: 0x151515))
+            .foregroundColor(.white)
             .frame(width: 150)
             .frame(minHeight: 34)
             .background(accentColor, in: Capsule())
@@ -1498,7 +1498,7 @@ private extension View {
         self
             .font(.system(size: 11, weight: .bold))
             .tracking(1.5)
-            .foregroundColor(Color(hex: 0x151515))
+            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .background(accent, in: Capsule())

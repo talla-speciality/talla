@@ -130,7 +130,7 @@ extension ContentView {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "timer")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(width: 38, height: 38)
                     .background(TallaTheme.Colors.accent)
                     .clipShape(Circle())
@@ -214,7 +214,7 @@ extension ContentView {
                 } label: {
                     Label(brewTimerPrimaryActionTitle, systemImage: isBrewTimerRunning ? "pause.fill" : "play.fill")
                         .font(labelFont(size: 11, weight: .bold))
-                        .foregroundColor(Color(hex: 0x151515))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(TallaTheme.Colors.accent)
@@ -334,7 +334,7 @@ extension ContentView {
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(TallaTheme.Colors.accent)
