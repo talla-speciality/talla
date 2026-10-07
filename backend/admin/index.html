@@ -3418,6 +3418,7 @@
                         <input data-field="country" value="${escapeHTML(place.country || "")}" placeholder="Country or GCC">
                         <input data-field="neighborhood" value="${escapeHTML(place.neighborhood || "")}" placeholder="Neighborhood / type">
                         <input data-field="websiteURL" value="${escapeHTML(place.websiteURL || "")}" placeholder="Website or Google Maps URL">
+                        <input data-field="logoURL" value="${escapeHTML(place.logoURL || "")}" placeholder="Logo image URL (optional)">
                         <input data-field="address" value="${escapeHTML(place.address || "")}" placeholder="Full address">
                         <input data-field="phone" value="${escapeHTML(place.phone || "")}" placeholder="Phone">
                         <input data-field="hours" value="${escapeHTML(place.hours || "")}" placeholder="Opening hours">
@@ -3449,7 +3450,7 @@
         }
 
         function addGulfCoffeePlace() {
-            state.gulfCoffeeDirectory.push({ id: `new-place-${Date.now()}`, name: "", city: "", country: "", neighborhood: "", websiteURL: "", address: "", phone: "", hours: "", verificationStatus: "unverified", categories: [], tags: [], offerings: [] });
+            state.gulfCoffeeDirectory.push({ id: `new-place-${Date.now()}`, name: "", city: "", country: "", neighborhood: "", websiteURL: "", logoURL: "", address: "", phone: "", hours: "", verificationStatus: "unverified", categories: [], tags: [], offerings: [] });
             renderGulfCoffeeMap();
             gulfCoffeeMapEditorEl.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" });
         }
@@ -3459,7 +3460,7 @@
                 const value = (field) => card.querySelector(`[data-field="${field}"]`)?.value.trim() || "";
                 let offerings = [];
                 try { offerings = JSON.parse(value("offerings") || "[]"); } catch (error) { throw new Error(`Invalid offerings JSON for ${value("name") || "listing"}.`); }
-                return { id: value("id"), name: value("name"), city: value("city"), country: value("country"), neighborhood: value("neighborhood"), websiteURL: value("websiteURL"), address: value("address"), phone: value("phone"), hours: value("hours"), verificationStatus: value("verificationStatus") || "unverified", categories: value("categories").split(",").map((item) => item.trim()).filter(Boolean), tags: value("tags").split(",").map((item) => item.trim()).filter(Boolean), offerings };
+                return { id: value("id"), name: value("name"), city: value("city"), country: value("country"), neighborhood: value("neighborhood"), websiteURL: value("websiteURL"), logoURL: value("logoURL"), address: value("address"), phone: value("phone"), hours: value("hours"), verificationStatus: value("verificationStatus") || "unverified", categories: value("categories").split(",").map((item) => item.trim()).filter(Boolean), tags: value("tags").split(",").map((item) => item.trim()).filter(Boolean), offerings };
             });
             if (directory.some((place) => !place.id || !place.name || !place.city || !place.country)) {
                 gulfCoffeeMapStatusEl.textContent = "Each listing needs an ID, name, city, and country.";

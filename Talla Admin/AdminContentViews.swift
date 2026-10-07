@@ -116,6 +116,7 @@ extension AdminContentArea {
             .init("country", "Country or GCC", required: true),
             .init("neighborhood", "Neighborhood / listing type"),
             .init("websiteURL", "Website or map link"),
+            .init("logoURL", "Logo image URL (optional)"),
             .init("address", "Address", .multiline),
             .init("phone", "Phone"),
             .init("hours", "Opening hours", .multiline),
@@ -123,7 +124,7 @@ extension AdminContentArea {
             .init("categories", "Categories", .words),
             .init("tags", "Tags", .words),
             .init("offerings", "Drinks, beans, and workshops JSON", .json)
-        ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New listing"), "city": .string(""), "country": .string(""), "categories": .array([]), "tags": .array([]), "offerings": .array([]), "verificationStatus": .string("unverified")]))]
+        ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New listing"), "city": .string(""), "country": .string(""), "categories": .array([]), "tags": .array([]), "offerings": .array([]), "verificationStatus": .string("unverified"), "logoURL": .string("")]))]
         }
 }
 

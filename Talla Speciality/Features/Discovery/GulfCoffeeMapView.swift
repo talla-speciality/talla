@@ -423,9 +423,7 @@ private struct GulfCoffeeSpotCard: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(spot.tint)
-                        Image(systemName: spot.icon)
-                            .font(.system(size: 26, weight: .medium))
-                            .foregroundStyle(Color(hex: 0x1A120C))
+                        GulfCoffeeStoreLogo(spot: spot)
                     }
                     .frame(width: 58, height: 58)
 
@@ -506,6 +504,47 @@ private struct GulfCoffeeSpotCard: View {
         .padding(16)
         .background(cardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.primary.opacity(0.09)))
+    }
+}
+
+private struct GulfCoffeeStoreLogo: View {
+    let spot: GulfCoffeeSpot
+
+    var body: some View {
+        if spot.id == "bhr-seef" {
+            Image("Logo")
+                .resizable()
+                .scaledToFit()
+                .padding(11)
+                .accessibilityLabel("Talla Speciality logo")
+        } else if let logoURL = spot.logoURL, let url = URL(string: logoURL) {
+            AsyncImage(url: url, transaction: Transaction(animation: nil)) { phase in
+                switch phase {
+                case .success(let image): image.resizable().scaledToFit().padding(10)
+                default: monogram
+                }
+            }
+            .accessibilityLabel("\(spot.name) logo")
+        } else {
+            monogram
+        }
+    }
+
+    private var monogram: some View {
+        VStack(spacing: 2) {
+            Text(spot.brandMonogram)
+                .font(.system(size: spot.brandMonogram.count > 1 ? 19 : 29, weight: .bold, design: .serif))
+                .foregroundStyle(Color(hex: 0x1A120C))
+            if spot.brandMonogram.count > 1 {
+                Text(spot.name.uppercased())
+                    .font(.system(size: 6, weight: .bold, design: .rounded))
+                    .tracking(0.6)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .foregroundStyle(Color(hex: 0x1A120C).opacity(0.72))
+            }
+        }
+        .padding(8)
     }
 }
 
@@ -715,6 +754,7 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
     var hours: String = ""
     var verificationStatus: String = "unverified"
     var externalURL: String? = nil
+    var logoURL: String? = nil
     var latitude: Double {
         switch id { case "bhr-seef": 26.2361; case "hambella-riffa": 26.1300; case "tumma-roast-zinj": 26.2050; case "ksa-riyadh": 24.7136; case "uae-dubai": 25.2048; case "kwt-kuwait": 29.3759; case "qat-doha": 25.2854; default: 23.5880 }
     }
@@ -742,6 +782,15 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
         return isVerifiedForMap ? "Directory listing" : "Pilot listing · admin review"
     }
 
+    var brandMonogram: String {
+        switch id {
+        case "not-just-beans": return "NJB"
+        case "hambella-riffa": return "H"
+        case "tumma-roast-zinj": return "TR"
+        default: return String(name.prefix(1)).uppercased()
+        }
+    }
+
     func applying(remote: GulfCoffeeMapRatingService.RemotePlace?) -> GulfCoffeeSpot {
         guard let remote else { return self }
         return GulfCoffeeSpot(
@@ -764,7 +813,8 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
             phone: remote.phone ?? phone,
             hours: remote.hours ?? hours,
             verificationStatus: remote.verificationStatus ?? verificationStatus,
-            externalURL: remote.websiteURL ?? externalURL
+            externalURL: remote.websiteURL ?? externalURL,
+            logoURL: remote.logoURL ?? logoURL
         )
     }
 
@@ -789,6 +839,7 @@ private enum GulfCoffeeMapRatingService {
         let country: String
         let neighborhood: String
         let websiteURL: String?
+        let logoURL: String?
         let categories: [String]
         let tags: [String]
         let latitude: Double?
