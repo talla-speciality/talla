@@ -64,6 +64,7 @@ function hasPermission(principal, permission) {
 
 function permissionForAdminRequest(method, pathName) {
     if (String(method).toUpperCase() === "GET") return "admin:read";
+    if (/^\/admin\/api\/security(?:\/|$)/.test(pathName)) return "security:write";
     if (/^\/admin\/api\/orders(?:\/|$)/.test(pathName)) return "orders:write";
     if (/^\/admin\/api\/(?:products|events|campaigns|home|passport-settings|app-settings|coffee-memory|community-recipes|espresso-community|gulf-coffee-map|social-coffee)(?:\/|$)/.test(pathName)) return "catalog:write";
     if (/^\/admin\/api\/(?:customer|customers)(?:\/|$)/.test(pathName)) return "customers:write";

@@ -1275,6 +1275,37 @@ module.exports = function createServer(dependencies) {
             return;
         }
 
+        if (request.method === "GET" && url.pathname === "/admin/api/security") {
+            const sessionsByUser = [...adminSessions.values()].reduce((result, session) => {
+                const username = String(session.username || "").toLowerCase();
+                const current = result[username] || { count: 0, latestExpiry: null };
+                current.count += 1;
+                const expiry = new Date(session.expiresAt).toISOString();
+                if (!current.latestExpiry || expiry > current.latestExpiry) current.latestExpiry = expiry;
+                result[username] = current;
+                return result;
+            }, {});
+            sendJSON(response, 200, {
+                users: adminUsers.map((user) => ({ username: user.username, role: user.role, activeSessions: sessionsByUser[user.username]?.count || 0, latestSessionExpiry: sessionsByUser[user.username]?.latestExpiry || null }))
+            }, { "Cache-Control": "no-store" });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/security/revoke-sessions") {
+            try {
+                const body = await readBody(request);
+                const username = String(body.username || "").trim().toLowerCase();
+                if (!username) { sendJSON(response, 400, { error: "Provide an admin username." }); return; }
+                let revoked = 0;
+                for (const [id, session] of adminSessions.entries()) {
+                    if (String(session.username || "").toLowerCase() === username) { adminSessions.delete(id); revoked += 1; }
+                }
+                await createAdminAuditLog({ adminUser: admin.username, action: "admin_sessions_revoked", targetEmail: null, detail: `Revoked ${revoked} sessions for ${username}`, metadata: { username, revoked } });
+                sendJSON(response, 200, { username, revoked });
+            } catch (error) { sendJSON(response, 400, { error: error.message || "Invalid security request." }); }
+            return;
+        }
+
         if (request.method === "GET" && url.pathname === "/admin/api/social-coffee") {
             const store = await socialCoffeeStore.read();
             const profiles = Object.entries(store.customers || {}).map(([email, profile]) => ({ email, ...profile }));
@@ -2834,6 +2865,32 @@ module.exports = function createServer(dependencies) {
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Customer push campaign failed." });
             }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/notifications/push/send-to-customer") {
+            try {
+                const body = await readBody(request);
+                const email = normalizeEmail(body.email);
+                const title = String(body.title || "").trim();
+                const message = String(body.body || "").trim();
+                const deepLinkURL = String(body.url || "").trim();
+                if (!email || !title || !message) { sendJSON(response, 400, { error: "Provide a customer email, title, and message." }); return; }
+                if (title.length > 120 || message.length > 220) { sendJSON(response, 400, { error: "Keep the title under 120 characters and message under 220 characters." }); return; }
+                const devices = await pushDevicesForEmail(email);
+                let sentCount = 0;
+                for (const device of devices) {
+                    if (await sendRemotePushToDevice(device, { title, body: message, type: "customer_direct", url: deepLinkURL || null })) sentCount += 1;
+                }
+                const result = { configured: remotePushConfigured(apnsAdminBundleID) || googleMobileServices.fcmConfigured(), targetCount: devices.length, sentCount };
+                await createAdminAuditLog({ adminUser: admin.username, action: "customer_direct_push_sent", targetEmail: email, detail: `Sent direct push to ${sentCount}/${devices.length} devices`, metadata: { title, url: deepLinkURL || null, ...result } });
+                sendJSON(response, 200, result);
+            } catch (error) { sendJSON(response, 400, { error: error.message || "Customer push failed." }); }
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/notifications/history") {
+            sendJSON(response, 200, { notifications: (await recentAdminAuditLogs(30)).filter((entry) => ["customer_push_sent", "customer_direct_push_sent", "eid_push_sent"].includes(entry.action)) });
             return;
         }
 

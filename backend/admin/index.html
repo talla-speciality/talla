@@ -999,6 +999,12 @@
                 <button id="send-customer-push" class="secondary">Send To All Devices</button>
                 <div class="muted">Only devices registered through APNs or Firebase Cloud Messaging can receive this.</div>
             </div>
+            <div class="grid" style="margin-top:14px;">
+                <input id="target-push-email" type="email" placeholder="Target one customer by email">
+                <button id="send-targeted-push" class="secondary">Send To Customer</button>
+            </div>
+            <div class="toolbar-row" style="padding-top:14px;"><button id="refresh-notification-history" class="secondary">Refresh Notification History</button></div>
+            <div id="notification-history" class="list" style="margin-top:10px;">No notification history loaded.</div>
         </section>
 
         <details id="operations-section" class="panel" data-admin-section="operations health delivery inventory" style="margin-bottom: 20px;">
@@ -1027,6 +1033,19 @@
                 <div class="subcopy" style="margin-bottom: 14px;">See what customers loved or disliked after delivery, including the flavour tags they picked.</div>
                 <div id="taste-memory" class="empty">Loading taste memory...</div>
             </div>
+        </details>
+
+        <details id="coffee-memory-section" class="panel" data-admin-section="coffee memory imports records brews sync" style="margin-bottom: 20px;">
+            <summary class="panel-summary"><h2>Coffee Memory Operations</h2></summary>
+            <div class="panel-body">
+                <div id="coffee-memory-summary" class="empty">Loading Coffee Memory…</div>
+                <div class="grid" style="margin-top:12px;"><input id="coffee-memory-email" type="email" placeholder="Customer email for re-import"><button id="reimport-coffee-memory" class="secondary">Re-import Shopify Purchases</button></div>
+            </div>
+        </details>
+
+        <details id="security-section" class="panel" data-admin-section="security admin users sessions revoke access" style="margin-bottom: 20px;">
+            <summary class="panel-summary"><h2>Admin Security</h2></summary>
+            <div class="panel-body"><div class="subcopy">Review configured admin roles and revoke active sessions without exposing session credentials.</div><button id="refresh-security" class="secondary">Refresh Security</button><div id="security-list" class="list" style="margin-top:12px;">Loading security…</div></div>
         </details>
 
         <details id="home-section" class="panel" data-admin-section="app home controls hero signature roasts express" style="margin-bottom: 20px;">
@@ -1262,7 +1281,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], communityRecipes: [], socialCoffee: { profiles: [], groups: [] }, analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, gulfCoffeeDirectory: [], gulfCoffeeRatings: [], educationQuestions: [], orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], communityRecipes: [], socialCoffee: { profiles: [], groups: [] }, analytics: null, recentAdminActions: [], coffeeMemory: null, productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, gulfCoffeeDirectory: [], gulfCoffeeRatings: [], educationQuestions: [], orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -1357,6 +1376,15 @@
         const customerPushBodyInput = document.getElementById("customer-push-body");
         const customerPushURLInput = document.getElementById("customer-push-url");
         const sendCustomerPushButton = document.getElementById("send-customer-push");
+        const targetPushEmailInput = document.getElementById("target-push-email");
+        const sendTargetedPushButton = document.getElementById("send-targeted-push");
+        const refreshNotificationHistoryButton = document.getElementById("refresh-notification-history");
+        const notificationHistoryEl = document.getElementById("notification-history");
+        const coffeeMemorySummaryEl = document.getElementById("coffee-memory-summary");
+        const coffeeMemoryEmailInput = document.getElementById("coffee-memory-email");
+        const reimportCoffeeMemoryButton = document.getElementById("reimport-coffee-memory");
+        const refreshSecurityButton = document.getElementById("refresh-security");
+        const securityListEl = document.getElementById("security-list");
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
         const signatureRoastsEl = document.getElementById("signature-roasts");
@@ -2916,6 +2944,57 @@
             }
         }
 
+        async function sendTargetedPush() {
+            const email = targetPushEmailInput.value.trim();
+            const title = customerPushTitleInput.value.trim();
+            const body = customerPushBodyInput.value.trim();
+            const url = customerPushURLInput.value.trim();
+            if (!email || !title || !body) { setStatus("Provide a customer email, title, and message first.", "error"); return; }
+            setButtonBusy(sendTargetedPushButton, true, "Send To Customer", "Sending...");
+            try {
+                const response = await fetch("/admin/api/notifications/push/send-to-customer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, title, body, url }) });
+                const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Targeted push failed.");
+                setStatus(`Targeted push sent to ${payload.sentCount}/${payload.targetCount} devices.`, "success"); await loadNotificationHistory();
+            } catch (error) { setStatus(error.message, "error"); }
+            finally { setButtonBusy(sendTargetedPushButton, false, "Send To Customer"); }
+        }
+
+        async function loadNotificationHistory() {
+            try {
+                const response = await fetch("/admin/api/notifications/history"); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not load notification history.");
+                const rows = payload.notifications || [];
+                notificationHistoryEl.className = rows.length ? "list" : "empty";
+                notificationHistoryEl.innerHTML = rows.length ? rows.map((entry) => `<div class="list-item"><strong>${escapeHTML(entry.detail || entry.action)}</strong><div class="muted">${escapeHTML(entry.adminUsername || "Admin")} ${entry.targetEmail ? `• ${escapeHTML(entry.targetEmail)}` : ""} • ${new Date(entry.createdAt).toLocaleString()}</div></div>`).join("") : "No notification campaigns recorded yet.";
+            } catch (error) { notificationHistoryEl.className = "empty"; notificationHistoryEl.textContent = error.message; }
+        }
+
+        async function loadCoffeeMemory() {
+            try {
+                const response = await fetch("/admin/api/coffee-memory"); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not load Coffee Memory.");
+                state.coffeeMemory = payload;
+                const totals = payload.totals || {};
+                coffeeMemorySummaryEl.className = "list";
+                coffeeMemorySummaryEl.innerHTML = `<div class="list-item"><strong>${totals.customers || 0} customers • ${totals.records || 0} records</strong><div class="muted">${totals.lots || 0} lots • ${totals.purchasedBags || 0} purchased bags • ${totals.brewSessions || 0} brew sessions • ${totals.lotsMissingMetadata || 0} lots missing metadata</div><div class="muted">Last sync: ${totals.lastSyncAt ? new Date(totals.lastSyncAt).toLocaleString() : "Never"}</div></div>`;
+            } catch (error) { coffeeMemorySummaryEl.className = "empty"; coffeeMemorySummaryEl.textContent = error.message; }
+        }
+
+        async function reimportCoffeeMemory() {
+            const email = coffeeMemoryEmailInput.value.trim(); if (!email) { setStatus("Enter a customer email for re-import.", "error"); return; }
+            setButtonBusy(reimportCoffeeMemoryButton, true, "Re-import Shopify Purchases", "Importing...");
+            try { const response = await fetch("/admin/api/coffee-memory/reimport", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Coffee Memory re-import failed."); setStatus(`Imported ${payload.syncedCount || 0} records for ${email}.`, "success"); await loadCoffeeMemory(); }
+            catch (error) { setStatus(error.message, "error"); } finally { setButtonBusy(reimportCoffeeMemoryButton, false, "Re-import Shopify Purchases"); }
+        }
+
+        async function loadSecurity() {
+            try { const response = await fetch("/admin/api/security"); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not load security."); const users = payload.users || []; securityListEl.className = users.length ? "list" : "empty"; securityListEl.innerHTML = users.length ? users.map((user) => `<div class="list-item"><strong>${escapeHTML(user.username)}</strong><div class="muted">${escapeHTML(user.role)} • ${user.activeSessions || 0} active session(s)${user.latestSessionExpiry ? ` • latest expires ${new Date(user.latestSessionExpiry).toLocaleString()}` : ""}</div><button class="secondary revoke-admin-sessions" data-username="${escapeHTML(user.username)}">Revoke Sessions</button></div>`).join("") : "No configured admin users."; }
+            catch (error) { securityListEl.className = "empty"; securityListEl.textContent = error.message; }
+        }
+
+        async function revokeAdminSessions(username) {
+            if (!window.confirm(`Revoke all active sessions for ${username}?`)) return;
+            const response = await fetch("/admin/api/security/revoke-sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not revoke sessions."); setStatus(`Revoked ${payload.revoked} session(s).`, "success"); await loadSecurity();
+        }
+
         async function exportCustomers() {
             const customers = filteredCustomers();
             if (customers.length === 0) {
@@ -3755,6 +3834,9 @@
                 await loadAppSettings();
                 await loadCommunityRecipes();
                 await loadSocialCoffee();
+                await loadNotificationHistory();
+                await loadCoffeeMemory();
+                await loadSecurity();
                 showApp();
                 await loadAdminOrders();
                 connectOrderStream();
@@ -4692,6 +4774,15 @@
         bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
         sendEidPushButton.addEventListener("click", sendEidPush);
         sendCustomerPushButton.addEventListener("click", sendCustomerPush);
+        sendTargetedPushButton.addEventListener("click", sendTargetedPush);
+        refreshNotificationHistoryButton.addEventListener("click", loadNotificationHistory);
+        reimportCoffeeMemoryButton.addEventListener("click", reimportCoffeeMemory);
+        refreshSecurityButton.addEventListener("click", loadSecurity);
+        securityListEl.addEventListener("click", async (event) => {
+            const button = event.target.closest(".revoke-admin-sessions");
+            if (!button) return;
+            try { await revokeAdminSessions(button.dataset.username); } catch (error) { setStatus(error.message, "error"); }
+        });
         exportCustomersButton.addEventListener("click", exportCustomers);
         allOrdersEl.addEventListener("click", (event) => {
             const saveButton = event.target.closest(".save-admin-order-status");
