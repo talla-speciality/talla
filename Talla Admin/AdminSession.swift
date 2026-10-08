@@ -8,6 +8,8 @@ final class AdminSession: ObservableObject {
     @Published private(set) var isRestoring = true
     @Published private(set) var isAuthenticated = false
     @Published private(set) var username = ""
+    @Published private(set) var role = "viewer"
+    @Published private(set) var permissions: Set<String> = []
     @Published private(set) var orders: [AdminOrder] = []
     @Published private(set) var isLoadingOrders = false
     @Published private(set) var lastRefreshAt: Date?
@@ -34,6 +36,8 @@ final class AdminSession: ObservableObject {
             let session = try await api.restoreSession()
             isAuthenticated = session.authenticated
             username = session.username ?? ""
+            role = session.role ?? "viewer"
+            permissions = Set(session.permissions ?? [])
             if session.authenticated {
                 await api.synchronizeWebCookies()
                 await refreshOrders()
@@ -55,6 +59,8 @@ final class AdminSession: ObservableObject {
             let response = try await api.login(username: username, password: password)
             guard response.authenticated else { throw AdminAPIError.server("Admin sign-in failed.") }
             self.username = response.username ?? username
+            role = response.role ?? "viewer"
+            permissions = Set(response.permissions ?? [])
             isAuthenticated = true
             await refreshOrders()
             await refreshNotificationState()
@@ -78,6 +84,8 @@ final class AdminSession: ObservableObject {
         try? await api.logout()
         isAuthenticated = false
         username = ""
+        role = "viewer"
+        permissions = []
         orders = []
         message = nil
         errorMessage = nil
@@ -187,6 +195,16 @@ final class AdminSession: ObservableObject {
         }
     }
 
+    func updateSupportCase(_ order: AdminOrder, status: String, note: String, assignedTo: String) async {
+        message = nil
+        errorMessage = nil
+        do {
+            let detailedOrder = try await api.updateSupportCase(orderID: order.id, status: status, note: note, assignedTo: assignedTo)
+            if let index = orders.firstIndex(where: { $0.id == order.id }) { orders[index] = detailedOrder }
+            message = "Customer case updated."
+        } catch { handle(error) }
+    }
+
     func notifyReady(_ order: AdminOrder) async {
         message = nil
         errorMessage = nil
@@ -214,7 +232,7 @@ final class AdminSession: ObservableObject {
             if let updated = result.order, let index = orders.firstIndex(where: { $0.id == updated.id }) {
                 orders[index] = updated
             }
-            message = "Refund executed for (order.title)."
+            message = "Refund executed for \(order.title)."
         } catch {
             handle(error)
         }
@@ -247,6 +265,10 @@ final class AdminSession: ObservableObject {
         errorMessage = nil
     }
 
+    func hasPermission(_ permission: String) -> Bool {
+        permissions.contains("*") || permissions.contains(permission)
+    }
+
     func registerPushToken(_ token: String) async {
         guard isAuthenticated else { return }
         do {
@@ -275,6 +297,8 @@ final class AdminSession: ObservableObject {
         if let apiError = error as? AdminAPIError, case .unauthorized = apiError {
             isAuthenticated = false
             username = ""
+            role = "viewer"
+            permissions = []
             orders = []
             lastRefreshAt = nil
         }

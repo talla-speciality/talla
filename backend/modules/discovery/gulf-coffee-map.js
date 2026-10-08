@@ -103,7 +103,7 @@ function aggregateRatings(store) {
 function publicReviews(store) {
     const normalized = normalizeStore(store);
     return Object.values(normalized.ratings).flatMap((entries) => (Array.isArray(entries) ? entries : []))
-        .filter((entry) => entry?.offeringID && String(entry.note || "").trim())
+        .filter((entry) => entry?.offeringID && entry.moderationStatus !== "hidden" && String(entry.note || "").trim())
         .map((entry) => ({
             id: entry.id,
             offeringID: entry.offeringID,
@@ -115,4 +115,28 @@ function publicReviews(store) {
         .slice(0, 500);
 }
 
-module.exports = { aggregateRatings, defaultDirectory, directoryFor, normalizeRatingInput, normalizeStore, publicReviews, ratingsFor, replaceDirectory, saveRating };
+function adminRatings(store) {
+    const normalized = normalizeStore(store);
+    return Object.entries(normalized.ratings).flatMap(([email, entries]) =>
+        (Array.isArray(entries) ? entries : []).map((entry) => ({
+            ...entry,
+            email,
+            moderationStatus: entry.moderationStatus === "hidden" ? "hidden" : "visible"
+        }))
+    ).sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+}
+
+function moderateRating(store, ratingID, status, adminUsername) {
+    const normalized = normalizeStore(store);
+    for (const entries of Object.values(normalized.ratings)) {
+        const rating = (Array.isArray(entries) ? entries : []).find((entry) => entry.id === ratingID);
+        if (!rating) continue;
+        rating.moderationStatus = status === "hidden" ? "hidden" : "visible";
+        rating.moderatedBy = String(adminUsername || "").trim().slice(0, 160);
+        rating.moderatedAt = new Date().toISOString();
+        return normalized;
+    }
+    return null;
+}
+
+module.exports = { adminRatings, aggregateRatings, defaultDirectory, directoryFor, moderateRating, normalizeRatingInput, normalizeStore, publicReviews, ratingsFor, replaceDirectory, saveRating };

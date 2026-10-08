@@ -320,6 +320,9 @@ struct AdminSupportCase: Codable, Hashable {
     let note: String?
     let createdAt: String?
     let updatedAt: String?
+    let assignedTo: String?
+    let resolvedAt: String?
+    let resolvedBy: String?
 }
 
 struct AdminOrdersResponse: Codable {
@@ -333,6 +336,8 @@ struct AdminOrderDetailResponse: Codable {
 struct AdminLoginResponse: Codable {
     let authenticated: Bool
     let username: String?
+    let role: String?
+    let permissions: [String]?
     let expiresAt: String?
 }
 

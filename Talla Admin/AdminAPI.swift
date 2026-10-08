@@ -93,6 +93,16 @@ struct AdminAPI {
         return try JSONDecoder().decode(AdminOrderDetailResponse.self, from: data).order
     }
 
+    func updateSupportCase(orderID: String, status: String, note: String, assignedTo: String) async throws -> AdminOrder {
+        let data = try await request("/admin/api/orders/support-case", method: "POST", body: [
+            "orderID": orderID,
+            "status": status,
+            "note": note,
+            "assignedTo": assignedTo
+        ])
+        return try JSONDecoder().decode(AdminOrderDetailResponse.self, from: data).order
+    }
+
     func updateOrder(id: String, status: String) async throws -> [AdminOrder] {
         let data = try await request("/admin/api/orders/status", method: "POST", body: [
             "orderID": id,

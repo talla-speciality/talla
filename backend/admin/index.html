@@ -756,6 +756,15 @@
             </div>
         </details>
 
+        <details id="social-coffee-section" class="panel" data-admin-section="social coffee moderation groups profiles notes safety" style="margin-bottom: 20px;" open>
+            <summary class="panel-summary"><h2>Social Coffee Moderation</h2></summary>
+            <div class="panel-body">
+                <div class="subcopy" style="margin-bottom: 14px;">Review public profiles and coffee groups. Hidden or restricted content is removed from the customer-facing Social Coffee feed.</div>
+                <div class="toolbar-row" style="padding: 0 0 14px;"><button id="refresh-social-coffee" class="secondary">Refresh Social Coffee</button><div id="social-coffee-status" class="muted">Loading moderation queue…</div></div>
+                <div id="social-coffee-list" class="list">Sign in to review Social Coffee.</div>
+            </div>
+        </details>
+
         <details id="app-controls-section" class="panel" data-admin-section="live app controls payments delivery pickup maintenance versions loyalty announcement support links sections" data-section-version="2" style="margin-bottom: 20px;" open>
             <summary class="panel-summary">
                 <h2>Live App Controls</h2>
@@ -1089,6 +1098,8 @@
                     <div id="gulf-coffee-map-status" class="muted">Loading directory...</div>
                 </div>
                 <div id="gulf-coffee-map-editor" class="list">Loading Gulf Coffee Map...</div>
+                <h3 style="margin-top:20px;">Public ratings and reviews</h3>
+                <div id="gulf-coffee-ratings" class="list">Loading ratings…</div>
             </div>
         </details>
 
@@ -1251,7 +1262,7 @@
     </div>
 
     <script>
-        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], communityRecipes: [], analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, gulfCoffeeDirectory: [], gulfCoffeeRatings: [], educationQuestions: [], orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
+        const state = { currentEmail: "", customer: null, session: null, products: [], customers: [], adminOrders: [], tasteMemory: [], communityRecipes: [], socialCoffee: { profiles: [], groups: [] }, analytics: null, recentAdminActions: [], productControlAvailable: true, eventSettings: { events: [] }, selectedEventID: null, appSettings: null, signatureRoasts: { signatureRoastProductIDs: [], quickDrinkProductIDs: [] }, passportSettings: null, gulfCoffeeDirectory: [], gulfCoffeeRatings: [], educationQuestions: [], orderEventSource: null, orderPushConfigured: false, orderPushPublicKey: "", orderPushSubscribed: false, localOrderAlertsEnabled: localStorage.getItem("talla-admin-order-alerts") === "true" };
         const loginShell = document.getElementById("login-shell");
         const appShell = document.getElementById("app-shell");
         const loginUsernameInput = document.getElementById("login-username");
@@ -1264,6 +1275,9 @@
         const communityRecipesListEl = document.getElementById("community-recipes-list");
         const communityRecipesNoteEl = document.getElementById("community-recipes-note");
         const refreshCommunityRecipesButton = document.getElementById("refresh-community-recipes");
+        const refreshSocialCoffeeButton = document.getElementById("refresh-social-coffee");
+        const socialCoffeeListEl = document.getElementById("social-coffee-list");
+        const socialCoffeeStatusEl = document.getElementById("social-coffee-status");
         const todayLabelEl = document.getElementById("today-label");
         const sectionSearchInput = document.getElementById("section-search");
         const sectionCountEl = document.getElementById("section-count");
@@ -1372,6 +1386,7 @@
         const refreshGulfCoffeeMapButton = document.getElementById("refresh-gulf-coffee-map");
         const addGulfCoffeePlaceButton = document.getElementById("add-gulf-coffee-place");
         const saveGulfCoffeeMapButton = document.getElementById("save-gulf-coffee-map");
+        const gulfCoffeeRatingsEl = document.getElementById("gulf-coffee-ratings");
         const educationContentEditorEl = document.getElementById("education-content-editor");
         const educationContentStatusEl = document.getElementById("education-content-status");
         const refreshEducationContentButton = document.getElementById("refresh-education-content");
@@ -3458,6 +3473,45 @@
                 </div>
             `).join("");
             gulfCoffeeMapStatusEl.textContent = `${state.gulfCoffeeDirectory.length} listings • ${state.gulfCoffeeRatings.length} rating rows`;
+            gulfCoffeeRatingsEl.className = state.gulfCoffeeRatings.length ? "list" : "empty";
+            gulfCoffeeRatingsEl.innerHTML = state.gulfCoffeeRatings.length ? state.gulfCoffeeRatings.map((rating) => `
+                <div class="list-item" data-rating-id="${escapeHTML(rating.id || "")}">
+                    <strong>${escapeHTML(rating.spotID || "Gulf Coffee Map rating")}</strong>
+                    <div class="muted">${escapeHTML(rating.email || "Anonymous")} • ${"★".repeat(Number(rating.rating || 0))} • ${escapeHTML(rating.note || "No note")}</div>
+                    <div class="toolbar-row" style="padding-top:10px;"><span class="muted">${escapeHTML(rating.moderationStatus || "visible")}</span><button class="secondary moderate-gulf-rating" data-id="${escapeHTML(rating.id || "")}" data-status="${rating.moderationStatus === "hidden" ? "visible" : "hidden"}">${rating.moderationStatus === "hidden" ? "Show" : "Hide"}</button></div>
+                </div>`).join("") : "No ratings have been submitted yet.";
+        }
+
+        async function loadSocialCoffee() {
+            try {
+                const response = await fetch("/admin/api/social-coffee");
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Could not load Social Coffee.");
+                state.socialCoffee = { profiles: payload.profiles || [], groups: payload.groups || [] };
+                const rows = [
+                    ...state.socialCoffee.profiles.map((profile) => ({ entityType: "profile", entityID: profile.email, title: profile.displayName || profile.email, detail: profile.tastingNote || "Profile", status: profile.moderationStatus || "visible" })),
+                    ...state.socialCoffee.groups.map((group) => ({ entityType: "group", entityID: group.id, title: group.name || group.id, detail: `${(group.memberEmails || []).length} members`, status: group.moderationStatus || "visible" }))
+                ];
+                socialCoffeeStatusEl.textContent = `${rows.length} profiles/groups loaded`;
+                socialCoffeeListEl.className = rows.length ? "list" : "empty";
+                socialCoffeeListEl.innerHTML = rows.length ? rows.map((row) => `<div class="list-item"><strong>${escapeHTML(row.title)}</strong><div class="muted">${escapeHTML(row.entityType)} • ${escapeHTML(row.detail)} • ${escapeHTML(row.status)}</div><div class="toolbar-row" style="padding-top:10px;"><button class="secondary moderate-social-coffee" data-entity-type="${row.entityType}" data-entity-id="${escapeHTML(row.entityID)}" data-status="${row.status === "hidden" ? "visible" : "hidden"}">${row.status === "hidden" ? "Show" : "Hide"}</button><button class="secondary moderate-social-coffee" data-entity-type="${row.entityType}" data-entity-id="${escapeHTML(row.entityID)}" data-status="restricted">Restrict</button>${row.entityType === "group" ? `<button class="secondary moderate-social-coffee" data-entity-type="group" data-entity-id="${escapeHTML(row.entityID)}" data-status="closed">Close Group</button>` : ""}</div></div>`).join("") : "No public profiles or groups yet.";
+            } catch (error) {
+                socialCoffeeStatusEl.textContent = error.message;
+                socialCoffeeListEl.className = "empty";
+                socialCoffeeListEl.textContent = error.message;
+            }
+        }
+
+        async function moderateSocialCoffee(entityType, entityID, status) {
+            const response = await fetch("/admin/api/social-coffee/moderate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entityType, entityID, status }) });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not moderate Social Coffee content.");
+        }
+
+        async function moderateGulfRating(ratingID, status) {
+            const response = await fetch("/admin/api/gulf-coffee-map/ratings/moderate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ratingID, status }) });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "Could not moderate rating.");
         }
 
         async function loadGulfCoffeeMap() {
@@ -3700,6 +3754,7 @@
                 await loadEvents();
                 await loadAppSettings();
                 await loadCommunityRecipes();
+                await loadSocialCoffee();
                 showApp();
                 await loadAdminOrders();
                 connectOrderStream();
@@ -3731,6 +3786,7 @@
             state.adminOrders = [];
             state.tasteMemory = [];
             state.communityRecipes = [];
+            state.socialCoffee = { profiles: [], groups: [] };
             emailInput.value = "";
             pointsInput.value = "";
             noteInput.value = "";
@@ -3757,6 +3813,8 @@
             communityRecipesListEl.className = "empty";
             communityRecipesListEl.innerHTML = "Sign in to review community recipes.";
             communityRecipesNoteEl.textContent = "";
+            socialCoffeeListEl.className = "empty";
+            socialCoffeeListEl.textContent = "Sign in to review Social Coffee.";
             eventsStatusEl.textContent = "Sign in to manage seasonal events.";
             eventsListEl.className = "empty";
             eventsListEl.innerHTML = "Sign in to manage seasonal events.";
@@ -4442,6 +4500,14 @@
         });
 
         refreshCommunityRecipesButton.addEventListener("click", loadCommunityRecipes);
+        refreshSocialCoffeeButton.addEventListener("click", loadSocialCoffee);
+        socialCoffeeListEl.addEventListener("click", async (event) => {
+            const button = event.target.closest(".moderate-social-coffee");
+            if (!button) return;
+            button.disabled = true;
+            try { await moderateSocialCoffee(button.dataset.entityType, button.dataset.entityId, button.dataset.status); await loadSocialCoffee(); setStatus("Social Coffee moderation saved.", false); }
+            catch (error) { setStatus(error.message, true); button.disabled = false; }
+        });
         communityRecipesListEl.addEventListener("click", async (event) => {
             const updateButton = event.target.closest(".update-community-recipe");
             if (updateButton) {
@@ -4538,6 +4604,13 @@
                 state.gulfCoffeeDirectory.splice(index, 1);
                 renderGulfCoffeeMap();
             }
+        });
+        gulfCoffeeRatingsEl.addEventListener("click", async (event) => {
+            const button = event.target.closest(".moderate-gulf-rating");
+            if (!button) return;
+            button.disabled = true;
+            try { await moderateGulfRating(button.dataset.id, button.dataset.status); await loadGulfCoffeeMap(); setStatus("Gulf Coffee Map rating moderation saved.", false); }
+            catch (error) { setStatus(error.message, true); button.disabled = false; }
         });
         refreshEducationContentButton.addEventListener("click", loadEducationContent);
         addEducationQuestionButton.addEventListener("click", addEducationQuestion);

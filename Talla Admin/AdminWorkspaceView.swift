@@ -31,6 +31,8 @@ struct AdminWorkspaceView: View {
                     if includes("Community recipes moderation edit approve reject") { NavigationLink { AdminCommunityRecipesView() } label: { row("Community Recipes", "Edit and moderate customer-submitted recipes", "book.and.wrench.fill") } }
                     if includes("Espresso community moderation videos profiles roaster recipes") { NavigationLink { AdminEspressoCommunityView() } label: { row("Espresso Community", "Moderate profiles, roaster recipes, and video assessments", "waveform.path.ecg") } }
                     if includes("Notifications push messages") { NavigationLink { AdminNotificationComposer() } label: { row("Notifications", "Compose a customer push notification", "bell.badge.fill") } }
+                    if includes("Social Coffee moderation groups profiles safety") { NavigationLink { AdminSocialCoffeeModerationView() } label: { row("Social Coffee moderation", "Hide, restrict, or close public community content", "person.2.badge.gearshape") } }
+                    if includes("Gulf Coffee Map ratings reviews moderation") { NavigationLink { AdminGulfCoffeeRatingsView() } label: { row("Gulf Coffee Map reviews", "Moderate public ratings and customer notes", "star.bubble.fill") } }
                 }
                 Section("Insights") {
                     ForEach(AdminReport.allCases.filter { includes($0.rawValue) }) { report in
@@ -55,6 +57,84 @@ struct AdminWorkspaceView: View {
     }
     private func subtitle(_ area: AdminContentArea) -> String {
         switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions"; case .gulfCoffeeMap: "Talla location, partner sellers, map links, and offerings" }
+    }
+}
+
+extension AdminAPI {
+    func moderateSocialCoffee(entityType: String, entityID: String, status: String) async throws -> AdminValue {
+        try await document("/admin/api/social-coffee/moderate", body: .object(["entityType": .string(entityType), "entityID": .string(entityID), "status": .string(status)]))
+    }
+
+    func moderateGulfCoffeeRating(id: String, status: String) async throws -> AdminValue {
+        try await document("/admin/api/gulf-coffee-map/ratings/moderate", body: .object(["ratingID": .string(id), "status": .string(status)]))
+    }
+}
+
+struct AdminSocialCoffeeModerationView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var items: [AdminValue] = []
+    @State private var loading = false
+    @State private var error: String?
+
+    var body: some View {
+        List {
+            if loading { ProgressView("Loading Social Coffee…") }
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item["title"].text.isEmpty ? item["email"].text : item["title"].text).font(.headline)
+                    Text("\(item["entityType"].text.capitalized) • \(item["status"].text)").font(.caption).foregroundStyle(.secondary)
+                    HStack { ForEach(["visible", "hidden", "restricted", "closed"], id: \.self) { status in Button(status.capitalized) { Task { await moderate(item, status: status) } }.font(.caption).buttonStyle(.bordered) } }
+                }.padding(.vertical, 5)
+            }
+            if !loading && items.isEmpty { ContentUnavailableView("No Social Coffee content", systemImage: "person.2", description: Text("Public profiles and groups will appear here.")) }
+        }
+        .navigationTitle("Social Coffee moderation")
+        .task { await load() }
+        .refreshable { await load() }
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: nil) }
+    }
+
+    @MainActor private func load() async {
+        loading = true; defer { loading = false }
+        do {
+            let root = try await session.api.document("/admin/api/social-coffee")
+            items = root["profiles"].array.map { .object(["entityType": .string("profile"), "email": .string($0["email"].text), "title": .string($0["displayName"].text), "status": .string($0["moderationStatus"].text.isEmpty ? "visible" : $0["moderationStatus"].text)]) } + root["groups"].array.map { .object(["entityType": .string("group"), "email": .string($0["id"].text), "title": .string($0["name"].text), "status": .string($0["moderationStatus"].text.isEmpty ? "visible" : $0["moderationStatus"].text)]) }
+        } catch let caughtError { error = caughtError.localizedDescription }
+    }
+
+    @MainActor private func moderate(_ item: AdminValue, status: String) async {
+        do { _ = try await session.api.moderateSocialCoffee(entityType: item["entityType"].text, entityID: item["email"].text, status: status); await load() } catch let caughtError { error = caughtError.localizedDescription }
+    }
+}
+
+struct AdminGulfCoffeeRatingsView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var ratings: [AdminValue] = []
+    @State private var error: String?
+
+    var body: some View {
+        List {
+            ForEach(Array(ratings.enumerated()), id: \.offset) { _, rating in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(rating["spotID"].text).font(.headline)
+                    Text("\(rating["email"].text) • \(rating["rating"].text)/5 • \(rating["moderationStatus"].text)").font(.caption).foregroundStyle(.secondary)
+                    Text(rating["note"].text).font(.subheadline)
+                    Button(rating["moderationStatus"].text == "hidden" ? "Show review" : "Hide review") { Task { await moderate(rating) } }.buttonStyle(.bordered)
+                }.padding(.vertical, 5)
+            }
+            if ratings.isEmpty { ContentUnavailableView("No ratings", systemImage: "star", description: Text("Gulf Coffee Map reviews will appear here.")) }
+        }
+        .navigationTitle("Gulf Coffee Map reviews")
+        .task { await load() }
+        .refreshable { await load() }
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: nil) }
+    }
+
+    @MainActor private func load() async {
+        do { let root = try await session.api.document("/admin/api/gulf-coffee-map/ratings"); ratings = root["reviews"].array } catch let caughtError { error = caughtError.localizedDescription }
+    }
+    @MainActor private func moderate(_ rating: AdminValue) async {
+        do { _ = try await session.api.moderateGulfCoffeeRating(id: rating["id"].text, status: rating["moderationStatus"].text == "hidden" ? "visible" : "hidden"); await load() } catch let caughtError { error = caughtError.localizedDescription }
     }
 }
 

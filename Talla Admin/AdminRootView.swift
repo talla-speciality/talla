@@ -77,6 +77,8 @@ private struct AdminSettingsView: View {
             List {
                 Section("Account") {
                     LabeledContent("Signed in as", value: session.username)
+                    LabeledContent("Role", value: session.role.capitalized)
+                    LabeledContent("Permissions", value: session.permissions.sorted().joined(separator: ", "))
                     LabeledContent("Backend", value: session.api.baseURL.host ?? session.api.baseURL.absoluteString)
                 }
 

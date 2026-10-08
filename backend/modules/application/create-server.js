@@ -212,9 +212,11 @@ module.exports = function createServer(dependencies) {
         findShopifyOrderExport,
         fs,
         gulfCoffeeMapStorePath,
+        adminGulfCoffeeRatings,
         aggregateGulfCoffeeRatings,
         gulfCoffeeDirectoryFor,
         normalizeGulfCoffeeMapStore,
+        moderateGulfCoffeeRating,
         replaceGulfCoffeeDirectory,
         gulfCoffeeRatingsFor,
         saveGulfCoffeeRating,
@@ -1205,8 +1207,24 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 200, {
                 directory: gulfCoffeeDirectoryFor(store),
                 ratings: aggregateGulfCoffeeRatings(store),
+                reviews: url.pathname === "/admin/api/gulf-coffee-map/ratings" ? adminGulfCoffeeRatings(store) : [],
                 totalRatings: Object.values(store.ratings).reduce((count, entries) => count + (Array.isArray(entries) ? entries.length : 0), 0)
             });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/gulf-coffee-map/ratings/moderate") {
+            try {
+                const body = await readBody(request);
+                const ratingID = trimText(body.ratingID || body.id, 160);
+                const status = body.status === "hidden" ? "hidden" : "visible";
+                const current = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+                const next = moderateGulfCoffeeRating(current, ratingID, status, admin.username);
+                if (!next) { sendJSON(response, 404, { error: "Rating not found." }); return; }
+                writeJSON(gulfCoffeeMapStorePath, next);
+                await createAdminAuditLog({ adminUser: admin.username, action: "gulf_rating_moderated", targetEmail: null, detail: `${ratingID} -> ${status}`, metadata: { ratingID, status } });
+                sendJSON(response, 200, { ratingID, status });
+            } catch { sendJSON(response, 400, { error: "Invalid rating moderation payload." }); }
             return;
         }
 
@@ -1254,6 +1272,40 @@ module.exports = function createServer(dependencies) {
 
         if (request.method === "GET" && url.pathname === "/admin/api/coffee-memory") {
             sendJSON(response, 200, await adminCoffeeMemorySummary(), { "Cache-Control": "no-store" });
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/social-coffee") {
+            const store = await socialCoffeeStore.read();
+            const profiles = Object.entries(store.customers || {}).map(([email, profile]) => ({ email, ...profile }));
+            const groups = Object.values(store.groups || {});
+            sendJSON(response, 200, { profiles, groups });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/social-coffee/moderate") {
+            try {
+                const body = await readBody(request);
+                const entityType = ["profile", "group"].includes(body.entityType) ? body.entityType : null;
+                const entityID = trimText(body.entityID || body.id || body.email, 180);
+                const status = ["visible", "hidden", "closed", "restricted"].includes(body.status) ? body.status : null;
+                const note = trimText(body.note, 500);
+                if (!entityType || !entityID || !status) { sendJSON(response, 400, { error: "Provide an entity, id, and valid moderation status." }); return; }
+                const result = await socialCoffeeStore.mutate((store) => {
+                    const target = entityType === "profile" ? store.customers?.[normalizeEmail(entityID)] : store.groups?.[entityID];
+                    if (!target) return { changed: false, result: { status: 404, body: { error: "Social Coffee item not found." } } };
+                    target.moderationStatus = status;
+                    target.moderationNote = note;
+                    target.moderatedAt = new Date().toISOString();
+                    target.moderatedBy = admin.username;
+                    if (entityType === "group" && status === "closed") { target.status = "closed"; target.closedAt = new Date().toISOString(); }
+                    return { changed: true, result: { status: 200, body: { entityType, entityID, status } } };
+                });
+                if (!result) return;
+                const outcome = result;
+                await createAdminAuditLog({ adminUser: admin.username, action: "social_coffee_moderated", targetEmail: entityType === "profile" ? normalizeEmail(entityID) : null, detail: `${entityType}:${entityID} -> ${status}`, metadata: { entityType, entityID, status } });
+                sendJSON(response, outcome.status, outcome.body);
+            } catch (error) { sendJSON(response, 400, { error: error.message || "Invalid Social Coffee moderation payload." }); }
             return;
         }
 
@@ -1443,6 +1495,59 @@ module.exports = function createServer(dependencies) {
                 return;
             }
             sendJSON(response, 200, { order: await adminOrderDetailPayload(order) });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/orders/support-case") {
+            try {
+                const body = await readBody(request);
+                const orderID = trimText(body.orderID || body.id, 160);
+                const status = ["open", "in_progress", "approved", "rejected", "resolved"].includes(body.status) ? body.status : null;
+                const note = trimText(body.note, 1_000);
+                const assignedTo = trimText(body.assignedTo, 160);
+                if (!orderID || !status) { sendJSON(response, 400, { error: "Provide an order and valid support-case status." }); return; }
+                const existing = await findOrderByID(orderID);
+                if (!existing) { sendJSON(response, 404, { error: "Order not found." }); return; }
+                const currentDetails = normalizeOrderDetails(existing.details);
+                const currentCase = currentDetails.supportCase || {};
+                const nextCase = {
+                    ...currentCase,
+                    id: currentCase.id || `case_${orderID}_${Date.now()}`,
+                    status,
+                    note: note || currentCase.note || "",
+                    assignedTo: assignedTo || currentCase.assignedTo || "",
+                    updatedAt: new Date().toISOString(),
+                    resolvedAt: ["approved", "rejected", "resolved"].includes(status) ? new Date().toISOString() : (currentCase.resolvedAt || null),
+                    resolvedBy: ["approved", "rejected", "resolved"].includes(status) ? admin.username : (currentCase.resolvedBy || null)
+                };
+                const details = normalizeOrderDetails({ ...currentDetails, supportCase: nextCase });
+                let updated;
+                if (database.isEnabled()) {
+                    const result = await database.query(
+                        `UPDATE orders SET details = $2::jsonb, updated_at = NOW()
+                         WHERE id = $1
+                         RETURNING id, email, title, total, status, items, details, created_at, updated_at`,
+                        [orderID, JSON.stringify(details)]
+                    );
+                    updated = result.rowCount ? orderRowToRecord(result.rows[0]) : null;
+                } else {
+                    const store = readJSON(ordersStorePath);
+                    const ownerEmail = normalizeEmail(existing.email);
+                    const orders = Array.isArray(store.orders?.[ownerEmail]) ? store.orders[ownerEmail] : [];
+                    const index = orders.findIndex((entry) => entry.id === orderID);
+                    if (index >= 0) {
+                        orders[index] = { ...orders[index], details, updatedAt: new Date().toISOString() };
+                        store.orders[ownerEmail] = orders;
+                        writeJSON(ordersStorePath, store);
+                        updated = { ...orders[index], email: ownerEmail };
+                    }
+                }
+                if (!updated) { sendJSON(response, 404, { error: "Order not found." }); return; }
+                await createAdminAuditLog({ adminUser: admin.username, action: "support_case_updated", targetEmail: updated.email, detail: `${orderID} -> ${status}`, metadata: { orderID, status, assignedTo } });
+                sendJSON(response, 200, { order: await adminOrderDetailPayload(updated) });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Invalid support-case payload." });
+            }
             return;
         }
 
@@ -5069,7 +5174,7 @@ module.exports = function createServer(dependencies) {
         const store = await readSocialCoffeeStore(response);
         if (!store) return;
         const groups = Object.values(store.groups || {})
-            .filter((group) => group.memberEmails?.includes(customer.email) && Date.parse(group.expiresAt) > Date.now())
+            .filter((group) => group.moderationStatus !== "hidden" && group.moderationStatus !== "restricted" && group.memberEmails?.includes(customer.email) && Date.parse(group.expiresAt) > Date.now())
             .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
             .map((group) => ({ ...publicSocialCoffeeGroup(group), isHost: group.hostEmail === customer.email }));
         sendJSON(response, 200, { groups });
@@ -5132,7 +5237,7 @@ module.exports = function createServer(dependencies) {
                 if (group?.memberEmails?.includes(customer.email) && Date.parse(group.expiresAt) > Date.now()) {
                     return { changed: false, result: { status: 200, body: { group: { ...publicSocialCoffeeGroup(group), isHost: customer.email === group.hostEmail } } } };
                 }
-                if (!group || group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()
+                if (!group || group.moderationStatus === "hidden" || group.moderationStatus === "restricted" || group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()
                     || inviteHash !== group.inviteCodeHash) {
                     return { changed: false, result: { status: 404, body: { error: "This group invite is invalid, closed, or expired." } } };
                 }
@@ -5163,7 +5268,7 @@ module.exports = function createServer(dependencies) {
         const store = await readSocialCoffeeStore(response);
         if (!store) return;
         const group = store.groups?.[socialGroupMatch[1]];
-        if (!group || !group.memberEmails.includes(customer.email)) {
+        if (!group || group.moderationStatus === "hidden" || group.moderationStatus === "restricted" || !group.memberEmails.includes(customer.email)) {
             sendJSON(response, 404, { error: "Group order not found." });
             return;
         }
@@ -5186,7 +5291,7 @@ module.exports = function createServer(dependencies) {
             const variantID = trimText(body.variantID, 200);
             const stored = await mutateSocialCoffeeStore(response, (store) => {
                 const group = store.groups[socialGroupMatch[1]];
-                if (!group || !group.memberEmails.includes(customer.email)) {
+                if (!group || group.moderationStatus === "hidden" || group.moderationStatus === "restricted" || !group.memberEmails.includes(customer.email)) {
                     return { changed: false, result: { status: 404, body: { error: "Group order not found." } } };
                 }
                 if (group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()) {
@@ -5251,7 +5356,7 @@ module.exports = function createServer(dependencies) {
         if (!customer) return;
         const stored = await mutateSocialCoffeeStore(response, (store) => {
             const group = store.groups[socialGroupMatch[1]];
-            if (!group || group.hostEmail !== customer.email || group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()) {
+            if (!group || group.moderationStatus === "hidden" || group.moderationStatus === "restricted" || group.hostEmail !== customer.email || group.status !== "open" || Date.parse(group.expiresAt) <= Date.now()) {
                 return { changed: false, result: { status: 404, body: { error: "Open group order not found." } } };
             }
             const inviteCode = crypto.randomBytes(16).toString("hex");
@@ -5300,7 +5405,7 @@ module.exports = function createServer(dependencies) {
         const store = await readSocialCoffeeStore(response);
         if (!store) return;
         const notes = Object.entries(store.customers || {}).flatMap(([email, state]) => {
-            if (state.tastingNoteVisibility !== "Public" || !trimText(state.tastingNote, 2_000)) return [];
+            if (state.moderationStatus === "hidden" || state.moderationStatus === "restricted" || state.tastingNoteVisibility !== "Public" || !trimText(state.tastingNote, 2_000)) return [];
             return [{
                 profileID: crypto.createHmac("sha256", customerTokenSecret).update(email).digest("hex").slice(0, 24),
                 displayName: trimText(state.displayName, 80) || "Coffee lover",

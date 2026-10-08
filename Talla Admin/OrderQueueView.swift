@@ -364,6 +364,10 @@ struct OrderDetailView: View {
     @State private var showOrderRefundConfirmation = false
     @State private var isRefunding = false
     @State private var isEditingClubPreferences = false
+    @State private var supportStatus = "open"
+    @State private var supportNote = ""
+    @State private var supportAssignee = ""
+    @State private var isUpdatingSupportCase = false
 
     private var order: AdminOrder? { session.orders.first { $0.id == orderID } }
 
@@ -410,7 +414,12 @@ struct OrderDetailView: View {
                         }
                     }
                 }
-                .onAppear { selectedStatus = order.status }
+                .onAppear {
+                    selectedStatus = order.status
+                    supportStatus = order.supportCase?.status ?? "open"
+                    supportNote = order.supportCase?.note ?? ""
+                    supportAssignee = order.supportCase?.assignedTo ?? ""
+                }
                 .onChange(of: order.status) { _, value in selectedStatus = value }
                 .confirmationDialog(
                     statusDialogTitle,
@@ -729,7 +738,7 @@ struct OrderDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(TallaAdminStyle.caramel)
-                .disabled(pass.status != "active" || pass.remainingCredits == 0)
+                .disabled(!session.hasPermission("orders:write") || pass.status != "active" || pass.remainingCredits == 0)
             }
         }
     }
@@ -799,7 +808,29 @@ struct OrderDetailView: View {
                 detailRow("Type", (supportCase.type ?? "case").replacingOccurrences(of: "_", with: " ").capitalized)
                 detailRow("Status", (supportCase.status ?? "open").replacingOccurrences(of: "_", with: " ").capitalized)
                 if let note = supportCase.note, !note.isEmpty { detailRow("Note", note, selectable: true) }
+                if let assignedTo = supportCase.assignedTo, !assignedTo.isEmpty { detailRow("Assigned to", assignedTo) }
                 if let updated = supportCase.updatedAt, let date = adminDate(updated) { detailRow("Updated", date.formatted(date: .abbreviated, time: .shortened)) }
+                if session.hasPermission("customers:write") {
+                    Picker("Case status", selection: $supportStatus) {
+                        ForEach(["open", "in_progress", "approved", "rejected", "resolved"], id: \.self) {
+                            Text($0.replacingOccurrences(of: "_", with: " ").capitalized).tag($0)
+                        }
+                    }.pickerStyle(.menu)
+                    TextField("Internal note", text: $supportNote)
+                    TextField("Assigned admin", text: $supportAssignee)
+                    Button {
+                        isUpdatingSupportCase = true
+                        Task {
+                            await session.updateSupportCase(order, status: supportStatus, note: supportNote, assignedTo: supportAssignee)
+                            isUpdatingSupportCase = false
+                        }
+                    } label: {
+                        if isUpdatingSupportCase { ProgressView().frame(maxWidth: .infinity) }
+                        else { Label("Save Customer Case", systemImage: "checkmark.circle.fill").frame(maxWidth: .infinity) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isUpdatingSupportCase)
+                }
             }
         }
     }
@@ -854,7 +885,7 @@ struct OrderDetailView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(isSaving || isNotifying || selectedStatus == order.status)
+            .disabled(!session.hasPermission("orders:write") || isSaving || isNotifying || selectedStatus == order.status)
 
             if order.isActive {
                 Button { showNotifyConfirmation = true } label: {
@@ -863,7 +894,7 @@ struct OrderDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(isSaving || isNotifying)
+                .disabled(!session.hasPermission("notifications:write") || isSaving || isNotifying)
             }
         }
     }
