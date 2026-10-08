@@ -5,6 +5,7 @@ struct AdminLoginView: View {
     @State private var username = ""
     @State private var password = ""
     @State private var isSigningIn = false
+    @State private var enableBiometrics = false
     @FocusState private var focusedField: Field?
 
     private enum Field { case username, password }
@@ -49,6 +50,14 @@ struct AdminLoginView: View {
                             .adminField()
                             .onSubmit { signIn() }
 
+                        if session.biometricAvailable {
+                            Toggle(isOn: $enableBiometrics) {
+                                Label("Enable Face ID / Touch ID", systemImage: "faceid")
+                                    .font(.subheadline)
+                            }
+                            .tint(TallaAdminStyle.caramel)
+                        }
+
                         if let error = session.errorMessage {
                             Label(error, systemImage: "exclamationmark.circle.fill")
                                 .font(.footnote)
@@ -71,6 +80,21 @@ struct AdminLoginView: View {
                         }
                         .disabled(isSigningIn || username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty)
                         .opacity(isSigningIn || username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty ? 0.55 : 1)
+
+                        if session.biometricEnabled {
+                            Button {
+                                Task {
+                                    isSigningIn = true
+                                    await session.loginWithBiometrics()
+                                    isSigningIn = false
+                                }
+                            } label: {
+                                Label("Sign In with Face ID / Touch ID", systemImage: "faceid")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isSigningIn)
+                        }
                     }
                     .padding(20)
                     .background(TallaAdminStyle.card.opacity(0.9), in: RoundedRectangle(cornerRadius: 26))
@@ -88,7 +112,7 @@ struct AdminLoginView: View {
         guard !isSigningIn else { return }
         isSigningIn = true
         Task {
-            _ = await session.login(username: username.trimmingCharacters(in: .whitespaces), password: password)
+            _ = await session.login(username: username.trimmingCharacters(in: .whitespaces), password: password, saveBiometrics: enableBiometrics)
             password = ""
             isSigningIn = false
         }

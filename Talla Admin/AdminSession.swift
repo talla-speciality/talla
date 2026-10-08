@@ -2,6 +2,78 @@ import SwiftUI
 import Combine
 import UserNotifications
 import UIKit
+import LocalAuthentication
+import Security
+
+private struct AdminBiometricCredential: Codable {
+    let username: String
+    let password: String
+}
+
+private enum AdminBiometricStore {
+    private static let service = "com.talla.admin.biometric-login"
+    private static let account = "admin-credential"
+
+    static var available: Bool {
+        let context = LAContext()
+        var error: NSError?
+        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    }
+
+    static var hasCredential: Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: false,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
+    }
+
+    static func save(username: String, password: String) throws {
+        let data = try JSONEncoder().encode(AdminBiometricCredential(username: username, password: password))
+        var accessError: Unmanaged<CFError>?
+        guard let accessControl = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            .biometryCurrentSet,
+            &accessError
+        ) else { throw AdminAPIError.server("Could not enable biometric sign-in.") }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: data,
+            kSecAttrAccessControl as String: accessControl
+        ]
+        SecItemDelete(query as CFDictionary)
+        guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else { throw AdminAPIError.server("Could not enable biometric sign-in.") }
+    }
+
+    static func read() throws -> AdminBiometricCredential? {
+        let context = LAContext()
+        context.localizedReason = "Sign in to Talla Admin"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseAuthenticationContext as String: context
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data else { throw AdminAPIError.server("Biometric sign-in was not completed.") }
+        return try JSONDecoder().decode(AdminBiometricCredential.self, from: data)
+    }
+
+    static func remove() {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
+        SecItemDelete(query as CFDictionary)
+    }
+}
 
 @MainActor
 final class AdminSession: ObservableObject {
@@ -10,6 +82,8 @@ final class AdminSession: ObservableObject {
     @Published private(set) var username = ""
     @Published private(set) var role = "viewer"
     @Published private(set) var permissions: Set<String> = []
+    @Published private(set) var biometricAvailable = false
+    @Published private(set) var biometricEnabled = false
     @Published private(set) var orders: [AdminOrder] = []
     @Published private(set) var isLoadingOrders = false
     @Published private(set) var lastRefreshAt: Date?
@@ -22,6 +96,8 @@ final class AdminSession: ObservableObject {
 
     func bootstrap() async {
         defer { isRestoring = false }
+        biometricAvailable = AdminBiometricStore.available
+        biometricEnabled = AdminBiometricStore.hasCredential
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-admin-preview") {
             isAuthenticated = true
@@ -41,6 +117,8 @@ final class AdminSession: ObservableObject {
             if session.authenticated {
                 await api.synchronizeWebCookies()
                 await refreshOrders()
+            } else if biometricEnabled {
+                await loginWithBiometrics()
             }
         } catch {
             isAuthenticated = false
@@ -52,7 +130,7 @@ final class AdminSession: ObservableObject {
         }
     }
 
-    func login(username: String, password: String) async -> Bool {
+    func login(username: String, password: String, saveBiometrics: Bool = false) async -> Bool {
         errorMessage = nil
         message = nil
         do {
@@ -61,6 +139,12 @@ final class AdminSession: ObservableObject {
             self.username = response.username ?? username
             role = response.role ?? "viewer"
             permissions = Set(response.permissions ?? [])
+            if saveBiometrics {
+                do {
+                    try AdminBiometricStore.save(username: username, password: password)
+                    biometricEnabled = true
+                } catch { errorMessage = error.localizedDescription }
+            }
             isAuthenticated = true
             await refreshOrders()
             await refreshNotificationState()
@@ -75,6 +159,21 @@ final class AdminSession: ObservableObject {
             errorMessage = error.localizedDescription
             return false
         }
+    }
+
+    func loginWithBiometrics() async {
+        guard biometricAvailable, !isAuthenticated else { return }
+        do {
+            guard let credential = try AdminBiometricStore.read() else { biometricEnabled = false; return }
+            _ = await login(username: credential.username, password: credential.password)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func disableBiometricLogin() {
+        AdminBiometricStore.remove()
+        biometricEnabled = false
     }
 
     func logout() async {
