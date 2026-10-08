@@ -39,6 +39,7 @@ const {
 } = require("./modules/application/content-settings");
 const {
     authenticateAdmin,
+    hashAdminPassword,
     hasPermission,
     mobileAdminPrincipal,
     permissionForAdminRequest
@@ -77,6 +78,7 @@ const walletPassesStorePath = config.stores.walletPasses;
 const appAttestStorePath = config.stores.appAttest;
 const telemetryStorePath = config.stores.telemetry;
 const gulfCoffeeMapStorePath = config.stores.gulfCoffeeMap;
+const adminUsersStorePath = config.stores.adminUsers;
 const adminDirectory = config.adminDirectory;
 const adminUsername = config.adminUsername;
 const adminPassword = config.adminPassword;
@@ -221,6 +223,21 @@ ensureStoreFile(shopifyOrderExportsStorePath, { exports: {} });
 ensureStoreFile(appAttestStorePath, { keys: {} });
 ensureStoreFile(telemetryStorePath, { events: [] });
 ensureStoreFile(gulfCoffeeMapStorePath, { version: 1, ratings: {} });
+ensureStoreFile(adminUsersStorePath, { users: [] });
+const persistedAdminUsers = readJSON(adminUsersStorePath).users;
+if (Array.isArray(persistedAdminUsers) && persistedAdminUsers.length > 0) {
+    adminUsers.splice(0, adminUsers.length, ...persistedAdminUsers);
+} else {
+    const bootstrapUsers = adminUsers.map((user) => ({
+        username: user.username,
+        role: user.role,
+        active: user.active !== false,
+        password: "",
+        passwordHash: user.passwordHash || hashAdminPassword(user.password)
+    }));
+    adminUsers.splice(0, adminUsers.length, ...bootstrapUsers);
+    writeJSON(adminUsersStorePath, { users: adminUsers });
+}
 
 async function recordTelemetry(payload, accountEmail = null) {
     const event = normalizeTelemetryEvent(payload);
@@ -9267,6 +9284,7 @@ const server = createServer({
     adminSessions,
     adminUsername,
     adminUsers,
+    adminUsersStorePath,
     alertInboxFor,
     alertInboxRowToRecord,
     alertInboxStorePath,

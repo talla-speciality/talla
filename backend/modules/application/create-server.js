@@ -44,6 +44,7 @@ module.exports = function createServer(dependencies) {
         adminSessions,
         adminUsername,
         adminUsers,
+        adminUsersStorePath,
         alertInboxFor,
         alertInboxRowToRecord,
         alertInboxStorePath,
@@ -212,6 +213,7 @@ module.exports = function createServer(dependencies) {
         findShopifyOrderExport,
         fs,
         gulfCoffeeMapStorePath,
+        hashAdminPassword,
         adminGulfCoffeeRatings,
         aggregateGulfCoffeeRatings,
         gulfCoffeeDirectoryFor,
@@ -1288,6 +1290,49 @@ module.exports = function createServer(dependencies) {
             sendJSON(response, 200, {
                 users: adminUsers.map((user) => ({ username: user.username, role: user.role, activeSessions: sessionsByUser[user.username]?.count || 0, latestSessionExpiry: sessionsByUser[user.username]?.latestExpiry || null }))
             }, { "Cache-Control": "no-store" });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/security/users") {
+            try {
+                const body = await readBody(request);
+                const username = String(body.username || "").trim().toLowerCase();
+                const role = ["viewer", "support", "operations", "manager", "owner"].includes(body.role) ? body.role : "viewer";
+                const password = String(body.password || "");
+                const action = String(body.action || "create");
+                if (!username || username.length > 160 || !password && action === "create") { sendJSON(response, 400, { error: "Provide a username and password." }); return; }
+                const existing = adminUsers.find((user) => user.username === username);
+                if (action === "create") {
+                    if (existing) { sendJSON(response, 409, { error: "That admin username already exists." }); return; }
+                    if (password.length < 12) { sendJSON(response, 400, { error: "Admin passwords must be at least 12 characters." }); return; }
+                    adminUsers.push({ username, role, active: true, password: "", passwordHash: hashAdminPassword(password) });
+                    writeJSON(adminUsersStorePath, { users: adminUsers });
+                    await createAdminAuditLog({ adminUser: admin.username, action: "admin_user_created", targetEmail: null, detail: `Created ${username} as ${role}`, metadata: { username, role } });
+                    sendJSON(response, 201, { username, role, active: true });
+                    return;
+                }
+                if (!existing) { sendJSON(response, 404, { error: "Admin user not found." }); return; }
+                if (action === "update") {
+                    const nextRole = ["viewer", "support", "operations", "manager", "owner"].includes(body.newRole) ? body.newRole : existing.role;
+                    const nextActive = body.active === undefined ? existing.active !== false : Boolean(body.active);
+                    const wouldRemoveLastOwner = existing.role === "owner" && (nextRole !== "owner" || !nextActive)
+                        && adminUsers.filter((user) => user.active !== false && user.role === "owner" && user.username !== username).length === 0;
+                    if (wouldRemoveLastOwner) { sendJSON(response, 409, { error: "Talla must retain at least one active owner." }); return; }
+                    existing.role = nextRole;
+                    existing.active = nextActive;
+                    if (password) {
+                        if (password.length < 12) { sendJSON(response, 400, { error: "Admin passwords must be at least 12 characters." }); return; }
+                        existing.password = "";
+                        existing.passwordHash = hashAdminPassword(password);
+                    }
+                    writeJSON(adminUsersStorePath, { users: adminUsers });
+                    if (!nextActive) for (const [id, session] of adminSessions.entries()) if (session.username === username) adminSessions.delete(id);
+                    await createAdminAuditLog({ adminUser: admin.username, action: "admin_user_updated", targetEmail: null, detail: `Updated ${username}`, metadata: { username, role: nextRole, active: nextActive, passwordReset: Boolean(password) } });
+                    sendJSON(response, 200, { username, role: nextRole, active: nextActive });
+                    return;
+                }
+                sendJSON(response, 400, { error: "Unsupported admin user action." });
+            } catch (error) { sendJSON(response, 400, { error: error.message || "Invalid admin user request." }); }
             return;
         }
 

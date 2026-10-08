@@ -1046,7 +1046,7 @@
 
         <details id="security-section" class="panel" data-admin-section="security admin users sessions revoke access" style="margin-bottom: 20px;">
             <summary class="panel-summary"><h2>Admin Security</h2></summary>
-            <div class="panel-body"><div class="subcopy">Review configured admin roles and revoke active sessions without exposing session credentials.</div><button id="refresh-security" class="secondary">Refresh Security</button><div id="security-list" class="list" style="margin-top:12px;">Loading security…</div></div>
+            <div class="panel-body"><div class="subcopy">Owner-only account controls. Passwords are stored as one-way hashes; session credentials are never displayed.</div><div class="grid"><input id="new-admin-username" placeholder="New admin username"><input id="new-admin-password" type="password" placeholder="Temporary password (12+ characters)"><select id="new-admin-role"><option value="viewer">Viewer</option><option value="support">Support</option><option value="operations">Operations</option><option value="manager">Manager</option><option value="owner">Owner</option></select><button id="create-admin-user" class="secondary">Create Admin</button></div><button id="refresh-security" class="secondary" style="margin-top:12px;">Refresh Security</button><div id="security-list" class="list" style="margin-top:12px;">Loading security…</div></div>
         </details>
 
         <details id="home-section" class="panel" data-admin-section="app home controls hero signature roasts express" style="margin-bottom: 20px;">
@@ -1386,6 +1386,10 @@
         const reimportCoffeeMemoryButton = document.getElementById("reimport-coffee-memory");
         const refreshSecurityButton = document.getElementById("refresh-security");
         const securityListEl = document.getElementById("security-list");
+        const newAdminUsernameInput = document.getElementById("new-admin-username");
+        const newAdminPasswordInput = document.getElementById("new-admin-password");
+        const newAdminRoleInput = document.getElementById("new-admin-role");
+        const createAdminUserButton = document.getElementById("create-admin-user");
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
         const analyticsPeriodInput = document.getElementById("analytics-period");
@@ -2990,8 +2994,20 @@
         }
 
         async function loadSecurity() {
-            try { const response = await fetch("/admin/api/security"); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not load security."); const users = payload.users || []; securityListEl.className = users.length ? "list" : "empty"; securityListEl.innerHTML = users.length ? users.map((user) => `<div class="list-item"><strong>${escapeHTML(user.username)}</strong><div class="muted">${escapeHTML(user.role)} • ${user.activeSessions || 0} active session(s)${user.latestSessionExpiry ? ` • latest expires ${new Date(user.latestSessionExpiry).toLocaleString()}` : ""}</div><button class="secondary revoke-admin-sessions" data-username="${escapeHTML(user.username)}">Revoke Sessions</button></div>`).join("") : "No configured admin users."; }
+            try { const response = await fetch("/admin/api/security"); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not load security."); const users = payload.users || []; securityListEl.className = users.length ? "list" : "empty"; securityListEl.innerHTML = users.length ? users.map((user) => `<div class="list-item"><strong>${escapeHTML(user.username)}</strong><div class="muted">${escapeHTML(user.role)} • ${user.activeSessions || 0} active session(s)${user.latestSessionExpiry ? ` • latest expires ${new Date(user.latestSessionExpiry).toLocaleString()}` : ""}</div><div class="toolbar-row" style="padding-top:10px;"><select class="admin-role-input" data-username="${escapeHTML(user.username)}">${["viewer", "support", "operations", "manager", "owner"].map((role) => `<option value="${role}" ${role === user.role ? "selected" : ""}>${role}</option>`).join("")}</select><label><input class="admin-active-input" data-username="${escapeHTML(user.username)}" type="checkbox" ${user.active !== false ? "checked" : ""}> Active</label><input class="admin-password-input" data-username="${escapeHTML(user.username)}" type="password" placeholder="New password (optional)"><button class="secondary save-admin-user" data-username="${escapeHTML(user.username)}">Save</button><button class="secondary revoke-admin-sessions" data-username="${escapeHTML(user.username)}">Revoke Sessions</button></div></div>`).join("") : "No configured admin users."; }
             catch (error) { securityListEl.className = "empty"; securityListEl.textContent = error.message; }
+        }
+
+        async function createAdminUser() {
+            const username = newAdminUsernameInput.value.trim(); const password = newAdminPasswordInput.value; const role = newAdminRoleInput.value;
+            try { const response = await fetch("/admin/api/security/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password, role, action: "create" }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not create admin user."); newAdminUsernameInput.value = ""; newAdminPasswordInput.value = ""; setStatus(`Created ${payload.username}.`, "success"); await loadSecurity(); }
+            catch (error) { setStatus(error.message, "error"); }
+        }
+
+        async function saveAdminUser(button) {
+            const card = button.closest(".list-item"); const username = button.dataset.username; const role = card.querySelector(".admin-role-input").value; const active = card.querySelector(".admin-active-input").checked; const password = card.querySelector(".admin-password-input").value;
+            try { const response = await fetch("/admin/api/security/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, newRole: role, active, password, action: "update" }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Could not update admin user."); card.querySelector(".admin-password-input").value = ""; setStatus(`Updated ${payload.username}.`, "success"); await loadSecurity(); }
+            catch (error) { setStatus(error.message, "error"); }
         }
 
         async function revokeAdminSessions(username) {
@@ -4793,7 +4809,10 @@
         refreshNotificationHistoryButton.addEventListener("click", loadNotificationHistory);
         reimportCoffeeMemoryButton.addEventListener("click", reimportCoffeeMemory);
         refreshSecurityButton.addEventListener("click", loadSecurity);
+        createAdminUserButton.addEventListener("click", createAdminUser);
         securityListEl.addEventListener("click", async (event) => {
+            const saveButton = event.target.closest(".save-admin-user");
+            if (saveButton) { await saveAdminUser(saveButton); return; }
             const button = event.target.closest(".revoke-admin-sessions");
             if (!button) return;
             try { await revokeAdminSessions(button.dataset.username); } catch (error) { setStatus(error.message, "error"); }

@@ -162,7 +162,8 @@ module.exports = {
         walletPasses: path.join(dataDirectory, "walletPasses.json"),
         appAttest: path.join(dataDirectory, "appAttest.json"),
         telemetry: path.join(dataDirectory, "telemetry.json"),
-        gulfCoffeeMap: path.join(dataDirectory, "gulfCoffeeMap.json")
+        gulfCoffeeMap: path.join(dataDirectory, "gulfCoffeeMap.json"),
+        adminUsers: path.join(dataDirectory, "adminUsers.json")
     },
     corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
     walletPassTemplateDirectory,

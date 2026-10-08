@@ -35,8 +35,10 @@ function parseAdminUsers(value, legacy = {}) {
     const users = candidates.map((candidate) => ({
         username: String(candidate?.username || "").trim().toLowerCase(),
         password: String(candidate?.password || ""),
+        passwordHash: String(candidate?.passwordHash || ""),
+        active: candidate?.active !== false,
         role: normalizeRole(candidate?.role || "viewer")
-    })).filter((candidate) => candidate.username && candidate.password);
+    })).filter((candidate) => candidate.username && (candidate.password || candidate.passwordHash));
 
     if (new Set(users.map((user) => user.username)).size !== users.length) {
         throw new Error("ADMIN_USERS_JSON_DUPLICATE_USERNAME");
@@ -53,8 +55,25 @@ function timingSafeTextEqual(left, right) {
 function authenticateAdmin(users, username, password) {
     const normalizedUsername = String(username || "").trim().toLowerCase();
     const candidate = users.find((user) => user.username === normalizedUsername);
-    if (!candidate || !timingSafeTextEqual(candidate.password, password)) return null;
+    if (!candidate || candidate.active === false) return null;
+    const valid = candidate.passwordHash
+        ? verifyAdminPassword(password, candidate.passwordHash)
+        : timingSafeTextEqual(candidate.password, password);
+    if (!valid) return null;
     return { username: candidate.username, role: candidate.role, permissions: permissionsForRole(candidate.role) };
+}
+
+function hashAdminPassword(password) {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const derived = crypto.scryptSync(String(password), salt, 64).toString("hex");
+    return `scrypt$${salt}$${derived}`;
+}
+
+function verifyAdminPassword(password, encoded) {
+    const [algorithm, salt, expected] = String(encoded || "").split("$");
+    if (algorithm !== "scrypt" || !salt || !expected) return false;
+    const actual = crypto.scryptSync(String(password), salt, 64).toString("hex");
+    return timingSafeTextEqual(actual, expected);
 }
 
 function hasPermission(principal, permission) {
@@ -82,6 +101,7 @@ function mobileAdminPrincipal(email, roleByEmail = {}) {
 
 module.exports = {
     authenticateAdmin,
+    hashAdminPassword,
     hasPermission,
     mobileAdminPrincipal,
     normalizeRole,
