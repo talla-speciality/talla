@@ -37,7 +37,7 @@ struct ProfileManagementSectionView: View {
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(AppLocalization.letterSpacing(2))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
 
                 Spacer(minLength: 8)
 
@@ -47,7 +47,7 @@ struct ProfileManagementSectionView: View {
                     } label: {
                         Label(AppLocalization.text("edit_name", fallback: "Edit Name"), systemImage: "pencil")
                             .font(Font.custom("AvenirNext-DemiBold", size: 10))
-                            .foregroundColor(accentColor)
+                            .foregroundColor(TallaTheme.Colors.ink)
                     }
                     .buttonStyle(.plain)
                 }
@@ -83,7 +83,7 @@ struct ProfileManagementSectionView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 24, weight: .medium))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(savedFullName)
@@ -130,7 +130,7 @@ struct ProfileManagementSectionView: View {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -143,7 +143,7 @@ struct ProfileManagementSectionView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
             .background(cardFillColor)
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
@@ -166,7 +166,7 @@ struct PasswordResetSectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             secureField(AppLocalization.text("current_password", fallback: "Current password"), text: $currentPassword)
 
@@ -188,7 +188,7 @@ struct PasswordResetSectionView: View {
                     .background(cardFillColor)
                     .overlay(
                         Capsule()
-                            .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
@@ -207,7 +207,7 @@ struct PasswordResetSectionView: View {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -259,7 +259,7 @@ struct OrderHistorySectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             if isLoadingOrders {
                 Text(AppLocalization.text("loading_orders", fallback: "Loading orders..."))
@@ -295,7 +295,7 @@ struct OrderHistorySectionView: View {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
@@ -318,13 +318,13 @@ struct OrderHistorySectionView: View {
                             VStack(alignment: .trailing, spacing: 6) {
                                 Text(order.total)
                                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                                    .foregroundColor(accentColor)
+                                    .foregroundColor(TallaTheme.Colors.ink)
 
                                 orderStatusBadge(order.historyStatus)
                                 if order.isRefunded {
                                     Text("Refunded")
                                         .font(Font.custom("AvenirNext-DemiBold", size: 10))
-                                        .foregroundColor(accentColor)
+                                        .foregroundColor(TallaTheme.Colors.ink)
                                 }
                             }
                         }
@@ -351,11 +351,11 @@ struct OrderHistorySectionView: View {
                                     systemImage: "checkmark.seal.fill"
                                 )
                                 .font(Font.custom("AvenirNext-DemiBold", size: 12))
-                                .foregroundColor(accentColor)
+                                .foregroundColor(TallaTheme.Colors.ink)
                                 .fixedSize(horizontal: false, vertical: true)
 
                                 ProgressView(value: Double(club.deliveredCount), total: Double(max(1, club.shipmentCount)))
-                                    .tint(accentColor)
+                                    .tint(TallaTheme.Colors.ink)
 
                                 HStack {
                                     Label(
@@ -397,7 +397,7 @@ struct OrderHistorySectionView: View {
 
                                 Text(coffeeClubStatusText(club))
                                     .font(Font.custom("AvenirNext-DemiBold", size: 10))
-                                    .foregroundColor(accentColor)
+                                    .foregroundColor(TallaTheme.Colors.ink)
 
                                 if let coffeeName = club.preference?.coffeeName, !coffeeName.isEmpty {
                                     Label(coffeeName, systemImage: "cup.and.saucer.fill")
@@ -420,7 +420,7 @@ struct OrderHistorySectionView: View {
                                         .padding(.vertical, 10)
                                     }
                                     .buttonStyle(.tallaSecondary)
-                                    .tint(accentColor)
+                                    .tint(TallaTheme.Colors.ink)
                                 }
                             }
                             .accessibilityElement(children: .contain)
@@ -441,7 +441,7 @@ struct OrderHistorySectionView: View {
                             VStack(alignment: .leading, spacing: 5) {
                                 Label("\(pass.giftedCoffee == true ? "Coffee gift" : pass.suspendedCoffee == true ? "Suspended coffee" : "Daily cup café pass") · \(pass.remainingCredits) of \(pass.creditCount) drinks remaining", systemImage: "cup.and.saucer.fill")
                                     .font(Font.custom("AvenirNext-DemiBold", size: 12))
-                                    .foregroundColor(accentColor)
+                                    .foregroundColor(TallaTheme.Colors.ink)
                                 Text("\(pass.drinkName) · \(pass.status.replacingOccurrences(of: "_", with: " ").capitalized)\(pass.expiresAt.flatMap { formattedOrderDate($0).isEmpty ? nil : " · Expires \(formattedOrderDate($0))" } ?? "")")
                                     .font(Font.custom("AvenirNext-Regular", size: 11))
                                     .foregroundColor(secondaryTextColor)
@@ -464,7 +464,7 @@ struct OrderHistorySectionView: View {
                                         Label("Swap drink for remaining credits", systemImage: "arrow.triangle.swap")
                                             .font(Font.custom("AvenirNext-Bold", size: 10))
                                     }
-                                    .tint(accentColor)
+                                    .tint(TallaTheme.Colors.ink)
                                 }
                                 if order.isPaidForCafePass, pass.suspendedCoffee == true, pass.status == "active", pass.remainingCredits > 0 {
                                     HStack(spacing: 12) {
@@ -476,7 +476,7 @@ struct OrderHistorySectionView: View {
                                                 .font(Font.custom("AvenirNext-Regular", size: 11)).foregroundColor(secondaryTextColor)
                                             ShareLink(item: suspendedCoffeeGiftLink(orderID: order.id, token: pass.giftToken), subject: Text("A coffee from Talla"), message: Text("A \(pass.drinkName) is waiting for you at the Talla counter. Show staff gift code \(order.id) to redeem it.")) {
                                                 Label(pass.giftedCoffee == true ? "Share paid coffee gift" : "Share counter code", systemImage: "square.and.arrow.up").font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                            }.tint(accentColor)
+                                            }.tint(TallaTheme.Colors.ink)
                                             if pass.giftedCoffee == true,
                                                let whatsappURL = coffeeGiftWhatsAppURL(orderID: order.id, drinkName: pass.drinkName, token: pass.giftToken) {
                                                 Button {
@@ -484,7 +484,7 @@ struct OrderHistorySectionView: View {
                                                 } label: {
                                                     Label("Send gift on WhatsApp", systemImage: "message.fill")
                                                         .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                                }.tint(accentColor)
+                                                }.tint(TallaTheme.Colors.ink)
                                             }
                                         }
                                     }
@@ -511,7 +511,7 @@ struct OrderHistorySectionView: View {
                             systemImage: order.isPickup ? "storefront.fill" : "shippingbox.fill"
                         )
                         .font(Font.custom("AvenirNext-DemiBold", size: 12))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
                         .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.16))
@@ -543,7 +543,7 @@ struct OrderHistorySectionView: View {
                            !status.isEmpty {
                             Label("Case \(status.replacingOccurrences(of: "_", with: " ").capitalized)", systemImage: "checkmark.message.fill")
                                 .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                .foregroundColor(accentColor)
+                                .foregroundColor(TallaTheme.Colors.ink)
                         }
 
                         if order.beansAwarded == true, let pointsAwarded = order.pointsAwarded, pointsAwarded > 0 {
@@ -553,7 +553,7 @@ struct OrderHistorySectionView: View {
                                 Text(String(format: AppLocalization.text("order_beans_awarded", fallback: "%d Beans awarded"), pointsAwarded))
                                     .font(Font.custom("AvenirNext-DemiBold", size: 12))
                             }
-                            .foregroundColor(accentColor)
+                            .foregroundColor(TallaTheme.Colors.ink)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
                             .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
@@ -601,7 +601,7 @@ struct OrderHistorySectionView: View {
                     .background(cardFillColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
@@ -793,7 +793,7 @@ struct OrderHistorySectionView: View {
                                 )
                             )
                             .font(.caption.bold())
-                            .foregroundColor(accentColor)
+                            .foregroundColor(TallaTheme.Colors.ink)
                         }
 
                         Button(AppLocalization.text("save_future_choices", fallback: "Save Future Choices")) {
@@ -922,7 +922,7 @@ struct OrderHistorySectionView: View {
         .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -1028,7 +1028,7 @@ struct OrderHistorySectionView: View {
                 .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .foregroundColor(isSelected ? Color(hex: 0x151515) : accentColor)
+                .foregroundColor(isSelected ? .white : TallaTheme.Colors.ink)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
                 .background(isSelected ? accentColor : accentColor.opacity(isLightAppearance ? 0.10 : 0.14))

@@ -557,7 +557,7 @@ extension ContentView {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(TallaTheme.Colors.accent.opacity(coffeeClubTermsAccepted ? 0.42 : 0.16), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(coffeeClubTermsAccepted ? 0.42 : 0.16), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
@@ -597,7 +597,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
@@ -877,7 +877,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -993,7 +993,7 @@ extension ContentView {
                     .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.045 : 0.08))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(TallaTheme.Colors.accent.opacity(0.16), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
@@ -1128,11 +1128,11 @@ extension ContentView {
                         .fill(TallaTheme.Colors.accent.opacity(0.13))
                         .frame(width: 104, height: 104)
                     Circle()
-                        .stroke(TallaTheme.Colors.accent.opacity(0.28), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(0.28), lineWidth: 1)
                         .frame(width: 84, height: 84)
                     Image(systemName: "checkmark")
                         .font(.system(size: 36, weight: .semibold))
-                        .foregroundColor(TallaTheme.Colors.accent)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
                 .accessibilityHidden(true)
 
@@ -1179,7 +1179,7 @@ extension ContentView {
                         .frame(width: 96, height: 96)
                     ProgressView()
                         .controlSize(.large)
-                        .tint(TallaTheme.Colors.accent)
+                        .tint(TallaTheme.Colors.ink)
                 }
 
                 Text(AppLocalization.text("confirming_payment", fallback: "Confirming your payment"))
@@ -1250,7 +1250,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.09), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.09), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -1296,7 +1296,7 @@ extension ContentView {
                                 .frame(maxWidth: .infinity, minHeight: 48)
                         }
                         .buttonStyle(.bordered)
-                        .tint(TallaTheme.Colors.accent)
+                        .tint(TallaTheme.Colors.ink)
                     }
                 }
                 Button {
@@ -1413,7 +1413,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -1438,7 +1438,7 @@ extension ContentView {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(isSelected ? 0 : 0.22), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isSelected ? 0 : 0.22), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -1481,7 +1481,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -1596,7 +1596,7 @@ extension ContentView {
             }
             return AnyView(
                 Image(systemName: "bag.fill")
-                    .foregroundStyle(TallaTheme.Colors.accent)
+                    .foregroundStyle(TallaTheme.Colors.ink)
                     .frame(width: 44, height: 44)
                     .background(TallaTheme.Colors.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             )
@@ -1688,7 +1688,7 @@ extension ContentView {
         .background(elevatedSurfaceColor)
         .overlay(
             Capsule(style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
         )
         .clipShape(Capsule(style: .continuous))
         .accessibilityValue(AppLocalization.text("available_in_secure_checkout", fallback: "Available in secure checkout"))
@@ -1761,7 +1761,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     Capsule()
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.18 : 0.1), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.18 : 0.1), lineWidth: 1)
                 )
                 .clipShape(Capsule())
 
@@ -1773,9 +1773,9 @@ extension ContentView {
                         .frame(width: 32, height: 32)
                         .overlay(
                             Circle()
-                                .stroke(TallaTheme.Colors.accent.opacity(0.2), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.ink.opacity(0.2), lineWidth: 1)
                         )
-                        .foregroundColor(TallaTheme.Colors.accent.opacity(0.6))
+                        .foregroundColor(TallaTheme.Colors.ink.opacity(0.6))
                 }
                 .buttonStyle(.plain)
             }
@@ -1824,7 +1824,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
@@ -1842,7 +1842,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
@@ -1898,7 +1898,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
@@ -1930,7 +1930,7 @@ extension ContentView {
                                     if isLoadingAvailableVouchers {
                                         ProgressView()
                                             .scaleEffect(0.75)
-                                            .tint(TallaTheme.Colors.accent)
+                                            .tint(TallaTheme.Colors.ink)
                                     }
                                 }
 
@@ -1958,7 +1958,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     } else {
@@ -1974,7 +1974,7 @@ extension ContentView {
                             if isLoadingAvailableVouchers {
                                 ProgressView()
                                     .scaleEffect(0.8)
-                                    .tint(TallaTheme.Colors.accent)
+                                    .tint(TallaTheme.Colors.ink)
                             }
                         }
 
@@ -2009,7 +2009,7 @@ extension ContentView {
                                 .background(cardFillColor)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                                 )
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                             }
@@ -2047,7 +2047,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
@@ -2063,7 +2063,7 @@ extension ContentView {
                         .background(cardFillColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
@@ -2089,7 +2089,7 @@ extension ContentView {
     var loadingSection: some View {
         VStack(spacing: 16) {
             ProgressView()
-                .tint(TallaTheme.Colors.accent)
+                .tint(TallaTheme.Colors.ink)
 
             Text(AppLocalization.text("loading_shop", fallback: "Loading the shop"))
                 .font(.system(size: 12, weight: .medium))
@@ -2175,7 +2175,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .redacted(reason: .placeholder)

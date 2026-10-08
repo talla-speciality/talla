@@ -142,7 +142,7 @@ extension ContentView {
                         .clipShape(Circle())
                         .overlay(
                             Circle()
-                                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
                         )
                 }
                 .menuStyle(.button)
@@ -177,7 +177,7 @@ private struct HeaderCartButton: View {
             ZStack(alignment: .topTrailing) {
                 if showingCelebration {
                     Circle()
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.32 : 0.42), lineWidth: 2)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.32 : 0.42), lineWidth: 2)
                         .frame(width: 44, height: 44)
                         .scaleEffect(1.42)
                         .opacity(0.55)
@@ -187,14 +187,14 @@ private struct HeaderCartButton: View {
 
                 Image(systemName: cartCount > 0 ? "bag.fill" : "bag")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(cartCount > 0 ? Color(hex: 0x151515) : TallaTheme.Colors.accent)
+                    .foregroundColor(cartCount > 0 ? .white : TallaTheme.Colors.ink)
                     .symbolEffect(.bounce, value: celebrationID)
                     .frame(width: 40, height: 40)
                     .background(cartCount > 0 ? TallaTheme.Colors.accent : cardFillColor)
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.20 : 0.14), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.20 : 0.14), lineWidth: 1)
                     )
 
                 if cartCount > 0 {

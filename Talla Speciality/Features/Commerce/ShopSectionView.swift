@@ -57,7 +57,7 @@ struct ShopSectionView: View {
                     .font(labelFont)
                     .tracking(localizedTracking(3))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
 
                 Text(AppLocalization.text("shop_heading", fallback: "Pick your Talla run"))
                     .font(titleFont)
@@ -136,7 +136,7 @@ struct ShopSectionView: View {
                 HStack(spacing: 12) {
                 Image(systemName: "cup.and.saucer.fill")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 46, height: 46)
                     .background(accentColor.opacity(isLightAppearance ? 0.13 : 0.18), in: Circle())
 
@@ -145,7 +145,7 @@ struct ShopSectionView: View {
                         .font(labelFont)
                         .tracking(localizedTracking(1.8))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
 
                     Text(AppLocalization.text("coffee_club_intro_title", fallback: "Your coffee, already planned"))
                         .font(sectionTitleFont)
@@ -271,14 +271,14 @@ struct ShopSectionView: View {
             .padding(.horizontal, 11)
             .frame(minHeight: 36)
             .background(cardFillColor.opacity(0.78), in: Capsule())
-            .overlay(Capsule().stroke(accentColor.opacity(0.14), lineWidth: 1))
+            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1))
     }
 
     private var shopSearchField: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search products"), text: $searchQuery)
                 .font(bodyFont)
@@ -311,7 +311,7 @@ struct ShopSectionView: View {
                 } label: {
                     Image(systemName: "keyboard.chevron.compact.down")
                         .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Hide keyboard")
@@ -351,7 +351,7 @@ struct ShopSectionView: View {
                     .font(categoryLabelFont)
                     .tracking(localizedTracking(1.6))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
 
                 Spacer()
 
@@ -398,7 +398,7 @@ struct ShopSectionView: View {
                     .font(categoryLabelFont)
                     .tracking(localizedTracking(1.2))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.76)
 
@@ -417,7 +417,7 @@ struct ShopSectionView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                         .frame(width: 30, height: 30)
                         .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.14))
                         .clipShape(Circle())
@@ -445,7 +445,7 @@ struct ShopSectionView: View {
                 .background(cardFillColor)
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                 )
                 .clipShape(Capsule(style: .continuous))
             }
@@ -466,7 +466,7 @@ struct ShopSectionView: View {
                     .font(categoryLabelFont)
                     .tracking(localizedTracking(1.6))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
 
                 Text(resultsCountText)
                     .font(categoryBodyFont)
@@ -484,13 +484,13 @@ struct ShopSectionView: View {
                         .font(categoryLabelFont)
                         .tracking(localizedTracking(1.6))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                         .background(cardFillColor)
                         .overlay(
                             Capsule()
-                                .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                         )
                         .clipShape(Capsule())
                 }
@@ -523,7 +523,7 @@ struct ShopSectionView: View {
                 .font(labelFont)
                 .tracking(localizedTracking(4))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             if horizontalSizeClass == .compact {
                 Menu {
@@ -550,14 +550,14 @@ struct ShopSectionView: View {
                         Spacer()
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(accentColor)
+                            .foregroundColor(TallaTheme.Colors.ink)
                     }
                     .padding(.horizontal, 14)
                     .frame(maxWidth: .infinity, minHeight: 46)
                     .background(cardFillColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(accentColor.opacity(0.28), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(0.28), lineWidth: 1)
                     )
                 }
             } else {
@@ -595,7 +595,7 @@ struct ShopSectionView: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 9, weight: .black))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
             }
             .frame(minHeight: 44, alignment: .leading)
@@ -606,7 +606,7 @@ struct ShopSectionView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(isSelected ? 0.82 : 0.18), lineWidth: isSelected ? 2 : 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(isSelected ? 0.82 : 0.18), lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -622,7 +622,7 @@ struct ShopSectionView: View {
             }
         }
         .font(.system(size: 15, weight: .semibold))
-        .foregroundColor(accentColor)
+        .foregroundColor(TallaTheme.Colors.ink)
         .frame(width: 18, height: 18)
     }
 

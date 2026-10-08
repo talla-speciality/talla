@@ -77,7 +77,7 @@ struct TallaAppIconPicker: View {
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(accentColor.opacity(0.16), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
         )
         .onAppear {
             selectedIconName = UIApplication.shared.alternateIconName
@@ -114,7 +114,7 @@ struct TallaAppIconPicker: View {
                             .offset(x: 6, y: -6)
                     } else if isPending {
                         ProgressView()
-                            .tint(accentColor)
+                            .tint(TallaTheme.Colors.ink)
                             .frame(width: 22, height: 22)
                             .background(Circle().fill(cardColor))
                             .offset(x: 6, y: -6)
@@ -123,7 +123,7 @@ struct TallaAppIconPicker: View {
 
                 Text(option.title)
                     .font(.system(size: 12, weight: isSelected ? .bold : .semibold, design: .rounded))
-                    .foregroundColor(isSelected ? accentColor : primaryTextColor)
+                    .foregroundColor(isSelected ? TallaTheme.Colors.ink : primaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }

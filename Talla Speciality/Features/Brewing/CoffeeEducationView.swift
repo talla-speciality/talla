@@ -1,7 +1,12 @@
 import SwiftUI
 
 struct CoffeeEducationView: View {
-    private let accent = Color(red: 0.79, green: 0.59, blue: 0.35)
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
+    private let accent = TallaTheme.Colors.ink
+    private var educationSurface: Color {
+        appearanceMode == "oled" ? .black : (colorScheme == .dark ? TallaTheme.Colors.darkSurface : Color(hex: 0xF2F2F2))
+    }
     @State private var selectedFamily = "Fruity"
     @State private var selectedMethod: BrewMethodLesson?
     @State private var quizChoice = ""
@@ -97,17 +102,17 @@ struct CoffeeEducationView: View {
                     Text("COFFEE SCHOOL")
                         .font(.caption.weight(.bold))
                         .tracking(2.4)
-                        .foregroundStyle(Color(hex: 0x151515))
+                        .foregroundStyle(TallaTheme.Colors.ink)
                     Text("Learn with Talla")
                         .font(.system(size: 34, weight: .bold, design: .serif))
-                        .foregroundStyle(Color(hex: 0x151515))
+                        .foregroundStyle(TallaTheme.Colors.ink)
                 }
                 Spacer()
                 Image(systemName: "book.closed.fill")
                     .font(.title2)
-                    .foregroundStyle(Color(hex: 0x151515))
+                    .foregroundStyle(TallaTheme.Colors.ink)
                     .frame(width: 46, height: 46)
-                    .background(Color.white.opacity(0.42), in: Circle())
+                    .background(TallaTheme.Colors.ink.opacity(0.08), in: Circle())
             }
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
@@ -118,7 +123,7 @@ struct CoffeeEducationView: View {
                             .foregroundStyle(accent)
                         Text(learningLevel.title)
                             .font(.system(.title2, design: .serif, weight: .bold))
-                            .foregroundStyle(Color(hex: 0x151515))
+                            .foregroundStyle(TallaTheme.Colors.ink)
                         Text(learningLevel.detail)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -142,7 +147,7 @@ struct CoffeeEducationView: View {
                 }
             }
             .padding(18)
-            .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(TallaTheme.Colors.ink.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             HStack { sectionTitle("Your learning path"); Spacer(); Text("\(completedLessons.count)/3").font(.subheadline.weight(.bold)).foregroundStyle(accent) }
             Text("Build a better palate in three small steps.").foregroundStyle(.secondary)
@@ -162,7 +167,7 @@ struct CoffeeEducationView: View {
         }
         .padding(20)
         .background(
-            LinearGradient(colors: [Color(hex: 0xFFFFFF), Color(hex: 0xE8CDAA)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: colorScheme == .dark ? [educationSurface, educationSurface] : [Color(hex: 0xFFFFFF), Color(hex: 0xE8CDAA)], startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 25, style: .continuous)
         )
     }
@@ -191,9 +196,9 @@ struct CoffeeEducationView: View {
                 let labelRadius = diameter / 2 + 25
                 ZStack {
                     Circle().fill(Color(hex: 0xF3E7D6)).frame(width: diameter, height: diameter)
-                    Circle().stroke(Color(hex: 0x151515).opacity(0.30), lineWidth: 1).frame(width: diameter * 0.67, height: diameter * 0.67)
-                    Circle().fill(Color(hex: 0x151515).opacity(0.22)).frame(width: diameter * 0.43, height: diameter * 0.43)
-                    Text(selectedFamily).font(.headline).foregroundStyle(Color(hex: 0x151515)).multilineTextAlignment(.center).frame(width: 78)
+                    Circle().stroke(TallaTheme.Colors.ink.opacity(0.30), lineWidth: 1).frame(width: diameter * 0.67, height: diameter * 0.67)
+                    Circle().fill(TallaTheme.Colors.ink.opacity(0.22)).frame(width: diameter * 0.43, height: diameter * 0.43)
+                    Text(selectedFamily).font(.headline).foregroundStyle(TallaTheme.Colors.ink).multilineTextAlignment(.center).frame(width: 78)
                     ForEach(Array(families.enumerated()), id: \.element.name) { index, family in
                         let angle = Angle.degrees(Double(index) * 60 - 90)
                         Button { withAnimation { selectedFamily = family.name } } label: {
@@ -203,7 +208,7 @@ struct CoffeeEducationView: View {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 8)
                                 .background(selectedFamily == family.name ? Color(hex: 0xB87838) : Color.white.opacity(0.75), in: Capsule())
-                                .overlay(Capsule().stroke(Color(hex: 0x151515).opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1))
+                                .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                         .offset(x: CGFloat(cos(angle.radians)) * labelRadius, y: CGFloat(sin(angle.radians)) * labelRadius)
@@ -212,7 +217,7 @@ struct CoffeeEducationView: View {
                 .frame(width: geometry.size.width, height: 330)
             }
             .frame(height: 330)
-            if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description).foregroundStyle(Color(hex: 0x4A2A16)); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).foregroundStyle(Color(hex: 0x5D371D)).padding(.horizontal, 10).padding(.vertical, 7).background(Color(hex: 0xE8CDAA).opacity(0.55), in: Capsule()) } } }.padding(16).background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 18, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0x151515).opacity(0.18), lineWidth: 1)) }
+            if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description).foregroundStyle(Color.secondary); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).foregroundStyle(Color.secondary).padding(.horizontal, 10).padding(.vertical, 7).background(Color(hex: 0xE8CDAA).opacity(0.55), in: Capsule()) } } }.padding(16).background(educationSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)) }
             }
     }
     private var methodsSection: some View {
@@ -224,17 +229,17 @@ struct CoffeeEducationView: View {
                     Button { selectedMethod = method } label: {
                         VStack(alignment: .leading, spacing: 11) {
                             HStack {
-                                Image(systemName: method.icon).font(.title2).foregroundStyle(Color(hex: 0x151515))
+                                Image(systemName: method.icon).font(.title2).foregroundStyle(TallaTheme.Colors.ink)
                                 Spacer()
-                                Image(systemName: "arrow.up.right").font(.caption.weight(.bold)).foregroundStyle(Color(hex: 0x151515).opacity(0.7))
+                                Image(systemName: "arrow.up.right").font(.caption.weight(.bold)).foregroundStyle(TallaTheme.Colors.ink.opacity(0.7))
                             }
-                            Text(method.name).font(.headline).foregroundStyle(Color(hex: 0x151515))
-                            Text("\(method.time) · \(method.grind)").font(.caption).foregroundStyle(Color(hex: 0x4A2A16).opacity(0.65))
+                            Text(method.name).font(.headline).foregroundStyle(TallaTheme.Colors.ink)
+                            Text("\(method.time) · \(method.grind)").font(.caption).foregroundStyle(Color.secondary)
                         }
                         .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
                         .padding(16)
-                        .background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0x151515).opacity(0.18), lineWidth: 1))
+                        .background(educationSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -251,14 +256,14 @@ struct CoffeeEducationView: View {
                 .font(.body).foregroundStyle(Color(hex: 0x4A2A16)).padding(16).frame(maxWidth: .infinity, alignment: .leading).background(Color(hex: 0xFFFFFF), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .padding(20)
-        .background(Color(hex: 0x151515), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(TallaTheme.Colors.ink, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .foregroundStyle(Color(hex: 0xF2F2F2))
     }
     private var knowledgeCheck: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack { sectionTitle("Quick check"); Spacer(); Text("\(quizScore)/\(questionsAnswered)").font(.subheadline.weight(.bold)).foregroundStyle(accent) }
             if let question = currentQuestion {
-                Text(question.prompt).font(.headline).foregroundStyle(Color(hex: 0x151515))
+                Text(question.prompt).font(.headline).foregroundStyle(TallaTheme.Colors.ink)
                 ForEach(question.options, id: \.self) { answer in
                     Button { answerQuestion(answer, question: question) } label: {
                         HStack { Text(answer).foregroundStyle(Color(hex: 0x4A2A16)); Spacer(); if quizChoice == answer { Image(systemName: answer == question.correctAnswer ? "checkmark.circle.fill" : "xmark.circle.fill").foregroundStyle(answer == question.correctAnswer ? .green : .red) } }.padding(13).background(Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
@@ -335,7 +340,7 @@ struct CoffeeEducationView: View {
         Text(title).font(.system(.title2, design: .serif, weight: .bold))
     }
 
-    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline).foregroundStyle(Color(hex: 0x151515)); Text(item.1).font(.caption).foregroundStyle(Color(hex: 0x4A2A16).opacity(0.65)) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: 0x151515).opacity(0.16), lineWidth: 1)) } } } }
+    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline).foregroundStyle(TallaTheme.Colors.ink); Text(item.1).font(.caption).foregroundStyle(Color.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(educationSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)) } } } }
 }
 
 private extension View {

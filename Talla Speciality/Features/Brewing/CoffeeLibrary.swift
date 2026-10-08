@@ -819,7 +819,7 @@ struct CoffeeLibraryView: View {
         .background(coffeeCardColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
         )
         .accessibilityIdentifier("offline.cached-brew")
     }
@@ -1326,7 +1326,7 @@ private struct TallaCoffeeGroupBoxStyle: GroupBoxStyle {
         .background(colorScheme == .dark ? Color(hex: 0x17120D) : Color(hex: 0xFFFCF5))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }

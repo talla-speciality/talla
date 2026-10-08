@@ -24,7 +24,7 @@ struct SignedInCustomerSectionView: View {
             HStack(alignment: .center, spacing: 14) {
                 Image(systemName: "person.crop.circle.fill")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 44, height: 44)
                     .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
@@ -46,7 +46,7 @@ struct SignedInCustomerSectionView: View {
                         .font(labelFont)
                         .tracking(AppLocalization.letterSpacing(1.3))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
 
                 Spacer(minLength: 8)
@@ -61,7 +61,7 @@ struct SignedInCustomerSectionView: View {
                         .font(labelFont)
                         .tracking(AppLocalization.letterSpacing(1.8))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
 
                     Text(AppLocalization.text("profile_workspace_detail", fallback: "Edit account details, update your password, and review recent orders."))
                         .font(Font.custom("AvenirNext-Regular", size: 13))
@@ -86,7 +86,7 @@ struct SignedInCustomerSectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 10))
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             Text(detail)
                 .font(Font.custom("AvenirNext-Regular", size: 13))

@@ -54,7 +54,7 @@ struct LoyaltyRewardsActionsView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(configuration.map {
@@ -78,7 +78,7 @@ struct LoyaltyRewardsActionsView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(rewardOptions) { reward in
@@ -90,7 +90,7 @@ struct LoyaltyRewardsActionsView: View {
                 Text("CLUB-ONLY OFFERS")
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(AppLocalization.letterSpacing(2))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                 clubOfferCard(title: "Early access", detail: "Taste seasonal coffees before they reach the wider shop.", icon: "clock.badge.checkmark")
                 clubOfferCard(title: "Birthday reward", detail: "A little something from Talla during your birthday month.", icon: "birthday.cake.fill")
                 clubOfferCard(title: "Free delivery", detail: "Your tier unlocks a lower delivery threshold, up to free delivery at Reserve.", icon: "shippingbox.fill")
@@ -141,16 +141,16 @@ struct LoyaltyRewardsActionsView: View {
                     ? String(format: AppLocalization.text("beans_count", fallback: "%d Beans"), reward.points)
                     : String(format: AppLocalization.text("beans_remaining_format", fallback: "%d Beans remaining"), remaining))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .foregroundColor(isUnlocked ? Color(hex: 0x151515) : accentColor)
+                    .foregroundColor(isUnlocked ? .white : TallaTheme.Colors.ink)
             }
-            .foregroundColor(isUnlocked ? Color(hex: 0x151515) : primaryTextColor)
+            .foregroundColor(isUnlocked ? .white : primaryTextColor)
             .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
             .background(isUnlocked ? accentColor : cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(isUnlocked ? 0 : 0.24), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(isUnlocked ? 0 : 0.24), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -162,7 +162,7 @@ struct LoyaltyRewardsActionsView: View {
         HStack(spacing: 11) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
                 .frame(width: 34, height: 34)
                 .background(accentColor.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
@@ -178,7 +178,7 @@ struct LoyaltyRewardsActionsView: View {
         }
         .padding(12)
         .background(cardFillColor)
-        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
     }
 }
@@ -199,7 +199,7 @@ struct ExpiringRewardsSectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             if vouchers.isEmpty {
                 Text(AppLocalization.text("expiring_rewards_empty", fallback: "Redeemed rewards will appear here with their expiry window."))
@@ -221,12 +221,12 @@ struct ExpiringRewardsSectionView: View {
                                 .font(Font.custom("AvenirNext-Bold", size: 10))
                                 .tracking(AppLocalization.letterSpacing(1.2))
                                 .textCase(.uppercase)
-                                .foregroundColor(expiresSoon(voucher) ? Color.red.opacity(0.85) : accentColor)
+                                .foregroundColor(expiresSoon(voucher) ? Color.red.opacity(0.85) : TallaTheme.Colors.ink)
                         }
 
                         Text(voucher.code)
                             .font(Font.custom("AvenirNext-Regular", size: 12))
-                            .foregroundColor(accentColor)
+                            .foregroundColor(TallaTheme.Colors.ink)
 
                         Text(voucher.detail)
                             .font(Font.custom("AvenirNext-Regular", size: 12))
@@ -257,7 +257,7 @@ struct LoyaltyTransactionsSectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             if account.transactions.isEmpty {
                 Text(AppLocalization.text("no_loyalty_activity", fallback: "No loyalty activity yet."))
@@ -281,7 +281,7 @@ struct LoyaltyTransactionsSectionView: View {
                                 Text("\(AppLocalization.text("voucher", fallback: "Voucher")): \(voucherCode)")
                                     .font(Font.custom("AvenirNext-Bold", size: 10))
                                     .tracking(AppLocalization.letterSpacing(1.2))
-                                    .foregroundColor(accentColor)
+                                    .foregroundColor(TallaTheme.Colors.ink)
                             }
 
                             if let voucherDetail = transaction.voucherDetail, !voucherDetail.isEmpty {
@@ -313,7 +313,7 @@ struct LoyaltyTransactionsSectionView: View {
 
                         Text("\(transaction.type == "redeem" ? "-" : "+")\(transaction.points)")
                             .font(Font.custom("AvenirNext-Bold", size: 12))
-                            .foregroundColor(transaction.type == "redeem" ? primaryTextColor : accentColor)
+                            .foregroundColor(transaction.type == "redeem" ? primaryTextColor : TallaTheme.Colors.ink)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
@@ -478,12 +478,12 @@ struct ClubSectionView: View {
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
             .padding(.horizontal, 14)
             .frame(width: 220, height: 42)
             .background(cardFillColor, in: Capsule())
-            .overlay(Capsule().stroke(accentColor.opacity(0.18), lineWidth: 1))
+            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
         }
         .accessibilityIdentifier("club.sectionPicker")
     }
@@ -534,7 +534,7 @@ struct ClubSectionView: View {
                 Text("THE TALLA CLUB")
                     .font(.system(size: 10, weight: .bold))
                     .tracking(2.0)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                 Text(isCustomerSignedIn ? "Welcome back, \(memberName)." : "Your coffee ritual, in one place.")
                     .font(.system(size: 22, weight: .semibold, design: .serif))
                     .foregroundColor(primaryTextColor)
@@ -555,7 +555,7 @@ struct ClubSectionView: View {
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(accentColor.opacity(0.18), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
     }
 
     private var coffeeClubOverviewCard: some View {
@@ -619,7 +619,7 @@ struct ClubSectionView: View {
                 Text("YOUR SNAPSHOT")
                     .font(.system(size: 10, weight: .bold))
                     .tracking(2.0)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                 Spacer()
                 Text(membershipTier.uppercased())
                     .font(.system(size: 10, weight: .bold))
@@ -638,14 +638,14 @@ struct ClubSectionView: View {
         }
         .padding(18)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(accentColor.opacity(0.16), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1))
     }
 
     private func overviewMetric(value: String, label: String, icon: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
             Text(value)
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .foregroundColor(primaryTextColor)
@@ -667,7 +667,7 @@ struct ClubSectionView: View {
             Text("KEEP EXPLORING")
                 .font(.system(size: 10, weight: .bold))
                 .tracking(2.0)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
             HStack(spacing: 9) {
                 overviewShortcut(title: "Coffee School", detail: "Learn your next brew", icon: "drop.fill") {
                     selectedClubArea = .coffeeSchool
@@ -684,7 +684,7 @@ struct ClubSectionView: View {
             VStack(alignment: .leading, spacing: 9) {
                 Image(systemName: icon)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .serif))
                     .foregroundColor(primaryTextColor)
@@ -696,7 +696,7 @@ struct ClubSectionView: View {
             .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
             .padding(13)
             .background(cardFillColor, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(accentColor.opacity(0.15), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.15), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -715,7 +715,7 @@ struct ClubSectionView: View {
                     Text("YOUR CLUB")
                         .font(.system(size: 9, weight: .bold))
                         .tracking(1.8)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                     Text("A little closer to your next cup.")
                         .font(.system(size: 20, weight: .semibold, design: .serif))
                         .foregroundColor(primaryTextColor)
@@ -737,15 +737,15 @@ struct ClubSectionView: View {
                 Spacer()
                 Text("\(beansBalance) / \(nextRewardTarget)")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
             ProgressView(value: rewardProgress == 0 && beansBalance > 0 ? 0.02 : rewardProgress)
-                .tint(accentColor)
+                .tint(TallaTheme.Colors.ink)
 
             if let club = activeOrder?.details?.coffeeClub {
                 HStack(spacing: 9) {
                     Image(systemName: "shippingbox.fill")
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(club.preference?.coffeeName ?? "Coffee Club delivery")
                             .font(.system(size: 13, weight: .semibold))
@@ -757,7 +757,7 @@ struct ClubSectionView: View {
                     Spacer()
                     Text(club.lifecycleStatus.capitalized)
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
                 .padding(11)
                 .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -773,14 +773,14 @@ struct ClubSectionView: View {
         }
         .padding(16)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(accentColor.opacity(0.16), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1))
     }
 
     private func dashboardStat(title: String, value: String, icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.system(size: 8, weight: .bold)).tracking(1.2).foregroundColor(secondaryTextColor)
                 Text(value).font(.system(size: 13, weight: .semibold)).foregroundColor(primaryTextColor).lineLimit(1)
@@ -799,7 +799,7 @@ struct ClubSectionView: View {
             .padding(.horizontal, 11)
             .padding(.vertical, 9)
             .background(cardFillColor, in: Capsule())
-            .overlay(Capsule().stroke(accentColor.opacity(0.14), lineWidth: 1))
+            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1))
     }
 
     private func formattedClubDate(_ value: String) -> String {
@@ -819,7 +819,7 @@ struct ClubSectionView: View {
                     Text("CLUB EXCLUSIVES")
                         .font(.system(size: 10, weight: .bold))
                         .tracking(2.1)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                     Text("More to look forward to")
                         .font(.system(size: 24, weight: .semibold, design: .serif))
                         .foregroundColor(primaryTextColor)
@@ -827,7 +827,7 @@ struct ClubSectionView: View {
                 Spacer()
                 Image(systemName: "star.circle.fill")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
 
             if seasonalEvents.isEmpty {
@@ -883,7 +883,7 @@ struct ClubSectionView: View {
                     Text("TALLA REWARDS CLUB")
                         .font(.system(size: 10, weight: .bold))
                         .tracking(2.1)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                     Text(isCustomerSignedIn ? "Member wallet" : "Your member wallet")
                         .font(.system(size: 24, weight: .semibold, design: .serif))
                         .foregroundColor(primaryTextColor)
@@ -891,7 +891,7 @@ struct ClubSectionView: View {
                 Spacer()
                 Image(systemName: "sparkles")
                     .font(.system(size: 19, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 46, height: 46)
                     .background(accentColor.opacity(0.13), in: Circle())
             }
@@ -918,7 +918,7 @@ struct ClubSectionView: View {
         }
         .padding(21)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(accentColor.opacity(0.18), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
     }
 
     private func rewardWalletRow(title: String, value: String) -> some View {
@@ -1029,7 +1029,7 @@ struct ClubSectionView: View {
             HStack(alignment: .top) {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(emphasis ? Color(hex: 0xEFD6AF) : accentColor)
+                    .foregroundColor(emphasis ? Color(hex: 0xEFD6AF) : TallaTheme.Colors.ink)
                     .frame(width: 44, height: 44)
                     .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.18), in: Circle())
                 Spacer()
@@ -1040,7 +1040,7 @@ struct ClubSectionView: View {
             Text(eyebrow)
                 .font(.system(size: 10, weight: .bold))
                 .tracking(2)
-                .foregroundColor(emphasis ? Color(hex: 0xEFD6AF) : accentColor)
+                .foregroundColor(emphasis ? Color(hex: 0xEFD6AF) : TallaTheme.Colors.ink)
             Text(title)
                 .font(.system(size: 23, weight: .semibold, design: .serif))
                 .foregroundColor(emphasis ? .white : primaryTextColor)
@@ -1078,7 +1078,7 @@ struct ClubSectionView: View {
                 Text("PREPAID")
                     .font(.system(size: 9, weight: .bold))
                     .tracking(1.2)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
             Text("Build your next set of deliveries. Pay once; renew when you’re ready.")
                 .font(.system(size: 14))
@@ -1092,7 +1092,7 @@ struct ClubSectionView: View {
             Text("PICK YOUR COFFEE")
                 .font(.system(size: 10, weight: .bold))
                 .tracking(1.8)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             if coffeeClubProducts.isEmpty {
                 Text("Eligible products will appear here when the shop is loaded.")
@@ -1129,7 +1129,7 @@ struct ClubSectionView: View {
                 Text("SUBSCRIPTIONS")
                     .font(.system(size: 10, weight: .bold))
                     .tracking(2.2)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                 Text("Coffee, on your terms.")
                     .font(.system(size: 30, weight: .medium, design: .serif))
                     .foregroundColor(primaryTextColor)
@@ -1210,7 +1210,7 @@ struct ClubSectionView: View {
         HStack(spacing: 9) {
             Image(systemName: "arrow.triangle.2.circlepath")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
             Text("Prepaid, never auto-renews")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(secondaryTextColor)
@@ -1239,7 +1239,7 @@ struct ClubSectionView: View {
             Text(title)
                 .font(.system(size: 10, weight: .bold))
                 .tracking(1.8)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
             Text(detail)
                 .font(.system(size: 13))
                 .foregroundColor(secondaryTextColor)
@@ -1259,7 +1259,7 @@ struct ClubSectionView: View {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 32, height: 36)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -1277,7 +1277,7 @@ struct ClubSectionView: View {
                 if action != nil {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 } else {
                     Text("SOON")
                         .font(.system(size: 8, weight: .bold))
@@ -1336,7 +1336,7 @@ struct ClubSectionView: View {
         .padding(10)
         .frame(width: 170, alignment: .leading)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(accentColor.opacity(0.16), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1))
     }
 
     private func coffeeClubConfigureSheet(product: ContentView.Product) -> some View {
@@ -1379,7 +1379,7 @@ struct ClubSectionView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.tallaPrimary)
-                    .tint(accentColor)
+                    .tint(TallaTheme.Colors.ink)
                 }
             }
             .navigationTitle("Customize your bag")
@@ -1398,7 +1398,7 @@ struct ClubSectionView: View {
             LinearGradient(colors: [accentColor.opacity(0.24), accentColor.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing)
             Image(systemName: "cup.and.saucer.fill")
                 .font(.system(size: 28, weight: .light))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
         }
     }
 
@@ -1409,7 +1409,7 @@ struct ClubSectionView: View {
             .padding(.horizontal, 14)
             .frame(minHeight: 42)
             .background(cardFillColor, in: Capsule())
-            .overlay(Capsule().stroke(accentColor.opacity(0.16), lineWidth: 1))
+            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1))
     }
 
 }
@@ -1450,7 +1450,7 @@ private struct ForYourRitualCard: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 42, height: 42)
                     .background(accentColor.opacity(0.14), in: Circle())
 
@@ -1458,7 +1458,7 @@ private struct ForYourRitualCard: View {
                     Text("FOR YOUR RITUAL")
                         .font(.system(size: 10, weight: .bold))
                         .tracking(2.1)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                     Text("A better next cup")
                         .font(.system(size: 24, weight: .semibold, design: .serif))
                         .foregroundColor(primaryTextColor)
@@ -1479,7 +1479,7 @@ private struct ForYourRitualCard: View {
         .padding(21)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(accentColor.opacity(0.18), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
     }
 
     private func ritualChip(title: String, icon: String) -> some View {

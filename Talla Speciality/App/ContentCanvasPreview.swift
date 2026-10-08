@@ -28,7 +28,7 @@ struct ContentCanvasPreview: View {
                 Label("Account", systemImage: "person.fill")
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(TallaTheme.Colors.accent)
+            .foregroundStyle(TallaTheme.Colors.ink)
         }
         .padding(22)
         .frame(width: 380, alignment: .leading)

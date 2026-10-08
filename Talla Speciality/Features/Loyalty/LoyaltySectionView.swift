@@ -88,7 +88,7 @@ struct LoyaltySectionView: View {
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
 
                 Spacer(minLength: 10)
@@ -96,7 +96,7 @@ struct LoyaltySectionView: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Text("\(rewardProgress?.remaining ?? 0)")
                         .font(Font.custom("CormorantGaramond-SemiBold", size: 30))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
 
                     Text(AppLocalization.text("until_reward", fallback: "until reward"))
                         .font(Font.custom("AvenirNext-Bold", size: 9))
@@ -144,7 +144,7 @@ struct LoyaltySectionView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.20 : 0.10), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.20 : 0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
@@ -162,12 +162,12 @@ struct LoyaltySectionView: View {
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
 
             if let progress {
                 ProgressView(value: progress.fraction)
-                    .tint(accentColor)
+                    .tint(TallaTheme.Colors.ink)
 
                 Text(progress.remaining == 0
                     ? "Reserve is yours. Keep brewing for more Club moments."
@@ -187,7 +187,7 @@ struct LoyaltySectionView: View {
             Text("MORE WAYS TO EARN")
                 .font(Font.custom("AvenirNext-Bold", size: 10))
                 .tracking(AppLocalization.letterSpacing(1.8))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             let actions = [
                 ("drop.fill", "Brew at home", "Log a brew to keep your streak moving"),
@@ -198,7 +198,7 @@ struct LoyaltySectionView: View {
                 HStack(spacing: 10) {
                     Image(systemName: action.0)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                         .frame(width: 28, height: 28)
                         .background(accentColor.opacity(0.12), in: Circle())
                     VStack(alignment: .leading, spacing: 2) {
@@ -284,7 +284,7 @@ struct LoyaltySectionView: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "info.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
 
                 Text(AppLocalization.text("loyalty_bottle_value", fallback: "Every 50 Beans fills one bottle and unlocks a drink of your choice."))
                     .font(Font.custom("AvenirNext-Medium", size: 12))
@@ -327,13 +327,13 @@ struct LoyaltySectionView: View {
         .opacity(isEarned ? 1 : 0.48)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(accentColor.opacity(isEarned ? 0.38 : 0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isEarned ? 0.38 : 0.12), lineWidth: 1)
         )
         .overlay(alignment: .topTrailing) {
             if isEarned {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(cardFillColor, accentColor)
+                    .foregroundStyle(cardFillColor, TallaTheme.Colors.ink)
                     .padding(5)
             }
         }
@@ -347,7 +347,7 @@ struct LoyaltySectionView: View {
             Image(systemName: "leaf.fill")
                 .font(.system(size: 23, weight: .semibold))
                 .rotationEffect(.degrees(38))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
         }
     }
 
@@ -374,7 +374,7 @@ struct LoyaltySectionView: View {
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
-                                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -390,7 +390,7 @@ struct LoyaltySectionView: View {
                 .font(sectionTitleFont)
                 .tracking(AppLocalization.letterSpacing(2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             TextField("name@email.com", text: $loyaltyEmail)
                 .textInputAutocapitalization(.never)
@@ -403,7 +403,7 @@ struct LoyaltySectionView: View {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
@@ -445,7 +445,7 @@ struct LoyaltySectionView: View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
                 .frame(width: 32, height: 32)
                 .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
                 .clipShape(Circle())
@@ -473,7 +473,7 @@ struct LoyaltySectionView: View {
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(AppLocalization.letterSpacing(1.4))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
             .buttonStyle(.plain)
             .disabled(isLoadingLoyalty || savedLoyaltyEmail.isEmpty)
@@ -483,7 +483,7 @@ struct LoyaltySectionView: View {
         .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.12))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -494,7 +494,7 @@ struct LoyaltySectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 10))
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             Text(detail)
                 .font(Font.custom("AvenirNext-Regular", size: 13))
@@ -506,7 +506,7 @@ struct LoyaltySectionView: View {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -524,7 +524,7 @@ struct LoyaltySectionView: View {
 
                 Text(accent)
                     .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
 
             GeometryReader { geometry in
@@ -552,7 +552,7 @@ struct LoyaltySectionView: View {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }

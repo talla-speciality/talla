@@ -34,7 +34,7 @@ extension ContentView {
     var body: some View {
         presentedContent
             .font(TallaTheme.Fonts.body)
-            .tint(TallaTheme.Colors.accent)
+            .tint(TallaTheme.Colors.ink)
             .textFieldStyle(.talla)
             .buttonBorderShape(.roundedRectangle(radius: TallaTheme.CornerRadius.control))
             .controlSize(.large)
@@ -405,7 +405,7 @@ extension ContentView {
             VStack(spacing: 18) {
                 Image(systemName: requiresAppUpdate ? "arrow.down.app.fill" : "cup.and.saucer.fill")
                     .font(.system(size: 46, weight: .semibold))
-                    .foregroundColor(TallaTheme.Colors.accent)
+                    .foregroundColor(TallaTheme.Colors.ink)
                 Text(title ?? "Talla")
                     .font(displayFont(size: 32))
                     .foregroundColor(primaryTextColor)
@@ -422,7 +422,7 @@ extension ContentView {
                         openURL(url)
                     }
                     .buttonStyle(.tallaPrimary)
-                    .tint(TallaTheme.Colors.accent)
+                    .tint(TallaTheme.Colors.ink)
                 }
             }
             .padding(28)
@@ -749,7 +749,7 @@ extension ContentView {
         if isLightAppearance {
             return TallaTheme.Colors.lightElevatedSurface.opacity(0.98)
         }
-        return isOLEDAppearance ? .black : Color(hex: 0x100D0A).opacity(0.98)
+        return isOLEDAppearance ? .black : TallaTheme.Colors.darkSurface.opacity(0.98)
     }
 
     var moreView: some View {

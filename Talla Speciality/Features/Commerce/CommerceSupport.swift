@@ -64,7 +64,7 @@ struct ProductThumbnail: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .stroke(
-                            TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08),
+                            TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.24),
                             lineWidth: 1
                         )
                 )
@@ -74,7 +74,7 @@ struct ProductThumbnail: View {
                     switch phase {
                     case .empty:
                         ProgressView()
-                            .tint(TallaTheme.Colors.accent)
+                            .tint(TallaTheme.Colors.ink)
 
                     case .success(let image):
                         image
@@ -126,7 +126,7 @@ struct ProductThumbnail: View {
     var placeholder: some View {
         Image(systemName: "cup.and.saucer.fill")
             .font(.system(size: 28))
-            .foregroundColor(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.66 : 0.8))
+            .foregroundColor(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.66 : 0.8))
     }
 }
 

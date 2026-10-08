@@ -557,11 +557,11 @@ struct BrewingSectionView: View {
     }
 
     var brewBackgroundColor: Color {
-        isOLEDAppearance ? .black : (brewingColorScheme == .dark ? Color(hex: 0x15120E) : Color(hex: 0xF7F5EF))
+        isOLEDAppearance ? .black : (brewingColorScheme == .dark ? TallaTheme.Colors.darkBackground : Color(hex: 0xF7F5EF))
     }
 
     var brewSurfaceColor: Color {
-        isOLEDAppearance ? .black : (brewingColorScheme == .dark ? Color(hex: 0x1F1A14) : Color(hex: 0xFFFDF8))
+        isOLEDAppearance ? .black : (brewingColorScheme == .dark ? TallaTheme.Colors.darkSurface : Color(hex: 0xFFFDF8))
     }
 
     var brewPrimaryTextColor: Color {

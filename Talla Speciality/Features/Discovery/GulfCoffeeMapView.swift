@@ -41,14 +41,15 @@ private struct GulfCoffeeMapView: View {
         )
     )
     @AppStorage("gulfCoffeeMap.ratings") private var ratingStore = ""
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
     @AppStorage("gulfCoffeeMap.ratingNotes") private var ratingNotesStore = ""
 
     private let countries = ["All GCC", "Bahrain", "Saudi Arabia", "UAE", "Kuwait", "Qatar", "Oman"]
     private let categories = ["All", "Cafés", "Roasters", "Trucks", "Green beans", "Equipment", "Cuppings & workshops", "Work-friendly", "Drive-through", "Family-friendly"]
 
-    private var pageBackground: Color { colorScheme == .dark ? TallaTheme.Colors.darkBackground : TallaTheme.Colors.lightBackground }
-    private var surface: Color { colorScheme == .dark ? TallaTheme.Colors.darkElevatedSurface : TallaTheme.Colors.lightElevatedSurface }
-    private var cardSurface: Color { colorScheme == .dark ? TallaTheme.Colors.darkSurface : TallaTheme.Colors.lightSurface }
+    private var pageBackground: Color { appearanceMode == "oled" ? .black : (colorScheme == .dark ? TallaTheme.Colors.darkBackground : TallaTheme.Colors.lightBackground) }
+    private var surface: Color { appearanceMode == "oled" ? .black : (colorScheme == .dark ? TallaTheme.Colors.darkElevatedSurface : TallaTheme.Colors.lightElevatedSurface) }
+    private var cardSurface: Color { appearanceMode == "oled" ? .black : (colorScheme == .dark ? TallaTheme.Colors.darkSurface : TallaTheme.Colors.lightSurface) }
     private var primaryText: Color { colorScheme == .dark ? Color(hex: 0xFFF7EA) : Color(hex: 0x24140D) }
     private var secondaryText: Color { colorScheme == .dark ? Color(hex: 0xBFB3A6) : Color(hex: 0x6F5B4E) }
 
@@ -169,7 +170,7 @@ private struct GulfCoffeeMapView: View {
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(TallaTheme.Colors.accent)
+                .foregroundStyle(TallaTheme.Colors.ink)
             TextField("Search a city, café, bean or brew…", text: $searchText)
                 .font(.system(size: 16, design: .rounded))
                 .foregroundStyle(primaryText)
@@ -228,7 +229,7 @@ private struct GulfCoffeeMapView: View {
                     .foregroundStyle(secondaryText)
                 }
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(TallaTheme.Colors.accent)
+                .foregroundStyle(TallaTheme.Colors.ink)
             }
 
             ZStack(alignment: .bottomLeading) {
@@ -269,7 +270,7 @@ private struct GulfCoffeeMapView: View {
     private var verificationNotice: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "checkmark.shield.fill")
-                .foregroundStyle(TallaTheme.Colors.accent)
+                .foregroundStyle(TallaTheme.Colors.ink)
             VStack(alignment: .leading, spacing: 3) {
                 Text(verificationSummary)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -282,7 +283,7 @@ private struct GulfCoffeeMapView: View {
         }
         .padding(12)
         .background(surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.22)))
+        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.22)))
     }
 
     private var categoryFilters: some View {
@@ -315,7 +316,7 @@ private struct GulfCoffeeMapView: View {
                 Spacer()
                 Text("Rate the item")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(TallaTheme.Colors.accent)
+                    .foregroundStyle(TallaTheme.Colors.ink)
             }
 
             if filteredSpots.isEmpty {
@@ -406,13 +407,14 @@ private struct GulfCoffeeMapView: View {
 
 private struct GulfCoffeeSpotCard: View {
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
     let spot: GulfCoffeeSpot
     let rating: Int?
     let ratingSummaries: [String: GulfCoffeeRatingSummary]
     let onOpen: () -> Void
     let onRate: (GulfCoffeeOffering) -> Void
 
-    private var cardSurface: Color { colorScheme == .dark ? TallaTheme.Colors.darkSurface : TallaTheme.Colors.lightSurface }
+    private var cardSurface: Color { appearanceMode == "oled" ? .black : (colorScheme == .dark ? TallaTheme.Colors.darkSurface : TallaTheme.Colors.lightSurface) }
     private var primaryText: Color { colorScheme == .dark ? Color(hex: 0xFFF7EA) : Color(hex: 0x24140D) }
     private var secondaryText: Color { colorScheme == .dark ? Color(hex: 0xBFB3A6) : Color(hex: 0x6F5B4E) }
 
@@ -435,7 +437,7 @@ private struct GulfCoffeeSpotCard: View {
                             if spot.isFeatured {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.system(size: 13))
-                                    .foregroundStyle(TallaTheme.Colors.accent)
+                                    .foregroundStyle(TallaTheme.Colors.ink)
                             }
                         }
                         Text("\(spot.city) · \(spot.country)")
@@ -443,7 +445,7 @@ private struct GulfCoffeeSpotCard: View {
                             .foregroundStyle(secondaryText)
                         Text(spot.relationshipLabel)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(TallaTheme.Colors.accent)
+                            .foregroundStyle(TallaTheme.Colors.ink)
                         if !spot.isVerifiedForMap {
                             Label("Awaiting verification", systemImage: "exclamationmark.triangle.fill")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -451,7 +453,7 @@ private struct GulfCoffeeSpotCard: View {
                         }
                         Text(spot.shortDescription)
                             .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundStyle(TallaTheme.Colors.accent)
+                            .foregroundStyle(TallaTheme.Colors.ink)
                             .lineLimit(2)
                     }
                     Spacer(minLength: 0)
@@ -468,12 +470,12 @@ private struct GulfCoffeeSpotCard: View {
                 Spacer()
                 if let rating {
                     Label("You \(rating)/5", systemImage: "star.fill")
-                        .foregroundStyle(TallaTheme.Colors.accent)
+                        .foregroundStyle(TallaTheme.Colors.ink)
                 }
                 if let summary = spot.offerings.compactMap({ ratingSummaries[$0.id] }).first,
                    let average = summary.average {
                     Label(String(format: "%.1f · %d", average, summary.count), systemImage: "person.2.fill")
-                        .foregroundStyle(TallaTheme.Colors.accent)
+                        .foregroundStyle(TallaTheme.Colors.ink)
                 }
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))

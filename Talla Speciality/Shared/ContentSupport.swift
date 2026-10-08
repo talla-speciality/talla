@@ -45,6 +45,12 @@ enum TallaTheme {
         // Gold is reserved for brand details; action labels must contrast with the
         // surface they sit on.
         static let accent = Color(hex: 0x151515)
+        // Foregrounds and outlines adapt independently of black action fills.
+        static let ink = Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? .white
+                : UIColor(white: 21.0 / 255.0, alpha: 1)
+        })
         static let accentHighlight = Color(hex: 0x3B3B3B)
         static let espresso = Color(hex: 0x151515)
         static let warmWhite = Color(hex: 0xFFFFFF)
@@ -95,15 +101,17 @@ struct TallaCardModifier: ViewModifier {
     }
 
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
     let prominence: Prominence
     let cornerRadius: CGFloat
 
     private var fill: Color {
+        if appearanceMode == "oled" { return .black }
         switch (colorScheme, prominence) {
-        case (.dark, .standard): TallaTheme.Colors.darkSurface
-        case (.dark, .elevated): TallaTheme.Colors.darkElevatedSurface
-        case (_, .standard): TallaTheme.Colors.lightSurface
-        case (_, .elevated): TallaTheme.Colors.lightElevatedSurface
+        case (.dark, .standard): return TallaTheme.Colors.darkSurface
+        case (.dark, .elevated): return TallaTheme.Colors.darkElevatedSurface
+        case (_, .standard): return TallaTheme.Colors.lightSurface
+        case (_, .elevated): return TallaTheme.Colors.lightElevatedSurface
         }
     }
 
@@ -113,7 +121,7 @@ struct TallaCardModifier: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(
-                        TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.16 : 0.13),
+                        TallaTheme.Colors.ink.opacity(colorScheme == .dark ? 0.24 : 0.13),
                         lineWidth: 1
                     )
             }
@@ -136,20 +144,23 @@ extension View {
 
 struct TallaTextFieldStyle: TextFieldStyle {
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
 
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .font(TallaTheme.Fonts.field)
+            .foregroundStyle(TallaTheme.Colors.ink)
+            .tint(TallaTheme.Colors.ink)
             .padding(.horizontal, TallaTheme.Spacing.standard)
             .frame(minHeight: 48)
             .background(
-                colorScheme == .dark
+                appearanceMode == "oled" ? Color.black : colorScheme == .dark
                     ? TallaTheme.Colors.darkElevatedSurface
                     : TallaTheme.Colors.lightElevatedSurface
             )
             .overlay {
                 RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
-                    .stroke(TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.24 : 0.20), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(colorScheme == .dark ? 0.24 : 0.20), lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
     }
@@ -205,6 +216,7 @@ extension ButtonStyle where Self == TallaPrimaryButtonStyle {
 }
 
 struct TallaSecondaryButtonStyle: ButtonStyle {
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.colorScheme) private var colorScheme
@@ -212,17 +224,17 @@ struct TallaSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(TallaTheme.Fonts.button)
-            .foregroundStyle(TallaTheme.Colors.accent)
+            .foregroundStyle(TallaTheme.Colors.ink)
             .padding(.horizontal, 14)
             .frame(minHeight: 44)
             .background(
-                colorScheme == .dark
+                appearanceMode == "oled" ? Color.black : colorScheme == .dark
                     ? TallaTheme.Colors.darkElevatedSurface
                     : TallaTheme.Colors.lightElevatedSurface
             )
             .overlay {
                 RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
-                    .stroke(TallaTheme.Colors.accent.opacity(0.34), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(0.34), lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)

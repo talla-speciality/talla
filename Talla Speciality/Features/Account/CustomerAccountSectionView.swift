@@ -45,7 +45,7 @@ struct CustomerAccountSectionView: View {
                 .font(labelFont)
                 .tracking(AppLocalization.letterSpacing(4))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             if customerProfile != nil {
                 signedInContent
@@ -79,7 +79,7 @@ struct CustomerAccountSectionView: View {
         .background(elevatedSurfaceColor.opacity(isLightAppearance ? 0.86 : 0.22))
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(accentColor.opacity(0.14), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
         )
         .tallaGlassCard(tint: Color(hex: 0x3D1F00).opacity(0.18), cornerRadius: 28)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
@@ -99,7 +99,7 @@ struct CustomerAccountSectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(1.6))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -129,7 +129,7 @@ struct CustomerAccountSectionView: View {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
@@ -144,7 +144,7 @@ struct CustomerAccountSectionView: View {
                     .background(cardFillColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
@@ -219,7 +219,7 @@ struct CustomerAccountSectionView: View {
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .buttonStyle(.plain)
                     .disabled(isResetLinkDisabled)
                 } else {
@@ -229,7 +229,7 @@ struct CustomerAccountSectionView: View {
                     .font(Font.custom("AvenirNext-Bold", size: 11))
                     .tracking(AppLocalization.letterSpacing(1.8))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .buttonStyle(.plain)
                 }
             }
@@ -292,7 +292,7 @@ struct CustomerAccountSectionView: View {
                 )
                 .overlay(
                     Capsule()
-                        .stroke(accentColor.opacity(isSelected ? 0 : 0.16), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isSelected ? 0 : 0.16), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -315,7 +315,7 @@ struct CustomerAccountSectionView: View {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }

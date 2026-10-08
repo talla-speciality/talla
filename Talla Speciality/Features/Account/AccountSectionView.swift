@@ -131,7 +131,7 @@ struct AccountSectionView: View {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "person.crop.circle.fill")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 46, height: 46)
                     .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
@@ -161,7 +161,7 @@ struct AccountSectionView: View {
                         .font(Font.custom("AvenirNext-Bold", size: 12))
                         .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                 }
 
@@ -185,7 +185,7 @@ struct AccountSectionView: View {
                 systemImage: "shippingbox.fill"
             )
             .font(Font.custom("AvenirNext-DemiBold", size: 12))
-            .foregroundColor(accentColor)
+            .foregroundColor(TallaTheme.Colors.ink)
             .padding(.horizontal, 11)
             .padding(.vertical, 8)
             .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.16))
@@ -206,7 +206,7 @@ struct AccountSectionView: View {
             HStack(spacing: 14) {
                 Image(systemName: "person.crop.circle.badge.plus")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 46, height: 46)
                     .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())
@@ -303,7 +303,7 @@ struct AccountSectionView: View {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 38, height: 38)
                     .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
@@ -313,7 +313,7 @@ struct AccountSectionView: View {
                         .font(labelFont)
                         .tracking(AppLocalization.letterSpacing(1.6))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                         .lineLimit(1)
 
                     Text(title)
@@ -480,7 +480,7 @@ struct AccountSectionView: View {
                 .font(sectionTitleFont)
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             VStack(spacing: 0) {
                 ForEach(rows.indices, id: \.self) { index in
@@ -773,7 +773,7 @@ struct AccountSectionView: View {
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 28, height: 28)
                     .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.16))
                     .clipShape(Circle())

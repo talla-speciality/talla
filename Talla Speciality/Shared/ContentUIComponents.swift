@@ -92,7 +92,7 @@ struct WelcomeOverlayView: View {
                         .font(labelFont)
                         .tracking(AppLocalization.letterSpacing(2.4))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
 
                     Text(AppLocalization.text("welcome_title", fallback: "What are you here for today?"))
                         .font(titleFont)
@@ -161,7 +161,7 @@ struct WelcomeOverlayView: View {
             .background(cardFillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(accentColor.opacity(0.16), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .padding(.horizontal, 20)
@@ -175,7 +175,7 @@ struct WelcomeOverlayView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 34, height: 34)
                     .background(accentColor.opacity(0.14))
                     .clipShape(Circle())
@@ -195,7 +195,7 @@ struct WelcomeOverlayView: View {
 
                 Image(systemName: "chevron.forward")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -260,7 +260,7 @@ struct FeatureTourOverlayView: View {
                                 .font(labelFont)
                                 .tracking(AppLocalization.letterSpacing(2.4))
                                 .textCase(.uppercase)
-                                .foregroundColor(accentColor)
+                                .foregroundColor(TallaTheme.Colors.ink)
 
                             Text(currentHighlight.title)
                                 .font(titleFont)
@@ -315,7 +315,7 @@ struct FeatureTourOverlayView: View {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(accentColor.opacity(0.16), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                 .padding(.horizontal, 22)
@@ -376,7 +376,7 @@ struct ActionTileView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: systemImage)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
@@ -464,7 +464,7 @@ struct CollapsibleSectionCard<Content: View>: View {
 
                     Image(systemName: isExpanded ? "minus.circle.fill" : "plus.circle.fill")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -501,7 +501,7 @@ struct DetailStatusCardView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(titleFont)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             Text(detail)
                 .font(detailFont)
@@ -541,7 +541,7 @@ struct SummaryValueRow: View {
             Text(value)
                 .font(emphasized ? emphasizedFont : regularFont)
                 .tracking(emphasized ? 1.2 : 0)
-                .foregroundColor(emphasized ? accentColor : primaryTextColor)
+                .foregroundColor(emphasized ? TallaTheme.Colors.ink : primaryTextColor)
         }
     }
 }

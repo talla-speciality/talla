@@ -295,7 +295,7 @@ extension BrewingSectionView {
                 .font(Font.custom("AvenirNext-Bold", size: 10))
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             TextEditor(text: $afterBrewNotes)
                 .font(Font.custom("AvenirNext-Regular", size: 14))
@@ -306,7 +306,7 @@ extension BrewingSectionView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(accentColor.opacity(0.14), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .accessibilityLabel(AppLocalization.text("tasting_notes", fallback: "Tasting notes"))

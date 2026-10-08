@@ -285,7 +285,7 @@ extension ContentView {
         }
         .padding(14)
         .background(cardFillColor)
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(0.14), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
@@ -706,7 +706,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
@@ -742,7 +742,7 @@ extension ContentView {
                             .background(selection.wrappedValue == option.id ? TallaTheme.Colors.accent : cardFillColor)
                             .overlay(
                                 Capsule(style: .continuous)
-                                    .stroke(TallaTheme.Colors.accent.opacity(selection.wrappedValue == option.id ? 0 : 0.18), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.ink.opacity(selection.wrappedValue == option.id ? 0 : 0.18), lineWidth: 1)
                             )
                             .clipShape(Capsule(style: .continuous))
                     }
@@ -812,7 +812,7 @@ extension ContentView {
                             .background(cardFillColor)
                             .overlay(
                                 Capsule(style: .continuous)
-                                    .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                             )
                             .clipShape(Capsule(style: .continuous))
                     }
@@ -834,7 +834,7 @@ extension ContentView {
                             .background(cardFillColor)
                             .overlay(
                                 Capsule(style: .continuous)
-                                    .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                             )
                             .clipShape(Capsule(style: .continuous))
                     }

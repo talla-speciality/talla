@@ -383,7 +383,7 @@ struct PaymentMethodSelectorView: View {
                                 if method == .applePay && applePayAvailable {
                                     Text(AppLocalization.text("recommended", fallback: "Recommended"))
                                         .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(accentColor)
+                                        .foregroundStyle(TallaTheme.Colors.ink)
                                         .padding(.horizontal, 7)
                                         .padding(.vertical, 3)
                                         .background(accentColor.opacity(0.1), in: Capsule())
@@ -416,7 +416,7 @@ struct PaymentMethodSelectorView: View {
                         } else if selectedMethod == method {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(accentColor)
+                                .foregroundStyle(TallaTheme.Colors.ink)
                                 .transition(.scale.combined(with: .opacity))
                         } else {
                             Circle()
@@ -485,7 +485,7 @@ struct PaymentMethodBadge: View {
             } else if method == .cashOnDelivery {
                 Image(systemName: "banknote.fill")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(TallaTheme.Colors.ink)
             } else {
                 Image("CardBrandsLogo")
                     .resizable()
@@ -515,7 +515,7 @@ struct CompactPaymentMethodRow: View {
                 Text(AppLocalization.text("payment_method", fallback: "Payment method"))
                     .font(.caption.weight(.semibold))
                     .textCase(.uppercase)
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(TallaTheme.Colors.ink)
 
                 HStack(spacing: 12) {
                     if let selectedMethod {
@@ -532,7 +532,7 @@ struct CompactPaymentMethodRow: View {
                     } else {
                         Image(systemName: "wallet.bifold")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(accentColor)
+                            .foregroundStyle(TallaTheme.Colors.ink)
                             .frame(width: 38, height: 38)
                             .background(accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                         Text(AppLocalization.text("choose_how_to_pay", fallback: "Choose how to pay"))
@@ -552,7 +552,7 @@ struct CompactPaymentMethodRow: View {
             .background(surfaceColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(accentColor.opacity(0.16), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -643,7 +643,7 @@ struct PaymentMethodSelectionSheet: View {
                                         if method == .applePay && applePayAvailable {
                                             Text(AppLocalization.text("recommended", fallback: "Recommended"))
                                                 .font(.caption2.weight(.semibold))
-                                                .foregroundStyle(accentColor)
+                                                .foregroundStyle(TallaTheme.Colors.ink)
                                         }
                                     }
                                     Text(disabledMethods.contains(method) && method == .cashOnDelivery
@@ -664,7 +664,7 @@ struct PaymentMethodSelectionSheet: View {
                                 } else if draftMethod == method {
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(accentColor)
+                                        .foregroundStyle(TallaTheme.Colors.ink)
                                 } else {
                                     Circle()
                                         .stroke(secondaryColor.opacity(0.42), lineWidth: 1)
@@ -737,7 +737,7 @@ struct SecurityReassurance: View {
         } icon: {
             Image(systemName: "lock.shield.fill")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(accentColor)
+                .foregroundStyle(TallaTheme.Colors.ink)
         }
         .foregroundStyle(textColor)
         .accessibilityElement(children: .combine)
@@ -762,7 +762,7 @@ struct CompactOrderSummary: View {
                     Text(AppLocalization.text("order_summary", fallback: "Order Summary"))
                         .font(.caption.weight(.semibold))
                         .textCase(.uppercase)
-                        .foregroundStyle(accentColor)
+                        .foregroundStyle(TallaTheme.Colors.ink)
                     Text(itemCountText)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(primaryColor)
@@ -787,7 +787,7 @@ struct CompactOrderSummary: View {
         .background(surfaceColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(accentColor.opacity(0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1)
         )
         .accessibilityIdentifier("checkout.summary")
     }
@@ -822,11 +822,11 @@ struct PaymentStatusView: View {
         if state != .idle && state != .awaitingCustomer {
             HStack(spacing: 12) {
                 if state.isBusy {
-                    ProgressView().tint(accentColor)
+                    ProgressView().tint(TallaTheme.Colors.ink)
                 } else {
                     Image(systemName: copy.icon)
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(state == .succeeded ? Color.green : accentColor)
+                        .foregroundStyle(state == .succeeded ? Color.green : TallaTheme.Colors.ink)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(copy.title).font(.subheadline.weight(.semibold)).foregroundStyle(primaryColor)

@@ -636,7 +636,7 @@ struct SocialCoffeePassGiftView: View {
         NavigationStack {
             VStack(spacing: 18) {
                 Image(systemName: "cup.and.saucer.fill")
-                    .font(.system(size: 42)).foregroundStyle(TallaTheme.Colors.accent)
+                    .font(.system(size: 42)).foregroundStyle(TallaTheme.Colors.ink)
                 Text(verifiedGift?.status == "ready" ? "Your coffee is ready to redeem" : "Talla coffee gift")
                     .font(.title2.weight(.semibold)).multilineTextAlignment(.center)
                 Text(giftStatusMessage)

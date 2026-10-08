@@ -55,7 +55,7 @@ extension ContentView {
                     } label: {
                         Image(systemName: isFavorite(product) ? "heart.fill" : "heart")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(isFavorite(product) ? TallaTheme.Colors.accent : primaryTextColor)
+                            .foregroundColor(isFavorite(product) ? TallaTheme.Colors.ink : primaryTextColor)
                             .symbolEffect(.bounce, value: isFavorite(product))
                             .frame(width: 34, height: 34)
                             .background(cardFillColor.opacity(0.92))
@@ -74,7 +74,7 @@ extension ContentView {
                         } label: {
                             Image(systemName: isAlertEnabled(product) ? "bell.fill" : "bell")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(isAlertEnabled(product) ? TallaTheme.Colors.accent : primaryTextColor)
+                                .foregroundColor(isAlertEnabled(product) ? TallaTheme.Colors.ink : primaryTextColor)
                                 .symbolEffect(.bounce, value: isAlertEnabled(product))
                                 .frame(width: 34, height: 34)
                                 .background(cardFillColor.opacity(0.92))
@@ -167,7 +167,7 @@ extension ContentView {
             VStack(alignment: .leading, spacing: 10) {
                 Text(displayedProductPrice(product.price))
                     .font(labelFont(size: isCompact ? 14 : 15, weight: .bold))
-                    .foregroundColor(product.isAvailableForSale ? TallaTheme.Colors.accent : tertiaryTextColor)
+                    .foregroundColor(product.isAvailableForSale ? TallaTheme.Colors.ink : tertiaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
@@ -209,7 +209,7 @@ extension ContentView {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .frame(maxWidth: .infinity, minHeight: cardMinimumHeight, alignment: .topLeading)
         .hoverEffect(.lift)
@@ -265,7 +265,7 @@ extension ContentView {
             HStack(spacing: 8) {
                 Text(displayedProductPrice(product.price))
                     .font(labelFont(size: 11, weight: .bold))
-                    .foregroundColor(product.isAvailableForSale ? TallaTheme.Colors.accent : tertiaryTextColor)
+                    .foregroundColor(product.isAvailableForSale ? TallaTheme.Colors.ink : tertiaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
 
@@ -301,7 +301,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -725,10 +725,10 @@ extension ContentView {
                     } label: {
                         Image(systemName: isFavorite(product) ? "heart.fill" : "heart")
                             .font(.title3.weight(.semibold))
-                            .foregroundColor(isFavorite(product) ? TallaTheme.Colors.accent : primaryTextColor)
+                            .foregroundColor(isFavorite(product) ? TallaTheme.Colors.ink : primaryTextColor)
                             .frame(width: 40, height: 40)
                             .background(cardFillColor, in: Circle())
-                            .overlay(Circle().stroke(TallaTheme.Colors.accent.opacity(0.2), lineWidth: 1))
+                            .overlay(Circle().stroke(TallaTheme.Colors.ink.opacity(0.2), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(isFavorite(product) ? "Remove from saved" : "Save coffee")
@@ -748,7 +748,7 @@ extension ContentView {
 
                 Text(displayedProductPrice(selectedVariant?.price ?? product.price))
                     .font(displayFont(size: 24))
-                    .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? TallaTheme.Colors.accent : tertiaryTextColor)
+                    .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? TallaTheme.Colors.ink : tertiaryTextColor)
 
                 productFactsSection(product)
 
@@ -788,7 +788,7 @@ extension ContentView {
                                         .foregroundColor(variant.isAvailableForSale ? primaryTextColor : tertiaryTextColor)
 
                                     Image(systemName: selectedVariant?.id == variant.id ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(selectedVariant?.id == variant.id ? TallaTheme.Colors.accent : tertiaryTextColor)
+                                        .foregroundColor(selectedVariant?.id == variant.id ? TallaTheme.Colors.ink : tertiaryTextColor)
                                 }
                                 .padding(14)
                                 .background(cardFillColor)
@@ -866,7 +866,7 @@ extension ContentView {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(TallaTheme.Colors.accent.opacity(0.14))
-                                .overlay(Capsule().stroke(TallaTheme.Colors.accent.opacity(0.32), lineWidth: 1))
+                                .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(0.32), lineWidth: 1))
                                 .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
@@ -896,7 +896,7 @@ extension ContentView {
                                     .background(cardFillColor)
                                     .overlay(
                                         Capsule()
-                                            .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
+                                            .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                                     )
                                     .clipShape(Capsule())
                             }
@@ -1116,7 +1116,7 @@ extension ContentView {
 
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(TallaTheme.Colors.accent.opacity(0.72))
+                        .foregroundColor(TallaTheme.Colors.ink.opacity(0.72))
                 }
             }
             .padding(22)
@@ -1194,7 +1194,7 @@ extension ContentView {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.18 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.18 : 0.08), lineWidth: 1)
         )
         .overlay(alignment: .topTrailing) {
             Circle()
@@ -1245,7 +1245,7 @@ extension ContentView {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.18 : 0.09), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.18 : 0.09), lineWidth: 1)
         )
         .overlay(alignment: .topTrailing) {
             Circle()
@@ -1275,7 +1275,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -1342,7 +1342,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.06), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -1407,7 +1407,7 @@ extension ContentView {
         .padding(.horizontal, 12)
         .overlay(
             RoundedRectangle(cornerRadius: 2)
-                .stroke(TallaTheme.Colors.accent.opacity(0.15), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.15), lineWidth: 1)
         )
     }
 
@@ -1445,7 +1445,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
@@ -1462,7 +1462,7 @@ extension ContentView {
         .padding(.horizontal, 12)
         .overlay(
             RoundedRectangle(cornerRadius: 2)
-                .stroke(TallaTheme.Colors.accent.opacity(0.2), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.2), lineWidth: 1)
         )
         .foregroundColor(primaryTextColor)
     }

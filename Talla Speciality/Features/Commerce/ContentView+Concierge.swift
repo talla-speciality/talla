@@ -86,7 +86,7 @@ extension ContentView {
                     .background(cardFillColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
@@ -122,7 +122,7 @@ extension ContentView {
                     .background(cardFillColor)
                     .overlay(
                         Capsule(style: .continuous)
-                            .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                            .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
                     )
                     .clipShape(Capsule(style: .continuous))
                 }
@@ -130,7 +130,7 @@ extension ContentView {
 
                 if isLoadingConciergeImage {
                     ProgressView()
-                        .tint(TallaTheme.Colors.accent)
+                        .tint(TallaTheme.Colors.ink)
                 } else if conciergeImageData != nil {
                     conciergeImagePreview
 
@@ -190,7 +190,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.08), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
@@ -200,7 +200,7 @@ extension ContentView {
         .background(elevatedSurfaceColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -219,7 +219,7 @@ extension ContentView {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.22 : 0.12), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.22 : 0.12), lineWidth: 1)
                 )
                 .accessibilityLabel(AppLocalization.text("selected_image", fallback: "Selected image"))
         }
@@ -248,7 +248,7 @@ extension ContentView {
                 .background(cardFillColor)
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(TallaTheme.Colors.accent.opacity(0.18), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                 )
                 .clipShape(Capsule(style: .continuous))
         }

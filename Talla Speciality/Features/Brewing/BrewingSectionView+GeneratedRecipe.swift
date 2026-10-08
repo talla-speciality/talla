@@ -198,7 +198,7 @@ extension BrewingSectionView {
                     .font(Font.custom("AvenirNext-Bold", size: 14))
                     .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
             }
@@ -237,7 +237,7 @@ extension BrewingSectionView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .task(id: recipeGenerationTaskID) {
@@ -257,7 +257,7 @@ extension BrewingSectionView {
 
                 Image(systemName: isComplete ? "checkmark" : isActive ? "sparkle" : "circle")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(isComplete ? .white : accentColor)
+                    .foregroundColor(isComplete ? .white : TallaTheme.Colors.ink)
                     .symbolEffect(.pulse, value: recipeGenerationStageIndex)
             }
             .accessibilityHidden(true)
@@ -565,7 +565,7 @@ extension BrewingSectionView {
                         systemImage: "brain.head.profile"
                     )
                     .font(Font.custom("AvenirNext-DemiBold", size: 13))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
 
                     if !calibration.calibration.lastFeedback.isEmpty {
                         Text(String(format: AppLocalization.text("latest_feedback_format", fallback: "Latest feedback: %@"), calibration.calibration.lastFeedback.joined(separator: AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "، " : ", ")))
@@ -583,7 +583,7 @@ extension BrewingSectionView {
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(index + 1)")
                                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                                .foregroundColor(accentColor)
+                                .foregroundColor(TallaTheme.Colors.ink)
                                 .frame(width: 26, height: 26)
                                 .background(accentColor.opacity(0.10))
                                 .clipShape(Circle())
@@ -938,7 +938,7 @@ extension BrewingSectionView {
                 HStack {
                     Image(systemName: systemImage)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                         .frame(width: 32, height: 32)
                         .background(accentColor.opacity(0.10))
                         .clipShape(Circle())
@@ -974,7 +974,7 @@ extension BrewingSectionView {
             .background(accentColor.opacity(0.07))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accentColor.opacity(0.15), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(0.15), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
@@ -1003,7 +1003,7 @@ extension BrewingSectionView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(accentColor.opacity(0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
@@ -1014,7 +1014,7 @@ extension BrewingSectionView {
             HStack(alignment: .top, spacing: 10) {
                 Text("\(row.id)")
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .monospacedDigit()
                     .frame(width: 24, alignment: .leading)
 
@@ -1034,7 +1034,7 @@ extension BrewingSectionView {
 
                 Text(formattedTimerTime(row.startTime))
                     .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .foregroundColor(accentColor)
+                    .foregroundColor(TallaTheme.Colors.ink)
                     .monospacedDigit()
             }
 
@@ -1081,7 +1081,7 @@ extension BrewingSectionView {
                 .background(cardFillColor)
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
                 )
                 .clipShape(Capsule(style: .continuous))
         }

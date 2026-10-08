@@ -23,7 +23,7 @@ extension BrewingSectionView {
                 .font(sectionTitleFont)
                 .tracking(AppLocalization.letterSpacing(2.2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             if let latestBrew = brewHistoryItems.first {
                 brewHistoryButton(latestBrew, isPrimary: true)
@@ -49,7 +49,7 @@ extension BrewingSectionView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(0.14), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -60,7 +60,7 @@ extension BrewingSectionView {
                 .font(sectionTitleFont)
                 .tracking(AppLocalization.letterSpacing(2.2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             HStack(spacing: 8) {
                 strengthRatioButton(ratio: "15", title: AppLocalization.text("strong", fallback: "Strong"))
@@ -74,7 +74,7 @@ extension BrewingSectionView {
         .background(cardFillColor.opacity(0.72))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(0.14), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -99,7 +99,7 @@ extension BrewingSectionView {
                             )
                             .overlay(
                                 Capsule()
-                                    .stroke(accentColor.opacity(activeCategory == category ? 0 : 0.18), lineWidth: 1)
+                                    .stroke(TallaTheme.Colors.ink.opacity(activeCategory == category ? 0 : 0.18), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -128,7 +128,7 @@ extension BrewingSectionView {
 
             Text(methodMetaLine(for: method))
                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
                 .lineLimit(2)
                 .minimumScaleFactor(0.82)
 
@@ -144,7 +144,7 @@ extension BrewingSectionView {
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
-                        .foregroundColor(accentColor)
+                        .foregroundColor(TallaTheme.Colors.ink)
                 }
                 .buttonStyle(.plain)
 
@@ -177,7 +177,7 @@ extension BrewingSectionView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
@@ -243,7 +243,7 @@ extension BrewingSectionView {
                 path.addLine(to: CGPoint(x: 30, y: 22))
                 path.closeSubpath()
             }
-            .stroke(accentColor, lineWidth: 4)
+            .stroke(TallaTheme.Colors.ink, lineWidth: 4)
             .frame(width: 72, height: 60)
 
             Capsule()
@@ -257,7 +257,7 @@ extension BrewingSectionView {
     var aeroPressIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(accentColor, lineWidth: 4)
+                .stroke(TallaTheme.Colors.ink, lineWidth: 4)
                 .frame(width: 36, height: 58)
 
             Capsule()
@@ -276,7 +276,7 @@ extension BrewingSectionView {
     var frenchPressIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(accentColor, lineWidth: 3)
+                .stroke(TallaTheme.Colors.ink, lineWidth: 3)
                 .frame(width: 42, height: 50)
 
             Rectangle()
@@ -293,7 +293,7 @@ extension BrewingSectionView {
                 path.move(to: CGPoint(x: 58, y: 28))
                 path.addQuadCurve(to: CGPoint(x: 58, y: 46), control: CGPoint(x: 74, y: 36))
             }
-            .stroke(accentColor, lineWidth: 4)
+            .stroke(TallaTheme.Colors.ink, lineWidth: 4)
             .frame(width: 82, height: 62)
         }
         .accessibilityLabel(AppLocalization.text("accessibility_french_press", fallback: "French press"))
@@ -316,7 +316,7 @@ extension BrewingSectionView {
                 path.addQuadCurve(to: CGPoint(x: 72, y: 8), control: CGPoint(x: 66, y: 4))
                 path.addQuadCurve(to: CGPoint(x: 60, y: 26), control: CGPoint(x: 72, y: 23))
             }
-            .stroke(accentColor, lineWidth: 5)
+            .stroke(TallaTheme.Colors.ink, lineWidth: 5)
             .frame(width: 84, height: 64)
 
             Capsule()
@@ -330,12 +330,12 @@ extension BrewingSectionView {
     var siphonIcon: some View {
         ZStack {
             Circle()
-                .stroke(accentColor, lineWidth: 4)
+                .stroke(TallaTheme.Colors.ink, lineWidth: 4)
                 .frame(width: 34, height: 34)
                 .offset(y: -18)
 
             Circle()
-                .stroke(accentColor, lineWidth: 4)
+                .stroke(TallaTheme.Colors.ink, lineWidth: 4)
                 .frame(width: 42, height: 42)
                 .offset(y: 20)
 
@@ -354,7 +354,7 @@ extension BrewingSectionView {
     var coldBrewIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(accentColor, lineWidth: 4)
+                .stroke(TallaTheme.Colors.ink, lineWidth: 4)
                 .frame(width: 34, height: 58)
 
             Capsule()
@@ -374,7 +374,7 @@ extension BrewingSectionView {
 
             Image(systemName: "snowflake")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
                 .offset(x: -30, y: 0)
         }
         .accessibilityLabel(AppLocalization.text("accessibility_cold_brew_bottle", fallback: "Cold-brew bottle"))
@@ -392,7 +392,7 @@ extension BrewingSectionView {
             .font(Font.custom("AvenirNext-Bold", size: 10))
             .tracking(AppLocalization.letterSpacing(1.4))
             .textCase(.uppercase)
-            .foregroundColor(accentColor)
+            .foregroundColor(TallaTheme.Colors.ink)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(accentColor.opacity(0.1))
@@ -1203,7 +1203,7 @@ extension BrewingSectionView {
 
                 Image(systemName: isComplete ? "checkmark" : "drop.fill")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(isActive ? .white : accentColor)
+                    .foregroundColor(isActive ? .white : TallaTheme.Colors.ink)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -1238,7 +1238,7 @@ extension BrewingSectionView {
             HStack(spacing: 10) {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(isPrimary ? .white : accentColor)
+                    .foregroundColor(isPrimary ? .white : TallaTheme.Colors.ink)
                     .frame(width: 28, height: 28)
                     .background(isPrimary ? Color(hex: 0x151515).opacity(0.10) : accentColor.opacity(0.10))
                     .clipShape(Circle())
@@ -1261,7 +1261,7 @@ extension BrewingSectionView {
                     .font(Font.custom("AvenirNext-Bold", size: 10))
                     .tracking(AppLocalization.letterSpacing(1.2))
                     .textCase(.uppercase)
-                    .foregroundColor(isPrimary ? .white : accentColor)
+                    .foregroundColor(isPrimary ? .white : TallaTheme.Colors.ink)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
                     .background(isPrimary ? Color(hex: 0x151515).opacity(0.08) : accentColor.opacity(0.10))
@@ -1910,7 +1910,7 @@ extension BrewingSectionView {
                 .font(sectionTitleFont)
                 .tracking(AppLocalization.letterSpacing(2.2))
                 .textCase(.uppercase)
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
 
             HStack(spacing: 12) {
                 ratioInputField(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), text: $ratioCoffeeInput)
@@ -1962,7 +1962,7 @@ extension BrewingSectionView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(0.14), lineWidth: 1)
+                .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
@@ -1977,7 +1977,7 @@ extension BrewingSectionView {
 
             Text(value)
                 .font(Font.custom("AvenirNext-Bold", size: 13))
-                .foregroundColor(accentColor)
+                .foregroundColor(TallaTheme.Colors.ink)
         }
     }
 
@@ -2003,7 +2003,7 @@ extension BrewingSectionView {
             .background(isSelected ? accentColor : cardFillColor)
             .overlay(
                 Capsule(style: .continuous)
-                    .stroke(accentColor.opacity(isSelected ? 0.0 : 0.20), lineWidth: 1)
+                    .stroke(TallaTheme.Colors.ink.opacity(isSelected ? 0.0 : 0.20), lineWidth: 1)
             )
             .clipShape(Capsule(style: .continuous))
         }
@@ -2027,7 +2027,7 @@ extension BrewingSectionView {
                 .background(cardFillColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(accentColor.opacity(0.12), lineWidth: 1)
+                        .stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
