@@ -1021,6 +1021,7 @@
                 <h2>Analytics Snapshot</h2>
             </summary>
             <div class="panel-body">
+                <div class="toolbar-row" style="padding-bottom:12px;"><select id="analytics-period"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option></select><button id="refresh-analytics" class="secondary">Refresh Analytics</button><button id="export-analytics" class="secondary">Export CSV</button></div>
                 <div id="analytics-summary" class="empty">Loading analytics summary...</div>
             </div>
         </details>
@@ -1387,6 +1388,9 @@
         const securityListEl = document.getElementById("security-list");
         const opsSummaryEl = document.getElementById("ops-summary");
         const analyticsSummaryEl = document.getElementById("analytics-summary");
+        const analyticsPeriodInput = document.getElementById("analytics-period");
+        const refreshAnalyticsButton = document.getElementById("refresh-analytics");
+        const exportAnalyticsButton = document.getElementById("export-analytics");
         const signatureRoastsEl = document.getElementById("signature-roasts");
         const tallaExpressDrinksEl = document.getElementById("talla-express-drinks");
         const signatureRoastsStatusEl = document.getElementById("signature-roasts-status");
@@ -3488,10 +3492,19 @@
         }
 
         async function fetchAnalyticsSummary() {
-            const response = await fetch("/admin/api/analytics/summary");
+            const response = await fetch(`/admin/api/analytics/summary?days=${encodeURIComponent(analyticsPeriodInput?.value || "30")}`);
             const payload = await response.json();
             if (!response.ok) throw new Error(payload.error || "Could not load analytics summary.");
             return payload;
+        }
+
+        async function refreshAnalytics() {
+            try { state.analytics = await fetchAnalyticsSummary(); renderAnalyticsSummary(state.analytics); setStatus(`Analytics refreshed for ${state.analytics.periodDays || analyticsPeriodInput.value} days.`, "success"); }
+            catch (error) { setStatus(error.message, "error"); }
+        }
+
+        function exportAnalytics() {
+            window.open(`/admin/api/analytics/export?days=${encodeURIComponent(analyticsPeriodInput.value || "30")}`, "_blank", "noopener");
         }
 
         async function fetchRecentAdminActions() {
@@ -4774,6 +4787,8 @@
         bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
         sendEidPushButton.addEventListener("click", sendEidPush);
         sendCustomerPushButton.addEventListener("click", sendCustomerPush);
+        refreshAnalyticsButton.addEventListener("click", refreshAnalytics);
+        exportAnalyticsButton.addEventListener("click", exportAnalytics);
         sendTargetedPushButton.addEventListener("click", sendTargetedPush);
         refreshNotificationHistoryButton.addEventListener("click", loadNotificationHistory);
         reimportCoffeeMemoryButton.addEventListener("click", reimportCoffeeMemory);

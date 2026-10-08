@@ -1503,7 +1503,15 @@ module.exports = function createServer(dependencies) {
         }
 
         if (request.method === "GET" && url.pathname === "/admin/api/analytics/summary") {
-            sendJSON(response, 200, await adminAnalyticsSummary());
+            sendJSON(response, 200, await adminAnalyticsSummary(url.searchParams.get("days")));
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/analytics/export") {
+            const summary = await adminAnalyticsSummary(url.searchParams.get("days"));
+            const rows = [["metric", "value"], ...Object.entries(summary.totals || {})].map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(","));
+            response.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="talla-analytics-${summary.periodDays || 30}d.csv"` });
+            response.end(rows.join("\n"));
             return;
         }
 

@@ -8692,7 +8692,8 @@ async function adminOperationsSummary() {
         recentRateLimits: rateLimitedResult.rows.map(requestLogRowToRecord)
     };
 }
-async function adminAnalyticsSummary() {
+async function adminAnalyticsSummary(days = 30) {
+    const periodDays = Math.min(Math.max(Number(days) || 30, 7), 365);
     const [accounts, tasteMemory] = await Promise.all([
         allAccounts(),
         allTasteMemoryPayload()
@@ -8740,10 +8741,10 @@ async function adminAnalyticsSummary() {
     const allOrders = customers.flatMap((customer) => customer.orders), repeatCustomers = customers.filter((customer) => customer.orders.length > 1).length, coffeeClubOrders = allOrders.filter((order) => normalizeOrderDetails(order.details).coffeeClub);
     const activeCoffeeClubPlans = coffeeClubOrders.filter((order) => ["active", "paused"].includes(normalizeOrderDetails(order.details).coffeeClub?.status)).length; let telemetryEvents = [];
     if (database.isEnabled()) {
-        const result = await database.query(`SELECT event_name, properties FROM telemetry_events WHERE occurred_at >= NOW() - INTERVAL '30 days'`);
+        const result = await database.query(`SELECT event_name, properties FROM telemetry_events WHERE occurred_at >= NOW() - ($1 * INTERVAL '1 day')`, [periodDays]);
         telemetryEvents = result.rows.map((row) => ({ eventName: row.event_name, properties: row.properties || {} }));
     } else {
-        telemetryEvents = (readJSON(telemetryStorePath).events || []).filter((event) => { const occurredAt = Date.parse(event.occurredAt || event.receivedAt || ""); return Number.isFinite(occurredAt) && occurredAt >= Date.now() - 30 * 86_400_000; });
+        telemetryEvents = (readJSON(telemetryStorePath).events || []).filter((event) => { const occurredAt = Date.parse(event.occurredAt || event.receivedAt || ""); return Number.isFinite(occurredAt) && occurredAt >= Date.now() - periodDays * 86_400_000; });
     }
     const eventCount = (name) => telemetryEvents.filter((event) => event.eventName === name).length;
     const eventCountWhere = (name, key, value) => telemetryEvents.filter((event) => event.eventName === name && String(event.properties?.[key]) === String(value)).length;
@@ -8800,7 +8801,8 @@ async function adminAnalyticsSummary() {
         },
         tierCounts,
         topCustomers,
-        newestCustomers
+        newestCustomers,
+        periodDays
     };
 }
 
