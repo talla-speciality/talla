@@ -1098,7 +1098,8 @@ extension ContentView {
                 temperatureReason: recipe.temperatureReason,
                 expectedCup: recipe.expectedCup,
                 approach: recipe.approach,
-                steps: recipe.steps
+                steps: recipe.steps,
+                coffeeID: recipe.coffeeID
             )
         }
 

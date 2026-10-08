@@ -48,7 +48,7 @@ test("an explicitly saved legacy Eid campaign migrates into the generic event fe
 
     assert.equal(settings.events.length, 1);
     assert.equal(settings.events[0].id, "eid");
-    assert.equal(settings.events[0].titleAR, "العيد في تالا");
+    assert.equal(settings.events[0].titleAR, "العيد في تله");
     assert.equal(settings.events[0].endAt, "2026-09-01T00:00:00.000Z");
     assert.deepEqual(eventSettingsFromLegacyEid({ updatedAt: null }).events, []);
 });

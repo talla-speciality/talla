@@ -870,6 +870,7 @@ extension ContentView {
         let trimmedName = record.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let recipe = BrewRecipe(
             id: record.id,
+            coffeeID: record.coffeeID,
             name: trimmedName.isEmpty ? defaultBrewRecipeName() : trimmedName,
             coffeeGrams: coffeeGrams,
             ratio: ratio,

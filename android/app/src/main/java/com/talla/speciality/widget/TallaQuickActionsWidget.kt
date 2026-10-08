@@ -113,7 +113,7 @@ private fun TallaWidgetContent(state: TallaWidgetSnapshot) {
                 Text("TALLA", style = TextStyle(color = foreground, fontSize = 19.sp, fontWeight = FontWeight.Bold))
                 Text(
                     if (state.signedIn) {
-                        val tier = state.loyaltyTier.ifBlank { if (isArabic) "عضو تالا" else "Talla member" }
+                        val tier = state.loyaltyTier.ifBlank { if (isArabic) "عضو تله" else "Talla member" }
                         if (isArabic) "${state.loyaltyPoints} حبة · $tier" else "${state.loyaltyPoints} Beans · $tier"
                     } else if (isArabic) "سجّل الدخول للـ Beans" else "Sign in for Beans",
                     style = TextStyle(color = secondary, fontSize = 12.sp, fontWeight = FontWeight.Medium),

@@ -586,7 +586,7 @@ extension ContentView {
     var seasonalEventsSection: some View {
         if !activeSeasonalEvents.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                Text(eventText(english: "Seasonal at Talla", arabic: "المواسم في تالا"))
+                Text(eventText(english: "Seasonal at Talla", arabic: "المواسم في تله"))
                     .font(labelFont(size: 10, weight: .bold))
                     .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 2.2)
                     .textCase(.uppercase)

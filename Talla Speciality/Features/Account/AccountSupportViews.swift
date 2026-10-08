@@ -206,7 +206,7 @@ struct SavedBrewRecipeEditor: View {
             return
         }
         let updated = ContentView.BrewRecipe(
-            id: recipe.id, name: trimmedName, coffeeGrams: parsedCoffee, ratio: parsedRatio,
+            id: recipe.id, coffeeID: recipe.coffeeID, name: trimmedName, coffeeGrams: parsedCoffee, ratio: parsedRatio,
             waterGrams: parsedCoffee * parsedRatio, category: recipe.category, createdAt: recipe.createdAt,
             brewingWaterGrams: recipe.brewingWaterGrams, iceGrams: recipe.iceGrams, methodID: recipe.methodID,
             brewerID: recipe.brewerID, brewMode: recipe.brewMode, bloomRatio: recipe.bloomRatio,

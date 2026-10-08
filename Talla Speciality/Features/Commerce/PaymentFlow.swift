@@ -140,7 +140,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit:
             return AppLocalization.text("payment_benefit_subtitle", fallback: "For Bahraini debit cards")
         case .benefitPay:
-            return "Pay securely using the BenefitPay app"
+            return AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "ادفع بأمان عبر تطبيق بنفت بي" : "Pay securely using the BenefitPay app"
         case .card:
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
         case .clickToPay:
@@ -157,7 +157,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit:
             return AppLocalization.text("payment_benefit_sheet_subtitle", fallback: "For Bahrain-issued debit cards")
         case .benefitPay:
-            return "Use cards saved in your BenefitPay wallet"
+            return AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "استخدم البطاقات المحفوظة في محفظة بنفت بي" : "Use cards saved in your BenefitPay wallet"
         case .card:
             return AppLocalization.text("payment_card_subtitle", fallback: "Visa, Mastercard and American Express")
         case .clickToPay:
@@ -174,7 +174,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit:
             return AppLocalization.text("payment_benefit_supporting", fallback: "Use your Bahrain-issued debit card and PIN.")
         case .benefitPay:
-            return "Requires the BenefitPay app on this device."
+            return AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "يتطلب تطبيق بنفت بي على هذا الجهاز." : "Requires the BenefitPay app on this device."
         case .card:
             return AppLocalization.text("payment_card_supporting", fallback: "For Bahrain-issued credit cards and cards issued outside Bahrain.")
         case .clickToPay:
@@ -191,7 +191,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit:
             return AppLocalization.text("payment_benefit_guidance", fallback: "Choose this for a Bahrain-issued debit card.")
         case .benefitPay:
-            return "Choose this to approve payment inside BenefitPay."
+            return AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "اختر للموافقة على الدفع داخل بنفت بي." : "Choose this to approve payment inside BenefitPay."
         case .card:
             return AppLocalization.text("payment_card_guidance", fallback: "Choose this for Visa, Mastercard or American Express credit/debit cards.")
         case .clickToPay:
@@ -208,7 +208,7 @@ enum TallaPaymentMethod: String, CaseIterable, Identifiable {
         case .benefit:
             return AppLocalization.text("payment_benefit_action", fallback: "Continue to BENEFIT")
         case .benefitPay:
-            return "Continue with BenefitPay"
+            return AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "المتابعة مع بنفت بي" : "Continue with BenefitPay"
         case .card:
             return AppLocalization.text("payment_card_action", fallback: "Enter card details")
         case .clickToPay:
@@ -1035,7 +1035,7 @@ struct TallaShippingConfiguration {
     var bahrainRate = 2.0
     var khaleejiCashOnDeliverySurcharge = 2.0
     var maximumKhaleejiWeightGrams = 4_000.0
-    var khaleejiTransitTime = "3 to 5 business days"
+    var khaleejiTransitTime = "Within 3 days"
     var khaleejiTiers = [
         Tier(maximumWeightGrams: 500, rate: 5.5), Tier(maximumWeightGrams: 1_000, rate: 6.5),
         Tier(maximumWeightGrams: 1_500, rate: 7.5), Tier(maximumWeightGrams: 2_000, rate: 8.5),
@@ -1048,7 +1048,7 @@ enum TallaShippingRates {
     static let bahrainRate = 2.000
     static let khaleejiCashOnDeliverySurcharge = 2.000
     static let maximumKhaleejiWeightGrams = 4_000.0
-    static let khaleejiTransitTime = "3 to 5 business days"
+    static let khaleejiTransitTime = "Within 3 days"
 
     private static let khaleejiCountryCodes: Set<String> = ["SA", "KW", "AE", "QA", "OM"]
     private static let khaleejiTiers: [(maximumWeightGrams: Double, rate: Double)] = [

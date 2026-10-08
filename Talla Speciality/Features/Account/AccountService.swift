@@ -1180,7 +1180,7 @@ enum AccountService {
         return try await performAddressesRequest(request)
     }
 
-    static func saveAddress(email: String, label: String, fullName: String, phone: String, line1: String, city: String, countryCode: String, notes: String?) async throws -> [ContentView.DeliveryAddress] {
+    static func saveAddress(email: String, label: String, fullName: String, phone: String, line1: String, city: String, countryCode: String, notes: String?, details: ContentView.DeliveryAddress.Details? = nil) async throws -> [ContentView.DeliveryAddress] {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The address service is unavailable.")
         }
@@ -1197,6 +1197,10 @@ enum AccountService {
         ]
         if let notes {
             payload["notes"] = notes
+        }
+        if let details, let data = try? JSONEncoder().encode(details),
+           let object = try? JSONSerialization.jsonObject(with: data) {
+            payload["details"] = object
         }
 
         var request = URLRequest(url: baseURL.appending(path: "/addresses/save"))

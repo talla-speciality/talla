@@ -126,6 +126,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.talla.speciality.R
 import com.talla.speciality.data.CartLine
+import com.talla.speciality.data.AddressDetails
 import com.talla.speciality.data.CoffeeTasteProfile
 import com.talla.speciality.data.BrewLaunchRequest
 import com.talla.speciality.data.BrewRecipeEngine
@@ -340,6 +341,7 @@ fun TallaApp(
 
     if (cartOpen) {
         CartSheet(
+            countryCode = (state.addresses.firstOrNull { it.isPreferred } ?: state.addresses.firstOrNull())?.countryCode,
             lines = state.cart.values.toList(),
             settings = state.remoteSettings.app,
             onAdd = { viewModel.addToCart(it.product) },
@@ -624,7 +626,7 @@ private fun PersonalizedCoffeeHomeSection(
             }
             item {
                 val product = recommend
-                PersonalizedHomeCard(if (hasSignals) homeCopy("Based on your taste", "على ذوقك") else homeCopy("Discover at Talla", "اكتشف تالا"), product?.name ?: homeCopy("Tell us what you enjoy", "أخبرنا بما تحب"), product?.imageUrl, if (!hasSignals) homeCopy("Set your taste", "حدّد ذوقك") else homeCopy("Explore", "استكشف"), enabled = true) {
+                PersonalizedHomeCard(if (hasSignals) homeCopy("Based on your taste", "على ذوقك") else homeCopy("Discover at Talla", "اكتشف تله"), product?.name ?: homeCopy("Tell us what you enjoy", "أخبرنا بما تحب"), product?.imageUrl, if (!hasSignals) homeCopy("Set your taste", "حدّد ذوقك") else homeCopy("Explore", "استكشف"), enabled = true) {
                     if (!hasSignals) editingProfile = true else product?.let(open)
                 }
             }
@@ -1989,7 +1991,7 @@ internal fun AccountScreen(
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit,
     onRefresh: () -> Unit,
-    onSaveAddress: (String, String, String, String, String, String) -> Unit,
+    onSaveAddress: (String, String, String, String, String, String, AddressDetails?) -> Unit,
     onDeleteAddress: (String) -> Unit,
     onSaveTasteMemory: (String, String, String, List<String>) -> Unit,
     onSaveTasteProfile: (CoffeeTasteProfile) -> Unit = {},
@@ -2095,7 +2097,8 @@ internal fun AccountScreen(
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(if (address.isPreferred) "${address.label} · Preferred" else address.label, fontWeight = FontWeight.Bold)
-                            Text("${address.line1}, ${address.city} · ${address.countryCode}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val addressDetail = listOfNotNull(address.details?.district, address.details?.block, address.details?.building, address.details?.unit, address.details?.region, address.details?.postalCode, address.details?.landmark).joinToString(", ")
+                            Text(listOf("${address.line1}, ${address.city} · ${address.countryCode}", addressDetail).filter(String::isNotBlank).joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { onDeleteAddress(address.id) }) { Icon(Icons.Default.Delete, "Delete address") }
                     }
@@ -2151,8 +2154,8 @@ internal fun AccountScreen(
         }
     }
     if (addingAddress) {
-        AddAddressDialog(onDismiss = { addingAddress = false }) { label, name, phone, line1, city, country ->
-            onSaveAddress(label, name, phone, line1, city, country)
+        AddAddressDialog(onDismiss = { addingAddress = false }) { label, name, phone, line1, city, country, details ->
+            onSaveAddress(label, name, phone, line1, city, country, details)
             addingAddress = false
         }
     }
@@ -2249,7 +2252,7 @@ private fun TasteMemoryPrompt(
 @Composable
 private fun AddAddressDialog(
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String, String, String) -> Unit,
+    onSave: (String, String, String, String, String, String, AddressDetails?) -> Unit,
 ) {
     var label by remember { mutableStateOf("Home") }
     var name by remember { mutableStateOf("") }
@@ -2257,22 +2260,71 @@ private fun AddAddressDialog(
     var line1 by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
     var country by remember { mutableStateOf("BH") }
+    var block by remember { mutableStateOf("") }
+    var building by remember { mutableStateOf("") }
+    var apartment by remember { mutableStateOf("") }
+    var landmark by remember { mutableStateOf("") }
+    var region by remember { mutableStateOf("") }
+    var postalCode by remember { mutableStateOf("") }
+    var additionalNumber by remember { mutableStateOf("") }
+    var addressTooLong by remember { mutableStateOf(false) }
+    var addressIncomplete by remember { mutableStateOf(false) }
+    val gulf = country in setOf("BH", "SA", "KW", "AE", "QA", "OM")
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.delivery_address)) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(listOf("BH", "SA", "KW", "AE", "QA", "OM")) { code ->
+                            FilterChip(selected = country == code, onClick = { country = code }, label = {
+                                Text(java.util.Locale("", code).getDisplayCountry(LocalConfiguration.current.locales[0]))
+                            })
+                        }
+                    }
+                }
                 item { OutlinedTextField(label, { label = it }, label = { Text(stringResource(R.string.label)) }, singleLine = true) }
                 item { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.full_name)) }, singleLine = true) }
                 item { OutlinedTextField(phone, { phone = it }, label = { Text(stringResource(R.string.phone)) }, singleLine = true) }
                 item { OutlinedTextField(line1, { line1 = it }, label = { Text(stringResource(R.string.address)) }) }
                 item { OutlinedTextField(city, { city = it }, label = { Text(stringResource(R.string.city)) }, singleLine = true) }
                 item { OutlinedTextField(country, { country = it.uppercase().take(2) }, label = { Text(stringResource(R.string.country_code)) }, singleLine = true) }
+                if (gulf) {
+                    item { OutlinedTextField(block, { block = it }, label = { Text(if (country in setOf("BH", "KW")) homeCopy("Area / block", "المنطقة / المجمع") else homeCopy("District / area", "الحي / المنطقة")) }) }
+                    if (country !in setOf("BH", "KW")) item { OutlinedTextField(region, { region = it }, label = { Text(homeCopy("Governorate / emirate / region", "المحافظة / الإمارة / المنطقة")) }) }
+                    item { OutlinedTextField(building, { building = it }, label = { Text(homeCopy("Building number", "رقم المبنى")) }) }
+                    item { OutlinedTextField(apartment, { apartment = it }, label = { Text(homeCopy("Floor and apartment (optional)", "الطابق والشقة (اختياري)")) }) }
+                    item { OutlinedTextField(landmark, { landmark = it }, label = { Text(homeCopy("Landmark / national address details", "معلم قريب / تفاصيل العنوان الوطني")) }) }
+                    if (country == "SA") {
+                        item { OutlinedTextField(postalCode, { postalCode = it.filter(Char::isDigit).take(5) }, label = { Text(homeCopy("Postal code (5 digits)", "الرمز البريدي (٥ أرقام)")) }, singleLine = true) }
+                        item { OutlinedTextField(additionalNumber, { additionalNumber = it.filter(Char::isDigit).take(4) }, label = { Text(homeCopy("National address additional number", "الرقم الإضافي للعنوان الوطني")) }, singleLine = true) }
+                    }
+                }
+                if (addressTooLong) item { Text(homeCopy("Shorten the complete address to 240 characters.", "اختصر العنوان الكامل إلى ٢٤٠ حرفاً."), color = MaterialTheme.colorScheme.error) }
+                if (addressIncomplete) item { Text(homeCopy("Complete the required country-specific address fields.", "أكمل حقول العنوان المطلوبة لهذا البلد."), color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(label, name, phone, line1, city, country) },
+                onClick = {
+                    val needsRegion = country in setOf("SA", "AE", "QA", "OM")
+                    addressIncomplete = (country in setOf("BH", "KW") && block.isBlank()) || (needsRegion && region.isBlank()) || (country == "SA" && postalCode.length != 5)
+                    addressTooLong = line1.trim().length > 240
+                    if (!addressTooLong && !addressIncomplete) {
+                        val details = if (gulf) AddressDetails(
+                            region = region.trim().takeIf(String::isNotBlank),
+                            district = block.trim().takeIf { country !in setOf("BH", "KW") && it.isNotBlank() },
+                            block = block.trim().takeIf(String::isNotBlank),
+                            building = building.trim().takeIf(String::isNotBlank),
+                            unit = apartment.trim().takeIf(String::isNotBlank),
+                            postalCode = postalCode.trim().takeIf(String::isNotBlank),
+                            additionalNumber = additionalNumber.trim().takeIf(String::isNotBlank),
+                            landmark = landmark.trim().takeIf(String::isNotBlank),
+                        ) else null
+                        onSave(label, name, phone, line1.trim(), city, country, details)
+                    }
+                },
                 enabled = label.isNotBlank() && name.isNotBlank() && phone.isNotBlank() && line1.isNotBlank() && city.isNotBlank() && country.length == 2,
             ) { Text(stringResource(R.string.save)) }
         },
@@ -2475,7 +2527,7 @@ private fun ProductDetailsSheet(
     }
 }
 
-private fun isBrewableProduct(product: Product): Boolean = product.category.lowercase().let { "coffee" in it || "bean" in it || "arabic" in it || "qahwa" in it }
+private fun isBrewableProduct(product: Product): Boolean = product.category.lowercase().let { "coffee" in it || "bean" in it || "arabic" in it || "qahwa" in it || "gahwa" in it || "قهوة" in it }
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2493,7 +2545,9 @@ internal fun CartSheet(
     onClearError: () -> Unit,
     onDismiss: () -> Unit,
     embeddedForTesting: Boolean = false,
+    countryCode: String? = null,
 ) {
+    val supportContext = LocalContext.current
     val availableFulfillment = buildList {
         if (settings.fulfillment.deliveryEnabled) add("delivery")
         if (settings.fulfillment.pickupEnabled) add("pickup")
@@ -2555,6 +2609,18 @@ internal fun CartSheet(
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(stringResource(R.string.payment_method).uppercase(), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                TextButton(onClick = {
+                    runCatching { supportContext.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(settings.support.whatsappUrl))) }
+                }) { Text(homeCopy("WhatsApp support", "الدعم عبر واتساب")) }
+                if (fulfillment == "delivery") {
+                    val market = settings.fulfillment.gulfMarkets[countryCode]
+                    val promise = if (isArabic) market?.deliveryAr else market?.deliveryEn
+                    Text(if (market?.verified == true && !promise.isNullOrBlank()) promise else homeCopy("Contact us to confirm delivery timing", "تواصل معنا لتأكيد موعد التوصيل"))
+                    if (market?.verified == true && market.heatSafePackaging) {
+                        val packaging = if (isArabic) market.packagingAr else market.packagingEn
+                        if (packaging.isNotBlank()) Text(packaging, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 availableMethods.forEach { method ->
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(TallaCard)

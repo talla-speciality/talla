@@ -667,7 +667,7 @@ extension BrewingSectionView {
                             .textCase(.uppercase)
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
-                            .foregroundColor(selection.wrappedValue == option ? Color(hex: 0x1C1A17) : brewSecondaryTextColor)
+                            .foregroundColor(selection.wrappedValue == option ? brewPrimaryTextColor : brewSecondaryTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(selection.wrappedValue == option ? brewAccentColor.opacity(0.18) : Color.clear)

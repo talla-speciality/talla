@@ -31,6 +31,25 @@ import UIKit
 #endif
 
 extension ContentView {
+    @ViewBuilder var gulfAddressFields: some View {
+        if addressCountry.isKhaleeji {
+            let needsBlock = ["BH", "KW"].contains(addressCountry.rawValue)
+            addressFormTextField(
+                needsBlock ? (isArabicInterface ? "المجمع / القطعة" : "Area / block") : (isArabicInterface ? "الحي / المنطقة" : "District / area"),
+                text: $addressBlock, capitalization: .words
+            )
+            if !needsBlock {
+                addressFormTextField(isArabicInterface ? "المحافظة / الإمارة" : "Governorate / emirate", text: $addressRegion, capitalization: .words)
+            }
+            addressFormTextField(isArabicInterface ? "رقم المبنى" : "Building number", text: $addressBuilding, capitalization: .words)
+            addressFormTextField(isArabicInterface ? "الطابق والشقة (اختياري)" : "Floor and apartment (optional)", text: $addressApartment, capitalization: .words)
+            addressFormTextField(isArabicInterface ? "معلم قريب / تفاصيل العنوان الوطني (اختياري)" : "Landmark / national address details (optional)", text: $addressLandmark, capitalization: .words)
+            if addressCountry.rawValue == "SA" {
+                addressFormTextField(isArabicInterface ? "الرمز البريدي (٥ أرقام)" : "Postal code (5 digits)", text: $addressPostalCode, capitalization: .never)
+                addressFormTextField(isArabicInterface ? "الرقم الإضافي للعنوان الوطني (اختياري)" : "National address additional number (optional)", text: $addressAdditionalNumber, capitalization: .never)
+            }
+        }
+    }
     var latestAccountOrderSummary: (title: String, detail: String)? {
         guard let order = orderHistory.max(by: { orderDate(from: $0.createdAt) < orderDate(from: $1.createdAt) }) else {
             return nil
@@ -935,6 +954,8 @@ extension ContentView {
 
                         deliveryCountrySelector
 
+                        gulfAddressFields
+
                         onboardingTextField(
                             AppLocalization.text("delivery_notes_optional", fallback: "Delivery notes (optional)"),
                             text: $addressNotes,
@@ -1096,6 +1117,8 @@ extension ContentView {
             addressFormTextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1, capitalization: .words)
             deliveryCountrySelector
 
+            gulfAddressFields
+
             Group {
                 if isCompact {
                     VStack(spacing: 12) {
@@ -1191,7 +1214,10 @@ extension ContentView {
                 Text("\(address.fullName) • \(address.phone)")
                     .font(bodyFont(size: 13))
                     .foregroundColor(secondaryTextColor)
-                Text("\(address.line1), \(address.city), \(address.country.name)")
+                let detailParts = [address.details?.district, address.details?.block, address.details?.building, address.details?.unit, address.details?.region, address.details?.postalCode, address.details?.additionalNumber, address.details?.landmark]
+                    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                Text(([address.line1, detailParts.joined(separator: ", "), address.city, address.country.name].filter { !$0.isEmpty }).joined(separator: ", "))
                     .font(bodyFont(size: 13))
                     .foregroundColor(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)

@@ -253,7 +253,7 @@ struct CoffeeEducationView: View {
             Slider(value: $extraction, in: 0...100, step: 1).tint(Color(hex: 0xB87838)).onChange(of: extraction) { _, _ in completedLessons.insert("2"); persistProgress() }
             HStack { Text("Under-extracted").font(.caption); Spacer(); Text("Balanced").font(.caption.bold()); Spacer(); Text("Over-extracted").font(.caption) }.foregroundStyle(.secondary)
             Text(extraction < 38 ? "Sour, sharp, or thin? Try a finer grind, hotter water, or more brew time." : extraction > 66 ? "Bitter, dry, or harsh? Try a coarser grind, cooler water, or less brew time." : "Sweet, clear, and balanced. This is the zone to look for when dialing in a recipe.")
-                .font(.body).foregroundStyle(Color(hex: 0x4A2A16)).padding(16).frame(maxWidth: .infinity, alignment: .leading).background(Color(hex: 0xFFFFFF), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .font(.body).foregroundStyle(Color.secondary).padding(16).frame(maxWidth: .infinity, alignment: .leading).background(Color(hex: 0xFFFFFF), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .padding(20)
         .background(TallaTheme.Colors.ink, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -266,7 +266,7 @@ struct CoffeeEducationView: View {
                 Text(question.prompt).font(.headline).foregroundStyle(TallaTheme.Colors.ink)
                 ForEach(question.options, id: \.self) { answer in
                     Button { answerQuestion(answer, question: question) } label: {
-                        HStack { Text(answer).foregroundStyle(Color(hex: 0x4A2A16)); Spacer(); if quizChoice == answer { Image(systemName: answer == question.correctAnswer ? "checkmark.circle.fill" : "xmark.circle.fill").foregroundStyle(answer == question.correctAnswer ? .green : .red) } }.padding(13).background(Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        HStack { Text(answer).foregroundStyle(Color.secondary); Spacer(); if quizChoice == answer { Image(systemName: answer == question.correctAnswer ? "checkmark.circle.fill" : "xmark.circle.fill").foregroundStyle(answer == question.correctAnswer ? .green : .red) } }.padding(13).background(Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                     }.buttonStyle(.plain).disabled(!quizChoice.isEmpty)
                 }
                 if !quizChoice.isEmpty {
@@ -346,8 +346,7 @@ struct CoffeeEducationView: View {
 private extension View {
     func educationCard(cornerRadius: CGFloat, accent: Color) -> some View {
         self
-            .background(Color(hex: 0xF2F2F2), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(accent.opacity(0.18), lineWidth: 1))
+            .tallaCard(cornerRadius: cornerRadius)
     }
 }
 

@@ -1,0 +1,240 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ · %lld g · 1:%lld" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%@‏ · %lld غ · 1:%lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld g · 1:%3$lld"
+          }
+        }
+      }
+    },
+    "%@ at %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%@‏ عند %@‏"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld / %lld g" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%lld / %lld غ"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld / %2$lld g"
+          }
+        }
+      }
+    },
+    "%lld g · 1:%lld" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%lld غ · 1:%lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld g · 1:%2$lld"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تم"
+          }
+        }
+      }
+    },
+    "ESPRESSO" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إسبريسو"
+          }
+        }
+      }
+    },
+    "Espresso Dial-In" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ضبط الإسبريسو"
+          }
+        }
+      }
+    },
+    "MILK" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الحليب"
+          }
+        }
+      }
+    },
+    "Milk Steaming" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تبخير الحليب"
+          }
+        }
+      }
+    },
+    "Pause steaming" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إيقاف التبخير مؤقتًا"
+          }
+        }
+      }
+    },
+    "Start Shot" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "بدء الاستخلاص"
+          }
+        }
+      }
+    },
+    "Start steaming" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "بدء التبخير"
+          }
+        }
+      }
+    },
+    "Start, stop, and hit yield from Watch" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "بدء الاستخلاص وإيقافه وتسجيل الناتج من Watch"
+          }
+        }
+      }
+    },
+    "Stop at the target temperature for a glossy texture. Scale the milk drink to the finished espresso yield." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "أوقف التبخير عند درجة الحرارة المستهدفة للحصول على قوام لامع. اضبط كمية مشروب الحليب بما يتناسب مع ناتج الإسبريسو النهائي."
+          }
+        }
+      }
+    },
+    "Stop Shot" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إيقاف الاستخلاص"
+          }
+        }
+      }
+    },
+    "Talla" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تله"
+          }
+        }
+      }
+    },
+    "TALLA" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تله"
+          }
+        }
+      }
+    },
+    "Target %lld °C" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الدرجة المستهدفة: %lld °م"
+          }
+        }
+      }
+    },
+    "Timer · target temperature · drink scale" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المؤقت · درجة الحرارة المستهدفة · نسبة المشروب"
+          }
+        }
+      }
+    },
+    "Yield" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الناتج"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.3"
+}

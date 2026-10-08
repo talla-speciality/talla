@@ -274,6 +274,7 @@ module.exports = function createServer(dependencies) {
         normalizeCampaignSettings,
         normalizeCardPaymentIdentifier,
         normalizeCountryCode,
+        normalizeAddressDetails,
         normalizeCustomerProductIDs,
         normalizeDeviceToken,
         normalizeEmail,
@@ -2428,6 +2429,7 @@ module.exports = function createServer(dependencies) {
                     line1,
                     city,
                     countryCode,
+                    details: normalizeAddressDetails(body.details),
                     notes,
                     isPreferred
                 });
@@ -5548,7 +5550,12 @@ module.exports = function createServer(dependencies) {
                     customer: body.customer,
                     fulfillment: {
                         ...(body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : {}),
-                        method: body.fulfillmentMethod || body.fulfillment?.method
+                        method: body.fulfillmentMethod || body.fulfillment?.method,
+                        notes: [
+                            verifiedPricing?.regionalPolicy?.heatSafePackaging
+                                ? `Heat-safe packaging required: ${verifiedPricing.regionalPolicy.packagingEN || verifiedPricing.regionalPolicy.packagingAR}` : "",
+                            body.fulfillment?.notes || ""
+                        ].filter(Boolean).join(" · ")
                     },
                     payment: { method: body.paymentMethod },
                     gift: gift && (gift.recipientName || gift.recipientPhone || gift.message) ? gift : null,
@@ -5953,7 +5960,8 @@ module.exports = function createServer(dependencies) {
                 city,
                 countryCode,
                 isPreferred: body.isPreferred !== false,
-                notes: body.notes ? String(body.notes).trim() : null
+                notes: body.notes ? String(body.notes).trim() : null,
+                details: normalizeAddressDetails(body.details)
             }));
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid JSON body" });

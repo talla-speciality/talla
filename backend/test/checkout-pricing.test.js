@@ -72,6 +72,23 @@ function body(items, total, overrides = {}) {
     };
 }
 
+test("delivery packing policy comes from merchant settings, never the customer", async () => {
+    const configuredSettings = settings();
+    configuredSettings.fulfillment.gulfMarkets = { BH: {
+        verified: true, heatSafePackaging: true,
+        deliveryEN: "Confirmed service window", deliveryAR: "موعد توصيل مؤكد",
+        packagingEN: "Use the validated insulated liner", packagingAR: "استخدم البطانة العازلة المعتمدة"
+    } };
+    const verify = service({ nodes: [node(coffeeID, "4.500")], configuredSettings });
+    const result = await verify(body([{ variantId: coffeeID, quantity: 1 }], 6.5, {
+        regionalPolicy: { heatSafePackaging: false }
+    }), "customer@example.com");
+    assert.equal(result.regionalPolicy.heatSafePackaging, true);
+    assert.equal(result.regionalPolicy.packagingEN, "Use the validated insulated liner");
+    const pickup = await verify(body([{ variantId: coffeeID, quantity: 1 }], 4.5, { fulfillmentMethod: "pickup" }), "customer@example.com");
+    assert.equal(pickup.regionalPolicy, null);
+});
+
 test("verified checkout uses Shopify prices and backend Bahrain delivery", async () => {
     const verify = service({ nodes: [node(coffeeID, "4.500")] });
     const result = await verify(body([{ variantId: coffeeID, quantity: 2 }], 11), "customer@example.com");

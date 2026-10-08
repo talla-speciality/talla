@@ -58,15 +58,19 @@ data class PaymentSettings(
 )
 
 data class FulfillmentSettings(
+    val gulfMarkets: Map<String, GulfMarket> = emptyMap(),
     val deliveryEnabled: Boolean = true,
     val pickupEnabled: Boolean = true,
     val pickupNameEn: String = "Talla, Riffa",
-    val pickupNameAr: String = "تالة، الرفاع",
+    val pickupNameAr: String = "تله، الرفاع",
     val pickupAddressEn: String = "Villa 336, Street 1307, Riffa 913",
     val pickupAddressAr: String = "فيلا 336، طريق 1307، الرفاع 913",
     val openingHoursEn: String = "",
     val openingHoursAr: String = "",
 )
+
+data class GulfMarket(val verified: Boolean, val deliveryEn: String, val deliveryAr: String,
+    val heatSafePackaging: Boolean, val packagingEn: String, val packagingAr: String)
 
 data class SupportSettings(
     val whatsappUrl: String = "https://wa.me/97339392414",
@@ -80,7 +84,7 @@ data class ReleaseSettings(
     val titleEn: String = "We'll be right back",
     val titleAr: String = "سنعود قريباً",
     val messageEn: String = "Talla is being updated. Please try again shortly.",
-    val messageAr: String = "يتم تحديث تالة. يرجى المحاولة بعد قليل.",
+    val messageAr: String = "يتم تحديث تله. يرجى المحاولة بعد قليل.",
 )
 
 data class TallaAppSettings(
@@ -193,10 +197,17 @@ class TallaRemoteSettingsRepository {
                 noticeAr = payments.optString("noticeAR"),
             ),
             fulfillment = FulfillmentSettings(
+                gulfMarkets = fulfillment.optJSONObject("gulfMarkets")?.let { markets ->
+                    markets.keys().asSequence().associateWith { country ->
+                        val market = markets.getJSONObject(country)
+                        GulfMarket(market.optBoolean("verified"), market.optString("deliveryEN"), market.optString("deliveryAR"),
+                            market.optBoolean("heatSafePackaging"), market.optString("packagingEN"), market.optString("packagingAR"))
+                    }
+                } ?: emptyMap(),
                 deliveryEnabled = fulfillment.optBoolean("deliveryEnabled", true),
                 pickupEnabled = fulfillment.optBoolean("pickupEnabled", true),
                 pickupNameEn = fulfillment.optString("pickupNameEN", "Talla, Riffa"),
-                pickupNameAr = fulfillment.optString("pickupNameAR", "تالة، الرفاع"),
+                pickupNameAr = fulfillment.optString("pickupNameAR", "تله، الرفاع"),
                 pickupAddressEn = fulfillment.optString("pickupAddressEN", "Villa 336, Street 1307, Riffa 913"),
                 pickupAddressAr = fulfillment.optString("pickupAddressAR", "فيلا 336، طريق 1307، الرفاع 913"),
                 openingHoursEn = fulfillment.optString("openingHoursEN"),
@@ -213,7 +224,7 @@ class TallaRemoteSettingsRepository {
                 titleEn = release.optString("titleEN", "We'll be right back"),
                 titleAr = release.optString("titleAR", "سنعود قريباً"),
                 messageEn = release.optString("messageEN", "Talla is being updated. Please try again shortly."),
-                messageAr = release.optString("messageAR", "يتم تحديث تالة. يرجى المحاولة بعد قليل."),
+                messageAr = release.optString("messageAR", "يتم تحديث تله. يرجى المحاولة بعد قليل."),
             ),
             coffeeMemory = CoffeeMemorySettings(
                 enabled = coffeeMemory.optBoolean("enabled", true),

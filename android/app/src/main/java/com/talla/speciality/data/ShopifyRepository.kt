@@ -13,7 +13,7 @@ import java.util.Locale
 class ShopifyRepository {
     suspend fun products(): List<Product> = withContext(Dispatchers.IO) {
         val query = """
-            query TallaProducts(${'$'}cursor: String) {
+            query TallaProducts(${'$'}cursor: String, ${'$'}language: LanguageCode!) @inContext(language: ${'$'}language) {
               products(first: 100, after: ${'$'}cursor, sortKey: CREATED_AT, reverse: true) {
                 pageInfo { hasNextPage endCursor }
                 edges {
@@ -36,7 +36,8 @@ class ShopifyRepository {
         buildList {
             var cursor: String? = null
             do {
-                val variables = JSONObject().apply { put("cursor", cursor) }
+                val language = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().get(0)?.language ?: Locale.getDefault().language
+                val variables = JSONObject().apply { put("cursor", cursor); put("language", if (language == "ar") "AR" else "EN") }
                 val response = request(JSONObject().put("query", query).put("variables", variables))
                 val products = response.getJSONObject("data").getJSONObject("products")
                 val edges = products.getJSONArray("edges")
@@ -78,14 +79,15 @@ class ShopifyRepository {
         }
         if (buyerIdentity.length() > 0) input.put("buyerIdentity", buyerIdentity)
         val mutation = """
-            mutation CreateCart(${'$'}input: CartInput) {
+            mutation CreateCart(${'$'}input: CartInput, ${'$'}language: LanguageCode!) @inContext(language: ${'$'}language) {
               cartCreate(input: ${'$'}input) {
                 cart { checkoutUrl }
                 userErrors { message }
               }
             }
         """.trimIndent()
-        val response = request(JSONObject().put("query", mutation).put("variables", JSONObject().put("input", input)))
+        val language = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().get(0)?.language ?: Locale.getDefault().language
+        val response = request(JSONObject().put("query", mutation).put("variables", JSONObject().put("input", input).put("language", if (language == "ar") "AR" else "EN")))
         val payload = response.getJSONObject("data").getJSONObject("cartCreate")
         val errors = payload.getJSONArray("userErrors")
         if (errors.length() > 0) error(errors.getJSONObject(0).optString("message", "Unable to create checkout"))
@@ -159,7 +161,9 @@ class ShopifyRepository {
             description = node.optString("description"),
             imageUrl = featuredImageUrl,
             imageUrls = imageUrls,
-            category = node.optString("productType").ifBlank { "Coffee" },
+            category = if (Regex("arabic.?coffee|qahwa|gahwa|shamali|قهوة عربية|قهوة خليجية", RegexOption.IGNORE_CASE)
+                .containsMatchIn(node.optString("title") + " " + node.optString("productType") + " " + tags.toString())) "Arabic Coffee · القهوة العربية"
+                else node.optString("productType").ifBlank { "Coffee" },
             variants = variants,
             roastDate = roastDate,
         )

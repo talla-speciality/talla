@@ -80,7 +80,7 @@ class ReleaseHardeningJourneysTest {
                 AccountScreen(
                     state = TallaUiState(profile = AccountProfile("customer-1", "Talla", "Customer", "customer@example.com")),
                     onLogin = { _, _ -> }, onRegister = { _, _, _, _ -> }, onLogout = {},
-                    onDeleteAccount = { deleted = true }, onRefresh = {}, onSaveAddress = { _, _, _, _, _, _ -> },
+                    onDeleteAccount = { deleted = true }, onRefresh = {}, onSaveAddress = { _, _, _, _, _, _, _ -> },
                     onDeleteAddress = {}, onSaveTasteMemory = { _, _, _, _ -> }, openProduct = {},
                 )
             }

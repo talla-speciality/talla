@@ -21,6 +21,17 @@ data class CustomerOrder(
 
 data class OrderItem(val name: String, val quantity: Int)
 
+data class AddressDetails(
+    val region: String? = null,
+    val district: String? = null,
+    val block: String? = null,
+    val building: String? = null,
+    val unit: String? = null,
+    val postalCode: String? = null,
+    val additionalNumber: String? = null,
+    val landmark: String? = null,
+)
+
 data class DeliveryAddress(
     val id: String,
     val label: String,
@@ -30,6 +41,7 @@ data class DeliveryAddress(
     val city: String,
     val countryCode: String,
     val isPreferred: Boolean,
+    val details: AddressDetails? = null,
 )
 
 data class AccountSession(

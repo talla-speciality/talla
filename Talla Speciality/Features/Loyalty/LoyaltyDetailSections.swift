@@ -847,7 +847,7 @@ struct ClubSectionView: View {
         }
         .padding(21)
         .background(
-            LinearGradient(colors: [Color(hex: 0xF6E7D3), Color(hex: 0xE8C799)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: isLightAppearance ? [Color(hex: 0xF6E7D3), Color(hex: 0xE8C799)] : [cardFillColor, cardFillColor], startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 25, style: .continuous)
         )
     }
@@ -856,12 +856,12 @@ struct ClubSectionView: View {
         HStack(spacing: 11) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Color(hex: 0x6C431F))
+                .foregroundColor(isLightAppearance ? Color(hex: 0x6C431F) : primaryTextColor)
                 .frame(width: 34, height: 34)
                 .background(Color.white.opacity(0.45), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: 0x151515))
-                Text(detail).font(.system(size: 12)).foregroundColor(Color(hex: 0x4A2A16).opacity(0.78))
+                Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(primaryTextColor)
+                Text(detail).font(.system(size: 12)).foregroundColor(isLightAppearance ? Color(hex: 0x4A2A16).opacity(0.78) : secondaryTextColor)
             }
             Spacer()
         }
@@ -870,7 +870,7 @@ struct ClubSectionView: View {
     private func exclusivePill(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 10, weight: .bold))
-            .foregroundColor(Color(hex: 0x4A2A16))
+            .foregroundColor(isLightAppearance ? Color(hex: 0x4A2A16) : primaryTextColor)
             .padding(.horizontal, 9)
             .padding(.vertical, 7)
             .background(Color.white.opacity(0.42), in: Capsule())
@@ -989,14 +989,14 @@ struct ClubSectionView: View {
                         .font(.system(size: 10, weight: .bold))
                         .tracking(1.2)
                 }
-                .foregroundColor(Color(hex: 0x5D371D))
+                .foregroundColor(isLightAppearance ? Color(hex: 0x5D371D) : primaryTextColor)
                 Text("Taste more.\nUnderstand more.")
                     .font(.system(size: 31, weight: .bold, design: .serif))
-                    .foregroundColor(Color(hex: 0x151515))
+                    .foregroundColor(primaryTextColor)
                     .multilineTextAlignment(.leading)
                 Text("A guided path from flavour notes to confident brewing.")
                     .font(.system(size: 14))
-                    .foregroundColor(Color(hex: 0x4A2A16).opacity(0.78))
+                    .foregroundColor(isLightAppearance ? Color(hex: 0x4A2A16).opacity(0.78) : secondaryTextColor)
                 HStack(spacing: 7) {
                     schoolPathStep(icon: "leaf.fill", title: "TASTE")
                     schoolPathStep(icon: "drop.fill", title: "BREW")
@@ -1006,7 +1006,7 @@ struct ClubSectionView: View {
             .padding(22)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                LinearGradient(colors: [Color(hex: 0xFFFFFF), Color(hex: 0xE8CDAA)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                LinearGradient(colors: isLightAppearance ? [Color(hex: 0xFFFFFF), Color(hex: 0xE8CDAA)] : [cardFillColor, cardFillColor], startPoint: .topLeading, endPoint: .bottomTrailing),
                 in: RoundedRectangle(cornerRadius: 25, style: .continuous)
             )
         }
@@ -1018,7 +1018,7 @@ struct ClubSectionView: View {
             Image(systemName: icon).font(.system(size: 14, weight: .bold))
             Text(title).font(.system(size: 8, weight: .bold)).tracking(1.1)
         }
-        .foregroundColor(Color(hex: 0x5D371D))
+        .foregroundColor(isLightAppearance ? Color(hex: 0x5D371D) : primaryTextColor)
         .frame(maxWidth: .infinity)
         .frame(height: 52)
         .background(Color.white.opacity(0.38), in: RoundedRectangle(cornerRadius: 13, style: .continuous))

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 extension ContentView {
     func homeSettingText(_ value: String?, arabicValue: String? = nil, localizationKey: String, fallback: String) -> String {
@@ -347,6 +348,12 @@ enum AppLocalization {
         return decoded
     }()
 
+    private static func normalizedArabicBrand(in value: String) -> String {
+        ["Talla", "تله"].reduce(value) { text, spelling in
+            text.replacingOccurrences(of: spelling, with: "تله")
+        }
+    }
+
     // Use bundled catalog copy only while it still matches the source product.
     // New Shopify translations win; changed English copy never gets an outdated translation.
     static func catalogText(_ value: String, source: String, key: String) -> String {
@@ -356,8 +363,10 @@ enum AppLocalization {
         guard currentLanguage.effectiveLanguageCode == "ar",
               normalized(value) == normalized(source),
               let entry = translations[key], let original = entry["en"],
-              normalized(original) == normalized(source), let arabic = entry["ar"] else { return value }
-        return arabic
+              normalized(original) == normalized(source), let arabic = entry["ar"] else {
+            return normalizedArabicBrand(in: value)
+        }
+        return normalizedArabicBrand(in: arabic)
     }
 
     static func catalogOption(_ value: String) -> String {
@@ -373,7 +382,7 @@ enum AppLocalization {
     static func homeText(_ value: String?, arabicValue: String? = nil, key: String, fallback: String) -> String {
         if currentLanguage.effectiveLanguageCode == "ar",
            let arabic = arabicValue?.trimmingCharacters(in: .whitespacesAndNewlines), !arabic.isEmpty {
-            return arabic
+            return normalizedArabicBrand(in: arabic)
         }
         let remote = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !remote.isEmpty else { return text(key, fallback: fallback) }
@@ -381,17 +390,20 @@ enum AppLocalization {
            !remote.unicodeScalars.contains(where: { (0x0600...0x06FF).contains(Int($0.value)) }) {
             return text(key, fallback: fallback)
         }
-        return remote
+        return currentLanguage.effectiveLanguageCode == "ar"
+            ? normalizedArabicBrand(in: remote)
+            : remote
     }
 
     static var currentLanguage: AppLanguage {
-        let rawValue = UserDefaults.standard.string(forKey: "app.language") ?? AppLanguage.system.rawValue
+        let rawValue = UserDefaults.standard.string(forKey: "app.language") ?? AppLanguage.arabic.rawValue
         return AppLanguage(rawValue: rawValue) ?? .system
     }
 
     static func text(_ key: String, fallback: String) -> String {
         let languageCode = currentLanguage.effectiveLanguageCode
-        return translations[key]?[languageCode] ?? fallback
+        let value = translations[key]?[languageCode] ?? fallback
+        return languageCode == "ar" ? normalizedArabicBrand(in: value) : value
     }
 }
 

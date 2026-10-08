@@ -346,6 +346,13 @@ extension ContentView {
         addressPhone = ""
         addressLine1 = ""
         addressCity = ""
+        addressBlock = ""
+        addressBuilding = ""
+        addressApartment = ""
+        addressLandmark = ""
+        addressRegion = ""
+        addressPostalCode = ""
+        addressAdditionalNumber = ""
         addressCountry = .bahrain
         addressNotes = ""
         backendStockAlerts = []
@@ -688,8 +695,32 @@ extension ContentView {
         let line1 = addressLine1.trimmingCharacters(in: .whitespacesAndNewlines)
         let city = addressCity.trimmingCharacters(in: .whitespacesAndNewlines)
         let notes = addressNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let region = addressRegion.trimmingCharacters(in: .whitespacesAndNewlines)
+        let postalCode = addressPostalCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let block = addressBlock.trimmingCharacters(in: .whitespacesAndNewlines)
+        func optionalField(_ value: String) -> String? {
+            let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return cleaned.isEmpty ? nil : cleaned
+        }
+        let details = ContentView.DeliveryAddress.Details(
+            region: optionalField(region), district: nil, block: optionalField(block),
+            building: optionalField(addressBuilding), unit: optionalField(addressApartment),
+            postalCode: optionalField(postalCode), additionalNumber: optionalField(addressAdditionalNumber),
+            landmark: optionalField(addressLandmark)
+        )
 
-        guard !label.isEmpty, !fullName.isEmpty, !phone.isEmpty, !line1.isEmpty, !city.isEmpty else {
+        guard line1.count <= 240 else {
+            showToast(message: isArabicInterface ? "اختصر تفاصيل العنوان إلى ٢٤٠ حرفاً وانقل التفاصيل الإضافية إلى الملاحظات." : "Keep the address within 240 characters; put extra details in notes.")
+            return
+        }
+
+        let validCountryAddress: Bool = switch addressCountry.rawValue {
+        case "BH", "KW": !block.isEmpty && !line1.isEmpty
+        case "SA": !region.isEmpty && !line1.isEmpty && postalCode.range(of: #"^\d{5}$"#, options: .regularExpression) != nil
+        case "AE", "QA", "OM": !region.isEmpty && !line1.isEmpty
+        default: !line1.isEmpty
+        }
+        guard !label.isEmpty, !fullName.isEmpty, !phone.isEmpty, validCountryAddress, !city.isEmpty else {
             showToast(message: AppLocalization.text("complete_address_details", fallback: "Complete the address details first"))
             return
         }
@@ -706,13 +737,21 @@ extension ContentView {
                 line1: line1,
                 city: city,
                 countryCode: addressCountry.rawValue,
-                notes: notes.isEmpty ? nil : notes
+                notes: notes.isEmpty ? nil : notes,
+                details: details
             )
             addressLabel = ""
             addressFullName = ""
             addressPhone = ""
             addressLine1 = ""
             addressCity = ""
+            addressBlock = ""
+            addressBuilding = ""
+            addressApartment = ""
+            addressLandmark = ""
+            addressRegion = ""
+            addressPostalCode = ""
+            addressAdditionalNumber = ""
             addressCountry = .bahrain
             addressNotes = ""
             if closeOnboarding {
@@ -776,6 +815,7 @@ extension ContentView {
                 line1: candidate.line1,
                 city: candidate.city,
                 countryCode: candidate.countryCode,
+                details: candidate.details,
                 notes: candidate.notes,
                 isPreferred: candidate.id == address.id
             )

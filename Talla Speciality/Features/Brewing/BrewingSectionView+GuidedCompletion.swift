@@ -517,8 +517,10 @@ extension BrewingSectionView {
 
     var afterBrewFeedbackOptions: [String] {
         [
+            "I like this",
             "Bright and pleasant",
             "Too sour",
+            "Too acidic",
             "Balanced",
             "Sweet",
             "Too bitter",
@@ -558,7 +560,7 @@ extension BrewingSectionView {
                 .font(Font.custom("AvenirNext-DemiBold", size: 12))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
-                .foregroundColor(isSelected ? Color(hex: 0x1C1A17) : brewPrimaryTextColor)
+                .foregroundColor(brewPrimaryTextColor)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 44)
                 .background(isSelected ? brewAccentColor.opacity(0.32) : brewSurfaceColor)
@@ -712,7 +714,7 @@ extension BrewingSectionView {
     }
 
     func conservativeRecipeChanges() -> [RecipeRevisionChange] {
-        if afterBrewSelections.contains("Balanced") || afterBrewSelections.contains("Sweet") || afterBrewSelections.contains("Bright and pleasant") {
+        if afterBrewSelections.contains("I like this") || afterBrewSelections.contains("Balanced") || afterBrewSelections.contains("Sweet") || afterBrewSelections.contains("Bright and pleasant") {
             guard afterBrewMoreOfSelections.isEmpty else {
                 return conservativeMoreOfChanges(currentRatio: max(validRatioValue, 1))
             }
@@ -733,7 +735,7 @@ extension BrewingSectionView {
         let moreOf = afterBrewMoreOfSelections
         let currentRatio = max(validRatioValue, 1)
 
-        if selected.contains("Too sour") {
+        if selected.contains("Too sour") || selected.contains("Too acidic") {
             changes.append(
                 RecipeRevisionChange(
                     id: "grind",

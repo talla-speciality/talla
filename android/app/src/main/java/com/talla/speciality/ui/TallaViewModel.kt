@@ -10,6 +10,7 @@ import com.talla.speciality.data.AccountProfile
 import com.talla.speciality.data.AccountRepository
 import com.talla.speciality.data.CustomerOrder
 import com.talla.speciality.data.DeliveryAddress
+import com.talla.speciality.data.AddressDetails
 import com.talla.speciality.data.LoyaltyAccount
 import com.talla.speciality.data.Product
 import com.talla.speciality.data.CoffeeTasteProfile
@@ -469,10 +470,10 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearAccountError() = mutableState.update { it.copy(accountError = null) }
 
-    fun saveAddress(label: String, fullName: String, phone: String, line1: String, city: String, countryCode: String) {
+    fun saveAddress(label: String, fullName: String, phone: String, line1: String, city: String, countryCode: String, details: AddressDetails? = null) {
         val token = tokenStore.read() ?: return
         accountAction {
-            val addresses = accounts.saveAddress(token, label, fullName, phone, line1, city, countryCode)
+            val addresses = accounts.saveAddress(token, label, fullName, phone, line1, city, countryCode, details)
             mutableState.update { it.copy(addresses = addresses, accountLoading = false) }
         }
     }

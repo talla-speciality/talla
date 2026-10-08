@@ -1314,6 +1314,9 @@ extension BrewingSectionView {
         let identity = currentCoffeeIdentity
         guard !identity.isEmpty else { return [] }
         return brewHistoryItems.filter {
+            if let recipeCoffeeID = $0.coffeeID, let selectedPurchasedCoffeeID {
+                return recipeCoffeeID == selectedPurchasedCoffeeID
+            }
             guard normalizedCoffeeIdentity($0.title) == identity else { return false }
             guard let recipeMethod = $0.methodID, let selectedBrewModeMethodID else { return true }
             return recipeMethod == selectedBrewModeMethodID
@@ -1525,7 +1528,8 @@ extension BrewingSectionView {
             },
             grinderID: coffeeData.equipmentRecords().first(where: { $0.kind == .grinder && $0.name == recipeGrinder })?.id,
             waterProfileID: selectedWaterProfileID,
-            temperaturePresetID: selectedTemperaturePresetID
+            temperaturePresetID: selectedTemperaturePresetID,
+            coffeeID: selectedPurchasedCoffeeID
         )
     }
 

@@ -1654,7 +1654,7 @@
     "ar": "مدة التوصيل"
   },
   "khaleeji_transit_time": {
-    "ar": "من ٣ إلى ٥ أيام عمل"
+    "ar": "خلال ٣ أيام"
   },
   "calculated_at_checkout": {
     "ar": "يُحسب عند الدفع"
@@ -2056,7 +2056,7 @@
     "ar": "البن"
   },
   "category_arabic_coffee": {
-    "ar": "القهوة العربية والشمالية"
+    "ar": "القهوة العربية والقهوة للضيافة"
   },
   "category_drip_bags": {
     "ar": "أكياس الترشيح"
@@ -2083,7 +2083,7 @@
     "ar": "الشوكولاتة الساخنة"
   },
   "category_gifts": {
-    "ar": "صناديق تالّا"
+    "ar": "صناديق تله"
   },
   "category_all_subtitle": {
     "ar": "كل اختيارات Talla"
@@ -2107,7 +2107,7 @@
     "ar": "حبوب قهوة وأكياس تقطير"
   },
   "category_arabic_coffee_subtitle": {
-    "ar": "تحميصات تقليدية"
+    "ar": "تحميصات القهوة العربية والقهوة للضيافة"
   },
   "category_drip_bags_subtitle": {
     "ar": "تحضير فردي سريع"
@@ -2374,7 +2374,7 @@
     "ar": "حذف الحساب"
   },
   "delete_account_detail": {
-    "ar": "احذف حساب تالا وجميع بيانات العميل المرتبطة به نهائياً. لا يمكن التراجع عن هذا الإجراء."
+    "ar": "احذف حساب تله وجميع بيانات العميل المرتبطة به نهائياً. لا يمكن التراجع عن هذا الإجراء."
   },
   "delete_account_navigation_detail": {
     "ar": "احذف حسابك وبياناتك نهائياً"
@@ -4398,10 +4398,10 @@
   "apple_pay_setup_required": {
     "ar": "أضف بطاقة مدعومة إلى Apple Wallet، ثم ارجع لإكمال الدفع عبر Apple Pay."
   },
-  "order_method_pickup": {"en": "Pickup at Talla", "ar": "استلام من تالّا"},
+  "order_method_pickup": {"en": "Pickup at Talla", "ar": "استلام من تله"},
   "order_method_delivery": {"en": "Delivery", "ar": "توصيل"},
   "order_status_collected": {"en": "Collected", "ar": "تم الاستلام"},
-  "order_pickup_collected": {"en": "Collected from Talla", "ar": "تم الاستلام من تالّا"},
+  "order_pickup_collected": {"en": "Collected from Talla", "ar": "تم الاستلام من تله"},
   "order_pickup_wait": {"en": "We'll let you know when your order is ready for pickup.", "ar": "سنبلغك عندما يكون طلبك جاهزًا للاستلام."},
   "rewards_email_connected": {"ar": "تم ربط بريد المكافآت"},
   "disconnect_rewards": {"ar": "إلغاء ربط المكافآت"},
@@ -4410,7 +4410,7 @@
   "create_your_account": {"ar": "إنشاء حسابك"},
   "change_your_password": {"ar": "تغيير كلمة المرور"},
   "calculated_at_shopify_checkout": {"ar": "تُحسب عند إتمام الطلب في Shopify"},
-  "welcome_to_talla": {"ar": "أهلًا بك في تالّا"},
+  "welcome_to_talla": {"ar": "أهلًا بك في تله"},
   "account_guest_summary": {"ar": "سجّل الدخول أو أنشئ حسابًا لإدارة طلباتك وعناوينك ومكافآتك."},
   "account_guest_action_hint": {"ar": "يفتح صفحة تسجيل الدخول وإنشاء الحساب"},
   "sign_in_or_create_account": {"ar": "تسجيل الدخول أو إنشاء حساب"},
@@ -4428,14 +4428,14 @@
   "remove_from_favorites": {"ar": "إزالة من المفضلة"},
   "add_to_favorites": {"ar": "إضافة إلى المفضلة"},
   "appearance_and_language": {"ar": "المظهر واللغة"},
-  "more_from_talla": {"ar": "المزيد من تالّا"},
+  "more_from_talla": {"ar": "المزيد من تله"},
   "more_from_talla_summary": {"ar": "اختيارات مفاجئة، وجواز القهوة، والمفضلة، والمنتجات الأخيرة"},
   "expanded": {"ar": "موسّع"},
   "collapsed": {"ar": "مطوي"},
   "view_product_format": {"ar": "عرض %@"},
   "coffee_inventory": {"ar": "مخزون القهوة"},
   "coffee_history": {"ar": "سجل هذه القهوة"},
-  "first_brew_history": {"ar": "هذه أول تحضيرة محفوظة لهذه القهوة. قيّمها بعد الانتهاء ليبدأ تالّا ببناء سجل معايرتها هنا."},
+  "first_brew_history": {"ar": "هذه أول تحضيرة محفوظة لهذه القهوة. قيّمها بعد الانتهاء ليبدأ تله ببناء سجل معايرتها هنا."},
   "add_coffee": {"ar": "إضافة قهوة"},
   "quantity_grams": {"ar": "الكمية (غ)"},
   "sync_conflict": {"ar": "تعارض في المزامنة"},
@@ -4483,38 +4483,38 @@
   "pay_action": {"ar": "ادفع"},
   "catalog_espresso-bimbo_name": {"en": "Espresso Bimbo", "ar": "إسبريسو بيمبو"},
   "catalog_glass-cup_name": {"en": "Glass Cup", "ar": "كوب زجاجي"},
-  "catalog_talla-signature-box_name": {"en": "Talla Signature Box", "ar": "صندوق تالّا المميز"},
-  "catalog_talla-signature-box_description": {"en": "The Talla Signature Box features single-origin coffees from Hawar Islands, Muharraq, and a mini Al-Majd, plus 10 paper cups and a sticker sheet.", "ar": "يضم صندوق تالّا المميز محاصيل أحادية المصدر من جزر حوار والمحرق، وعبوة صغيرة من المجد، بالإضافة إلى ١٠ أكواب ورقية وورقة ملصقات."},
+  "catalog_talla-signature-box_name": {"en": "Talla Signature Box", "ar": "صندوق تله المميز"},
+  "catalog_talla-signature-box_description": {"en": "The Talla Signature Box features single-origin coffees from Hawar Islands, Muharraq, and a mini Al-Majd, plus 10 paper cups and a sticker sheet.", "ar": "يضم صندوق تله المميز محاصيل أحادية المصدر من جزر حوار والمحرق، وعبوة صغيرة من المجد، بالإضافة إلى ١٠ أكواب ورقية وورقة ملصقات."},
   "catalog_riffa-drip-bags_name": {"en": "Riffa Drip Bags", "ar": "أكياس ترشيح الرفاع"},
   "catalog_riffa-drip-bags_description": {"en": "Yemeni coffee offers a rich, winey cup with notes of cocoa and dried fruit, rooted in one of the world’s oldest coffee traditions.", "ar": "قهوة يمنية غنية بإيحاءات نبيذية ولمسات من الكاكاو والفواكه المجففة، تنتمي إلى أحد أعرق تقاليد القهوة في العالم."},
   "catalog_hawar-islands-drip-bags_name": {"en": "Hawar Islands Drip Bags", "ar": "أكياس ترشيح جزر حوار"},
   "catalog_hawar-islands-drip-bags_description": {"en": "Colombian coffee is known for its balanced taste, bright acidity, and notes of caramel and fruit. It’s grown in ideal conditions and carefully processed for a consistently smooth and high-quality cup.", "ar": "تتميز القهوة الكولومبية بمذاق متوازن وحموضة مشرقة وإيحاءات الكراميل والفواكه. تُزرع في ظروف مثالية وتُعالج بعناية لتمنحك فنجانًا ناعمًا بجودة ثابتة."},
   "catalog_coffee-capsules_name": {"en": "Coffee Capsules", "ar": "كبسولات القهوة"},
   "catalog_dirty-karak_name": {"en": "Iced Dirty Karak", "ar": "ديرتي كرك مثلج"},
-  "catalog_dirty-karak_description": {"en": "Talla Karak is a rich, aromatic spiced tea blend that captures the essence of traditional Gulf hospitality. Crafted with premium black tea, cardamom and saffron , each cup delivers a warm, comforting flavor that's perfect for sharing with family and friends. Brew it strong, add milk and sweetness to taste, and experience the authentic taste of karak culture. Ideal for morning gatherings, afternoon breaks, or evening conversations. A timeless beverage that brings people together.", "ar": "كرك تالّا مزيج شاي غني وعطري يجسّد الضيافة الخليجية. يُحضّر من الشاي الأسود الفاخر والهيل والزعفران، ليمنحك مذاقًا دافئًا ومريحًا لمشاركته مع الأهل والأصدقاء. حضّره مركّزًا وأضف الحليب والسكر حسب ذوقك، واستمتع به في لقاءات الصباح أو استراحات العصر أو أحاديث المساء."},
+  "catalog_dirty-karak_description": {"en": "Talla Karak is a rich, aromatic spiced tea blend that captures the essence of traditional Gulf hospitality. Crafted with premium black tea, cardamom and saffron , each cup delivers a warm, comforting flavor that's perfect for sharing with family and friends. Brew it strong, add milk and sweetness to taste, and experience the authentic taste of karak culture. Ideal for morning gatherings, afternoon breaks, or evening conversations. A timeless beverage that brings people together.", "ar": "كرك تله مزيج شاي غني وعطري يجسّد الضيافة الخليجية. يُحضّر من الشاي الأسود الفاخر والهيل والزعفران، ليمنحك مذاقًا دافئًا ومريحًا لمشاركته مع الأهل والأصدقاء. حضّره مركّزًا وأضف الحليب والسكر حسب ذوقك، واستمتع به في لقاءات الصباح أو استراحات العصر أو أحاديث المساء."},
   "catalog_iced-coffee-box_name": {"en": "Iced Coffee Box", "ar": "صندوق القهوة المثلجة"},
   "catalog_travel-cup_name": {"en": "Travel Cup", "ar": "كوب سفر"},
   "catalog_coffee-brew-water_name": {"en": "Coffee Brew Water", "ar": "مياه تحضير القهوة"},
   "catalog_coffee-brew-water_description": {"en": "Rawdatain Brew Water is a collaboration between Al Rawdatain Water Bottling Company and Forty-Eight East Coffee Roasters.  \n   \n \n  The formula enhances coffee flavor and brings out its rich taste.  \n  It has high alkalinity (pH) for optimal flavor extraction.  \n  It has increased calcium for a creamy texture.  \n  It has increased magnesium for flavor complement.  \n  It has increased sodium for balanced taste.  \n  It has increased sulfate for sweetness.  \n  The formula was designed with Forty-Eight East Coffee Roasters experts.  \n  Rawdatain Brew Water offers an exceptional coffee taste, creamy texture, balanced flavor, and unforgettable experience.", "ar": "مياه الروضتين لتحضير القهوة ثمرة تعاون بين شركة تعبئة مياه الروضتين ومحمصة فورتي إيت إيست. صُمّمت التركيبة بمشاركة خبراء المحمصة لإبراز نكهات القهوة، مع قلوية مرتفعة وزيادة الكالسيوم لقوام كريمي، والمغنيسيوم لتعزيز النكهة، والصوديوم لتوازن المذاق، والكبريتات لإبراز الحلاوة. تجربة قهوة غنية بقوام كريمي ومذاق متوازن."},
   "catalog_manual-kettle_name": {"en": "Manual Kettle", "ar": "إبريق تحضير يدوي"},
-  "catalog_mini-talla-box_name": {"en": "Mini Talla Box", "ar": "صندوق تالّا الصغير"},
-  "catalog_mini-talla-box_description": {"en": "Product Description:  The Mini Coffee Box 2 contains 200g of coffee bags and 5 Talla Paper Cups \n \n Product Experience:  Provides an authentic coffee experience with enhanced flavor and aroma. \n \n Product Quality:  Each component is meticulously crafted to enhance the traditional brewing process.", "ar": "يحتوي صندوق القهوة الصغير ٢ على ٢٠٠ غ من أكياس القهوة و٥ أكواب تالّا الورقية. تجربة قهوة أصيلة تُبرز النكهة والرائحة، مع مكوّنات صُمّمت بعناية لتعزيز طريقة التحضير التقليدية."},
-  "catalog_talla-box_name": {"en": "Talla Box", "ar": "صندوق تالّا"},
-  "catalog_talla-box_description": {"en": "Product Description:  The Mini Coffee Box contains 400g of coffee bags and 10 Talla Paper Cups \n \n Product Experience:  Provides an authentic coffee experience with enhanced flavor and aroma. \n \n Product Quality:  Each component is meticulously crafted to enhance the traditional brewing process.", "ar": "يحتوي صندوق القهوة الصغير على ٤٠٠ غ من أكياس القهوة و١٠ أكواب تالّا الورقية. تجربة قهوة أصيلة تُبرز النكهة والرائحة، مع مكوّنات صُمّمت بعناية لتعزيز طريقة التحضير التقليدية."},
+  "catalog_mini-talla-box_name": {"en": "Mini Talla Box", "ar": "صندوق تله الصغير"},
+  "catalog_mini-talla-box_description": {"en": "Product Description:  The Mini Coffee Box 2 contains 200g of coffee bags and 5 Talla Paper Cups \n \n Product Experience:  Provides an authentic coffee experience with enhanced flavor and aroma. \n \n Product Quality:  Each component is meticulously crafted to enhance the traditional brewing process.", "ar": "يحتوي صندوق القهوة الصغير ٢ على ٢٠٠ غ من أكياس القهوة و٥ أكواب تله الورقية. تجربة قهوة أصيلة تُبرز النكهة والرائحة، مع مكوّنات صُمّمت بعناية لتعزيز طريقة التحضير التقليدية."},
+  "catalog_talla-box_name": {"en": "Talla Box", "ar": "صندوق تله"},
+  "catalog_talla-box_description": {"en": "Product Description:  The Mini Coffee Box contains 400g of coffee bags and 10 Talla Paper Cups \n \n Product Experience:  Provides an authentic coffee experience with enhanced flavor and aroma. \n \n Product Quality:  Each component is meticulously crafted to enhance the traditional brewing process.", "ar": "يحتوي صندوق القهوة الصغير على ٤٠٠ غ من أكياس القهوة و١٠ أكواب تله الورقية. تجربة قهوة أصيلة تُبرز النكهة والرائحة، مع مكوّنات صُمّمت بعناية لتعزيز طريقة التحضير التقليدية."},
   "catalog_chocolate-chip-cookies_name": {"en": "Chocolate Chip Cookies", "ar": "كوكيز بقطع الشوكولاتة"},
   "catalog_chocolate-chip-cookies_description": {"en": "These chocolate chip cookies are a treat! They have a gooey, soft texture that makes each bite a delightful experience. When they’re freshly baked, they bring a classic flavor that’s both comforting and satisfying, making them a great snack for any occasion.", "ar": "كوكيز بقطع الشوكولاتة، بقوام طري وغني يجعل كل قضمة متعة. تُخبز طازجة لتمنحك النكهة الكلاسيكية المحببة، ووجبة خفيفة تناسب مختلف الأوقات والمناسبات."},
   "catalog_hot-chocolate_name": {"en": "Hot Chocolate", "ar": "شوكولاتة ساخنة"},
-  "catalog_hot-chocolate_description": {"en": "Indulge in the warmth of Talla's Premium Hot Chocolate, crafted with the finest cocoa and a touch of Arabian tradition. Rich, velvety, and perfectly balanced, each cup delivers a luxurious chocolate experience that pairs beautifully with our specialty coffee or stands alone as a moment of pure comfort. Ideal for cozy evenings, gatherings, or gifting to those who appreciate life's finer pleasures.", "ar": "استمتع بدفء شوكولاتة تالّا الساخنة الفاخرة، المحضّرة من أجود أنواع الكاكاو بلمسة من التقاليد العربية. مذاق غني وقوام مخملي وتوازن جميل، سواء مع قهوتنا المختصة أو بمفردها. اختيار للأمسيات الهادئة واللقاءات والهدايا."},
+  "catalog_hot-chocolate_description": {"en": "Indulge in the warmth of Talla's Premium Hot Chocolate, crafted with the finest cocoa and a touch of Arabian tradition. Rich, velvety, and perfectly balanced, each cup delivers a luxurious chocolate experience that pairs beautifully with our specialty coffee or stands alone as a moment of pure comfort. Ideal for cozy evenings, gatherings, or gifting to those who appreciate life's finer pleasures.", "ar": "استمتع بدفء شوكولاتة تله الساخنة الفاخرة، المحضّرة من أجود أنواع الكاكاو بلمسة من التقاليد العربية. مذاق غني وقوام مخملي وتوازن جميل، سواء مع قهوتنا المختصة أو بمفردها. اختيار للأمسيات الهادئة واللقاءات والهدايا."},
   "catalog_karak_name": {"en": "Karak", "ar": "كرك"},
-  "catalog_karak_description": {"en": "Talla Karak is a rich, aromatic spiced tea blend that captures the essence of traditional Gulf hospitality. Crafted with premium black tea, cardamom and saffron , each cup delivers a warm, comforting flavor that's perfect for sharing with family and friends. Brew it strong, add milk and sweetness to taste, and experience the authentic taste of karak culture. Ideal for morning gatherings, afternoon breaks, or evening conversations. A timeless beverage that brings people together.", "ar": "كرك تالّا مزيج شاي غني وعطري يجسّد الضيافة الخليجية. يُحضّر من الشاي الأسود الفاخر والهيل والزعفران، ليمنحك مذاقًا دافئًا ومريحًا لمشاركته مع الأهل والأصدقاء. حضّره مركّزًا وأضف الحليب والسكر حسب ذوقك، واستمتع به في لقاءات الصباح أو استراحات العصر أو أحاديث المساء."},
+  "catalog_karak_description": {"en": "Talla Karak is a rich, aromatic spiced tea blend that captures the essence of traditional Gulf hospitality. Crafted with premium black tea, cardamom and saffron , each cup delivers a warm, comforting flavor that's perfect for sharing with family and friends. Brew it strong, add milk and sweetness to taste, and experience the authentic taste of karak culture. Ideal for morning gatherings, afternoon breaks, or evening conversations. A timeless beverage that brings people together.", "ar": "كرك تله مزيج شاي غني وعطري يجسّد الضيافة الخليجية. يُحضّر من الشاي الأسود الفاخر والهيل والزعفران، ليمنحك مذاقًا دافئًا ومريحًا لمشاركته مع الأهل والأصدقاء. حضّره مركّزًا وأضف الحليب والسكر حسب ذوقك، واستمتع به في لقاءات الصباح أو استراحات العصر أو أحاديث المساء."},
   "catalog_matcha-latte_name": {"en": "Matcha Latte", "ar": "ماتشا لاتيه"},
-  "catalog_matcha-latte_description": {"en": "Discover the perfect balance of tradition and modern wellness with Talla Matcha. Our premium ceremonial-grade matcha brings vibrant green color and smooth, earthy flavor to your daily ritual. Whisk into hot water for an authentic matcha experience, or blend into milk for a creamy latte that energizes without the jitters. Rich in antioxidants and L-theanine, each cup supports calm focus and sustained energy. Sourced with care, Talla Matcha transforms your moment into a mindful escape.", "ar": "اكتشف ماتشا تالّا الفاخرة المخصّصة للتحضير التقليدي، بلون أخضر زاهٍ ومذاق ترابي ناعم. اخفقها بالماء الساخن لتجربة ماتشا تقليدية، أو امزجها بالحليب لتحضير لاتيه كريمي. غنية بمضادات الأكسدة وإل-ثيانين، ومختارة بعناية لترافق لحظاتك اليومية."},
+  "catalog_matcha-latte_description": {"en": "Discover the perfect balance of tradition and modern wellness with Talla Matcha. Our premium ceremonial-grade matcha brings vibrant green color and smooth, earthy flavor to your daily ritual. Whisk into hot water for an authentic matcha experience, or blend into milk for a creamy latte that energizes without the jitters. Rich in antioxidants and L-theanine, each cup supports calm focus and sustained energy. Sourced with care, Talla Matcha transforms your moment into a mindful escape.", "ar": "اكتشف ماتشا تله الفاخرة المخصّصة للتحضير التقليدي، بلون أخضر زاهٍ ومذاق ترابي ناعم. اخفقها بالماء الساخن لتجربة ماتشا تقليدية، أو امزجها بالحليب لتحضير لاتيه كريمي. غنية بمضادات الأكسدة وإل-ثيانين، ومختارة بعناية لترافق لحظاتك اليومية."},
   "catalog_chocolate-fudge-bites_name": {"en": "Chocolate Fudge Bites", "ar": "قطع فدج الشوكولاتة"},
   "catalog_chocolate-fudge-bites_description": {"en": "Indulge in our Chocolate Fudge Bites—rich, salted chocolate fudge generously coated with cocoa powder. Each bite delivers a perfect balance of deep cocoa flavor and subtle salt, creating a sophisticated treat that lingers on the palate. Ideal for gifting or savoring as a personal indulgence.", "ar": "قطع فدج الشوكولاتة الغنية بلمسة ملح، والمغطاة بسخاء بمسحوق الكاكاو. تجمع كل قضمة بين عمق نكهة الكاكاو وملوحة خفيفة، لتكون هدية مميزة أو متعة خاصة لك."},
   "catalog_creme-caramel_name": {"en": "Crème Caramel", "ar": "كريم كراميل"},
   "catalog_creme-caramel_description": {"en": "Indulge in our velvety Crème Caramel—a timeless dessert that combines silky custard with a rich caramel glaze. Each spoonful delivers a perfect balance of sweetness and elegance, making it an ideal treat for special occasions or a moment of pure indulgence. Crafted with premium ingredients, this creamy classic brings sophistication to your table.", "ar": "كريم كراميل بقوام مخملي يجمع الكاسترد الناعم مع طبقة كراميل غنية. توازن جميل من الحلاوة في كل ملعقة، بمكوّنات فاخرة تناسب المناسبات الخاصة ولحظات الاستمتاع اليومية."},
   "catalog_talla-stainless-steel-cup_name": {"en": "Stainless Steel Cup", "ar": "كوب من الفولاذ المقاوم للصدأ"},
-  "catalog_talla-stainless-steel-cup_description": {"en": "Talla’s Stainless Steel Cups  \n  Built for the ritual, not the rush.  \n  Crafted from stainless steel to hold temperature, preserve flavor, and travel effortlessly through your day.  \n  Minimal in form, durable by nature — a cup that respects the coffee inside it.  \n   \n  For slow mornings, long pours, and everything in between.", "ar": "أكواب تالّا المصنوعة من الفولاذ المقاوم للصدأ، لطقوس القهوة التي تستحق التأنّي. تساعد على حفظ الحرارة والنكهة، وترافقك بسهولة طوال اليوم. تصميم بسيط ومتين لصباحات هادئة، وتحضير على مهل، وكل ما بينهما."},
+  "catalog_talla-stainless-steel-cup_description": {"en": "Talla’s Stainless Steel Cups  \n  Built for the ritual, not the rush.  \n  Crafted from stainless steel to hold temperature, preserve flavor, and travel effortlessly through your day.  \n  Minimal in form, durable by nature — a cup that respects the coffee inside it.  \n   \n  For slow mornings, long pours, and everything in between.", "ar": "أكواب تله المصنوعة من الفولاذ المقاوم للصدأ، لطقوس القهوة التي تستحق التأنّي. تساعد على حفظ الحرارة والنكهة، وترافقك بسهولة طوال اليوم. تصميم بسيط ومتين لصباحات هادئة، وتحضير على مهل، وكل ما بينهما."},
   "catalog_cold-brew_name": {"en": "Cold Brew", "ar": "كولد برو"},
   "catalog_cold-brew_description": {"en": "Cold Brew combines the distinct flavors of Colombian and Yemeni coffee, offering a balanced and smooth drinking experience. Cold brewing extracts rich flavors while minimizing acidity, making it suitable for those seeking a milder option. This beverage provides an invigorating caffeine boost with a unique profile.", "ar": "يجمع الكولد برو نكهات القهوة الكولومبية واليمنية في تجربة متوازنة وناعمة. يستخلص التحضير البارد نكهات غنية مع حموضة أقل، ليمنحك خيارًا ألطف بطابع مميز ودفعة من الكافيين."},
   "catalog_hibiscus_name": {"en": "Hibiscus", "ar": "كركديه"},
@@ -4522,23 +4522,23 @@
   "catalog_v60_name": {"en": "V60", "ar": "قهوة V60"},
   "catalog_v60_description": {"en": "V60 in a Cup    \n  A quiet ritual for a single moment.  \n  Hot water meets freshly ground coffee, and clarity unfolds.  \n  Simple, intimate, and precise — one cup, brewed with intention.", "ar": "فنجان V60، طقس هادئ للحظة خاصة. يلتقي الماء الساخن بالقهوة المطحونة طازجة لتظهر النكهات بوضوح. فنجان بسيط ودقيق، يُحضّر بعناية."},
   "catalog_matcha_name": {"en": "Matcha", "ar": "ماتشا"},
-  "catalog_matcha_description": {"en": "Experience purity in every sip with Talla’s Premium Matcha Powder.  \n  Carefully sourced and finely stone-ground, this matcha delivers a vibrant green color, smooth texture, and a naturally balanced taste.  \n   \n  Expect soft vegetal notes, gentle sweetness, and a clean finish with no bitterness. Perfect for traditional matcha, lattes, or creative drinks, our matcha dissolves smoothly and brings calm energy to your daily ritual.  \n   \n  Crafted for those who appreciate quality, simplicity, and mindful moments.", "ar": "استمتع بمسحوق ماتشا تالّا الفاخر، المختار بعناية والمطحون ناعمًا على الحجر. لون أخضر زاهٍ وقوام ناعم ومذاق متوازن، بإيحاءات نباتية لطيفة وحلاوة خفيفة ونهاية نقية بلا مرارة. مناسب للماتشا التقليدية واللاتيه والمشروبات المبتكرة، ويذوب بسلاسة ليكمل طقوسك اليومية."},
+  "catalog_matcha_description": {"en": "Experience purity in every sip with Talla’s Premium Matcha Powder.  \n  Carefully sourced and finely stone-ground, this matcha delivers a vibrant green color, smooth texture, and a naturally balanced taste.  \n   \n  Expect soft vegetal notes, gentle sweetness, and a clean finish with no bitterness. Perfect for traditional matcha, lattes, or creative drinks, our matcha dissolves smoothly and brings calm energy to your daily ritual.  \n   \n  Crafted for those who appreciate quality, simplicity, and mindful moments.", "ar": "استمتع بمسحوق ماتشا تله الفاخر، المختار بعناية والمطحون ناعمًا على الحجر. لون أخضر زاهٍ وقوام ناعم ومذاق متوازن، بإيحاءات نباتية لطيفة وحلاوة خفيفة ونهاية نقية بلا مرارة. مناسب للماتشا التقليدية واللاتيه والمشروبات المبتكرة، ويذوب بسلاسة ليكمل طقوسك اليومية."},
   "catalog_riffa_name": {"en": "Riffa", "ar": "الرفاع"},
   "catalog_riffa_description": {"en": "Yemeni coffee offers a rich, winey cup with notes of cocoa and dried fruit, rooted in one of the world’s oldest coffee traditions.", "ar": "قهوة يمنية غنية بإيحاءات نبيذية ولمسات من الكاكاو والفواكه المجففة، تنتمي إلى أحد أعرق تقاليد القهوة في العالم."},
   "catalog_coffee-scale_name": {"en": "Coffee Scale", "ar": "ميزان قهوة"},
-  "catalog_coffee-scale_description": {"en": "The Talla coffee scale offers precise measurements and reliable timing, ensuring consistent brew quality. Its minimalist design simplifies the workflow, allowing you to perfect extraction and achieve café-level accuracy at home or in the bar.", "ar": "يوفّر ميزان قهوة تالّا قياسات دقيقة وتوقيتًا موثوقًا لتحضير ثابت الجودة. تصميمه البسيط يسهّل خطوات العمل ويساعدك على ضبط الاستخلاص بدقة في المنزل أو المقهى."},
+  "catalog_coffee-scale_description": {"en": "The Talla coffee scale offers precise measurements and reliable timing, ensuring consistent brew quality. Its minimalist design simplifies the workflow, allowing you to perfect extraction and achieve café-level accuracy at home or in the bar.", "ar": "يوفّر ميزان قهوة تله قياسات دقيقة وتوقيتًا موثوقًا لتحضير ثابت الجودة. تصميمه البسيط يسهّل خطوات العمل ويساعدك على ضبط الاستخلاص بدقة في المنزل أو المقهى."},
   "catalog_coffee-server_name": {"en": "Coffee Server", "ar": "إبريق تقديم القهوة"},
-  "catalog_coffee-server_description": {"en": "The Talla coffee server is meticulously crafted for a seamless pouring experience, optimal heat stability, and crystal-clear brews. Its sleek design harmonizes with your pour-over setup, facilitating effortless serving, sharing, and savoring coffee with precision and elegance.", "ar": "صُمّم إبريق تقديم قهوة تالّا لصب سلس وثبات حراري وفنجان صافٍ. ينسجم تصميمه الأنيق مع أدوات الترشيح، لتقديم القهوة ومشاركتها والاستمتاع بها بسهولة ودقة."},
+  "catalog_coffee-server_description": {"en": "The Talla coffee server is meticulously crafted for a seamless pouring experience, optimal heat stability, and crystal-clear brews. Its sleek design harmonizes with your pour-over setup, facilitating effortless serving, sharing, and savoring coffee with precision and elegance.", "ar": "صُمّم إبريق تقديم قهوة تله لصب سلس وثبات حراري وفنجان صافٍ. ينسجم تصميمه الأنيق مع أدوات الترشيح، لتقديم القهوة ومشاركتها والاستمتاع بها بسهولة ودقة."},
   "catalog_v60-dripper_name": {"en": "V60 Dripper", "ar": "قطّارة V60"},
-  "catalog_v60-dripper_description": {"en": "The Talla V60 dripper delivers a clean, balanced extraction with every pour. Its conical design and precise flow control enhance the natural sweetness and clarity of your beans, ensuring a consistent, smooth, and authentic flavor profile.", "ar": "تمنحك قطّارة تالّا V60 استخلاصًا نقيًا ومتوازنًا مع كل صبّة. يساعد تصميمها المخروطي والتحكم الدقيق في التدفق على إبراز حلاوة البن ووضوح نكهاته، لفنجان ناعم وثابت الجودة."},
+  "catalog_v60-dripper_description": {"en": "The Talla V60 dripper delivers a clean, balanced extraction with every pour. Its conical design and precise flow control enhance the natural sweetness and clarity of your beans, ensuring a consistent, smooth, and authentic flavor profile.", "ar": "تمنحك قطّارة تله V60 استخلاصًا نقيًا ومتوازنًا مع كل صبّة. يساعد تصميمها المخروطي والتحكم الدقيق في التدفق على إبراز حلاوة البن ووضوح نكهاته، لفنجان ناعم وثابت الجودة."},
   "catalog_coffee-spoon_name": {"en": "Coffee Spoon", "ar": "ملعقة قهوة"},
-  "catalog_coffee-spoon_description": {"en": "The Talla coffee spoon offers precise and consistent scooping, ensuring quick and reliable dosing. Its ergonomic design facilitates a smooth workflow, making it an indispensable tool for measuring coffee with confidence.", "ar": "توفّر ملعقة قهوة تالّا جرعات متّسقة وسريعة. يسهّل تصميمها المريح خطوات التحضير ويمنحك ثقة أكبر عند قياس القهوة."},
+  "catalog_coffee-spoon_description": {"en": "The Talla coffee spoon offers precise and consistent scooping, ensuring quick and reliable dosing. Its ergonomic design facilitates a smooth workflow, making it an indispensable tool for measuring coffee with confidence.", "ar": "توفّر ملعقة قهوة تله جرعات متّسقة وسريعة. يسهّل تصميمها المريح خطوات التحضير ويمنحك ثقة أكبر عند قياس القهوة."},
   "catalog_v60-filters_name": {"en": "V60 Filters", "ar": "فلاتر V60"},
-  "catalog_v60-filters_description": {"en": "Talla’s V60 filters deliver a pristine cup of coffee by optimizing flow and preserving clarity. Made from premium paper, they enhance extraction, reduce bitterness, and highlight your beans’ flavors. Essential for every pour-over ritual.", "ar": "تمنحك فلاتر تالّا V60 فنجانًا صافيًا بفضل تدفق متوازن ووضوح النكهات. مصنوعة من ورق فاخر يساعد على تحسين الاستخلاص وتقليل المرارة وإبراز نكهات البن، لتكمل طقوس الترشيح."},
+  "catalog_v60-filters_description": {"en": "Talla’s V60 filters deliver a pristine cup of coffee by optimizing flow and preserving clarity. Made from premium paper, they enhance extraction, reduce bitterness, and highlight your beans’ flavors. Essential for every pour-over ritual.", "ar": "تمنحك فلاتر تله V60 فنجانًا صافيًا بفضل تدفق متوازن ووضوح النكهات. مصنوعة من ورق فاخر يساعد على تحسين الاستخلاص وتقليل المرارة وإبراز نكهات البن، لتكمل طقوس الترشيح."},
   "catalog_rdt-and-bean-doser_name": {"en": "RDT and Bean Doser", "ar": "بخاخ RDT ووعاء جرعات البن"},
-  "catalog_rdt-and-bean-doser_description": {"en": "Talla’s RDT bottle and bean doser collaborate for a cleaner, more precise grind. The RDT bottle’s gentle mist reduces static electricity, resulting in smoother, more controlled grinding. The bean doser ensures swift, accurate dosing. Engineered for efficiency and consistency, this duo elevates your preparation process, ensuring every brew is clean, measured, and professional—in accordance with Talla’s standards.", "ar": "يعمل بخاخ تالّا RDT ووعاء جرعات البن معًا لطحن أنظف وأكثر دقة. يساعد الرذاذ الخفيف على تقليل الكهرباء الساكنة، ويتيح الوعاء قياس الجرعات بسهولة. ثنائي صُمّم للكفاءة والثبات، لتحضير منظّم ودقيق وفق معايير تالّا."},
+  "catalog_rdt-and-bean-doser_description": {"en": "Talla’s RDT bottle and bean doser collaborate for a cleaner, more precise grind. The RDT bottle’s gentle mist reduces static electricity, resulting in smoother, more controlled grinding. The bean doser ensures swift, accurate dosing. Engineered for efficiency and consistency, this duo elevates your preparation process, ensuring every brew is clean, measured, and professional—in accordance with Talla’s standards.", "ar": "يعمل بخاخ تله RDT ووعاء جرعات البن معًا لطحن أنظف وأكثر دقة. يساعد الرذاذ الخفيف على تقليل الكهرباء الساكنة، ويتيح الوعاء قياس الجرعات بسهولة. ثنائي صُمّم للكفاءة والثبات، لتحضير منظّم ودقيق وفق معايير تله."},
   "catalog_paper-cups_name": {"en": "Paper Cups", "ar": "أكواب ورقية"},
-  "catalog_paper-cups_description": {"en": "Talla paper cups feature a minimalist design with our distinctive dune artwork, offering a warm and refined drinking experience. Made from durable and eco-friendly materials, they’re perfect for hot and cold beverages, embodying the Talla brand identity.", "ar": "أكواب تالّا الورقية بتصميم بسيط ورسوم الكثبان المميزة، لتجربة مشروبات دافئة وأنيقة. مصنوعة من مواد متينة وصديقة للبيئة، ومناسبة للمشروبات الساخنة والباردة."},
+  "catalog_paper-cups_description": {"en": "Talla paper cups feature a minimalist design with our distinctive dune artwork, offering a warm and refined drinking experience. Made from durable and eco-friendly materials, they’re perfect for hot and cold beverages, embodying the Talla brand identity.", "ar": "أكواب تله الورقية بتصميم بسيط ورسوم الكثبان المميزة، لتجربة مشروبات دافئة وأنيقة. مصنوعة من مواد متينة وصديقة للبيئة، ومناسبة للمشروبات الساخنة والباردة."},
   "catalog_santorini_name": {"en": "Santorini", "ar": "سانتوريني"},
   "catalog_santorini_description": {"en": "A rich and smooth Greek coffee inspired by the timeless beauty of Santorini. Finely ground and traditionally brewed, it delivers a bold aroma, a velvety texture, and a deep, comforting flavour in every cup.", "ar": "قهوة يونانية غنية وناعمة مستوحاة من جمال سانتوريني. تُطحن ناعمًا وتُحضّر بالطريقة التقليدية، لتمنحك رائحة قوية وقوامًا مخمليًا ومذاقًا عميقًا ومريحًا في كل فنجان."},
   "catalog_al-majd_name": {"en": "Al-Majd", "ar": "المجد"},
@@ -4706,7 +4706,7 @@
   "community_moderation_detail": {"ar": "تتم مراجعة الوصفات الجديدة قبل ظهورها للعامة."},
   "privacy_controls": {"ar": "الخصوصية والتفسيرات"},
   "privacy_controls_detail": {"ar": "تحكم في التحليلات والتخصيص والمشاركة وافهم التوصيات."},
-  "recommendation_explanation": {"ar": "لماذا هذه الاختيارات؟ تجمع تالا بين تفضيلات ذوقك ومفضلاتك وطلباتك السابقة ومكتبة القهوة والتوفر الحالي."},
+  "recommendation_explanation": {"ar": "لماذا هذه الاختيارات؟ تجمع تله بين تفضيلات ذوقك ومفضلاتك وطلباتك السابقة ومكتبة القهوة والتوفر الحالي."},
   "voice_guidance": {"ar": "التوجيه الصوتي"},
   "coffee_facts": {"ar": "معلومات القهوة"},
   "origin": {"ar": "الأصل"},
@@ -4725,7 +4725,14 @@
   "gift_recipient_required": {"ar": "أدخل اسم المستلم قبل إتمام طلب الهدية."},
   "gift_message": {"ar": "أضف رسالة (اختياري)"},
   "curated_bundles_eyebrow": {"ar": "مختارات للمشاركة"},
-  "curated_bundles_title": {"ar": "صناديق تالا"},
+  "curated_bundles_title": {"ar": "صناديق تله"},
   "curated_bundles_detail": {"ar": "تشكيلات جاهزة للإهداء للضيافة ومحبي القهوة والمناسبات الموسمية."},
-  "curated_bundles_browse": {"ar": "تصفح التشكيلات المختارة"}
+  "curated_bundles_browse": {"ar": "تصفح التشكيلات المختارة"},
+  "choose_app_icon": {"ar": "اختر أيقونة تله"},
+  "choose_app_icon_detail": {"ar": "يظهر اختيارك على الشاشة الرئيسية وفي البحث والإعدادات."},
+  "alternate_icons_unavailable": {"ar": "الأيقونات البديلة غير متاحة على هذا الجهاز."},
+  "app_icon": {"ar": "أيقونة التطبيق"},
+  "best_for_gifts": {"ar": "صندوق هدايا مختار للمشاركة والمناسبات الخاصة."},
+  "gift_box": {"ar": "صندوق هدايا"},
+  "contents": {"ar": "المحتويات"}
 }

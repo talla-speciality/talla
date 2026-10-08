@@ -7,6 +7,7 @@ const os = require("os");
 const path = require("path");
 const { URL } = require("url"); const config = require("./config");
 const database = require("./database");
+const { normalizeGulfMarkets } = require("./modules/commerce/gulf-localization");
 const benefitGateway = require("./modules/commerce/benefit-gateway");
 const mpgsGateway = require("./modules/commerce/mpgs-gateway");
 const eazyPay = require("./modules/commerce/eazypay");
@@ -313,7 +314,7 @@ function defaultAppSettings() {
             deliveryEnabled: true,
             pickupEnabled: true,
             pickupNameEN: "Talla, Riffa",
-            pickupNameAR: "تالة، الرفاع",
+            pickupNameAR: "تله، الرفاع",
             pickupAddressEN: "Villa 336, Street 1307, Riffa 913",
             pickupAddressAR: "فيلا 336، طريق 1307، الرفاع 913",
             pickupMapsURL: "",
@@ -325,7 +326,7 @@ function defaultAppSettings() {
                 {
                     id: "riffa",
                     nameEN: "Talla, Riffa",
-                    nameAR: "تالة، الرفاع",
+                    nameAR: "تله، الرفاع",
                     addressEN: "Villa 336, Street 1307, Riffa 913",
                     addressAR: "فيلا 336، طريق 1307، الرفاع 913",
                     mapsURL: "",
@@ -352,8 +353,8 @@ function defaultAppSettings() {
             bahrainRate: 2,
             khaleejiCashOnDeliverySurcharge: 2,
             maximumKhaleejiWeightGrams: 4000,
-            khaleejiTransitEN: "3 to 5 business days",
-            khaleejiTransitAR: "من 3 إلى 5 أيام عمل",
+            khaleejiTransitEN: "Within 3 days",
+            khaleejiTransitAR: "خلال ٣ أيام",
             khaleejiTiers: [
                 { maximumWeightGrams: 500, rate: 5.5 },
                 { maximumWeightGrams: 1000, rate: 6.5 },
@@ -374,9 +375,9 @@ function defaultAppSettings() {
             titleEN: "We'll be right back",
             titleAR: "سنعود قريباً",
             messageEN: "Talla is being updated. Please try again shortly.",
-            messageAR: "يتم تحديث تالة. يرجى المحاولة بعد قليل.",
+            messageAR: "يتم تحديث تله. يرجى المحاولة بعد قليل.",
             updateMessageEN: "A new version of Talla is available.",
-            updateMessageAR: "يتوفر إصدار جديد من تطبيق تالة."
+            updateMessageAR: "يتوفر إصدار جديد من تطبيق تله."
         },
         loyalty: {
             pointsPerBHD: 5,
@@ -600,6 +601,7 @@ function normalizeAppSettings(value = {}) {
             khaleejiCashOnDeliverySurcharge: boundedNumber(fulfillment.khaleejiCashOnDeliverySurcharge, fallback.fulfillment.khaleejiCashOnDeliverySurcharge, 0, 500),
             maximumKhaleejiWeightGrams: boundedNumber(fulfillment.maximumKhaleejiWeightGrams, fallback.fulfillment.maximumKhaleejiWeightGrams, 1, 50_000),
             khaleejiTransitEN: trimText(fulfillment.khaleejiTransitEN, 100) || fallback.fulfillment.khaleejiTransitEN,
+            gulfMarkets: normalizeGulfMarkets(fulfillment.gulfMarkets),
             khaleejiTransitAR: trimText(fulfillment.khaleejiTransitAR, 100) || fallback.fulfillment.khaleejiTransitAR,
             khaleejiTiers: normalizedTiers.length ? normalizedTiers : fallback.fulfillment.khaleejiTiers
         },
@@ -2284,6 +2286,20 @@ function normalizeEmail(email) {
 function normalizeCountryCode(value, fallback = "") {
     const countryCode = String(value || "").trim().toUpperCase();
     return /^[A-Z]{2}$/.test(countryCode) ? countryCode : fallback;
+}
+
+function normalizeAddressDetails(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const limits = {
+        region: 100, district: 100, block: 80, building: 40,
+        unit: 60, postalCode: 20, additionalNumber: 20, landmark: 180
+    };
+    const details = {};
+    for (const [key, limit] of Object.entries(limits)) {
+        const field = String(value[key] || "").trim().slice(0, limit);
+        if (field) details[key] = field;
+    }
+    return Object.keys(details).length ? details : null;
 }
 
 function requestBodyTooLargeError() {
@@ -8154,6 +8170,7 @@ function addressRowToRecord(row) {
         line1: row.line1,
         city: row.city,
         countryCode: normalizeCountryCode(row.country_code, "BH"),
+        details: normalizeAddressDetails(row.details),
         notes: row.notes,
         isPreferred: row.is_preferred
     };
@@ -8162,7 +8179,7 @@ function addressRowToRecord(row) {
 async function addressesFor(email) {
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT id, label, full_name, phone, line1, city, country_code, notes, is_preferred, created_at
+            `SELECT id, label, full_name, phone, line1, city, country_code, details, notes, is_preferred, created_at
              FROM addresses
              WHERE email = $1
              ORDER BY is_preferred DESC, created_at DESC`,
@@ -8174,11 +8191,13 @@ async function addressesFor(email) {
     const store = readJSON(addressesStorePath);
     return (store.addresses[email] || []).map((address) => ({
         ...address,
-        countryCode: normalizeCountryCode(address.countryCode, "BH")
+        countryCode: normalizeCountryCode(address.countryCode, "BH"),
+        details: normalizeAddressDetails(address.details)
     }));
 }
 
 async function saveAddress(email, payload) {
+    const details = normalizeAddressDetails(payload.details);
     if (database.isEnabled()) {
         const requestedPreferred = Boolean(payload.isPreferred);
         const result = await database.query(
@@ -8208,10 +8227,11 @@ async function saveAddress(email, payload) {
                      line1 = $6,
                      city = $7,
                      country_code = $8,
-                     notes = $9,
-                     is_preferred = $10
+                     details = $9,
+                     notes = $10,
+                     is_preferred = $11
                  WHERE email = $1 AND id = $2`,
-                [email, payload.id, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.countryCode, payload.notes || null, isPreferred]
+                [email, payload.id, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.countryCode, details, payload.notes || null, isPreferred]
             );
             return addressesFor(email);
         }
@@ -8220,9 +8240,9 @@ async function saveAddress(email, payload) {
         const createdAt = new Date().toISOString();
         await database.query(
             `INSERT INTO addresses
-             (id, email, label, full_name, phone, line1, city, country_code, notes, is_preferred, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [id, email, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.countryCode, payload.notes || null, isPreferred, createdAt]
+             (id, email, label, full_name, phone, line1, city, country_code, details, notes, is_preferred, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [id, email, payload.label, payload.fullName, payload.phone, payload.line1, payload.city, payload.countryCode, details, payload.notes || null, isPreferred, createdAt]
         );
 
         return addressesFor(email);
@@ -8246,6 +8266,7 @@ async function saveAddress(email, payload) {
                 line1: payload.line1,
                 city: payload.city,
                 countryCode: payload.countryCode,
+                details,
                 notes: payload.notes || null,
                 isPreferred: requestedPreferred || (addresses.length === 1 ? true : address.isPreferred)
             };
@@ -8266,6 +8287,7 @@ async function saveAddress(email, payload) {
         line1: payload.line1,
         city: payload.city,
         countryCode: payload.countryCode,
+        details,
         notes: payload.notes || null,
         isPreferred: requestedPreferred || addresses.length === 0
     };
@@ -8877,7 +8899,7 @@ function eventSettingsFromLegacyEid(campaignSettings) {
             enabled: campaignSettings.eidModeEnabled,
             name: "Eid",
             titleEN: "Eid at Talla",
-            titleAR: "العيد في تالا",
+            titleAR: "العيد في تله",
             subtitleEN: "Seasonal gifts and coffee made for sharing.",
             subtitleAR: "هدايا موسمية وقهوة صنعت للمشاركة.",
             badgeEN: "Eid collection",
@@ -9474,6 +9496,7 @@ const server = createServer({
     normalizeCampaignSettings,
     normalizeCardPaymentIdentifier,
     normalizeCountryCode,
+    normalizeAddressDetails,
     normalizeCustomerProductIDs,
     normalizeDeviceToken,
     normalizeEmail,

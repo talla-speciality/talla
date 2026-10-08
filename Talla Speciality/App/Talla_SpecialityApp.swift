@@ -325,7 +325,7 @@ extension Notification.Name {
 
 @main
 struct Talla_SpecialityApp: App {
-    @AppStorage("app.language") private var savedAppLanguage = AppLanguage.system.rawValue
+    @AppStorage("app.language") private var savedAppLanguage = AppLanguage.arabic.rawValue
     @StateObject private var coffeeData = CoffeeDataStore.shared
     @Environment(\.scenePhase) private var scenePhase
     #if canImport(UIKit) && canImport(UserNotifications)

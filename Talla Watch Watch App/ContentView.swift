@@ -8,7 +8,10 @@ import WatchConnectivity
 #endif
 
 private func watchText(_ english: String, arabic: String) -> String {
-    Locale.current.language.languageCode?.identifier == "ar" ? arabic : english
+    guard Locale.current.language.languageCode?.identifier == "ar" else { return english }
+    return ["Talla", "تالا", "تالة", "طلا", "طلّة"].reduce(arabic) { text, spelling in
+        text.replacingOccurrences(of: spelling, with: "تله")
+    }
 }
 
 struct WatchBrewStep: Identifiable, Equatable {

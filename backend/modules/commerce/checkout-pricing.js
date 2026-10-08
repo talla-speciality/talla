@@ -1,4 +1,5 @@
 const { orderItemOptions } = require("./order-item-options");
+const { normalizeGulfMarkets } = require("./gulf-localization");
 
 class CheckoutPricingError extends Error {
     constructor(code, statusCode, message) {
@@ -398,6 +399,8 @@ function createCheckoutPricingService({ shopifyAdminGraphQLRequest, appSettings,
         }
         return {
             pricingVersion: 2,
+            regionalPolicy: fulfillmentMethod === "delivery"
+                ? normalizeGulfMarkets(settings?.fulfillment?.gulfMarkets)[countryCode] || null : null,
             items: lines.map((line) => ({
                 name: line.name,
                 ...orderItemOptions(line),

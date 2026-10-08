@@ -151,11 +151,24 @@ class AccountRepository(private val context: Context) {
         line1: String,
         city: String,
         countryCode: String,
+        details: AddressDetails? = null,
     ): List<DeliveryAddress> = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("label", label).put("fullName", fullName).put("phone", phone)
             .put("line1", line1).put("city", city).put("countryCode", countryCode.uppercase())
             .put("isPreferred", true)
+        details?.let { detail ->
+            body.put("details", JSONObject().apply {
+                detail.region?.let { put("region", it) }
+                detail.district?.let { put("district", it) }
+                detail.block?.let { put("block", it) }
+                detail.building?.let { put("building", it) }
+                detail.unit?.let { put("unit", it) }
+                detail.postalCode?.let { put("postalCode", it) }
+                detail.additionalNumber?.let { put("additionalNumber", it) }
+                detail.landmark?.let { put("landmark", it) }
+            })
+        }
         requestArrayBody("POST", "/addresses/save", body, token).objects().map(::parseAddress)
     }
 
@@ -271,6 +284,16 @@ class AccountRepository(private val context: Context) {
         id = json.optString("id"), label = json.optString("label"), fullName = json.optString("fullName"),
         phone = json.optString("phone"), line1 = json.optString("line1"), city = json.optString("city"),
         countryCode = json.optString("countryCode", "BH"), isPreferred = json.optBoolean("isPreferred"),
+        details = json.optJSONObject("details")?.let { value -> AddressDetails(
+            region = value.optString("region").takeIf(String::isNotBlank),
+            district = value.optString("district").takeIf(String::isNotBlank),
+            block = value.optString("block").takeIf(String::isNotBlank),
+            building = value.optString("building").takeIf(String::isNotBlank),
+            unit = value.optString("unit").takeIf(String::isNotBlank),
+            postalCode = value.optString("postalCode").takeIf(String::isNotBlank),
+            additionalNumber = value.optString("additionalNumber").takeIf(String::isNotBlank),
+            landmark = value.optString("landmark").takeIf(String::isNotBlank),
+        ) },
     )
 
     private fun parseAlert(json: JSONObject) = StockAlert(

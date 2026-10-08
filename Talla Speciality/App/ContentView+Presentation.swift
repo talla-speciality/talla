@@ -55,7 +55,7 @@ extension ContentView {
                 .ignoresSafeArea()
 
             Circle()
-                .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.10 : 0.08))
+                .fill(TallaTheme.Colors.accent.opacity(isOLEDAppearance ? 0 : (isLightAppearance ? 0.10 : 0.08)))
                 .frame(width: isCompact ? 260 : 420)
                 .blur(radius: 18)
                 .offset(x: isCompact ? 150 : 320, y: -280)
@@ -63,7 +63,7 @@ extension ContentView {
                 .accessibilityHidden(true)
 
             Circle()
-                .fill(Color(hex: 0x7A4F25).opacity(isLightAppearance ? 0.06 : 0.09))
+                .fill(Color(hex: 0x7A4F25).opacity(isOLEDAppearance ? 0 : (isLightAppearance ? 0.06 : 0.09)))
                 .frame(width: isCompact ? 220 : 360)
                 .blur(radius: 24)
                 .offset(x: isCompact ? -160 : -340, y: 340)
@@ -972,10 +972,9 @@ extension ContentView {
 
     func bottomScrollPadding(for tab: Tab) -> CGFloat {
         switch tab {
-        case .home: 120
-        case .account: 120
-        case .more: 96
-        default: 112
+        case .home: 36
+        case .account: 56
+        default: 28
         }
     }
 }

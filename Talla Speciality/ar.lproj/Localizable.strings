@@ -1,233 +1,1583 @@
-"Account" = "الحساب";
-"Allow community recipe sharing" = "السماح بمشاركة وصفات المجتمع";
-"Anonymous product analytics" = "تحليلات المنتجات المجهولة";
-"Automatic temperature" = "درجة حرارة تلقائية";
-"Balanced" = "متوازن";
-"Barista tip" = "نصيحة الباريستا";
-"Best" = "الأفضل";
-"Birthday rewards" = "مكافآت عيد الميلاد";
-"Brew" = "التحضير";
-"Brew sessions, cupping notes, and taste preferences remain local unless you are signed in and choose to sync them." = "تبقى جلسات التحضير وملاحظات التذوق وتفضيلاتك محفوظة على جهازك ما لم تسجّل الدخول وتختر مزامنتها.";
-"Build a better palate in three small steps." = "طوّر حاسة تذوقك في ثلاث خطوات بسيطة.";
-"Burr set (size, geometry, coating)" = "مواصفات الطاحونة (الحجم والهندسة والطلاء)";
-"Cancel" = "إلغاء";
-"Change one variable at a time and keep the whole iteration visible." = "غيّر متغيرًا واحدًا في كل مرة وتابع التجربة كاملة.";
-"Choose a method to learn its character and starting point." = "اختر طريقة لتتعرف على خصائصها ونقطة بدايتها.";
-"Choose your coffees, prepay for a set of shipments, and keep your ritual moving without automatic renewal." = "اختر قهوتك وادفع مسبقًا لعدد من الشحنات واستمر في طقسك من دون تجديد تلقائي.";
-"Coffee" = "القهوة";
-"Coffee (g)" = "القهوة (غ)";
-"Coffee Club coffees will appear here when the shop is loaded." = "ستظهر قهوة نادي القهوة هنا عند تحميل المتجر.";
-"Coffee Club is ready when you are — choose a coffee, size, quantity, and delivery preference." = "نادي القهوة جاهز عندما تكون — اختر القهوة والحجم والكمية وطريقة الاستلام.";
-"Coffee bag" = "كيس القهوة";
-"Coffee name" = "اسم القهوة";
-"Coffee school" = "مدرسة القهوة";
-"Controls" = "عناصر التحكم";
-"Date" = "التاريخ";
-"Delete local expert data" = "حذف بيانات الخبرة المحلية";
-"Delivery" = "التوصيل";
-"Dial in shots with your scale, Watch, and complete history." = "اضبط جرعات الإسبريسو باستخدام الميزان والساعة مع سجل كامل.";
-"Dial-in history" = "سجل الضبط";
-"Do not deduct a bag" = "لا تخصم من كيس القهوة";
-"Done" = "تم";
-"Drink scale" = "مقياس المشروب";
-"Early access" = "وصول مبكر";
-"Edit" = "تعديل";
-"Editing sends the recipe back for review before it appears publicly again." = "يعيد التعديل الوصفة للمراجعة قبل ظهورها للعامة مرة أخرى.";
-"Equipment & variables" = "الأدوات والمتغيرات";
-"Espresso Workspace" = "مساحة عمل الإسبريسو";
-"Event name" = "اسم الحدث";
-"Find the shot you want to drink." = "اعثر على الجرعة التي تريد شربها.";
-"Flow" = "التدفق";
-"Fulfilment" = "طريقة الاستلام";
-"Great coffee comes from a balance of four things: coffee, water, grind, and time." = "تنتج القهوة الرائعة من توازن أربعة عناصر: القهوة والماء والطحن والوقت.";
-"How recommendations work" = "كيف تعمل الاقتراحات";
-"Lab" = "مختبر";
-"Learn the bean, the brew, and everything in between." = "تعلّم عن الحبة والتحضير وكل ما بينهما.";
-"Maintenance" = "الصيانة";
-"Manage" = "إدارة";
-"Mark as best" = "تحديد كالأفضل";
-"Measured brew" = "تحضير مقاس";
-"Method" = "الطريقة";
-"Milk steaming" = "تبخير الحليب";
-"Mode" = "الوضع";
-"More to look forward to" = "المزيد بانتظارك";
-"More ways to earn" = "طرق أخرى لكسب الحبوب";
-"Move the dial to see how extraction changes. Aim for balance." = "حرّك المؤشر لترى تغير الاستخلاص. استهدف التوازن.";
-"New question" = "سؤال جديد";
-"Next reward" = "المكافأة التالية";
-"No water profile" = "لا توجد مواصفة للماء";
-"Notes" = "ملاحظات";
-"Origin" = "المنشأ";
-"Over-extracted" = "استخلاص زائد";
-"Phase 6" = "المرحلة 6";
-"Picked for your taste" = "مختار حسب ذوقك";
-"Pickup at Talla" = "الاستلام من تلة";
-"Process" = "المعالجة";
-"Puck preparation" = "تحضير القرص";
-"Quick" = "سريع";
-"Ratio (1:x)" = "النسبة (1:x)";
-"Receive your coffee" = "استلم قهوتك";
-"Recipe" = "الوصفة";
-"Recipe and notes" = "الوصفة والملاحظات";
-"Recipe name" = "اسم الوصفة";
-"Record burr change" = "تسجيل تغيير الطاحونة";
-"Reference overlay" = "طبقة المقارنة";
-"Refunded" = "تم رد المبلغ";
-"Region or producer" = "المنطقة أو المنتج";
-"Repeat best" = "تكرار الأفضل";
-"Request cancellation" = "طلب الإلغاء";
-"Roast level" = "درجة التحميص";
-"Roaster" = "المحمصة";
-"Save" = "حفظ";
-"Save changes" = "حفظ التغييرات";
-"Save iteration" = "حفظ التجربة";
-"Save your month and day to unlock the birthday reward on the correct date." = "احفظ شهرك ويوم ميلادك لفتح مكافأة عيد الميلاد في التاريخ الصحيح.";
-"Scan for Bluetooth scales" = "البحث عن موازين بلوتوث";
-"Share brew card" = "مشاركة بطاقة التحضير";
-"Shop" = "المتجر";
-"Shots to a positive espresso" = "جرعات للوصول إلى إسبريسو متوازن";
-"Starting point" = "نقطة البداية";
-"Submit a recipe" = "إرسال وصفة";
-"Surprise me" = "فاجئني";
-"Taste" = "التذوق";
-"Taste a coffee" = "تذوق قهوة";
-"Tasting notes" = "ملاحظات التذوق";
-"Temperature preset" = "إعداد درجة الحرارة";
-"This brew" = "هذا التحضير";
-"Title" = "العنوان";
-"Under-extracted" = "استخلاص ناقص";
-"Use taste profile for recommendations" = "استخدام ملف التذوق للاقتراحات";
-"Variety" = "السلالة";
-"Water hardness" = "عسر الماء";
-"Water profile" = "مواصفة الماء";
-"Weight" = "الوزن";
-"Weight & flow" = "الوزن والتدفق";
-"What did it taste like? (sour, bitter, sweet…)" = "كيف كان مذاقه؟ (حامض، مر، حلو…)";
-"Your data" = "بياناتك";
-"Your coffee, at a glance" = "قهوتك في لمحة";
-"Your (experience == \"expert\" ? \"advanced\" : \"saved\") setup leans \(tasteLabel). Start with \(methodName), then keep one variable steady while you dial it in." = "إعدادك يميل إلى \(tasteLabel). ابدأ بـ \(methodName)، ثم ثبّت متغيرًا واحدًا أثناء ضبطه.";
-"name@email.com" = "name@email.com";
-"CVV" = "CVV";
-"MM" = "MM";
-"YY" = "YY";
-"A better next cup" = "كوبك القادم أفضل";
-"A calmer way to keep great coffee at home." = "طريقة أهدأ للحفاظ على القهوة الرائعة في المنزل.";
-"A guided path from flavour notes to confident brewing." = "مسار إرشادي من ملاحظات النكهة إلى تحضير واثق.";
-"ADD TO COFFEE CLUB" = "إضافة إلى نادي القهوة";
-"BEANS" = "الحبوب";
-"Bag size" = "حجم الكيس";
-"Birthday rewards, monthly missions, method achievements, and useful reviews turn your coffee habits into Beans." = "تحوّل مكافآت أعياد الميلاد والمهام الشهرية وإنجازات الطرق والمراجعات المفيدة عادات قهوتك إلى حبوب.";
-"CHOOSE YOUR COFFEE" = "اختر قهوتك";
-"CLUB EXCLUSIVES" = "حصريات النادي";
-"CLUB-ONLY OFFERS" = "عروض حصرية لأعضاء النادي";
-"COFFEE SCHOOL" = "مدرسة القهوة";
-"CUSTOMIZE CLUB BAG" = "خصّص كيس النادي";
-"Canvas preview is kept in this small file so Xcode can render it quickly." = "توجد معاينة Canvas في هذا الملف الصغير ليسهل على Xcode عرضها.";
-"DEDICATED DIAL-IN" = "ضبط مخصص";
-"EST. 2024" = "تأسست 2024";
-"EXPLORE COFFEE CLUB" = "استكشف نادي القهوة";
-"FOR YOUR RITUAL" = "لطقسك";
-"LEARN WITH TALLA" = "تعلّم مع تلة";
-"MEMBERSHIP DASHBOARD" = "لوحة العضوية";
-"Measured brew curve" = "منحنى التحضير المقاس";
-"My Talla brew" = "تحضيري من تلة";
-"NEW" = "جديد";
-"Rewards, curated coffee, and lessons to help you brew with more confidence." = "مكافآت وقهوة مختارة ودروس تساعدك على التحضير بثقة أكبر.";
-"SHIPMENT HISTORY" = "سجل الشحنات";
-"START →" = "ابدأ ←";
-"Shot count drives group-head cleaning; hardness drives descaling. Grinder burr changes remain attached to each shot's setting history." = "يحدد عدد الجرعات موعد تنظيف رأس المجموعة، ويحدد عسر الماء موعد إزالة التكلس. تبقى تغييرات شفرات الطاحونة مرتبطة بسجل إعداد كل جرعة.";
-"TALLA" = "تلة";
-"TALLA COFFEE CLUB" = "نادي قهوة تلة";
-"TALLA REWARDS CLUB" = "نادي مكافآت تلة";
-"THE TALLA CLUB" = "نادي تلة";
-"TIMEMORE" = "TIMEMORE";
-"Talla Speciality" = "تلة للقهوة المختصة";
-"Talla ranks available products using your saved taste preferences, favorites, recent orders, coffee library matches, and availability. Turning off personalization removes taste-profile weighting from new recommendations." = "ترتب تلة المنتجات المتاحة باستخدام تفضيلات ذوقك المحفوظة والمفضلة والطلبات الأخيرة وتطابق مكتبة القهوة والتوفر. يؤدي إيقاف التخصيص إلى إزالة تأثير ملف التذوق من الاقتراحات الجديدة.";
-"Tap a family to see the notes you may find in your cup." = "اضغط على عائلة لترى النكهات التي قد تجدها في كوبك.";
-"Target temperature" = "درجة الحرارة المستهدفة";
-"Taste more.\\nUnderstand more." = "تذوق أكثر.\\nافهم أكثر.";
-"UPCOMING DELIVERY" = "التوصيل القادم";
-"WEIGHT CURVE" = "منحنى الوزن";
-"YOUR COFFEE SCHOOL LEVEL" = "مستواك في مدرسة القهوة";
-"ref " = "مرجع ";
-"%lld shots" = "%lld جرعات";
-"%lld left" = "متبقي %lld";
-"%lld/%lld" = "%lld/%lld";
-"%lld / %lld Beans" = "%lld / %lld حبة";
-"%lld g left" = "متبقي %lld غ";
-"%lld g available · about %lld brews" = "%lld غ متاحة · حوالي %lld تحضيرات";
-"%lld estimated brews · %.0f g logged" = "%lld تحضيرات تقديرية · تم تسجيل %.0f غ";
-"Original bag weight: %.0f g" = "الوزن الأصلي للكيس: %.0f غ";
-"Water: %@ g" = "الماء: %@ غ";
-"Case %@" = "الحالة %@";
-"Quantity · %lld" = "الكمية · %lld";
-"%lld g coffee · 1:%.1f · %lld g water · %@" = "%lld غ قهوة · 1:%.1f · %lld غ ماء · %@";
-"%lld g coffee • 1:%.1f • %lld g water" = "%lld غ قهوة • 1:%.1f • %lld غ ماء";
-"%lld g" = "%lld غ";
-"%lld ppm" = "%lld جزء بالمليون";
-"%lld °C" = "%lld °م";
-"Burr revision %lld" = "مراجعة الطاحونة %lld";
-"First drip: %llds" = "أول قطرة: %lldث";
-"Pre-infusion: %llds" = "النقع الأولي: %lldث";
-"Total time: %llds" = "الوقت الإجمالي: %lldث";
-"Rating: %lld/5" = "التقييم: %lld/5";
-"%lld shots · %lld positive" = "%lld جرعات · %lld متوازنة";
-"1:%@ · %llds · %@" = "1:%@ · %lldث · %@";
+/* No comment provided by engineer. */
+" " = " ";
+
+/* No comment provided by engineer. */
+"-%@" = "-%@";
+
+/* No comment provided by engineer. */
+"—" = "—";
+
+/* No comment provided by engineer. */
+"·" = "·";
+
+/* No comment provided by engineer. */
 "#%lld" = "#%lld";
-"Opened %@" = "تم الفتح %@";
-"%lld / %lld origins" = "%lld / %lld منشأ";
-"%lld / %lld" = "%lld / %lld";
-"%lld points" = "%lld نقطة";
-"×%lld" = "×%lld";
-"%lld g remaining" = "متبقي %lld غ";
-"%lld estimated brews" = "%lld تحضيرات تقديرية";
-"%lld g → %lld g" = "%lld غ ← %lld غ";
-"%lld °C · %@ · %@" = "%lld °م · %@ · %@";
-"%lld:%02lld" = "%lld:%02lld";
-"%lld · %lld/5" = "%lld · %lld/5";
-"%@ · %lld/5" = "%@ · %lld/5";
+
+/* No comment provided by engineer. */
+"%@  ·  %lld s" = "%@  ·  %lld ث";
+
+/* No comment provided by engineer. */
+"%@  %@" = "%@  %@";
+
+/* No comment provided by engineer. */
+"%@ - %@" = "%@ - %@";
+
+/* No comment provided by engineer. */
+"%@ · %.0f °C" = "%@ · %.0f °C";
+
+/* No comment provided by engineer. */
+"%@ · %.0f g" = "%@ · %.0f g";
+
+/* No comment provided by engineer. */
+"%@ · %@" = "%@ · %@";
+
+/* No comment provided by engineer. */
+"%@ · %@ g left" = "%@ · متبقٍ %@ غ";
+
+/* No comment provided by engineer. */
+"%@ · %@%@" = "%@ · %@%@";
+
+/* No comment provided by engineer. */
+"%@ · %lld of %lld drinks remaining" = "%@ · تبقى %lld من أصل %lld مشروباً";
+
+/* No comment provided by engineer. */
+"%@ · ★ %@" = "%@ · ★ %@";
+
+/* No comment provided by engineer. */
+"%@ · BHD %@" = "%@ · BHD %@";
+
+/* No comment provided by engineer. */
+"%@ / %@ g" = "%@ / %@ g";
+
+/* No comment provided by engineer. */
+"%@ / 5" = "%@ / 5";
+
+/* No comment provided by engineer. */
+"%@ %@" = "%@ %@";
+
+/* No comment provided by engineer. */
+"%@ %@ · %@" = "%@ %@ · %@";
+
+/* No comment provided by engineer. */
+"%@ %lld" = "%@ %lld";
+
+/* No comment provided by engineer. */
 "%@ • %@" = "%@ • %@";
-"%@, %@, %@" = "%@، %@، %@";
-"%@ · %.0f g" = "%@ · %.0f غ";
-"%.0f g coffee • 1:%.1f • %.0f g water" = "%.0f غ قهوة • 1:%.1f • %.0f غ ماء";
-"%.0f g" = "%.0f غ";
-"%.1f g" = "%.1f غ";
-"%.1f bar" = "%.1f بار";
-"%.1f °C" = "%.1f °م";
-"%lld Beans" = "%lld حبة";
-"%lld picks" = "%lld اختيارات";
-"%lld saved" = "%lld محفوظ";
-"%lld items" = "%lld عناصر";
-"%lld eligible drinks" = "%lld مشروبات مؤهلة";
-"%lld days left" = "متبقي %lld أيام";
-"%lld day left" = "متبقي يوم واحد";
-"%lld g water" = "%lld غ ماء";
-"%lld g coffee" = "%lld غ قهوة";
-"%lld pours" = "%lld صبّات";
-"%lld brews" = "%lld تحضيرات";
-"%lld entries" = "%lld إدخالات";
-"%lld saved recipes" = "%lld وصفات محفوظة";
-"%lld journal entries" = "%lld إدخالات في السجل";
-"%lld / %lld %@" = "%lld / %lld %@";
-"%lld / %lld origins" = "%lld / %lld منشأ";
-"%@ is unavailable" = "%@ غير متاح";
-"%@ loaded" = "تم تحميل %@";
-"%@ added to bag" = "تمت إضافة %@ إلى السلة";
-"%@%@ added to bag" = "تمت إضافة %@%@ إلى السلة";
-"Loved %@? Try %@ for your next gathering." = "أعجبتك %@؟ جرّب %@ في تجمعك القادم.";
+
+/* No comment provided by engineer. */
+"%@ • %@ %@ • %@" = "%@ • %@ %@ • %@";
+
+/* No comment provided by engineer. */
+"%@ • %lld/5" = "%@ • %lld/5";
+
+/* No comment provided by engineer. */
+"%@ → %@" = "%@ → %@";
+
+/* No comment provided by engineer. */
+"%@ g" = "%@ g";
+
+/* No comment provided by engineer. */
+"%@ g · 1:%@ · %@" = "%@ g · 1:%@ · %@";
+
+/* No comment provided by engineer. */
+"%@ g %@" = "%@ g %@";
+
+/* No comment provided by engineer. */
+"%@ g available · about %lld brews" = "متاح %@ غ · يكفي لنحو %lld تحضيرات";
+
+/* No comment provided by engineer. */
+"%@ g coffee • 1:%@ • %@ g water" = "%@ غ قهوة • ١:%@ • %@ غ ماء";
+
+/* No comment provided by engineer. */
+"%@ is open for 48 hours. Friends sign in before they can see or add to this order." = "يبقى %@ متاحاً لمدة ٤٨ ساعة. على الأصدقاء تسجيل الدخول قبل الاطلاع على الطلب أو الإضافة إليه.";
+
+/* No comment provided by engineer. */
+"%@ logo" = "شعار %@";
+
+/* No comment provided by engineer. */
+"%@, %@" = "%@, %@";
+
+/* No comment provided by engineer. */
+"%@, %@ %@" = "%@, %@ %@";
+
+/* No comment provided by engineer. */
+"%@, %@, %@" = "%@, %@, %@";
+
+/* No comment provided by engineer. */
+"%@, photo %lld of %lld" = "%@، الصورة %lld من %lld";
+
+/* No comment provided by engineer. */
+"%@: %@" = "%@: %@";
+
+/* No comment provided by engineer. */
+"%@: %@ %@ %@" = "%@: %@ %@ %@";
+
+/* No comment provided by engineer. */
+"%@: %@ • %@" = "%@: %@ • %@";
+
+/* No comment provided by engineer. */
+"%@: %@/5 · A%lld · Ac%lld · S%lld · B%lld · C%lld" = "%@: %@/5 · العطر %lld · الحموضة %lld · الحلاوة %lld · القوام %lld · الصفاء %lld";
+
+/* No comment provided by engineer. */
+"%@. %@" = "%@. %@";
+
+/* No comment provided by engineer. */
+"%@. %@. %@" = "%@. %@. %@";
+
+/* No comment provided by engineer. */
+"%@%lld" = "%@%lld";
+
+/* No comment provided by engineer. */
+"%lld" = "%lld";
+
+/* No comment provided by engineer. */
 "%lld / %lld" = "%lld / %lld";
-"%lld / %lld %@@" = "%lld / %lld %@";
-"%lld × %@" = "%lld × %@";
-"%@ · %@ · %@" = "%@ · %@ · %@";
-"%@, %@" = "%@، %@";
-"%@ • %@ • %@ • %@" = "%@ • %@ • %@ • %@";
-"%@ / %@" = "%@ / %@";
-"%@ of %@" = "%@ من %@";
-"%@ remaining" = "متبقي %@";
-"%@ available" = "%@ متاح";
-"Next: %@" = "التالي: %@";
-"Using %@ · %@" = "باستخدام %@ · %@";
-"Method: %@" = "الطريقة: %@";
-"Variant: %@" = "الخيار: %@";
-"Quantity, %lld" = "الكمية، %lld";
-"%lld items" = "%lld عناصر";
+
+/* No comment provided by engineer. */
+"%lld / %lld %@" = "%lld / %lld %@";
+
+/* No comment provided by engineer. */
+"%lld %@" = "%lld %@";
+
+/* No comment provided by engineer. */
+"%lld °C" = "%lld °C";
+
+/* No comment provided by engineer. */
+"%lld bags remaining" = "متبقي %lld أكياس";
+
+/* No comment provided by engineer. */
+"%lld Beans" = "%lld حبة";
+
+/* No comment provided by engineer. */
+"%lld Beans to %@ — perks unlock automatically." = "باقي %lld حبة حتى %@ — تُفعّل المزايا تلقائياً.";
+
+/* No comment provided by engineer. */
+"%lld estimated brews · %.0f g logged" = "نحو %lld تحضيرات · المسجّل %.0f غ";
+
+/* No comment provided by engineer. */
+"%lld g left" = "متبقي %lld غ";
+
+/* No comment provided by engineer. */
+"%lld g remaining" = "متبقي %lld غ";
+
+/* No comment provided by engineer. */
+"%lld item%@ in your bag" = "%lld عنصر%@ في حقيبتك";
+
+/* No comment provided by engineer. */
+"%lld map pins" = "%lld موقعاً على الخريطة";
+
+/* No comment provided by engineer. */
+"%lld people · order %@" = "%lld أشخاص · الطلب %@";
+
+/* No comment provided by engineer. */
+"%lld percent" = "%lld بالمئة";
+
+/* No comment provided by engineer. */
+"%lld places" = "%lld مكاناً";
+
+/* No comment provided by engineer. */
+"%lld ppm" = "%lld جزءاً بالمليون";
+
+/* No comment provided by engineer. */
+"%lld shots" = "%lld جرعة";
+
+/* No comment provided by engineer. */
+"%lld shots · %lld positive" = "%lld جرعة · %lld إيجابية";
+
+/* No comment provided by engineer. */
+"%lld/%lld" = "%lld/%lld";
+
+/* No comment provided by engineer. */
+"%lld/3" = "%lld/3";
+
+/* No comment provided by engineer. */
+"%lld/5" = "%lld/5";
+
+/* No comment provided by engineer. */
+"%lld%%" = "%lld%%";
+
+/* No comment provided by engineer. */
+"+%lld" = "+%lld";
+
+/* No comment provided by engineer. */
+"×%lld" = "×%lld";
+
+/* No comment provided by engineer. */
+"★%lld  %@" = "★%lld  %@";
+
+/* No comment provided by engineer. */
+"☕ %lld more café visit to unlock +%lld Beans" = "☕ زر %lld مقاهٍ إضافية لفتح مكافأة +%lld حبة";
+
+/* No comment provided by engineer. */
+"☕ %lld verified café visit%@" = "☕ %lld زيارة موثقة للمقهى%@";
+
+/* No comment provided by engineer. */
+"☕ Cross-café reward unlocked: +%lld Beans" = "☕ فُتحت مكافأة زيارة المقاهي: +%lld حبة";
+
+/* No comment provided by engineer. */
+"✓" = "✓";
+
+/* No comment provided by engineer. */
+"🎂 Birthday reward added to your Beans balance" = "🎂 أُضيفت مكافأة عيد الميلاد إلى رصيد حبوبك";
+
+/* No comment provided by engineer. */
+"🔥 %lld-day brew streak" = "🔥 سلسلة تحضير متواصلة لمدة %lld يوماً";
+
+/* No comment provided by engineer. */
+"🔥 %lld-day café visit streak" = "🔥 سلسلة زيارات مقاهٍ لمدة %lld يوماً";
+
+/* No comment provided by engineer. */
+"0" = "0";
+
+/* No comment provided by engineer. */
+"1:%@" = "1:%@";
+
+/* No comment provided by engineer. */
+"1:%@ · %@ °C" = "1:%@ · %@ °C";
+
+/* No comment provided by engineer. */
+"1:%@ · %llds · %@" = "١:%@ · %lld ث · %@";
+
+/* No comment provided by engineer. */
+"99+" = "99+";
+
+/* No comment provided by engineer. */
+"A %@ is waiting for you at the Talla counter. Show staff gift code %@ to redeem it." = "ينتظرك %@ في تله. أظهر للموظفين رمز الهدية %@ لاستلامه.";
+
+/* No comment provided by engineer. */
+"A better next cup" = "كوب أفضل في المرة القادمة";
+
+/* No comment provided by engineer. */
+"A coffee from Talla" = "قهوة من تله";
+
+/* No comment provided by engineer. */
+"A coffee gift needs an available ready-made drink in the Talla catalog." = "تتطلب هدية القهوة مشروباً جاهزاً متاحاً في متجر تله.";
+
+/* No comment provided by engineer. */
+"A considered guide to cafés, beans and the people making coffee better across the Gulf." = "دليل مختار للمقاهي والبن والأشخاص الذين يطوّرون القهوة في الخليج.";
+
+/* No comment provided by engineer. */
+"A considered subscription for a better daily ritual." = "اشتراك مختار لطقس يومي أجمل.";
+
+/* No comment provided by engineer. */
+"A considered subscription for your daily ritual." = "اشتراك مختار لطقس قهوتك اليومي.";
+
+/* No comment provided by engineer. */
+"A good ritual, made easy to keep." = "طقس جميل يسهل الالتزام به.";
+
+/* No comment provided by engineer. */
+"A guided path from flavour notes to confident brewing." = "رحلة إرشادية من ملاحظات النكهة إلى تحضير واثق.";
+
+/* No comment provided by engineer. */
+"A little closer to your next cup." = "خطوة أقرب إلى فنجانك التالي.";
+
+/* No comment provided by engineer. */
+"A prepaid coffee gift" = "هدية قهوة مدفوعة مسبقاً";
+
+/* No comment provided by engineer. */
+"A suspended coffee needs a ready-made drink in the Talla catalog. Ask Talla to add an eligible drink before sponsoring one." = "تتطلب القهوة المهداة مشروباً جاهزاً في متجر تله. اطلب من تله إضافة مشروب مؤهل قبل إهدائه.";
+
+/* No comment provided by engineer. */
+"A verified coffee gift is waiting for you at Talla ☕️" = "تنتظرك هدية قهوة موثقة لدى تله ☕️";
+
+/* No comment provided by engineer. */
+"Accepted" = "مقبول";
+
+/* No comment provided by engineer. */
+"Account" = "الحساب";
+
+/* No comment provided by engineer. */
+"Add a message (optional)" = "أضف رسالة (اختياري)";
+
+/* No comment provided by engineer. */
+"Add coffee to wish list" = "أضف القهوة إلى قائمة الأمنيات";
+
+/* No comment provided by engineer. */
+"Add from Talla catalog" = "أضف من متجر تله";
+
+/* No comment provided by engineer. */
+"Add prepaid coffee gift to bag" = "أضف هدية القهوة المدفوعة إلى الحقيبة";
+
+/* No comment provided by engineer. */
+"Add readings above to build the shot overlay." = "أضف القراءات أعلاه لإنشاء مخطط الاستخلاص.";
+
+/* No comment provided by engineer. */
+"Add selected product to wish list" = "أضف المنتج المحدد إلى قائمة الأمنيات";
+
+/* No comment provided by engineer. */
+"Add sensor sample" = "أضف قراءة من المستشعر";
+
+/* No comment provided by engineer. */
+"Add sponsored coffees to bag" = "أضف أكواب القهوة المدعومة إلى الحقيبة";
+
+/* No comment provided by engineer. */
+"ADD TO COFFEE CLUB" = "انضم إلى نادي القهوة";
+
+/* No comment provided by engineer. */
+"Add to group" = "أضف إلى المجموعة";
+
+/* No comment provided by engineer. */
+"Add your coffee to %@ ☕️" = "أضف قهوتك إلى %@ ☕️";
+
+/* No comment provided by engineer. */
+"Add yours" = "أضف اختيارك";
+
+/* No comment provided by engineer. */
+"ADVANCED ESPRESSO" = "إسبريسو متقدم";
+
+/* No comment provided by engineer. */
+"After online payment, share the redeemable gift link or send it on WhatsApp from your order. Staff redeem it once at the counter." = "بعد الدفع الإلكتروني، شارك رابط الهدية القابل للاستبدال أو أرسله عبر واتساب من طلبك. يستبدل الموظفون الهدية مرة واحدة عند المنضدة.";
+
+/* No comment provided by engineer. */
+"Allow community recipe sharing" = "السماح بمشاركة الوصفات مع المجتمع";
+
+/* No comment provided by engineer. */
+"Amount" = "المبلغ";
+
+/* No comment provided by engineer. */
+"Anonymous product analytics" = "تحليلات مجهولة للمنتجات";
+
+/* No comment provided by engineer. */
+"Ask Coffee Concierge" = "اسأل مستشار القهوة";
+
+/* No comment provided by engineer. */
+"Automatic temperature" = "درجة حرارة تلقائية";
+
+/* No comment provided by engineer. */
+"Awaiting verification" = "بانتظار التحقق";
+
+/* No comment provided by engineer. */
+"Bag size" = "حجم الكيس";
+
+/* No comment provided by engineer. */
+"Balanced" = "متوازن";
+
+/* No comment provided by engineer. */
+"Barista" = "باريستا";
+
+/* No comment provided by engineer. */
+"Barista tip" = "نصيحة الباريستا";
+
+/* No comment provided by engineer. */
+"BEANS" = "حبوب المكافآت";
+
+/* No comment provided by engineer. */
+"Best" = "الأفضل";
+
+/* No comment provided by engineer. */
+"BHD %lld" = "BHD %lld";
+
+/* No comment provided by engineer. */
+"Birthday rewards" = "مكافآت عيد الميلاد";
+
+/* No comment provided by engineer. */
+"Birthday rewards, monthly missions, method achievements, and useful reviews turn your coffee habits into Beans." = "تحوّل مكافآت عيد الميلاد والمهام الشهرية وإنجازات التحضير والتقييمات المفيدة عادات قهوتك إلى حبوب مكافآت.";
+
+/* No comment provided by engineer. */
+"Bitter, dry, or harsh? Try a coarser grind, cooler water, or less brew time." = "هل مذاقها مُر أو جاف أو لاذع؟ جرّب طحنًا أخشن أو ماءً أبرد أو وقت تحضير أقصر.";
+
+/* No comment provided by engineer. */
+"Bloom target: %@ g" = "كمية ماء التفتح المستهدفة: %@ غ";
+
+/* No comment provided by engineer. */
+"Brew sessions, cupping notes, and taste preferences remain local unless you are signed in and choose to sync them." = "تبقى جلسات التحضير وملاحظات التذوق وتفضيلاتك على جهازك، ما لم تسجّل الدخول وتختر مزامنتها.";
+
+/* No comment provided by engineer. */
+"Brewing Guide" = "دليل التحضير";
+
+/* No comment provided by engineer. */
+"Browse by what you need" = "تصفّح حسب احتياجك";
+
+/* No comment provided by engineer. */
+"Browse drinks" = "تصفّح المشروبات";
+
+/* No comment provided by engineer. */
+"Build a better palate in three small steps." = "طوّر حاسة التذوق لديك عبر ثلاث خطوات بسيطة.";
+
+/* No comment provided by engineer. */
+"Build your next set of deliveries. Pay once; renew when you’re ready." = "جهّز شحناتك القادمة. ادفع مرة واحدة وجدّد متى شئت.";
+
+/* No comment provided by engineer. */
+"Burr revision %lld" = "تغيير شفرة الطحن رقم %lld";
+
+/* No comment provided by engineer. */
+"Burr set (size, geometry, coating)" = "مجموعة شفرات الطحن (المقاس والهندسة والطلاء)";
+
+/* No comment provided by engineer. */
+"Business order details" = "تفاصيل طلب الأعمال";
+
+/* No comment provided by engineer. */
+"Cancel" = "إلغاء";
+
+/* No comment provided by engineer. */
+"Case %@" = "الحالة %@";
+
+/* No comment provided by engineer. */
+"Change one variable at a time and keep the whole iteration visible." = "غيّر عاملاً واحداً في كل مرة واحتفظ بسجل التجربة كاملاً.";
+
+/* No comment provided by engineer. */
+"Checking gift status…" = "جارٍ التحقق من حالة الهدية…";
+
+/* No comment provided by engineer. */
+"Choose a gift card" = "اختر بطاقة هدية";
+
+/* No comment provided by engineer. */
+"Choose a method to learn its character and starting point." = "اختر طريقة التحضير للتعرّف على خصائصها ونقطة البداية.";
+
+/* No comment provided by engineer. */
+"Choose an amount" = "اختر المبلغ";
+
+/* No comment provided by engineer. */
+"Choose an available online payment method in secure Shopify Checkout. Cash on delivery is unavailable for gift cards." = "اختر وسيلة دفع إلكترونية متاحة في صفحة Shopify الآمنة. الدفع عند الاستلام غير متاح لبطاقات الهدايا.";
+
+/* No comment provided by engineer. */
+"Choose bottomless video" = "اختر فيديو البورتافلتر المكشوف";
+
+/* No comment provided by engineer. */
+"CHOOSE FOR PLAN" = "اختر الباقة";
+
+/* No comment provided by engineer. */
+"CHOOSE PLAN ITEMS" = "اختر عناصر الباقة";
+
+/* No comment provided by engineer. */
+"Choose the coffee" = "اختر القهوة";
+
+/* No comment provided by engineer. */
+"Choose their coffee" = "اختر قهوتهم";
+
+/* No comment provided by engineer. */
+"Choose your coffee once, then enjoy a considered delivery every few weeks — prepaid and without auto-renewal." = "اختر قهوتك مرة واحدة واستمتع بتوصيل مختار كل بضعة أسابيع، مدفوع مسبقاً ومن دون تجديد تلقائي.";
+
+/* No comment provided by engineer. */
+"Clear search" = "مسح البحث";
+
+/* No comment provided by engineer. */
+"Close" = "إغلاق";
+
+/* No comment provided by engineer. */
+"Close order and review bag" = "إغلاق الطلب ومراجعة الحقيبة";
+
+/* No comment provided by engineer. */
+"Closest replacement for %@" = "أقرب بديل لـ %@";
+
+/* No comment provided by engineer. */
+"CLUB EXCLUSIVES" = "عروض حصرية للنادي";
+
+/* No comment provided by engineer. */
+"CLUB-ONLY OFFERS" = "عروض لأعضاء النادي فقط";
+
+/* No comment provided by engineer. */
+"Coffee" = "قهوة";
+
+/* No comment provided by engineer. */
+"Coffee (g)" = "القهوة (غ)";
+
+/* No comment provided by engineer. */
+"Coffee bag" = "كيس القهوة";
+
+/* No comment provided by engineer. */
+"Coffee Club" = "نادي القهوة";
+
+/* No comment provided by engineer. */
+"COFFEE CLUB" = "نادي القهوة";
+
+/* No comment provided by engineer. */
+"Coffee Club\nis coming soon." = "نادي القهوة\nقريباً.";
+
+/* No comment provided by engineer. */
+"Coffee Club is\ncoming soon." = "نادي القهوة\nقريباً.";
+
+/* No comment provided by engineer. */
+"Coffee Concierge" = "مستشار القهوة";
+
+/* No comment provided by engineer. */
+"Coffee name" = "اسم القهوة";
+
+/* No comment provided by engineer. */
+"Coffee school" = "مدرسة القهوة";
+
+/* No comment provided by engineer. */
+"COFFEE SCHOOL" = "مدرسة القهوة";
+
+/* No comment provided by engineer. */
+"Coffee wish list" = "قائمة أمنيات القهوة";
+
+/* No comment provided by engineer. */
+"Coffee, on your terms." = "قهوتك على طريقتك.";
+
+/* No comment provided by engineer. */
+"Coffees to sponsor: %lld" = "أكواب القهوة المدعومة: %lld";
+
+/* No comment provided by engineer. */
+"Collapsed" = "مطوي";
+
+/* No comment provided by engineer. */
+"Collect from Talla in Riffa when your shipment is ready." = "استلم طلبك من تله في الرفاع عند جهوزية الشحنة.";
+
+/* No comment provided by engineer. */
+"Commercial registration" = "السجل التجاري";
+
+/* No comment provided by engineer. */
+"Commercial registration number (optional)" = "رقم السجل التجاري (اختياري)";
+
+/* No comment provided by engineer. */
+"Community recipes" = "وصفات المجتمع";
+
+/* No comment provided by engineer. */
+"Community reviews" = "تقييمات المجتمع";
+
+/* No comment provided by engineer. */
+"Community sharing is off" = "مشاركة المجتمع متوقفة";
+
+/* No comment provided by engineer. */
+"Community tasting notes" = "ملاحظات تذوق المجتمع";
+
+/* No comment provided by engineer. */
+"Company" = "الشركة";
+
+/* No comment provided by engineer. */
+"Company legal name (required)" = "الاسم القانوني للشركة (مطلوب)";
+
+/* No comment provided by engineer. */
+"Concierge" = "المستشار";
+
+/* No comment provided by engineer. */
+"Connect Scale" = "اتصال الميزان";
+
+/* No comment provided by engineer. */
+"Continue to secure checkout" = "المتابعة إلى الدفع الآمن";
+
+/* No comment provided by engineer. */
+"Correct — %@" = "إجابة صحيحة — %@";
+
+/* No comment provided by engineer. */
+"Create and share invite" = "أنشئ دعوة وشاركها";
+
+/* No comment provided by engineer. */
+"Cupping event" = "جلسة تذوق";
+
+/* No comment provided by engineer. */
+"Customize your bag" = "خصّص حقيبتك";
+
+/* No comment provided by engineer. */
+"CVV" = "رمز أمان البطاقة";
+
+/* No comment provided by engineer. */
+"Daily cup café pass" = "بطاقة قهوتك اليومية";
+
+/* No comment provided by engineer. */
+"Date" = "التاريخ";
+
+/* No comment provided by engineer. */
+"DEDICATED DIAL-IN" = "ضبط استخلاص مخصص";
+
+/* No comment provided by engineer. */
+"Deduct %.0f g" = "خصم %.0f غ";
+
+/* No comment provided by engineer. */
+"Delete local expert data" = "حذف بيانات الخبير المحلية";
+
+/* No comment provided by engineer. */
+"Delivery" = "التوصيل";
+
+/* No comment provided by engineer. */
+"Delivery is scheduled with your Coffee Club shipments." = "يُجدول التوصيل مع شحنات نادي القهوة.";
+
+/* No comment provided by engineer. */
+"Dial in espresso shots and review your shot history" = "اضبط جرعات الإسبريسو وراجع سجلها";
+
+/* No comment provided by engineer. */
+"Dial in shots with your scale, Watch, and complete history." = "اضبط الجرعات باستخدام ميزانك وساعتك وسجلّك الكامل.";
+
+/* No comment provided by engineer. */
+"Dial-in history" = "سجل ضبط الاستخلاص";
+
+/* No comment provided by engineer. */
+"Do not deduct a bag" = "لا تخصم من كمية الكيس";
+
+/* No comment provided by engineer. */
+"Done" = "تم";
+
+/* No comment provided by engineer. */
+"Dose (g)" = "الجرعة (غ)";
+
+/* No comment provided by engineer. */
+"Drink" = "مشروب";
+
+/* No comment provided by engineer. */
+"Drink scale" = "ميزان المشروب";
+
+/* No comment provided by engineer. */
+"Drinks to sponsor: %lld" = "المشروبات المدعومة: %lld";
+
+/* No comment provided by engineer. */
+"e.g. date sweetness, cardamom, silky finish" = "مثال: حلاوة التمر، الهيل، قوام ناعم";
+
+/* No comment provided by engineer. */
+"Each sponsored coffee becomes a 30-day counter credit. Show the shareable QR from your order; Talla staff redeem each drink once and can see the remaining balance." = "تتحول كل قهوة مدعومة إلى رصيد صالح ٣٠ يوماً. أظهر رمز QR القابل للمشاركة من طلبك؛ يستبدل موظفو تله كل مشروب مرة واحدة ويمكنهم الاطلاع على الرصيد المتبقي.";
+
+/* No comment provided by engineer. */
+"Early access" = "وصول مبكر";
+
+/* No comment provided by engineer. */
+"Edit" = "تعديل";
+
+/* No comment provided by engineer. */
+"Edit bean lot" = "تعديل دفعة البن";
+
+/* No comment provided by engineer. */
+"Edit recipe" = "تعديل الوصفة";
+
+/* No comment provided by engineer. */
+"Edit saved recipe" = "تعديل الوصفة المحفوظة";
+
+/* No comment provided by engineer. */
+"Editing sends the recipe back for review before it appears publicly again." = "تعيد التعديلات الوصفة إلى المراجعة قبل نشرها مجدداً.";
+
+/* No comment provided by engineer. */
+"Eligible products will appear here when the shop is loaded." = "ستظهر المنتجات المؤهلة هنا بعد تحميل المتجر.";
+
+/* No comment provided by engineer. */
+"Equipment & variables" = "المعدات والمتغيرات";
+
+/* No comment provided by engineer. */
+"Espresso profile" = "ملف الإسبريسو";
+
+/* No comment provided by engineer. */
+"Espresso Workspace" = "مساحة عمل الإسبريسو";
+
+/* No comment provided by engineer. */
+"Event name" = "اسم الفعالية";
+
+/* No comment provided by engineer. */
+"Everyone" = "الجميع";
+
+/* No comment provided by engineer. */
+"Everything in one place." = "كل شيء في مكان واحد.";
+
+/* No comment provided by engineer. */
+"Expanded" = "موسّع";
+
+/* No comment provided by engineer. */
+"EXPLORE COFFEE CLUB" = "اكتشف نادي القهوة";
+
+/* No comment provided by engineer. */
+"Explore the GCC" = "اكتشف الخليج العربي";
+
+/* No comment provided by engineer. */
+"Explore the Gulf coffee guide or manage your Talla account." = "اكتشف دليل القهوة في الخليج أو أدر حسابك لدى تله.";
+
+/* No comment provided by engineer. */
+"Find a public coffee person" = "اعثر على أحد محبي القهوة";
+
+/* No comment provided by engineer. */
+"Find public coffee profiles and follow their tasting notes. Friend, barista, and roaster labels are self-described, not verified by Talla." = "اكتشف ملفات القهوة العامة وتابع ملاحظات التذوق. صفات الصديق والباريستا والمحمصة يحددها أصحابها ولا تتحقق منها تله.";
+
+/* No comment provided by engineer. */
+"Find the shot you want to drink." = "اعثر على جرعة الإسبريسو التي ترغب في شربها.";
+
+/* No comment provided by engineer. */
+"Find your next\nTalla coffee stop." = "اكتشف وجهتك\nالقادمة لقهوة تله.";
+
+/* No comment provided by engineer. */
+"Finish Shot" = "إنهاء الجرعة";
+
+/* No comment provided by engineer. */
+"First drip: %llds" = "أول قطرة: %lld ث";
+
+/* No comment provided by engineer. */
+"Fits your taste profile" = "يناسب ذوقك";
+
+/* No comment provided by engineer. */
+"Flow" = "التدفق";
+
+/* No comment provided by engineer. */
+"Follow" = "متابعة";
+
+/* No comment provided by engineer. */
+"Following" = "تتابعه";
+
+/* No comment provided by engineer. */
+"FOR YOUR RITUAL" = "لطقس قهوتك";
+
+/* No comment provided by engineer. */
+"Friend" = "صديق";
+
+/* No comment provided by engineer. */
+"Fulfilment" = "تنفيذ الطلب";
+
+/* No comment provided by engineer. */
+"GCC GUIDE" = "دليل الخليج";
+
+/* No comment provided by engineer. */
+"Gift card" = "بطاقة هدية";
+
+/* No comment provided by engineer. */
+"Gift card recipient email" = "البريد الإلكتروني لمستلم بطاقة الهدية";
+
+/* No comment provided by engineer. */
+"Gift message (optional)" = "رسالة الهدية (اختياري)";
+
+/* No comment provided by engineer. */
+"Great coffee comes from a balance of four things: coffee, water, grind, and time." = "تبدأ القهوة الرائعة من توازن أربعة عناصر: القهوة والماء والطحن والوقت.";
+
+/* No comment provided by engineer. */
+"Group coffee" = "طلب قهوة جماعي";
+
+/* No comment provided by engineer. */
+"Group orders" = "الطلبات الجماعية";
+
+/* No comment provided by engineer. */
+"Gulf Coffee Map" = "خريطة القهوة في الخليج";
+
+/* No comment provided by engineer. */
+"Hambella logo" = "شعار هامبيلا";
+
+/* No comment provided by engineer. */
+"Hide keyboard" = "إخفاء لوحة المفاتيح";
+
+/* No comment provided by engineer. */
+"Invite your people" = "ادعُ أصدقاءك";
+
+/* No comment provided by engineer. */
+"Invitees must sign in to join; only group members can see the combined order." = "على المدعوين تسجيل الدخول للانضمام؛ أعضاء المجموعة فقط يمكنهم رؤية الطلب الموحّد.";
+
+/* No comment provided by engineer. */
+"Join group order" = "انضم إلى الطلب الجماعي";
+
+/* No comment provided by engineer. */
+"Join our Talla coffee order" = "انضم إلى طلب قهوة تله";
+
+/* No comment provided by engineer. */
+"Join this coffee order" = "انضم إلى طلب القهوة هذا";
+
+/* No comment provided by engineer. */
+"Keep current bag" = "احتفظ بالحقيبة الحالية";
+
+/* No comment provided by engineer. */
+"KEEP EXPLORING" = "تابع الاستكشاف";
+
+/* No comment provided by engineer. */
+"Keep my wish list ready for gifting" = "اجعل قائمة أمنياتي جاهزة للإهداء";
+
+/* No comment provided by engineer. */
+"Lab" = "المختبر";
+
+/* No comment provided by engineer. */
+"LEARN MORE" = "اعرف المزيد";
+
+/* No comment provided by engineer. */
+"Learn the bean, the brew, and everything in between." = "تعرّف على البن والتحضير وكل ما بينهما.";
+
+/* No comment provided by engineer. */
+"Learn with Talla" = "تعلّم مع تله";
+
+/* No comment provided by engineer. */
+"LEARN WITH TALLA" = "تعلّم مع تله";
+
+/* No comment provided by engineer. */
+"LIVE" = "مباشر";
+
+/* No comment provided by engineer. */
+"Loading group order…" = "جارٍ تحميل الطلب الجماعي…";
+
+/* No comment provided by engineer. */
+"Maintenance" = "الصيانة";
+
+/* No comment provided by engineer. */
+"Manage" = "إدارة";
+
+/* No comment provided by engineer. */
+"Mark as best" = "تحديد كالأفضل";
+
+/* No comment provided by engineer. */
+"Mark done" = "وضع علامة تم";
+
+/* No comment provided by engineer. */
+"Measure first. Change one variable at a time." = "قِس أولاً، ثم غيّر عاملاً واحداً في كل مرة.";
+
+/* No comment provided by engineer. */
+"Measured brew" = "تحضير مقاس";
+
+/* No comment provided by engineer. */
+"Measured brew curve" = "منحنى التحضير المقاس";
+
+/* No comment provided by engineer. */
+"Member wallet" = "محفظة العضوية";
+
+/* No comment provided by engineer. */
+"Method" = "الطريقة";
+
+/* No comment provided by engineer. */
+"Milk steaming" = "تبخير الحليب";
+
+/* No comment provided by engineer. */
+"MM" = "MM";
+
+/* No comment provided by engineer. */
+"Mode" = "الوضع";
+
+/* No comment provided by engineer. */
+"More" = "المزيد";
+
+/* No comment provided by engineer. */
+"More from Talla" = "المزيد من تله";
+
+/* No comment provided by engineer. */
+"More to look forward to" = "المزيد من التجارب القادمة";
+
+/* No comment provided by engineer. */
+"More ways to earn" = "طرق إضافية لكسب المكافآت";
+
+/* No comment provided by engineer. */
+"MORE WAYS TO EARN" = "طرق إضافية لكسب المكافآت";
+
+/* No comment provided by engineer. */
+"Move the dial to see how extraction changes. Aim for balance." = "حرّك المؤشر لملاحظة تغيّر الاستخلاص، واستهدف التوازن.";
+
+/* No comment provided by engineer. */
+"My coffee shelf" = "رف قهوتي";
+
+/* No comment provided by engineer. */
+"My public profile" = "ملفي العام";
+
+/* No comment provided by engineer. */
+"My Talla brew" = "تحضيري من تله";
+
+/* No comment provided by engineer. */
+"Name shown with a public note" = "الاسم الظاهر مع الملاحظة العامة";
+
+/* No comment provided by engineer. */
+"name@email.com" = "name@email.com";
+
+/* No comment provided by engineer. */
+"NEW" = "جديد";
+
+/* No comment provided by engineer. */
+"New question" = "سؤال جديد";
+
+/* No comment provided by engineer. */
+"New shot" = "جرعة جديدة";
+
+/* No comment provided by engineer. */
+"Next reward" = "المكافأة التالية";
+
+/* No comment provided by engineer. */
+"No eligible drinks available" = "لا توجد مشروبات مؤهلة حالياً";
+
+/* No comment provided by engineer. */
+"No places yet" = "لا توجد أماكن بعد";
+
+/* No comment provided by engineer. */
+"No positive shot recorded yet" = "لم تُسجّل جرعة ناجحة بعد";
+
+/* No comment provided by engineer. */
+"No water profile" = "لا يوجد ملف للماء";
+
+/* No comment provided by engineer. */
+"Not accepted" = "غير مقبول";
+
+/* No comment provided by engineer. */
+"Not Just Beans logo" = "شعار نوت جست بينز";
+
+/* No comment provided by engineer. */
+"Not quite — %@" = "ليس تماماً — %@";
+
+/* No comment provided by engineer. */
+"Not selected" = "غير محدد";
+
+/* No comment provided by engineer. */
+"Notes" = "ملاحظات";
+
+/* No comment provided by engineer. */
+"Office or gathering name" = "اسم المكتب أو المناسبة";
+
+/* No comment provided by engineer. */
+"Office plans start at two bags per shipment." = "تبدأ باقات المكاتب من كيسين في كل شحنة.";
+
+/* No comment provided by engineer. */
+"One prepaid coffee · BHD %@ · valid for 30 days after payment" = "قهوة واحدة مدفوعة مسبقاً · BHD %@ · صالحة لمدة ٣٠ يوماً بعد الدفع";
+
+/* No comment provided by engineer. */
+"Only verified or link-verified places appear as map pins. Other entries are pilots awaiting admin review." = "تظهر على الخريطة الأماكن الموثقة أو المؤكدة عبر رابط فقط. أما الإدخالات الأخرى فهي تجريبية بانتظار مراجعة الإدارة.";
+
+/* No comment provided by engineer. */
+"Open %@" = "افتح %@";
+
+/* No comment provided by engineer. */
+"Open bag, %lld item%@" = "افتح الحقيبة، %lld عنصر%@";
+
+/* No comment provided by engineer. */
+"Open Brewing Guide" = "افتح دليل التحضير";
+
+/* No comment provided by engineer. */
+"Open Coffee Concierge" = "افتح مستشار القهوة";
+
+/* No comment provided by engineer. */
+"Open Espresso Workspace" = "افتح مساحة عمل الإسبريسو";
+
+/* No comment provided by engineer. */
+"Open location" = "افتح الموقع";
+
+/* No comment provided by engineer. */
+"Open online store" = "افتح المتجر الإلكتروني";
+
+/* No comment provided by engineer. */
+"OPEN REWARDS" = "افتح المكافآت";
+
+/* No comment provided by engineer. */
+"Open Shop" = "افتح المتجر";
+
+/* No comment provided by engineer. */
+"Open Talla Coffee Concierge from Control Center, the Lock Screen, or the Action Button." = "افتح مستشار قهوة تله من مركز التحكم أو شاشة القفل أو زر الإجراءات.";
+
+/* No comment provided by engineer. */
+"Open Talla Rewards" = "افتح مكافآت تله";
+
+/* No comment provided by engineer. */
+"Open Talla Shop" = "افتح متجر تله";
+
+/* No comment provided by engineer. */
+"Open the Talla shop from Control Center, the Lock Screen, or the Action Button." = "افتح متجر تله من مركز التحكم أو شاشة القفل أو زر الإجراءات.";
+
+/* No comment provided by engineer. */
+"Open your saved shelf, shop, Coffee Concierge, and rewards quickly." = "افتح رفك المحفوظ ومتجرك ومستشار القهوة ومكافآتك بسرعة.";
+
+/* No comment provided by engineer. */
+"Opened %@" = "تم فتح %@";
+
+/* No comment provided by engineer. */
+"Opens Talla Speciality and searches the product catalog." = "يفتح تله سبيشالتي ويبحث في كتالوج المنتجات.";
+
+/* No comment provided by engineer. */
+"Opens Talla Speciality to account rewards." = "يفتح مكافآت الحساب في تله سبيشالتي.";
+
+/* No comment provided by engineer. */
+"Opens Talla Speciality to brewing guides and recipes." = "يفتح أدلة التحضير والوصفات في تله سبيشالتي.";
+
+/* No comment provided by engineer. */
+"Opens Talla Speciality to the shop." = "يفتح المتجر في تله سبيشالتي.";
+
+/* No comment provided by engineer. */
+"Opens the Coffee Concierge in Talla Speciality." = "يفتح مستشار القهوة في تله سبيشالتي.";
+
+/* No comment provided by engineer. */
+"Optional tasting note" = "ملاحظة تذوق (اختياري)";
+
+/* No comment provided by engineer. */
+"Or add a custom wish" = "أو أضف أمنية مخصصة";
+
+/* No comment provided by engineer. */
+"Origin" = "المنشأ";
+
+/* No comment provided by engineer. */
+"Original bag weight: %.0f g" = "وزن الكيس الأصلي: %.0f غ";
+
+/* No comment provided by engineer. */
+"Over-extracted" = "استخلاص زائد";
+
+/* No comment provided by engineer. */
+"Pause steam timer" = "إيقاف مؤقت لمؤقت تبخير الحليب";
+
+/* No comment provided by engineer. */
+"Peak pressure %@" = "ذروة الضغط %@";
+
+/* No comment provided by engineer. */
+"Phase 6" = "المرحلة ٦";
+
+/* No comment provided by engineer. */
+"PICK YOUR COFFEE" = "اختر قهوتك";
+
+/* No comment provided by engineer. */
+"Picked for your taste" = "مختار لذوقك";
+
+/* No comment provided by engineer. */
+"Pickup at Talla" = "استلام من تله";
+
+/* No comment provided by engineer. */
+"Place details" = "تفاصيل المكان";
+
+/* No comment provided by engineer. */
+"Pre-infusion: %llds" = "ما قبل الاستخلاص: %lld ث";
+
+/* No comment provided by engineer. */
+"PREPAID" = "مدفوع مسبقاً";
+
+/* No comment provided by engineer. */
+"Prepaid now for all plan shipments. These details will be attached to your order for business records; this plan does not renew automatically." = "ادفع مسبقاً لجميع شحنات الباقة. ستُرفق هذه التفاصيل بطلبك للسجلات التجارية، ولا تتجدد الباقة تلقائياً.";
+
+/* No comment provided by engineer. */
+"Prepaid, never auto-renews" = "مدفوع مسبقاً، دون تجديد تلقائي";
+
+/* No comment provided by engineer. */
+"Prepay %lld of this drink at its current menu price. Valid for 30 days after payment; no discount." = "ادفع مسبقاً ثمن %lld من هذا المشروب بسعر القائمة الحالي. صالح لمدة ٣٠ يوماً بعد الدفع، دون خصم.";
+
+/* No comment provided by engineer. */
+"Pressure %lld · Flow %lld · Temperature %lld" = "الضغط %lld · التدفق %lld · الحرارة %lld";
+
+/* No comment provided by engineer. */
+"Privacy & explanations" = "الخصوصية والتوضيحات";
+
+/* No comment provided by engineer. */
+"Private" = "خاص";
+
+/* No comment provided by engineer. */
+"Process" = "المعالجة";
+
+/* No comment provided by engineer. */
+"Products are loading. Please try again shortly." = "جارٍ تحميل المنتجات. حاول مجدداً بعد قليل.";
+
+/* No comment provided by engineer. */
+"Public" = "عام";
+
+/* No comment provided by engineer. */
+"Public profiles appear here when their owners publish tasting notes." = "ستظهر الملفات العامة هنا عندما ينشر أصحابها ملاحظات التذوق.";
+
+/* No comment provided by engineer. */
+"Puck preparation" = "تهيئة قرص القهوة";
+
+/* No comment provided by engineer. */
+"Purchase order" = "طلب شراء";
+
+/* No comment provided by engineer. */
+"Purchase order reference (optional)" = "مرجع طلب الشراء (اختياري)";
+
+/* No comment provided by engineer. */
+"Quantity · %lld" = "الكمية · %lld";
+
+/* No comment provided by engineer. */
+"Quantity: %lld" = "الكمية: %lld";
+
+/* No comment provided by engineer. */
+"Quick" = "سريع";
+
+/* No comment provided by engineer. */
+"Rate %lld out of 5" = "التقييم %lld من ٥";
+
+/* No comment provided by engineer. */
+"Rate a specific cup or bean" = "قيّم فنجاناً أو نوع بن محدداً";
+
+/* No comment provided by engineer. */
+"Rate the item" = "قيّم العنصر";
+
+/* No comment provided by engineer. */
+"Rating: %lld/5" = "التقييم: %lld/5";
+
+/* No comment provided by engineer. */
+"Ratio (1:x)" = "النسبة (١:x)";
+
+/* No comment provided by engineer. */
+"Ready for something to share" = "جاهز لشيء يستحق المشاركة";
+
+/* No comment provided by engineer. */
+"Receive your coffee" = "استلم قهوتك";
+
+/* No comment provided by engineer. */
+"Recipe" = "الوصفة";
+
+/* No comment provided by engineer. */
+"Recipe and notes" = "الوصفة والملاحظات";
+
+/* No comment provided by engineer. */
+"Recipe name" = "اسم الوصفة";
+
+/* No comment provided by engineer. */
+"Recipient email" = "البريد الإلكتروني للمستلم";
+
+/* No comment provided by engineer. */
+"Recipient name" = "اسم المستلم";
+
+/* No comment provided by engineer. */
+"Record burr change" = "سجّل تغيير شفرات الطحن";
+
+/* No comment provided by engineer. */
+"Reference overlay" = "مخطط مرجعي";
+
+/* No comment provided by engineer. */
+"Refresh gift status" = "تحديث حالة الهدية";
+
+/* No comment provided by engineer. */
+"Refresh tasting notes" = "تحديث ملاحظات التذوق";
+
+/* No comment provided by engineer. */
+"Refunded" = "تم رد المبلغ";
+
+/* No comment provided by engineer. */
+"Region or producer" = "المنطقة أو المنتج";
+
+/* No comment provided by engineer. */
+"Remove" = "إزالة";
+
+/* No comment provided by engineer. */
+"Remove %@ from wish list" = "إزالة %@ من قائمة الأمنيات";
+
+/* No comment provided by engineer. */
+"Remove from saved" = "إزالة من المحفوظات";
+
+/* No comment provided by engineer. */
+"Reorder %@" = "إعادة طلب %@";
+
+/* No comment provided by engineer. */
+"Repeat best" = "كرّر أفضل نتيجة";
+
+/* No comment provided by engineer. */
+"Replace bag and continue" = "استبدل محتوى الحقيبة وتابع";
+
+/* No comment provided by engineer. */
+"Replace bag and review group order" = "استبدل محتوى الحقيبة وراجع الطلب الجماعي";
+
+/* No comment provided by engineer. */
+"Replace current bag?" = "هل تريد استبدال الحقيبة الحالية؟";
+
+/* No comment provided by engineer. */
+"Request by WhatsApp" = "إرسال الطلب عبر واتساب";
+
+/* No comment provided by engineer. */
+"Request cancellation" = "طلب إلغاء";
+
+/* No comment provided by engineer. */
+"Reserve is yours. Keep brewing for more Club moments." = "المقعد محجوز لك. واصل التحضير لمزيد من لحظات النادي.";
+
+/* No comment provided by engineer. */
+"Resume checkout" = "متابعة إتمام الشراء";
+
+/* No comment provided by engineer. */
+"Rewards" = "المكافآت";
+
+/* No comment provided by engineer. */
+"Roast level" = "درجة التحميص";
+
+/* No comment provided by engineer. */
+"Roasted" = "محمّص";
+
+/* No comment provided by engineer. */
+"Roaster" = "المحمصة";
+
+/* No comment provided by engineer. */
+"Save" = "حفظ";
+
+/* No comment provided by engineer. */
+"Save a tasting note, keep a wish list, and choose who gets to see what you taste." = "احفظ ملاحظة تذوق وأنشئ قائمة أمنيات واختر من يمكنه رؤية تذوقك.";
+
+/* No comment provided by engineer. */
+"Save changes" = "حفظ التغييرات";
+
+/* No comment provided by engineer. */
+"Save coffee" = "حفظ القهوة";
+
+/* No comment provided by engineer. */
+"Save iteration" = "حفظ التجربة";
+
+/* No comment provided by engineer. */
+"Save rating" = "حفظ التقييم";
+
+/* No comment provided by engineer. */
+"Save reading" = "حفظ القراءة";
+
+/* No comment provided by engineer. */
+"Save your month and day to unlock the birthday reward on the correct date." = "أدخل شهر ويوم ميلادك لتحصل على مكافأة عيد الميلاد في موعدها.";
+
+/* No comment provided by engineer. */
+"Saved on this device" = "محفوظ على هذا الجهاز";
+
+/* No comment provided by engineer. */
+"Saving…" = "جارٍ الحفظ…";
+
+/* No comment provided by engineer. */
+"Scan for Bluetooth scales" = "البحث عن موازين Bluetooth";
+
+/* No comment provided by engineer. */
+"Search" = "بحث";
+
+/* No comment provided by engineer. */
+"Search a city, café, bean or brew…" = "ابحث عن مدينة أو مقهى أو بن أو طريقة تحضير…";
+
+/* No comment provided by engineer. */
+"Search Talla Products" = "ابحث في منتجات تله";
+
+/* No comment provided by engineer. */
+"Selected" = "محدد";
+
+/* No comment provided by engineer. */
+"Send a coffee" = "أرسل قهوة";
+
+/* No comment provided by engineer. */
+"Send gift on WhatsApp" = "أرسل الهدية عبر واتساب";
+
+/* No comment provided by engineer. */
+"Send this link after payment. The recipient shows the code at the Talla counter to redeem one coffee." = "أرسل هذا الرابط بعد الدفع. يُظهر المستلم الرمز عند منضدة تله لاستبدال قهوة واحدة.";
+
+/* No comment provided by engineer. */
+"Share brew card" = "مشاركة بطاقة التحضير";
+
+/* No comment provided by engineer. */
+"Share counter code" = "مشاركة رمز الاستلام";
+
+/* No comment provided by engineer. */
+"Share espresso profile" = "مشاركة ملف الإسبريسو";
+
+/* No comment provided by engineer. */
+"Share group invite" = "مشاركة دعوة المجموعة";
+
+/* No comment provided by engineer. */
+"Share paid coffee gift" = "مشاركة هدية القهوة المدفوعة";
+
+/* No comment provided by engineer. */
+"Share tasting note" = "مشاركة ملاحظة التذوق";
+
+/* No comment provided by engineer. */
+"Share this coffee gift" = "مشاركة هدية القهوة هذه";
+
+/* No comment provided by engineer. */
+"Share wish list" = "مشاركة قائمة الأمنيات";
+
+/* No comment provided by engineer. */
+"Shared profile" = "ملف مشترك";
+
+/* No comment provided by engineer. */
+"Shop" = "المتجر";
+
+/* No comment provided by engineer. */
+"Shopify sends the digital card and redemption code to the recipient when the order is fulfilled." = "يرسل Shopify البطاقة الرقمية ورمز الاستبدال إلى المستلم عند تنفيذ الطلب.";
+
+/* No comment provided by engineer. */
+"Shopify sends the gift card code to this email after the order is fulfilled." = "يرسل Shopify رمز بطاقة الهدية إلى هذا البريد بعد تنفيذ الطلب.";
+
+/* No comment provided by engineer. */
+"Shot count drives group-head cleaning; hardness drives descaling. Grinder burr changes remain attached to each shot's setting history." = "يحدد عدد الجرعات موعد تنظيف مجموعة الرأس، وتحدد عسرية الماء موعد إزالة التكلس. ويُحفظ تغيير شفرات المطحنة ضمن سجل إعداد كل جرعة.";
+
+/* No comment provided by engineer. */
+"SHOT CURVE" = "منحنى الجرعة";
+
+/* No comment provided by engineer. */
+"Shots to a positive espresso" = "جرعات حتى استخلاص إسبريسو ناجح";
+
+/* No comment provided by engineer. */
+"Show this QR at the Talla counter. Staff will look up the pass and redeem one drink per guest." = "أظهر رمز QR هذا عند منضدة تله. سيتحقق الموظفون من البطاقة ويستبدلون مشروباً واحداً لكل ضيف.";
+
+/* No comment provided by engineer. */
+"Sign in" = "تسجيل الدخول";
+
+/* No comment provided by engineer. */
+"Sign in to buy a redeemable coffee gift. You can share its link after payment is confirmed." = "سجّل الدخول لشراء هدية قهوة قابلة للاستبدال. يمكنك مشاركة رابطها بعد تأكيد الدفع.";
+
+/* No comment provided by engineer. */
+"Sign in to create or join a private group order." = "سجّل الدخول لإنشاء طلب جماعي خاص أو الانضمام إليه.";
+
+/* No comment provided by engineer. */
+"Sign in to follow coffee people" = "سجّل الدخول لمتابعة محبي القهوة";
+
+/* No comment provided by engineer. */
+"Sign in to join this private group order. Group details are only visible to members." = "سجّل الدخول للانضمام إلى هذا الطلب الجماعي الخاص. التفاصيل متاحة للأعضاء فقط.";
+
+/* No comment provided by engineer. */
+"Sign in to publish this note to the community" = "سجّل الدخول لنشر هذه الملاحظة للمجتمع";
+
+/* No comment provided by engineer. */
+"Sign in to sponsor coffees" = "سجّل الدخول لدعم أكواب القهوة";
+
+/* No comment provided by engineer. */
+"Size" = "الحجم";
+
+/* No comment provided by engineer. */
+"Skip · pause · swap" = "تخطَّ · أوقف مؤقتاً · بدّل";
+
+/* No comment provided by engineer. */
+"SOON" = "قريباً";
+
+/* No comment provided by engineer. */
+"Sour, sharp, or thin? Try a finer grind, hotter water, or more brew time." = "هل مذاقها حامض أو لاذع أو خفيف؟ جرّب طحنًا أنعم أو ماءً أسخن أو وقت تحضير أطول.";
+
+/* No comment provided by engineer. */
+"Sponsored credits are attached to your paid order so staff can verify and redeem each one at the counter." = "تُرفق الأرصدة المدعومة بطلبك المدفوع ليتمكن الموظفون من التحقق منها واستبدالها عند المنضدة.";
+
+/* No comment provided by engineer. */
+"START →" = "ابدأ ←";
+
+/* No comment provided by engineer. */
+"Start an order" = "ابدأ طلباً";
+
+/* No comment provided by engineer. */
+"Start Shot" = "ابدأ الجرعة";
+
+/* No comment provided by engineer. */
+"Start steam timer" = "ابدأ مؤقت تبخير الحليب";
+
+/* No comment provided by engineer. */
+"Start with the places Talla is watching closely." = "ابدأ بالأماكن التي تتابعها تله عن قرب.";
+
+/* No comment provided by engineer. */
+"Starting point" = "نقطة البداية";
+
+/* No comment provided by engineer. */
+"Stream" = "البث";
+
+/* No comment provided by engineer. */
+"Submit a recipe" = "إرسال وصفة";
+
+/* No comment provided by engineer. */
+"Submit for review" = "إرسال للمراجعة";
+
+/* No comment provided by engineer. */
+"Submit video assessment" = "إرسال تقييم الفيديو";
+
+/* No comment provided by engineer. */
+"SUBSCRIPTIONS" = "الاشتراكات";
+
+/* No comment provided by engineer. */
+"Surprise me" = "فاجئني";
+
+/* No comment provided by engineer. */
+"Suspended coffee counter code for order %@" = "رمز استلام القهوة المعلّقة للطلب %@";
+
+/* No comment provided by engineer. */
+"Suspended coffees for the community" = "أكواب قهوة معلّقة للمجتمع";
+
+/* No comment provided by engineer. */
+"Swap drink for remaining credits" = "استبدل المشروب بالأرصدة المتبقية";
+
+/* No comment provided by engineer. */
+"Sweet, clear, and balanced. This is the zone to look for when dialing in a recipe." = "حلاوة ووضوح وتوازن؛ هذه هي النتيجة المنشودة عند ضبط الوصفة.";
+
+/* No comment provided by engineer. */
+"TALLA" = "TALLA";
+
+/* No comment provided by engineer. */
+"TALLA COFFEE CLUB" = "نادي قهوة تله";
+
+/* No comment provided by engineer. */
+"Talla coffee gift" = "هدية قهوة من تله";
+
+/* No comment provided by engineer. */
+"Talla has learned from %lld previous refinement%@ for this coffee." = "استفادت تله من %lld تحسين سابق%@ لهذه القهوة.";
+
+/* No comment provided by engineer. */
+"Talla ranks available products using your saved taste preferences, favorites, recent orders, coffee library matches, and availability. Turning off personalization removes taste-profile weighting from new recommendations." = "ترتّب تله المنتجات المتاحة وفق تفضيلات ذوقك ومفضلاتك وطلباتك الأخيرة وما يناسب مكتبة قهوتك والتوفر. عند إيقاف التخصيص، لا تؤثر تفضيلات الذوق في التوصيات الجديدة.";
+
+/* No comment provided by engineer. */
+"Talla recommends a %@ g bloom for this coffee." = "توصي تله بكمية ماء تفتح قدرها %@ غ لهذه القهوة.";
+
+/* No comment provided by engineer. */
+"TALLA REWARDS CLUB" = "نادي مكافآت تله";
+
+/* No comment provided by engineer. */
+"Talla Shelf" = "رف تله";
+
+/* No comment provided by engineer. */
+"Talla Shop" = "متجر تله";
+
+/* No comment provided by engineer. */
+"TALLA SPECIALITY" = "تله سبيشالتي";
+
+/* No comment provided by engineer. */
+"Talla Speciality logo" = "شعار تله سبيشالتي";
+
+/* No comment provided by engineer. */
+"Talla will follow up for the recipient’s delivery details before issuing the card." = "ستتواصل تله لاستكمال تفاصيل توصيل المستلم قبل إصدار البطاقة.";
+
+/* No comment provided by engineer. */
+"Tap a bag below to deduct this dose without saving a journal entry." = "اضغط على أحد الأكياس أدناه لخصم هذه الجرعة دون حفظ إدخال في السجل.";
+
+/* No comment provided by engineer. */
+"Tap a family to see the notes you may find in your cup." = "اضغط على فئة لمعرفة الإيحاءات التي قد تلاحظها في فنجانك.";
+
+/* No comment provided by engineer. */
+"Tap a pin to open a place" = "اضغط على دبوس لفتح المكان";
+
+/* No comment provided by engineer. */
+"Target temperature" = "درجة الحرارة المستهدفة";
+
+/* No comment provided by engineer. */
+"Taste" = "الذوق";
+
+/* No comment provided by engineer. */
+"Taste a coffee" = "تذوّق القهوة";
+
+/* No comment provided by engineer. */
+"Taste more.\nUnderstand more." = "تذوّق أكثر.\nاكتشف أكثر.";
+
+/* No comment provided by engineer. */
+"Tasting notes" = "ملاحظات التذوق";
+
+/* No comment provided by engineer. */
+"Temperature preset" = "إعداد مسبق للحرارة";
+
+/* No comment provided by engineer. */
+"The Gulf, one cup at a time" = "الخليج، فنجاناً بعد فنجان";
+
+/* No comment provided by engineer. */
+"The invite is private and expires after 48 hours." = "الدعوة خاصة وتنتهي صلاحيتها بعد ٤٨ ساعة.";
+
+/* No comment provided by engineer. */
+"THE TALLA CLUB" = "نادي تله";
+
+/* No comment provided by engineer. */
+"These items can’t be checked out together. Replace the %lld item%@ in your bag to start %@?" = "لا يمكن إتمام شراء هذه العناصر معاً. هل تريد استبدال %lld عنصر%@ في حقيبتك لبدء %@؟";
+
+/* No comment provided by engineer. */
+"This brew" = "هذا التحضير";
+
+/* No comment provided by engineer. */
+"This group order needs its own bag. Replace the items in your current bag to continue?" = "يحتاج هذا الطلب الجماعي إلى حقيبة مستقلة. هل تريد استبدال محتويات حقيبتك الحالية للمتابعة؟";
+
+/* No comment provided by engineer. */
+"This profile is ready to publish or share after review." = "هذا الملف جاهز للنشر أو المشاركة بعد المراجعة.";
+
+/* No comment provided by engineer. */
+"This Social Coffee gift needs its own bag. Replace the items in your current bag to continue?" = "تحتاج هدية القهوة الاجتماعية هذه إلى حقيبة مستقلة. هل تريد استبدال محتويات حقيبتك الحالية للمتابعة؟";
+
+/* No comment provided by engineer. */
+"This Social Coffee purchase needs its own bag. Replace the items in your current bag to continue?" = "يحتاج شراء القهوة الاجتماعية هذا إلى حقيبة مستقلة. هل تريد استبدال محتويات حقيبتك الحالية للمتابعة؟";
+
+/* No comment provided by engineer. */
+"Time: %@\nGrind: %@" = "الوقت: %@\nالطحن: %@";
+
+/* No comment provided by engineer. */
+"TIMEMORE" = "TIMEMORE";
+
+/* No comment provided by engineer. */
+"Title" = "العنوان";
+
+/* No comment provided by engineer. */
+"Total time: %llds" = "الوقت الإجمالي: %lld ث";
+
+/* No comment provided by engineer. */
+"Total: BHD %@ · charged at the current menu price, with no pass discount." = "الإجمالي: BHD %@ · يُحتسب بسعر القائمة الحالي دون خصم البطاقة.";
+
+/* No comment provided by engineer. */
+"Try a different country, category or search." = "جرّب بلداً أو فئة أو كلمة بحث مختلفة.";
+
+/* No comment provided by engineer. */
+"Tumma Roast logo" = "Tumma Roast logo";
+
+/* No comment provided by engineer. */
+"Under-extracted" = "استخلاص ناقص";
+
+/* No comment provided by engineer. */
+"Update" = "تحديث";
+
+/* No comment provided by engineer. */
+"Update on the App Store" = "تحديث من App Store";
+
+/* No comment provided by engineer. */
+"Upload selected video" = "رفع الفيديو المحدد";
+
+/* No comment provided by engineer. */
+"Use taste profile for recommendations" = "استخدم ملف ذوقك للتوصيات";
+
+/* No comment provided by engineer. */
+"Variety" = "الصنف";
+
+/* No comment provided by engineer. */
+"VAT number" = "الرقم الضريبي";
+
+/* No comment provided by engineer. */
+"VAT registration number (optional)" = "رقم التسجيل في ضريبة القيمة المضافة (اختياري)";
+
+/* No comment provided by engineer. */
+"Video notes stay attached to the shot; publishing requires an explicit share action and moderation." = "تبقى ملاحظات الفيديو مرتبطة بالجرعة؛ ويتطلب النشر مشاركة صريحة ومراجعة.";
+
+/* No comment provided by engineer. */
+"Video selected" = "تم تحديد الفيديو";
+
+/* No comment provided by engineer. */
+"Video URL (optional)" = "رابط الفيديو (اختياري)";
+
+/* No comment provided by engineer. */
+"VIEW REWARDS" = "عرض المكافآت";
+
+/* No comment provided by engineer. */
+"Visibility" = "إمكانية الظهور";
+
+/* No comment provided by engineer. */
+"Water hardness" = "عسر الماء";
+
+/* No comment provided by engineer. */
+"Water profile" = "ملف الماء";
+
+/* No comment provided by engineer. */
+"Water: %@ g" = "الماء: %@ غ";
+
+/* No comment provided by engineer. */
+"Weight" = "الوزن";
+
+/* No comment provided by engineer. */
+"Weight & flow" = "الوزن والتدفق";
+
+/* No comment provided by engineer. */
+"WEIGHT CURVE" = "منحنى الوزن";
+
+/* No comment provided by engineer. */
+"Welcome back, %@." = "مرحباً بعودتك، %@.";
+
+/* No comment provided by engineer. */
+"What did it taste like? (sour, bitter, sweet…)" = "كيف كان مذاقها؟ (حامض، مُر، حلو…)";
+
+/* No comment provided by engineer. */
+"WhatsApp support" = "الدعم عبر واتساب";
+
+/* No comment provided by engineer. */
+"Who is it for?" = "لمن هذه الهدية؟";
+
+/* No comment provided by engineer. */
+"You %lld/5" = "تقييمك %lld/5";
+
+/* No comment provided by engineer. */
+"Your %@ setup leans %@. Start with %@, then keep one variable steady while you dial it in." = "إعدادك لـ %@ يميل إلى %@. ابدأ بـ %@، ثم ثبّت عاملاً واحداً أثناء ضبط الوصفة.";
+
+/* No comment provided by engineer. */
+"Your bag" = "حقيبتك";
+
+/* No comment provided by engineer. */
+"YOUR CLUB" = "ناديك";
+
+/* No comment provided by engineer. */
+"YOUR CLUB TIER" = "مستوى عضويتك";
+
+/* No comment provided by engineer. */
+"Your coffee is ready to redeem" = "قهوتك جاهزة للاستبدال";
+
+/* No comment provided by engineer. */
+"Your coffee ritual, in one place." = "طقس قهوتك، في مكان واحد.";
+
+/* No comment provided by engineer. */
+"YOUR COFFEE SCHOOL LEVEL" = "مستواك في مدرسة القهوة";
+
+/* No comment provided by engineer. */
+"Your coffee,\non repeat." = "قهوتك،\nعلى الدوام.";
+
+/* No comment provided by engineer. */
+"Your group orders" = "طلباتك الجماعية";
+
+/* No comment provided by engineer. */
+"Your member wallet" = "محفظة عضويتك";
+
+/* No comment provided by engineer. */
+"Your name" = "اسمك";
+
+/* No comment provided by engineer. */
+"Your next bag is already\nwithin reach." = "كيسك القادم\nأصبح قريباً.";
+
+/* No comment provided by engineer. */
+"Your note: %@" = "ملاحظتك: %@";
+
+/* No comment provided by engineer. */
+"Your paid coffee gift is ready to share ☕️" = "هدية القهوة المدفوعة جاهزة للمشاركة ☕️";
+
+/* No comment provided by engineer. */
+"YOUR SNAPSHOT" = "لمحتك";
+
+/* No comment provided by engineer. */
+"YY" = "YY";
+
+/* No comment provided by engineer. */
+"اختر طريقة الدفع المتاحة في صفحة دفع Shopify الآمنة. بطاقات الهدايا لا تدعم الدفع عند الاستلام." = "اختر طريقة الدفع المتاحة في صفحة دفع Shopify الآمنة. بطاقات الهدايا لا تدعم الدفع عند الاستلام.";
+
+/* No comment provided by engineer. */
+"التحديث من App Store" = "التحديث من App Store";
+
+/* No comment provided by engineer. */
+"الدعم عبر واتساب" = "الدعم عبر واتساب";
+
+/* No comment provided by engineer. */
+"تحديث" = "تحديث";

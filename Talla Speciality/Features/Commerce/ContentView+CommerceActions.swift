@@ -1034,8 +1034,14 @@ extension ContentView {
                         fullName: address.fullName,
                         phone: address.phone,
                         address1: address.line1,
+                        address2: [address.details?.district, address.details?.block, address.details?.building, address.details?.unit, address.details?.landmark, address.details?.additionalNumber]
+                            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                            .joined(separator: ", "),
                         city: address.city,
-                        country: address.country.rawValue
+                        country: address.country.rawValue,
+                        province: address.details?.region ?? "",
+                        postalCode: address.details?.postalCode ?? ""
                     )
                 } : nil
                 let checkoutURL = try await ShopifyStorefrontClient.createCheckoutURL(
@@ -1258,7 +1264,7 @@ extension ContentView {
             return AppLocalization.text("category_coffee_beans", fallback: "Coffee Beans")
         }
         if key == "arabic-coffee-beans" || key == "northern-coffee" || key == "other" {
-            return AppLocalization.text("category_arabic_coffee", fallback: "Arabic & Shamali Coffee")
+            return AppLocalization.text("category_arabic_coffee", fallback: "Arabic Coffee & Gahwa")
         }
         if key == "drip-bags" {
             return AppLocalization.text("category_drip_bags", fallback: "Drip Bags")

@@ -1,0 +1,358 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld / %lld g" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%1$lld / %2$lld غ"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld / %2$lld g"
+          }
+        }
+      }
+    },
+    "%lld %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%1$lld %2$@‏"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@"
+          }
+        }
+      }
+    },
+    "%lld Beans" : {
+      "localizations" : {
+        "ar" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld حبات بن"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld حبة بن"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld حبة بن"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld حبة بن"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld حبتا بن"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld حبة بن"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld Bean"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld Beans"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld Beans"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Ask Coffee Concierge" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "اسأل مرشد القهوة"
+          }
+        }
+      }
+    },
+    "Brewing Guide" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "دليل التحضير"
+          }
+        }
+      }
+    },
+    "Coffee Concierge" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مرشد القهوة"
+          }
+        }
+      }
+    },
+    "Concierge" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المرشد"
+          }
+        }
+      }
+    },
+    "Open Brewing Guide" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح دليل التحضير"
+          }
+        }
+      }
+    },
+    "Open Coffee Concierge" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح مرشد القهوة"
+          }
+        }
+      }
+    },
+    "Open Shop" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح المتجر"
+          }
+        }
+      }
+    },
+    "Open Talla Coffee Concierge from Control Center, the Lock Screen, or the Action Button." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "افتح مرشد قهوة تله من مركز التحكم أو شاشة القفل أو زر الإجراءات."
+          }
+        }
+      }
+    },
+    "Open Talla Rewards" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح مكافآت تله"
+          }
+        }
+      }
+    },
+    "Open Talla Shop" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح متجر تله"
+          }
+        }
+      }
+    },
+    "Open the Talla shop from Control Center, the Lock Screen, or the Action Button." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "افتح متجر تله من مركز التحكم أو شاشة القفل أو زر الإجراءات."
+          }
+        }
+      }
+    },
+    "Open your saved shelf, shop, Coffee Concierge, and rewards quickly." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يمكنك فتح الرف المحفوظ والمتجر ومرشد القهوة والمكافآت بسرعة"
+          }
+        }
+      }
+    },
+    "Opens Talla Speciality and searches the product catalog." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يفتح تله سبيشاليتي ويبحث في كتالوج المنتجات"
+          }
+        }
+      }
+    },
+    "Opens Talla Speciality to account rewards." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يفتح تله سبيشاليتي على مكافآت الحساب"
+          }
+        }
+      }
+    },
+    "Opens Talla Speciality to brewing guides and recipes." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يفتح تله سبيشاليتي على أدلة التحضير والوصفات"
+          }
+        }
+      }
+    },
+    "Opens Talla Speciality to the shop." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يفتح تله سبيشاليتي على المتجر"
+          }
+        }
+      }
+    },
+    "Opens the Coffee Concierge in Talla Speciality." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يفتح مرشد القهوة في تله سبيشاليتي"
+          }
+        }
+      }
+    },
+    "Rewards" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المكافآت"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "البحث"
+          }
+        }
+      }
+    },
+    "Search Talla Products" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "البحث في منتجات تله"
+          }
+        }
+      }
+    },
+    "Shop" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المتجر"
+          }
+        }
+      }
+    },
+    "TALLA" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تله"
+          }
+        }
+      }
+    },
+    "Talla Shelf" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رف تله"
+          }
+        }
+      }
+    },
+    "Talla Shop" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "متجر تله"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.3"
+}

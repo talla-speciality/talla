@@ -21,6 +21,7 @@ import AVFoundation
 
 struct BrewRecipeRecord: Identifiable {
     let id: UUID
+    let coffeeID: UUID?
     let title: String
     let detail: String
     let coffeeGrams: Double?
@@ -51,8 +52,8 @@ struct BrewRecipeRecord: Identifiable {
     let waterProfileID: UUID?
     let temperaturePresetID: UUID?
 
-    init(id: UUID, title: String, detail: String, coffeeGrams: Double?, ratio: Double?, totalWaterGrams: Double?, brewingWaterGrams: Double?, iceGrams: Double?, methodID: String?, brewerID: String?, brewMode: String?, bloomRatio: String?, pourCount: Int?, grind: String?, temperatureC: Int?, controlMode: String?, process: String? = nil, roast: String? = nil, grinder: String? = nil, filter: String? = nil, altitudeMeters: Int? = nil, tastingNotes: String? = nil, targetTimeRange: String? = nil, temperatureReason: String? = nil, expectedCup: String? = nil, approach: String? = nil, steps: [SmartBrewStep]? = nil, grinderID: UUID? = nil, waterProfileID: UUID? = nil, temperaturePresetID: UUID? = nil) {
-        self.id = id; self.title = title; self.detail = detail; self.coffeeGrams = coffeeGrams; self.ratio = ratio
+    init(id: UUID, title: String, detail: String, coffeeGrams: Double?, ratio: Double?, totalWaterGrams: Double?, brewingWaterGrams: Double?, iceGrams: Double?, methodID: String?, brewerID: String?, brewMode: String?, bloomRatio: String?, pourCount: Int?, grind: String?, temperatureC: Int?, controlMode: String?, process: String? = nil, roast: String? = nil, grinder: String? = nil, filter: String? = nil, altitudeMeters: Int? = nil, tastingNotes: String? = nil, targetTimeRange: String? = nil, temperatureReason: String? = nil, expectedCup: String? = nil, approach: String? = nil, steps: [SmartBrewStep]? = nil, grinderID: UUID? = nil, waterProfileID: UUID? = nil, temperaturePresetID: UUID? = nil, coffeeID: UUID? = nil) {
+        self.id = id; self.coffeeID = coffeeID; self.title = title; self.detail = detail; self.coffeeGrams = coffeeGrams; self.ratio = ratio
         self.totalWaterGrams = totalWaterGrams; self.brewingWaterGrams = brewingWaterGrams; self.iceGrams = iceGrams
         self.methodID = methodID; self.brewerID = brewerID; self.brewMode = brewMode; self.bloomRatio = bloomRatio
         self.pourCount = pourCount; self.grind = grind; self.temperatureC = temperatureC; self.controlMode = controlMode
@@ -565,15 +566,15 @@ struct BrewingSectionView: View {
     }
 
     var brewPrimaryTextColor: Color {
-        brewingColorScheme == .dark ? Color(hex: 0xF7F5EF) : Color(hex: 0x1C1A17)
+        brewingColorScheme == .dark ? .white : Color(hex: 0x1C1A17)
     }
 
     var brewSecondaryTextColor: Color {
-        brewingColorScheme == .dark ? Color(hex: 0xB9B1A6) : Color(hex: 0x74716A)
+        brewingColorScheme == .dark ? Color.white.opacity(0.72) : Color(hex: 0x74716A)
     }
 
     var brewBorderColor: Color {
-        brewingColorScheme == .dark ? Color(hex: 0x342E26) : Color(hex: 0xDED9CF)
+        brewingColorScheme == .dark ? Color.white.opacity(0.24) : Color(hex: 0xDED9CF)
     }
 
     var brewAccentColor: Color {

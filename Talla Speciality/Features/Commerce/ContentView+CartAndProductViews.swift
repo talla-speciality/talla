@@ -262,12 +262,21 @@ extension ContentView {
                 managedPickupName,
                 false
             ))
-        } else if preferredAddress.map({ $0.country.isKhaleeji && $0.country != .bahrain }) == true {
+        } else if let address = preferredAddress, address.country.isKhaleeji {
+            let policy = remoteAppSettings?.fulfillment?.gulfMarkets?[address.country.rawValue]
+            let estimate = isArabicInterface ? policy?.deliveryAR : policy?.deliveryEN
             rows.append((
                 AppLocalization.text("transit_time", fallback: "Transit time"),
-                AppLocalization.text("khaleeji_transit_time", fallback: shippingConfiguration.khaleejiTransitTime),
+                policy?.verified == true && estimate?.isEmpty == false ? estimate! :
+                    (isArabicInterface ? "تواصل معنا لتأكيد موعد التوصيل" : "Contact us to confirm delivery timing"),
                 false
             ))
+            if policy?.verified == true, policy?.heatSafePackaging == true {
+                let packaging = isArabicInterface ? policy?.packagingAR : policy?.packagingEN
+                if let packaging, !packaging.isEmpty {
+                    rows.append((isArabicInterface ? "تغليف مناسب للحرارة" : "Heat-safe packaging", packaging, false))
+                }
+            }
         }
         rows.append((
             AppLocalization.text("discount", fallback: "Discount"),
@@ -1536,6 +1545,7 @@ extension ContentView {
 
     var cartFooterContent: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Link(isArabicInterface ? "الدعم عبر واتساب" : "WhatsApp support", destination: managedWhatsAppURL)
             if let checkoutError {
                 Text(checkoutError)
                     .font(bodyFont(size: 13))

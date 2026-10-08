@@ -19,6 +19,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val regionalPreferences = getSharedPreferences("regional-onboarding", MODE_PRIVATE)
+        if (!regionalPreferences.getBoolean("language-initialized", false)) {
+            regionalPreferences.edit().putBoolean("language-initialized", true).apply()
+            if (androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().isEmpty) {
+                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(androidx.core.os.LocaleListCompat.forLanguageTags("ar"))
+            }
+        }
         deepLinkDestination = navigationDestination(intent)
         enableEdgeToEdge()
         setContent {

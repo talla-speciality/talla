@@ -245,6 +245,15 @@ extension ContentView {
         }
 
         struct Fulfillment: Decodable {
+            struct GulfMarket: Decodable {
+                let verified: Bool
+                let deliveryEN: String
+                let deliveryAR: String
+                let heatSafePackaging: Bool
+                let packagingEN: String
+                let packagingAR: String
+            }
+            let gulfMarkets: [String: GulfMarket]?
             struct Location: Decodable, Identifiable {
                 let id: String
                 let nameEN: String
@@ -616,6 +625,16 @@ extension ContentView {
     }
 
     struct DeliveryAddress: Codable, Identifiable {
+        struct Details: Codable, Equatable {
+            let region: String?
+            let district: String?
+            let block: String?
+            let building: String?
+            let unit: String?
+            let postalCode: String?
+            let additionalNumber: String?
+            let landmark: String?
+        }
         let id: String
         let label: String
         let fullName: String
@@ -623,6 +642,7 @@ extension ContentView {
         let line1: String
         let city: String
         let countryCode: String?
+        let details: Details?
         let notes: String?
         let isPreferred: Bool
 
@@ -671,7 +691,7 @@ extension ContentView {
         }
 
         var name: String {
-            Locale.current.localizedString(forRegionCode: rawValue) ?? rawValue
+            Locale(identifier: AppLocalization.currentLanguage.localeIdentifier).localizedString(forRegionCode: rawValue) ?? rawValue
         }
 
         var flag: String {
@@ -703,6 +723,7 @@ extension ContentView {
 
     struct BrewRecipe: Codable, Identifiable {
         let id: UUID
+        let coffeeID: UUID?
         let name: String
         let coffeeGrams: Double
         let ratio: Double
@@ -733,6 +754,41 @@ extension ContentView {
         let expectedCup: String?
         let approach: String?
         let steps: [SmartBrewStep]?
+
+        init(id: UUID, coffeeID: UUID? = nil, name: String, coffeeGrams: Double, ratio: Double, waterGrams: Double, category: String, createdAt: String, brewingWaterGrams: Double?, iceGrams: Double?, methodID: String?, brewerID: String?, brewMode: String?, bloomRatio: String?, pourCount: Int?, grind: String?, temperatureC: Int?, controlMode: String?, process: String?, roast: String?, grinder: String?, grinderID: UUID?, waterProfileID: UUID?, temperaturePresetID: UUID?, filter: String?, altitudeMeters: Int?, tastingNotes: String?, targetTimeRange: String?, temperatureReason: String?, expectedCup: String?, approach: String?, steps: [SmartBrewStep]?) {
+            self.id = id
+            self.coffeeID = coffeeID
+            self.name = name
+            self.coffeeGrams = coffeeGrams
+            self.ratio = ratio
+            self.waterGrams = waterGrams
+            self.category = category
+            self.createdAt = createdAt
+            self.brewingWaterGrams = brewingWaterGrams
+            self.iceGrams = iceGrams
+            self.methodID = methodID
+            self.brewerID = brewerID
+            self.brewMode = brewMode
+            self.bloomRatio = bloomRatio
+            self.pourCount = pourCount
+            self.grind = grind
+            self.temperatureC = temperatureC
+            self.controlMode = controlMode
+            self.process = process
+            self.roast = roast
+            self.grinder = grinder
+            self.grinderID = grinderID
+            self.waterProfileID = waterProfileID
+            self.temperaturePresetID = temperaturePresetID
+            self.filter = filter
+            self.altitudeMeters = altitudeMeters
+            self.tastingNotes = tastingNotes
+            self.targetTimeRange = targetTimeRange
+            self.temperatureReason = temperatureReason
+            self.expectedCup = expectedCup
+            self.approach = approach
+            self.steps = steps
+        }
     }
 
     struct BrewJournalEntry: Codable, Identifiable {

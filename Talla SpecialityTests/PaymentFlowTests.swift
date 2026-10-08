@@ -103,17 +103,26 @@ struct PaymentFlowTests {
     }
 
     @Test func cardMessagingIncludesAmericanExpress() {
+        let previous = UserDefaults.standard.string(forKey: "app.language")
+        defer { UserDefaults.standard.set(previous, forKey: "app.language") }
+        UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: "app.language")
         #expect(TallaPaymentMethod.card.subtitle.contains("American Express"))
         #expect(TallaPaymentMethod.clickToPay.subtitle.contains("Mastercard"))
         #expect(TallaPaymentMethod.cashOnDelivery.supportingText?.contains("cash") == true)
     }
 
     @Test func sheetMessagingIsCompactAndSpecific() {
+        let previous = UserDefaults.standard.string(forKey: "app.language")
+        defer { UserDefaults.standard.set(previous, forKey: "app.language") }
+        UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: "app.language")
         #expect(TallaPaymentMethod.benefit.sheetSubtitle == "For Bahrain-issued debit cards")
         #expect(TallaPaymentMethod.cashOnDelivery.sheetSubtitle == "Complete your order through Shopify Checkout")
     }
 
     @Test func actionCopyMatchesTheSelectedMethod() {
+        let previous = UserDefaults.standard.string(forKey: "app.language")
+        defer { UserDefaults.standard.set(previous, forKey: "app.language") }
+        UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: "app.language")
         #expect(TallaPaymentMethod.benefit.actionTitle == "Continue to BENEFIT")
         #expect(TallaPaymentMethod.card.actionTitle == "Enter card details")
         #expect(TallaPaymentMethod.clickToPay.actionTitle == "Continue to Click to Pay")
@@ -157,6 +166,9 @@ struct PaymentFlowTests {
     }
 
     @Test func accessibilitySummaryDescribesTheMethod() {
+        let previous = UserDefaults.standard.string(forKey: "app.language")
+        defer { UserDefaults.standard.set(previous, forKey: "app.language") }
+        UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: "app.language")
         #expect(TallaPaymentMethod.benefit.accessibilitySummary.contains("Bahraini debit cards"))
         #expect(TallaPaymentMethod.card.accessibilitySummary.contains("Visa"))
     }
@@ -168,6 +180,14 @@ struct PaymentFlowTests {
         #expect(AppLocalization.currentLanguage.layoutDirection == .rightToLeft)
         #expect(TallaPaymentMethod.benefit.title == "بنفت")
         #expect(TallaPaymentMethod.card.actionTitle == "إدخال بيانات البطاقة")
+    }
+
+    @Test func newCustomersDefaultToArabic() {
+        let previous = UserDefaults.standard.string(forKey: "app.language")
+        defer { UserDefaults.standard.set(previous, forKey: "app.language") }
+        UserDefaults.standard.removeObject(forKey: "app.language")
+        #expect(AppLocalization.currentLanguage == .arabic)
+        #expect(AppLocalization.currentLanguage.layoutDirection == .rightToLeft)
     }
 
     @Test func successPresentationRequiresConfirmedState() {

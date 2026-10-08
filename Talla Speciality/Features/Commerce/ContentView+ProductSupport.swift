@@ -467,7 +467,7 @@ extension ContentView {
             return AppLocalization.text("equipment_card_summary", fallback: "Brewing gear")
         case "gifts":
             return AppLocalization.text("gifts_card_summary", fallback: "Gift box")
-        case "arabic-coffee":
+        case "arabic-coffee", "arabic-coffee-beans":
             return AppLocalization.text("arabic_card_summary", fallback: "Arabic coffee")
         default:
             return product.categoryLabel.isEmpty

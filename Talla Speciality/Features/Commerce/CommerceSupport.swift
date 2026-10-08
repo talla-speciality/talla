@@ -669,11 +669,14 @@ enum ShopifyStorefrontClient {
             let lastName = nameParts.dropFirst().joined(separator: " ")
             let deliveryAddress: [String: Any] = [
                 "address1": checkoutAddress.address1,
+                "address2": checkoutAddress.address2,
                 "city": checkoutAddress.city,
                 "country": checkoutAddress.country,
                 "firstName": firstName,
                 "lastName": lastName,
-                "phone": checkoutAddress.phone
+                "phone": checkoutAddress.phone,
+                "province": checkoutAddress.province,
+                "zip": checkoutAddress.postalCode
             ]
             let deliveryAddressPreference: [String: Any] = [
                 "deliveryAddress": deliveryAddress
@@ -903,8 +906,11 @@ struct ShopifyCheckoutAddress {
     let fullName: String
     let phone: String
     let address1: String
+    let address2: String
     let city: String
     let country: String
+    let province: String
+    let postalCode: String
 }
 
 struct ShopifyCartCreateResponse: Decodable {

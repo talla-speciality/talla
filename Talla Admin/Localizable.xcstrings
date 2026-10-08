@@ -1,0 +1,2986 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@\n\n%@\n\nThis sends immediately." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%1$@\n\n%2$@\n\nسيتم الإرسال فورًا."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@\n\n%2$@\n\nThis sends immediately."
+          }
+        }
+      }
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ Beans%@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%1$@ · %2$@ بن%3$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ Beans%3$@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%1$lld %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@"
+          }
+        }
+      }
+    },
+    "%lld customers" : {
+      "localizations" : {
+        "ar" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld عملاء"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld عميلًا"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld عميل"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld عميل"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld عميلان"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld عميل"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld customer"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld customers"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld customers"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld item%@" : {
+      "localizations" : {
+        "ar" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld عناصر%2$@"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld عنصرًا%2$@"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld عنصر%2$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld عنصر%2$@"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld عنصران%2$@"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld عنصر%2$@"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld item%2$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld item%2$@"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%1$lld item%2$@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld of %lld selected" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تم تحديد %1$lld من أصل %2$lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld selected"
+          }
+        }
+      }
+    },
+    "%lld products" : {
+      "localizations" : {
+        "ar" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld منتجات"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld منتجًا"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld منتج"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld منتج"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld منتجان"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld منتج"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld product"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld products"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "%lld products"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld×" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%lld×"
+          }
+        }
+      }
+    },
+    "×%lld" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "×%lld"
+          }
+        }
+      }
+    },
+    "About" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حول"
+          }
+        }
+      }
+    },
+    "Account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الحساب"
+          }
+        }
+      }
+    },
+    "Account and security" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الحساب والأمان"
+          }
+        }
+      }
+    },
+    "Accounts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الحسابات"
+          }
+        }
+      }
+    },
+    "Active" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "النشطة"
+          }
+        }
+      }
+    },
+    "Active voucher" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "قسيمة نشطة"
+          }
+        }
+      }
+    },
+    "Add %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إضافة %@‏"
+          }
+        }
+      }
+    },
+    "Add address" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إضافة عنوان"
+          }
+        }
+      }
+    },
+    "Add another coffee" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إضافة قهوة أخرى"
+          }
+        }
+      }
+    },
+    "Add espresso community content" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إضافة محتوى مجتمع الإسبريسو"
+          }
+        }
+      }
+    },
+    "Add product" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إضافة منتج"
+          }
+        }
+      }
+    },
+    "Add product image" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إضافة صورة للمنتج"
+          }
+        }
+      }
+    },
+    "Address" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "العنوان"
+          }
+        }
+      }
+    },
+    "Adjust loyalty Beans" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعديل حبوب الولاء"
+          }
+        }
+      }
+    },
+    "Admin" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المسؤول"
+          }
+        }
+      }
+    },
+    "Admin page unavailable" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "صفحة الإدارة غير متاحة"
+          }
+        }
+      }
+    },
+    "Admin password" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "كلمة مرور المسؤول"
+          }
+        }
+      }
+    },
+    "Admin Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إعدادات الإدارة"
+          }
+        }
+      }
+    },
+    "Admin username" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "اسم مستخدم المسؤول"
+          }
+        }
+      }
+    },
+    "Admin workspace" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مساحة عمل الإدارة"
+          }
+        }
+      }
+    },
+    "Amount (BHD)" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المبلغ (د.ب.)"
+          }
+        }
+      }
+    },
+    "Apply Status Change" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تطبيق تغيير الحالة"
+          }
+        }
+      }
+    },
+    "Audience: all eligible customer devices." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الجمهور: جميع أجهزة العملاء المؤهلة"
+          }
+        }
+      }
+    },
+    "Author" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المؤلف"
+          }
+        }
+      }
+    },
+    "Automatic daily pick" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الاختيار اليومي التلقائي"
+          }
+        }
+      }
+    },
+    "Back" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رجوع"
+          }
+        }
+      }
+    },
+    "Backend" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الخادم الخلفي"
+          }
+        }
+      }
+    },
+    "Call" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "اتصال"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إلغاء"
+          }
+        }
+      }
+    },
+    "Cancel Plan" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إلغاء الخطة"
+          }
+        }
+      }
+    },
+    "Cancellation or refund note" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ملاحظة الإلغاء أو الاسترداد"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ملغى"
+          }
+        }
+      }
+    },
+    "Category" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الفئة"
+          }
+        }
+      }
+    },
+    "Changes apply to the next shipment that has not been prepared. If it is already prepared, they start with the following shipment." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تُطبَّق التغييرات على الشحنة التالية التي لم تُجهَّز بعد. وإذا كانت قد جُهِّزت بالفعل، فتبدأ التغييرات من الشحنة التي تليها."
+          }
+        }
+      }
+    },
+    "Changes are kept in this draft. Return to the previous screen and tap Publish to make them live." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تُحفظ التغييرات في هذه المسودة. ارجع إلى الشاشة السابقة واضغط على نشر لتفعيلها."
+          }
+        }
+      }
+    },
+    "City" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المدينة"
+          }
+        }
+      }
+    },
+    "Coffee Club · %lld delivered · %lld remaining" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نادي القهوة · %#@delivered@ · %#@remaining@"
+          },
+          "substitutions" : {
+            "delivered" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "few" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنات مسلَّمة"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة مسلَّمة"
+                    }
+                  },
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة مسلَّمة"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة مسلَّمة"
+                    }
+                  },
+                  "two" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنتان مسلَّمتان"
+                    }
+                  },
+                  "zero" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة مسلَّمة"
+                    }
+                  }
+                }
+              }
+            },
+            "remaining" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "few" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنات متبقية"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة متبقية"
+                    }
+                  },
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة متبقية"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة متبقية"
+                    }
+                  },
+                  "two" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنتان متبقيتان"
+                    }
+                  },
+                  "zero" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg شحنة متبقية"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Coffee Club · %#@delivered@ · %#@remaining@"
+          },
+          "substitutions" : {
+            "delivered" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg delivered"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg delivered"
+                    }
+                  },
+                  "zero" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg delivered"
+                    }
+                  }
+                }
+              }
+            },
+            "remaining" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg remaining"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg remaining"
+                    }
+                  },
+                  "zero" : {
+                    "stringUnit" : {
+                      "state" : "machine_translated",
+                      "value" : "%arg remaining"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Coffee Memory" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ذاكرة القهوة"
+          }
+        }
+      }
+    },
+    "Coffee memory unavailable" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ذاكرة القهوة غير متاحة"
+          }
+        }
+      }
+    },
+    "Coffee name" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "اسم القهوة"
+          }
+        }
+      }
+    },
+    "Comma-separated keywords" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "كلمات مفتاحية مفصولة بفواصل"
+          }
+        }
+      }
+    },
+    "Community Recipes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "وصفات المجتمع"
+          }
+        }
+      }
+    },
+    "Completed" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مكتملة"
+          }
+        }
+      }
+    },
+    "Completion is manual. A successful payment confirms an order but does not complete it." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يُستكمل الطلب يدويًا. تؤكد عملية الدفع الناجحة الطلب، لكنها لا تُكمله."
+          }
+        }
+      }
+    },
+    "Compose" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إنشاء"
+          }
+        }
+      }
+    },
+    "Confirm" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تأكيد"
+          }
+        }
+      }
+    },
+    "Copy order number" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نسخ رقم الطلب"
+          }
+        }
+      }
+    },
+    "Country code" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رمز الدولة"
+          }
+        }
+      }
+    },
+    "Create voucher" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إنشاء قسيمة"
+          }
+        }
+      }
+    },
+    "Customer app content" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "محتوى تطبيق العملاء"
+          }
+        }
+      }
+    },
+    "Customer engagement" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تفاعل العملاء"
+          }
+        }
+      }
+    },
+    "Customer support" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "دعم العملاء"
+          }
+        }
+      }
+    },
+    "Customer-submitted recipes will appear here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ستظهر هنا الوصفات المقدمة من العملاء."
+          }
+        }
+      }
+    },
+    "Customer, lot, or record type" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "العميل أو الدفعة أو نوع السجل"
+          }
+        }
+      }
+    },
+    "Customers" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "العملاء"
+          }
+        }
+      }
+    },
+    "Deactivate Account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إلغاء تنشيط الحساب"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حذف"
+          }
+        }
+      }
+    },
+    "Delete Customer Account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حذف حساب العميل"
+          }
+        }
+      }
+    },
+    "Delete Product" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حذف المنتج"
+          }
+        }
+      }
+    },
+    "Delivery" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "التوصيل"
+          }
+        }
+      }
+    },
+    "Delivery is charged separately for every shipment. Shipment progress is visible to the customer in their order history." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تُحتسب رسوم التوصيل بشكل منفصل لكل شحنة. يمكن للعميل متابعة تقدم الشحنة في سجل طلباته."
+          }
+        }
+      }
+    },
+    "Discard and Reload" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تجاهل وإعادة التحميل"
+          }
+        }
+      }
+    },
+    "Discard Changes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تجاهل التغييرات"
+          }
+        }
+      }
+    },
+    "Discard unpublished changes?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "هل تريد تجاهل التغييرات غير المنشورة؟"
+          }
+        }
+      }
+    },
+    "Dismiss message" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إغلاق الرسالة"
+          }
+        }
+      }
+    },
+    "Donated counter credits. Redeem one drink per guest; the server records each use." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رصيد متبرع به لدى المنضدة. يمكن استبدال مشروب واحد لكل ضيف، ويُسجّل موظف الخدمة كل استخدام."
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تكرار"
+          }
+        }
+      }
+    },
+    "Each admin iPhone registers separately. New orders use the Talla Admin bundle and do not affect customer notifications." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يُسجَّل كل جهاز iPhone للإدارة على حدة. تستخدم الطلبات الجديدة حزمة Talla Admin ولا تؤثر في إشعارات العملاء."
+          }
+        }
+      }
+    },
+    "Edit Coffee Club" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعديل نادي القهوة"
+          }
+        }
+      }
+    },
+    "Edit Future Shipment" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعديل شحنة مستقبلية"
+          }
+        }
+      }
+    },
+    "Edit profile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعديل الملف الشخصي"
+          }
+        }
+      }
+    },
+    "Edit Recipe" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعديل الوصفة"
+          }
+        }
+      }
+    },
+    "Edit the sections below, then tap Publish to update the customer app." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "عدّل الأقسام أدناه، ثم اضغط على نشر لتحديث تطبيق العملاء."
+          }
+        }
+      }
+    },
+    "Email" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إرسال بريد إلكتروني"
+          }
+        }
+      }
+    },
+    "Enable New-Order Alerts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تمكين تنبيهات الطلبات الجديدة"
+          }
+        }
+      }
+    },
+    "Espresso Community" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مجتمع الإسبريسو"
+          }
+        }
+      }
+    },
+    "Event status" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حالة الفعالية"
+          }
+        }
+      }
+    },
+    "Execute refund in Shopify" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تنفيذ الاسترداد في Shopify"
+          }
+        }
+      }
+    },
+    "Execute Shopify refund?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تنفيذ عملية الاسترداد عبر Shopify؟"
+          }
+        }
+      }
+    },
+    "Export filtered customers as CSV" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تصدير العملاء الذين تمت تصفيتهم بصيغة CSV"
+          }
+        }
+      }
+    },
+    "Filtered customers" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "العملاء الذين تمت تصفيتهم"
+          }
+        }
+      }
+    },
+    "Filters and sorting" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "عوامل التصفية والفرز"
+          }
+        }
+      }
+    },
+    "Find a product" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "البحث عن منتج"
+          }
+        }
+      }
+    },
+    "Find a recipe" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "البحث عن وصفة"
+          }
+        }
+      }
+    },
+    "Find an admin section" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "البحث عن قسم إداري"
+          }
+        }
+      }
+    },
+    "Flow" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "التدفق"
+          }
+        }
+      }
+    },
+    "Fulfilment" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تنفيذ الطلب"
+          }
+        }
+      }
+    },
+    "Full Admin" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الإدارة الكاملة"
+          }
+        }
+      }
+    },
+    "Grant vouchers to %lld customers" : {
+      "localizations" : {
+        "ar" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "منح قسائم إلى %lld عملاء"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "منح قسائم إلى %lld عميلًا"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "منح قسائم إلى %lld عميل"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "منح قسائم إلى %lld عميل"
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "منح قسائم إلى %lld عميلين"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "منح قسائم إلى %lld عميل"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "Grant vouchers to %lld customer"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "Grant vouchers to %lld customers"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "machine_translated",
+                  "value" : "Grant vouchers to %lld customers"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Has orders" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لديه طلبات"
+          }
+        }
+      }
+    },
+    "Insights" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "التحليلات"
+          }
+        }
+      }
+    },
+    "Internal note" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ملاحظة داخلية"
+          }
+        }
+      }
+    },
+    "Inventory editing is unavailable for this product’s location." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا يتوفر تعديل المخزون لموقع هذا المنتج."
+          }
+        }
+      }
+    },
+    "Keep the day-to-day work in the tabs below. Use this space for configuration, content, and reporting." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "استخدم علامات التبويب أدناه للأعمال اليومية. واستخدم هذه المساحة للإعدادات والمحتوى والتقارير."
+          }
+        }
+      }
+    },
+    "Last refreshed" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "آخر تحديث"
+          }
+        }
+      }
+    },
+    "Leave without publishing?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "هل تريد المغادرة دون نشر؟"
+          }
+        }
+      }
+    },
+    "Load %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحميل %@‏"
+          }
+        }
+      }
+    },
+    "Loading %@…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل %@‏…"
+          }
+        }
+      }
+    },
+    "Loading admin…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل الإدارة…"
+          }
+        }
+      }
+    },
+    "Loading coffee memory…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل ذاكرة القهوة…"
+          }
+        }
+      }
+    },
+    "Loading customer…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل العميل…"
+          }
+        }
+      }
+    },
+    "Loading customers…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل العملاء…"
+          }
+        }
+      }
+    },
+    "Loading espresso community…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل مجتمع الإسبريسو…"
+          }
+        }
+      }
+    },
+    "Loading orders…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل الطلبات…"
+          }
+        }
+      }
+    },
+    "Loading products…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل المنتجات…"
+          }
+        }
+      }
+    },
+    "Loading recipes…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تحميل الوصفات…"
+          }
+        }
+      }
+    },
+    "Loyalty and vouchers" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الولاء والقسائم"
+          }
+        }
+      }
+    },
+    "Loyalty tier" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مستوى الولاء"
+          }
+        }
+      }
+    },
+    "Loyalty tiers" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مستويات الولاء"
+          }
+        }
+      }
+    },
+    "Manage live orders and open every backend control from one secure admin app." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إدارة الطلبات النشطة والوصول إلى جميع أدوات التحكم في الخادم الخلفي من تطبيق إدارة واحد وآمن."
+          }
+        }
+      }
+    },
+    "Manage product" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إدارة المنتج"
+          }
+        }
+      }
+    },
+    "Mark Final Shipment Delivered" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تسجيل تسليم الشحنة الأخيرة"
+          }
+        }
+      }
+    },
+    "Mark Next Shipment Delivered" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تسجيل تسليم الشحنة التالية"
+          }
+        }
+      }
+    },
+    "Mark Next Shipment Preparing" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تسجيل بدء تجهيز الشحنة التالية"
+          }
+        }
+      }
+    },
+    "Mark Refund Recorded" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تأكيد تسجيل الاسترداد"
+          }
+        }
+      }
+    },
+    "Measured brews" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "عمليات التحضير المقاسة"
+          }
+        }
+      }
+    },
+    "Method" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الطريقة"
+          }
+        }
+      }
+    },
+    "Minimum points" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الحد الأدنى للنقاط"
+          }
+        }
+      }
+    },
+    "Moderation" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الإشراف"
+          }
+        }
+      }
+    },
+    "More" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المزيد"
+          }
+        }
+      }
+    },
+    "Name or email" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الاسم أو البريد الإلكتروني"
+          }
+        }
+      }
+    },
+    "Native tools for orders, products, customers, app content, and reporting." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "أدوات مخصصة للطلبات والمنتجات والعملاء ومحتوى التطبيق والتقارير."
+          }
+        }
+      }
+    },
+    "New status" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الحالة الجديدة"
+          }
+        }
+      }
+    },
+    "Next eligible shipment" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الشحنة التالية المؤهلة"
+          }
+        }
+      }
+    },
+    "Next shipment coffees" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "أنواع القهوة في الشحنة التالية"
+          }
+        }
+      }
+    },
+    "No community recipes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا توجد وصفات من المجتمع"
+          }
+        }
+      }
+    },
+    "No espresso community submissions" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا توجد مشاركات في مجتمع الإسبريسو"
+          }
+        }
+      }
+    },
+    "No matching customers" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا يوجد عملاء مطابقون"
+          }
+        }
+      }
+    },
+    "No matching products" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا توجد منتجات مطابقة"
+          }
+        }
+      }
+    },
+    "No matching records" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا توجد سجلات مطابقة"
+          }
+        }
+      }
+    },
+    "No measured brews synced yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لم تتم مزامنة أي عمليات تحضير مقاسة بعد"
+          }
+        }
+      }
+    },
+    "No orders yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا توجد طلبات بعد"
+          }
+        }
+      }
+    },
+    "No products" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا توجد منتجات"
+          }
+        }
+      }
+    },
+    "No records yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "لا توجد سجلات بعد"
+          }
+        }
+      }
+    },
+    "Notes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ملاحظات"
+          }
+        }
+      }
+    },
+    "Notifications" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الإشعارات"
+          }
+        }
+      }
+    },
+    "Notifications enabled" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تم تمكين الإشعارات"
+          }
+        }
+      }
+    },
+    "Notifications off" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الإشعارات متوقفة"
+          }
+        }
+      }
+    },
+    "Open customer" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح العميل"
+          }
+        }
+      }
+    },
+    "Open in Maps" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح في الخرائط"
+          }
+        }
+      }
+    },
+    "Open Notification Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "فتح إعدادات الإشعارات"
+          }
+        }
+      }
+    },
+    "Operations unavailable" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "العمليات غير متاحة"
+          }
+        }
+      }
+    },
+    "Order notifications" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إشعارات الطلبات"
+          }
+        }
+      }
+    },
+    "Order number, email, or item" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رقم الطلب أو البريد الإلكتروني أو المنتج"
+          }
+        }
+      }
+    },
+    "Order overview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نظرة عامة على الطلبات"
+          }
+        }
+      }
+    },
+    "Order queue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "قائمة انتظار الطلبات"
+          }
+        }
+      }
+    },
+    "Order unavailable" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الطلب غير متاح"
+          }
+        }
+      }
+    },
+    "Orders" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الطلبات"
+          }
+        }
+      }
+    },
+    "Overview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نظرة عامة"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إيقاف مؤقت"
+          }
+        }
+      }
+    },
+    "Permanently delete %@?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "هل تريد حذف %@‏ نهائيًا؟"
+          }
+        }
+      }
+    },
+    "Phone" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الهاتف"
+          }
+        }
+      }
+    },
+    "Pickup" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الاستلام"
+          }
+        }
+      }
+    },
+    "Pickup slot" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "موعد الاستلام"
+          }
+        }
+      }
+    },
+    "Postgres must be configured to manage synchronized coffee records." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجب إعداد Postgres لإدارة سجلات القهوة المتزامنة."
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "معاينة"
+          }
+        }
+      }
+    },
+    "Previously selected product" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المنتج المحدد سابقًا"
+          }
+        }
+      }
+    },
+    "Product details and price" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تفاصيل المنتج وسعره"
+          }
+        }
+      }
+    },
+    "Products" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المنتجات"
+          }
+        }
+      }
+    },
+    "Products are unavailable. Go back and reload to try again. Your current selections are preserved." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المنتجات غير متاحة. ارجع وأعد التحميل للمحاولة مرة أخرى. تم الاحتفاظ بتحديداتك الحالية."
+          }
+        }
+      }
+    },
+    "Profile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الملف الشخصي"
+          }
+        }
+      }
+    },
+    "Profiles, recipes, and video assessments will appear here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ستظهر هنا الملفات الشخصية والوصفات وتقييمات الفيديو."
+          }
+        }
+      }
+    },
+    "Publish" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نشر"
+          }
+        }
+      }
+    },
+    "Publish %@?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "هل تريد نشر %@؟"
+          }
+        }
+      }
+    },
+    "Publish Changes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نشر التغييرات"
+          }
+        }
+      }
+    },
+    "Publish equipment starting point" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نشر نقطة بداية للمعدات"
+          }
+        }
+      }
+    },
+    "Publish roaster recipe" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نشر وصفة المحمصة"
+          }
+        }
+      }
+    },
+    "Published settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الإعدادات المنشورة"
+          }
+        }
+      }
+    },
+    "Quantity" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الكمية"
+          }
+        }
+      }
+    },
+    "Reaction" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رد الفعل"
+          }
+        }
+      }
+    },
+    "Reactivate Account" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إعادة تنشيط الحساب"
+          }
+        }
+      }
+    },
+    "Recent synchronized records" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "السجلات المتزامنة الحديثة"
+          }
+        }
+      }
+    },
+    "Recipe" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الوصفة"
+          }
+        }
+      }
+    },
+    "Recipient name" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "اسم المستلم"
+          }
+        }
+      }
+    },
+    "Record café activity" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تسجيل نشاط المقهى"
+          }
+        }
+      }
+    },
+    "Redeem one drink" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "استبدال مشروب واحد"
+          }
+        }
+      }
+    },
+    "Redeem the paid gift code once when the recipient collects their coffee." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يمكن استبدال رمز الهدية المدفوع مرة واحدة عند استلام المستلم للقهوة."
+          }
+        }
+      }
+    },
+    "Refresh customer" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث العميل"
+          }
+        }
+      }
+    },
+    "Refresh customers" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث العملاء"
+          }
+        }
+      }
+    },
+    "Refresh order" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث الطلب"
+          }
+        }
+      }
+    },
+    "Refresh orders" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث الطلبات"
+          }
+        }
+      }
+    },
+    "Refresh Orders and try again." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يرجى تحديث الطلبات والمحاولة مرة أخرى."
+          }
+        }
+      }
+    },
+    "Refresh products" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث المنتجات"
+          }
+        }
+      }
+    },
+    "Refresh recipes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث الوصفات"
+          }
+        }
+      }
+    },
+    "Refresh report" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث التقرير"
+          }
+        }
+      }
+    },
+    "Refreshed %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تم التحديث %@‏"
+          }
+        }
+      }
+    },
+    "Refund BHD" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "استرداد BHD"
+          }
+        }
+      }
+    },
+    "Refund BHD %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "استرداد BHD %@‏"
+          }
+        }
+      }
+    },
+    "Refund controls record the provider-confirmed refund. They do not move money automatically; complete the refund in the original payment provider first." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تسجّل عناصر التحكم في الاسترداد عملية الاسترداد التي أكدها مزود الدفع. وهي لا تحوّل الأموال تلقائيًا؛ يجب إتمام الاسترداد لدى مزود الدفع الأصلي أولًا."
+          }
+        }
+      }
+    },
+    "Reload Customer" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إعادة تحميل بيانات العميل"
+          }
+        }
+      }
+    },
+    "Reload full admin" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إعادة تحميل لوحة الإدارة بالكامل"
+          }
+        }
+      }
+    },
+    "Reload settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إعادة تحميل الإعدادات"
+          }
+        }
+      }
+    },
+    "Reload to try again." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يرجى إعادة التحميل للمحاولة مرة أخرى."
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إزالة"
+          }
+        }
+      }
+    },
+    "Remove coffee" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إزالة القهوة"
+          }
+        }
+      }
+    },
+    "Remove incorrect record" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إزالة السجل غير الصحيح"
+          }
+        }
+      }
+    },
+    "Remove unavailable product: %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إزالة المنتج غير المتاح: %@‏"
+          }
+        }
+      }
+    },
+    "Request logging must be enabled on the server to show service health." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجب تمكين تسجيل الطلبات على الخادم لعرض حالة الخدمة."
+          }
+        }
+      }
+    },
+    "Resume" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "استئناف"
+          }
+        }
+      }
+    },
+    "Review and Send" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "المراجعة والإرسال"
+          }
+        }
+      }
+    },
+    "Review Refund" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مراجعة الاسترداد"
+          }
+        }
+      }
+    },
+    "Revoke Session" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إلغاء الجلسة"
+          }
+        }
+      }
+    },
+    "Revoke voucher" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إلغاء القسيمة"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حفظ"
+          }
+        }
+      }
+    },
+    "Save Recipe" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حفظ الوصفة"
+          }
+        }
+      }
+    },
+    "Saved addresses" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "العناوين المحفوظة"
+          }
+        }
+      }
+    },
+    "Saving…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري الحفظ…"
+          }
+        }
+      }
+    },
+    "Send Notification" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إرسال الإشعار"
+          }
+        }
+      }
+    },
+    "Send Password Reset Email" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إرسال رسالة إعادة تعيين كلمة المرور"
+          }
+        }
+      }
+    },
+    "Send Pickup-Ready Notification" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إرسال إشعار جاهزية الطلب للاستلام"
+          }
+        }
+      }
+    },
+    "Send pickup-ready notification?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "هل تريد إرسال إشعار بجاهزية الطلب للاستلام؟"
+          }
+        }
+      }
+    },
+    "Send to all customer devices?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "هل تريد الإرسال إلى جميع أجهزة العملاء؟"
+          }
+        }
+      }
+    },
+    "Sending…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري الإرسال…"
+          }
+        }
+      }
+    },
+    "Session %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الجلسة %@‏"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الإعدادات"
+          }
+        }
+      }
+    },
+    "Shopify refund" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "استرداد Shopify"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تسجيل الدخول"
+          }
+        }
+      }
+    },
+    "Sign Out" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تسجيل الخروج"
+          }
+        }
+      }
+    },
+    "Signed in as" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تم تسجيل الدخول باسم"
+          }
+        }
+      }
+    },
+    "Signing In…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري تسجيل الدخول…"
+          }
+        }
+      }
+    },
+    "SKU %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رمز SKU: %@‏"
+          }
+        }
+      }
+    },
+    "Sort" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الفرز"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الحالة"
+          }
+        }
+      }
+    },
+    "Stock alerts" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تنبيهات المخزون"
+          }
+        }
+      }
+    },
+    "System" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "النظام"
+          }
+        }
+      }
+    },
+    "Talla Admin" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تله للإدارة"
+          }
+        }
+      }
+    },
+    "TALLA ADMIN" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تله للإدارة"
+          }
+        }
+      }
+    },
+    "Talla Speciality" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تله سبيشاليتي"
+          }
+        }
+      }
+    },
+    "TALLA SPECIALITY" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تله سبيشاليتي"
+          }
+        }
+      }
+    },
+    "These changes will be visible to customers when their app refreshes." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ستظهر هذه التغييرات للعملاء عند تحديث تطبيقهم."
+          }
+        }
+      }
+    },
+    "This executes the refund with Shopify and marks the order Cancelled. It does not create a refund request in the customer app." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يؤدي هذا إلى تنفيذ الاسترداد عبر Shopify ووضع علامة \"ملغى\" على الطلب. ولا ينشئ طلب استرداد في تطبيق العميل."
+          }
+        }
+      }
+    },
+    "This removes the product from Shopify and cannot be undone." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يؤدي هذا إلى إزالة المنتج من Shopify ولا يمكن التراجع عنه."
+          }
+        }
+      }
+    },
+    "This sends a notification to %@. It does not change the order status." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يؤدي هذا إلى إرسال إشعار إلى %@‏. ولا يغيّر حالة الطلب."
+          }
+        }
+      }
+    },
+    "This shipment is overdue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "هذه الشحنة متأخرة"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "إعادة المحاولة"
+          }
+        }
+      }
+    },
+    "Try another filter or add a product." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يمكنك استخدام عامل تصفية آخر أو إضافة منتج."
+          }
+        }
+      }
+    },
+    "Try another search or filter, or refresh the directory." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يمكنك إجراء بحث آخر أو استخدام عامل تصفية آخر أو تحديث الدليل."
+          }
+        }
+      }
+    },
+    "Undo Last Delivery" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "التراجع عن آخر عملية توصيل"
+          }
+        }
+      }
+    },
+    "Unpublished changes" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تغييرات غير منشورة"
+          }
+        }
+      }
+    },
+    "Update inventory" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تحديث المخزون"
+          }
+        }
+      }
+    },
+    "Variant / bag size ID" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "معرّف النوع / حجم الكيس"
+          }
+        }
+      }
+    },
+    "View order" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "عرض الطلب"
+          }
+        }
+      }
+    },
+    "Weight" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "الوزن"
+          }
+        }
+      }
+    },
+    "Working…" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يجري التنفيذ…"
+          }
+        }
+      }
+    },
+    "Your roastery,\nin your pocket." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "محمصتك،\nفي جيبك."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.3"
+}

@@ -831,7 +831,9 @@
                         <label>GCC maximum weight (g)<input id="app-gcc-max-weight" type="number" min="1" max="50000" step="1"></label>
                     </div>
                     <div class="grid" style="margin-top:12px;">
-                        <input id="app-gcc-transit-en" type="text" maxlength="100" placeholder="GCC transit time (English)">
+                        <label>Verified GCC delivery and packaging policies (BH, SA, KW, AE, QA, OM). Publish only carrier-confirmed estimates and tested packaging.</label>
+                        <textarea id="app-gulf-markets" style="width:100%;min-height:160px" placeholder='{"BH":{"verified":false,"deliveryEN":"","deliveryAR":"","heatSafePackaging":false,"packagingEN":"","packagingAR":""}}'></textarea>
+                        <input id="app-gcc-transit-en" type="text" maxlength="100" placeholder="Legacy GCC transit time (English)">
                         <input id="app-gcc-transit-ar" type="text" maxlength="100" dir="rtl" placeholder="مدة التوصيل للخليج">
                     </div>
                     <textarea id="app-gcc-tiers" style="width:100%; min-height:100px; margin-top:12px; resize:vertical;" placeholder="GCC shipping tiers, one per line: maximum grams = BHD rate"></textarea>
@@ -1284,7 +1286,7 @@
             "app-payment-notice-en", "app-payment-notice-ar", "app-delivery-enabled", "app-pickup-enabled",
             "app-pickup-name-en", "app-pickup-name-ar", "app-pickup-address-en", "app-pickup-address-ar",
             "app-pickup-maps-url", "app-opening-hours-en", "app-opening-hours-ar", "app-bahrain-rate",
-            "app-gcc-cod", "app-gcc-max-weight", "app-gcc-transit-en", "app-gcc-transit-ar", "app-gcc-tiers",
+            "app-gcc-cod", "app-gcc-max-weight", "app-gcc-transit-en", "app-gcc-transit-ar", "app-gcc-tiers", "app-gulf-markets",
             "app-maintenance", "app-checkout-maintenance", "app-min-version", "app-latest-version", "app-store-url",
             "app-maintenance-title-en", "app-maintenance-title-ar", "app-maintenance-message-en", "app-maintenance-message-ar",
             "app-update-message-en", "app-update-message-ar",
@@ -1614,6 +1616,7 @@
             input("app-gcc-cod").value = fulfillment.khaleejiCashOnDeliverySurcharge ?? 2;
             input("app-gcc-max-weight").value = fulfillment.maximumKhaleejiWeightGrams ?? 4000;
             input("app-gcc-transit-en").value = fulfillment.khaleejiTransitEN || "";
+            input("app-gulf-markets").value = JSON.stringify(fulfillment.gulfMarkets || {}, null, 2);
             input("app-gcc-transit-ar").value = fulfillment.khaleejiTransitAR || "";
             input("app-gcc-tiers").value = (fulfillment.khaleejiTiers || []).map((tier) => `${tier.maximumWeightGrams} = ${Number(tier.rate).toFixed(3)}`).join("\n");
             input("app-maintenance").checked = Boolean(release.maintenanceEnabled);
@@ -1709,6 +1712,26 @@
             const shippingTiers = parseTiers();
             const loyaltyRewards = parseRewards();
             let locations;
+            let gulfMarkets;
+            try {
+                gulfMarkets = JSON.parse(input("app-gulf-markets").value || "{}");
+                if (!gulfMarkets || typeof gulfMarkets !== "object" || Array.isArray(gulfMarkets)) throw new Error();
+            } catch {
+                appSettingsStatusEl.textContent = "GCC policies must be a JSON object keyed by country code.";
+                return;
+            }
+            const marketCodes = new Set(["BH", "SA", "KW", "AE", "QA", "OM"]);
+            for (const [countryCode, policy] of Object.entries(gulfMarkets)) {
+                if (!marketCodes.has(countryCode)) continue;
+                if (policy?.verified === true && (!String(policy.deliveryEN || "").trim() || !String(policy.deliveryAR || "").trim())) {
+                    appSettingsStatusEl.textContent = `${countryCode}: add verified delivery timing in English and Arabic, or leave the market unverified.`;
+                    return;
+                }
+                if (policy?.heatSafePackaging === true && (policy?.verified !== true || !String(policy.packagingEN || "").trim() || !String(policy.packagingAR || "").trim())) {
+                    appSettingsStatusEl.textContent = `${countryCode}: heat-safe packaging requires a verified market and packing instructions in English and Arabic.`;
+                    return;
+                }
+            }
             const locationsText = input("app-locations-json").value.trim();
             if (locationsText) {
                 try {
@@ -1788,6 +1811,7 @@
                             khaleejiCashOnDeliverySurcharge: Number(input("app-gcc-cod").value),
                             maximumKhaleejiWeightGrams: Number(input("app-gcc-max-weight").value),
                             khaleejiTransitEN: input("app-gcc-transit-en").value.trim(),
+                            gulfMarkets,
                             khaleejiTransitAR: input("app-gcc-transit-ar").value.trim(),
                             khaleejiTiers: shippingTiers
                         },

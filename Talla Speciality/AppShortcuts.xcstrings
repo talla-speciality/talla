@@ -1,0 +1,98 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Ask Coffee Concierge in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringSet" : {
+            "state" : "machine_translated",
+            "values" : [
+              "اسأل مرشد القهوة في ${applicationName}",
+              "افتح مرشد القهوة في ${applicationName}"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Ask Coffee Concierge in ${applicationName}",
+              "Open coffee concierge in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Open brewing guide in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringSet" : {
+            "state" : "machine_translated",
+            "values" : [
+              "فتح دليل التحضير في ${applicationName}",
+              "عرض تحضير تله في ${applicationName}"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Open brewing guide in ${applicationName}",
+              "Show Talla brewing in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Open Talla rewards in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringSet" : {
+            "state" : "machine_translated",
+            "values" : [
+              "فتح مكافآت تله في ${applicationName}",
+              "عرض مكافآت تله في ${applicationName}"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Open Talla rewards in ${applicationName}",
+              "Show my Talla rewards in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Open Talla shop in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringSet" : {
+            "state" : "machine_translated",
+            "values" : [
+              "فتح متجر تله في ${applicationName}",
+              "تسوق قهوة تله في ${applicationName}"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Open Talla shop in ${applicationName}",
+              "Shop Talla coffee in ${applicationName}"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.3"
+}

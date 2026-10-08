@@ -191,7 +191,7 @@ struct ContentView: View {
     @AppStorage("loyalty.phase6.completed") var phaseSixCompletedPayload = ""
     @AppStorage("brewing.deletedRecipeIDs") var deletedBrewRecipeIDsPayload = ""
     @State var selectedJournalCoffeeID: UUID?
-    @AppStorage("app.language") var savedAppLanguage = AppLanguage.system.rawValue
+    @AppStorage("app.language") var savedAppLanguage = AppLanguage.arabic.rawValue
     @AppStorage("shortcut.destination") var shortcutDestination = ""
     @AppStorage("shortcut.searchQuery") var shortcutSearchQuery = ""
     @State var notificationAuthorizationStatus: Int = 0
@@ -237,6 +237,13 @@ struct ContentView: View {
     @State var addressPhone = ""
     @State var addressLine1 = ""
     @State var addressCity = ""
+    @State var addressBlock = ""
+    @State var addressBuilding = ""
+    @State var addressApartment = ""
+    @State var addressLandmark = ""
+    @State var addressRegion = ""
+    @State var addressPostalCode = ""
+    @State var addressAdditionalNumber = ""
     @State var addressCountry: SupportedDeliveryCountry = .bahrain
     @State var addressNotes = ""
     @State var isGiftOrder = false
@@ -291,7 +298,7 @@ struct ContentView: View {
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
         ShopCategory(key: "summer-drinks", title: "Summer Boxes", subtitle: "Four seasonal drink boxes", symbol: "shippingbox.fill"),
         ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Beans & single-serve brews", symbol: "leaf.fill"),
-        ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee", subtitle: "Traditional roasts", symbol: "leaf.circle.fill"),
+        ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee & Gahwa", subtitle: "Traditional Arabic and gahwa roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "cups", title: "Cups", subtitle: "Mugs, tumblers, and drinkware", symbol: "cup.and.saucer.fill"),
         ShopCategory(key: "ready-made-drinks", title: "Drinks", subtitle: "Ready cups and bottled drinks", symbol: "takeoutbag.and.cup.and.straw.fill"),
         ShopCategory(key: "desserts", title: "CRMB", subtitle: "Sweet CRMB picks", symbol: "birthday.cake.fill"),
