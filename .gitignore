@@ -10,6 +10,7 @@ resource.cgn
 Config/BenefitPaySecrets.xcconfig
 backend/data/customerLibrary.json
 backend/data/telemetry.json
+backend/data/adminUsers.json
 
 # Android local state, generated output, signing material, and proprietary SDKs
 android/.gradle/
