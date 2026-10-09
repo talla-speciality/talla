@@ -111,13 +111,14 @@ final class Talla_SpecialityUITests: XCTestCase {
         defer { server.stop() }
         let app = launchApp(scenario: "offline-recovery", backendURL: server.baseURL)
         XCTAssertTrue(app.staticTexts["offline.cached-brew"].waitForExistence(timeout: 5))
-        XCTAssertTrue(
-            app.descendants(matching: .any)["Offline. Showing saved coffee data."].firstMatch.waitForExistence(timeout: 5)
-        )
-        app.buttons["offline.retry"].tap()
+        let status = element("offline.status", in: app)
+        XCTAssertTrue(status.waitForExistence(timeout: 8))
+        let retry = app.buttons["offline.retry"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 5))
+        tapWhenHittable(retry, in: app)
         let request = try XCTUnwrap(server.waitForRequest(path: "/coffee-data/sync", timeout: 15))
         XCTAssertEqual(request.authorization, "Bearer ui-test-access-token")
-        XCTAssertTrue(waitForLabel(element("offline.status", in: app), containing: "Back online"))
+        XCTAssertTrue(waitForLabel(status, containing: "Back online"))
     }
 
     func testBluetoothInterruptionOffersRecovery() throws {

@@ -1,12 +1,51 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Add my usual coffee to the group order in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Add my usual coffee to the group order in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Add this product to my bag in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Add this product to my bag in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Apply this reward in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Apply this reward in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
     "Ask Coffee Concierge in ${applicationName}" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringSet" : {
-            "state" : "machine_translated",
+            "state" : "needs_review",
             "values" : [
               "اسأل مرشد القهوة في ${applicationName}",
               "افتح مرشد القهوة في ${applicationName}"
@@ -17,77 +56,86 @@
           "stringSet" : {
             "state" : "new",
             "values" : [
-              "Ask Coffee Concierge in ${applicationName}",
-              "Open coffee concierge in ${applicationName}"
+              "Ask Coffee Concierge in ${applicationName}"
             ]
           }
         }
       }
     },
-    "Open brewing guide in ${applicationName}" : {
+    "Join this group coffee order in ${applicationName}" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "ar" : {
-          "stringSet" : {
-            "state" : "machine_translated",
-            "values" : [
-              "فتح دليل التحضير في ${applicationName}",
-              "عرض تحضير تله في ${applicationName}"
-            ]
-          }
-        },
         "en" : {
           "stringSet" : {
             "state" : "new",
             "values" : [
-              "Open brewing guide in ${applicationName}",
-              "Show Talla brewing in ${applicationName}"
+              "Join this group coffee order in ${applicationName}"
             ]
           }
         }
       }
     },
-    "Open Talla rewards in ${applicationName}" : {
+    "Reorder my last coffee in ${applicationName}" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "ar" : {
-          "stringSet" : {
-            "state" : "machine_translated",
-            "values" : [
-              "فتح مكافآت تله في ${applicationName}",
-              "عرض مكافآت تله في ${applicationName}"
-            ]
-          }
-        },
         "en" : {
           "stringSet" : {
             "state" : "new",
             "values" : [
-              "Open Talla rewards in ${applicationName}",
+              "Reorder my last coffee in ${applicationName}",
+              "Add the coffee I bought last time in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Show my active orders in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Show my active orders in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Show my coffee gifts in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Show my coffee gifts in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Show my gifts expiring this month in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Show my gifts expiring this month in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Show my Talla rewards in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
               "Show my Talla rewards in ${applicationName}"
-            ]
-          }
-        }
-      }
-    },
-    "Open Talla shop in ${applicationName}" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "ar" : {
-          "stringSet" : {
-            "state" : "machine_translated",
-            "values" : [
-              "فتح متجر تله في ${applicationName}",
-              "تسوق قهوة تله في ${applicationName}"
-            ]
-          }
-        },
-        "en" : {
-          "stringSet" : {
-            "state" : "new",
-            "values" : [
-              "Open Talla shop in ${applicationName}",
-              "Shop Talla coffee in ${applicationName}"
             ]
           }
         }

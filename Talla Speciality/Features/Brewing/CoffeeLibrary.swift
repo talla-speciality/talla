@@ -1250,12 +1250,12 @@ extension CoffeeDataStore {
     func brewCoachHistoryContext(limit: Int = 8) -> String {
         let feedbackBySession = Dictionary(uniqueKeysWithValues: legacyObjects(entityType: "tasteFeedback").compactMap { row -> (String, [String: Any])? in
             guard let sessionID = row["sessionID"] as? String else { return nil }
-            return (sessionID, row)
+            return (sessionID.lowercased(), row)
         })
 
         let rows = legacyObjects(entityType: "brewSession").prefix(max(0, limit)).map { row -> String in
             let id = row["id"] as? String ?? "unknown"
-            let feedback = feedbackBySession[id]
+            let feedback = feedbackBySession[id.lowercased()]
             let method = row["method"] as? String ?? "Unknown method"
             let title = row["title"] as? String ?? "Untitled coffee"
             let dose = (row["coffeeGrams"] as? NSNumber).map { String(format: "%.1f g", $0.doubleValue) } ?? "unknown dose"

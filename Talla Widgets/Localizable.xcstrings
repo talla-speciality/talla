@@ -44,6 +44,7 @@
       }
     },
     "%lld Beans" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "variations" : {

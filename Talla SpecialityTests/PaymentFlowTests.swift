@@ -154,7 +154,7 @@ struct PaymentFlowTests {
         #expect(TallaShippingRates.rate(countryCode: "AE", weightGrams: 1_200, cashOnDelivery: true) == 9.500)
         #expect(TallaShippingRates.rate(countryCode: "OM", weightGrams: 4_001, cashOnDelivery: false) == nil)
         #expect(TallaShippingRates.rate(countryCode: "US", weightGrams: 500, cashOnDelivery: false) == nil)
-        #expect(TallaShippingRates.khaleejiTransitTime == "3 to 5 business days")
+        #expect(TallaShippingRates.khaleejiTransitTime == "Within 3 days")
     }
 
     @Test func deliveryCountriesIncludeGCCAndInternationalDestinations() {

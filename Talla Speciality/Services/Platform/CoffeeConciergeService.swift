@@ -1,6 +1,23 @@
 import Foundation
 #if canImport(FoundationModels)
 import FoundationModels
+
+@available(iOS 26.0, macOS 26.0, *)
+@Generable(description: "The customer's gifting and cart intent extracted from natural language.")
+private struct ConciergeIntent {
+    @Guide(description: "The recipient, such as friend, mother, colleague, or host. Use nil when absent.")
+    let recipient: String?
+    @Guide(description: "The occasion, such as birthday, thank-you, Ramadan, or hosting. Use nil when absent.")
+    let occasion: String?
+    @Guide(description: "The maximum budget in BHD, if the customer stated one.")
+    let budgetBHD: Double?
+    @Guide(description: "Whether the customer explicitly asked to add or buy the recommendations.")
+    let wantsCart: Bool
+    @Guide(description: "Short catalog item descriptions the customer wants added, without inventing products.")
+    let itemRequests: [String]
+    @Guide(description: "Up to three concise gift messages in the customer's language. Return an empty list when not relevant.")
+    let giftMessageSuggestions: [String]
+}
 #endif
 #if canImport(Vision) && canImport(UIKit)
 import UIKit
@@ -11,6 +28,8 @@ struct CoffeeConciergeResult: Equatable {
     let message: String
     let productIDs: [String]
     let usedAppleIntelligence: Bool
+    let giftMessageSuggestions: [String]
+    let canBuildCart: Bool
 }
 
 enum CoffeeConciergeService {
@@ -50,17 +69,23 @@ enum CoffeeConciergeService {
 
 #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
-            if let message = try? await foundationModelMessage(
+            if let modelOutput = try? await foundationModelOutput(
                 request: trimmedRequest,
                 rankingRequest: rankingRequest,
                 products: products,
                 localeIdentifier: localeIdentifier,
                 imageAnalysis: imageAnalysis
             ) {
+                let modelRankedProducts = rankedProducts(
+                    for: [rankingRequest, modelOutput.itemRequests.joined(separator: " ")].joined(separator: " "),
+                    products: products
+                )
                 return CoffeeConciergeResult(
-                    message: message,
-                    productIDs: fallback.productIDs,
-                    usedAppleIntelligence: true
+                    message: modelOutput.message,
+                    productIDs: Array(modelRankedProducts.prefix(3)).map(\.id).isEmpty ? fallback.productIDs : Array(modelRankedProducts.prefix(3)).map(\.id),
+                    usedAppleIntelligence: true,
+                    giftMessageSuggestions: modelOutput.giftMessageSuggestions.isEmpty ? fallback.giftMessageSuggestions : modelOutput.giftMessageSuggestions,
+                    canBuildCart: modelOutput.wantsCart || fallback.canBuildCart
                 )
             }
         }
@@ -78,14 +103,19 @@ enum CoffeeConciergeService {
         let ranked = rankedProducts(for: rankingRequest, products: products)
         let picks = Array(ranked.prefix(3))
         let hasImage = imageAnalysis != nil
+        let requestedBudget = budgetValue(from: rankingRequest)
 
         guard !picks.isEmpty else {
             return CoffeeConciergeResult(
-                message: hasImage
+                message: requestedBudget != nil
+                    ? "I couldn't find an available catalog item within that budget. Try a slightly higher budget or ask me for another gift style."
+                    : hasImage
                     ? "Image added. Tell me what you want from it: match a roast, find a gift, pair chocolate, or stay within a budget."
                     : "Tell me what you like: espresso, Arabic coffee, gift boxes, chocolate, tools, or a budget.",
                 productIDs: [],
-                usedAppleIntelligence: false
+                usedAppleIntelligence: false,
+                giftMessageSuggestions: giftMessageSuggestions(for: request),
+                canBuildCart: requestLooksLikeCartBuild(request)
             )
         }
 
@@ -98,7 +128,9 @@ enum CoffeeConciergeService {
         return CoffeeConciergeResult(
             message: "\(lead) \(names). \(reason)",
             productIDs: picks.map(\.id),
-            usedAppleIntelligence: false
+            usedAppleIntelligence: false,
+            giftMessageSuggestions: giftMessageSuggestions(for: request),
+            canBuildCart: requestLooksLikeCartBuild(request)
         )
     }
 
@@ -112,8 +144,16 @@ enum CoffeeConciergeService {
             .map(String.init)
         let budget = budgetValue(from: normalized)
 
-        return products
-            .filter(\.isAvailableForSale)
+        let available = products.filter(\.isAvailableForSale)
+        let budgetQualified = budget.map { limit in
+            available.filter {
+                let price = priceValue(from: $0.price)
+                return price > 0 && price <= limit
+            }
+        } ?? []
+        let candidates = budget == nil ? available : budgetQualified
+
+        return candidates
             .sorted { lhs, rhs in
                 let lhsScore = score(product: lhs, terms: terms, request: normalized, budget: budget)
                 let rhsScore = score(product: rhs, terms: terms, request: normalized, budget: budget)
@@ -153,6 +193,10 @@ enum CoffeeConciergeService {
             if haystack.contains("box") { score += 8 }
             if product.categoryKey.contains("coffee") { score += 3 }
         }
+
+        if request.contains("birthday") || request.contains("عيد ميلاد"), product.categoryKey == "gifts" { score += 8 }
+        if request.contains("thank") || request.contains("شكرا") || request.contains("شكرًا"), ["chocolate", "desserts", "gifts"].contains(product.categoryKey) { score += 6 }
+        if request.contains("host") || request.contains("majlis") || request.contains("ضيافة"), ["arabic-coffee-beans", "gifts"].contains(product.categoryKey) { score += 7 }
 
         if request.contains("arabic") || request.contains("عربي") || request.contains("مجلس") {
             if product.categoryKey.contains("arabic") { score += 14 }
@@ -251,6 +295,32 @@ enum CoffeeConciergeService {
         return "They are available now and give you a balanced place to start."
     }
 
+    private static func requestLooksLikeCartBuild(_ request: String) -> Bool {
+        let normalized = request.lowercased()
+        return ["add", "cart", "bag", "buy", "purchase", "put in", "أضف", "السلة", "اشتري"].contains { normalized.contains($0) }
+    }
+
+    private static func giftMessageSuggestions(for request: String) -> [String] {
+        let normalized = request.lowercased()
+        guard normalized.contains("gift") || request.contains("هدية") || normalized.contains("birthday") || normalized.contains("thank") || normalized.contains("occasion") else { return [] }
+        let occasion: String
+        if normalized.contains("birthday") || request.contains("ميلاد") { occasion = "birthday" }
+        else if normalized.contains("thank") || request.contains("شكر") { occasion = "thank-you" }
+        else { occasion = "special moment" }
+        if request.contains("هدية") || request.contains("ميلاد") || request.contains("شكر") {
+            return [
+                "هدية صغيرة لك — أتمنى أن تجعل مناسبتك أحلى.",
+                "أفكر بك وأرسل لك لحظة دافئة من تله.",
+                "صُممت للمشاركة، مع أطيب تمنياتي لك."
+            ]
+        }
+        return [
+            "A little something for you — hope it makes your \(occasion) sweeter.",
+            "Thinking of you and sending a warm Talla moment your way.",
+            "Made for sharing, with best wishes from me to you."
+        ]
+    }
+
     private static func recommendationRequest(text: String, imageAnalysis: ImageAnalysis?) -> String {
         guard let imageAnalysis, !imageAnalysis.searchText.isEmpty else { return text }
         if text.isEmpty {
@@ -330,13 +400,13 @@ enum CoffeeConciergeService {
 
 #if canImport(FoundationModels)
     @available(iOS 26.0, macOS 26.0, *)
-    private static func foundationModelMessage(
+    private static func foundationModelOutput(
         request: String,
         rankingRequest: String,
         products: [ContentView.Product],
         localeIdentifier: String,
         imageAnalysis: ImageAnalysis?
-    ) async throws -> String {
+    ) async throws -> (message: String, giftMessageSuggestions: [String], wantsCart: Bool, itemRequests: [String]) {
         let model = SystemLanguageModel.default
         guard case .available = model.availability else { throw ConciergeError.unavailable }
         guard model.supportsLocale(Locale(identifier: localeIdentifier)) else { throw ConciergeError.unavailable }
@@ -345,7 +415,7 @@ enum CoffeeConciergeService {
             .filter(\.isAvailableForSale)
             .prefix(24)
             .map { product in
-                "- \(product.name) | \(product.categoryLabel) | \(product.price) | \(product.desc.prefix(90))"
+                "- id=\(product.id) | \(product.name) | \(product.categoryLabel) | \(product.price) | \(product.desc.prefix(90))"
             }
             .joined(separator: "\n")
 
@@ -353,6 +423,7 @@ enum CoffeeConciergeService {
             model: model,
             instructions: """
             You are Talla Speciality's coffee concierge. Recommend only products from the supplied catalog. Keep the answer friendly, specific, and under 55 words. Do not invent products, prices, discounts, or policies. If the request is Arabic, answer in Arabic.
+            For gifting, use the recipient, budget, and occasion in the request to tailor the recommendation. You may suggest message wording, but never claim that stock, price, payment, redemption, or expiry is confirmed by the model; those remain server-authoritative.
             """
         )
 
@@ -360,10 +431,22 @@ enum CoffeeConciergeService {
             ? "Local Vision detected these shopping signals: \(imageAnalysis?.summary ?? ""). Use them as hints only, and recommend only catalog products."
             : "No useful image signals."
 
+        let intentResponse = try await session.respond(
+            to: "Extract gifting and cart intent from this request. Do not choose products or make commerce decisions. Customer request: \(request)",
+            generating: ConciergeIntent.self
+        )
+        let intent = intentResponse.content
+        let recipient = intent.recipient ?? "not specified"
+        let occasion = intent.occasion ?? "not specified"
+        let budget = intent.budgetBHD.map { String($0) } ?? "not specified"
+        let itemRequests = intent.itemRequests.joined(separator: ", ")
+        let structuredContext = "Structured intent: recipient=\(recipient), occasion=\(occasion), budgetBHD=\(budget), wantsCart=\(intent.wantsCart), itemRequests=\(itemRequests)"
+
         let prompt = """
         Customer request: \(request.isEmpty ? "Recommend a good starting point" : request)
         Ranked request context: \(rankingRequest)
         Image context: \(imageContext)
+        \(structuredContext)
 
         Available catalog:
         \(catalog)
@@ -372,7 +455,8 @@ enum CoffeeConciergeService {
         let response = try await session.respond(to: prompt)
         let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { throw ConciergeError.unavailable }
-        return content
+        let fallbackMessages = giftMessageSuggestions(for: request)
+        return (content, intent.giftMessageSuggestions.isEmpty ? fallbackMessages : intent.giftMessageSuggestions, intent.wantsCart, intent.itemRequests)
     }
 #endif
 }

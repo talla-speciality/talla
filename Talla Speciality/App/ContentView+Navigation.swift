@@ -123,6 +123,19 @@ extension ContentView {
             openCoffeeConcierge()
         case "brewing":
             openBrewing()
+        case "gifts":
+            let giftID = UserDefaults.standard.string(forKey: "shortcut.giftID")
+            UserDefaults.standard.removeObject(forKey: "shortcut.giftID")
+            if let giftID, let stored = TallaGiftVault.all().first(where: { $0.orderID == giftID }) {
+                socialCoffeePassGift = SocialCoffeePassGift(orderID: stored.orderID, token: stored.token)
+            } else {
+                isCoffeeGiftVaultPresented = true
+            }
+        case "group-order":
+            guard !searchQuery.isEmpty else { break }
+            socialCoffeeInvite = SocialCoffeeInvite(id: searchQuery, inviteCode: "")
+        case "reorder":
+            Task { await handlePendingReorderFromShortcut() }
         case "shelf", "favorites":
             openTab(.home)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
@@ -130,6 +143,13 @@ extension ContentView {
             }
         case "rewards":
             openAccountSection(AccountSectionView.ScrollTarget.loyalty)
+        case "apply-reward":
+            let rewardID = UserDefaults.standard.string(forKey: "shortcut.rewardID") ?? ""
+            UserDefaults.standard.removeObject(forKey: "shortcut.rewardID")
+            openAccountSection(AccountSectionView.ScrollTarget.loyalty)
+            guard !rewardID.isEmpty else { break }
+            voucherCodeInput = rewardID
+            Task { await applyVoucher() }
         case "orders", "order-history", "checkout-return":
             openAccountSection(AccountSectionView.ScrollTarget.customer)
             Task {
@@ -142,6 +162,43 @@ extension ContentView {
         default:
             break
         }
+    }
+
+    @MainActor
+    func handlePendingReorderFromShortcut() async {
+        guard let payload = UserDefaults.standard.dictionary(forKey: TallaShortcutDestination.pendingReorderKey),
+              let name = payload["name"] as? String else { return }
+        guard hasLoadedProducts else {
+            await loadProducts()
+            guard hasLoadedProducts else {
+                UserDefaults.standard.removeObject(forKey: TallaShortcutDestination.pendingReorderKey)
+                showToast(message: "The catalog is unavailable right now. Please try again shortly.")
+                return
+            }
+            return await handlePendingReorderFromShortcut()
+        }
+        defer { UserDefaults.standard.removeObject(forKey: TallaShortcutDestination.pendingReorderKey) }
+
+        let productTitle = payload["productTitle"] as? String ?? ""
+        let variantID = payload["variantID"] as? String ?? ""
+        let quantity = max(1, min(payload["quantity"] as? Int ?? 1, 20))
+        let product = products.first(where: { $0.id == productTitle })
+            ?? products.first(where: { $0.name.caseInsensitiveCompare(productTitle) == .orderedSame })
+            ?? products.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })
+        guard let product else {
+            showToast(message: "That coffee is no longer available in the catalog.")
+            openShop(searchQuery: name)
+            return
+        }
+        let variant = product.variants.first(where: { $0.id == variantID }) ?? product.defaultVariant
+        guard let variant, product.isAvailableForSale, variant.isAvailableForSale else {
+            showToast(message: "That coffee or size is no longer available.")
+            openShop(searchQuery: product.name)
+            return
+        }
+        addShortcutReorderToCart(product: product, variant: variant, quantity: quantity)
+        cartOpen = true
+        showToast(message: "Added your last coffee to the bag for review.")
     }
 
     func handleWelcomeChoice(_ choice: WelcomeChoice) {
@@ -206,6 +263,10 @@ extension ContentView {
                 socialCoffeeInvite = SocialCoffeeInvite(id: id, inviteCode: inviteCode)
             case let .gift(orderID, token):
                 socialCoffeePassGift = SocialCoffeePassGift(orderID: orderID, token: token)
+                if let token {
+                    TallaGiftVault.save(orderID: orderID, token: token)
+                    TallaSpotlightIndexer.reindexStoredGifts()
+                }
             }
             return
         }

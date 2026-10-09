@@ -31,6 +31,26 @@ import UIKit
 #endif
 
 extension ContentView {
+    func addShortcutReorderToCart(product: Product, variant: Product.Variant, quantity: Int) {
+        guard cartItems.isEmpty || (!isCoffeeClubPrepaid && !isCafePassPrepaid && !isGiftOrder) else {
+            showToast(message: "Finish or clear the current bag before reordering this coffee.")
+            return
+        }
+        let itemID = cartItemIdentifier(productID: product.id, variantID: variant.id)
+        if let index = cartItems.firstIndex(where: { $0.id == itemID }) {
+            updateCartItemQuantity(at: index, quantity: cartItems[index].quantity + quantity)
+        } else {
+            cartItems.append(CartItem(id: itemID, product: product, variant: variant, quantity: quantity))
+        }
+        requestedSubscriptionPlanType = ""
+        isGiftOrder = false
+        isCafePassPrepaid = false
+        isCoffeeClubPrepaid = false
+        suspendedCoffeePass = false
+        checkoutError = nil
+        persistActiveCartForSync()
+    }
+
     func bagSupportsSubscription(_ planType: String) -> Bool {
         guard !cartItems.isEmpty else { return true }
         let currentPlan = cartSubscriptionPlanType.isEmpty ? coffeeClubPlanType : cartSubscriptionPlanType
@@ -756,6 +776,7 @@ extension ContentView {
 
         do {
             availableVouchers = try await AccountService.fetchVouchers(email: email)
+            TallaSpotlightIndexer.reindexRewards(availableVouchers)
         } catch {
             availableVouchers = []
         }

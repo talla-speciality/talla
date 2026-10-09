@@ -15,6 +15,9 @@ struct TallaWidgetDeepLinks {
     static let concierge = URL(string: "talla://concierge")!
     static let brewing = URL(string: "talla://brewing")!
     static let rewards = URL(string: "talla://rewards")!
+    static let gifts = URL(string: "talla://gifts")!
+    static let groupOrder = URL(string: "talla://group-order")!
+    static let orders = URL(string: "talla://orders")!
 }
 
 private enum TallaWidgetSharedState {
@@ -27,6 +30,13 @@ private enum TallaWidgetSharedState {
     static let loyaltyPointsKey = "watch.loyalty.points"
     static let loyaltyTierKey = "watch.loyalty.tier"
     static let loyaltyNextRewardKey = "watch.loyalty.nextReward"
+    static let activeGiftNameKey = "widget.activeGift.name"
+    static let activeGiftExpiryKey = "widget.activeGift.expiry"
+    static let groupOrderNameKey = "widget.groupOrder.name"
+    static let groupOrderParticipantCountKey = "widget.groupOrder.participantCount"
+    static let groupOrderDeadlineKey = "widget.groupOrder.deadline"
+    static let orderStatusKey = "widget.order.status"
+    static let orderIsPickupKey = "widget.order.isPickup"
 
     static var defaults: UserDefaults {
         UserDefaults(suiteName: appGroupID) ?? .standard
@@ -44,10 +54,19 @@ struct TallaQuickActionsEntry: TimelineEntry {
     let loyaltyPoints: Int
     let loyaltyTier: String
     let loyaltyNextReward: String
+    let activeGiftName: String?
+    let activeGiftExpiry: Date?
+    let groupOrderName: String?
+    let groupOrderParticipantCount: Int
+    let groupOrderDeadline: Date?
+    let orderStatus: String?
+    let orderIsPickup: Bool
 
     var hasShelf: Bool { favoriteCount > 0 }
     var isArabic: Bool { languageCode == "ar" }
     var preferredURL: URL { hasShelf ? TallaWidgetDeepLinks.shelf : TallaWidgetDeepLinks.shop }
+    var hasActiveGift: Bool { activeGiftName != nil }
+    var hasGroupOrder: Bool { groupOrderName != nil }
 }
 
 struct TallaQuickActionsProvider: TimelineProvider {
@@ -62,7 +81,14 @@ struct TallaQuickActionsProvider: TimelineProvider {
             languageCode: "en",
             loyaltyPoints: 72,
             loyaltyTier: "Bronze",
-            loyaltyNextReward: "28 Beans to next reward"
+            loyaltyNextReward: "28 Beans to next reward",
+            activeGiftName: "Iced latte",
+            activeGiftExpiry: Date().addingTimeInterval(86_400 * 4),
+            groupOrderName: "Office coffee",
+            groupOrderParticipantCount: 6,
+            groupOrderDeadline: Date().addingTimeInterval(7_200),
+            orderStatus: "Ready for pickup",
+            orderIsPickup: true
         )
     }
 
@@ -86,6 +112,11 @@ struct TallaQuickActionsProvider: TimelineProvider {
         let loyaltyPoints = defaults.integer(forKey: TallaWidgetSharedState.loyaltyPointsKey)
         let loyaltyTier = defaults.string(forKey: TallaWidgetSharedState.loyaltyTierKey) ?? "Bronze"
         let loyaltyNextReward = defaults.string(forKey: TallaWidgetSharedState.loyaltyNextRewardKey) ?? "Check rewards in app"
+        let isoFormatter = ISO8601DateFormatter()
+        let activeGiftName = defaults.string(forKey: TallaWidgetSharedState.activeGiftNameKey)
+        let activeGiftExpiry = defaults.string(forKey: TallaWidgetSharedState.activeGiftExpiryKey).flatMap(isoFormatter.date)
+        let groupOrderName = defaults.string(forKey: TallaWidgetSharedState.groupOrderNameKey)
+        let groupOrderDeadline = defaults.string(forKey: TallaWidgetSharedState.groupOrderDeadlineKey).flatMap(isoFormatter.date)
         let isArabic = languageCode == "ar"
         let beansText = loyaltyEmail.isEmpty
             ? (isArabic ? "سجّل الدخول للـ Beans" : "Sign in for Beans")
@@ -104,7 +135,14 @@ struct TallaQuickActionsProvider: TimelineProvider {
             languageCode: languageCode,
             loyaltyPoints: loyaltyPoints,
             loyaltyTier: loyaltyTier,
-            loyaltyNextReward: loyaltyNextReward
+            loyaltyNextReward: loyaltyNextReward,
+            activeGiftName: activeGiftName,
+            activeGiftExpiry: activeGiftExpiry,
+            groupOrderName: groupOrderName,
+            groupOrderParticipantCount: defaults.integer(forKey: TallaWidgetSharedState.groupOrderParticipantCountKey),
+            groupOrderDeadline: groupOrderDeadline,
+            orderStatus: defaults.string(forKey: TallaWidgetSharedState.orderStatusKey),
+            orderIsPickup: defaults.bool(forKey: TallaWidgetSharedState.orderIsPickupKey)
         )
     }
 }
@@ -139,7 +177,7 @@ struct TallaQuickActionsWidgetView: View {
             widgetBackground
         }
         .foregroundStyle(primaryForeground)
-        .widgetURL(entry.preferredURL)
+        .widgetURL(priorityURL)
     }
 
     private var primaryForeground: Color {
@@ -212,9 +250,9 @@ struct TallaQuickActionsWidgetView: View {
 
     private var circularAccessory: some View {
         Gauge(value: accessoryProgress) {
-            Image(systemName: "cup.and.saucer.fill")
+            Image(systemName: priorityIcon)
         } currentValueLabel: {
-            Text("\(entry.loyaltyPoints)")
+            Text(priorityValue)
                 .font(.system(size: 15, weight: .black, design: .serif))
                 .minimumScaleFactor(0.6)
         }
@@ -226,17 +264,17 @@ struct TallaQuickActionsWidgetView: View {
     private var rectangularAccessory: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
-                Image(systemName: "cup.and.saucer.fill")
-                Text("TALLA")
+                Image(systemName: priorityIcon)
+                Text(priorityTitle)
                     .font(.system(size: 11, weight: .black, design: .serif))
             }
             .foregroundStyle(accentFill)
 
-            Text("\(entry.loyaltyPoints) Beans")
+            Text(priorityValue)
                 .font(.system(size: 14, weight: .black))
                 .lineLimit(1)
 
-            Text(entry.loyaltyNextReward)
+            Text(priorityDetail)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -245,8 +283,55 @@ struct TallaQuickActionsWidgetView: View {
     }
 
     private var inlineAccessory: some View {
-        Label("\(entry.loyaltyPoints) Beans", systemImage: "cup.and.saucer.fill")
-            .widgetURL(TallaWidgetDeepLinks.rewards)
+        Label(priorityValue, systemImage: priorityIcon)
+            .widgetURL(priorityURL)
+    }
+
+    private var priorityIcon: String {
+        if entry.hasActiveGift { return "gift.fill" }
+        if entry.hasGroupOrder { return "person.3.fill" }
+        if entry.orderStatus != nil { return entry.orderIsPickup ? "storefront.fill" : "shippingbox.fill" }
+        return "cup.and.saucer.fill"
+    }
+
+    private var priorityURL: URL {
+        if entry.hasActiveGift { return TallaWidgetDeepLinks.gifts }
+        if entry.hasGroupOrder { return TallaWidgetDeepLinks.groupOrder }
+        if entry.orderStatus != nil { return TallaWidgetDeepLinks.orders }
+        return TallaWidgetDeepLinks.rewards
+    }
+
+    private var priorityTitle: String {
+        if entry.hasActiveGift { return localized("COFFEE GIFT", "هدية قهوة") }
+        if entry.hasGroupOrder { return localized("GROUP ORDER", "طلب جماعي") }
+        if entry.orderStatus != nil { return entry.orderIsPickup ? localized("PICKUP", "استلام") : localized("ORDER", "طلب") }
+        return "TALLA"
+    }
+
+    private var priorityValue: String {
+        if let gift = entry.activeGiftName { return gift }
+        if entry.hasGroupOrder { return "\(entry.groupOrderParticipantCount) \(localized("participants", "مشاركين"))" }
+        if let status = entry.orderStatus { return status }
+        return "\(entry.loyaltyPoints) Beans"
+    }
+
+    private var priorityDetail: String {
+        if entry.hasActiveGift { return giftExpiryText }
+        if entry.hasGroupOrder { return groupDeadlineText }
+        if entry.orderStatus != nil { return localized("Tap to view status", "اضغط لعرض الحالة") }
+        return entry.loyaltyNextReward
+    }
+
+    private var giftExpiryText: String {
+        guard let expiry = entry.activeGiftExpiry else { return localized("Ready to redeem", "جاهزة للاستبدال") }
+        let date = expiry.formatted(date: .abbreviated, time: .omitted)
+        return localized("Expires \(date)", "تنتهي \(date)")
+    }
+
+    private var groupDeadlineText: String {
+        guard let deadline = entry.groupOrderDeadline else { return localized("Open now", "مفتوح الآن") }
+        let date = deadline.formatted(date: .abbreviated, time: .shortened)
+        return localized("Closes \(date)", "يغلق \(date)")
     }
 
     private var smallWidget: some View {
@@ -254,6 +339,13 @@ struct TallaQuickActionsWidgetView: View {
             widgetHeader(iconSize: 28, titleSize: 16)
 
             VStack(alignment: .leading, spacing: 6) {
+                if entry.hasActiveGift {
+                    widgetStatusRow(title: localized("Gift", "هدية"), value: entry.activeGiftName!, detail: giftExpiryText, icon: "gift.fill", url: TallaWidgetDeepLinks.gifts)
+                } else if entry.hasGroupOrder {
+                    widgetStatusRow(title: localized("Group order", "طلب جماعي"), value: "\(entry.groupOrderParticipantCount) \(localized("participants", "مشاركين"))", detail: groupDeadlineText, icon: "person.3.fill", url: TallaWidgetDeepLinks.groupOrder)
+                } else if let orderStatus = entry.orderStatus {
+                    widgetStatusRow(title: entry.orderIsPickup ? localized("Pickup", "استلام") : localized("Order", "طلب"), value: orderStatus, detail: nil, icon: entry.orderIsPickup ? "storefront.fill" : "shippingbox.fill", url: TallaWidgetDeepLinks.orders)
+                }
                 statLine(title: localized("Shelf", "الرف"), value: entry.favoriteCount, icon: "books.vertical.fill")
                 statLine(title: localized("Recent", "الأخيرة"), value: entry.recentCount, icon: "clock.fill")
                 statLine(title: localized("Carts", "السلال"), value: entry.savedCartCount, icon: "cart.fill")
@@ -285,6 +377,10 @@ struct TallaQuickActionsWidgetView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
 
+                if entry.hasActiveGift || entry.hasGroupOrder || entry.orderStatus != nil {
+                    priorityStatusCard
+                }
+
                 Spacer(minLength: 0)
 
                 HStack(spacing: 7) {
@@ -296,6 +392,13 @@ struct TallaQuickActionsWidgetView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(spacing: 8) {
+                if entry.hasActiveGift {
+                    widgetLink(localized("Gift", "هدية"), systemImage: "gift.fill", url: TallaWidgetDeepLinks.gifts, highlighted: true)
+                } else if entry.hasGroupOrder {
+                    widgetLink(localized("Group order", "طلب جماعي"), systemImage: "person.3.fill", url: TallaWidgetDeepLinks.groupOrder, highlighted: true)
+                } else if entry.orderStatus != nil {
+                    widgetLink(entry.orderIsPickup ? localized("Pickup", "استلام") : localized("Order", "طلب"), systemImage: entry.orderIsPickup ? "storefront.fill" : "shippingbox.fill", url: TallaWidgetDeepLinks.orders, highlighted: true)
+                }
                 widgetLink(localized("Shelf", "الرف"), systemImage: "books.vertical.fill", url: TallaWidgetDeepLinks.shelf, highlighted: entry.hasShelf)
                 widgetLink(localized("Shop", "المتجر"), systemImage: "bag.fill", url: TallaWidgetDeepLinks.shop, highlighted: false)
                 widgetLink(localized("Concierge", "المرشد"), systemImage: "sparkles", url: TallaWidgetDeepLinks.concierge, highlighted: false)
@@ -304,6 +407,34 @@ struct TallaQuickActionsWidgetView: View {
             .frame(width: 116)
         }
         .padding(14)
+    }
+
+    private var priorityStatusCard: some View {
+        Group {
+            if entry.hasActiveGift {
+                widgetStatusRow(title: localized("Active coffee gift", "هدية قهوة نشطة"), value: entry.activeGiftName!, detail: giftExpiryText, icon: "gift.fill", url: TallaWidgetDeepLinks.gifts)
+            } else if entry.hasGroupOrder {
+                widgetStatusRow(title: entry.groupOrderName ?? localized("Group order", "طلب جماعي"), value: "\(entry.groupOrderParticipantCount) \(localized("participants", "مشاركين"))", detail: groupDeadlineText, icon: "person.3.fill", url: TallaWidgetDeepLinks.groupOrder)
+            } else if let orderStatus = entry.orderStatus {
+                widgetStatusRow(title: entry.orderIsPickup ? localized("Pickup status", "حالة الاستلام") : localized("Order status", "حالة الطلب"), value: orderStatus, detail: nil, icon: entry.orderIsPickup ? "storefront.fill" : "shippingbox.fill", url: TallaWidgetDeepLinks.orders)
+            }
+        }
+    }
+
+    private func widgetStatusRow(title: String, value: String, detail: String?, icon: String, url: URL) -> some View {
+        Link(destination: url) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 13, weight: .black)).foregroundStyle(accentFill).frame(width: 20)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 9, weight: .black)).foregroundStyle(secondaryForeground).textCase(.uppercase).lineLimit(1)
+                    Text(value).font(.system(size: 12, weight: .black)).lineLimit(1)
+                    if let detail { Text(detail).font(.system(size: 9, weight: .semibold)).foregroundStyle(secondaryForeground).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+            .background(panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
     }
 
     private func widgetHeader(iconSize: CGFloat, titleSize: CGFloat) -> some View {
@@ -745,6 +876,204 @@ private struct TallaBrewActivityProgress: View {
                 Capsule(style: .continuous)
                     .fill(TallaBrewActivityStyle.accent)
                     .frame(width: proxy.size.width * progress)
+            }
+        }
+        .frame(height: 6)
+    }
+}
+
+/// Commerce updates share one activity so an order can move from confirmation to
+/// pickup without dismissing and recreating the user's Live Activity.
+@available(iOS 16.1, *)
+nonisolated struct TallaCommerceActivityAttributes: ActivityAttributes, Sendable {
+    enum Kind: String, Codable, Hashable, Sendable {
+        case order
+        case groupOrder
+        case gift
+    }
+
+    nonisolated struct ContentState: Codable, Hashable, Sendable {
+        let status: String
+        let statusKey: String
+        let progress: Double
+        let deadline: Date?
+        let detail: String?
+    }
+
+    let kind: Kind
+    let referenceID: String
+    let title: String
+    let isPickup: Bool
+    let languageCode: String
+}
+
+@available(iOS 16.1, *)
+struct TallaCommerceLiveActivity: Widget {
+    private let accent = Color(red: 0.78, green: 0.55, blue: 0.29)
+
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: TallaCommerceActivityAttributes.self) { context in
+            TallaCommerceLockScreenView(context: context)
+                .activityBackgroundTint(Color(.systemBackground))
+                .activitySystemActionForegroundColor(accent)
+                .widgetURL(URL(string: "talla://orders"))
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Label(context.attributes.title, systemImage: icon(for: context.attributes.kind))
+                        .font(.caption.weight(.bold))
+                        .lineLimit(1)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    Text(status(for: context))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(detail(for: context))
+                            .font(.headline.weight(.bold))
+                            .lineLimit(1)
+                        TallaCommerceProgress(progress: context.state.progress, accent: accent)
+                    }
+                }
+            } compactLeading: {
+                Image(systemName: icon(for: context.attributes.kind)).foregroundStyle(accent)
+            } compactTrailing: {
+                Text(status(for: context)).font(.caption2.weight(.bold)).lineLimit(1)
+            } minimal: {
+                Image(systemName: icon(for: context.attributes.kind)).foregroundStyle(accent)
+            }
+        }
+    }
+
+    private func icon(for kind: TallaCommerceActivityAttributes.Kind) -> String {
+        switch kind {
+        case .order: "bag.fill"
+        case .groupOrder: "person.3.fill"
+        case .gift: "gift.fill"
+        }
+    }
+
+    private func status(for context: ActivityViewContext<TallaCommerceActivityAttributes>) -> String {
+        guard context.attributes.languageCode == "ar" else { return context.state.status }
+        switch context.state.statusKey {
+        case "order_confirmed": return "تم تأكيد الطلب"
+        case "preparing": return "قيد التحضير"
+        case "ready_for_pickup": return "جاهز للاستلام"
+        case "group_order_closing_soon": return "إغلاق الطلب قريباً"
+        case "gift_ready_to_redeem": return "الهدية جاهزة للاستبدال"
+        default: return context.state.status
+        }
+    }
+
+    private func detail(for context: ActivityViewContext<TallaCommerceActivityAttributes>) -> String {
+        guard context.attributes.languageCode == "ar" else { return context.state.detail ?? status(for: context) }
+        switch context.state.statusKey {
+        case "order_confirmed": return "استلمنا طلبك"
+        case "preparing": return "يتم تحضير قهوتك الآن"
+        case "ready_for_pickup": return "طلبك ينتظرك في تالا"
+        case "group_order_closing_soon": return "انضم المزيد من الأشخاص قبل الإغلاق"
+        case "gift_ready_to_redeem": return "أظهر الهدية عند الكاونتر"
+        default: return context.state.detail ?? status(for: context)
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+private struct TallaCommerceLockScreenView: View {
+    let context: ActivityViewContext<TallaCommerceActivityAttributes>
+    private let accent = Color(red: 0.78, green: 0.55, blue: 0.29)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundStyle(Color(.systemBackground))
+                    .frame(width: 34, height: 34)
+                    .background(accent, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 11, weight: .black))
+                        .tracking(1.2)
+                        .textCase(.uppercase)
+                        .foregroundStyle(accent)
+                    Text(context.attributes.title)
+                        .font(.headline.weight(.heavy))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                Text(status)
+                    .font(.subheadline.weight(.bold))
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+            }
+
+            Text(detail).font(.title3.weight(.heavy)).lineLimit(1)
+            if let deadline = context.state.deadline {
+                Text(timerInterval: Date()...deadline, countsDown: true)
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            TallaCommerceProgress(progress: context.state.progress, accent: accent)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+    }
+
+    private var icon: String {
+        switch context.attributes.kind {
+        case .order: "bag.fill"
+        case .groupOrder: "person.3.fill"
+        case .gift: "gift.fill"
+        }
+    }
+
+    private var label: String {
+        switch context.attributes.kind {
+        case .order: context.attributes.languageCode == "ar" ? "استلام من تالا" : (context.attributes.isPickup ? "Talla Pickup" : "Talla Order")
+        case .groupOrder: context.attributes.languageCode == "ar" ? "طلب جماعي" : "Group Order"
+        case .gift: context.attributes.languageCode == "ar" ? "هدية قهوة" : "Coffee Gift"
+        }
+    }
+
+    private var status: String {
+        guard context.attributes.languageCode == "ar" else { return context.state.status }
+        switch context.state.statusKey {
+        case "order_confirmed": return "تم تأكيد الطلب"
+        case "preparing": return "قيد التحضير"
+        case "ready_for_pickup": return "جاهز للاستلام"
+        case "group_order_closing_soon": return "إغلاق الطلب قريباً"
+        case "gift_ready_to_redeem": return "الهدية جاهزة للاستبدال"
+        default: return context.state.status
+        }
+    }
+
+    private var detail: String {
+        guard context.attributes.languageCode == "ar" else { return context.state.detail ?? status }
+        switch context.state.statusKey {
+        case "order_confirmed": return "استلمنا طلبك"
+        case "preparing": return "يتم تحضير قهوتك الآن"
+        case "ready_for_pickup": return "طلبك ينتظرك عند تالا"
+        case "group_order_closing_soon": return "انضم المزيد من الأشخاص قبل الإغلاق"
+        case "gift_ready_to_redeem": return "أظهر الهدية عند الكاونتر"
+        default: return context.state.detail ?? status
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+private struct TallaCommerceProgress: View {
+    let progress: Double
+    let accent: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(accent.opacity(0.22))
+                Capsule().fill(accent).frame(width: proxy.size.width * min(max(progress, 0), 1))
             }
         }
         .frame(height: 6)

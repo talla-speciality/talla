@@ -1,5 +1,35 @@
 import SwiftUI
 
+struct TallaCoffeeGiftVaultView: View {
+    let openGift: (TallaStoredGift) -> Void
+    @Environment(\.dismiss) private var dismiss
+    private var gifts: [TallaStoredGift] { TallaGiftVault.all() }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if gifts.isEmpty {
+                    ContentUnavailableView("No coffee gifts yet", systemImage: "gift", description: Text("Coffee gifts you open from Talla links will appear here."))
+                } else {
+                    List(gifts) { gift in
+                        Button { openGift(gift) } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "gift.fill").foregroundStyle(TallaTheme.Colors.accent)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(gift.drinkName).font(.headline)
+                                    Text("Tap to check whether it is redeemable").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Coffee gifts")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
 struct SocialCoffeeView: View {
     let accent: Color
     let background: Color
@@ -221,8 +251,15 @@ struct SocialCoffeeView: View {
     @MainActor
     private func loadGroups() async {
         guard isSignedIn else { groups = []; return }
-        do { groups = try await AccountService.fetchSocialCoffeeGroups() }
-        catch { groups = [] }
+        do {
+            groups = try await AccountService.fetchSocialCoffeeGroups()
+            AppWidgetSharedState.syncGroupOrderWidgetState(groups)
+            TallaSpotlightIndexer.reindex(orders: [], groups: groups)
+        }
+        catch {
+            groups = []
+            AppWidgetSharedState.syncGroupOrderWidgetState([], reload: false)
+        }
     }
 
 

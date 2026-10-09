@@ -77,6 +77,7 @@ struct ContentView: View {
     @State var pendingUniversalLinkProductHandle = ""
     @State var socialCoffeeInvite: SocialCoffeeInvite?
     @State var socialCoffeePassGift: SocialCoffeePassGift?
+    @State var isCoffeeGiftVaultPresented = false
     @State var pendingBrewingCoffeeName = ""
     @State var pendingBrewingCoffeeOrigin = ""
     @State var pendingBrewingCoffeeNotes = ""

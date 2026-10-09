@@ -266,6 +266,66 @@ extension ContentView {
         defaults.set(loyaltyAccount?.tier ?? "Bronze", forKey: AppWidgetSharedState.loyaltyTierKey)
         defaults.set(loyaltyAccount?.nextReward ?? "Check rewards in app", forKey: AppWidgetSharedState.loyaltyNextRewardKey)
         defaults.set(loyaltyAccount?.memberID ?? "", forKey: AppWidgetSharedState.loyaltyMemberIDKey)
+
+        let formatter = ISO8601DateFormatter()
+        let activeGift = orderHistory.first { order in
+            guard let pass = order.details?.cafePass, pass.giftedCoffee == true,
+                  pass.remainingCredits > 0, pass.status.lowercased() == "active" else { return false }
+            return pass.expiresAt.flatMap(formatter.date).map { $0 > Date() } ?? true
+        }?.details?.cafePass
+        if let activeGift {
+            defaults.set(activeGift.drinkName, forKey: AppWidgetSharedState.activeGiftNameKey)
+            if let expiry = activeGift.expiresAt { defaults.set(expiry, forKey: AppWidgetSharedState.activeGiftExpiryKey) }
+        } else {
+            defaults.removeObject(forKey: AppWidgetSharedState.activeGiftNameKey)
+            defaults.removeObject(forKey: AppWidgetSharedState.activeGiftExpiryKey)
+        }
+
+        let activeOrder = orderHistory.first { order in
+            !["completed", "fulfilled", "delivered", "cancelled", "canceled", "refunded"].contains(order.status.lowercased())
+        }
+        if let activeOrder {
+            defaults.set(activeOrder.status, forKey: AppWidgetSharedState.orderStatusKey)
+            defaults.set(activeOrder.isPickup, forKey: AppWidgetSharedState.orderIsPickupKey)
+#if canImport(ActivityKit)
+            if #available(iOS 16.1, *) {
+                TallaCommerceLiveActivityCoordinator.shared.syncOrder(
+                    id: activeOrder.id,
+                    title: activeOrder.title,
+                    status: activeOrder.status,
+                    isPickup: activeOrder.isPickup,
+                    languageCode: appLanguage.effectiveLanguageCode
+                )
+            }
+#endif
+        } else {
+            defaults.removeObject(forKey: AppWidgetSharedState.orderStatusKey)
+            defaults.removeObject(forKey: AppWidgetSharedState.orderIsPickupKey)
+#if canImport(ActivityKit)
+            if #available(iOS 16.1, *) {
+                if let activeGift {
+                    let expiry = activeGift.expiresAt.flatMap(formatter.date)
+                    TallaCommerceLiveActivityCoordinator.shared.startGift(
+                        id: activeGift.giftToken ?? activeGift.drinkName,
+                        title: activeGift.drinkName,
+                        expiry: expiry,
+                        languageCode: appLanguage.effectiveLanguageCode
+                    )
+                } else if let groupName = defaults.string(forKey: AppWidgetSharedState.groupOrderNameKey) {
+                    let deadline = defaults.string(forKey: AppWidgetSharedState.groupOrderDeadlineKey).flatMap(formatter.date)
+                    TallaCommerceLiveActivityCoordinator.shared.startGroupOrder(
+                        id: groupName,
+                        title: groupName,
+                        deadline: deadline,
+                        participantCount: defaults.integer(forKey: AppWidgetSharedState.groupOrderParticipantCountKey),
+                        languageCode: appLanguage.effectiveLanguageCode
+                    )
+                } else {
+                    TallaCommerceLiveActivityCoordinator.shared.endOrder()
+                }
+            }
+#endif
+        }
         defaults.set(Date().timeIntervalSince1970, forKey: AppWidgetSharedState.lastUpdatedKey)
 
         if reload {

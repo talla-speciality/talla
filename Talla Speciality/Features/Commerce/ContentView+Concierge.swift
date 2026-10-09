@@ -178,6 +178,52 @@ extension ContentView {
                         .foregroundColor(primaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
+                    if !conciergeResult.giftMessageSuggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(AppLocalization.text("concierge_gift_message_title", fallback: "Gift message ideas"))
+                                .font(labelFont(size: 9, weight: .bold))
+                                .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.2)
+                                .textCase(.uppercase)
+                                .foregroundColor(readableBrandGoldColor)
+
+                            ForEach(conciergeResult.giftMessageSuggestions, id: \.self) { suggestion in
+                                Button {
+                                    giftMessage = suggestion
+                                    isGiftOrder = true
+                                    showToast(message: AppLocalization.text("concierge_gift_message_added", fallback: "Gift message added to your order"))
+                                } label: {
+                                    Text(suggestion)
+                                        .font(bodyFont(size: 12))
+                                        .foregroundColor(primaryTextColor)
+                                        .multilineTextAlignment(.leading)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(9)
+                                        .background(elevatedSurfaceColor)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
+                    if conciergeResult.canBuildCart && !conciergeProducts.isEmpty {
+                        Button {
+                            buildConciergeCart()
+                        } label: {
+                            Label(
+                                AppLocalization.text("concierge_build_cart", fallback: "Build this bag"),
+                                systemImage: "bag.badge.plus"
+                            )
+                            .font(labelFont(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(TallaTheme.Colors.accent)
+                            .clipShape(Capsule(style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     if !conciergeProducts.isEmpty {
                         LazyVGrid(columns: productGridColumns, spacing: 14) {
                             ForEach(conciergeProducts) { product in
@@ -297,6 +343,25 @@ extension ContentView {
         conciergeResult = result
         delightFeedbackTrigger += 1
         isRunningConcierge = false
+    }
+
+    @MainActor
+    func buildConciergeCart() {
+        let picks = conciergeProducts.filter { $0.isAvailableForSale }
+        guard !picks.isEmpty else {
+            showToast(message: AppLocalization.text("concierge_no_available_picks", fallback: "Those picks are not available right now"))
+            return
+        }
+
+        // The Concierge only proposes catalog IDs. Existing cart and checkout code
+        // still re-check variant availability, pricing, payment, redemption, and expiry.
+        for product in picks {
+            addToCart(product: product)
+        }
+        if conciergeResult?.giftMessageSuggestions.isEmpty == false {
+            isGiftOrder = true
+        }
+        cartOpen = true
     }
 
 }

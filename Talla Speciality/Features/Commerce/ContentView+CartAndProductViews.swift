@@ -771,11 +771,13 @@ extension ContentView {
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            .tallaSystemSheetSurface()
         }
         .sheet(isPresented: $isCheckoutAddressSheetPresented) {
             checkoutAddressSheet
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+                .tallaSystemSheetSurface()
         }
     }
 

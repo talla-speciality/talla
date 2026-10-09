@@ -96,7 +96,7 @@ extension ContentView {
     }
 
     var usesSystemNavigationActions: Bool {
-        if #available(iOS 27.1, *) { return true }
+        if #available(iOS 27.0, *) { return true }
         return false
     }
 

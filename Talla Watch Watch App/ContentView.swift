@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Combine
 #if canImport(WatchKit)
 import WatchKit
 #endif
@@ -124,15 +124,14 @@ struct TallaWatchSnapshot {
     }
 }
 
-@Observable
 @MainActor
-final class TallaWatchStore: NSObject {
-    var snapshot = TallaWatchSnapshot()
-    var selectedRecipe = WatchBrewRecipe()
-    var espressoState = WatchEspressoState()
-    var statusText = watchText("Open Talla on your iPhone and sign in to sync.", arabic: "افتح Talla على iPhone وسجّل الدخول للمزامنة.")
-    var isSyncing = false
-    var lastActionText = watchText("Ready", arabic: "جاهز")
+final class TallaWatchStore: NSObject, ObservableObject {
+    @Published var snapshot = TallaWatchSnapshot()
+    @Published var selectedRecipe = WatchBrewRecipe()
+    @Published var espressoState = WatchEspressoState()
+    @Published var statusText = watchText("Open Talla on your iPhone and sign in to sync.", arabic: "افتح Talla على iPhone وسجّل الدخول للمزامنة.")
+    @Published var isSyncing = false
+    @Published var lastActionText = watchText("Ready", arabic: "جاهز")
 
 #if canImport(WatchConnectivity)
     private var session: WCSession? {
@@ -334,6 +333,29 @@ final class TallaWatchStore: NSObject {
     }
 }
 
+@MainActor
+private final class WatchPresentationState: ObservableObject {
+    @Published var isBrewPresented = false
+    @Published var isEspressoPresented = false
+    @Published var isMilkPresented = false
+}
+
+@MainActor
+private final class WatchBrewSessionState: ObservableObject {
+    @Published var isRunning = true
+    @Published var startDate = Date()
+    @Published var elapsedWhenPaused = 0
+    @Published var lastHapticStepID: Int?
+}
+
+@MainActor
+private final class WatchMilkSteamingState: ObservableObject {
+    @Published var isRunning = false
+    @Published var elapsed = 0
+    @Published var targetTemperature = 60.0
+    @Published var scale = 1.0
+}
+
 #if canImport(WatchConnectivity)
 extension TallaWatchStore: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
@@ -373,10 +395,8 @@ extension TallaWatchStore: WCSessionDelegate {
 #endif
 
 struct ContentView: View {
-    @State private var store = TallaWatchStore()
-    @State private var isBrewPresented = false
-    @State private var isEspressoPresented = false
-    @State private var isMilkPresented = false
+    @StateObject private var store = TallaWatchStore()
+    @StateObject private var presentation = WatchPresentationState()
 
     private let accent = Color(red: 0.79, green: 0.59, blue: 0.35)
 
@@ -401,7 +421,7 @@ struct ContentView: View {
                 .padding(.vertical, 8)
             }
             .navigationTitle("Talla")
-            .fullScreenCover(isPresented: $isBrewPresented) {
+            .fullScreenCover(isPresented: $presentation.isBrewPresented) {
                 WatchBrewSessionView(recipe: store.selectedRecipe) { action, elapsedSeconds, currentStep, nextStep, currentWaterGrams, isPaused in
                     store.sendBrewActivity(
                         action: action,
@@ -414,12 +434,12 @@ struct ContentView: View {
                     )
                 }
             }
-            .fullScreenCover(isPresented: $isEspressoPresented) {
+            .fullScreenCover(isPresented: $presentation.isEspressoPresented) {
                 WatchEspressoSessionView(state: $store.espressoState) { action, targetYield in
                     store.sendEspressoAction(action: action, targetYield: targetYield)
                 }
             }
-            .fullScreenCover(isPresented: $isMilkPresented) {
+            .fullScreenCover(isPresented: $presentation.isMilkPresented) {
                 WatchMilkSteamingView()
             }
             .toolbar {
@@ -442,7 +462,7 @@ struct ContentView: View {
 
     private var continueBrewCard: some View {
         Button {
-            isBrewPresented = true
+            presentation.isBrewPresented = true
         } label: {
             HStack(spacing: 9) {
                 Image(systemName: "timer")
@@ -475,7 +495,7 @@ struct ContentView: View {
     }
 
     private var espressoCard: some View {
-        Button { isEspressoPresented = true } label: {
+        Button { presentation.isEspressoPresented = true } label: {
             HStack(spacing: 9) {
                 Image(systemName: "dial.medium").foregroundStyle(accent).frame(width: 30, height: 30).background(Color.white.opacity(0.08), in: Circle())
                 VStack(alignment: .leading, spacing: 2) { Text("Espresso Dial-In").font(.system(size: 12, weight: .black)); Text("Start, stop, and hit yield from Watch").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary) }
@@ -485,7 +505,7 @@ struct ContentView: View {
     }
 
     private var milkCard: some View {
-        Button { isMilkPresented = true } label: {
+        Button { presentation.isMilkPresented = true } label: {
             HStack(spacing: 9) {
                 Image(systemName: "thermometer.medium").foregroundStyle(accent).frame(width: 30, height: 30).background(Color.white.opacity(0.08), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
@@ -630,7 +650,7 @@ struct ContentView: View {
     private var watchPrimaryActions: some View {
         HStack(spacing: 7) {
             localCompactAction(watchText("Brew", arabic: "تحضير"), icon: "drop.fill") {
-                isBrewPresented = true
+                presentation.isBrewPresented = true
             }
             compactAction(watchText("Shelf", arabic: "المحفوظات"), icon: "books.vertical.fill", destination: "shelf")
         }
@@ -723,10 +743,27 @@ struct WatchBrewSessionView: View {
     let recipe: WatchBrewRecipe
     let liveActivityHandler: (String, Int, WatchBrewStep, WatchBrewStep?, Int, Bool) -> Void
 
-    @State private var isRunning = true
-    @State private var startDate = Date()
-    @State private var elapsedWhenPaused = 0
-    @State private var lastHapticStepID: Int?
+    @StateObject private var session = WatchBrewSessionState()
+
+    private var isRunning: Bool {
+        get { session.isRunning }
+        set { session.isRunning = newValue }
+    }
+
+    private var startDate: Date {
+        get { session.startDate }
+        set { session.startDate = newValue }
+    }
+
+    private var elapsedWhenPaused: Int {
+        get { session.elapsedWhenPaused }
+        set { session.elapsedWhenPaused = newValue }
+    }
+
+    private var lastHapticStepID: Int? {
+        get { session.lastHapticStepID }
+        set { session.lastHapticStepID = newValue }
+    }
 
     private let accent = Color(red: 0.79, green: 0.59, blue: 0.35)
 
@@ -785,7 +822,7 @@ struct WatchBrewSessionView: View {
             }
             .onChange(of: currentStep.id) { _, newStepID in
                 guard lastHapticStepID != newStepID else { return }
-                lastHapticStepID = newStepID
+                session.lastHapticStepID = newStepID
                 playStepHaptic()
                 sendLiveActivityUpdate(
                     action: elapsed >= recipe.totalSeconds ? "end" : "update",
@@ -798,10 +835,10 @@ struct WatchBrewSessionView: View {
             }
         }
         .onAppear {
-            startDate = .now
-            elapsedWhenPaused = 0
-            isRunning = true
-            lastHapticStepID = currentStep(for: 0).id
+            session.startDate = .now
+            session.elapsedWhenPaused = 0
+            session.isRunning = true
+            session.lastHapticStepID = currentStep(for: 0).id
             sendLiveActivityUpdate(
                 action: "start",
                 elapsedSeconds: 0,
@@ -958,11 +995,11 @@ struct WatchBrewSessionView: View {
 
     private func togglePause(elapsed: Int) {
         if isRunning {
-            elapsedWhenPaused = elapsed
-            isRunning = false
+            session.elapsedWhenPaused = elapsed
+            session.isRunning = false
         } else {
-            startDate = .now
-            isRunning = true
+            session.startDate = .now
+            session.isRunning = true
         }
         sendLiveActivityUpdate(
             action: "update",
@@ -975,27 +1012,27 @@ struct WatchBrewSessionView: View {
     }
 
     private func skip(elapsed: Int) {
-        elapsedWhenPaused = nextStep(after: elapsed)?.time ?? recipe.totalSeconds
-        startDate = .now
-        if elapsedWhenPaused >= recipe.totalSeconds {
-            isRunning = false
+        session.elapsedWhenPaused = nextStep(after: elapsed)?.time ?? recipe.totalSeconds
+        session.startDate = .now
+        if session.elapsedWhenPaused >= recipe.totalSeconds {
+            session.isRunning = false
         }
         playStepHaptic()
         sendLiveActivityUpdate(
-            action: elapsedWhenPaused >= recipe.totalSeconds ? "end" : "update",
-            elapsedSeconds: elapsedWhenPaused,
-            currentStep: currentStep(for: elapsedWhenPaused),
-            nextStep: nextStep(after: elapsedWhenPaused),
-            currentWaterGrams: currentWaterTarget(for: elapsedWhenPaused),
-            isPaused: !isRunning
+            action: session.elapsedWhenPaused >= recipe.totalSeconds ? "end" : "update",
+            elapsedSeconds: session.elapsedWhenPaused,
+            currentStep: currentStep(for: session.elapsedWhenPaused),
+            nextStep: nextStep(after: session.elapsedWhenPaused),
+            currentWaterGrams: currentWaterTarget(for: session.elapsedWhenPaused),
+            isPaused: !session.isRunning
         )
     }
 
     private func restart() {
-        elapsedWhenPaused = 0
-        startDate = .now
-        isRunning = true
-        lastHapticStepID = currentStep(for: 0).id
+        session.elapsedWhenPaused = 0
+        session.startDate = .now
+        session.isRunning = true
+        session.lastHapticStepID = currentStep(for: 0).id
         playStepHaptic()
         sendLiveActivityUpdate(
             action: "start",
@@ -1062,18 +1099,35 @@ struct WatchEspressoSessionView: View {
 
 struct WatchMilkSteamingView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var isRunning = false
-    @State private var elapsed = 0
-    @State private var targetTemperature = 60.0
-    @State private var scale = 1.0
+    @StateObject private var session = WatchMilkSteamingState()
+
+    private var isRunning: Bool {
+        get { session.isRunning }
+        set { session.isRunning = newValue }
+    }
+
+    private var elapsed: Int {
+        get { session.elapsed }
+        set { session.elapsed = newValue }
+    }
+
+    private var targetTemperature: Double {
+        get { session.targetTemperature }
+        set { session.targetTemperature = newValue }
+    }
+
+    private var scale: Double {
+        get { session.scale }
+        set { session.scale = newValue }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack { Text("MILK").font(.system(size: 12, weight: .black)); Spacer(); Button("Done") { dismiss() }.font(.caption) }
             Text(String(format: "%02d:%02d", elapsed / 60, elapsed % 60)).font(.system(size: 36, weight: .black, design: .rounded)).monospacedDigit()
-            Stepper("Target \(Int(targetTemperature)) °C", value: $targetTemperature, in: 50...75, step: 1).font(.caption)
-            Stepper(String(format: "Drink scale %.1fx", scale), value: $scale, in: 0.5...2.0, step: 0.1).font(.caption)
-            Button { isRunning.toggle() } label: {
+            Stepper("Target \(Int(targetTemperature)) °C", value: $session.targetTemperature, in: 50...75, step: 1).font(.caption)
+            Stepper(String(format: "Drink scale %.1fx", scale), value: $session.scale, in: 0.5...2.0, step: 0.1).font(.caption)
+            Button { session.isRunning.toggle() } label: {
                 Label(isRunning ? "Pause steaming" : "Start steaming", systemImage: isRunning ? "pause.fill" : "play.fill")
                     .frame(maxWidth: .infinity).padding(10)
             }.buttonStyle(.borderedProminent)
@@ -1082,12 +1136,14 @@ struct WatchMilkSteamingView: View {
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                if isRunning { elapsed += 1 }
+                if session.isRunning { session.elapsed += 1 }
             }
         }
     }
 }
 
+#if false // Preview macro is unavailable in headless CI/Xcode plugin environments.
 #Preview {
     ContentView()
 }
+#endif

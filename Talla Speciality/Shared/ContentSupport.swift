@@ -275,6 +275,37 @@ extension View {
             background(tint, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
+
+    /// Lets iOS own the system chrome so the user's Liquid Glass setting can
+    /// move this surface from clear to tinted without fighting the brand palette.
+    @ViewBuilder
+    func tallaAdaptiveTabBarBackground() -> some View {
+        if #available(iOS 26.0, *) {
+            toolbarBackground(.automatic, for: .tabBar)
+        } else {
+            toolbarBackground(.visible, for: .tabBar)
+        }
+    }
+
+    @ViewBuilder
+    func tallaAdaptiveNavigationBarBackground(systemChrome: Bool) -> some View {
+        if #available(iOS 26.0, *), systemChrome {
+            toolbarBackground(.automatic, for: .navigationBar)
+        } else {
+            toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    /// Keep the presentation container under system control on iOS 26+ so
+    /// Liquid Glass can respond to the user's clear/tinted preference.
+    @ViewBuilder
+    func tallaSystemSheetSurface() -> some View {
+        if #available(iOS 26.0, *) {
+            presentationCornerRadius(TallaTheme.CornerRadius.sheet)
+        } else {
+            presentationBackground(.background)
+        }
+    }
 }
 #if canImport(UserNotifications)
 import UserNotifications

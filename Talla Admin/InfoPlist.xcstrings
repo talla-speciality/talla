@@ -36,6 +36,18 @@
           }
         }
       }
+    },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Privacy - Face ID Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Use Face ID or Touch ID to sign in securely to Talla Admin."
+          }
+        }
+      }
     }
   },
   "version" : "1.3"

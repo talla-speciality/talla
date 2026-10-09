@@ -294,6 +294,7 @@ extension ContentView {
         }
         .sheet(item: $selectedProduct) { product in
             productDetailSheet(product: product)
+                .tallaSystemSheetSurface()
         }
         .sheet(item: $socialCoffeeInvite) { invite in
             SocialCoffeeGroupInviteView(invite: invite, products: products, isSignedIn: customerProfile != nil, hasItemsInBag: { !cartItems.isEmpty }, clearBagAction: clearBagForNewFlow, accountAction: {
@@ -325,21 +326,34 @@ extension ContentView {
                 cartOpen = !cartItems.isEmpty
             })
             .presentationDetents([.medium, .large])
+            .tallaSystemSheetSurface()
         }
         .sheet(item: $socialCoffeePassGift) { gift in
             SocialCoffeePassGiftView(gift: gift)
                 .presentationDetents([.medium, .large])
+                .tallaSystemSheetSurface()
+        }
+        .sheet(isPresented: $isCoffeeGiftVaultPresented) {
+            TallaCoffeeGiftVaultView { gift in
+                isCoffeeGiftVaultPresented = false
+                socialCoffeePassGift = SocialCoffeePassGift(orderID: gift.orderID, token: gift.token)
+            }
+            .presentationDetents([.medium, .large])
+            .tallaSystemSheetSurface()
         }
         .sheet(isPresented: $isFavoriteShelfPresented) {
             favoriteShelfSheet
+                .tallaSystemSheetSurface()
         }
         .sheet(isPresented: $isCartRewardsPresented) {
             cartRewardsSheet
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+                .tallaSystemSheetSurface()
         }
         .sheet(isPresented: $isCoffeeConciergePresented) {
             coffeeConciergeSheet
+                .tallaSystemSheetSurface()
         }
         .fullScreenCover(isPresented: $isCheckoutPresented, onDismiss: presentPendingPayment) {
             checkoutView
@@ -615,8 +629,7 @@ extension ContentView {
             }
         }
         .toolbar(.visible, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarBackground(tabBarBackgroundColor, for: .tabBar)
+        .tallaAdaptiveTabBarBackground()
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: activeTab)
     }
 
@@ -658,8 +671,7 @@ extension ContentView {
 
         }
         .toolbar(.visible, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarBackground(tabBarBackgroundColor, for: .tabBar)
+        .tallaAdaptiveTabBarBackground()
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: activeTab)
     }
 
@@ -667,7 +679,7 @@ extension ContentView {
         NavigationStack {
             tabScrollContent(tab: tab, content: content)
                 .toolbar {
-                    if #available(iOS 27.1, *) {
+                    if #available(iOS 27.0, *) {
                         ToolbarItem(placement: .primaryAction) {
                             if tab == .home || tab == .shop {
                                 Button {
@@ -687,7 +699,7 @@ extension ContentView {
                 }
                 .toolbar(usesSystemNavigationActions ? .visible : .hidden, for: .navigationBar)
                 .modifier(DuoToolbarBehavior())
-                .toolbarBackground(.hidden, for: .navigationBar)
+                .tallaAdaptiveNavigationBarBackground(systemChrome: usesSystemNavigationActions)
         }
     }
 
@@ -756,14 +768,14 @@ extension ContentView {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("TALLA SPECIALITY")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(labelFont(size: 11, weight: .bold))
                     .tracking(1.6)
                     .foregroundStyle(readableBrandGoldColor)
                 Text("Everything in one place.")
-                    .font(.system(size: 30, weight: .semibold, design: .serif))
+                    .font(displayFont(size: 30))
                     .foregroundStyle(primaryTextColor)
                 Text("Explore the Gulf coffee guide or manage your Talla account.")
-                    .font(.system(size: 15, design: .rounded))
+                    .font(bodyFont(size: 15))
                     .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -916,6 +928,7 @@ extension ContentView {
         .background(pageBackgroundColor)
         .sheet(isPresented: $isAccountPresentedFromMore) {
             accountPresentationView
+                .tallaSystemSheetSurface()
         }
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.large)

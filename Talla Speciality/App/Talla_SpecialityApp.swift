@@ -319,6 +319,142 @@ final class TallaWatchPhoneBridge: NSObject, WCSessionDelegate {
 }
 #endif
 
+#if canImport(ActivityKit)
+@available(iOS 16.1, *)
+nonisolated struct TallaCommerceActivityAttributes: ActivityAttributes, Sendable {
+    enum Kind: String, Codable, Hashable, Sendable {
+        case order
+        case groupOrder
+        case gift
+    }
+
+    nonisolated struct ContentState: Codable, Hashable, Sendable {
+        let status: String
+        let statusKey: String
+        let progress: Double
+        let deadline: Date?
+        let detail: String?
+    }
+
+    let kind: Kind
+    let referenceID: String
+    let title: String
+    let isPickup: Bool
+    let languageCode: String
+}
+
+@available(iOS 16.1, *)
+final class TallaCommerceLiveActivityCoordinator {
+    static let shared = TallaCommerceLiveActivityCoordinator()
+    private var activity: Activity<TallaCommerceActivityAttributes>?
+
+    private init() {
+        activity = Activity<TallaCommerceActivityAttributes>.activities.first
+    }
+
+    func syncOrder(id: String, title: String, status: String, isPickup: Bool, languageCode: String) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let state = orderState(status: status, isPickup: isPickup)
+        let attributes = TallaCommerceActivityAttributes(
+            kind: .order,
+            referenceID: id,
+            title: title,
+            isPickup: isPickup,
+            languageCode: languageCode
+        )
+        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(60 * 60), relevanceScore: 100)
+
+        if let activity, activity.attributes.referenceID == id {
+            Task { await activity.update(content) }
+            return
+        }
+
+        if let activity {
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+        }
+        do {
+            activity = try Activity<TallaCommerceActivityAttributes>.request(
+                attributes: attributes,
+                content: content,
+                pushType: nil
+            )
+        } catch {
+            activity = nil
+        }
+    }
+
+    func endOrder() {
+        guard let activity else { return }
+        self.activity = nil
+        Task { await activity.end(nil, dismissalPolicy: .after(Date().addingTimeInterval(8))) }
+    }
+
+    func startGroupOrder(id: String, title: String, deadline: Date?, participantCount: Int, languageCode: String) {
+        sync(
+            kind: .groupOrder,
+            id: id,
+            title: title,
+            isPickup: false,
+            status: "Group order closing soon",
+            statusKey: "group_order_closing_soon",
+            progress: 0.8,
+            deadline: deadline,
+            detail: "\(participantCount) people joined",
+            languageCode: languageCode
+        )
+    }
+
+    func startGift(id: String, title: String, expiry: Date?, languageCode: String) {
+        sync(
+            kind: .gift,
+            id: id,
+            title: title,
+            isPickup: true,
+            status: "Gift ready to redeem",
+            statusKey: "gift_ready_to_redeem",
+            progress: 1,
+            deadline: expiry,
+            detail: "Show this gift at the counter",
+            languageCode: languageCode
+        )
+    }
+
+    private func sync(kind: TallaCommerceActivityAttributes.Kind, id: String, title: String, isPickup: Bool, status: String, statusKey: String, progress: Double, deadline: Date?, detail: String, languageCode: String) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let attributes = TallaCommerceActivityAttributes(kind: kind, referenceID: id, title: title, isPickup: isPickup, languageCode: languageCode)
+        let content = ActivityContent(
+            state: TallaCommerceActivityAttributes.ContentState(status: status, statusKey: statusKey, progress: progress, deadline: deadline, detail: detail),
+            staleDate: deadline ?? Date().addingTimeInterval(60 * 60),
+            relevanceScore: 80
+        )
+        if let activity,
+           activity.attributes.referenceID == id,
+           activity.attributes.kind == kind {
+            Task { await activity.update(content) }
+            return
+        }
+        if let activity { Task { await activity.end(nil, dismissalPolicy: .immediate) } }
+        do { activity = try Activity.request(attributes: attributes, content: content, pushType: nil) }
+        catch { activity = nil }
+    }
+
+    private func orderState(status: String, isPickup: Bool) -> TallaCommerceActivityAttributes.ContentState {
+        switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "pending", "placed", "received":
+            return .init(status: "Order confirmed", statusKey: "order_confirmed", progress: 0.2, deadline: nil, detail: "We received your order")
+        case "confirmed":
+            return .init(status: "Order confirmed", statusKey: "order_confirmed", progress: 0.3, deadline: nil, detail: "We received your order")
+        case "preparing", "roasting", "resting", "packed":
+            return .init(status: "Preparing", statusKey: "preparing", progress: 0.6, deadline: nil, detail: "Your coffee is being prepared")
+        case "ready":
+            return .init(status: isPickup ? "Ready for pickup" : "Ready", statusKey: "ready_for_pickup", progress: 1, deadline: nil, detail: isPickup ? "Your order is waiting at Talla" : "Your order is ready")
+        default:
+            return .init(status: status.capitalized, statusKey: status.lowercased(), progress: 0.45, deadline: nil, detail: "Your order is in progress")
+        }
+    }
+}
+#endif
+
 extension Notification.Name {
     static let tallaEspressoWatchAction = Notification.Name("talla.espresso.watch.action")
 }

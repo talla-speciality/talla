@@ -106,11 +106,38 @@ enum AppWidgetSharedState {
     static let loyaltyTierKey = "watch.loyalty.tier"
     static let loyaltyNextRewardKey = "watch.loyalty.nextReward"
     static let loyaltyMemberIDKey = "watch.loyalty.memberID"
+    static let activeGiftNameKey = "widget.activeGift.name"
+    static let activeGiftExpiryKey = "widget.activeGift.expiry"
+    static let groupOrderNameKey = "widget.groupOrder.name"
+    static let groupOrderParticipantCountKey = "widget.groupOrder.participantCount"
+    static let groupOrderDeadlineKey = "widget.groupOrder.deadline"
+    static let orderStatusKey = "widget.order.status"
+    static let orderIsPickupKey = "widget.order.isPickup"
     static let lastUpdatedKey = "widget.lastUpdated"
     static var defaults: UserDefaults { UserDefaults(suiteName: appGroupID) ?? .standard }
     static func reloadWidget() {
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
         #endif
+    }
+
+    static func syncGroupOrderWidgetState(_ groups: [SocialCoffeeGroup], reload: Bool = true) {
+        let defaults = defaults
+        let formatter = ISO8601DateFormatter()
+        let activeGroup = groups
+            .filter { $0.status.lowercased() == "open" }
+            .filter { formatter.date(from: $0.expiresAt).map { $0 > Date() } ?? true }
+            .sorted { $0.expiresAt < $1.expiresAt }
+            .first
+        if let activeGroup {
+            defaults.set(activeGroup.name, forKey: groupOrderNameKey)
+            defaults.set(activeGroup.participants.count, forKey: groupOrderParticipantCountKey)
+            defaults.set(activeGroup.expiresAt, forKey: groupOrderDeadlineKey)
+        } else {
+            defaults.removeObject(forKey: groupOrderNameKey)
+            defaults.removeObject(forKey: groupOrderParticipantCountKey)
+            defaults.removeObject(forKey: groupOrderDeadlineKey)
+        }
+        if reload { reloadWidget() }
     }
 }

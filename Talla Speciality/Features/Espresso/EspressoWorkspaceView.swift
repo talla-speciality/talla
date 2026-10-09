@@ -117,7 +117,7 @@ struct EspressoWorkspaceView: View {
             }
             if isRunning && !didAlertTarget && liveWeight >= draft.yield { didAlertTarget = true; targetReachedFeedback(); finishShot() }
         }
-        .sheet(isPresented: $showNewShot) { shotEditor }
+        .sheet(isPresented: $showNewShot) { shotEditor.tallaSystemSheetSurface() }
         .sheet(isPresented: $showScalePicker) {
             NavigationStack {
                 List {
@@ -129,6 +129,7 @@ struct EspressoWorkspaceView: View {
                     }
                 }.navigationTitle("Connect Scale").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showScalePicker = false } } }
             }
+            .tallaSystemSheetSurface()
         }
         .task {
             while !Task.isCancelled {

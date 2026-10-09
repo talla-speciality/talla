@@ -4,6 +4,56 @@ import Testing
 
 struct Talla_SpecialityTests {
 
+    private func conciergeProduct(
+        id: String,
+        name: String,
+        price: String,
+        categoryKey: String,
+        desc: String
+    ) -> ContentView.Product {
+        let variant = ContentView.Product.Variant(
+            id: "\(id)-variant",
+            title: "Standard",
+            price: price,
+            isAvailableForSale: true,
+            requiresShipping: true,
+            weightGrams: nil
+        )
+        return ContentView.Product(
+            id: id,
+            handle: id,
+            variantID: variant.id,
+            variants: [variant],
+            name: name,
+            price: price,
+            categoryKey: categoryKey,
+            categoryLabel: categoryKey,
+            imageURL: nil,
+            desc: desc,
+            tag: nil,
+            tags: [],
+            countryOfOrigin: nil,
+            isAvailableForSale: true
+        )
+    }
+
+    @Test func conciergeRanksChocolateGiftWithinBudgetAndOffersCartBuild() async {
+        let products = [
+            conciergeProduct(id: "chocolate-gift", name: "Chocolate Gift Box", price: "18.000 BHD", categoryKey: "gifts", desc: "Chocolate for sharing"),
+            conciergeProduct(id: "coffee-set", name: "Coffee Set", price: "24.000 BHD", categoryKey: "gifts", desc: "A larger gift set")
+        ]
+
+        let result = await CoffeeConciergeService.recommend(
+            request: "add a gift under 20 BHD for my friend who likes chocolate",
+            products: products,
+            localeIdentifier: "en"
+        )
+
+        #expect(result.productIDs == ["chocolate-gift"])
+        #expect(result.canBuildCart)
+        #expect(!result.giftMessageSuggestions.isEmpty)
+    }
+
     @Test func socialCoffeeLinksAcceptPublishedPagesAndLegacyRoutes() {
         let id = "0123456789abcdef"
         let invite = "0123456789abcdef0123456789abcdef"

@@ -13,9 +13,18 @@ For the subsequent conventional iPhone/iPad layout changes and device matrix, se
 
 The customer app and admin app already use SwiftUI `App` / `WindowGroup` and generated scene manifests, satisfying the scene lifecycle requirement. No lifecycle rewrite or compatibility-mode opt-out is needed.
 
+## Visual adaptation
+
+- The customer app's iOS 26+ tab bar and iOS 27 navigation toolbar defer to system Liquid Glass materials instead of forcing an opaque brand-colored background. This allows the user's clear-to-tinted Liquid Glass preference to remain visible.
+- Primary customer sheets use the system presentation container with a 28-point corner radius on iOS 26+; custom content backgrounds remain inside the sheet and do not replace the system material.
+- Product detail, social coffee, gift vault, favourites, rewards, concierge, account, checkout payment/address, and espresso sheets use the shared presentation treatment. The iOS 17 fallback retains the existing background behavior.
+- The iOS 27 navigation toolbar exposes the bag action and appearance/language menu through standard toolbar placements. The More screen's navigation typography uses the app's Dynamic Type-aware font helpers.
+
+Validate the visual paths on iOS 27 with Liquid Glass set to both ultra-clear and fully tinted, in light, dark, and OLED appearance modes, including Arabic and larger accessibility text sizes. Confirm tab labels, toolbar actions, close controls, and sheet content remain legible while scrolling.
+
 ## Validation
 
-Validation used local Xcode 27.0 (27A266a), iOS SDK 27.0 and watchOS SDK 27.0. The iPhone app, physical-device build, Watch app, and simulator test bundle all built successfully. On the newly installed iOS 27 simulator, all 84 unit tests passed, including the Live Activity concurrency regression test. Three of six existing UI journeys were affected by simulator automation timing or fixture behavior: Arabic checkout did not reach its screen before the timeout, English checkout did not observe the mock payment request, and offline recovery timed out querying accessibility. Account deletion, Bluetooth recovery, and startup-with-network-stall passed.
+Validation used local Xcode 27.0 (27A266a), iOS SDK 27.0 and watchOS SDK 27.0. The iPhone app, physical-device build, Watch app, and simulator test bundle all built successfully. On a clean iOS 27 simulator, all 108 unit tests passed, including the Live Activity concurrency regression test. The three previously affected UI journeys also passed: Arabic checkout reached the localized right-to-left checkout, English checkout observed both authenticated mock order and payment requests, and offline recovery showed cached data before retrying successfully. Account deletion, Bluetooth recovery, and startup-with-network-stall remain passing from the earlier validation run.
 
 ## Physical-device release checks
 

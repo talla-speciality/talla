@@ -340,6 +340,8 @@ extension ContentView {
         confirmNewPasswordInput = ""
         orderHistory = []
         ordersError = nil
+        TallaSpotlightIndexer.removeAll()
+        TallaGiftVault.clear()
         addresses = []
         addressLabel = ""
         addressFullName = ""
@@ -603,6 +605,7 @@ extension ContentView {
 
         do {
             orderHistory = try await AccountService.fetchOrders(email: profile.email)
+            TallaSpotlightIndexer.reindex(orders: orderHistory)
             try? coffeeData.importPurchasedCoffee(from: orderHistory, catalog: products, ownerID: profile.email.lowercased())
             if let remoteTasteMemory = try? await AccountService.fetchTasteMemory(email: profile.email) {
                 persistTasteMemoryRecords(remoteTasteMemory)
@@ -616,6 +619,16 @@ extension ContentView {
         }
 
         isLoadingOrders = false
+    }
+
+    @MainActor
+    func syncWidgetGroupOrderState() async {
+        guard customerProfile != nil else {
+            AppWidgetSharedState.syncGroupOrderWidgetState([], reload: false)
+            return
+        }
+        let groups = (try? await AccountService.fetchSocialCoffeeGroups()) ?? []
+        AppWidgetSharedState.syncGroupOrderWidgetState(groups, reload: false)
     }
 
     @MainActor

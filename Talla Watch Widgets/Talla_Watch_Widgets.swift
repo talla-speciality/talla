@@ -10,6 +10,12 @@ private enum TallaWatchWidgetSharedState {
     static let loyaltyPointsKey = "watch.loyalty.points"
     static let loyaltyTierKey = "watch.loyalty.tier"
     static let loyaltyNextRewardKey = "watch.loyalty.nextReward"
+    static let activeGiftNameKey = "widget.activeGift.name"
+    static let activeGiftExpiryKey = "widget.activeGift.expiry"
+    static let groupOrderParticipantCountKey = "widget.groupOrder.participantCount"
+    static let groupOrderDeadlineKey = "widget.groupOrder.deadline"
+    static let orderStatusKey = "widget.order.status"
+    static let orderIsPickupKey = "widget.order.isPickup"
     static let lastUpdatedKey = "widget.lastUpdated"
 
     static var defaults: UserDefaults {
@@ -26,6 +32,12 @@ struct TallaWatchWidgetEntry: TimelineEntry {
     let favoriteCount: Int
     let recentCount: Int
     let savedCartCount: Int
+    let activeGiftName: String?
+    let activeGiftExpiry: Date?
+    let groupOrderParticipantCount: Int
+    let groupOrderDeadline: Date?
+    let orderStatus: String?
+    let orderIsPickup: Bool
 
     var progress: Double {
         Double(points % 50) / 50
@@ -34,6 +46,13 @@ struct TallaWatchWidgetEntry: TimelineEntry {
     var beansToNextReward: Int {
         let remainder = points % 50
         return remainder == 0 && points > 0 ? 0 : 50 - remainder
+    }
+
+    var priorityIcon: String {
+        if activeGiftName != nil { return "gift.fill" }
+        if groupOrderParticipantCount > 0 { return "person.3.fill" }
+        if orderStatus != nil { return orderIsPickup ? "storefront.fill" : "shippingbox.fill" }
+        return "cup.and.saucer.fill"
     }
 }
 
@@ -47,7 +66,13 @@ struct TallaWatchWidgetProvider: TimelineProvider {
             isSignedIn: true,
             favoriteCount: 3,
             recentCount: 5,
-            savedCartCount: 1
+            savedCartCount: 1,
+            activeGiftName: "Iced latte",
+            activeGiftExpiry: Date().addingTimeInterval(86_400 * 4),
+            groupOrderParticipantCount: 6,
+            groupOrderDeadline: Date().addingTimeInterval(7_200),
+            orderStatus: "Ready for pickup",
+            orderIsPickup: true
         )
     }
 
@@ -65,6 +90,7 @@ struct TallaWatchWidgetProvider: TimelineProvider {
         let defaults = TallaWatchWidgetSharedState.defaults
         let email = defaults.string(forKey: TallaWatchWidgetSharedState.loyaltyEmailKey) ?? ""
         let lastUpdated = defaults.double(forKey: TallaWatchWidgetSharedState.lastUpdatedKey)
+        let formatter = ISO8601DateFormatter()
 
         return TallaWatchWidgetEntry(
             date: lastUpdated > 0 ? Date(timeIntervalSince1970: lastUpdated) : Date(),
@@ -74,7 +100,13 @@ struct TallaWatchWidgetProvider: TimelineProvider {
             isSignedIn: !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             favoriteCount: defaults.integer(forKey: TallaWatchWidgetSharedState.favoriteCountKey),
             recentCount: defaults.integer(forKey: TallaWatchWidgetSharedState.recentCountKey),
-            savedCartCount: defaults.integer(forKey: TallaWatchWidgetSharedState.savedCartCountKey)
+            savedCartCount: defaults.integer(forKey: TallaWatchWidgetSharedState.savedCartCountKey),
+            activeGiftName: defaults.string(forKey: TallaWatchWidgetSharedState.activeGiftNameKey),
+            activeGiftExpiry: defaults.string(forKey: TallaWatchWidgetSharedState.activeGiftExpiryKey).flatMap(formatter.date),
+            groupOrderParticipantCount: defaults.integer(forKey: TallaWatchWidgetSharedState.groupOrderParticipantCountKey),
+            groupOrderDeadline: defaults.string(forKey: TallaWatchWidgetSharedState.groupOrderDeadlineKey).flatMap(formatter.date),
+            orderStatus: defaults.string(forKey: TallaWatchWidgetSharedState.orderStatusKey),
+            orderIsPickup: defaults.bool(forKey: TallaWatchWidgetSharedState.orderIsPickupKey)
         )
     }
 }
@@ -107,14 +139,14 @@ struct TallaWatchWidgetsEntryView: View {
         .containerBackground(for: .widget) {
             Color.clear
         }
-        .widgetURL(URL(string: "talla://rewards"))
+        .widgetURL(priorityURL)
     }
 
     private var circularComplication: some View {
         Gauge(value: entry.isSignedIn ? entry.progress : 0) {
-            Image(systemName: "cup.and.saucer.fill")
+            Image(systemName: entry.priorityIcon)
         } currentValueLabel: {
-            Text(entry.isSignedIn ? "\(entry.points)" : "T")
+            Text(entry.activeGiftName != nil || entry.groupOrderParticipantCount > 0 || entry.orderStatus != nil ? "•" : (entry.isSignedIn ? "\(entry.points)" : "T"))
                 .font(.system(size: 15, weight: .black, design: .serif))
                 .minimumScaleFactor(0.55)
         }
@@ -125,8 +157,8 @@ struct TallaWatchWidgetsEntryView: View {
     private var rectangularComplication: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
-                Image(systemName: "cup.and.saucer.fill")
-                Text("TALLA")
+                Image(systemName: entry.priorityIcon)
+                Text(entry.activeGiftName != nil ? "GIFT" : entry.groupOrderParticipantCount > 0 ? "GROUP ORDER" : "TALLA")
                     .font(.system(size: 11, weight: .black, design: .serif))
                 Spacer(minLength: 0)
                 Text(entry.isSignedIn ? entry.tier : "Connect")
@@ -136,11 +168,11 @@ struct TallaWatchWidgetsEntryView: View {
             }
             .foregroundStyle(accent)
 
-            Text(entry.isSignedIn ? "\(entry.points) Beans" : "Connect Talla")
+            Text(priorityValue)
                 .font(.system(size: 15, weight: .black))
                 .lineLimit(1)
 
-            Text(entry.isSignedIn ? rewardLine : "Open on iPhone")
+            Text(priorityDetail)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -148,7 +180,7 @@ struct TallaWatchWidgetsEntryView: View {
     }
 
     private var inlineComplication: some View {
-        Label(entry.isSignedIn ? "\(entry.points) Beans" : "Connect Talla", systemImage: "cup.and.saucer.fill")
+        Label(priorityValue, systemImage: entry.priorityIcon)
     }
 
 #if os(watchOS)
@@ -168,6 +200,27 @@ struct TallaWatchWidgetsEntryView: View {
 
     private var rewardLine: String {
         entry.beansToNextReward == 0 ? "Reward ready" : "\(entry.beansToNextReward) Beans to your next reward"
+    }
+
+    private var priorityURL: URL {
+        if entry.activeGiftName != nil { return URL(string: "talla://gifts")! }
+        if entry.groupOrderParticipantCount > 0 { return URL(string: "talla://group-order")! }
+        if entry.orderStatus != nil { return URL(string: "talla://orders")! }
+        return URL(string: "talla://rewards")!
+    }
+
+    private var priorityValue: String {
+        if let gift = entry.activeGiftName { return gift }
+        if entry.groupOrderParticipantCount > 0 { return "\(entry.groupOrderParticipantCount) participants" }
+        if let status = entry.orderStatus { return status }
+        return entry.isSignedIn ? "\(entry.points) Beans" : "Connect Talla"
+    }
+
+    private var priorityDetail: String {
+        if let expiry = entry.activeGiftExpiry { return "Expires \(expiry.formatted(date: .abbreviated, time: .omitted))" }
+        if let deadline = entry.groupOrderDeadline { return "Closes \(deadline.formatted(date: .abbreviated, time: .shortened))" }
+        if entry.orderStatus != nil { return entry.orderIsPickup ? "Pickup status" : "Order status" }
+        return entry.isSignedIn ? rewardLine : "Open on iPhone"
     }
 }
 
@@ -206,7 +259,13 @@ struct Talla_Watch_Widgets: Widget {
         isSignedIn: true,
         favoriteCount: 3,
         recentCount: 5,
-        savedCartCount: 1
+        savedCartCount: 1,
+        activeGiftName: nil,
+        activeGiftExpiry: nil,
+        groupOrderParticipantCount: 0,
+        groupOrderDeadline: nil,
+        orderStatus: nil,
+        orderIsPickup: false
     )
 }
 #endif

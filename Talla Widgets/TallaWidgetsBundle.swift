@@ -9,6 +9,7 @@ struct TallaWidgetsBundle: WidgetBundle {
 
         if #available(iOS 16.1, *) {
             TallaBrewLiveActivity()
+            TallaCommerceLiveActivity()
         }
 
         if #available(iOS 18.0, *) {

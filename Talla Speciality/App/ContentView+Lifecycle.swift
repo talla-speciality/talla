@@ -119,6 +119,7 @@ extension ContentView {
         await bootstrapTask
         await notificationTask
         guard !Task.isCancelled else { return }
+        await syncWidgetGroupOrderState()
         await syncRemotePushTokenIfPossible()
     }
 
