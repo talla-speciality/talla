@@ -3,8 +3,20 @@ import Foundation
 import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
-@Generable(description: "The customer's gifting and cart intent extracted from natural language.")
+@Generable(description: "The customer's coffee intent extracted from natural language.")
 private struct ConciergeIntent {
+    @Guide(description: "The coffee question or goal, such as choosing beans, fixing sour espresso, or dialing in pour-over.")
+    let coffeeGoal: String?
+    @Guide(description: "The equipment type, such as grinder, scale, dripper, kettle, espresso machine, brewer, filter, or water system. Use nil when absent.")
+    let equipmentType: String?
+    @Guide(description: "The equipment brand and model, such as Fellow Ode, Fellow Opus, Timemore Black Mirror, Comandante C40, V60, or Flair. Use nil when absent.")
+    let equipmentModel: String?
+    @Guide(description: "The brew method, such as espresso, V60, French press, AeroPress, moka pot, or cold brew. Use nil when absent.")
+    let brewMethod: String?
+    @Guide(description: "The grind size or adjustment requested. Use nil when absent.")
+    let grind: String?
+    @Guide(description: "The water temperature in Celsius if stated or clearly requested. Use nil when absent.")
+    let waterTemperatureC: Double?
     @Guide(description: "The recipient, such as friend, mother, colleague, or host. Use nil when absent.")
     let recipient: String?
     @Guide(description: "The occasion, such as birthday, thank-you, Ramadan, or hosting. Use nil when absent.")
@@ -80,12 +92,14 @@ enum CoffeeConciergeService {
                     for: [rankingRequest, modelOutput.itemRequests.joined(separator: " ")].joined(separator: " "),
                     products: products
                 )
+                let wantsProducts = requestLooksLikeProductRecommendation(trimmedRequest, hasImage: imageAnalysis != nil)
+                let modelProductIDs = wantsProducts ? Array(modelRankedProducts.prefix(3)).map(\.id) : []
                 return CoffeeConciergeResult(
                     message: modelOutput.message,
-                    productIDs: Array(modelRankedProducts.prefix(3)).map(\.id).isEmpty ? fallback.productIDs : Array(modelRankedProducts.prefix(3)).map(\.id),
+                    productIDs: modelProductIDs.isEmpty && wantsProducts ? fallback.productIDs : modelProductIDs,
                     usedAppleIntelligence: true,
-                    giftMessageSuggestions: modelOutput.giftMessageSuggestions.isEmpty ? fallback.giftMessageSuggestions : modelOutput.giftMessageSuggestions,
-                    canBuildCart: modelOutput.wantsCart || fallback.canBuildCart
+                    giftMessageSuggestions: wantsProducts && modelOutput.giftMessageSuggestions.isEmpty ? fallback.giftMessageSuggestions : (wantsProducts ? modelOutput.giftMessageSuggestions : []),
+                    canBuildCart: wantsProducts && (modelOutput.wantsCart || fallback.canBuildCart)
                 )
             }
         }
@@ -100,6 +114,17 @@ enum CoffeeConciergeService {
         products: [ContentView.Product],
         imageAnalysis: ImageAnalysis?
     ) -> CoffeeConciergeResult {
+        let wantsProducts = requestLooksLikeProductRecommendation(request, hasImage: imageAnalysis != nil)
+        guard wantsProducts else {
+            return CoffeeConciergeResult(
+                message: coffeeKnowledgeFallback(for: request, imageAnalysis: imageAnalysis),
+                productIDs: [],
+                usedAppleIntelligence: false,
+                giftMessageSuggestions: [],
+                canBuildCart: false
+            )
+        }
+
         let ranked = rankedProducts(for: rankingRequest, products: products)
         let picks = Array(ranked.prefix(3))
         let hasImage = imageAnalysis != nil
@@ -295,6 +320,87 @@ enum CoffeeConciergeService {
         return "They are available now and give you a balanced place to start."
     }
 
+    private static func requestLooksLikeProductRecommendation(_ request: String, hasImage: Bool) -> Bool {
+        if hasImage && request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        let normalized = request.lowercased()
+        let recommendationVerbs = [
+            "recommend", "suggest", "which coffee", "which bean", "what bean", "buy", "shop", "product",
+            "gift", "under ", "budget", "choose beans", "pick for me", "compare", "where can i get",
+            "أرشح", "اقترح", "أي قهوة", "شراء", "هدية", "قارن"
+        ]
+        if recommendationVerbs.contains(where: { normalized.contains($0) }) { return true }
+        return normalized.contains("which grinder")
+            || normalized.contains("what grinder")
+            || normalized.contains("which brewer")
+            || normalized.contains("what brewer")
+            || normalized.contains("what kettle")
+    }
+
+    private static func coffeeKnowledgeFallback(for request: String, imageAnalysis: ImageAnalysis?) -> String {
+        let normalized = request.lowercased()
+        if normalized.contains("timemore") || normalized.contains("acaia") || normalized.contains("felicita") || normalized.contains("hario scale") || normalized.contains("black mirror") {
+            return "For scales, the brand changes features more than the brewing logic: Acaia Lunar/Pearl emphasize fast response and flow-rate tools; Timemore Black Mirror models are common value options; Hario scales are simple recipe timers; Felicita models vary by size and water resistance. Use grams, tare the vessel, start the timer consistently, and validate unstable readings with a known weight. Keep water away from ports and check the exact model’s waterproof rating before rinsing. What model, brew method, and reading problem do you have?"
+        }
+        if normalized.contains("fellow") || normalized.contains("brewista") || normalized.contains("hario buono") || normalized.contains("bonavita") || normalized.contains("timemore kettle") || normalized.contains("brewista kettle") {
+            return "Kettle guidance depends on control and temperature stability: Fellow Stagg EKG and Brewista Artisan offer temperature control with different flow and interfaces; Hario Buono is a manual-control classic; Bonavita is a straightforward gooseneck; Timemore Fish models emphasize controlled pouring. A gooseneck helps pour-over, while a regular spout is fine for immersion. Verify temperature with a reference thermometer, descale mineral buildup, and never run an electric kettle dry. Which model and brew method are you using?"
+        }
+        if normalized.contains("sage") || normalized.contains("breville") || normalized.contains("delonghi") || normalized.contains("gaggia") || normalized.contains("rancilio") || normalized.contains("la marzocco") || normalized.contains("rocket") || normalized.contains("profitec") || normalized.contains("lelit") || normalized.contains("flair") || normalized.contains("caf el") || normalized.contains("ascaso") {
+            return "For espresso machines, the brand is only the starting point: Breville/Sage models often expose automated temperature and pre-infusion controls; De’Longhi focuses on convenience; Gaggia and Rancilio commonly use more traditional workflows; Lelit, Profitec, Rocket, and La Marzocco span heat-exchanger and dual-boiler designs; Flair is manual and has no pump. Diagnose with dose, yield, time, temperature, pressure, basket, and puck prep before changing settings. Never open a hot or pressurized machine. What exact model, basket size, dose, yield, and shot time are you using?"
+        }
+        if normalized.contains("comandante") || normalized.contains("1zpresso") || normalized.contains("1zpresso") || normalized.contains("baratza") || normalized.contains("mazzer") || normalized.contains("df64") || normalized.contains("niche") || normalized.contains("eureka") || normalized.contains("timemore grinder") || normalized.contains("kingrinder") {
+            return "Grinder advice is model-specific. Comandante and 1Zpresso hand grinders are portable and tactile; Baratza is known for serviceable home grinders; Eureka models often target espresso with stepless adjustment; Niche, DF, and Mazzer families differ in burr size, workflow, retention, and alignment. Never transfer a dial number between brands. Calibrate from the manual’s zero/reference point, change one variable at a time, and purge carefully after large adjustments. What exact grinder, burr type, brew method, and symptom are you seeing?"
+        }
+        if normalized.contains("aeropress") || normalized.contains("french press") || normalized.contains("moka") || normalized.contains("chemex") || normalized.contains("origami") || normalized.contains("kalita") || normalized.contains("clever") || normalized.contains("tricolate") || normalized.contains("siphon") {
+            return "Brewer geometry and filter design matter: AeroPress and Clever use immersion with paper filtration; French press uses metal filtration and more body; moka pot uses steam pressure and should not be tamped; Chemex uses a thick paper filter and a clean cup; V60 and Origami are cone-style and sensitive to pour pattern; Kalita is flat-bottom and often more forgiving; siphon and Tricolate have their own flow and agitation behavior. Start with a known ratio, then adjust grind and agitation one at a time. Which brewer and filter are you using?"
+        }
+        if normalized.contains("fellow") && normalized.contains("grinder") {
+            return "If this is a Fellow Ode, that is probably the limitation: Ode Gen 1 and Gen 2 are intended for filter coffee and are not espresso grinders. Do not force the burrs. Check for beans or a foreign object blocking the burrs, unplug it, brush and purge the chamber, then try again. If it is a Fellow Opus, use its espresso range and recalibrate the burrs. Which Fellow model and setting are you using?"
+        }
+        if normalized.contains("scale") || normalized.contains("weigh") || normalized.contains("ميزان") {
+            return "For a coffee scale, place it on a stable level surface, confirm the units are grams, tare the brewer and vessel separately, and start the timer consistently. If readings jump, remove drafts and vibration, check the battery, clean liquid from the buttons, and test with a known weight. For espresso, use dose and yield; for pour-over, track dose, water, time, and final yield. What scale model and symptom are you seeing?"
+        }
+        if normalized.contains("dripper") || normalized.contains("v60") || normalized.contains("kalita") || normalized.contains("chemex") || normalized.contains("origami") {
+            return "Dripper geometry changes flow: cone brewers concentrate flow at the tip, while flat-bottom brewers spread the bed. Start with a 1:16 ratio, rinse the filter, use water around 93–96°C, bloom for 30–45 seconds, and pour steadily. Fast drawdown usually needs a finer grind or less agitation; slow drawdown needs a coarser grind or gentler pouring. Which dripper and filter are you using?"
+        }
+        if normalized.contains("kettle") || normalized.contains("gooseneck") || normalized.contains("غلاية") {
+            return "A gooseneck kettle gives better control over flow and agitation. Keep the pour gentle for a cleaner cup and increase agitation only when extraction is low. Check temperature accuracy with a reference thermometer, descale mineral buildup, and never run an electric kettle dry. What brew method and temperature are you targeting?"
+        }
+        if normalized.contains("espresso machine") || normalized.contains("pressure") || normalized.contains("bar") {
+            return "For espresso-machine diagnosis, separate the variables: dose, grind, yield, time, temperature, and pressure. Start with a consistent 18 g dose and 36 g yield, then change only grind. Low flow can come from a fine grind, clogged basket, poor distribution, or a dirty group; low pressure can indicate too little resistance, a leak, or a pump issue. What machine, basket, dose, yield, and shot time do you have?"
+        }
+        if normalized.contains("water") || normalized.contains("hard") || normalized.contains("tds") || normalized.contains("alkalinity") {
+            return "Water affects extraction and machine health. For coffee, aim for balanced mineral content rather than zero-mineral water; excessive alkalinity can flatten acidity, while very hard water causes scale. Use filtered water appropriate for your machine, measure consistently, and descale according to the manufacturer—not by taste alone. What water source and brew method are you using?"
+        }
+        if normalized.contains("clean") || normalized.contains("descal") || normalized.contains("maintenance") || normalized.contains("service") {
+            return "Coffee equipment needs different maintenance: brush grinder burrs and purge retention, backflush espresso groups as specified by the manufacturer, rinse and dry brewers, replace filters when flow changes, and descale only when the machine supports it. Never use water or chemicals inside a grinder motor. Which equipment are you maintaining?"
+        }
+        if normalized.contains("sour") || request.contains("حامض") || request.contains("حامضة") {
+            return "Sour coffee usually means under-extraction. Try one change at a time: grind finer, raise water temperature to about 94–96°C, or extend brew time. For espresso, slow the shot slightly; for pour-over, pour more slowly and keep the bed evenly saturated."
+        }
+        if normalized.contains("bitter") || request.contains("مر") || request.contains("مرة") {
+            return "Bitter coffee is often over-extracted. Try a slightly coarser grind, cooler water around 90–93°C, or a shorter brew. Also check that the coffee is fresh and that the dose-to-water ratio is not too strong."
+        }
+        if normalized.contains("weak") || normalized.contains("watery") || request.contains("خفيف") {
+            return "For a weak or watery cup, keep the grind the same and increase the dose slightly, or reduce the water. A good starting point is a 1:16 coffee-to-water ratio, then adjust to taste."
+        }
+        if normalized.contains("espresso") {
+            return "Start with a 1:2 espresso ratio—for example, 18 g in and about 36 g out—in roughly 25–32 seconds. If it tastes sour, grind finer or increase contact time; if bitter, grind coarser or shorten the shot."
+        }
+        if normalized.contains("pour over") || normalized.contains("v60") || normalized.contains("filter") || normalized.contains("brew") {
+            return "For a balanced filter brew, start around 1:16 coffee to water, 93–96°C water, and a medium-fine grind. Bloom with about twice the coffee weight for 30–45 seconds, then pour steadily. Adjust grind before changing everything else."
+        }
+        if normalized.contains("store") || normalized.contains("fresh") || normalized.contains("storage") {
+            return "Keep coffee in an airtight, opaque container away from heat, light, and moisture. Buy an amount you can finish while it is fresh, and grind immediately before brewing. Avoid storing beans in the refrigerator because condensation can damage them."
+        }
+        if normalized.contains("caffeine") {
+            return "Caffeine depends mainly on dose, bean type, and brew method—not simply roast level. Use a smaller dose or a lower-caffeine bean if you want less; decaf is the most reliable reduction."
+        }
+        if let imageAnalysis, !imageAnalysis.summary.isEmpty {
+            return "I can use the image as a coffee clue, but I need one detail to give useful advice: are you trying to identify the beans, reproduce the drink, or fix a brewing problem?"
+        }
+        return "I can help you diagnose a cup, choose a recipe, understand beans and roasting, or improve your equipment setup. Tell me your brew method, coffee dose, water amount, time, and what the cup tastes like."
+    }
+
     private static func requestLooksLikeCartBuild(_ request: String) -> Bool {
         let normalized = request.lowercased()
         return ["add", "cart", "bag", "buy", "purchase", "put in", "أضف", "السلة", "اشتري"].contains { normalized.contains($0) }
@@ -327,6 +433,24 @@ enum CoffeeConciergeService {
             return imageAnalysis.searchText
         }
         return "\(text) \(imageAnalysis.searchText)"
+    }
+
+    nonisolated private static func cleanModelMessage(_ content: String) -> String? {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let data = trimmed.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: Any] else {
+            return trimmed
+        }
+
+        for key in ["message", "answer", "response", "description"] {
+            if let value = dictionary[key] as? String {
+                let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !cleaned.isEmpty { return cleaned }
+            }
+        }
+        return nil
     }
 
     private static func analyzeImage(_ imageData: Data?) async -> ImageAnalysis? {
@@ -422,8 +546,10 @@ enum CoffeeConciergeService {
         let session = LanguageModelSession(
             model: model,
             instructions: """
-            You are Talla Speciality's coffee concierge. Recommend only products from the supplied catalog. Keep the answer friendly, specific, and under 55 words. Do not invent products, prices, discounts, or policies. If the request is Arabic, answer in Arabic.
-            For gifting, use the recipient, budget, and occasion in the request to tailor the recommendation. You may suggest message wording, but never claim that stock, price, payment, redemption, or expiry is confirmed by the model; those remain server-authoritative.
+            You are Talla AI, an expert coffee coach, roaster, barista, and equipment technician. Answer only coffee-related questions. Build answers from first principles and model-specific knowledge across beans, origins, varietals, processing, roasting, freshness, storage, grinding, burr geometry, grinder calibration, retention, alignment, static, espresso, pour-over, V60, Kalita, Chemex, Origami, French press, AeroPress, moka pot, cezve, batch brewers, cold brew, immersion, siphon, recipes, dose, ratio, yield, brew time, agitation, water chemistry, temperature, filters, kettles, goosenecks, scales, timers, refractometers, espresso machines, boilers, pumps, pressure, flow control, portafilters, baskets, tampers, distribution, puck prep, steam wands, milk, cleaning, descaling, maintenance, and sensory tasting. Recognize major equipment families and brands when the customer names them, including Fellow, Baratza, Eureka, Niche, Mazzer, DF, Comandante, 1Zpresso, Timemore, Acaia, Felicita, Hario, Brewista, Bonavita, Breville/Sage, De’Longhi, Gaggia, Rancilio, Lelit, Profitec, Rocket, La Marzocco, Ascaso, Flair, AeroPress, Chemex, Hario, Kalita, Origami, Clever, Tricolate, and Bunn. Never invent a model specification; if a model generation matters, say so and ask for the exact model.
+            If the request is not coffee-related, politely say you can help only with coffee. Do not recommend or mention products unless the customer explicitly asks to choose, buy, shop, compare, or identify a product. Keep answers practical, specific, and under 160 words. Do not invent products, prices, discounts, stock, policies, or medical claims. If the request is Arabic, answer in Arabic.
+            Think like a skilled barista, roaster, and service technician: identify likely causes, explain the mechanism, give a safe ordered test, state what result to expect, and ask one focused follow-up question when equipment model or measurements are missing. Never claim a setting is universal across models. For scales, cover tare, auto-start, timer, flow-rate, Bluetooth, battery, waterproofing, calibration, and measurement error. For grinders, cover burrs, calibration, grind range, retention, clogging, alignment, and motor safety. For drippers, cover geometry, bypass, filter fit, agitation, drawdown, and recipe adjustment. The catalog is authoritative only when product recommendations are requested.
+            Think like a skilled barista: diagnose the likely cause, explain why, give an ordered experiment, include useful ratios/temperatures/times when relevant, and ask one focused follow-up question when key information is missing. Use the customer's brew method, dose, water, time, and taste. The catalog is authoritative only when product recommendations are requested.
             """
         )
 
@@ -432,15 +558,21 @@ enum CoffeeConciergeService {
             : "No useful image signals."
 
         let intentResponse = try await session.respond(
-            to: "Extract gifting and cart intent from this request. Do not choose products or make commerce decisions. Customer request: \(request)",
+            to: "Extract coffee goal, brewing context, and any cart or gifting intent from this request. Do not choose products or make commerce decisions. Customer request: \(request)",
             generating: ConciergeIntent.self
         )
         let intent = intentResponse.content
+        let coffeeGoal = intent.coffeeGoal ?? "not specified"
+        let equipmentType = intent.equipmentType ?? "not specified"
+        let equipmentModel = intent.equipmentModel ?? "not specified"
+        let brewMethod = intent.brewMethod ?? "not specified"
+        let grind = intent.grind ?? "not specified"
+        let waterTemperature = intent.waterTemperatureC.map { String($0) } ?? "not specified"
         let recipient = intent.recipient ?? "not specified"
         let occasion = intent.occasion ?? "not specified"
         let budget = intent.budgetBHD.map { String($0) } ?? "not specified"
         let itemRequests = intent.itemRequests.joined(separator: ", ")
-        let structuredContext = "Structured intent: recipient=\(recipient), occasion=\(occasion), budgetBHD=\(budget), wantsCart=\(intent.wantsCart), itemRequests=\(itemRequests)"
+        let structuredContext = "Structured coffee intent: goal=\(coffeeGoal), equipmentType=\(equipmentType), equipmentModel=\(equipmentModel), brewMethod=\(brewMethod), grind=\(grind), waterTemperatureC=\(waterTemperature), recipient=\(recipient), occasion=\(occasion), budgetBHD=\(budget), wantsCart=\(intent.wantsCart), itemRequests=\(itemRequests)"
 
         let prompt = """
         Customer request: \(request.isEmpty ? "Recommend a good starting point" : request)
@@ -448,13 +580,18 @@ enum CoffeeConciergeService {
         Image context: \(imageContext)
         \(structuredContext)
 
+        Research-backed baseline guidance:
+        - A useful starting point for filter brewing is about 55 g coffee per litre of water, then adjust to taste; this is a baseline, not a universal recipe.
+        - Water quality matters: balanced mineral content and moderate alkalinity support extraction; very hard water can cause scale and very low-mineral water can taste flat.
+        - Fellow Ode is designed for brewed coffee and is not an espresso grinder; Fellow Opus is designed to cover espresso through cold brew. Never force a grinder burr or put fingers near powered burrs.
+        - For equipment safety, distinguish user-safe checks from disassembly or electrical repairs and direct the customer to the manufacturer when needed.
+
         Available catalog:
         \(catalog)
         """
 
         let response = try await session.respond(to: prompt)
-        let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else { throw ConciergeError.unavailable }
+        guard let content = cleanModelMessage(response.content) else { throw ConciergeError.unavailable }
         let fallbackMessages = giftMessageSuggestions(for: request)
         return (content, intent.giftMessageSuggestions.isEmpty ? fallbackMessages : intent.giftMessageSuggestions, intent.wantsCart, intent.itemRequests)
     }

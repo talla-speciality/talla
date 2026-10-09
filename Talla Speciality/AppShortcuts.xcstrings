@@ -56,7 +56,9 @@
           "stringSet" : {
             "state" : "new",
             "values" : [
-              "Ask Coffee Concierge in ${applicationName}"
+              "Ask Coffee Concierge in ${applicationName}",
+              "Ask ${applicationName} about coffee",
+              "Get coffee advice in ${applicationName}"
             ]
           }
         }

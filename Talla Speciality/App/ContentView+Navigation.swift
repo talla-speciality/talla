@@ -121,6 +121,12 @@ extension ContentView {
                 conciergeRequest = searchQuery
             }
             openCoffeeConcierge()
+            if !searchQuery.isEmpty {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(350))
+                    await runCoffeeConcierge(requestOverride: searchQuery)
+                }
+            }
         case "brewing":
             openBrewing()
         case "gifts":

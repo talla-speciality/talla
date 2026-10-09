@@ -536,6 +536,21 @@ struct OpenTallaConciergeIntent: AppIntent {
     static let openAppWhenRun = true
     func perform() async throws -> some IntentResult { await TallaShortcutDestination.open("concierge"); return .result() }
 }
+struct AskCoffeeQuestionIntent: AppIntent {
+    static let title: LocalizedStringResource = "Ask Talla AI About Coffee"
+    static let description = IntentDescription("Ask Talla a coffee question about beans, brewing, equipment, or troubleshooting.")
+    static let openAppWhenRun = true
+    @Parameter(title: "Coffee question") var question: String
+
+    func perform() async throws -> some IntentResult {
+        let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw TallaIntentError.unavailable("Tell me what you want to know about coffee.")
+        }
+        await TallaShortcutDestination.open("concierge", searchQuery: trimmed)
+        return .result(dialog: "Opening Talla AI for your coffee question.")
+    }
+}
 struct OpenTallaBrewingIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Brewing Guide"
     static let description = IntentDescription("Opens Talla Speciality to brewing guides and recipes.")
@@ -559,7 +574,7 @@ struct TallaAppShortcuts: AppShortcutsProvider {
         AppShortcut(intent: ReorderLastCoffeeIntent(), phrases: ["Reorder my last coffee in \(.applicationName)", "Add the coffee I bought last time in \(.applicationName)"], shortTitle: "Reorder Coffee", systemImageName: "arrow.clockwise")
         AppShortcut(intent: AddTallaProductToBagIntent(), phrases: ["Add this product to my bag in \(.applicationName)"], shortTitle: "Add Product", systemImageName: "cart.badge.plus")
         AppShortcut(intent: ApplyTallaRewardIntent(), phrases: ["Apply this reward in \(.applicationName)"], shortTitle: "Apply Reward", systemImageName: "checkmark.seal.fill")
-        AppShortcut(intent: OpenTallaConciergeIntent(), phrases: ["Ask Coffee Concierge in \(.applicationName)"], shortTitle: "Coffee Concierge", systemImageName: "sparkles")
+        AppShortcut(intent: AskCoffeeQuestionIntent(), phrases: ["Ask Coffee Concierge in \(.applicationName)", "Ask \(.applicationName) about coffee", "Get coffee advice in \(.applicationName)"], shortTitle: "Ask About Coffee", systemImageName: "sparkles")
         AppShortcut(intent: OpenTallaRewardsIntent(), phrases: ["Show my Talla rewards in \(.applicationName)"], shortTitle: "Rewards", systemImageName: "star.circle.fill")
     }
 }

@@ -225,6 +225,7 @@
       }
     },
     "Open your saved shelf, shop, Coffee Concierge, and rewards quickly." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -314,6 +315,9 @@
         }
       }
     },
+    "See an active coffee gift, group-order deadline, pickup status, and your Talla shortcuts." : {
+
+    },
     "Shop" : {
       "localizations" : {
         "ar" : {
@@ -334,7 +338,11 @@
         }
       }
     },
+    "Talla Coffee Status" : {
+
+    },
     "Talla Shelf" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {

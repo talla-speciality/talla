@@ -58,13 +58,13 @@ extension ContentView {
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(AppLocalization.text("coffee_concierge_title", fallback: "Coffee Concierge"))
+                    Text(AppLocalization.text("talla_ai_title", fallback: "Talla AI"))
                         .font(labelFont(size: 10, weight: .bold))
                         .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.5)
                         .textCase(.uppercase)
                         .foregroundColor(primaryTextColor)
 
-                    Text(AppLocalization.text("coffee_concierge_detail", fallback: "Ask for a roast, gift, mood, budget, or brew style and get focused Talla picks."))
+                    Text(AppLocalization.text("talla_ai_detail", fallback: "Ask about beans, grinders, scales, drippers, espresso, recipes, water, or any coffee problem."))
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
                         .lineLimit(2)
@@ -73,7 +73,7 @@ extension ContentView {
             }
 
             HStack(spacing: 8) {
-                TextField(AppLocalization.text("coffee_concierge_placeholder", fallback: "Example: gift under 20 BHD"), text: $conciergeRequest)
+                TextField(AppLocalization.text("coffee_concierge_placeholder", fallback: "Example: why does my espresso taste sour?"), text: $conciergeRequest)
                     .font(bodyFont(size: 13))
                     .foregroundColor(primaryTextColor)
                     .textInputAutocapitalization(.sentences)
@@ -152,19 +152,17 @@ extension ContentView {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    conciergePromptChip(AppLocalization.text("concierge_prompt_gift", fallback: "Gift box"))
-                    conciergePromptChip(AppLocalization.text("concierge_prompt_arabic", fallback: "Arabic coffee"))
-                    conciergePromptChip(AppLocalization.text("concierge_prompt_chocolate", fallback: "Chocolate pairing"))
-                    conciergePromptChip(AppLocalization.text("concierge_prompt_tools", fallback: "Brew tools"))
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_brew", fallback: "Improve my brew"))
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_espresso", fallback: "Fix my espresso"))
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_beans", fallback: "Choose beans"))
+                    conciergePromptChip(AppLocalization.text("concierge_prompt_equipment", fallback: "Coffee equipment"))
                 }
             }
 
             if let conciergeResult {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
-                        Text(conciergeResult.usedAppleIntelligence
-                            ? AppLocalization.text("apple_intelligence_used", fallback: "Apple Intelligence")
-                            : AppLocalization.text("smart_fallback_used", fallback: "Smart picks"))
+                        Text("TALLA AI")
                             .font(labelFont(size: 9, weight: .bold))
                             .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.4)
                             .textCase(.uppercase)

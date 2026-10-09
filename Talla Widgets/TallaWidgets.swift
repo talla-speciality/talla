@@ -371,7 +371,7 @@ struct TallaQuickActionsWidgetView: View {
             VStack(alignment: .leading, spacing: 10) {
                 widgetHeader(iconSize: 30, titleSize: 18)
 
-                Text(localized("Your coffee shortcuts, shelf, and rewards in one place.", "اختصارات القهوة والرف والمكافآت في مكان واحد."))
+                Text(localized("Your coffee status, gifts, group orders, and shortcuts in one place.", "حالة قهوتك والهدايا والطلبات الجماعية والاختصارات في مكان واحد."))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -557,8 +557,8 @@ struct TallaQuickActionsWidget: Widget {
         StaticConfiguration(kind: Self.kind, provider: TallaQuickActionsProvider()) { entry in
             TallaQuickActionsWidgetView(entry: entry)
         }
-        .configurationDisplayName("Talla Shelf")
-        .description("Open your saved shelf, shop, Coffee Concierge, and rewards quickly.")
+        .configurationDisplayName("Talla Coffee Status")
+        .description("See an active coffee gift, group-order deadline, pickup status, and your Talla shortcuts.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
         .containerBackgroundRemovable(true)
     }

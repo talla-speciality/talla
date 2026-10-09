@@ -289,6 +289,49 @@ extension ContentView {
         .frame(width: isCompact ? 174 : 206, height: isCompact ? 194 : 210, alignment: .topLeading)
     }
 
+    var homeCoffeeAICard: some View {
+        Button {
+            openCoffeeConcierge()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(TallaTheme.Colors.accent, in: Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("coffee_ai_home_title", fallback: "Ask Talla AI"))
+                        .font(labelFont(size: 11, weight: .bold))
+                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 1.3)
+                        .textCase(.uppercase)
+                        .foregroundColor(primaryTextColor)
+                    Text(AppLocalization.text("coffee_ai_home_detail", fallback: "Get help with brewing, beans, recipes, and equipment."))
+                        .font(bodyFont(size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(readableBrandGoldColor)
+            }
+            .padding(15)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.38 : 0.28), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 14)
+        .accessibilityIdentifier("home.coffeeAI")
+    }
+
     func openTasteProfileEditor() {
         openShop()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
@@ -300,6 +343,7 @@ extension ContentView {
         VStack(spacing: 0) {
             homePurchasedCoffeeShelf
             homeUsualRow
+            homeCoffeeAICard
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }
