@@ -482,6 +482,8 @@ struct Talla_SpecialityApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .tint(TallaTheme.Colors.ink)
+                .fontDesign(.rounded)
                 .environment(\.layoutDirection, appLanguage.layoutDirection)
                 .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
                 .environmentObject(coffeeData)
