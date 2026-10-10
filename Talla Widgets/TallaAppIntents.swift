@@ -41,8 +41,8 @@ struct SearchTallaProductsIntent: AppIntent {
 }
 
 struct OpenTallaConciergeIntent: AppIntent {
-    static let title: LocalizedStringResource = "Ask Coffee Concierge"
-    static let description = IntentDescription("Opens the Coffee Concierge in Talla Speciality.")
+    static let title: LocalizedStringResource = "Open Talla AI"
+    static let description = IntentDescription("Opens Talla AI for coffee guidance.")
     static let openAppWhenRun = true
 
     @MainActor
@@ -91,10 +91,10 @@ struct TallaAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: OpenTallaConciergeIntent(),
             phrases: [
-                "Ask Coffee Concierge in \(.applicationName)",
-                "Open coffee concierge in \(.applicationName)"
+                "Ask Talla AI in \(.applicationName)",
+                "Open Talla AI in \(.applicationName)"
             ],
-            shortTitle: "Coffee Concierge",
+            shortTitle: "Talla AI",
             systemImageName: "sparkles"
         )
 

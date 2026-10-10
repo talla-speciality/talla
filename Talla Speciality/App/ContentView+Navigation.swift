@@ -224,7 +224,7 @@ extension ContentView {
 
     func openCoffeeConcierge() {
         isCoffeeConciergePresented = true
-        showToast(message: AppLocalization.text("concierge_opened", fallback: "Coffee Concierge opened"))
+        showToast(message: AppLocalization.text("concierge_opened", fallback: "Talla AI opened"))
     }
 
     func openDrinksSection() {

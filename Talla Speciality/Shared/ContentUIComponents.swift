@@ -127,7 +127,7 @@ struct WelcomeOverlayView: View {
                     welcomeChoiceButton(
                         icon: "sparkles",
                         title: AppLocalization.text("welcome_choice_concierge", fallback: "Help me choose"),
-                        detail: AppLocalization.text("welcome_choice_concierge_detail", fallback: "Open Coffee Concierge for guided picks."),
+                        detail: AppLocalization.text("welcome_choice_concierge_detail", fallback: "Open Talla AI for coffee guidance."),
                         choice: .concierge
                     )
                 }

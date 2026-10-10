@@ -1,7 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Ask Coffee Concierge in ${applicationName}" : {
+    "Ask Talla AI in ${applicationName}" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
@@ -17,7 +17,7 @@
           "stringSet" : {
             "state" : "new",
             "values" : [
-              "Ask Coffee Concierge in ${applicationName}",
+              "Ask Talla AI in ${applicationName}",
               "Open coffee concierge in ${applicationName}"
             ]
           }

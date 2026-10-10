@@ -1089,11 +1089,11 @@ struct TallaConciergeControl: ControlWidget {
         StaticControlConfiguration(kind: Self.kind) {
             ControlWidgetButton(action: OpenTallaConciergeIntent()) {
                 Label("Concierge", systemImage: "sparkles")
-                    .controlWidgetActionHint("Open Coffee Concierge")
+                    .controlWidgetActionHint("Open Talla AI")
             }
         }
-        .displayName("Coffee Concierge")
-        .description("Open Talla Coffee Concierge from Control Center, the Lock Screen, or the Action Button.")
+        .displayName("Talla AI")
+        .description("Open Talla AI for coffee guidance from Control Center, the Lock Screen, or the Action Button.")
     }
 }
 

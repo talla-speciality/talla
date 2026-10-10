@@ -63,6 +63,16 @@ enum CoffeeConciergeService {
         }
     }
 
+    private static let equipmentKnowledge = """
+    Equipment reference (use as a starting point, never as a substitute for the exact manual):
+    - Grinders: Fellow Ode Gen 1/2 are brewed-coffee grinders, not espresso grinders; Fellow Opus spans espresso through cold brew. Baratza Encore is a common entry filter grinder, Encore ESP targets espresso, and Virtuoso+ adds finer adjustment. Eureka Mignon families are primarily espresso-oriented; Niche Zero, DF64/DF83, and Mazzer families vary by burr geometry, retention, and workflow. Comandante C40 and 1Zpresso J-series are hand grinders; Timemore C and Sculptor families vary by burr and brew range.
+    - Scales: Acaia Pearl/Lunar, Timemore Black Mirror, Hario, and Felicita differ in size, response, timer, flow-rate, Bluetooth, and water resistance. Always use grams, tare, protect charging ports, and verify the exact model before claiming waterproofing.
+    - Kettles: Fellow Stagg EKG, Brewista Artisan, Bonavita, Hario Buono, and Timemore Fish differ in temperature control, spout flow, and interface. A gooseneck improves pour control; it does not automatically improve extraction.
+    - Espresso machines: Breville/Sage and De’Longhi emphasize convenience; Gaggia and Rancilio offer traditional workflows; Lelit, Profitec, Rocket, and La Marzocco span heat-exchanger and dual-boiler designs; Ascaso includes thermoblock designs; Flair is manual and pump-free. Never generalize pressure, temperature, or service steps across models.
+    - Brewers: AeroPress/Clever are immersion-paper systems; French press uses metal filtration; Chemex uses thick paper; V60/Origami are cone brewers; Kalita is flat-bottom; moka pot uses steam pressure and must not be tamped; Tricolate, siphon, batch brewers, and cezve each require their own recipe logic.
+    - Consumables and water: filter fit, paper flow, roast level, processing, mineral content, alkalinity, and freshness can outweigh brand. Use manufacturer manuals for descaling, electrical safety, pressure, and disassembly.
+    """
+
     static func recommend(
         request: String,
         products: [ContentView.Product],
@@ -585,6 +595,9 @@ enum CoffeeConciergeService {
         - Water quality matters: balanced mineral content and moderate alkalinity support extraction; very hard water can cause scale and very low-mineral water can taste flat.
         - Fellow Ode is designed for brewed coffee and is not an espresso grinder; Fellow Opus is designed to cover espresso through cold brew. Never force a grinder burr or put fingers near powered burrs.
         - For equipment safety, distinguish user-safe checks from disassembly or electrical repairs and direct the customer to the manufacturer when needed.
+
+        Brand and equipment reference:
+        \(equipmentKnowledge)
 
         Available catalog:
         \(catalog)

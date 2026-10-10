@@ -531,8 +531,8 @@ struct SearchTallaProductsIntent: AppIntent {
     func perform() async throws -> some IntentResult { await TallaShortcutDestination.open("shop", searchQuery: searchQuery); return .result() }
 }
 struct OpenTallaConciergeIntent: AppIntent {
-    static let title: LocalizedStringResource = "Ask Coffee Concierge"
-    static let description = IntentDescription("Opens the Coffee Concierge in Talla Speciality.")
+    static let title: LocalizedStringResource = "Open Talla AI"
+    static let description = IntentDescription("Opens Talla AI for coffee guidance.")
     static let openAppWhenRun = true
     func perform() async throws -> some IntentResult { await TallaShortcutDestination.open("concierge"); return .result() }
 }
@@ -574,7 +574,7 @@ struct TallaAppShortcuts: AppShortcutsProvider {
         AppShortcut(intent: ReorderLastCoffeeIntent(), phrases: ["Reorder my last coffee in \(.applicationName)", "Add the coffee I bought last time in \(.applicationName)"], shortTitle: "Reorder Coffee", systemImageName: "arrow.clockwise")
         AppShortcut(intent: AddTallaProductToBagIntent(), phrases: ["Add this product to my bag in \(.applicationName)"], shortTitle: "Add Product", systemImageName: "cart.badge.plus")
         AppShortcut(intent: ApplyTallaRewardIntent(), phrases: ["Apply this reward in \(.applicationName)"], shortTitle: "Apply Reward", systemImageName: "checkmark.seal.fill")
-        AppShortcut(intent: AskCoffeeQuestionIntent(), phrases: ["Ask Coffee Concierge in \(.applicationName)", "Ask \(.applicationName) about coffee", "Get coffee advice in \(.applicationName)"], shortTitle: "Ask About Coffee", systemImageName: "sparkles")
+        AppShortcut(intent: AskCoffeeQuestionIntent(), phrases: ["Ask Talla AI in \(.applicationName)", "Ask \(.applicationName) about coffee", "Get coffee advice in \(.applicationName)"], shortTitle: "Ask About Coffee", systemImageName: "sparkles")
         AppShortcut(intent: OpenTallaRewardsIntent(), phrases: ["Show my Talla rewards in \(.applicationName)"], shortTitle: "Rewards", systemImageName: "star.circle.fill")
     }
 }
