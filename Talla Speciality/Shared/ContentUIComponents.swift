@@ -124,12 +124,6 @@ struct WelcomeOverlayView: View {
                         detail: AppLocalization.text("welcome_choice_gifts_detail", fallback: "Find boxes and thoughtful coffee gifts."),
                         choice: .gifts
                     )
-                    welcomeChoiceButton(
-                        icon: "sparkles",
-                        title: AppLocalization.text("welcome_choice_concierge", fallback: "Help me choose"),
-                        detail: AppLocalization.text("welcome_choice_concierge_detail", fallback: "Open Talla AI for coffee guidance."),
-                        choice: .concierge
-                    )
                 }
 
                 VStack(spacing: 10) {

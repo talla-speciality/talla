@@ -1158,9 +1158,19 @@ async function shopifyAdminGraphQLRequest(query, variables = {}) {
         signal: AbortSignal.timeout(10_000)
     });
 
-    const payload = await response.json().catch(() => ({}));
+    const responseText = await response.text();
+    const payload = (() => {
+        try {
+            return responseText ? JSON.parse(responseText) : {};
+        } catch {
+            return {};
+        }
+    })();
     if (!response.ok) {
-        throw new Error(payload.errors?.[0]?.message || payload.error || `Shopify request failed with ${response.status}.`);
+        const detail = payload.errors?.[0]?.message
+            || payload.error
+            || responseText.replace(/\s+/g, " ").trim().slice(0, 300);
+        throw new Error(detail ? `Shopify request failed with ${response.status}: ${detail}` : `Shopify request failed with ${response.status}.`);
     }
 
     if (Array.isArray(payload.errors) && payload.errors.length > 0) {

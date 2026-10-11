@@ -68,6 +68,9 @@ module.exports = {
     customerRefreshTokenDays: toNumber(process.env.CUSTOMER_REFRESH_TOKEN_DAYS, 30),
     resendAPIKey: process.env.RESEND_API_KEY || "",
     emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "",
+    openAIAPIKey: process.env.OPENAI_API_KEY || "",
+    openAIWebSearchModel: process.env.OPENAI_WEB_SEARCH_MODEL || "gpt-4.1-mini",
+    openAIWebSearchEnabled: process.env.OPENAI_WEB_SEARCH_ENABLED !== "false",
     appleSignInClientID: process.env.APPLE_SIGN_IN_CLIENT_ID || "Talla-Speciality.Talla-Speciality",
     appAttestAppID: process.env.APP_ATTEST_APP_ID || "TAG9WXY85M.Talla-Speciality.Talla-Speciality",
     appAttestEnforce: process.env.APP_ATTEST_ENFORCE

@@ -6,7 +6,7 @@
       "localizations" : {
         "ar" : {
           "stringSet" : {
-            "state" : "machine_translated",
+            "state" : "needs_review",
             "values" : [
               "اسأل مساعد القهوة في ${applicationName}‏",
               "افتح مساعد القهوة في ${applicationName}‏"
@@ -18,7 +18,7 @@
             "state" : "new",
             "values" : [
               "Ask Talla AI in ${applicationName}",
-              "Open coffee concierge in ${applicationName}"
+              "Open Talla AI in ${applicationName}"
             ]
           }
         }

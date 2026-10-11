@@ -34,7 +34,8 @@ extension ContentView {
     var coffeeConciergeSheet: some View {
         ScrollView {
             coffeeConciergePanel
-                .padding(18)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
         }
         .background(
             LinearGradient(
@@ -176,6 +177,31 @@ extension ContentView {
                         .foregroundColor(primaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
+                    HStack(spacing: 12) {
+                        Text(AppLocalization.text("concierge_helpful", fallback: "Was this helpful?"))
+                            .font(labelFont(size: 9, weight: .semibold))
+                            .foregroundColor(secondaryTextColor)
+                        Spacer(minLength: 0)
+                        conciergeFeedbackButton(systemImage: "hand.thumbsup", value: 1)
+                        conciergeFeedbackButton(systemImage: "hand.thumbsdown", value: -1)
+                    }
+
+                    if !conciergeResult.sourceURLs.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "link")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text(AppLocalization.text("concierge_sources", fallback: "Sources"))
+                                .font(labelFont(size: 9, weight: .semibold))
+                            ForEach(Array(conciergeResult.sourceURLs.prefix(3)), id: \.self) { source in
+                                if let url = URL(string: source) {
+                                    Link("↗", destination: url)
+                                        .font(labelFont(size: 10, weight: .bold))
+                                }
+                            }
+                        }
+                        .foregroundColor(readableBrandGoldColor)
+                    }
+
                     if !conciergeResult.giftMessageSuggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(AppLocalization.text("concierge_gift_message_title", fallback: "Gift message ideas"))
@@ -300,6 +326,23 @@ extension ContentView {
         .disabled(isRunningConcierge || products.isEmpty)
     }
 
+    @ViewBuilder
+    func conciergeFeedbackButton(systemImage: String, value: Int) -> some View {
+        Button {
+            guard let conciergeResult else { return }
+            CoffeeConciergeService.recordFeedback(request: conciergeRequest, result: conciergeResult, feedback: value)
+            showToast(message: AppLocalization.text("concierge_feedback_saved", fallback: "Thanks — I’ll use that feedback."))
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(secondaryTextColor)
+                .frame(width: 30, height: 28)
+                .background(elevatedSurfaceColor)
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
 #if canImport(PhotosUI)
     @MainActor
     func loadConciergeImage(from selection: PhotosPickerItem?) async {
@@ -339,6 +382,7 @@ extension ContentView {
         )
         conciergeRequest = request
         conciergeResult = result
+        CoffeeConciergeService.recordInteraction(request: request, result: result)
         delightFeedbackTrigger += 1
         isRunningConcierge = false
     }

@@ -55,7 +55,8 @@ actor TallaAppAttest {
         "/accounts/profile/update",
         "/accounts/password/change",
         "/accounts/session/refresh",
-        "/customer-library"
+        "/customer-library",
+        "/ai/research"
     ]
 
     private let legacyKeyIDKey = "security.appAttest.keyID"

@@ -42,9 +42,63 @@ struct CoffeeConciergeResult: Equatable {
     let usedAppleIntelligence: Bool
     let giftMessageSuggestions: [String]
     let canBuildCart: Bool
+    let sourceURLs: [String]
+
+    init(
+        message: String,
+        productIDs: [String],
+        usedAppleIntelligence: Bool,
+        giftMessageSuggestions: [String],
+        canBuildCart: Bool,
+        sourceURLs: [String] = []
+    ) {
+        self.message = message
+        self.productIDs = productIDs
+        self.usedAppleIntelligence = usedAppleIntelligence
+        self.giftMessageSuggestions = giftMessageSuggestions
+        self.canBuildCart = canBuildCart
+        self.sourceURLs = sourceURLs
+    }
+}
+
+private struct ConciergeMemoryEntry: Codable {
+    let question: String
+    let answer: String
+    let feedback: Int?
 }
 
 enum CoffeeConciergeService {
+    private static let memoryKey = "talla.concierge.memory.v1"
+
+    static func recordInteraction(request: String, result: CoffeeConciergeResult, feedback: Int? = nil) {
+        let question = request.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !question.isEmpty else { return }
+        var entries = loadMemory()
+        entries.removeAll { $0.question.caseInsensitiveCompare(question) == .orderedSame }
+        entries.insert(ConciergeMemoryEntry(question: question, answer: result.message, feedback: feedback), at: 0)
+        entries = Array(entries.prefix(20))
+        guard let data = try? JSONEncoder().encode(entries) else { return }
+        UserDefaults.standard.set(data, forKey: memoryKey)
+    }
+
+    static func recordFeedback(request: String, result: CoffeeConciergeResult, feedback: Int) {
+        recordInteraction(request: request, result: result, feedback: feedback)
+    }
+
+    private static func loadMemory() -> [ConciergeMemoryEntry] {
+        guard let data = UserDefaults.standard.data(forKey: memoryKey),
+              let entries = try? JSONDecoder().decode([ConciergeMemoryEntry].self, from: data) else { return [] }
+        return entries
+    }
+
+    private static func memoryContext(for request: String) -> String {
+        let terms = Set(request.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 2 })
+        let relevant = loadMemory().filter { entry in
+            !terms.isDisjoint(with: Set(entry.question.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)))
+        }.prefix(3)
+        guard !relevant.isEmpty else { return "No previous customer examples are relevant." }
+        return relevant.map { "Previous customer question: \($0.question)\nPrevious answer: \($0.answer)\( $0.feedback == 1 ? "\nCustomer liked this answer." : $0.feedback == -1 ? "\nCustomer did not like this answer; improve it." : "")" }.joined(separator: "\n---\n")
+    }
     private enum ConciergeError: Error {
         case unavailable
     }
@@ -77,7 +131,8 @@ enum CoffeeConciergeService {
         request: String,
         products: [ContentView.Product],
         localeIdentifier: String,
-        imageData: Data? = nil
+        imageData: Data? = nil,
+        allowWebResearch: Bool = true
     ) async -> CoffeeConciergeResult {
         let trimmedRequest = request.trimmingCharacters(in: .whitespacesAndNewlines)
         let imageAnalysis = await analyzeImage(imageData)
@@ -88,6 +143,21 @@ enum CoffeeConciergeService {
             products: products,
             imageAnalysis: imageAnalysis
         )
+
+        if allowWebResearch, shouldUseWebResearch(for: trimmedRequest),
+           let webResult = await webResearch(for: trimmedRequest) {
+            let webRankedProducts = requestLooksLikeProductRecommendation(trimmedRequest, hasImage: imageAnalysis != nil)
+                ? Array(rankedProducts(for: rankingRequest, products: products).prefix(3)).map(\.id)
+                : []
+            return CoffeeConciergeResult(
+                message: webResult.answer,
+                productIDs: webRankedProducts,
+                usedAppleIntelligence: false,
+                giftMessageSuggestions: [],
+                canBuildCart: requestLooksLikeCartBuild(trimmedRequest),
+                sourceURLs: webResult.sources.map(\.url)
+            )
+        }
 
 #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
@@ -103,6 +173,10 @@ enum CoffeeConciergeService {
                     products: products
                 )
                 let wantsProducts = requestLooksLikeProductRecommendation(trimmedRequest, hasImage: imageAnalysis != nil)
+                let modelMessageIsUseful = isRelevant(modelOutput.message, to: trimmedRequest)
+                    && !isGenericDeflection(modelOutput.message)
+                    && (!wantsProducts || modelRankedProducts.isEmpty || modelRankedProducts.prefix(3).contains { modelOutput.message.localizedCaseInsensitiveContains($0.name) })
+                guard modelMessageIsUseful else { return fallback }
                 let modelProductIDs = wantsProducts ? Array(modelRankedProducts.prefix(3)).map(\.id) : []
                 return CoffeeConciergeResult(
                     message: modelOutput.message,
@@ -199,6 +273,36 @@ enum CoffeeConciergeService {
 
                 return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
             }
+    }
+
+    private struct WebResearchResponse: Decodable {
+        struct Source: Decodable { let url: String }
+        let answer: String
+        let sources: [Source]
+    }
+
+    private static func shouldUseWebResearch(for request: String) -> Bool {
+        let normalized = request.lowercased()
+        let coffeeTerms = ["coffee", "espresso", "brew", "grind", "grinder", "bean", "roast", "v60", "pour over", "aeropress", "chemex", "kalita", "origami", "kettle", "dripper", "scale", "barista", "caffeine", "decaf", "latte", "cappuccino", "water", "filter", "dose", "yield", "extraction", "قهوة", "إسبريسو", "تحضير", "طحن", "حبوب", "تحميص", "مقطرة", "ميزان", "كافيين", "ماء"]
+        guard coffeeTerms.contains(where: normalized.contains) else { return false }
+        return ["best", "latest", "current", "new", "spec", "model", "recommend", "compare", "price", "available", "أفضل", "الأحدث", "مواصفات", "موديل", "قارن"].contains { normalized.contains($0) }
+    }
+
+    private static func webResearch(for question: String) async -> WebResearchResponse? {
+        guard let baseURL = BackendConfiguration.serviceBaseURL else { return nil }
+        var request = URLRequest(url: baseURL.appending(path: "/ai/research"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let body = try? JSONSerialization.data(withJSONObject: ["question": question]) else { return nil }
+        request.httpBody = body
+        do {
+            let (data, response) = try await TallaSecureSession.data(for: request)
+            guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { return nil }
+            return try JSONDecoder().decode(WebResearchResponse.self, from: data)
+        } catch {
+            return nil
+        }
     }
 
     private static func score(
@@ -335,7 +439,7 @@ enum CoffeeConciergeService {
         let normalized = request.lowercased()
         let recommendationVerbs = [
             "recommend", "suggest", "which coffee", "which bean", "what bean", "buy", "shop", "product",
-            "gift", "under ", "budget", "choose beans", "pick for me", "compare", "where can i get",
+            "gift", "under ", "budget", "choose beans", "pick for me", "compare", "where can i get", "best ",
             "أرشح", "اقترح", "أي قهوة", "شراء", "هدية", "قارن"
         ]
         if recommendationVerbs.contains(where: { normalized.contains($0) }) { return true }
@@ -344,6 +448,9 @@ enum CoffeeConciergeService {
             || normalized.contains("which brewer")
             || normalized.contains("what brewer")
             || normalized.contains("what kettle")
+            || normalized.contains("best v60")
+            || normalized.contains("best dripper")
+            || normalized.contains("أفضل v60")
     }
 
     private static func coffeeKnowledgeFallback(for request: String, imageAnalysis: ImageAnalysis?) -> String {
@@ -557,8 +664,9 @@ enum CoffeeConciergeService {
             model: model,
             instructions: """
             You are Talla AI, an expert coffee coach, roaster, barista, and equipment technician. Answer only coffee-related questions. Build answers from first principles and model-specific knowledge across beans, origins, varietals, processing, roasting, freshness, storage, grinding, burr geometry, grinder calibration, retention, alignment, static, espresso, pour-over, V60, Kalita, Chemex, Origami, French press, AeroPress, moka pot, cezve, batch brewers, cold brew, immersion, siphon, recipes, dose, ratio, yield, brew time, agitation, water chemistry, temperature, filters, kettles, goosenecks, scales, timers, refractometers, espresso machines, boilers, pumps, pressure, flow control, portafilters, baskets, tampers, distribution, puck prep, steam wands, milk, cleaning, descaling, maintenance, and sensory tasting. Recognize major equipment families and brands when the customer names them, including Fellow, Baratza, Eureka, Niche, Mazzer, DF, Comandante, 1Zpresso, Timemore, Acaia, Felicita, Hario, Brewista, Bonavita, Breville/Sage, De’Longhi, Gaggia, Rancilio, Lelit, Profitec, Rocket, La Marzocco, Ascaso, Flair, AeroPress, Chemex, Hario, Kalita, Origami, Clever, Tricolate, and Bunn. Never invent a model specification; if a model generation matters, say so and ask for the exact model.
-            If the request is not coffee-related, politely say you can help only with coffee. Do not recommend or mention products unless the customer explicitly asks to choose, buy, shop, compare, or identify a product. Keep answers practical, specific, and under 160 words. Do not invent products, prices, discounts, stock, policies, or medical claims. If the request is Arabic, answer in Arabic.
+            If the request is not coffee-related, politely say you can help only with coffee. When the customer asks for the best, a recommendation, or a product comparison, answer directly with the best matching catalog item first, explain why in one or two sentences, then ask at most one optional follow-up question. Do not make the customer provide dose, water, time, or taste details before answering a simple product question. Keep answers practical, specific, and under 100 words. Do not invent products, prices, discounts, stock, policies, or medical claims. If the request is Arabic, answer in Arabic.
             Think like a skilled barista, roaster, and service technician: identify likely causes, explain the mechanism, give a safe ordered test, state what result to expect, and ask one focused follow-up question when equipment model or measurements are missing. Never claim a setting is universal across models. For scales, cover tare, auto-start, timer, flow-rate, Bluetooth, battery, waterproofing, calibration, and measurement error. For grinders, cover burrs, calibration, grind range, retention, clogging, alignment, and motor safety. For drippers, cover geometry, bypass, filter fit, agitation, drawdown, and recipe adjustment. The catalog is authoritative only when product recommendations are requested.
+            Use Celsius values appropriate for coffee brewing; normal V60 water is roughly 90–96°C, never 205°C.
             Think like a skilled barista: diagnose the likely cause, explain why, give an ordered experiment, include useful ratios/temperatures/times when relevant, and ask one focused follow-up question when key information is missing. Use the customer's brew method, dose, water, time, and taste. The catalog is authoritative only when product recommendations are requested.
             """
         )
@@ -567,28 +675,15 @@ enum CoffeeConciergeService {
             ? "Local Vision detected these shopping signals: \(imageAnalysis?.summary ?? ""). Use them as hints only, and recommend only catalog products."
             : "No useful image signals."
 
-        let intentResponse = try await session.respond(
-            to: "Extract coffee goal, brewing context, and any cart or gifting intent from this request. Do not choose products or make commerce decisions. Customer request: \(request)",
-            generating: ConciergeIntent.self
-        )
-        let intent = intentResponse.content
-        let coffeeGoal = intent.coffeeGoal ?? "not specified"
-        let equipmentType = intent.equipmentType ?? "not specified"
-        let equipmentModel = intent.equipmentModel ?? "not specified"
-        let brewMethod = intent.brewMethod ?? "not specified"
-        let grind = intent.grind ?? "not specified"
-        let waterTemperature = intent.waterTemperatureC.map { String($0) } ?? "not specified"
-        let recipient = intent.recipient ?? "not specified"
-        let occasion = intent.occasion ?? "not specified"
-        let budget = intent.budgetBHD.map { String($0) } ?? "not specified"
-        let itemRequests = intent.itemRequests.joined(separator: ", ")
-        let structuredContext = "Structured coffee intent: goal=\(coffeeGoal), equipmentType=\(equipmentType), equipmentModel=\(equipmentModel), brewMethod=\(brewMethod), grind=\(grind), waterTemperatureC=\(waterTemperature), recipient=\(recipient), occasion=\(occasion), budgetBHD=\(budget), wantsCart=\(intent.wantsCart), itemRequests=\(itemRequests)"
-
         let prompt = """
         Customer request: \(request.isEmpty ? "Recommend a good starting point" : request)
         Ranked request context: \(rankingRequest)
         Image context: \(imageContext)
-        \(structuredContext)
+        The customer asked one question. Answer that question directly. Do not add unrelated recommendations, shopping, gift ideas, or background information unless the question asks for them.
+        If this is a product question, use the available catalog and name the best matching catalog item in the first sentence. Never answer a product question with only a request for more brewing measurements.
+        If the request is ambiguous, ask one short clarifying question instead of guessing.
+        Relevant local learning from earlier conversations (use only when it matches the current question):
+        \(memoryContext(for: request))
 
         Research-backed baseline guidance:
         - A useful starting point for filter brewing is about 55 g coffee per litre of water, then adjust to taste; this is a baseline, not a universal recipe.
@@ -605,8 +700,24 @@ enum CoffeeConciergeService {
 
         let response = try await session.respond(to: prompt)
         guard let content = cleanModelMessage(response.content) else { throw ConciergeError.unavailable }
+        guard isRelevant(content, to: request) else { throw ConciergeError.unavailable }
         let fallbackMessages = giftMessageSuggestions(for: request)
-        return (content, intent.giftMessageSuggestions.isEmpty ? fallbackMessages : intent.giftMessageSuggestions, intent.wantsCart, intent.itemRequests)
+        return (content, fallbackMessages, requestLooksLikeCartBuild(request), rankingRequest.split(separator: " ").map(String.init))
+    }
+
+    private static func isRelevant(_ answer: String, to request: String) -> Bool {
+        let questionTerms = Set(request.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 3 })
+        guard !questionTerms.isEmpty else { return true }
+        let answerTerms = Set(answer.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init))
+        let coffeeTerms = ["coffee", "espresso", "brew", "grind", "water", "temperature", "filter", "ratio", "dose", "yield", "roast", "bean", "machine", "kettle", "scale", "dripper", "قهوة", "إسبريسو", "طحن", "ماء"]
+        return !questionTerms.isDisjoint(with: answerTerms) || coffeeTerms.contains { answer.lowercased().contains($0) }
+    }
+
+    private static func isGenericDeflection(_ answer: String) -> Bool {
+        let normalized = answer.lowercased()
+        return normalized.hasPrefix("i can help only with coffee")
+            || normalized == "i can help with coffee questions."
+            || (normalized.contains("to determine the best") && normalized.contains("must first clarify"))
     }
 #endif
 }

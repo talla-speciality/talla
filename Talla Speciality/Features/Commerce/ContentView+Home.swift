@@ -295,9 +295,9 @@ extension ContentView {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 32, height: 32)
                     .background(TallaTheme.Colors.accent, in: Circle())
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -317,7 +317,8 @@ extension ContentView {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(readableBrandGoldColor)
             }
-            .padding(15)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(cardFillColor)
             .overlay(
@@ -328,7 +329,7 @@ extension ContentView {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 18)
-        .padding(.bottom, 14)
+        .padding(.bottom, 10)
         .accessibilityIdentifier("home.coffeeAI")
     }
 
@@ -343,7 +344,6 @@ extension ContentView {
         VStack(spacing: 0) {
             homePurchasedCoffeeShelf
             homeUsualRow
-            homeCoffeeAICard
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }

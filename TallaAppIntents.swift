@@ -539,16 +539,24 @@ struct OpenTallaConciergeIntent: AppIntent {
 struct AskCoffeeQuestionIntent: AppIntent {
     static let title: LocalizedStringResource = "Ask Talla AI About Coffee"
     static let description = IntentDescription("Ask Talla a coffee question about beans, brewing, equipment, or troubleshooting.")
-    static let openAppWhenRun = true
+    static let openAppWhenRun = false
     @Parameter(title: "Coffee question") var question: String
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw TallaIntentError.unavailable("Tell me what you want to know about coffee.")
         }
-        await TallaShortcutDestination.open("concierge", searchQuery: trimmed)
-        return .result(dialog: "Opening Talla AI for your coffee question.")
+        let products = (try? await ShopifyStorefrontClient.fetchAllProducts(languageCode: AppLocalization.currentLanguage.effectiveLanguageCode)) ?? []
+        let answer = await CoffeeConciergeService.recommend(
+            request: trimmed,
+            products: products,
+            localeIdentifier: AppLocalization.currentLanguage.localeIdentifier,
+            allowWebResearch: false
+        )
+        await CoffeeConciergeService.recordInteraction(request: trimmed, result: answer)
+        let dialog = await IntentDialog(tallaIntentText(answer.message))
+        return .result(dialog: dialog)
     }
 }
 struct OpenTallaBrewingIntent: AppIntent {

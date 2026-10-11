@@ -538,6 +538,44 @@ module.exports = function createServer(dependencies) {
     };
 
     const trimText = (value, maximumLength) => String(value || "").trim().slice(0, maximumLength);
+    const isCoffeeQuestion = (question) => /coffee|espresso|brew|brewing|grind|grinder|bean|roast|roasting|v60|pour.?over|aeropress|chemex|kalita|origami|kettle|dripper|scale|barista|caffeine|decaf|latte|cappuccino|mocha|water|filter|dose|yield|extraction|قهوة|إسبريسو|تحضير|طحن|حبوب|تحميص|مقطرة|ميزان|كافيين|ماء/i.test(question);
+
+    const researchCoffeeQuestion = async ({ question }) => {
+        if (!config.openAIWebSearchEnabled || !config.openAIAPIKey) return null;
+        const prompt = [
+            `Customer coffee question: ${trimText(question, 1200)}`,
+            "Answer only the coffee question asked and do not request unrelated personal information.",
+            "Use web search only to verify current coffee, brewing, equipment, or manufacturer information. Prefer official manufacturer sources.",
+            "Keep the answer under 100 words. If the question is not coffee-related, say briefly that you can help with coffee only.",
+            "For normal V60 brewing, water is approximately 90–96°C; never state 205°C."
+        ].join("\n\n");
+        const response = await fetch("https://api.openai.com/v1/responses", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${config.openAIAPIKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: config.openAIWebSearchModel, tools: [{ type: "web_search_preview", search_context_size: "low" }], input: prompt, max_output_tokens: 260 })
+        });
+        if (!response.ok) {
+            const error = new Error(`OPENAI_WEB_SEARCH_${response.status}`);
+            error.statusCode = response.status;
+            throw error;
+        }
+        const payload = await response.json();
+        const answer = typeof payload.output_text === "string" ? payload.output_text.trim() : (payload.output || [])
+            .flatMap((item) => item.content || [])
+            .map((item) => item.text || item.value || "")
+            .filter(Boolean)
+            .join("\n")
+            .trim();
+        if (!answer) throw new Error("OPENAI_WEB_SEARCH_EMPTY");
+        const sources = [];
+        for (const item of payload.output || []) for (const content of item.content || []) for (const annotation of content.annotations || []) {
+            const url = annotation.url || annotation?.url_citation?.url;
+            if (url && /^https:\/\//i.test(url) && !sources.some((source) => source.url === url)) {
+                sources.push({ url, title: trimText(annotation.title || annotation?.url_citation?.title || url, 120) });
+            }
+        }
+        return { answer, sources: sources.slice(0, 5) };
+    };
     const publicSocialCoffeeGroup = (group) => ({
         id: group.id,
         name: group.name,
@@ -652,6 +690,27 @@ module.exports = function createServer(dependencies) {
     const appAttestResult = await appAttest.verifyRequest(request, url.pathname, rawProtectedBody);
     if (!appAttestResult.allowed) {
         sendJSON(response, 401, { error: appAttestResult.error || "App Attest verification failed" });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/ai/research") {
+        try {
+            const body = await readBody(request, 16_384);
+            const question = trimText(body.question, 1200);
+            if (!question || !isCoffeeQuestion(question)) {
+                sendJSON(response, 400, { error: "A coffee-related question is required." });
+                return;
+            }
+            const result = await researchCoffeeQuestion({ question });
+            if (!result) {
+                sendJSON(response, 503, { error: "AI web research is not configured." });
+                return;
+            }
+            sendJSON(response, 200, { ...result, usedWebSearch: true }, { "Cache-Control": "no-store" });
+        } catch (error) {
+            console.error("AI web research failed:", error.code || error.message || "AI_WEB_RESEARCH_FAILED");
+            sendJSON(response, error.statusCode === 429 ? 429 : 503, { error: "AI web research is temporarily unavailable." });
+        }
         return;
     }
 

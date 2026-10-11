@@ -1310,6 +1310,17 @@ extension ContentView {
                         .tint(TallaTheme.Colors.ink)
                     }
                 }
+                Link(destination: managedWhatsAppURL) {
+                    Label(
+                        isArabicInterface ? "الدعم عبر واتساب" : "WhatsApp support",
+                        systemImage: "message.fill"
+                    )
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.bordered)
+                .tint(TallaTheme.Colors.ink)
+
                 Button {
                     dismissPostPayment(openOrders: true)
                 } label: {
@@ -1547,7 +1558,6 @@ extension ContentView {
 
     var cartFooterContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Link(isArabicInterface ? "الدعم عبر واتساب" : "WhatsApp support", destination: managedWhatsAppURL)
             if let checkoutError {
                 Text(checkoutError)
                     .font(bodyFont(size: 13))

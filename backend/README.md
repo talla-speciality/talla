@@ -59,6 +59,9 @@ The server reads configuration from environment variables:
 - `ADMIN_APP_ROLES_JSON`: protected JSON object mapping mobile-admin email addresses to roles
 - `RESEND_API_KEY`: Resend API key used for customer password reset emails
 - `EMAIL_FROM_ADDRESS`: verified sender for password reset emails, such as `Talla Speciality <no-reply@your-domain.com>`
+- `OPENAI_API_KEY`: server-only OpenAI API key used for coffee web research; never expose it to the app
+- `OPENAI_WEB_SEARCH_MODEL`: OpenAI model for web research, defaults to `gpt-4.1-mini`
+- `OPENAI_WEB_SEARCH_ENABLED`: set to `false` to disable web research without removing the key
 - `PASSWORD_RESET_TOKEN_HOURS`: password reset link lifetime in hours, defaults to `1`
 - `RATE_LIMIT_WINDOW_MS`: rate limit window in milliseconds, defaults to `60000`
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per IP and path within the window, defaults to `240`

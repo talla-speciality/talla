@@ -33,7 +33,8 @@ const protectedPaths = new Set([
     "/accounts/profile/update",
     "/accounts/password/change",
     "/accounts/session/refresh",
-    "/customer-library"
+    "/customer-library",
+    "/ai/research"
 ]);
 
 function cleanExpiredChallenges() {
