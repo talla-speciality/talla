@@ -552,7 +552,7 @@ extension BrewingSectionView {
 
     func brewCoachCard(for profile: BrewGuideProfile) -> some View {
         let coachState = coffeeData.brewCoachState()
-        VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 14, weight: .bold))

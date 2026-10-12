@@ -486,8 +486,12 @@ extension ContentView {
         let availableBagCount = homeAvailableBagCount(for: product)
 
         return Button {
-            recordRecentlyViewed(product)
-            selectedProduct = product
+            if let coffee = coffeeData.inventory().first(where: { shelfProduct(for: $0)?.id == product.id && $0.remainingQuantityGrams > 0 }) {
+                selectedCoffeeShelfID = coffee.id
+            } else {
+                recordRecentlyViewed(product)
+                selectedProduct = product
+            }
         } label: {
             ZStack(alignment: .topTrailing) {
                 shelfBagImage(for: product)
@@ -519,6 +523,190 @@ extension ContentView {
                 : customerFacingProductName(for: product)
         )
         .frame(width: isCompact ? 92 : 104, alignment: .bottom)
+    }
+
+    func shelfProduct(for coffee: CoffeeInventoryRecord) -> Product? {
+        if let lotID = coffee.lotID,
+           let productID = coffeeData.beanLots().first(where: { $0.id == lotID })?.productID,
+           let product = products.first(where: { $0.id == productID }) {
+            return product
+        }
+        return matchingProduct(for: coffee.productName)
+    }
+
+    func shelfBestRecipe(for coffee: CoffeeInventoryRecord) -> BrewRecipeRecord? {
+        brewAgainHistoryItems
+            .filter { $0.coffeeID == coffee.id }
+            .sorted { lhs, rhs in
+                let lhsScore = lhs.title.localizedCaseInsensitiveContains("best") ? 1 : 0
+                let rhsScore = rhs.title.localizedCaseInsensitiveContains("best") ? 1 : 0
+                return lhsScore == rhsScore ? lhs.id.uuidString > rhs.id.uuidString : lhsScore > rhsScore
+            }
+            .first
+    }
+
+    func shelfFreshness(for coffee: CoffeeInventoryRecord) -> (title: String, color: Color, detail: String) {
+        guard let openedAt = coffee.openedAt else {
+            return ("Sealed", TallaTheme.Colors.brand, "Open when you are ready to start this bag")
+        }
+        let days = max(0, Calendar.current.dateComponents([.day], from: openedAt, to: .now).day ?? 0)
+        if days <= 7 { return ("Peak freshness", .green, "Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))") }
+        if days <= 21 { return ("Brew soon", .orange, "Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))") }
+        return ("Past peak", .red, "Opened \(openedAt.formatted(date: .abbreviated, time: .omitted))")
+    }
+
+    @ViewBuilder
+    func coffeeShelfDetailSheet(coffeeID: UUID) -> some View {
+        if let coffee = coffeeData.inventory().first(where: { $0.id == coffeeID }) {
+            let product = shelfProduct(for: coffee)
+            let freshness = shelfFreshness(for: coffee)
+            let recipe = shelfBestRecipe(for: coffee)
+            let shelfTitle = product.map { customerFacingProductName(for: $0) } ?? coffee.productName
+            let replacement = coffee.lotID.flatMap { lotID in
+                coffeeData.beanLots().first(where: { $0.id == lotID }).flatMap { coffeeData.recommendation(for: $0, in: products) }
+            }
+
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack(alignment: .top, spacing: 14) {
+                            if let product {
+                                ProductThumbnail(imageURL: product.imageURL, size: 92, cornerRadius: 18)
+                            } else {
+                                Image(systemName: "bag.fill")
+                                    .font(.system(size: 30))
+                                    .frame(width: 92, height: 92)
+                                    .background(TallaTheme.Colors.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+                            }
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(shelfTitle)
+                                    .font(displayFont(size: 24))
+                                    .foregroundColor(primaryTextColor)
+                                Text(coffee.roaster.isEmpty ? coffee.origin : "\(coffee.roaster) · \(coffee.origin)")
+                                    .font(bodyFont(size: 13))
+                                    .foregroundColor(secondaryTextColor)
+                                Label(freshness.title, systemImage: "circle.fill")
+                                    .font(labelFont(size: 11, weight: .bold))
+                                    .foregroundColor(freshness.color)
+                            }
+                        }
+
+                        HStack(spacing: 10) {
+                            shelfMetric(title: "Remaining", value: "\(coffee.estimatedBrews()) brews")
+                            shelfMetric(title: "Opened", value: freshness.detail.replacingOccurrences(of: "Opened ", with: ""))
+                        }
+
+                        Text("\(Int(coffee.remainingQuantityGrams.rounded())) g left · \(freshness.detail)")
+                            .font(bodyFont(size: 13))
+                            .foregroundColor(secondaryTextColor)
+
+                        if coffee.openedAt == nil {
+                            Button {
+                                try? coffeeData.markOpened(coffee.id, date: .now)
+                            } label: {
+                                Label("Mark as opened today", systemImage: "calendar.badge.plus")
+                            }
+                            .buttonStyle(.tallaSecondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Best recipe", systemImage: "sparkles")
+                                .font(titleFont(size: 17))
+                                .foregroundColor(primaryTextColor)
+                            if let recipe {
+                                Text(recipe.title)
+                                    .font(titleFont(size: 20))
+                                    .foregroundColor(primaryTextColor)
+                                Text(recipe.detail)
+                                    .font(bodyFont(size: 13))
+                                    .foregroundColor(secondaryTextColor)
+                            } else {
+                                Text("Start with a balanced 1:16 brew and Talla will save your best version here.")
+                                    .font(bodyFont(size: 13))
+                                    .foregroundColor(secondaryTextColor)
+                            }
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(cardFillColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                        HStack(spacing: 10) {
+                            if let product {
+                                Button {
+                                    selectedCoffeeShelfID = nil
+                                    startBrewing(product: product, useRecommendedRecipe: true)
+                                } label: {
+                                    Label("Brew again", systemImage: "arrow.triangle.2.circlepath")
+                                }
+                                .buttonStyle(.tallaPrimary)
+
+                                Button {
+                                    selectedCoffeeShelfID = nil
+                                    activeBrewingDashboardDestination = .brewCoach
+                                    startBrewing(product: product)
+                                } label: {
+                                    Label("Improve this brew", systemImage: "wand.and.stars")
+                                }
+                                .buttonStyle(.tallaSecondary)
+                            }
+                        }
+
+                        if let product {
+                            Button {
+                                addToCart(product: product)
+                                selectedCoffeeShelfID = nil
+                            } label: {
+                                Label("Reorder this coffee", systemImage: "cart.badge.plus")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.tallaPrimary)
+                        }
+
+                        if let replacement, replacement.product.id != product?.id {
+                            Button {
+                                addToCart(product: replacement.product)
+                                selectedCoffeeShelfID = nil
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Closest replacement")
+                                        .font(labelFont(size: 11, weight: .bold))
+                                    Text(customerFacingProductName(for: replacement.product))
+                                        .font(titleFont(size: 15))
+                                    Text(replacement.reason)
+                                        .font(bodyFont(size: 12))
+                                        .foregroundColor(secondaryTextColor)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.tallaSecondary)
+                        }
+
+                        if coffee.estimatedBrews() <= 3 && coffee.remainingQuantityGrams > 0 {
+                            Label("We’ll only remind you when this bag is down to about three brews.", systemImage: "bell.badge")
+                                .font(bodyFont(size: 12))
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+                    .padding(20)
+                }
+                .navigationTitle("My coffee shelf")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .presentationDetents([.medium, .large])
+        } else {
+            ProgressView()
+        }
+    }
+
+    func shelfMetric(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased()).font(labelFont(size: 10, weight: .bold)).foregroundColor(tertiaryTextColor)
+            Text(value).font(titleFont(size: 15)).foregroundColor(primaryTextColor).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(elevatedSurfaceColor.opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     var homeMoreSectionsToggle: some View {

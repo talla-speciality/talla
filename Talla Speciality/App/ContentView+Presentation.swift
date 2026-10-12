@@ -296,6 +296,21 @@ extension ContentView {
             productDetailSheet(product: product)
                 .tallaSystemSheetSurface()
         }
+        .sheet(
+            isPresented: Binding(
+                get: { selectedCoffeeShelfID != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        selectedCoffeeShelfID = nil
+                    }
+                }
+            )
+        ) {
+            if let coffeeID = selectedCoffeeShelfID {
+                coffeeShelfDetailSheet(coffeeID: coffeeID)
+                    .tallaSystemSheetSurface()
+            }
+        }
         .sheet(item: $socialCoffeeInvite) { invite in
             SocialCoffeeGroupInviteView(invite: invite, products: products, isSignedIn: customerProfile != nil, hasItemsInBag: { !cartItems.isEmpty }, clearBagAction: clearBagForNewFlow, accountAction: {
                 accountScrollTarget = nil

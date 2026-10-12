@@ -158,6 +158,7 @@ struct ContentView: View {
     @State var mastercardPaymentContext: MastercardPaymentContext?
     @State var articleSession: CheckoutSession?
     @State var selectedProduct: Product?
+    @State var selectedCoffeeShelfID: UUID?
     @State var isFavoriteShelfPresented = false
     @State var isHomeShelfExpanded = false
     @State var isHomeMoreExpanded = false
