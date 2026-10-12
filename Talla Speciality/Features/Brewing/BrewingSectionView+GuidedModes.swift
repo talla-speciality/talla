@@ -673,15 +673,7 @@ extension BrewingSectionView {
             Button {
                 switch action.kind {
                 case .saveHouseRecipe:
-                    saveRecipeAction(BrewRecipeRecord(
-                        id: UUID(), title: "House Recipe · (profile.title)", detail: action.detail,
-                        coffeeGrams: profile.coffeeGrams, ratio: profile.ratio,
-                        totalWaterGrams: profile.coffeeGrams * profile.ratio,
-                        brewingWaterGrams: nil, iceGrams: nil, methodID: profile.id,
-                        brewerID: nil, brewMode: "Hot", bloomRatio: nil, pourCount: nil,
-                        grind: profile.grind, temperatureC: Int(profile.temperature.filter("0123456789".contains)),
-                        controlMode: "Manual", expectedCup: profile.goal
-                    ))
+                    saveCoachHouseRecipe(profile: profile, detail: action.detail)
                 case .exploreNextCoffee:
                     activeDashboardDestination = .coffeeLibrary
                 case .adjust:
@@ -698,11 +690,38 @@ extension BrewingSectionView {
                     .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
+
+            if action.kind == .exploreNextCoffee {
+                Button {
+                    saveCoachHouseRecipe(profile: profile, detail: action.detail)
+                } label: {
+                    Label("Save house recipe too", systemImage: "star.fill")
+                        .font(Font.custom("AvenirNext-Bold", size: 12))
+                        .foregroundColor(primaryTextColor)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(cardFillColor)
+                        .clipShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(14)
         .background(accentColor.opacity(0.11))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accentColor.opacity(0.25), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func saveCoachHouseRecipe(profile: BrewGuideProfile, detail: String) {
+        saveRecipeAction(BrewRecipeRecord(
+            id: UUID(), title: "House Recipe · \(profile.title)", detail: detail,
+            coffeeGrams: profile.coffeeGrams, ratio: profile.ratio,
+            totalWaterGrams: profile.coffeeGrams * profile.ratio,
+            brewingWaterGrams: nil, iceGrams: nil, methodID: profile.id,
+            brewerID: nil, brewMode: "Hot", bloomRatio: nil, pourCount: nil,
+            grind: profile.grind, temperatureC: Int(profile.temperature.filter("0123456789".contains)),
+            controlMode: "Manual", expectedCup: profile.goal
+        ))
     }
 
     var brewCoachSuggestions: [String] {

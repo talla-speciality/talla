@@ -1346,7 +1346,8 @@ extension CoffeeDataStore {
             let rating = (feedback?["rating"] as? NSNumber)?.intValue ?? (row["rating"] as? NSNumber)?.intValue ?? 0
             let tags = (feedback?["tags"] as? [String] ?? []).map { $0.lowercased() }
             let hasNegativeSignal = tags.contains { $0.contains("sour") || $0.contains("acid") || $0.contains("bitter") || $0.contains("dry") || $0.contains("weak") }
-            return rating >= 4 && !hasNegativeSignal
+            let hasPositiveSignal = tags.contains { $0.contains("like this") || $0.contains("balanced") || $0.contains("sweet") || $0.contains("bright") || $0.contains("pleasant") || $0.contains("loved") }
+            return (rating >= 4 || hasPositiveSignal) && !hasNegativeSignal
         }.count
 
         guard let latest = sessions.first else {
@@ -1358,7 +1359,7 @@ extension CoffeeDataStore {
         let rating = (feedback?["rating"] as? NSNumber)?.intValue ?? (latest["rating"] as? NSNumber)?.intValue ?? 0
         let tags = feedback?["tags"] as? [String] ?? []
         let signal = tags.map { $0.lowercased() }.first(where: { value in
-            value.contains("sour") || value.contains("acid") || value.contains("bitter") || value.contains("dry") || value.contains("weak") || value.contains("strong") || value.contains("loved") || value.contains("sweet")
+            value.contains("sour") || value.contains("acid") || value.contains("bitter") || value.contains("dry") || value.contains("weak") || value.contains("strong") || value.contains("loved") || value.contains("sweet") || value.contains("like this") || value.contains("balanced") || value.contains("bright") || value.contains("pleasant")
         }) ?? ""
         let title = latest["title"] as? String ?? "This coffee"
         let method = latest["method"] as? String ?? "your brew"
@@ -1376,14 +1377,44 @@ extension CoffeeDataStore {
             nextAction = BrewCoachNextAction(id: "cooler-or-coarser", kind: .adjust, title: "Lower temperature or grind coarser", detail: "Change one variable only: lower water by 1–2°C or move one small grind step coarser.", systemImage: "thermometer.medium", suggestedGrind: "One small step coarser", suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
         } else if signal.contains("weak") {
             nextAction = BrewCoachNextAction(id: "stronger", kind: .adjust, title: "Make the brew stronger", detail: "Keep the grind steady and increase dose by 1 g, or reduce water by about 15 g.", systemImage: "plusminus", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: ratio.map { max(1, $0 - 1) }, recommendation: nil)
-        } else if rating >= 4 || signal.contains("loved") || signal.contains("sweet") {
-            let recommendation = greatBrews >= 3 ? "You have three great brews. Try a washed Ethiopian or Kenyan coffee next for a brighter, more floral cup." : nil
+        } else if rating >= 4 || signal.contains("loved") || signal.contains("sweet") || signal.contains("like this") || signal.contains("balanced") || signal.contains("bright") || signal.contains("pleasant") {
+            let nextCoffee = inventory()
+                .first(where: { $0.remainingQuantityGrams > 0 && !$0.productName.localizedCaseInsensitiveContains(title) })
+                .map { $0.productName }
+            let recommendation = greatBrews >= 3
+                ? (nextCoffee.map { "You have three great brews. Try " + $0 + " next, then start from this house recipe and change one variable." } ?? "You have three great brews. Try a washed Ethiopian or Kenyan coffee next for a brighter, more floral cup.")
+                : nil
             nextAction = BrewCoachNextAction(id: recommendation == nil ? "house-recipe" : "next-coffee", kind: recommendation == nil ? .saveHouseRecipe : .exploreNextCoffee, title: recommendation == nil ? "Save as your house recipe" : "Try your next coffee", detail: recommendation ?? "You rated this coffee highly. Save this exact brew setup so it becomes your reliable starting point.", systemImage: recommendation == nil ? "star.fill" : "sparkles", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: recommendation)
         } else {
             nextAction = BrewCoachNextAction(id: "taste-again", kind: .adjust, title: "Taste, then change one variable", detail: "Keep this recipe as the baseline and record one clear taste signal after the next cup.", systemImage: "arrow.triangle.2.circlepath", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
         }
 
         return BrewCoachState(nextAction: nextAction, greatBrewCount: greatBrews, latestTitle: title)
+    }
+
+    /// Provides the same explainable action before a just-finished brew has
+    /// been committed to the journal.
+    func brewCoachImmediateAction(for feedbackTags: [String]) -> BrewCoachNextAction? {
+        let signal = feedbackTags.map { $0.lowercased() }.first(where: {
+            $0.contains("sour") || $0.contains("acid") || $0.contains("bitter") ||
+            $0.contains("dry") || $0.contains("weak") || $0.contains("loved") ||
+            $0.contains("like this") || $0.contains("balanced") || $0.contains("bright") ||
+            $0.contains("pleasant") || $0.contains("sweet")
+        }) ?? ""
+
+        if signal.contains("sour") || signal.contains("acid") {
+            return BrewCoachNextAction(id: "finer", kind: .adjust, title: "Grind finer", detail: "Too sour usually needs more extraction. Keep dose, water, and temperature the same; move one small grind step finer.", systemImage: "arrow.down.right", suggestedGrind: "One small step finer", suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
+        }
+        if signal.contains("bitter") || signal.contains("dry") {
+            return BrewCoachNextAction(id: "cooler-or-coarser", kind: .adjust, title: "Lower temperature or grind coarser", detail: "Change one variable only: lower water by 1–2°C or move one small grind step coarser.", systemImage: "thermometer.medium", suggestedGrind: "One small step coarser", suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
+        }
+        if signal.contains("weak") {
+            return BrewCoachNextAction(id: "stronger", kind: .adjust, title: "Make the brew stronger", detail: "Keep the grind steady and increase dose by 1 g, or reduce water by about 15 g.", systemImage: "plusminus", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
+        }
+        if !signal.isEmpty {
+            return BrewCoachNextAction(id: "house-recipe", kind: .saveHouseRecipe, title: "Save as your house recipe", detail: "This cup has a positive signal. Save the recipe so it becomes your reliable starting point.", systemImage: "star.fill", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
+        }
+        return nil
     }
 
     func shareableBrewCard(sessionID: UUID, title: String, method: String, doseGrams: Double?, isReference: Bool = false) -> ShareableBrewCard {

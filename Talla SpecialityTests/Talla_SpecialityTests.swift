@@ -591,6 +591,8 @@ struct Talla_SpecialityTests {
     @MainActor @Test func brewCoachTurnsTasteSignalsIntoOneNextAction() throws {
         let store = CoffeeDataStore(inMemory: true)
 
+        #expect(store.brewCoachImmediateAction(for: ["Too weak"])?.title == "Make the brew stronger")
+
         try store.recordCompletedBrew(
             id: UUID(), title: "Morning V60", method: "V60", coffeeGrams: 20,
             waterGrams: 320, durationSeconds: 190, rating: 3, notes: "",
@@ -611,9 +613,9 @@ struct Talla_SpecialityTests {
 
         for index in 0..<3 {
             try store.recordCompletedBrew(
-                id: UUID(), title: "House Cup (index)", method: "V60", coffeeGrams: 20,
+                id: UUID(), title: "House Cup " + String(index), method: "V60", coffeeGrams: 20,
                 waterGrams: 320, durationSeconds: 190, rating: 5, notes: "",
-                feedbackTags: ["Loved it"]
+                feedbackTags: ["I like this"]
             )
         }
 

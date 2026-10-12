@@ -409,6 +409,27 @@ extension BrewingSectionView {
 
     var afterBrewActions: some View {
         VStack(spacing: 10) {
+            let selectedFeedback = Array(afterBrewSelections.union(afterBrewMoreOfSelections))
+            let nextAction = coffeeData.brewCoachImmediateAction(for: selectedFeedback)
+                ?? (isAfterBrewSavedToJournal ? coffeeData.brewCoachState().nextAction : nil)
+            if let nextAction {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("NEXT ACTION", systemImage: nextAction.systemImage)
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(brewAccentColor)
+                    Text(nextAction.title)
+                        .font(Font.custom("Georgia-Bold", size: 22))
+                        .foregroundColor(brewPrimaryTextColor)
+                    Text(nextAction.detail)
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(brewAccentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+
             if let productID = completedBrewProductID {
                 afterBrewActionButton(
                     title: AppLocalization.text("reorder_this_coffee", fallback: "Reorder this coffee"),
