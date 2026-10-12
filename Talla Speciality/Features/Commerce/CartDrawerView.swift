@@ -38,10 +38,12 @@ struct CartDrawerView: View {
 
                         Button(action: closeAction) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(TallaTheme.Icons.action)
                                 .foregroundColor(secondaryTextColor)
+                                .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
                     }
 
                     if hasItems {

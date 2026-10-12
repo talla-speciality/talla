@@ -14,7 +14,7 @@ struct TallaCoffeeGiftVaultView: View {
                     List(gifts) { gift in
                         Button { openGift(gift) } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "gift.fill").foregroundStyle(TallaTheme.Colors.accent)
+                                Image(systemName: "gift.fill").foregroundStyle(TallaTheme.Colors.ink)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(gift.drinkName).font(.headline)
                                     Text("Tap to check whether it is redeemable").font(.caption).foregroundStyle(.secondary)
@@ -122,7 +122,7 @@ struct SocialCoffeeView: View {
             Label(AppLocalization.text("social_coffee_eyebrow", fallback: "COFFEE IS BETTER SHARED"), systemImage: "person.2.fill")
                 .font(.caption.weight(.bold))
                 .tracking(1.4)
-                .foregroundStyle(accent)
+                .foregroundStyle(TallaTheme.Colors.ink)
             Text(AppLocalization.text("social_coffee_hero_title", fallback: "Send a little warmth."))
                 .font(.system(size: 31, weight: .semibold, design: .serif))
                 .foregroundStyle(primary)
@@ -137,7 +137,7 @@ struct SocialCoffeeView: View {
             HStack(spacing: 12) {
                 Image(systemName: "bag.fill")
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(accent)
+                    .foregroundStyle(TallaTheme.Colors.ink)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Your bag")
                         .font(.subheadline.weight(.semibold))
@@ -169,7 +169,7 @@ struct SocialCoffeeView: View {
     private func socialAction(_ title: String, systemImage: String, flow: SocialCoffeeFlow) -> some View {
         Button { presentedFlow = flow } label: {
             VStack(spacing: 9) {
-                Image(systemName: systemImage).font(.system(size: 18, weight: .semibold)).foregroundStyle(accent)
+                Image(systemName: systemImage).font(.system(size: 18, weight: .semibold)).foregroundStyle(TallaTheme.Colors.ink)
                 Text(title).font(.caption.weight(.semibold)).foregroundStyle(primary).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity, minHeight: 78)
@@ -229,7 +229,7 @@ struct SocialCoffeeView: View {
     private var gatheringSection: some View {
         socialCard(title: AppLocalization.text("social_coffee_gather_title", fallback: "Make it a gathering"), eyebrow: AppLocalization.text("social_coffee_gather_eyebrow", fallback: "MAJLIS · OFFICE · FRIENDS"), icon: "person.3") {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "building.2.fill").font(.title3).foregroundStyle(accent).frame(width: 38, height: 38).background(accent.opacity(0.13), in: Circle())
+                Image(systemName: "building.2.fill").font(.title3).foregroundStyle(TallaTheme.Colors.ink).frame(width: 38, height: 38).background(TallaTheme.Colors.ink.opacity(0.13), in: Circle())
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("social_coffee_office_title", fallback: "Office coffee, sorted")).font(.subheadline.weight(.semibold)).foregroundStyle(primary)
                     Text(AppLocalization.text("social_coffee_office_detail", fallback: "One shared order, one checkout with the host, one delivery window.")).font(.caption).foregroundStyle(secondary)
@@ -286,13 +286,13 @@ struct SocialCoffeeView: View {
                     .font(.caption.weight(.semibold))
             }
             Label("Saved on this device", systemImage: "checkmark.circle.fill")
-                .font(.caption.weight(.medium)).foregroundStyle(accent)
+                .font(.caption.weight(.medium)).foregroundStyle(TallaTheme.Colors.ink)
             if noteVisibility == "Public", !tastingNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 ShareLink(item: "My Talla tasting note: \(tastingNote)") {
                     Label("Share tasting note", systemImage: "square.and.arrow.up")
                         .font(.subheadline.weight(.semibold))
                 }
-                .tint(accent)
+                .tint(TallaTheme.Colors.ink)
             }
             VStack(alignment: .leading, spacing: 10) {
                 HStack { Text("Community tasting notes").font(.subheadline.weight(.semibold)).foregroundStyle(primary); Spacer(); Button { Task { await loadPublicNotes() } } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Refresh tasting notes") }
@@ -311,11 +311,11 @@ struct SocialCoffeeView: View {
                 }
                 ForEach(displayedNotes) { note in
                     VStack(alignment: .leading, spacing: 7) {
-                        HStack { Text(note.displayName).font(.caption.weight(.semibold)).foregroundStyle(accent)
+                        HStack { Text(note.displayName).font(.caption.weight(.semibold)).foregroundStyle(TallaTheme.Colors.ink)
                             Text(note.role ?? "Friend").font(.caption2).foregroundStyle(secondary)
                             Spacer()
                             Button(isFollowing(note.profileID) ? "Following" : "Follow") { toggleFollow(note) }
-                                .font(.caption.weight(.semibold)).buttonStyle(.bordered).tint(accent).disabled(!isSignedIn)
+                                .font(TallaTheme.Fonts.button).buttonStyle(.tallaSecondary).tint(TallaTheme.Colors.ink).disabled(!isSignedIn)
                         }
                         Text(note.note).font(.subheadline).foregroundStyle(primary)
                     }
@@ -327,7 +327,7 @@ struct SocialCoffeeView: View {
                 Text("Coffee wish list").font(.subheadline.weight(.semibold)).foregroundStyle(primary)
                 ForEach(wishListItems, id: \.self) { coffee in
                     HStack {
-                        Image(systemName: "heart.fill").foregroundStyle(accent)
+                        Image(systemName: "heart.fill").foregroundStyle(TallaTheme.Colors.ink)
                         if let product = wishListProduct(for: coffee), let url = URL(string: "https://talla.me/products/\(product.handle)") {
                             Link(product.name, destination: url).font(.subheadline).foregroundStyle(primary)
                             Image(systemName: "arrow.up.right").font(.caption2).foregroundStyle(secondary)
@@ -355,7 +355,7 @@ struct SocialCoffeeView: View {
                                     .font(.caption.weight(.semibold))
                             }
                             .font(.subheadline)
-                            .foregroundStyle(accent)
+                            .foregroundStyle(TallaTheme.Colors.ink)
                             .padding(.horizontal, 12)
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                             .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -364,7 +364,7 @@ struct SocialCoffeeView: View {
                         .frame(maxWidth: .infinity)
                         .accessibilityLabel("Add from Talla catalog")
                         Button { addWishListProduct() } label: {
-                            Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(accent)
+                        Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(TallaTheme.Colors.ink)
                                 .frame(width: 44, height: 44)
                         }
                         .disabled(selectedWishProductID.isEmpty)
@@ -374,7 +374,7 @@ struct SocialCoffeeView: View {
                 HStack {
                     TextField("Or add a custom wish", text: $wishListDraft)
                         .textFieldStyle(.roundedBorder)
-                    Button { addWishListItem() } label: { Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(accent) }
+                    Button { addWishListItem() } label: { Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(TallaTheme.Colors.ink) }
                         .disabled(wishListDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .accessibilityLabel("Add coffee to wish list")
                 }
@@ -383,7 +383,7 @@ struct SocialCoffeeView: View {
                         Label("Share wish list", systemImage: "square.and.arrow.up")
                             .font(.subheadline.weight(.semibold))
                     }
-                    .tint(accent)
+                    .tint(TallaTheme.Colors.ink)
                 }
             }
         }
@@ -395,7 +395,7 @@ struct SocialCoffeeView: View {
                 .font(.caption).foregroundStyle(secondary)
             if isSignedIn {
                 Label(syncStatus, systemImage: hasLoadedCloudProfile ? "checkmark.icloud.fill" : "icloud")
-                    .font(.caption.weight(.medium)).foregroundStyle(accent)
+                    .font(.caption.weight(.medium)).foregroundStyle(TallaTheme.Colors.ink)
                 Picker("My public profile", selection: $publicRole) {
                     Text("Friend").tag("Friend")
                     Text("Barista").tag("Barista")
@@ -407,16 +407,16 @@ struct SocialCoffeeView: View {
                     Label(AppLocalization.text("social_coffee_sign_in_sync", fallback: "Sign in to sync across devices"), systemImage: "person.crop.circle.badge.checkmark")
                         .font(.caption.weight(.semibold))
                 }
-                .buttonStyle(.bordered).tint(accent)
+                .buttonStyle(.tallaSecondary).tint(TallaTheme.Colors.ink)
             }
             ForEach(Array(followedPeople.enumerated()), id: \.offset) { entry in
                 let person = entry.element
                 HStack(spacing: 12) {
-                    Text(String(person.name.prefix(1))).font(.headline).foregroundStyle(accent).frame(width: 38, height: 38).background(accent.opacity(0.14), in: Circle())
+                    Text(String(person.name.prefix(1))).font(.headline).foregroundStyle(TallaTheme.Colors.ink).frame(width: 38, height: 38).background(TallaTheme.Colors.ink.opacity(0.14), in: Circle())
                     VStack(alignment: .leading, spacing: 2) { Text(person.name).font(.subheadline.weight(.semibold)).foregroundStyle(primary); Text(person.profileID == nil ? "Saved name · not linked to an account" : person.role).font(.caption).foregroundStyle(secondary) }
                     Spacer()
                     Button(person.profileID == nil ? "Remove" : "Following") { removeFollow(person) }
-                        .font(.caption.weight(.semibold)).buttonStyle(.bordered).tint(secondary)
+                    .font(TallaTheme.Fonts.button).buttonStyle(.tallaSecondary).tint(secondary)
                 }
             }
             if isSignedIn {
@@ -430,7 +430,7 @@ struct SocialCoffeeView: View {
                         }
                         Spacer()
                         Button(isFollowing(person.profileID) ? "Following" : "Follow") { toggleFollow(person) }
-                            .buttonStyle(.bordered).tint(accent)
+                            .buttonStyle(.tallaSecondary).tint(TallaTheme.Colors.ink)
                     }
                 }
                 if discoverablePeople.isEmpty {
@@ -439,15 +439,15 @@ struct SocialCoffeeView: View {
                 }
             }
             Toggle("Keep my wish list ready for gifting", isOn: $isWishListEnabled)
-                .font(.subheadline).tint(accent)
+                .font(.subheadline).tint(TallaTheme.Colors.ink)
         }
     }
 
     private func socialCard<Content: View>(title: String, eyebrow: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) { Text(eyebrow).font(.caption2.weight(.bold)).tracking(1.3).foregroundStyle(accent); Text(title).font(.title3.weight(.semibold)).foregroundStyle(primary) }
-                Spacer(); Image(systemName: icon).foregroundStyle(accent)
+                VStack(alignment: .leading, spacing: 5) { Text(eyebrow).font(.caption2.weight(.bold)).tracking(1.3).foregroundStyle(TallaTheme.Colors.ink); Text(title).font(.title3.weight(.semibold)).foregroundStyle(primary) }
+                Spacer(); Image(systemName: icon).foregroundStyle(TallaTheme.Colors.ink)
             }
             content()
         }
@@ -457,7 +457,7 @@ struct SocialCoffeeView: View {
 
     private func flowButton(_ title: String, systemImage: String, flow: SocialCoffeeFlow) -> some View {
         Button { presentedFlow = flow } label: { flowLabel(title, systemImage: systemImage) }
-            .buttonStyle(.borderedProminent).tint(accent)
+            .buttonStyle(.tallaPrimary).tint(TallaTheme.Colors.ink)
     }
 
     private func flowLabel(_ title: String, systemImage: String) -> some View {
@@ -688,7 +688,7 @@ struct SocialCoffeePassGiftView: View {
                         Label("Share this coffee gift", systemImage: "square.and.arrow.up")
                             .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent).tint(TallaTheme.Colors.accent)
+                    .buttonStyle(.tallaPrimary).tint(TallaTheme.Colors.accent)
                 }
                 if gift.token != nil {
                     Button("Refresh gift status") { Task { await refreshGiftStatus() } }
@@ -784,7 +784,7 @@ struct SocialCoffeeGroupInviteView: View {
                         Section { Button(action: closeAndCheckout) { Label("Resume checkout", systemImage: "bag.fill") }.disabled(busy) }
                     }
                 }
-                if !error.isEmpty { Section { Text(error).foregroundStyle(.red) } }
+                if !error.isEmpty { Section { Text(error).foregroundStyle(TallaTheme.Colors.destructive) } }
             }
             .navigationTitle("Group coffee")
             .navigationBarTitleDisplayMode(.inline)
@@ -1042,7 +1042,7 @@ private struct SocialCoffeeFlowSheet: View {
                             Section {
                                 Button(action: createGroupOrder) { if isCreatingGroup { ProgressView() } else { Label("Create and share invite", systemImage: "person.3.fill") } }
                                     .disabled(isCreatingGroup || groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                                if !groupError.isEmpty { Text(groupError).font(.caption).foregroundStyle(.red) }
+                                if !groupError.isEmpty { Text(groupError).font(.caption).foregroundStyle(TallaTheme.Colors.destructive) }
                             }
                         }
                     } else {

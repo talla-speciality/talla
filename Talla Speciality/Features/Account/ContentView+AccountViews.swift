@@ -350,14 +350,14 @@ extension ContentView {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(isDestructive ? .red : TallaTheme.Colors.ink)
+                    .foregroundColor(isDestructive ? TallaTheme.Colors.destructive : TallaTheme.Colors.ink)
                     .frame(width: 34, height: 34)
-                    .background((isDestructive ? Color.red : TallaTheme.Colors.accent).opacity(isLightAppearance ? 0.10 : 0.14))
+                    .background((isDestructive ? TallaTheme.Colors.destructive : TallaTheme.Colors.accent).opacity(isLightAppearance ? 0.10 : 0.14))
                     .clipShape(Circle())
 
                 Text(title)
                     .font(labelFont(size: 12, weight: .bold))
-                    .foregroundColor(isDestructive ? .red : primaryTextColor)
+                    .foregroundColor(isDestructive ? TallaTheme.Colors.destructive : primaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
 
@@ -535,7 +535,7 @@ extension ContentView {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color.red.opacity(0.86))
+                .background(TallaTheme.Colors.destructive)
                 .clipShape(Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
@@ -545,7 +545,7 @@ extension ContentView {
             if let accountDeletionError {
                 Text(accountDeletionError)
                     .font(bodyFont(size: 13))
-                    .foregroundColor(.red)
+                    .foregroundColor(TallaTheme.Colors.destructive)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -553,7 +553,7 @@ extension ContentView {
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.red.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
+                .stroke(TallaTheme.Colors.destructive.opacity(isLightAppearance ? 0.18 : 0.12), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .alert(
@@ -751,6 +751,7 @@ extension ContentView {
                         ForEach(recommendedProducts) { product in
                             productCard(product: product, showDescription: false)
                         }
+                        .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
                     }
                 }
             }

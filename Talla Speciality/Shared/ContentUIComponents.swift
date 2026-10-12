@@ -168,7 +168,7 @@ struct WelcomeOverlayView: View {
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(TallaTheme.Icons.action)
                     .foregroundColor(TallaTheme.Colors.ink)
                     .frame(width: 34, height: 34)
                     .background(accentColor.opacity(0.14))
@@ -188,7 +188,7 @@ struct WelcomeOverlayView: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.forward")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(TallaTheme.Icons.chevron)
                     .foregroundColor(TallaTheme.Colors.ink)
             }
             .padding(12)
@@ -243,7 +243,7 @@ struct FeatureTourOverlayView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: currentHighlight.icon)
-                            .font(.system(size: 22, weight: .bold))
+                            .font(TallaTheme.Icons.hero)
                             .foregroundColor(.white)
                             .frame(width: 52, height: 52)
                             .background(accentColor)

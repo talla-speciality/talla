@@ -413,12 +413,10 @@ struct LoyaltySectionView: View {
                     : AppLocalization.text("check_rewards", fallback: "CHECK REWARDS"))
                     .font(Font.custom("AvenirNext-Bold", size: 12))
                     .tracking(AppLocalization.letterSpacing(2.5))
-                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .tallaGlassCapsule(tint: accentColor)
+                    .padding(.vertical, 2)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.tallaPrimary)
             .disabled(isLoadingLoyalty || loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             if !savedLoyaltyEmail.isEmpty {

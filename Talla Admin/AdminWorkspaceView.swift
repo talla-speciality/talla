@@ -223,7 +223,7 @@ struct AdminEspressoCommunityView: View {
                         )
                     }
                 } label: { Image(systemName: "plus") }.accessibilityLabel("Add espresso community content")
-                Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading)
+                Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading).accessibilityLabel("Refresh espresso community content")
             }
         }
         .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: message) }

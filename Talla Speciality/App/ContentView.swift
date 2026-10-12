@@ -82,6 +82,7 @@ struct ContentView: View {
     @State var pendingBrewingCoffeeOrigin = ""
     @State var pendingBrewingCoffeeNotes = ""
     @State var pendingRecommendedRecipe = false
+    @State var activeBrewingDashboardDestination: BrewingSectionView.BrewingDashboardDestination?
     @State var cartItems: [CartItem] = []
     @State var isCoffeeClubPrepaid = false
     @State var coffeeClubTermsAccepted = false

@@ -138,7 +138,7 @@ struct AdminFeedback: View {
     var body: some View {
         if let text = error ?? message {
             Label(text, systemImage: error == nil ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .font(.footnote).foregroundStyle(error == nil ? TallaAdminStyle.success : .red)
+                .font(.footnote).foregroundStyle(error == nil ? TallaAdminStyle.success : TallaAdminStyle.destructive)
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                 .background(.regularMaterial).accessibilityIdentifier("admin-feedback")
         }

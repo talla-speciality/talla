@@ -355,6 +355,7 @@ final class TallaDeviceLayoutTests: XCTestCase {
         app.launchEnvironment["TALLA_BACKEND_BASE_URL"] = server.baseURL.absoluteString
         app.launch()
         XCTAssertTrue(app.buttons["Home"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.descendants(matching: .any)["home.todayCard"].waitForExistence(timeout: 5))
         let moreFromTalla = app.descendants(matching: .any)["home.more"].firstMatch
         for _ in 0..<6 where !moreFromTalla.isHittable {
             app.swipeUp()

@@ -265,15 +265,15 @@ extension ContentView {
     }
 
     var readableBrandGoldColor: Color {
-        isLightAppearance ? TallaTheme.Colors.readableAccentLight : TallaTheme.Colors.readableAccentDark
+        isLightAppearance ? TallaTheme.Colors.brand : TallaTheme.Colors.brandSoft
     }
 
     var secondaryTextColor: Color {
-        primaryTextColor.opacity(isLightAppearance ? 0.72 : 0.72)
+        primaryTextColor.opacity(0.72)
     }
 
     var tertiaryTextColor: Color {
-        primaryTextColor.opacity(isLightAppearance ? 0.56 : 0.55)
+        primaryTextColor.opacity(0.56)
     }
 
     var cardFillColor: Color {

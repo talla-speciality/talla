@@ -72,12 +72,10 @@ struct ProfileManagementSectionView: View {
                         .font(Font.custom("AvenirNext-Bold", size: 11))
                         .tracking(AppLocalization.letterSpacing(2))
                         .textCase(.uppercase)
-                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .tallaGlassCapsule(tint: accentColor)
+                        .padding(.vertical, 2)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.tallaPrimary)
                 .disabled(isSaving || firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } else {
                 HStack(spacing: 10) {
@@ -392,7 +390,7 @@ struct OrderHistorySectionView: View {
                                         systemImage: club.isOverdue == true ? "exclamationmark.triangle.fill" : "calendar.badge.clock"
                                     )
                                     .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                    .foregroundColor(club.isOverdue == true ? .orange : secondaryTextColor)
+                                    .foregroundColor(club.isOverdue == true ? TallaTheme.Colors.warning : secondaryTextColor)
                                 }
 
                                 Text(coffeeClubStatusText(club))
@@ -739,7 +737,7 @@ struct OrderHistorySectionView: View {
                                     selectedClubCoffees.removeAll { $0.id == coffee.id }
                                 } label: {
                                     Image(systemName: "minus.circle.fill")
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(TallaTheme.Colors.destructive)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(AppLocalization.text("remove_coffee", fallback: "Remove coffee"))
@@ -1308,7 +1306,7 @@ struct OrderHistorySectionView: View {
         case "preparing", "confirmed":
             return accentColor
         case "cancelled", "canceled":
-            return Color.red.opacity(0.8)
+            return TallaTheme.Colors.destructive.opacity(0.8)
         default:
             return secondaryTextColor
         }

@@ -1,6 +1,10 @@
 
 node_modules/
 .build/
+**/.venv/
+**/__pycache__/
+coffee_ai/
+coffee_ai_from_scratch/
 package-lock.json
 package.json
 talla-speciality-app/

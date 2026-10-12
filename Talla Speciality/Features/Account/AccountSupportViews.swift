@@ -181,7 +181,7 @@ struct SavedBrewRecipeEditor: View {
                 TextField("Recipe name", text: $name)
                 TextField("Coffee (g)", text: $coffeeGrams).keyboardType(.decimalPad)
                 TextField("Ratio (1:x)", text: $ratio).keyboardType(.decimalPad)
-                if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+                if let error { Text(error).font(.footnote).foregroundStyle(TallaTheme.Colors.destructive) }
             }
             Section {
                 Text("Water: \(waterText) g").foregroundStyle(secondary)

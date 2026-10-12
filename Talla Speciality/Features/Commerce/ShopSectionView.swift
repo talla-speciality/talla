@@ -302,6 +302,7 @@ struct ShopSectionView: View {
                         .foregroundColor(secondaryTextColor.opacity(0.75))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("clear", fallback: "Clear"))
                 .accessibilityLabel(AppLocalization.text("clear_search", fallback: "Clear search"))
             }
 

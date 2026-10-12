@@ -143,7 +143,7 @@ struct CommunityRecipesView: View {
                     Button(communitySharingOptOut ? "Community sharing is off" : "Submit for review") { submit() }
                         .buttonStyle(.tallaPrimary).tint(accent)
                         .disabled(communitySharingOptOut || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    if let errorMessage { Text(errorMessage).font(.footnote).foregroundStyle(.red) }
+                    if let errorMessage { Text(errorMessage).font(.footnote).foregroundStyle(TallaTheme.Colors.destructive) }
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(surface).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 recipeSection("Approved recipes", recipes.filter { $0.status == .approved }, showStatus: false)
@@ -217,7 +217,7 @@ private struct CommunityRecipeEditorView: View {
     var body: some View {
         Form {
             Section("Recipe") { TextField("Title", text: $title); TextField("Method", text: $method); TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(4...10) }
-            if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+            if let errorMessage { Text(errorMessage).foregroundStyle(TallaTheme.Colors.destructive) }
             Section { Button(saving ? "Saving…" : "Save changes") { save() }.disabled(saving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
             Section { Text("Editing sends the recipe back for review before it appears publicly again.").font(.footnote).foregroundStyle(secondary) }
         }.scrollContentBackground(.hidden).background(background).navigationTitle("Edit recipe").toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }

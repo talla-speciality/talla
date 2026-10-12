@@ -1441,7 +1441,7 @@ struct MastercardPaymentSheet: View {
             if let message = validationMessage ?? flow.errorMessage {
                 Section {
                     Text(message)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(TallaTheme.Colors.destructive)
                 }
             }
         }

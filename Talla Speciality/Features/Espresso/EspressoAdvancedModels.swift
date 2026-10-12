@@ -205,7 +205,7 @@ struct EspressoAdvancedPanel: View {
         }
         .padding(16)
         .background(panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
         .onAppear {
             loadSnapshot()
         }
@@ -234,8 +234,8 @@ struct EspressoAdvancedPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(advancedSurface.opacity(0.82))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.black.opacity(0.06), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous).stroke(.black.opacity(0.06), lineWidth: 1))
     }
 
     private var telemetryEditor: some View {

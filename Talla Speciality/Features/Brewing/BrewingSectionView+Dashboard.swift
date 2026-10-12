@@ -33,7 +33,7 @@ extension BrewingSectionView {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(width: 46, height: 46)
                     .background(accentColor)
                     .clipShape(Circle())
@@ -62,7 +62,7 @@ extension BrewingSectionView {
                         .textCase(.uppercase)
                         .lineLimit(1)
                         .minimumScaleFactor(0.76)
-                        .foregroundColor(.white)
+                        .foregroundColor(brewAccentForegroundColor)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
                         .background(accentColor)
@@ -328,7 +328,7 @@ extension BrewingSectionView {
                 .font(Font.custom("AvenirNext-Bold", size: 11))
                 .tracking(AppLocalization.letterSpacing(1.2))
                 .textCase(.uppercase)
-                .foregroundColor(.white)
+                .foregroundColor(brewAccentForegroundColor)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(accentColor)
@@ -463,13 +463,13 @@ extension BrewingSectionView {
                             brewCoachCard(for: selectedGuideProfile)
                         }
                     case .espressoWorkspace:
-                        EspressoWorkspaceView(accent: accentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                        EspressoWorkspaceView(accent: brewAccentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     case .cuppingMode:
-                        CuppingWorkspaceView(isSignedIn: isCustomerSignedIn, accent: accentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                        CuppingWorkspaceView(isSignedIn: isCustomerSignedIn, accent: brewAccentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     case .communityRecipes:
-                        CommunityRecipesView(isSignedIn: isCustomerSignedIn, accent: accentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                        CommunityRecipesView(isSignedIn: isCustomerSignedIn, accent: brewAccentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     case .privacyControls:
-                        PrivacyControlsView(accent: accentColor, background: brewBackgroundColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                        PrivacyControlsView(accent: brewAccentColor, background: brewBackgroundColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     }
                 }
                 .frame(maxWidth: brewColumnMaxWidth, alignment: .leading)

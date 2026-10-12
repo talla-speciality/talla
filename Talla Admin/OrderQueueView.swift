@@ -226,7 +226,7 @@ private struct OrderFeedbackBanner: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(session.errorMessage == nil ? TallaAdminStyle.success : Color.red, in: RoundedRectangle(cornerRadius: 16))
+            .background(session.errorMessage == nil ? TallaAdminStyle.success : TallaAdminStyle.destructive, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 16)
             .padding(.bottom, 6)
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -601,7 +601,7 @@ struct OrderDetailView: View {
                 if club.isOverdue {
                     Label("This shipment is overdue", systemImage: "exclamationmark.triangle.fill")
                         .font(.subheadline.bold())
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(TallaAdminStyle.warning)
                 }
 
                 ProgressView(value: Double(club.deliveredShipments), total: Double(max(1, club.shipmentCount)))
@@ -788,7 +788,7 @@ struct OrderDetailView: View {
                             else { Label("Execute refund in Shopify", systemImage: "arrow.uturn.backward.circle.fill").frame(maxWidth: .infinity) }
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(.red)
+                        .tint(TallaAdminStyle.destructive)
                         .disabled(isRefunding || Double(refundAmount) == nil || (Double(refundAmount) ?? 0) <= 0)
                     }
                     .padding(.top, 6)

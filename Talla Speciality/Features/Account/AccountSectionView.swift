@@ -500,7 +500,7 @@ struct AccountSectionView: View {
     }
 
     private func accountNavigationRow(_ row: AccountNavigationRowData) -> some View {
-        let rowColor = row.isDestructive ? Color.red : accentColor
+        let rowColor = row.isDestructive ? TallaTheme.Colors.destructive : accentColor
 
         return Button {
             row.action?()
@@ -520,7 +520,7 @@ struct AccountSectionView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(row.title)
                         .font(quickActionTitleFont)
-                        .foregroundColor(row.isDestructive ? .red : primaryTextColor)
+                        .foregroundColor(row.isDestructive ? TallaTheme.Colors.destructive : primaryTextColor)
                         .lineLimit(1)
 
                     Text(row.subtitle)

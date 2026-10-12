@@ -146,10 +146,10 @@ struct EspressoWorkspaceView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label("DEDICATED DIAL-IN", systemImage: "dial.medium")
-                .font(.system(size: 10, weight: .bold)).tracking(1.4).foregroundStyle(accent)
-            Text("Find the shot you want to drink.").font(.system(size: 25, weight: .semibold, design: .serif)).foregroundStyle(primary)
+                .font(TallaTheme.Fonts.eyebrow).tracking(1.4).foregroundStyle(accent)
+            Text("Find the shot you want to drink.").font(TallaTheme.Fonts.featureTitle).foregroundStyle(primary)
             Text("Change one variable at a time and keep the whole iteration visible.")
-                .font(.system(size: 13)).foregroundStyle(secondary)
+                .font(TallaTheme.Fonts.metadata).foregroundStyle(secondary)
         }
     }
 
@@ -163,9 +163,10 @@ struct EspressoWorkspaceView: View {
                     .font(.caption).foregroundStyle(secondary)
             }
             Spacer()
-            Button { draft = EspressoShot(); showNewShot = true } label: { Image(systemName: "plus") }
+            Button { draft = EspressoShot(); showNewShot = true } label: { Image(systemName: "plus").font(TallaTheme.Icons.action).frame(width: 44, height: 44) }
                 .buttonStyle(.tallaPrimary).tint(accent)
-        }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .accessibilityLabel("New espresso shot")
+        }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
     }
 
     private var modePicker: some View { Picker("Mode", selection: $mode) { Text("Quick").tag("Quick"); Text("Lab").tag("Lab") }.pickerStyle(.segmented).tint(accent) }
@@ -184,7 +185,7 @@ struct EspressoWorkspaceView: View {
                 Button("Manage") { showScalePicker = true }.font(.caption.weight(.semibold))
             }
             if let suggestion { suggestionCard(suggestion) }
-        }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
     }
 
     private var puckPreparation: some View {
@@ -204,7 +205,7 @@ struct EspressoWorkspaceView: View {
                     }.buttonStyle(.plain)
                 }
             }
-        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
     }
 
     private var maintenanceCard: some View {
@@ -212,7 +213,7 @@ struct EspressoWorkspaceView: View {
             HStack { Text("Maintenance").font(.headline).foregroundStyle(primary); Spacer(); Text(maintenanceMessage).font(.caption.weight(.semibold)).foregroundStyle(accent) }
             HStack { Text("Water hardness").font(.caption).foregroundStyle(secondary); Spacer(); Stepper("\(Int(waterHardnessPPM)) ppm", value: $waterHardnessPPM, in: 0...500, step: 10).font(.caption) }
             Text("Shot count drives group-head cleaning; hardness drives descaling. Grinder burr changes remain attached to each shot's setting history.").font(.caption).foregroundStyle(secondary)
-        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
     }
 
     private var maintenanceMessage: String {
@@ -228,7 +229,7 @@ struct EspressoWorkspaceView: View {
             HStack { Text("Drink scale").font(.caption).foregroundStyle(secondary); Spacer(); Stepper(String(format: "%.1fx", milkScale), value: $milkScale, in: 0.5...2.0, step: 0.1).font(.caption) }
             Button { milkRunning.toggle() } label: { Label(milkRunning ? "Pause steam timer" : "Start steam timer", systemImage: milkRunning ? "pause.fill" : "play.fill").font(.caption.weight(.semibold)) }.buttonStyle(.tallaPrimary).tint(accent)
             Text(String(format: "For this shot: %.1f g espresso · %.0f °C milk target", draft.yield * milkScale, milkTargetTemperature)).font(.caption).foregroundStyle(secondary)
-        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
     }
 
     private func toggleDiagnostic(_ id: String, title: String, icon: String) {
@@ -250,7 +251,7 @@ struct EspressoWorkspaceView: View {
             metricGrid
             if let suggestion { suggestionCard(suggestion) }
             Button("Save iteration") { finishShot() }.buttonStyle(.tallaPrimary).tint(accent)
-        }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }.padding(16).background(surface).overlay(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous).stroke(accent.opacity(0.12), lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
     }
 
     private var metricGrid: some View {
@@ -387,7 +388,7 @@ struct EspressoWorkspaceView: View {
             HStack { Text("Weight & flow").font(.headline).foregroundStyle(primary); Spacer(); Text(scaleManager.isConnected ? "LIVE" : "SHOT CURVE").font(.caption.weight(.bold)).foregroundStyle(accent) }
             HStack(spacing: 14) {
                 Label("Weight", systemImage: "circle.fill").font(.caption).foregroundStyle(accent)
-                Label("Flow", systemImage: "circle.fill").font(.caption).foregroundStyle(.blue)
+                Label("Flow", systemImage: "circle.fill").font(.caption).foregroundStyle(TallaTheme.Colors.brand)
                 Spacer()
             }
             GeometryReader { proxy in

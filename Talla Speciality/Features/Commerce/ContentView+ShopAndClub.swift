@@ -747,6 +747,7 @@ extension ContentView {
                             .clipShape(Capsule(style: .continuous))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
                 }
             }
         }

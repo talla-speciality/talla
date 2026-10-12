@@ -319,6 +319,7 @@ struct BrewingSectionView: View {
     @Binding var pendingCoffeeOrigin: String
     @Binding var pendingCoffeeNotes: String
     @Binding var pendingRecommendedRecipe: Bool
+    @Binding var activeDashboardDestination: BrewingDashboardDestination?
     let calculatedWaterAmount: Double
     let ratioCoffeeAmount: Double
     let ratioValue: Double
@@ -370,7 +371,6 @@ struct BrewingSectionView: View {
     @State var brewCoachQuestion = ""
     @State var brewCoachAnswer: String?
     @State var isGeneratingBrewCoachAnswer = false
-    @State var activeDashboardDestination: BrewingDashboardDestination?
     @State var brewProfileStep: CreateRecipeStep = .experience
     @State var createRecipeStep: CreateRecipeStep = .experience
     @State var createRecipeValidationMessage: String?

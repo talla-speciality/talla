@@ -37,6 +37,7 @@ enum TallaAdminStyle {
     static let border = adaptive(light: (0.82, 0.82, 0.82), dark: (0.28, 0.28, 0.28))
     static let success = adaptive(light: (0.13, 0.42, 0.25), dark: (0.38, 0.76, 0.49))
     static let warning = adaptive(light: (0.67, 0.39, 0.06), dark: (0.96, 0.68, 0.25))
+    static let destructive = adaptive(light: (0.70, 0.12, 0.10), dark: (1.0, 0.40, 0.36))
 
     enum CornerRadius {
         static let control: CGFloat = 14

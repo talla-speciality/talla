@@ -258,8 +258,8 @@ extension BrewingSectionView {
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.red.opacity(0.82))
-                    .background(Color.red.opacity(0.07))
+                    .foregroundColor(TallaTheme.Colors.destructive.opacity(0.82))
+                    .background(TallaTheme.Colors.destructive.opacity(0.07))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .accessibilityIdentifier("bluetooth.interrupt")
                 }
@@ -291,7 +291,7 @@ extension BrewingSectionView {
                         ? AppLocalization.text("no_scales_found", fallback: "No scales found")
                         : AppLocalization.text("connection_issue", fallback: "Connection issue"),
                     detail: message,
-                    tint: Color.orange
+                    tint: TallaTheme.Colors.warning
                 )
                 scalePickerScanButton(title: AppLocalization.text("scan_again", fallback: "Scan again"))
             }

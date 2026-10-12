@@ -56,6 +56,11 @@ extension ContentView {
         openTab(.brewing)
     }
 
+    func openCoffeeJournal() {
+        activeBrewingDashboardDestination = .coffeeJournal
+        openTab(.brewing)
+    }
+
     func startBrewing(product: Product, useRecommendedRecipe: Bool = false) {
         let coffeeName = product.name.trimmingCharacters(in: .whitespacesAndNewlines)
         selectedProduct = nil

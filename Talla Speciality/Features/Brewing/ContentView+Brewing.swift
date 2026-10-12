@@ -60,6 +60,7 @@ extension ContentView {
             pendingCoffeeOrigin: $pendingBrewingCoffeeOrigin,
             pendingCoffeeNotes: $pendingBrewingCoffeeNotes,
             pendingRecommendedRecipe: $pendingRecommendedRecipe,
+            activeDashboardDestination: $activeBrewingDashboardDestination,
             calculatedWaterAmount: calculatedWaterAmount,
             ratioCoffeeAmount: ratioCoffeeAmount,
             ratioValue: ratioValue,
@@ -230,6 +231,7 @@ extension ContentView {
                 .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityIdentifier("brewing.coffeeJournal")
     }
 
     var coffeeJournalSection: some View {

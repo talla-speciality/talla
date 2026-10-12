@@ -588,6 +588,41 @@ struct Talla_SpecialityTests {
         #expect(store.brewCoachFallbackAdjustment() == "Recent brews leaned acidic, so start the next cup slightly finer or with a little more contact time.")
     }
 
+    @MainActor @Test func brewCoachTurnsTasteSignalsIntoOneNextAction() throws {
+        let store = CoffeeDataStore(inMemory: true)
+
+        try store.recordCompletedBrew(
+            id: UUID(), title: "Morning V60", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 190, rating: 3, notes: "",
+            feedbackTags: ["Too sour"]
+        )
+        #expect(store.brewCoachState().nextAction?.title == "Grind finer")
+
+        try store.recordCompletedBrew(
+            id: UUID(), title: "Morning V60", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 190, rating: 3, notes: "",
+            feedbackTags: ["Too bitter"]
+        )
+        #expect(store.brewCoachState().nextAction?.title == "Lower temperature or grind coarser")
+    }
+
+    @MainActor @Test func brewCoachPromotesLovedBrewsAndRecommendsAfterThreeWins() throws {
+        let store = CoffeeDataStore(inMemory: true)
+
+        for index in 0..<3 {
+            try store.recordCompletedBrew(
+                id: UUID(), title: "House Cup (index)", method: "V60", coffeeGrams: 20,
+                waterGrams: 320, durationSeconds: 190, rating: 5, notes: "",
+                feedbackTags: ["Loved it"]
+            )
+        }
+
+        let state = store.brewCoachState()
+        #expect(state.greatBrewCount == 3)
+        #expect(state.nextAction?.kind == .exploreNextCoffee)
+        #expect(state.nextAction?.recommendation?.contains("washed Ethiopian") == true)
+    }
+
     @MainActor @Test func legacyCoffeeJSONMigratesOnce() throws {
         let suite = "TallaCoffeeMigrationTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

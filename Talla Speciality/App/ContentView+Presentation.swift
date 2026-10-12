@@ -63,7 +63,7 @@ extension ContentView {
                 .accessibilityHidden(true)
 
             Circle()
-                .fill(Color(hex: 0x7A4F25).opacity(isOLEDAppearance ? 0 : (isLightAppearance ? 0.06 : 0.09)))
+                .fill(TallaTheme.Colors.brand.opacity(isOLEDAppearance ? 0 : (isLightAppearance ? 0.06 : 0.09)))
                 .frame(width: isCompact ? 220 : 360)
                 .blur(radius: 24)
                 .offset(x: isCompact ? -160 : -340, y: 340)

@@ -186,7 +186,7 @@ private struct HeaderCartButton: View {
                 }
 
                 Image(systemName: cartCount > 0 ? "bag.fill" : "bag")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(TallaTheme.Icons.action)
                     .foregroundColor(cartCount > 0 ? .white : TallaTheme.Colors.ink)
                     .symbolEffect(.bounce, value: celebrationID)
                     .frame(width: 40, height: 40)

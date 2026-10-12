@@ -125,7 +125,7 @@ private struct AdminSettingsView: View {
                     Section { Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(TallaAdminStyle.success) }
                 }
                 if let error = session.errorMessage {
-                    Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red) }
+                    Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(TallaAdminStyle.destructive) }
                 }
 
                 Section {

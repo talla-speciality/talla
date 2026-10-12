@@ -340,8 +340,9 @@ extension ContentView {
         }
     }
 
-    var homeView: some View {
+    var legacyHomeView: some View {
         VStack(spacing: 0) {
+            todayCompactCard
             homePurchasedCoffeeShelf
             homeUsualRow
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
@@ -457,7 +458,7 @@ extension ContentView {
                 AsyncImage(url: imageURL, transaction: Transaction(animation: nil)) { phase in
                     switch phase {
                     case .empty:
-                        ProgressView().tint(Color(hex: 0x9B5A2B))
+                        ProgressView().tint(TallaTheme.Colors.brand)
                     case .success(let image):
                         image
                             .resizable()
@@ -466,7 +467,7 @@ extension ContentView {
                     case .failure:
                         Image(systemName: "bag.fill")
                             .font(.system(size: 28, weight: .light))
-                            .foregroundColor(Color(hex: 0x9B5A2B).opacity(0.72))
+                            .foregroundColor(TallaTheme.Colors.brand.opacity(0.72))
                     @unknown default:
                         EmptyView()
                     }
@@ -475,7 +476,7 @@ extension ContentView {
             } else {
                 Image(systemName: "bag.fill")
                     .font(.system(size: 28, weight: .light))
-                    .foregroundColor(Color(hex: 0x9B5A2B).opacity(0.72))
+                    .foregroundColor(TallaTheme.Colors.brand.opacity(0.72))
             }
         }
         .contentShape(Rectangle())
@@ -679,7 +680,7 @@ extension ContentView {
                 } else {
                     Image(systemName: event.symbol.isEmpty ? "sparkles" : event.symbol)
                         .font(.system(size: 86, weight: .semibold))
-                        .foregroundColor(accent.opacity(0.25))
+                        .foregroundColor(.white.opacity(0.24))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.trailing, 22)
                 }
@@ -724,7 +725,7 @@ extension ContentView {
                                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         }
                     }
-                    .foregroundColor(accent)
+                    .foregroundColor(.white)
                 }
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1734,6 +1735,7 @@ extension ContentView {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+                        .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
                     }
 
                     favoriteShelfStand
@@ -2163,7 +2165,7 @@ extension ContentView {
                     if let voucher = expiringVouchers.first {
                         Text("\(AppLocalization.text("expires_soon", fallback: "Expires soon")): \(voucher.reward) • \(voucherExpiryLabel(for: voucher))")
                             .font(bodyFont(size: 13))
-                            .foregroundColor(voucherExpiresSoon(voucher) ? Color.red.opacity(0.85) : secondaryTextColor)
+                            .foregroundColor(voucherExpiresSoon(voucher) ? TallaTheme.Colors.destructive.opacity(0.85) : secondaryTextColor)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text(String(format: AppLocalization.text("beans_until_reward_unlock", fallback: "%d Beans until your next reward unlock."), rewardProgressState.remaining))

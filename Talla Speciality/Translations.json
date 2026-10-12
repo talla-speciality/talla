@@ -504,6 +504,90 @@
   "home": {
     "ar": "الرئيسية"
   },
+  "today": {
+    "en": "Today",
+    "ar": "اليوم"
+  },
+  "today_title": {
+    "en": "Your coffee, today",
+    "ar": "قهوتك اليوم"
+  },
+  "today_subtitle": {
+    "en": "One good cup, then a better one tomorrow.",
+    "ar": "فنجان جيد اليوم، وفنجان أفضل غدًا."
+  },
+  "today_brew_next": {
+    "en": "Brew next",
+    "ar": "حضّر كوبك التالي"
+  },
+  "today_personalized": {
+    "en": "FOR YOU",
+    "ar": "مخصص لك"
+  },
+  "today_on_shelf": {
+    "en": "Already on your shelf",
+    "ar": "موجودة على رفك"
+  },
+  "today_match": {
+    "en": "A match for your taste",
+    "ar": "اختيار يناسب ذوقك"
+  },
+  "today_start_brewing": {
+    "en": "Start brewing",
+    "ar": "ابدأ التحضير"
+  },
+  "today_last_result": {
+    "en": "Last result",
+    "ar": "نتيجة التحضير الأخير"
+  },
+  "today_improve_next": {
+    "en": "Improve the next cup",
+    "ar": "حسّن كوبك التالي"
+  },
+  "today_change_low": {
+    "en": "Next experiment: grind a little finer and slow the pour.",
+    "ar": "التجربة التالية: اطحن أنعم قليلًا وأبطئ الصب."
+  },
+  "today_change_mid": {
+    "en": "Next experiment: keep the recipe and change one variable only.",
+    "ar": "التجربة التالية: أبقِ الوصفة وغيّر عاملًا واحدًا فقط."
+  },
+  "today_change_high": {
+    "en": "Next experiment: repeat this recipe before changing anything.",
+    "ar": "التجربة التالية: كرر هذه الوصفة قبل تغيير أي شيء."
+  },
+  "today_reorder_title": {
+    "en": "Keep the ritual going",
+    "ar": "حافظ على روتينك"
+  },
+  "today_reorder": {
+    "en": "Restock",
+    "ar": "أعد التخزين"
+  },
+  "today_reorder_detail": {
+    "en": "%@ was ordered %d days ago",
+    "ar": "طلبت %@ قبل %d يومًا"
+  },
+  "today_try_next": {
+    "en": "Try something new",
+    "ar": "جرّب شيئًا جديدًا"
+  },
+  "today_no_coffee": {
+    "en": "Choose a coffee and Talla will build your daily ritual here.",
+    "ar": "اختر قهوة وستبني تلة روتينك اليومي هنا."
+  },
+  "today_browse_coffee": {
+    "en": "Browse coffee",
+    "ar": "تصفح القهوة"
+  },
+  "today_set_taste": {
+    "en": "Set your taste",
+    "ar": "حدد ذوقك"
+  },
+  "today_start": {
+    "en": "Start your ritual",
+    "ar": "ابدأ روتينك"
+  },
   "shop": {
     "ar": "المتجر"
   },

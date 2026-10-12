@@ -21,6 +21,30 @@ struct BrewMeasurementRecommendation: Codable, Equatable {
     let confidence: Double
 }
 
+struct BrewCoachNextAction: Identifiable, Equatable {
+    enum Kind: String, Codable {
+        case adjust
+        case saveHouseRecipe
+        case exploreNextCoffee
+    }
+
+    let id: String
+    let kind: Kind
+    let title: String
+    let detail: String
+    let systemImage: String
+    let suggestedGrind: String?
+    let suggestedTemperatureC: Int?
+    let suggestedRatio: Double?
+    let recommendation: String?
+}
+
+struct BrewCoachState: Equatable {
+    let nextAction: BrewCoachNextAction?
+    let greatBrewCount: Int
+    let latestTitle: String?
+}
+
 struct ShareableBrewCard: Codable, Equatable {
     let title: String
     let method: String
@@ -73,9 +97,9 @@ struct BrewShareCardView: View {
         HStack(spacing: 14) {
             Image(systemName: "drop.fill")
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(TallaTheme.Colors.brand)
                 .frame(width: 48, height: 48)
-                .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(TallaTheme.Colors.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.headline)
                 Text(method).font(.subheadline).foregroundStyle(.secondary)
@@ -83,11 +107,11 @@ struct BrewShareCardView: View {
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             Spacer()
-            Text("Measured brew").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
+            Text("Measured brew").font(.caption2.weight(.semibold)).foregroundStyle(TallaTheme.Colors.brand)
         }
         .padding(14)
-        .background(Color.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.orange.opacity(0.25)))
+        .background(TallaTheme.Colors.brand.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(TallaTheme.Colors.brand.opacity(0.25)))
     }
 }
 
@@ -109,8 +133,8 @@ struct BrewTelemetryComparisonChart: View {
             }
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 10) {
-                    Label("Best", systemImage: "circle.fill").foregroundStyle(.gray)
-                    Label("This brew", systemImage: "circle.fill").foregroundStyle(.orange)
+                    Label("Best", systemImage: "circle.fill").foregroundStyle(TallaTheme.Colors.ink)
+                    Label("This brew", systemImage: "circle.fill").foregroundStyle(TallaTheme.Colors.brand)
                 }
                 .font(.caption2)
                 .padding(6)
@@ -670,11 +694,11 @@ struct CoffeeLibraryView: View {
                     }
                 }
                 .padding(14)
-                .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(TallaTheme.Colors.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .accessibilityIdentifier("coffee.sync.conflict")
             }
 
-            if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+            if let errorMessage { Text(errorMessage).foregroundStyle(TallaTheme.Colors.destructive) }
         }
         .groupBoxStyle(TallaCoffeeGroupBoxStyle())
         .onAppear {
@@ -829,7 +853,7 @@ struct CoffeeLibraryView: View {
         if let recoveryMessage = coffeeData.storageRecoveryMessage {
             Label(recoveryMessage, systemImage: "externaldrive.badge.exclamationmark")
                 .font(.footnote)
-                .foregroundStyle(.orange)
+                .foregroundStyle(TallaTheme.Colors.warning)
                 .accessibilityIdentifier("coffee.storage.recovery")
         }
         switch coffeeData.syncStatus {
@@ -840,7 +864,7 @@ struct CoffeeLibraryView: View {
                 .accessibilityIdentifier("offline.status")
         case .synced:
             Label(AppLocalization.text("coffee_sync_recovered", fallback: "Back online. Your saved coffee data is synced."), systemImage: "checkmark.icloud.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(TallaTheme.Colors.success)
                 .accessibilityIdentifier("offline.status")
         case .offline, .failed(_):
             VStack(alignment: .leading, spacing: 10) {
@@ -1170,7 +1194,7 @@ private struct CoffeeLotEditorView: View {
                 TextField("Process", text: $process)
                 TextField("Roast level", text: $roastLevel)
                 TextField("Tasting notes", text: $tastingNotes)
-                if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+                if let errorMessage { Text(errorMessage).foregroundStyle(TallaTheme.Colors.destructive) }
             }
             .scrollContentBackground(.hidden)
             .background((colorScheme == .dark ? Color(hex: 0x151515) : Color(hex: 0xFBF8F1)).ignoresSafeArea())
@@ -1304,6 +1328,62 @@ extension CoffeeDataStore {
         case "heavy": return "Recent brews leaned heavy, so reduce agitation or move to a slightly weaker ratio."
         default: return nil
         }
+    }
+
+    /// Converts the latest taste signal into one explicit, reversible next step.
+    /// The rules are intentionally deterministic so the coach remains useful offline
+    /// and the user can see why the recommendation was made.
+    func brewCoachState(limit: Int = 12) -> BrewCoachState {
+        let sessions = legacyObjects(entityType: "brewSession").prefix(max(0, limit))
+        let feedbackBySession = Dictionary(uniqueKeysWithValues: legacyObjects(entityType: "tasteFeedback").compactMap { row -> (String, [String: Any])? in
+            guard let sessionID = row["sessionID"] as? String else { return nil }
+            return (sessionID.lowercased(), row)
+        })
+
+        let greatBrews = sessions.filter { row in
+            let id = (row["id"] as? String)?.lowercased()
+            let feedback = id.flatMap { feedbackBySession[$0] }
+            let rating = (feedback?["rating"] as? NSNumber)?.intValue ?? (row["rating"] as? NSNumber)?.intValue ?? 0
+            let tags = (feedback?["tags"] as? [String] ?? []).map { $0.lowercased() }
+            let hasNegativeSignal = tags.contains { $0.contains("sour") || $0.contains("acid") || $0.contains("bitter") || $0.contains("dry") || $0.contains("weak") }
+            return rating >= 4 && !hasNegativeSignal
+        }.count
+
+        guard let latest = sessions.first else {
+            return BrewCoachState(nextAction: nil, greatBrewCount: 0, latestTitle: nil)
+        }
+
+        let latestID = (latest["id"] as? String)?.lowercased()
+        let feedback = latestID.flatMap { feedbackBySession[$0] }
+        let rating = (feedback?["rating"] as? NSNumber)?.intValue ?? (latest["rating"] as? NSNumber)?.intValue ?? 0
+        let tags = feedback?["tags"] as? [String] ?? []
+        let signal = tags.map { $0.lowercased() }.first(where: { value in
+            value.contains("sour") || value.contains("acid") || value.contains("bitter") || value.contains("dry") || value.contains("weak") || value.contains("strong") || value.contains("loved") || value.contains("sweet")
+        }) ?? ""
+        let title = latest["title"] as? String ?? "This coffee"
+        let method = latest["method"] as? String ?? "your brew"
+        let dose = (latest["coffeeGrams"] as? NSNumber)?.doubleValue
+        let water = (latest["waterGrams"] as? NSNumber)?.doubleValue
+        let ratio: Double? = {
+            guard let dose, dose > 0, let water, water > 0 else { return nil }
+            return water / dose
+        }()
+
+        let nextAction: BrewCoachNextAction
+        if signal.contains("sour") || signal.contains("acid") {
+            nextAction = BrewCoachNextAction(id: "finer", kind: .adjust, title: "Grind finer", detail: "Too sour usually needs more extraction. Keep dose, water, and temperature the same; move one small grind step finer.", systemImage: "arrow.down.right", suggestedGrind: "One small step finer", suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
+        } else if signal.contains("bitter") || signal.contains("dry") {
+            nextAction = BrewCoachNextAction(id: "cooler-or-coarser", kind: .adjust, title: "Lower temperature or grind coarser", detail: "Change one variable only: lower water by 1–2°C or move one small grind step coarser.", systemImage: "thermometer.medium", suggestedGrind: "One small step coarser", suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
+        } else if signal.contains("weak") {
+            nextAction = BrewCoachNextAction(id: "stronger", kind: .adjust, title: "Make the brew stronger", detail: "Keep the grind steady and increase dose by 1 g, or reduce water by about 15 g.", systemImage: "plusminus", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: ratio.map { max(1, $0 - 1) }, recommendation: nil)
+        } else if rating >= 4 || signal.contains("loved") || signal.contains("sweet") {
+            let recommendation = greatBrews >= 3 ? "You have three great brews. Try a washed Ethiopian or Kenyan coffee next for a brighter, more floral cup." : nil
+            nextAction = BrewCoachNextAction(id: recommendation == nil ? "house-recipe" : "next-coffee", kind: recommendation == nil ? .saveHouseRecipe : .exploreNextCoffee, title: recommendation == nil ? "Save as your house recipe" : "Try your next coffee", detail: recommendation ?? "You rated this coffee highly. Save this exact brew setup so it becomes your reliable starting point.", systemImage: recommendation == nil ? "star.fill" : "sparkles", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: recommendation)
+        } else {
+            nextAction = BrewCoachNextAction(id: "taste-again", kind: .adjust, title: "Taste, then change one variable", detail: "Keep this recipe as the baseline and record one clear taste signal after the next cup.", systemImage: "arrow.triangle.2.circlepath", suggestedGrind: nil, suggestedTemperatureC: nil, suggestedRatio: nil, recommendation: nil)
+        }
+
+        return BrewCoachState(nextAction: nextAction, greatBrewCount: greatBrews, latestTitle: title)
     }
 
     func shareableBrewCard(sessionID: UUID, title: String, method: String, doseGrams: Double?, isReference: Bool = false) -> ShareableBrewCard {

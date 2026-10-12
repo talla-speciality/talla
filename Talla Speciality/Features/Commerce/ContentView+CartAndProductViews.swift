@@ -1162,7 +1162,7 @@ extension ContentView {
             } else if paymentFlow.state == .failed || paymentFlow.state == .cancelled {
                 ZStack {
                     Circle()
-                        .fill(Color.red.opacity(0.09))
+                        .fill(TallaTheme.Colors.destructive.opacity(0.09))
                         .frame(width: 96, height: 96)
                     Image(systemName: paymentFlow.state == .cancelled ? "xmark" : "exclamationmark")
                         .font(.system(size: 34, weight: .semibold))
@@ -1298,7 +1298,7 @@ extension ContentView {
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.tallaPrimary)
                     .tint(TallaTheme.Colors.accent)
                     if let whatsAppURL = postPaymentCoffeeGiftWhatsAppURL {
                         Button { openURL(whatsAppURL) } label: {
@@ -1306,7 +1306,7 @@ extension ContentView {
                                 .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 48)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.tallaSecondary)
                         .tint(TallaTheme.Colors.ink)
                     }
                 }
@@ -1318,40 +1318,32 @@ extension ContentView {
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 48)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.tallaSecondary)
                 .tint(TallaTheme.Colors.ink)
 
                 Button {
                     dismissPostPayment(openOrders: true)
                 } label: {
                     Text(AppLocalization.text("track_order", fallback: "Track order"))
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.tallaPrimary)
 
                 Button {
                     dismissPostPayment(openShop: true)
                 } label: {
                     Text(AppLocalization.text("continue_shopping", fallback: "Continue shopping"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(primaryTextColor)
-                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.tallaSecondary)
             } else if paymentFlow.state == .failed || paymentFlow.state == .cancelled {
                 Button {
                     retryPostPayment()
                 } label: {
                     Text(AppLocalization.text("retry_payment", fallback: "Try payment again"))
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.tallaPrimary)
 
                 Button(AppLocalization.text("close", fallback: "Close")) {
                     dismissPostPayment()
@@ -1403,7 +1395,7 @@ extension ContentView {
                 if let pickupClosureMessage {
                     Label(pickupClosureMessage, systemImage: "exclamationmark.triangle.fill")
                         .font(bodyFont(size: 12))
-                        .foregroundColor(.orange)
+                        .foregroundColor(TallaTheme.Colors.warning)
                 }
                 if let locations = remoteAppSettings?.fulfillment?.locations, !locations.isEmpty {
                     Picker(AppLocalization.text("pickup_location", fallback: "Pickup location"), selection: $selectedPickupLocationID) {
@@ -1561,7 +1553,7 @@ extension ContentView {
             if let checkoutError {
                 Text(checkoutError)
                     .font(bodyFont(size: 13))
-                    .foregroundColor(Color.red.opacity(0.85))
+                    .foregroundColor(TallaTheme.Colors.destructive.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -1771,7 +1763,7 @@ extension ContentView {
                         checkoutError = nil
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(TallaTheme.Icons.inline)
                             .frame(width: 36, height: 36)
                             .contentShape(Rectangle())
                     }
@@ -1791,7 +1783,7 @@ extension ContentView {
                     requestRemoveFromCart(id: item.id)
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(TallaTheme.Icons.inline)
                         .frame(width: 32, height: 32)
                         .overlay(
                             Circle()
@@ -1800,6 +1792,7 @@ extension ContentView {
                         .foregroundColor(TallaTheme.Colors.ink.opacity(0.6))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("remove_from_bag", fallback: "Remove from bag"))
             }
             .padding(.vertical, 6)
             .overlay(
@@ -1928,7 +1921,7 @@ extension ContentView {
             if let voucherError {
                 Text(voucherError)
                     .font(bodyFont(size: 12))
-                    .foregroundColor(Color.red.opacity(0.85))
+                    .foregroundColor(TallaTheme.Colors.destructive.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
             }
 

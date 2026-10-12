@@ -153,19 +153,17 @@ struct CustomerAccountSectionView: View {
                 HStack(spacing: 10) {
                     if isSigningIn || isCreatingAccount || isResettingPassword {
                         ProgressView()
-                            .tint(Color(hex: 0x151515))
+                            .tint(.white)
                     }
 
                     Text(primaryActionTitle)
                         .font(Font.custom("AvenirNext-Bold", size: 12))
                         .tracking(AppLocalization.letterSpacing(2.5))
                 }
-                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .tallaGlassCapsule(tint: accentColor)
+                .padding(.vertical, 2)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.tallaPrimary)
             .disabled(isSubmitDisabled)
 
 #if canImport(AuthenticationServices)

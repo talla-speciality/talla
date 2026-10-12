@@ -23,7 +23,7 @@ extension BrewingSectionView {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(width: 38, height: 38)
                     .background(accentColor)
                     .clipShape(Circle())
@@ -191,7 +191,7 @@ extension BrewingSectionView {
                     .textCase(.uppercase)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                    .foregroundColor(.white)
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(accentColor)
@@ -265,7 +265,7 @@ extension BrewingSectionView {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(brewAccentForegroundColor)
                     .frame(width: 38, height: 38)
                     .background(accentColor)
                     .clipShape(Circle())
@@ -398,13 +398,13 @@ extension BrewingSectionView {
                     if isSelected {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(brewAccentForegroundColor)
                     }
                 }
 
                 Text(profile.title)
                     .font(Font.custom("Georgia-Bold", size: 17))
-                    .foregroundColor(isSelected ? .white : primaryTextColor)
+                    .foregroundColor(isSelected ? brewAccentForegroundColor : primaryTextColor)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
 
@@ -412,7 +412,7 @@ extension BrewingSectionView {
                     .font(Font.custom("AvenirNext-Bold", size: 10))
                     .tracking(AppLocalization.letterSpacing(0.8))
                     .textCase(.uppercase)
-                    .foregroundColor(isSelected ? Color.white.opacity(0.75) : TallaTheme.Colors.ink)
+                    .foregroundColor(isSelected ? brewAccentForegroundColor.opacity(0.75) : TallaTheme.Colors.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.74)
             }
@@ -448,9 +448,9 @@ extension BrewingSectionView {
                 Button {
                     applyGuideProfile(profile, start: true)
                 } label: {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(brewAccentForegroundColor)
                         .frame(width: 42, height: 42)
                         .background(accentColor)
                         .clipShape(Circle())
@@ -492,7 +492,7 @@ extension BrewingSectionView {
                         HStack(alignment: .top, spacing: 10) {
                             Text("\(index + 1)")
                                 .font(Font.custom("AvenirNext-Bold", size: 11))
-                                .foregroundColor(.white)
+                                .foregroundColor(brewAccentForegroundColor)
                                 .frame(width: 24, height: 24)
                                 .background(accentColor)
                                 .clipShape(Circle())
@@ -551,6 +551,7 @@ extension BrewingSectionView {
     }
 
     func brewCoachCard(for profile: BrewGuideProfile) -> some View {
+        let coachState = coffeeData.brewCoachState()
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "brain.head.profile")
@@ -572,6 +573,10 @@ extension BrewingSectionView {
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+            }
+
+            if let action = coachState.nextAction {
+                brewCoachNextActionCard(action, profile: profile, greatBrewCount: coachState.greatBrewCount)
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 132 : 154), spacing: 8)], spacing: 8) {
@@ -598,7 +603,7 @@ extension BrewingSectionView {
                 } label: {
                     Image(systemName: isGeneratingBrewCoachAnswer ? "hourglass" : "arrow.right")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(brewAccentForegroundColor)
                         .frame(width: 40, height: 40)
                         .background(accentColor)
                         .clipShape(Circle())
@@ -621,6 +626,83 @@ extension BrewingSectionView {
         .padding(14)
         .background(accentColor.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    @ViewBuilder
+    func brewCoachNextActionCard(_ action: BrewCoachNextAction, profile: BrewGuideProfile, greatBrewCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: action.systemImage)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(width: 34, height: 34)
+                    .background(accentColor)
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 7) {
+                        Text("NEXT ACTION")
+                            .font(Font.custom("AvenirNext-Bold", size: 10))
+                            .tracking(1.2)
+                            .foregroundColor(accentColor)
+                        if greatBrewCount > 0 {
+                            Text("\(greatBrewCount) great brew\(greatBrewCount == 1 ? "" : "s")")
+                                .font(Font.custom("AvenirNext-Regular", size: 10))
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+                    Text(action.title)
+                        .font(Font.custom("AvenirNext-Bold", size: 17))
+                        .foregroundColor(primaryTextColor)
+                    Text(action.detail)
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if let recommendation = action.recommendation {
+                Text(recommendation)
+                    .font(Font.custom("AvenirNext-Regular", size: 13))
+                    .foregroundColor(primaryTextColor)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(cardFillColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            Button {
+                switch action.kind {
+                case .saveHouseRecipe:
+                    saveRecipeAction(BrewRecipeRecord(
+                        id: UUID(), title: "House Recipe · (profile.title)", detail: action.detail,
+                        coffeeGrams: profile.coffeeGrams, ratio: profile.ratio,
+                        totalWaterGrams: profile.coffeeGrams * profile.ratio,
+                        brewingWaterGrams: nil, iceGrams: nil, methodID: profile.id,
+                        brewerID: nil, brewMode: "Hot", bloomRatio: nil, pourCount: nil,
+                        grind: profile.grind, temperatureC: Int(profile.temperature.filter("0123456789".contains)),
+                        controlMode: "Manual", expectedCup: profile.goal
+                    ))
+                case .exploreNextCoffee:
+                    activeDashboardDestination = .coffeeLibrary
+                case .adjust:
+                    brewCoachQuestion = action.title
+                    brewCoachAnswer = action.detail
+                }
+            } label: {
+                Label(action.kind == .saveHouseRecipe ? "Save house recipe" : action.kind == .exploreNextCoffee ? "Browse next coffee" : "Use this adjustment", systemImage: action.kind == .exploreNextCoffee ? "arrow.right" : "checkmark")
+                    .font(Font.custom("AvenirNext-Bold", size: 12))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(accentColor)
+                    .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(accentColor.opacity(0.11))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accentColor.opacity(0.25), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     var brewCoachSuggestions: [String] {

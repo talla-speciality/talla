@@ -132,14 +132,14 @@ private struct GulfCoffeeMapView: View {
                 Label("TALLA SPECIALITY", systemImage: "cup.and.saucer.fill")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .tracking(1.6)
-                    .foregroundStyle(Color(hex: 0xF2D09A))
+                    .foregroundStyle(TallaTheme.Colors.brandSoft)
                 Spacer()
                 Text("GCC GUIDE")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color(hex: 0x2A160E))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Color(hex: 0xF2D09A), in: Capsule())
+                    .background(TallaTheme.Colors.brandSoft, in: Capsule())
             }
 
             Text("Find your next\nTalla coffee stop.")
@@ -424,7 +424,7 @@ private struct GulfCoffeeSpotCard: View {
                 HStack(alignment: .top, spacing: 14) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(spot.tint)
+                            .fill(Color.white)
                         GulfCoffeeStoreLogo(spot: spot)
                     }
                     .frame(width: 58, height: 58)
@@ -449,7 +449,7 @@ private struct GulfCoffeeSpotCard: View {
                         if !spot.isVerifiedForMap {
                             Label("Awaiting verification", systemImage: "exclamationmark.triangle.fill")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color(hex: 0xE5B77A))
+                                .foregroundStyle(TallaTheme.Colors.brandSoft)
                         }
                         Text(spot.shortDescription)
                             .font(.system(size: 14, weight: .medium, design: .rounded))

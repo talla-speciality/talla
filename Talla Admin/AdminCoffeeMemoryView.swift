@@ -65,7 +65,7 @@ struct AdminCoffeeMemoryView: View {
                                         groups: [], confirmation: "Permanently remove this incorrect synchronized record. This action is audit logged.",
                                         onSaved: { _ in message = "Record removed."; Task { await load() } },
                                         document: record.selecting(["email", "entityType", "recordID"]))
-                                }.foregroundStyle(.red)
+                                }.foregroundStyle(TallaAdminStyle.destructive)
                             }
                         }
                     }
@@ -75,7 +75,7 @@ struct AdminCoffeeMemoryView: View {
         }
         .adminBackground().navigationTitle("Coffee Memory").searchable(text: $search, prompt: "Customer, lot, or record type")
         .task { await load() }.refreshable { await load() }
-        .toolbar { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading) }
+        .toolbar { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading).accessibilityLabel("Refresh coffee memory") }
         .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: message) }
     }
 
@@ -98,13 +98,13 @@ private struct AdminBrewCurveView: View {
             let maxWeight = max(weights.map { $0["value"].number }.max() ?? 1, 1)
             let maxFlow = max(flows.map { $0["value"].number }.max() ?? 1, 1)
             Canvas { context, size in
-                drawLine(weights, maxValue: maxWeight, color: .orange, context: &context, size: size)
-                drawLine(flows, maxValue: maxFlow, color: .blue, context: &context, size: size)
+                drawLine(weights, maxValue: maxWeight, color: TallaAdminStyle.caramel, context: &context, size: size)
+                drawLine(flows, maxValue: maxFlow, color: TallaAdminStyle.success, context: &context, size: size)
             }
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 12) {
-                    Label("Weight", systemImage: "circle.fill").foregroundStyle(.orange)
-                    Label("Flow", systemImage: "circle.fill").foregroundStyle(.blue)
+                    Label("Weight", systemImage: "circle.fill").foregroundStyle(TallaAdminStyle.caramel)
+                    Label("Flow", systemImage: "circle.fill").foregroundStyle(TallaAdminStyle.success)
                 }
                 .font(.caption2)
                 .padding(6)

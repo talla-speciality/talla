@@ -221,7 +221,7 @@ struct ExpiringRewardsSectionView: View {
                                 .font(Font.custom("AvenirNext-Bold", size: 10))
                                 .tracking(AppLocalization.letterSpacing(1.2))
                                 .textCase(.uppercase)
-                                .foregroundColor(expiresSoon(voucher) ? Color.red.opacity(0.85) : TallaTheme.Colors.ink)
+                                .foregroundColor(expiresSoon(voucher) ? TallaTheme.Colors.destructive.opacity(0.85) : TallaTheme.Colors.ink)
                         }
 
                         Text(voucher.code)

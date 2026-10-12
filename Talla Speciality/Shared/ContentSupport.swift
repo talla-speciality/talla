@@ -42,10 +42,17 @@ extension ContentView {
 
 enum TallaTheme {
     enum Colors {
-        // Talla website palette: white surfaces and near-black primary actions.
-        // Gold is reserved for brand details; action labels must contrast with the
-        // surface they sit on.
+        // Keep the product palette semantic so individual screens do not invent
+        // their own browns, golds, or grays. These values are intentionally
+        // restrained: warm neutrals carry the coffee identity while ink remains
+        // the single action color.
         static let accent = Color(hex: 0x151515)
+        static let brand = Color(hex: 0x9B5A2B)
+        static let brandSoft = Color(hex: 0xE9D5BD)
+        static let success = Color(hex: 0x2F7D5B)
+        static let warning = Color(hex: 0xA56A1F)
+        static let destructive = Color(hex: 0xB3261E)
+        static let divider = Color.black.opacity(0.12)
         // Foregrounds and outlines adapt independently of black action fills.
         static let ink = Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
@@ -87,6 +94,16 @@ enum TallaTheme {
         static let button = Font.system(.callout, design: .rounded).weight(.bold)
         static let sectionTitle = Font.system(.headline, design: .rounded).weight(.bold)
         static let display = Font.system(.largeTitle, design: .serif).weight(.bold)
+        static let featureTitle = Font.system(.title2, design: .serif).weight(.semibold)
+        static let eyebrow = Font.system(.caption2, design: .rounded).weight(.bold)
+        static let metadata = Font.system(.caption, design: .rounded)
+    }
+
+    enum Icons {
+        static let inline = Font.system(size: 14, weight: .semibold)
+        static let action = Font.system(size: 16, weight: .semibold)
+        static let hero = Font.system(size: 22, weight: .bold)
+        static let chevron = Font.system(size: 12, weight: .bold)
     }
 
     enum Shadow {
@@ -182,26 +199,13 @@ struct TallaPrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)
-            .background(
-                LinearGradient(
-                    colors: [
-                        TallaTheme.Colors.espresso,
-                        colorScheme == .dark ? Color(hex: 0x3B3B3B) : TallaTheme.Colors.espresso
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .background(configuration.isPressed ? TallaTheme.Colors.accentHighlight : TallaTheme.Colors.accent)
             .overlay {
                 RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
                     .stroke(.white.opacity(0.22), lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
-            .shadow(
-                color: TallaTheme.Colors.espresso.opacity(configuration.isPressed ? 0.12 : 0.20),
-                radius: configuration.isPressed ? 3 : 9,
-                y: configuration.isPressed ? 1 : 5
-            )
+            .shadow(color: TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.28 : 0.16), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 4)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
             .opacity(isEnabled ? 1 : 0.48)
             .animation(

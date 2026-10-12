@@ -61,7 +61,7 @@ struct AdminLoginView: View {
                         if let error = session.errorMessage {
                             Label(error, systemImage: "exclamationmark.circle.fill")
                                 .font(.footnote)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(TallaAdminStyle.destructive)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 

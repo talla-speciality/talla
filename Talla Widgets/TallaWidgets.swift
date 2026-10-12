@@ -10,6 +10,7 @@ import UIKit
 #endif
 
 struct TallaWidgetDeepLinks {
+    static let today = URL(string: "talla://home")!
     static let shop = URL(string: "talla://shop")!
     static let shelf = URL(string: "talla://shelf")!
     static let concierge = URL(string: "talla://concierge")!
@@ -177,7 +178,7 @@ struct TallaQuickActionsWidgetView: View {
             widgetBackground
         }
         .foregroundStyle(primaryForeground)
-        .widgetURL(priorityURL)
+        .widgetURL(TallaWidgetDeepLinks.rewards)
     }
 
     private var primaryForeground: Color {
@@ -279,7 +280,7 @@ struct TallaQuickActionsWidgetView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        .widgetURL(TallaWidgetDeepLinks.rewards)
+        .widgetURL(priorityURL)
     }
 
     private var inlineAccessory: some View {
