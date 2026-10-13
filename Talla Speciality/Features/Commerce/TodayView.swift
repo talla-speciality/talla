@@ -11,6 +11,7 @@ extension ContentView {
     var todayView: some View {
         VStack(alignment: .leading, spacing: 18) {
             todayGreeting
+            todayNextCupCard
             todayBrewCard
             todayLastResultCard
             todayReorderCard
@@ -21,6 +22,124 @@ extension ContentView {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .accessibilityIdentifier("home.today")
+        .task { await loadNextCupRecommendation() }
+    }
+
+    @ViewBuilder
+    var todayNextCupCard: some View {
+        Group {
+            if let response = nextCupRecommendation,
+               let recommendation = response.recommendations.first {
+            let product = products.first {
+                $0.id == recommendation.productID || recommendation.productID.hasSuffix("/\($0.id)") || $0.id.hasSuffix("/\(recommendation.productID)")
+            }
+            VStack(alignment: .leading, spacing: 11) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: response.action == "reorder-or-discover" ? "arrow.clockwise.circle.fill" : "sparkles")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundColor(readableBrandGoldColor)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(response.headline)
+                            .font(displayFont(size: 20))
+                            .foregroundColor(primaryTextColor)
+                        Text(recommendation.title)
+                            .font(labelFont(size: 10, weight: .bold))
+                            .tracking(AppLocalization.letterSpacing(1.1))
+                            .textCase(.uppercase)
+                            .foregroundColor(readableBrandGoldColor)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                Text(recommendation.recommendation.summary)
+                    .font(bodyFont(size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !recommendation.recommendation.reasons.isEmpty {
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 5) {
+                            ForEach(Array(recommendation.recommendation.reasons.prefix(3)), id: \.self) { reason in
+                                Label(reason, systemImage: "checkmark.circle")
+                                    .font(bodyFont(size: 11))
+                                    .foregroundColor(secondaryTextColor)
+                            }
+                        }
+                        .padding(.top, 4)
+                    } label: {
+                        Text(AppLocalization.text("why_this_pick", fallback: "Why this pick"))
+                            .font(labelFont(size: 10, weight: .semibold))
+                            .foregroundColor(readableBrandGoldColor)
+                    }
+                    .tint(readableBrandGoldColor)
+                }
+
+                if response.freshness.state != "unknown" {
+                    Label(
+                        response.freshness.state == "stale-risk" ? "Use your current bag soon" : "Your coffee freshness is being tracked",
+                        systemImage: response.freshness.state == "stale-risk" ? "clock.badge.exclamationmark" : "leaf.fill"
+                    )
+                    .font(labelFont(size: 10, weight: .semibold))
+                    .foregroundColor(response.freshness.state == "stale-risk" ? .orange : readableBrandGoldColor)
+                }
+
+                if let reorder = response.coffeeInsights?.reorder.first {
+                    Label(
+                        "\(reorder.productName) · about \(reorder.estimatedBrews) brews left",
+                        systemImage: "arrow.clockwise.circle"
+                    )
+                    .font(labelFont(size: 10, weight: .semibold))
+                    .foregroundColor(.orange)
+                }
+
+                HStack(spacing: 9) {
+                    Button {
+                        Task { await NextCupRecommendationService.record(action: "brew", productID: recommendation.productID) }
+                        if let product { startBrewing(product: product, useRecommendedRecipe: true) } else { openBrewing() }
+                    } label: {
+                        Label(AppLocalization.text("brew_this", fallback: "Brew this"), systemImage: "drop.fill")
+                            .font(labelFont(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        let action = response.action == "reorder-or-discover" ? "reorder" : "buy"
+                        Task { await NextCupRecommendationService.record(action: action, productID: recommendation.productID) }
+                        if let product { openShop(category: product.categoryKey, searchQuery: product.name) } else { openShop(category: "coffee-beans") }
+                    } label: {
+                            Label(response.action == "reorder-or-discover" ? AppLocalization.text("reorder", fallback: "Reorder") : AppLocalization.text("shop_now", fallback: "Shop"), systemImage: response.action == "reorder-or-discover" ? "arrow.clockwise" : "bag.fill")
+                            .font(labelFont(size: 10, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(cardFillColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(15)
+            .background(cardFillColor.opacity(isLightAppearance ? 0.86 : 0.66), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.36 : 0.25), lineWidth: 1))
+            .padding(.horizontal, 18)
+            .accessibilityIdentifier("home.nextCupRecommendation")
+            } else if isLoadingNextCupRecommendation {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+        }
+        .task { await loadNextCupRecommendation() }
+    }
+
+    @MainActor
+    func loadNextCupRecommendation() async {
+        guard !TallaAccountCredentialStore.accessToken.isEmpty, nextCupRecommendation == nil, !isLoadingNextCupRecommendation else { return }
+        isLoadingNextCupRecommendation = true
+        defer { isLoadingNextCupRecommendation = false }
+        nextCupRecommendation = try? await NextCupRecommendationService.fetch()
     }
 
     private var todayGreeting: some View {

@@ -267,6 +267,8 @@ struct ContentView: View {
     @State var remotePassportSettings: PassportSettings?
     @State var remoteAppSettings: AppSettings?
     @State var remoteEventSettings: EventSettings?
+    @State var nextCupRecommendation: NextCupRecommendationResponse?
+    @State var isLoadingNextCupRecommendation = false
     @State var loyaltyEmail = ""
     @State var loyaltyAccount: LoyaltyAccount?
     @State var loyaltyError: String?

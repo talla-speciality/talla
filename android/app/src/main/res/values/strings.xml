@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">Talla Speciality</string>
     <string name="home">Home</string>
+    <string name="discover">Discover</string>
     <string name="shop">Shop</string>
     <string name="brewing">Brewing</string>
     <string name="account">Account</string>

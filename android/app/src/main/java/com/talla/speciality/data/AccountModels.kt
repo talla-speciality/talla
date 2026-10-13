@@ -83,3 +83,71 @@ data class TasteMemoryRecord(
     val createdAt: String,
     val updatedAt: String,
 )
+
+data class NextCupRecommendation(
+    val productId: String,
+    val title: String,
+    val price: String?,
+    val availableForSale: Boolean,
+    val imageUrl: String?,
+    val score: Int,
+    val reasons: List<String>,
+    val summary: String,
+    val actions: List<String>,
+)
+
+data class NextCupRecommendationResponse(
+    val action: String,
+    val headline: String,
+    val recommendations: List<NextCupRecommendation>,
+    val lovedSignals: List<String>,
+    val avoidedSignals: List<String>,
+    val freshnessState: String,
+    val freshnessDays: Int?,
+    val coffeeInsights: CoffeeInsights? = null,
+)
+
+data class CoffeeInsights(val reorder: List<CoffeeReorder> = emptyList())
+data class CoffeeReorder(
+    val productId: String?,
+    val productName: String,
+    val estimatedBrews: Int,
+    val reason: String,
+)
+
+data class GulfCoffeeOffering(
+    val id: String,
+    val name: String,
+    val detail: String,
+    val kind: String,
+    val brewMethod: String? = null,
+    val brewTip: String? = null,
+)
+
+data class GulfCoffeeEvent(
+    val id: String,
+    val title: String,
+    val kind: String,
+    val startsAt: String,
+    val url: String? = null,
+)
+
+data class GulfCoffeePlace(
+    val id: String,
+    val name: String,
+    val city: String,
+    val country: String,
+    val neighborhood: String,
+    val address: String,
+    val categories: List<String>,
+    val tags: List<String>,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val verificationStatus: String = "",
+    val verifiedAt: String? = null,
+    val lastCheckedAt: String? = null,
+    val description: String = "",
+    val tastingNotes: String = "",
+    val offerings: List<GulfCoffeeOffering> = emptyList(),
+    val events: List<GulfCoffeeEvent> = emptyList(),
+)

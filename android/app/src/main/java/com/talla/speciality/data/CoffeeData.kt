@@ -13,6 +13,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 
+private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { optString(it) }
+
 enum class CoffeeEntityType(val wireName: String) {
     COFFEE_LOT("coffeeLot"), PURCHASED_COFFEE("purchasedCoffee"), EQUIPMENT("equipment"),
     CALIBRATION("calibration"), RECIPE("recipe"), RECIPE_VERSION("recipeVersion"),
@@ -363,7 +365,7 @@ class CoffeeDataStore(context: Context) {
         val payload = JSONObject().put("id", entry.id).put("title", entry.title).put("method", entry.method)
             .put("coffeeGrams", entry.coffeeGrams).put("ratio", entry.ratio).put("waterGrams", entry.waterGrams)
             .put("brewTimeSeconds", entry.brewTimeSeconds).put("rating", entry.rating.coerceIn(1, 5))
-            .put("notes", entry.notes).put("createdAt", entry.createdAt)
+            .put("notes", entry.notes).put("tasteTags", JSONArray(entry.tasteTags)).put("createdAt", entry.createdAt)
         val finalSamples = samples.toMutableList()
         if (finalSamples.none { it.type == SampleType.WEIGHT }) {
             finalSamples += BrewSample(
@@ -401,7 +403,7 @@ class CoffeeDataStore(context: Context) {
 
     fun loadJournal(ownerId: String = ""): List<BrewJournalEntry> = records(ownerId, CoffeeEntityType.BREW_SESSION)
         .mapNotNull { record -> record.payload.takeIf { it.has("rating") }?.let { json ->
-            BrewJournalEntry(json.optString("id", record.id), json.optString("title"), json.optString("method"), json.optInt("coffeeGrams"), json.optDouble("ratio"), json.optInt("waterGrams"), json.optInt("brewTimeSeconds"), json.optInt("rating", 4).coerceIn(1, 5), json.optString("notes"), json.optLong("createdAt", record.updatedAt))
+            BrewJournalEntry(json.optString("id", record.id), json.optString("title"), json.optString("method"), json.optInt("coffeeGrams"), json.optDouble("ratio"), json.optInt("waterGrams"), json.optInt("brewTimeSeconds"), json.optInt("rating", 4).coerceIn(1, 5), json.optString("notes"), json.optLong("createdAt", record.updatedAt), json.optJSONArray("tasteTags").strings())
         }}.sortedByDescending(BrewJournalEntry::createdAt).take(BrewJournalPolicy.MAX_ENTRIES)
 
     suspend fun synchronize(ownerId: String, bearerToken: String) = withContext(Dispatchers.IO) {
@@ -450,6 +452,7 @@ class CoffeeDataStore(context: Context) {
                 waterGrams = json.optInt("waterGrams"), brewTimeSeconds = json.optInt("brewTimeSeconds"),
                 rating = json.optInt("rating", 3).coerceIn(1, 5), notes = json.optString("notes"),
                 createdAt = json.optLong("createdAt", System.currentTimeMillis()),
+                tasteTags = json.optJSONArray("tasteTags").strings(),
             ))
         }
     }

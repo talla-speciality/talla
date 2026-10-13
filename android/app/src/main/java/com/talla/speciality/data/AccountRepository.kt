@@ -64,6 +64,91 @@ class AccountRepository(private val context: Context) {
         requestArray("GET", "/taste-memory", token).objects().map(::parseTasteMemory)
     }
 
+    suspend fun nextCupRecommendation(token: String, query: String? = null, limit: Int = 3): NextCupRecommendationResponse = withContext(Dispatchers.IO) {
+        val suffix = buildString {
+            append("?limit=")
+            append(limit.coerceIn(1, 10))
+            if (!query.isNullOrBlank()) append("&q=").append(java.net.URLEncoder.encode(query, "UTF-8"))
+        }
+        val json = request("GET", "/recommendations/next-cup$suffix", token = token)
+        NextCupRecommendationResponse(
+            action = json.optString("action"),
+            headline = json.optString("headline"),
+            recommendations = json.optJSONArray("recommendations").objects().map { item ->
+                val explanation = item.optJSONObject("recommendation")
+                NextCupRecommendation(
+                    productId = item.optString("productID"), title = item.optString("title"),
+                    price = item.optString("price").takeIf(String::isNotBlank),
+                    availableForSale = item.optBoolean("availableForSale"), imageUrl = item.optString("imageURL").takeIf(String::isNotBlank),
+                    score = explanation?.optInt("score") ?: 0,
+                    reasons = explanation?.optJSONArray("reasons").strings() ?: emptyList(),
+                    summary = explanation?.optString("summary").orEmpty(),
+                    actions = item.optJSONArray("actions").objects().map { it.optString("kind") },
+                )
+            },
+            lovedSignals = json.optJSONObject("profile")?.optJSONArray("lovedSignals").strings() ?: emptyList(),
+            avoidedSignals = json.optJSONObject("profile")?.optJSONArray("avoidedSignals").strings() ?: emptyList(),
+            freshnessState = json.optJSONObject("freshness")?.optString("state").orEmpty(),
+            freshnessDays = json.optJSONObject("freshness")?.let { if (it.isNull("days")) null else it.optInt("days") },
+            coffeeInsights = json.optJSONObject("coffeeInsights")?.let { insights ->
+                CoffeeInsights(insights.optJSONArray("reorder").objects().map { item ->
+                    CoffeeReorder(
+                        productId = item.optString("productID").takeIf(String::isNotBlank),
+                        productName = item.optString("productName"),
+                        estimatedBrews = item.optInt("estimatedBrews"),
+                        reason = item.optString("reason"),
+                    )
+                })
+            },
+        )
+    }
+
+    suspend fun recordNextCupAction(token: String, productId: String, action: String) = withContext(Dispatchers.IO) {
+        request("POST", "/recommendations/next-cup/feedback", JSONObject().put("productID", productId).put("action", action).put("platform", "android"), token)
+        Unit
+    }
+
+    suspend fun gulfCoffeeDirectory(): List<GulfCoffeePlace> = withContext(Dispatchers.IO) {
+        val envelope = request("GET", "/gulf-coffee-map")
+        envelope.optJSONArray("directory").objects().map { place ->
+            val description = place.optJSONObject("description")
+            val tastingNotes = place.optJSONObject("tastingNotes")
+            GulfCoffeePlace(
+                id = place.optString("id"),
+                name = place.optString("name"),
+                city = place.optString("city"),
+                country = place.optString("country"),
+                neighborhood = place.optString("neighborhood"),
+                address = place.optString("address"),
+                categories = place.optJSONArray("categories").strings(),
+                tags = place.optJSONArray("tags").strings(),
+                latitude = place.optNullableDouble("latitude"),
+                longitude = place.optNullableDouble("longitude"),
+                verificationStatus = place.optString("verificationStatus"),
+                verifiedAt = place.optString("verifiedAt").takeIf(String::isNotBlank),
+                lastCheckedAt = place.optString("lastCheckedAt").takeIf(String::isNotBlank),
+                description = description?.optString("en").orEmpty(),
+                tastingNotes = tastingNotes?.optString("en").orEmpty(),
+                offerings = place.optJSONArray("offerings").objects().map { offering ->
+                    GulfCoffeeOffering(
+                        id = offering.optString("id"), name = offering.optString("name"),
+                        detail = offering.optString("detail"), kind = offering.optString("kind"),
+                        brewMethod = offering.optString("brewMethod").takeIf(String::isNotBlank),
+                        brewTip = offering.optString("brewTip").takeIf(String::isNotBlank),
+                    )
+                },
+                events = place.optJSONArray("events").objects().map { event ->
+                    val title = event.optJSONObject("title")
+                    GulfCoffeeEvent(
+                        id = event.optString("id"), title = title?.optString("en").orEmpty().ifBlank { event.optString("title") },
+                        kind = event.optString("kind"), startsAt = event.optString("startsAt"),
+                        url = event.optString("url").takeIf(String::isNotBlank),
+                    )
+                },
+            )
+        }
+    }
+
     suspend fun fetchCustomerLibrary(token: String): CustomerLibrary = withContext(Dispatchers.IO) {
         parseCustomerLibrary(request("GET", "/customer-library", token = token))
     }
@@ -318,6 +403,7 @@ class AccountRepository(private val context: Context) {
                 rating = entry.optInt("rating", 1).coerceIn(1, 5),
                 notes = entry.optString("notes"),
                 createdAt = runCatching { Instant.parse(entry.optString("createdAt")).toEpochMilli() }.getOrDefault(System.currentTimeMillis()),
+                tasteTags = entry.optJSONArray("tasteTags").strings(),
             )
         }.take(BrewJournalPolicy.MAX_ENTRIES),
     )
@@ -336,6 +422,7 @@ class AccountRepository(private val context: Context) {
         .put("brewTimeSeconds", entry.brewTimeSeconds)
         .put("rating", entry.rating)
         .put("notes", entry.notes)
+        .put("tasteTags", JSONArray(entry.tasteTags))
         .put("createdAt", Instant.ofEpochMilli(entry.createdAt).toString())
 
     private fun parseTasteMemory(json: JSONObject) = TasteMemoryRecord(
@@ -346,6 +433,7 @@ class AccountRepository(private val context: Context) {
 
     private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { optString(it) }
     private fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).map { getJSONObject(it) }
+    private fun JSONObject.optNullableDouble(name: String): Double? = if (isNull(name) || !has(name)) null else optDouble(name)
 
     private companion object {
         val integrityProtectedPaths = setOf(

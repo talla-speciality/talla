@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Science
@@ -80,6 +81,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -147,6 +149,8 @@ import com.talla.speciality.data.ScaleFamily
 import com.talla.speciality.data.ScaleUiState
 import com.talla.speciality.data.TallaAppSettings
 import com.talla.speciality.data.TasteMemoryRecord
+import com.talla.speciality.data.GulfCoffeePlace
+import com.talla.speciality.data.GulfCoffeeOffering
 import com.talla.speciality.ui.theme.Coffee
 import com.talla.speciality.ui.theme.Ink
 import com.talla.speciality.ui.theme.Sand
@@ -161,6 +165,7 @@ import java.io.File
 
 private enum class TallaTab(val labelRes: Int, val icon: ImageVector) {
     Home(R.string.home, Icons.Default.Home),
+    Discover(R.string.discover, Icons.Default.LocalCafe),
     Shop(R.string.shop, Icons.Default.GridView),
     Brewing(R.string.brewing, Icons.Default.WaterDrop),
     Account(R.string.account, Icons.Default.Person),
@@ -184,11 +189,14 @@ fun TallaApp(
     var tab by remember { mutableStateOf(TallaTab.Home) }
     var cartOpen by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
+    var shopQuery by remember { mutableStateOf("") }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
 
     LaunchedEffect(state.profile?.email) {
+        if (state.profile != null) viewModel.loadNextCupRecommendation()
+        viewModel.loadGulfCoffeeDirectory()
         if (state.profile != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val notificationPreferences = context.getSharedPreferences("talla_notifications", 0)
             val alreadyAsked = notificationPreferences.getBoolean("permission_asked", false)
@@ -265,8 +273,20 @@ fun TallaApp(
                 openBrewing = { tab = TallaTab.Brewing },
                 openAccount = { tab = TallaTab.Account },
                 onSaveTasteProfile = viewModel::saveTasteProfile,
+                onRecommendationAction = viewModel::recordNextCupAction,
                 onLaunchBrew = { name, method, dose, ratio ->
                     viewModel.launchBrew(name, method, dose, ratio)
+                    tab = TallaTab.Brewing
+                },
+                modifier = Modifier.padding(padding),
+            )
+            TallaTab.Discover -> GulfCoffeeGuideScreen(
+                places = state.gulfCoffeePlaces,
+                loading = state.gulfCoffeeLoading,
+                onRefresh = { viewModel.loadGulfCoffeeDirectory(force = true) },
+                onShop = { query -> shopQuery = query; tab = TallaTab.Shop },
+                onBrew = { offering ->
+                    viewModel.launchBrew(offering.name, offering.brewMethod ?: "V60", 20, 15.0)
                     tab = TallaTab.Brewing
                 },
                 modifier = Modifier.padding(padding),
@@ -277,6 +297,7 @@ fun TallaApp(
                 add = viewModel::addToCart,
                 open = openProduct,
                 toggleFavorite = viewModel::toggleFavorite,
+                initialQuery = shopQuery,
                 modifier = Modifier.padding(padding),
             )
             TallaTab.Brewing -> BrewingScreen(
@@ -395,6 +416,16 @@ fun TallaApp(
             watchingStock = state.stockAlerts.any { it.productId == product.id },
             onFavorite = { viewModel.toggleFavorite(product.id) },
             onStockAlert = { viewModel.toggleStockAlert(product) },
+            onBrew = {
+                val method = when {
+                    state.tasteProfile.style == "arabic" -> "Arabic coffee"
+                    state.tasteProfile.temperature == "iced" -> "Cold brew"
+                    else -> "V60"
+                }
+                viewModel.launchBrew(product.name, method, 20, 15.0)
+                selectedProduct = null
+                tab = TallaTab.Brewing
+            },
             onAdd = { variantId -> viewModel.addToCart(product, variantId) },
             onDismiss = { selectedProduct = null },
         )
@@ -457,6 +488,7 @@ private fun HomeScreen(
     openBrewing: () -> Unit,
     openAccount: () -> Unit,
     onSaveTasteProfile: (CoffeeTasteProfile) -> Unit,
+    onRecommendationAction: (String, String) -> Unit,
     onLaunchBrew: (String, String, Int, Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -482,8 +514,10 @@ private fun HomeScreen(
                 open = open,
                 add = add,
                 openShop = openShop,
+                openBrewing = openBrewing,
                 openAccount = openAccount,
                 onSaveTasteProfile = onSaveTasteProfile,
+                onRecommendationAction = onRecommendationAction,
                 onLaunchBrew = onLaunchBrew,
             )
         }
@@ -543,8 +577,10 @@ private fun PersonalizedCoffeeHomeSection(
     open: (Product) -> Unit,
     add: (Product) -> Unit,
     openShop: () -> Unit,
+    openBrewing: () -> Unit,
     openAccount: () -> Unit,
     onSaveTasteProfile: (CoffeeTasteProfile) -> Unit,
+    onRecommendationAction: (String, String) -> Unit,
     onLaunchBrew: (String, String, Int, Double) -> Unit,
 ) {
     val configured = state.tasteProfile.configured
@@ -578,7 +614,14 @@ private fun PersonalizedCoffeeHomeSection(
         if (product.id in state.recentlyViewedProductIds) score += 2
         score
     }
-    val recommend = ranked.firstOrNull()
+    val localRecommend = ranked.firstOrNull()
+    val remote = state.nextCupRecommendation?.recommendations?.firstOrNull()
+    val remoteProduct = remote?.let { recommendation ->
+        state.products.firstOrNull { product ->
+            product.id == recommendation.productId || recommendation.productId.endsWith("/${product.id}") || product.id.endsWith("/${recommendation.productId}")
+        }
+    }
+    val recommend = remoteProduct ?: localRecommend
     val latestBrew = state.brewJournal.firstOrNull()
     Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(top = 14.dp, bottom = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -607,6 +650,63 @@ private fun PersonalizedCoffeeHomeSection(
                 Icon(Icons.Default.Refresh, null, tint = TallaGoldText, modifier = Modifier.size(15.dp))
             }
         }
+        if (remote != null) {
+            var explanationExpanded by remember(remote.productId) { mutableStateOf(false) }
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = TallaCard),
+                border = androidx.compose.foundation.BorderStroke(0.7.dp, TallaGoldText.copy(alpha = .35f)),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(state.nextCupRecommendation?.headline?.takeIf { it.isNotBlank() } ?: homeCopy("Try this next", "جرّب هذا الآن"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(remote.title, style = MaterialTheme.typography.labelLarge, color = TallaGoldText)
+                    Text(remote.summary.ifBlank { homeCopy("Matched to your coffee history.", "مطابق لسجل قهوتك.") }, style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .72f))
+                    state.nextCupRecommendation?.let { response ->
+                        if (response.freshnessState.isNotBlank() && response.freshnessState != "unknown") {
+                            val freshnessText = when (response.freshnessState) {
+                                "stale-risk" -> homeCopy("Use your current bag soon", "استخدم الكيس الحالي قريباً")
+                                "use-soon" -> homeCopy("Your coffee is best used soon", "يفضل استخدام قهوتك قريباً")
+                                else -> homeCopy("Freshness tracked from your coffee shelf", "تتم متابعة حداثة القهوة من رفك")
+                            }
+                            Text(freshnessText, style = MaterialTheme.typography.labelSmall, color = if (response.freshnessState == "stale-risk") Color(0xFFB45D24) else TallaGoldText)
+                        }
+                        response.coffeeInsights?.reorder?.firstOrNull()?.let { reorder ->
+                            Text(
+                                homeCopy("${reorder.productName} · about ${reorder.estimatedBrews} brews left", "${reorder.productName} · متبقي نحو ${reorder.estimatedBrews} تحضيرات"),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFB45D24),
+                            )
+                        }
+                    }
+                    if (remote.reasons.isNotEmpty()) {
+                        TextButton(onClick = { explanationExpanded = !explanationExpanded }, contentPadding = PaddingValues(0.dp)) {
+                            Text(homeCopy(if (explanationExpanded) "Hide why" else "Why this pick", if (explanationExpanded) "إخفاء السبب" else "لماذا هذا الاختيار"), color = TallaGoldText)
+                        }
+                        if (explanationExpanded) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                remote.reasons.take(3).forEach { reason ->
+                                    Text("✓ $reason", style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .72f))
+                                }
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            onRecommendationAction(remote.productId, "brew")
+                            remoteProduct?.let {
+                                val method = if (state.tasteProfile.style == "arabic") "Arabic coffee" else "V60"
+                                onLaunchBrew(it.name, method, 20, 15.0)
+                            } ?: openBrewing()
+                        }, modifier = Modifier.weight(1f)) { Text(homeCopy("Brew this", "حضّر هذا")) }
+                        Button(onClick = {
+                            onRecommendationAction(remote.productId, if (state.nextCupRecommendation?.action == "reorder-or-discover") "reorder" else "buy")
+                            remoteProduct?.let(add) ?: openShop()
+                        }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Ink)) { Text(if (state.nextCupRecommendation?.action == "reorder-or-discover") homeCopy("Reorder", "أعد الطلب") else homeCopy("Shop", "تسوّق")) }
+                    }
+                }
+            }
+        }
         LazyRow(contentPadding = PaddingValues(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 PersonalizedHomeCard(homeCopy("Your usual", "طلبك المعتاد"), usual?.name ?: homeCopy("Your go-to will appear after your first order", "سيظهر طلبك المفضل بعد أول طلب"), usual?.imageUrl, homeCopy(if (usual == null) "Find your usual" else "Order again", if (usual == null) "اختر طلبك المعتاد" else "اطلب مجدداً"), enabled = true) { usual?.let(add) ?: openShop() }
@@ -615,6 +715,7 @@ private fun PersonalizedCoffeeHomeSection(
                 val brewCoffee = recommend ?: state.products.firstOrNull { isBrewableProduct(it) && it.defaultVariant?.available == true }
                 PersonalizedHomeCard(homeCopy("Brew this morning", "حضّر قهوتك هذا الصباح"), brewCoffee?.name ?: homeCopy("Choose a coffee to get started", "اختر قهوتك للبدء"), brewCoffee?.imageUrl, homeCopy("Start a brew", "ابدأ التحضير"), enabled = brewCoffee != null) {
                     brewCoffee?.let {
+                        remote?.let { recommendation -> onRecommendationAction(recommendation.productId, "brew") }
                         val method = when {
                             configured && state.tasteProfile.style == "arabic" -> "Arabic coffee"
                             configured && state.tasteProfile.temperature == "iced" -> "Cold brew"
@@ -627,7 +728,10 @@ private fun PersonalizedCoffeeHomeSection(
             item {
                 val product = recommend
                 PersonalizedHomeCard(if (hasSignals) homeCopy("Based on your taste", "على ذوقك") else homeCopy("Discover at Talla", "اكتشف تله"), product?.name ?: homeCopy("Tell us what you enjoy", "أخبرنا بما تحب"), product?.imageUrl, if (!hasSignals) homeCopy("Set your taste", "حدّد ذوقك") else homeCopy("Explore", "استكشف"), enabled = true) {
-                    if (!hasSignals) editingProfile = true else product?.let(open)
+                    if (!hasSignals) editingProfile = true else {
+                        remote?.let { recommendation -> onRecommendationAction(recommendation.productId, "view") }
+                        product?.let(open)
+                    }
                 }
             }
         }
@@ -1023,15 +1127,119 @@ private fun SectionHeading(title: String, action: String? = null) {
 }
 
 @Composable
+private fun GulfCoffeeGuideScreen(
+    places: List<GulfCoffeePlace>,
+    loading: Boolean,
+    onRefresh: () -> Unit,
+    onShop: (String) -> Unit,
+    onBrew: (GulfCoffeeOffering) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    var country by remember { mutableStateOf("All GCC") }
+    var category by remember { mutableStateOf("All") }
+    val countries = listOf("All GCC", "Bahrain", "Saudi Arabia", "UAE", "Kuwait", "Qatar", "Oman")
+    val categories = listOf("All", "Cafés", "Roasters", "Trucks", "Green beans", "Equipment", "Cuppings & workshops")
+    val visible = places.filter { place ->
+        val searchable = listOf(place.name, place.city, place.country, place.neighborhood, place.tags.joinToString(" ")).joinToString(" ")
+        (country == "All GCC" || place.country.equals(country, ignoreCase = true)) &&
+            (category == "All" || place.categories.any { it.equals(category, ignoreCase = true) }) &&
+            (query.isBlank() || searchable.contains(query, ignoreCase = true))
+    }
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(homeCopy("GULF COFFEE MAP", "خريطة القهوة الخليجية"), style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                Text(homeCopy("Find your next coffee stop.", "اعثر على محطتك القادمة للقهوة."), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(homeCopy("Verified cafés, roasters, beans, events, and brewable recommendations across the GCC.", "مقاهٍ ومحمصات وحبوب وفعاليات وتوصيات تحضير موثقة في الخليج."), color = Ink.copy(alpha = .72f))
+            }
+        }
+        item {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                placeholder = { Text(homeCopy("Search cafés, cities, or tags", "ابحث عن مقاهٍ أو مدن أو تصنيفات")) },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = TallaGoldText) }, shape = RoundedCornerShape(18.dp),
+            )
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                items(countries) { item -> FilterChip(selected = country == item, onClick = { country = item }, label = { Text(item) }) }
+            }
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                items(categories) { item -> FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item) }) }
+            }
+        }
+        if (loading && places.isEmpty()) item { CircularProgressIndicator(modifier = Modifier.padding(24.dp)) }
+        if (!loading && visible.isEmpty()) item {
+            Card(colors = CardDefaults.cardColors(containerColor = TallaCard)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(homeCopy("No places match yet.", "لا توجد أماكن مطابقة حالياً."), fontWeight = FontWeight.Bold)
+                    TextButton(onClick = onRefresh) { Text(homeCopy("Refresh directory", "تحديث الدليل")) }
+                }
+            }
+        }
+        items(visible, key = { it.id }) { place ->
+            Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = TallaCard)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(place.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("${place.city} · ${place.country}", style = MaterialTheme.typography.labelMedium, color = TallaGoldText)
+                        }
+                        if (place.verificationStatus.equals("verified", ignoreCase = true)) {
+                            Text(homeCopy("VERIFIED", "موثق"), style = MaterialTheme.typography.labelSmall, color = TallaGoldText)
+                        }
+                    }
+                    if (place.description.isNotBlank()) Text(place.description, style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .72f))
+                    if (place.tastingNotes.isNotBlank()) Text(homeCopy("Tasting notes · ${place.tastingNotes}", "ملاحظات التذوق · ${place.tastingNotes}"), style = MaterialTheme.typography.labelSmall, color = Coffee)
+                    if (place.tags.isNotEmpty()) Text(place.tags.take(5).joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = TallaGoldText)
+                    place.offerings.take(3).forEach { offering ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(offering.name, fontWeight = FontWeight.SemiBold)
+                                if (offering.detail.isNotBlank()) Text(offering.detail, style = MaterialTheme.typography.bodySmall, color = Ink.copy(alpha = .68f))
+                            }
+                            TextButton(onClick = { onShop(offering.name) }) { Text(homeCopy("Buy", "اشترِ")) }
+                            if (!offering.brewMethod.isNullOrBlank()) TextButton(onClick = { onBrew(offering) }) { Text(homeCopy("Brew", "حضّر")) }
+                        }
+                    }
+                    if (place.events.isNotEmpty()) {
+                        Text(homeCopy("Upcoming · ${place.events.first().title}", "قريباً · ${place.events.first().title}"), style = MaterialTheme.typography.labelSmall, color = TallaGoldText)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (place.latitude != null && place.longitude != null) {
+                            OutlinedButton(onClick = {
+                                val label = Uri.encode(place.name)
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:${place.latitude},${place.longitude}?q=${place.latitude},${place.longitude}($label)"))
+                                runCatching { context.startActivity(intent) }
+                            }) { Text(homeCopy("Open map", "افتح الخريطة")) }
+                        }
+                        if (place.address.isNotBlank()) Text(place.address, style = MaterialTheme.typography.labelSmall, color = Ink.copy(alpha = .62f), modifier = Modifier.weight(1f).padding(top = 10.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ShopScreen(
     state: TallaUiState,
     retry: () -> Unit,
     add: (Product) -> Unit,
     open: (Product) -> Unit,
     toggleFavorite: (String) -> Unit,
+    initialQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by remember(initialQuery) { mutableStateOf(initialQuery) }
     var category by remember { mutableStateOf<String?>(null) }
     val categories = state.products.map { it.category }.distinct().sorted()
     val visibleProducts = state.products.filter { product ->
@@ -1190,7 +1398,7 @@ private fun BrewingScreen(
     onPauseScaleTimer: () -> Unit,
     onStopScaleTimer: () -> Unit,
     onClearScaleError: () -> Unit,
-    onSaveJournal: (String, String, Int, Double, Int, Int, Int, String) -> Unit,
+    onSaveJournal: (String, String, Int, Double, Int, Int, Int, String, List<String>) -> Unit,
     onDeleteJournal: (String) -> Unit,
     inventory: List<PurchasedCoffee>,
     equipment: List<CoffeeEquipment>,
@@ -1879,14 +2087,16 @@ private fun BrewJournalCard(
     elapsedSeconds: Int,
     entries: List<BrewJournalEntry>,
     scanResult: CoffeeBagScanResult?,
-    onSave: (String, String, Int, Double, Int, Int, Int, String) -> Unit,
+    onSave: (String, String, Int, Double, Int, Int, Int, String, List<String>) -> Unit,
     onDelete: (String) -> Unit,
 ) {
     var title by remember(recipe.brewer, initialTitle) { mutableStateOf(initialTitle) }
     var method by remember(recipe.brewer) { mutableStateOf(recipe.brewer) }
     var notes by remember { mutableStateOf("") }
     var rating by remember { mutableIntStateOf(4) }
+    var tasteTags by remember { mutableStateOf(setOf<String>()) }
     val recipeRatio = recipe.waterGrams.toDouble() / recipe.coffeeGrams.coerceAtLeast(1)
+    val tasteChoices = listOf("Sweet", "Balanced", "Fruity", "Floral", "Chocolate", "Citrus", "Nutty", "Sour", "Bitter", "Dry", "Weak")
 
     LaunchedEffect(scanResult) {
         scanResult?.let { result ->
@@ -1929,6 +2139,28 @@ private fun BrewJournalCard(
                     }
                 }
             }
+            Text(homeCopy("What did you taste?", "ماذا تذوقت؟"), style = MaterialTheme.typography.labelMedium, color = Coffee)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(tasteChoices) { choice ->
+                    FilterChip(
+                        selected = choice in tasteTags,
+                        onClick = { tasteTags = if (choice in tasteTags) tasteTags - choice else tasteTags + choice },
+                        label = { Text(homeCopy(choice, when (choice) {
+                            "Sweet" -> "حلو"
+                            "Balanced" -> "متوازن"
+                            "Fruity" -> "فاكهي"
+                            "Floral" -> "زهري"
+                            "Chocolate" -> "شوكولاتة"
+                            "Citrus" -> "حمضيات"
+                            "Nutty" -> "مكسرات"
+                            "Sour" -> "حامض"
+                            "Bitter" -> "مر"
+                            "Dry" -> "جاف"
+                            else -> "خفيف"
+                        })) },
+                    )
+                }
+            }
             OutlinedTextField(
                 value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.tasting_notes)) }, minLines = 2, maxLines = 4,
@@ -1937,10 +2169,11 @@ private fun BrewJournalCard(
                 onClick = {
                     onSave(
                         title, method, recipe.coffeeGrams, recipeRatio, recipe.waterGrams,
-                        elapsedSeconds, rating, notes,
+                        elapsedSeconds, rating, notes, tasteTags.toList(),
                     )
                     title = ""
                     notes = ""
+                    tasteTags = emptySet()
                 },
                 enabled = title.isNotBlank() || notes.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
@@ -1970,6 +2203,9 @@ private fun BrewJournalCard(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                                if (entry.tasteTags.isNotEmpty()) {
+                                    Text(entry.tasteTags.joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = TallaGoldText)
+                                }
                                 if (entry.notes.isNotBlank()) Text(entry.notes)
                             }
                             IconButton(onClick = { onDelete(entry.id) }) {
@@ -2432,6 +2668,7 @@ private fun ProductDetailsSheet(
     watchingStock: Boolean,
     onFavorite: () -> Unit,
     onStockAlert: () -> Unit,
+    onBrew: () -> Unit,
     onAdd: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -2503,6 +2740,19 @@ private fun ProductDetailsSheet(
                             }
                             Text("${variant.currencyCode} ${variant.price}")
                         }
+                    }
+                }
+            }
+            if (isBrewableProduct(product)) {
+                item {
+                    OutlinedButton(
+                        onClick = onBrew,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = CircleShape,
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("BREW THE RECOMMENDED RECIPE", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

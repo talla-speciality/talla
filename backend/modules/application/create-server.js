@@ -6,6 +6,8 @@ const { createSocialCoffeeStore } = require("../commerce/social-coffee-store");
 const { createEducationContentStore } = require("./education-content");
 const { normalizeProfile, normalizeRoasterRecipe } = require("../brewing/espresso-community");
 const { espressoMachineCatalog } = require("../brewing/espresso-machine-catalog");
+const { recommendNextCup } = require("../discovery/next-cup-recommendations");
+const { buildCoffeeInsights } = require("../discovery/coffee-insights");
 const path = require("path");
 module.exports = function createServer(dependencies) {
     const {
@@ -912,6 +914,77 @@ module.exports = function createServer(dependencies) {
 
     if (request.method === "GET" && url.pathname === "/app/settings") {
         sendJSON(response, 200, await getAppSettings(), { "Cache-Control": "no-store, no-cache, must-revalidate" });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/recommendations/next-cup") {
+        try {
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const [tasteMemory, library, orders, products, coffeeRecordResult] = await Promise.all([
+                tasteMemoryPayload(customer.email),
+                customerLibraryPayload(customer.email),
+                ordersPayload(customer.email),
+                listShopifyAdminProducts(250),
+                database?.isEnabled?.() ? database.query(
+                    `SELECT entity_type, record_id, payload FROM coffee_records
+                     WHERE email = $1 AND entity_type = 'purchasedCoffee' AND deleted_at IS NULL
+                     ORDER BY updated_at DESC LIMIT 200`,
+                    [customer.email]
+                ) : Promise.resolve({ rows: [] })
+            ]);
+            const coffeeInsights = buildCoffeeInsights({
+                records: coffeeRecordResult.rows,
+                orders,
+                now: new Date()
+            });
+            const result = recommendNextCup({
+                products,
+                tasteMemory,
+                brewJournal: library.brewJournal,
+                orders,
+                coffeeInsights,
+                query: url.searchParams.get("q") || "",
+                maxResults: url.searchParams.get("limit") || 3
+            });
+            sendJSON(response, 200, result, { "Cache-Control": "private, max-age=60" });
+        } catch (error) {
+            console.error("Next-cup recommendation failed:", error);
+            sendJSON(response, 503, { error: "Next-cup recommendations are temporarily unavailable." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/recommendations/next-cup/feedback") {
+        try {
+            const body = await readBody(request, 16_384);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const productID = trimText(body.productID || body.productId, 240);
+            const action = ["view", "brew", "buy", "save", "reorder", "dismiss"].includes(body.action) ? body.action : "view";
+            if (!productID) {
+                sendJSON(response, 400, { error: "productID is required." });
+                return;
+            }
+            void recordTelemetry({
+                id: `next_cup_${crypto.randomUUID()}`,
+                eventName: `recommendation_${action}`,
+                category: "analytics",
+                platform: trimText(body.platform, 20) || "backend",
+                anonymousId: `account:${crypto.createHash("sha256").update(customer.email).digest("hex").slice(0, 24)}`,
+                sessionId: trimText(body.sessionID || body.sessionId, 128) || `recommendation:${productID}`,
+                appVersion: trimText(body.appVersion, 40) || "server",
+                occurredAt: new Date().toISOString(),
+                properties: { productID, action }
+            }, customer.email).catch((error) => console.error("Recommendation telemetry failed:", error.code || error.message || "TELEMETRY_FAILED"));
+            sendJSON(response, 202, { accepted: true });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid recommendation feedback payload." });
+        }
         return;
     }
 

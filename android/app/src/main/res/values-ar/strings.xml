@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">تله للقهوة المختصة</string>
     <string name="home">الرئيسية</string>
+    <string name="discover">استكشف</string>
     <string name="shop">المتجر</string>
     <string name="brewing">التحضير</string>
     <string name="account">الحساب</string>

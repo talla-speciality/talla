@@ -11,6 +11,7 @@ data class BrewJournalEntry(
     val rating: Int,
     val notes: String,
     val createdAt: Long,
+    val tasteTags: List<String> = emptyList(),
 )
 
 object BrewJournalPolicy {

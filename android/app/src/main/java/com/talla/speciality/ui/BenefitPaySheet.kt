@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.stringResource
@@ -43,8 +44,11 @@ internal fun BenefitPaySheet(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val activity = context.findActivity()
     val secret = BuildConfig.BENEFITPAY_SDK_SECRET.trim()
+    val credentialError = stringResource(R.string.benefitpay_credential_error)
+    val paymentFailed = stringResource(R.string.benefitpay_payment_failed)
     ModalBottomSheet(onDismissRequest = { if (!loading) onDismiss() }) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 36.dp),
@@ -65,7 +69,7 @@ internal fun BenefitPaySheet(
                         stringResource(R.string.benefitpay_credential_detail),
                         color = MaterialTheme.colorScheme.error,
                     )
-                    Button(onClick = { onFailure(context.getString(R.string.benefitpay_credential_error)) }) { Text(stringResource(R.string.dismiss)) }
+                    Button(onClick = { onFailure(credentialError) }) { Text(stringResource(R.string.dismiss)) }
                 }
                 activity == null -> Text(stringResource(R.string.benefitpay_screen_error), color = MaterialTheme.colorScheme.error)
                 else -> AndroidView(
@@ -81,13 +85,13 @@ internal fun BenefitPaySheet(
                                         object : CheckoutListener {
                                             override fun onTransactionSuccess(transaction: Transaction) = onSuccess()
                                             override fun onTransactionFail(transaction: Transaction) {
-                                                onFailure(transaction.transactionMessage?.takeIf(String::isNotBlank) ?: context.getString(R.string.benefitpay_payment_failed))
+                                                onFailure(transaction.transactionMessage?.takeIf(String::isNotBlank) ?: paymentFailed)
                                             }
                                         },
                                     )
                                 }
 
-                                override fun onFail(reason: Int) = onFailure(context.getString(R.string.benefitpay_start_failed, reason))
+                                override fun onFail(reason: Int) = onFailure(resources.getString(R.string.benefitpay_start_failed, reason))
                             })
                         }
                     },

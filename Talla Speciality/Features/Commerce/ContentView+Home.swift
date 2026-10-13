@@ -342,6 +342,7 @@ extension ContentView {
 
     var legacyHomeView: some View {
         VStack(spacing: 0) {
+            todayNextCupCard
             todayCompactCard
             homePurchasedCoffeeShelf
             homeUsualRow

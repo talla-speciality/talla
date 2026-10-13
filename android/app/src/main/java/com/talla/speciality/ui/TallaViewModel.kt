@@ -38,6 +38,8 @@ import com.talla.speciality.data.WaterProfile
 import com.talla.speciality.data.TemperaturePreset
 import com.talla.speciality.data.PaymentRepository
 import com.talla.speciality.data.TasteMemoryRecord
+import com.talla.speciality.data.NextCupRecommendationResponse
+import com.talla.speciality.data.GulfCoffeePlace
 import com.talla.speciality.data.ScaleAction
 import com.talla.speciality.data.ScaleUiState
 import com.talla.speciality.data.SampleType
@@ -47,6 +49,7 @@ import com.talla.speciality.widget.TallaQuickActionsWidget
 import com.talla.speciality.widget.TallaWidgetSnapshot
 import com.talla.speciality.widget.TallaWidgetStateStore
 import com.talla.speciality.notifications.PushRegistrationManager
+import com.talla.speciality.notifications.ReorderReminderNotifier
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -81,6 +84,10 @@ data class TallaUiState(
     val vouchers: List<Voucher> = emptyList(),
     val stockAlerts: List<StockAlert> = emptyList(),
     val tasteMemory: List<TasteMemoryRecord> = emptyList(),
+    val nextCupRecommendation: NextCupRecommendationResponse? = null,
+    val nextCupLoading: Boolean = false,
+    val gulfCoffeePlaces: List<GulfCoffeePlace> = emptyList(),
+    val gulfCoffeeLoading: Boolean = false,
     val tasteProfile: CoffeeTasteProfile = CoffeeTasteProfile(),
     val pendingBrewLaunch: BrewLaunchRequest? = null,
     val brewJournal: List<BrewJournalEntry> = emptyList(),
@@ -439,6 +446,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(
                 profile = null, loyalty = null, orders = emptyList(), addresses = emptyList(), vouchers = emptyList(),
                 stockAlerts = emptyList(), tasteMemory = emptyList(), accountError = null,
+                nextCupRecommendation = null, nextCupLoading = false,
             )
         }
         if (token != null) viewModelScope.launch {
@@ -466,6 +474,33 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
         }
+    }
+
+    fun loadNextCupRecommendation(force: Boolean = false) {
+        val token = tokenStore.read() ?: return
+        if (!force && mutableState.value.nextCupRecommendation != null) return
+        viewModelScope.launch {
+            mutableState.update { it.copy(nextCupLoading = true) }
+            runCatching { accounts.nextCupRecommendation(token) }
+                .onSuccess { recommendation -> mutableState.update { it.copy(nextCupRecommendation = recommendation) } }
+            mutableState.update { it.copy(nextCupLoading = false) }
+        }
+    }
+
+    fun loadGulfCoffeeDirectory(force: Boolean = false) {
+        if (!force && mutableState.value.gulfCoffeePlaces.isNotEmpty()) return
+        viewModelScope.launch {
+            mutableState.update { it.copy(gulfCoffeeLoading = true) }
+            runCatching { accounts.gulfCoffeeDirectory() }
+                .onSuccess { places -> mutableState.update { it.copy(gulfCoffeePlaces = places) } }
+            mutableState.update { it.copy(gulfCoffeeLoading = false) }
+        }
+    }
+
+    fun recordNextCupAction(productId: String, action: String) {
+        val token = tokenStore.read() ?: return
+        TallaTelemetry.track("recommendation_$action", properties = mapOf("product_id" to productId, "platform" to "android"))
+        viewModelScope.launch { runCatching { accounts.recordNextCupAction(token, productId, action) } }
     }
 
     fun clearAccountError() = mutableState.update { it.copy(accountError = null) }
@@ -525,12 +560,14 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         brewTimeSeconds: Int,
         rating: Int,
         notes: String,
+        tasteTags: List<String> = emptyList(),
     ) {
         val cleanTitle = title.trim().ifBlank { method.trim().ifBlank { "Coffee brew" } }
         val entry = BrewJournalEntry(
             id = UUID.randomUUID().toString(), title = cleanTitle, method = method.trim().ifBlank { "Coffee" },
             coffeeGrams = coffeeGrams, ratio = ratio, waterGrams = waterGrams,
             brewTimeSeconds = brewTimeSeconds, rating = rating, notes = notes.trim(), createdAt = System.currentTimeMillis(),
+            tasteTags = tasteTags.distinct().take(6),
         )
         mutableState.update { current ->
             current.copy(brewJournal = BrewJournalPolicy.add(current.brewJournal, entry)).also(::persistBrewJournal)
@@ -557,7 +594,22 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
         ))
         TallaTelemetry.track("brew_rated", properties = mapOf("rating" to entry.rating))
         tokenStore.read()?.let { token ->
-            viewModelScope.launch { runCatching { accounts.saveBrewJournal(token, entry) } }
+            viewModelScope.launch {
+                runCatching { accounts.saveBrewJournal(token, entry) }
+                if (entry.rating >= 4 || entry.rating <= 2) {
+                    runCatching {
+                        val reaction = if (entry.rating >= 4) "loved" else "not-for-me"
+                        val records = accounts.saveTasteMemory(
+                            token = token,
+                            orderId = "brew-${entry.id}",
+                            productName = entry.title,
+                            reaction = reaction,
+                            tags = entry.tasteTags,
+                        )
+                        mutableState.update { it.copy(tasteMemory = records) }
+                    }
+                }
+            }
         }
     }
 
@@ -764,6 +816,7 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
             ).also(::persistCustomerLibraryCache)
         }
         runCatching { PushRegistrationManager.syncForSession(getApplication(), token, profile.email) }
+        loadNextCupRecommendation(force = true)
         runCatching {
             coffeeData.synchronize(profile.id, token)
             refreshCoffeeDataState(profile.id)
@@ -831,10 +884,11 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun refreshCoffeeDataState(ownerId: String = mutableState.value.profile?.id.orEmpty()) {
         coffeeData.ensureDefaultProfiles(ownerId)
+        val inventory = coffeeData.purchasedCoffee(ownerId)
         mutableState.update {
             it.copy(
                 brewJournal = coffeeData.loadJournal(ownerId),
-                coffeeInventory = coffeeData.purchasedCoffee(ownerId),
+                coffeeInventory = inventory,
                 coffeeEquipment = coffeeData.equipment(ownerId),
                 coffeeCalibrations = coffeeData.calibrations(ownerId),
                 coffeeMaintenance = coffeeData.maintenance(ownerId),
@@ -843,5 +897,6 @@ class TallaViewModel(application: Application) : AndroidViewModel(application) {
                 coffeeConflicts = coffeeData.conflicts(ownerId),
             )
         }
+        inventory.forEach { ReorderReminderNotifier.notifyIfLow(getApplication(), it) }
     }
 }

@@ -31,11 +31,20 @@ private struct GulfCoffeeEvent: Identifiable, Hashable {
 
 extension ContentView {
     var gulfCoffeeMapView: some View {
-        GulfCoffeeMapView()
+        GulfCoffeeMapView(onShopCoffee: { query in
+            openShop(category: "coffee-beans", searchQuery: query)
+        }, onStartBrew: { offering in
+            pendingBrewingCoffeeName = offering.name
+            pendingBrewingCoffeeNotes = offering.detail
+            pendingRecommendedRecipe = true
+            openBrewing()
+        })
     }
 }
 
 private struct GulfCoffeeMapView: View {
+    let onShopCoffee: (String) -> Void
+    let onStartBrew: (GulfCoffeeOffering) -> Void
     @Environment(\.colorScheme) private var colorScheme
     @State private var searchText = ""
     @State private var selectedCountry = "All GCC"
@@ -61,6 +70,7 @@ private struct GulfCoffeeMapView: View {
     @AppStorage("gulfCoffeeMap.ratingNotes") private var ratingNotesStore = ""
     @AppStorage("gulfCoffeeMap.regionalPassport") private var regionalPassportStore = ""
     @AppStorage("gulfCoffeeMap.eventRSVPs") private var eventRSVPStore = ""
+    @AppStorage("tasteMemory.saved") private var tasteMemoryStore = ""
 
     private let countries = ["All GCC", "Bahrain", "Saudi Arabia", "UAE", "Kuwait", "Qatar", "Oman"]
     private let categories = ["All", "Cafés", "Roasters", "Trucks", "Green beans", "Equipment", "Cuppings & workshops", "Work-friendly", "Drive-through", "Family-friendly"]
@@ -116,7 +126,7 @@ private struct GulfCoffeeMapView: View {
         .navigationTitle("Gulf Coffee Map")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedSpot) { spot in
-            GulfCoffeeSpotDetail(spot: spot, ratings: $ratings, ratingSummaries: ratingSummaries, ratingNotes: $ratingNotes, publicReviews: publicReviews, ratingTarget: $ratingTarget, passportSpotIDs: $passportSpotIDs, rsvpEventIDs: $rsvpEventIDs, brewGuideOffering: $brewGuideOffering)
+            GulfCoffeeSpotDetail(spot: spot, ratings: $ratings, ratingSummaries: ratingSummaries, ratingNotes: $ratingNotes, publicReviews: publicReviews, ratingTarget: $ratingTarget, passportSpotIDs: $passportSpotIDs, rsvpEventIDs: $rsvpEventIDs, brewGuideOffering: $brewGuideOffering, onShopCoffee: onShopCoffee, onStartBrew: onStartBrew)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -135,7 +145,7 @@ private struct GulfCoffeeMapView: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $brewGuideOffering) { offering in
-            GulfCoffeeBrewGuideSheet(offering: offering)
+            GulfCoffeeBrewGuideSheet(offering: offering, onStartBrew: onStartBrew)
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
@@ -463,7 +473,14 @@ private struct GulfCoffeeMapView: View {
     }
 
     private func recommendationScore(_ spot: GulfCoffeeSpot) -> Int {
-        (spot.isFeatured ? 4 : 0) + (passportSpotIDs.contains(spot.id) ? 0 : 3) +
+        let tasteText: String = {
+            guard let data = tasteMemoryStore.data(using: .utf8),
+                  let records = try? JSONDecoder().decode([ContentView.TasteMemoryRecord].self, from: data) else { return "" }
+            return records.flatMap { [$0.reaction] + $0.tags }.joined(separator: " ").lowercased()
+        }()
+        let tasteMatch = spot.tags.contains { tasteText.localizedCaseInsensitiveContains($0.lowercased()) } ? 5 : 0
+        let ratedMatch = spot.offerings.contains { (ratings[$0.id] ?? 0) >= 4 } ? 3 : 0
+        return (spot.isFeatured ? 4 : 0) + tasteMatch + ratedMatch + (passportSpotIDs.contains(spot.id) ? 0 : 3) +
             (spot.offerings.isEmpty ? 0 : 1) + (spot.events.isEmpty ? 0 : 1)
     }
 
@@ -767,6 +784,8 @@ private struct GulfCoffeeSpotDetail: View {
     @Binding var passportSpotIDs: Set<String>
     @Binding var rsvpEventIDs: Set<String>
     @Binding var brewGuideOffering: GulfCoffeeOffering?
+    let onShopCoffee: (String) -> Void
+    let onStartBrew: (GulfCoffeeOffering) -> Void
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -787,6 +806,11 @@ private struct GulfCoffeeSpotDetail: View {
                             Label(spot.trustLabel, systemImage: spot.isVerifiedForMap ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundStyle(spot.isVerifiedForMap ? .green : .orange)
+                            if let freshness = spot.profileFreshnessLabel {
+                                Label(freshness, systemImage: "clock.arrow.circlepath")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     HStack(spacing: 10) {
@@ -892,6 +916,16 @@ private struct GulfCoffeeSpotDetail: View {
                         .buttonStyle(.tallaPrimary)
                         .tint(TallaTheme.Colors.readableAccentLight)
                     }
+                    if let sourceURL = URL(string: spot.sourceURL), !spot.sourceURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button {
+                            openURL(sourceURL)
+                        } label: {
+                            Label("Open verification source", systemImage: "checkmark.seal")
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(TallaTheme.Colors.readableAccentLight)
+                    }
                     if let reportURL = correctionURL {
                         Button {
                             TallaTelemetry.shared.track("gulf_profile_correction_started", properties: ["spot_id": spot.id])
@@ -942,6 +976,16 @@ private struct GulfCoffeeSpotDetail: View {
                                         brewGuideOffering = offering
                                     } label: {
                                         Label(AppLocalization.text("gulf_brew_at_home", fallback: "Brew this coffee at home"), systemImage: "drop.circle.fill")
+                                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    }
+                                    .buttonStyle(.tallaSecondary)
+                                    .tint(TallaTheme.Colors.readableAccentLight)
+                                }
+                                if offering.kind == .bean {
+                                    Button {
+                                        onShopCoffee(offering.name)
+                                    } label: {
+                                        Label(AppLocalization.text("gulf_buy_this_coffee", fallback: "Find this coffee to buy"), systemImage: "bag.fill")
                                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                                     }
                                     .buttonStyle(.tallaSecondary)
@@ -1140,6 +1184,10 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
     var profileDescriptionAR: String = ""
     var tastingNotesEN: String = ""
     var tastingNotesAR: String = ""
+    var verifiedAt: String = ""
+    var verifiedBy: String = ""
+    var lastCheckedAt: String = ""
+    var sourceURL: String = ""
     var events: [GulfCoffeeEvent] = []
     var latitude: Double {
         switch id { case "bhr-seef": 26.1295; case "hambella-riffa": 26.1300; case "tumma-roast-zinj": 26.2050; case "ksa-riyadh": 24.7136; case "uae-dubai": 25.2048; case "kwt-kuwait": 29.3759; case "qat-doha": 25.2854; default: 23.5880 }
@@ -1176,6 +1224,12 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
         case "manually-verified": return AppLocalization.text("gulf_manually_verified", fallback: "Manually verified")
         default: return AppLocalization.text("gulf_awaiting_review", fallback: "Awaiting verification")
         }
+    }
+
+    var profileFreshnessLabel: String? {
+        let checked = lastCheckedAt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !checked.isEmpty else { return nil }
+        return "Checked \(checked.prefix(10))"
     }
 
     var localizedDescription: String {
@@ -1227,6 +1281,10 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
             profileDescriptionAR: remote.description?.ar ?? profileDescriptionAR,
             tastingNotesEN: remote.tastingNotes?.en ?? tastingNotesEN,
             tastingNotesAR: remote.tastingNotes?.ar ?? tastingNotesAR,
+            verifiedAt: remote.verifiedAt ?? verifiedAt,
+            verifiedBy: remote.verifiedBy ?? verifiedBy,
+            lastCheckedAt: remote.lastCheckedAt ?? lastCheckedAt,
+            sourceURL: remote.sourceURL ?? sourceURL,
             events: remote.events?.compactMap { remoteEvent in
                 GulfCoffeeEvent(
                     id: remoteEvent.id,
@@ -1255,6 +1313,8 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
 
 private struct GulfCoffeeBrewGuideSheet: View {
     let offering: GulfCoffeeOffering
+    let onStartBrew: (GulfCoffeeOffering) -> Void
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1273,6 +1333,14 @@ private struct GulfCoffeeBrewGuideSheet: View {
             }
             .padding(15)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Button {
+                dismiss()
+                onStartBrew(offering)
+            } label: {
+                Label(AppLocalization.text("start_guided_brew", fallback: "Start guided brew"), systemImage: "play.fill")
+                    .frame(maxWidth: .infinity, minHeight: 46)
+            }
+            .buttonStyle(.tallaPrimary)
         }
         .padding(24)
     }
@@ -1328,6 +1396,10 @@ private enum GulfCoffeeMapRatingService {
         let phone: String?
         let hours: String?
         let verificationStatus: String?
+        let verifiedAt: String?
+        let verifiedBy: String?
+        let lastCheckedAt: String?
+        let sourceURL: String?
         let description: LocalizedText?
         let tastingNotes: LocalizedText?
         let offerings: [RemoteOffering]?

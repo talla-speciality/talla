@@ -752,7 +752,23 @@ extension ContentView {
             TallaTelemetry.shared.track("purchase_to_first_brew_completed")
         }
         if customerProfile != nil {
-            Task { _ = try? await AccountService.saveBrewJournal(entry) }
+            let brewedCoffeeName = selectedJournalCoffeeID
+                .flatMap { coffeeID in coffeeData.inventory().first(where: { coffee in coffee.id == coffeeID })?.productName }
+                ?? entry.title
+            let brewedFeedbackTags = pendingBrewFeedbackTags
+            Task {
+                _ = try? await AccountService.saveBrewJournal(entry)
+                if entry.rating >= 4 || entry.rating <= 2 {
+                    let reaction = entry.rating >= 4 ? "loved" : "not-for-me"
+                    _ = try? await AccountService.saveTasteMemory(
+                        email: customerProfile?.email ?? "",
+                        orderID: "brew-\(entry.id.uuidString.lowercased())",
+                        productName: brewedCoffeeName,
+                        reaction: reaction,
+                        tags: brewedFeedbackTags
+                    )
+                }
+            }
             if let communityRecipeID = UserDefaults.standard.string(forKey: "community.activeRecipeID"), !communityRecipeID.isEmpty {
                 Task {
                     _ = try? await AccountService.recordCommunityRecipeBrew(id: communityRecipeID, successful: entry.rating >= 4)

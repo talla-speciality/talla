@@ -4175,7 +4175,7 @@ function tasteMemoryRowToRecord(row) {
 }
 
 function allowedTasteMemoryTags() {
-    return new Set(["Chocolate", "Fruity", "Floral", "Caramel", "Citrus", "Nutty"]);
+    return new Set(["Chocolate", "Fruity", "Floral", "Caramel", "Citrus", "Nutty", "Sweet", "Balanced", "Sour", "Bitter", "Dry", "Weak"]);
 }
 
 function normalizeTasteMemoryTags(tags) {

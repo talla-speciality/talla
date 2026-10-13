@@ -3572,10 +3572,20 @@
                         <select data-field="verificationStatus">
                             ${["unverified", "link-provided", "admin-verified"].map((status) => `<option value="${status}" ${place.verificationStatus === status ? "selected" : ""}>${status}</option>`).join("")}
                         </select>
+                        <input data-field="verifiedAt" value="${escapeHTML(place.verifiedAt || "")}" placeholder="Verified at (ISO date)">
+                        <input data-field="verifiedBy" value="${escapeHTML(place.verifiedBy || "")}" placeholder="Verified by">
+                        <input data-field="lastCheckedAt" value="${escapeHTML(place.lastCheckedAt || "")}" placeholder="Last checked (ISO date)">
+                        <input data-field="sourceURL" value="${escapeHTML(place.sourceURL || "")}" placeholder="Verification source URL">
                     </div>
                     <div class="product-filter-grid" style="margin-top:10px;">
                         <input data-field="categories" value="${escapeHTML((place.categories || []).join(", "))}" placeholder="Categories, comma separated">
                         <input data-field="tags" value="${escapeHTML((place.tags || []).join(", "))}" placeholder="Tags, comma separated">
+                    </div>
+                    <div class="product-filter-grid" style="margin-top:10px;">
+                        <input data-field="descriptionEN" value="${escapeHTML(place.description?.en || "")}" placeholder="English profile description">
+                        <input data-field="descriptionAR" value="${escapeHTML(place.description?.ar || "")}" placeholder="Arabic profile description">
+                        <input data-field="tastingNotesEN" value="${escapeHTML(place.tastingNotes?.en || "")}" placeholder="English tasting notes">
+                        <input data-field="tastingNotesAR" value="${escapeHTML(place.tastingNotes?.ar || "")}" placeholder="Arabic tasting notes">
                     </div>
                     <textarea data-field="offerings" rows="3" style="width:100%; margin-top:10px;" placeholder='Offerings JSON, e.g. [{"id":"place-beans","name":"Talla beans","kind":"bean"}]'>${escapeHTML(JSON.stringify(place.offerings || [], null, 2))}</textarea>
                 </div>
@@ -3636,7 +3646,7 @@
         }
 
         function addGulfCoffeePlace() {
-            state.gulfCoffeeDirectory.push({ id: `new-place-${Date.now()}`, name: "", city: "", country: "", neighborhood: "", websiteURL: "", logoURL: "", address: "", phone: "", hours: "", verificationStatus: "unverified", categories: [], tags: [], offerings: [] });
+            state.gulfCoffeeDirectory.push({ id: `new-place-${Date.now()}`, name: "", city: "", country: "", neighborhood: "", websiteURL: "", logoURL: "", address: "", phone: "", hours: "", verificationStatus: "unverified", verifiedAt: "", verifiedBy: "", lastCheckedAt: "", sourceURL: "", description: { en: "", ar: "" }, tastingNotes: { en: "", ar: "" }, categories: [], tags: [], offerings: [] });
             renderGulfCoffeeMap();
             gulfCoffeeMapEditorEl.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" });
         }
@@ -3646,7 +3656,7 @@
                 const value = (field) => card.querySelector(`[data-field="${field}"]`)?.value.trim() || "";
                 let offerings = [];
                 try { offerings = JSON.parse(value("offerings") || "[]"); } catch (error) { throw new Error(`Invalid offerings JSON for ${value("name") || "listing"}.`); }
-                return { id: value("id"), name: value("name"), city: value("city"), country: value("country"), neighborhood: value("neighborhood"), websiteURL: value("websiteURL"), logoURL: value("logoURL"), address: value("address"), phone: value("phone"), hours: value("hours"), verificationStatus: value("verificationStatus") || "unverified", categories: value("categories").split(",").map((item) => item.trim()).filter(Boolean), tags: value("tags").split(",").map((item) => item.trim()).filter(Boolean), offerings };
+                return { id: value("id"), name: value("name"), city: value("city"), country: value("country"), neighborhood: value("neighborhood"), websiteURL: value("websiteURL"), logoURL: value("logoURL"), address: value("address"), phone: value("phone"), hours: value("hours"), verificationStatus: value("verificationStatus") || "unverified", verifiedAt: value("verifiedAt"), verifiedBy: value("verifiedBy"), lastCheckedAt: value("lastCheckedAt"), sourceURL: value("sourceURL"), description: { en: value("descriptionEN"), ar: value("descriptionAR") }, tastingNotes: { en: value("tastingNotesEN"), ar: value("tastingNotesAR") }, categories: value("categories").split(",").map((item) => item.trim()).filter(Boolean), tags: value("tags").split(",").map((item) => item.trim()).filter(Boolean), offerings };
             });
             if (directory.some((place) => !place.id || !place.name || !place.city || !place.country)) {
                 gulfCoffeeMapStatusEl.textContent = "Each listing needs an ID, name, city, and country.";
