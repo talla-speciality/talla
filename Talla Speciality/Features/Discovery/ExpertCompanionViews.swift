@@ -221,13 +221,50 @@ struct CommunityRecipesView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Find your next brew").font(.headline).foregroundStyle(primary)
             TextField("Search bean or roaster", text: $coffeeFilter)
-            HStack {
-                Picker("Brewer", selection: $brewerFilter) { Text("All brewers").tag("All"); ForEach(Array(Set(recipes.compactMap(\.brewer))).sorted(), id: \.self) { Text($0).tag($0) } }.pickerStyle(.menu)
-                Picker("Grinder", selection: $grinderFilter) { Text("All grinders").tag("All"); ForEach(Array(Set(recipes.compactMap(\.grinder))).sorted(), id: \.self) { Text($0).tag($0) } }.pickerStyle(.menu)
-                Picker("Goal", selection: $tasteGoalFilter) { Text("Any taste").tag("All"); ForEach(["bright", "sweet", "balanced", "rich"], id: \.self) { Text($0.capitalized).tag($0) } }.pickerStyle(.menu)
-            }.font(.caption)
-            Picker("Sort", selection: $sortMode) { Text("Reliable").tag("Reliable"); Text("Beginners").tag("Beginner"); Text("This bean").tag("Bean") }.pickerStyle(.segmented)
+                .textFieldStyle(.roundedBorder)
+
+            // Keep each menu on its own row. Three menu pickers in a compact
+            // horizontal stack wrap their labels and collide with the sort
+            // control on smaller iPhones.
+            VStack(spacing: 6) {
+                recipeFilterRow("Brew method", selection: $brewerFilter) {
+                    Text("All brewers").tag("All")
+                    ForEach(Array(Set(recipes.compactMap(\.brewer))).sorted(), id: \.self) { Text($0).tag($0) }
+                }
+                recipeFilterRow("Grinder", selection: $grinderFilter) {
+                    Text("All grinders").tag("All")
+                    ForEach(Array(Set(recipes.compactMap(\.grinder))).sorted(), id: \.self) { Text($0).tag($0) }
+                }
+                recipeFilterRow("Taste", selection: $tasteGoalFilter) {
+                    Text("Any taste").tag("All")
+                    ForEach(["bright", "sweet", "balanced", "rich"], id: \.self) { Text($0.capitalized).tag($0) }
+                }
+            }
+
+            Picker("Sort", selection: $sortMode) {
+                Text("Reliable").tag("Reliable")
+                Text("Beginners").tag("Beginner")
+                Text("This bean").tag("Bean")
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: .infinity)
         }.padding(14).background(surface).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func recipeFilterRow<Content: View>(_ title: String, selection: Binding<String>, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Picker(title, selection: selection, content: content)
+                .pickerStyle(.menu)
+                .font(.subheadline.weight(.medium))
+                .tint(primary)
+        }
+        .frame(minHeight: 36)
+        .padding(.horizontal, 10)
+        .background(primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
     private func recipeRow(_ recipe: CommunityRecipeEntry, showStatus: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) { HStack { VStack(alignment: .leading) { Text(recipe.title).font(.headline); Text("\(recipe.method) · \(recipe.coffee ?? "Coffee not specified")").font(.caption).foregroundStyle(secondary); if let roaster = recipe.roaster, !roaster.isEmpty { Text("From \(roaster) · \(recipe.barista ?? recipe.author)").font(.caption2).foregroundStyle(secondary) } }; Spacer(); Text(reliability(for: recipe) > 0 ? "\(Int(reliability(for: recipe) * 100))% reliable" : "New").font(.caption.weight(.semibold)).foregroundStyle(accent) }; Text(recipe.detail).font(.caption).foregroundStyle(secondary).lineLimit(2); HStack { if recipe.beginnerFriendly == true { Label("Beginner friendly", systemImage: "graduationcap") }; if let total = recipe.totalBrews, total > 0 { Label("\(recipe.successfulBrews ?? 0)/\(total) successful brews", systemImage: "checkmark.seal") }; Spacer(); Button("Brew this") { activeRecipeID = recipe.id; onImportRecipe(recipe) }.buttonStyle(.tallaPrimary).tint(accent); if showStatus { Text(recipe.status.rawValue.capitalized).font(.caption.weight(.semibold)).foregroundStyle(accent) }; if recipe.canEdit { Button("Edit") { editingRecipe = recipe }.buttonStyle(.tallaSecondary).tint(accent) } }.font(.caption) }
