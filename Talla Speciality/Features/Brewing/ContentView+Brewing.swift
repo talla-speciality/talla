@@ -259,6 +259,7 @@ extension ContentView {
             }
 
             TextField(AppLocalization.text("journal_title", fallback: "Coffee or recipe name"), text: $journalTitleInput)
+                .textFieldStyle(.plain)
                 .textInputAutocapitalization(.words)
                 .font(bodyFont(size: 14))
                 .foregroundColor(primaryTextColor)
@@ -268,6 +269,7 @@ extension ContentView {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
             TextField(AppLocalization.text("method", fallback: "Method"), text: $journalMethodInput)
+                .textFieldStyle(.plain)
                 .textInputAutocapitalization(.words)
                 .font(bodyFont(size: 14))
                 .foregroundColor(primaryTextColor)
@@ -320,6 +322,7 @@ extension ContentView {
             }
 
             TextField(AppLocalization.text("tasting_notes", fallback: "Tasting notes"), text: $journalNotesInput, axis: .vertical)
+                .textFieldStyle(.plain)
                 .lineLimit(2...4)
                 .textInputAutocapitalization(.sentences)
                 .font(bodyFont(size: 14))
@@ -750,7 +753,14 @@ extension ContentView {
         }
         if customerProfile != nil {
             Task { _ = try? await AccountService.saveBrewJournal(entry) }
+            if let communityRecipeID = UserDefaults.standard.string(forKey: "community.activeRecipeID"), !communityRecipeID.isEmpty {
+                Task {
+                    _ = try? await AccountService.recordCommunityRecipeBrew(id: communityRecipeID, successful: entry.rating >= 4)
+                    UserDefaults.standard.removeObject(forKey: "community.activeRecipeID")
+                }
+            }
         }
+        UserDefaults.standard.removeObject(forKey: "community.activeRecipeID")
         journalTitleInput = ""
         pendingBrewHealthID = nil
         selectedJournalCoffeeID = nil

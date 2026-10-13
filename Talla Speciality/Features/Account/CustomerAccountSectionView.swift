@@ -114,6 +114,7 @@ struct CustomerAccountSectionView: View {
             styledTextField(AppLocalization.text("email_address", fallback: "Email address"), text: $accountEmail, capitalization: .never, keyboardType: .emailAddress)
 
             SecureField(accountAuthMode == .changePassword ? AppLocalization.text("current_password", fallback: "Current password") : AppLocalization.text("password", fallback: "Password"), text: $accountPassword)
+                .textFieldStyle(.plain)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(accountAuthMode == .signIn ? .go : .next)
@@ -135,6 +136,7 @@ struct CustomerAccountSectionView: View {
 
             if accountAuthMode != .signIn {
                 SecureField(accountAuthMode == .changePassword ? AppLocalization.text("new_password", fallback: "New password") : AppLocalization.text("confirm_password", fallback: "Confirm password"), text: $accountConfirmPassword)
+                    .textFieldStyle(.plain)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(Font.custom("AvenirNext-Regular", size: 15))
@@ -303,6 +305,7 @@ struct CustomerAccountSectionView: View {
         keyboardType: UIKeyboardType = .default
     ) -> some View {
         TextField(title, text: text)
+            .textFieldStyle(.plain)
             .textInputAutocapitalization(capitalization)
             .keyboardType(keyboardType)
             .autocorrectionDisabled()

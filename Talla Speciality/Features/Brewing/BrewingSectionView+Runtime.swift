@@ -2019,6 +2019,7 @@ extension BrewingSectionView {
                 .foregroundColor(tertiaryTextColor)
 
             TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
                 .keyboardType(keyboardType)
                 .font(Font.custom("AvenirNext-Regular", size: 16))
                 .foregroundColor(primaryTextColor)

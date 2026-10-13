@@ -16,6 +16,19 @@ private struct GulfCoffeePublicReview: Hashable, Decodable {
     let updatedAt: String
 }
 
+private struct GulfCoffeeEvent: Identifiable, Hashable {
+    let id: String
+    let titleEN: String
+    let titleAR: String
+    let kind: String
+    let startsAt: String
+    let url: URL?
+
+    var localizedTitle: String {
+        AppLocalization.currentLanguage.effectiveLanguageCode == "ar" && !titleAR.isEmpty ? titleAR : titleEN
+    }
+}
+
 extension ContentView {
     var gulfCoffeeMapView: some View {
         GulfCoffeeMapView()
@@ -34,6 +47,9 @@ private struct GulfCoffeeMapView: View {
     @State private var ratingNotes: [String: String] = [:]
     @State private var publicReviews: [String: [GulfCoffeePublicReview]] = [:]
     @State private var spots = GulfCoffeeSpot.seed
+    @State private var passportSpotIDs: Set<String> = []
+    @State private var rsvpEventIDs: Set<String> = []
+    @State private var brewGuideOffering: GulfCoffeeOffering?
     @State private var mapPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 25.3, longitude: 51.2),
@@ -43,6 +59,8 @@ private struct GulfCoffeeMapView: View {
     @AppStorage("gulfCoffeeMap.ratings") private var ratingStore = ""
     @AppStorage("app.appearanceMode") private var appearanceMode = "system"
     @AppStorage("gulfCoffeeMap.ratingNotes") private var ratingNotesStore = ""
+    @AppStorage("gulfCoffeeMap.regionalPassport") private var regionalPassportStore = ""
+    @AppStorage("gulfCoffeeMap.eventRSVPs") private var eventRSVPStore = ""
 
     private let countries = ["All GCC", "Bahrain", "Saudi Arabia", "UAE", "Kuwait", "Qatar", "Oman"]
     private let categories = ["All", "Cafés", "Roasters", "Trucks", "Green beans", "Equipment", "Cuppings & workshops", "Work-friendly", "Drive-through", "Family-friendly"]
@@ -83,7 +101,10 @@ private struct GulfCoffeeMapView: View {
                 countryFilters
                 regionOverview
                 verificationNotice
+                regionalPassportCard
                 categoryFilters
+                cityRecommendations
+                recommendationSection
                 directorySection
             }
             .padding(.horizontal, 18)
@@ -95,7 +116,7 @@ private struct GulfCoffeeMapView: View {
         .navigationTitle("Gulf Coffee Map")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedSpot) { spot in
-            GulfCoffeeSpotDetail(spot: spot, ratings: $ratings, ratingSummaries: ratingSummaries, ratingNotes: $ratingNotes, publicReviews: publicReviews, ratingTarget: $ratingTarget)
+            GulfCoffeeSpotDetail(spot: spot, ratings: $ratings, ratingSummaries: ratingSummaries, ratingNotes: $ratingNotes, publicReviews: publicReviews, ratingTarget: $ratingTarget, passportSpotIDs: $passportSpotIDs, rsvpEventIDs: $rsvpEventIDs, brewGuideOffering: $brewGuideOffering)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -113,9 +134,19 @@ private struct GulfCoffeeMapView: View {
             .presentationDetents([.height(420)])
             .presentationDragIndicator(.visible)
         }
+        .sheet(item: $brewGuideOffering) { offering in
+            GulfCoffeeBrewGuideSheet(offering: offering)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
         .onAppear {
             ratings = decodeRatings(ratingStore)
             ratingNotes = decodeNotes(ratingNotesStore)
+            passportSpotIDs = Set(regionalPassportStore.split(separator: ",").map(String.init))
+            rsvpEventIDs = Set(eventRSVPStore.split(separator: ",").map(String.init))
+            TallaTelemetry.shared.track("gulf_map_viewed", properties: [
+                "language": AppLocalization.currentLanguage.effectiveLanguageCode
+            ])
             Task { await syncRemoteData() }
         }
         .onChange(of: ratings) { _, value in
@@ -123,6 +154,12 @@ private struct GulfCoffeeMapView: View {
         }
         .onChange(of: ratingNotes) { _, value in
             ratingNotesStore = encodeNotes(value)
+        }
+        .onChange(of: passportSpotIDs) { _, value in
+            regionalPassportStore = value.sorted().joined(separator: ",")
+        }
+        .onChange(of: rsvpEventIDs) { _, value in
+            eventRSVPStore = value.sorted().joined(separator: ",")
         }
     }
 
@@ -172,6 +209,7 @@ private struct GulfCoffeeMapView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(TallaTheme.Colors.ink)
             TextField("Search a city, café, bean or brew…", text: $searchText)
+                .textFieldStyle(.plain)
                 .font(.system(size: 16, design: .rounded))
                 .foregroundStyle(primaryText)
                 .textInputAutocapitalization(.never)
@@ -307,6 +345,138 @@ private struct GulfCoffeeMapView: View {
         }
     }
 
+    private var regionalPassportCard: some View {
+        let physicalSpots = spots.filter { !$0.isOnline && $0.isVerifiedForMap }
+        let visited = passportSpotIDs.intersection(Set(physicalSpots.map(\.id))).count
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lanyardcard.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(TallaTheme.Colors.ink)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(AppLocalization.text("gulf_passport_title", fallback: "Your Gulf coffee passport"))
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(primaryText)
+                Text(AppLocalization.text("gulf_passport_detail", fallback: "Collect verified places, remember the cup, and build a taste trail across the region."))
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundStyle(secondaryText)
+                Text(AppLocalization.text("gulf_passport_progress", fallback: "%(visited) of %(total) places visited")
+                    .replacingOccurrences(of: "%(visited)", with: "\(visited)")
+                    .replacingOccurrences(of: "%(total)", with: "\(physicalSpots.count)"))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(TallaTheme.Colors.ink)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(15)
+        .background(TallaTheme.Colors.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var cityRecommendations: some View {
+        let cities = Dictionary(grouping: filteredSpots.filter { $0.isVerifiedForMap }, by: { $0.city })
+            .sorted { $0.key < $1.key }
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("gulf_city_picks", fallback: "City picks"))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(secondaryText)
+                .textCase(.uppercase)
+                .tracking(1.1)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(cities, id: \.key) { city in
+                        let citySpots = city.value
+                        Button {
+                            selectedCountry = citySpots.first?.country ?? selectedCountry
+                            searchText = city.key
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(city.key).font(.system(size: 15, weight: .bold, design: .rounded))
+                                Text("\(citySpots.count) \(AppLocalization.text("gulf_city_places", fallback: "places"))")
+                                    .font(.system(size: 12, design: .rounded))
+                            }
+                            .foregroundStyle(primaryText)
+                            .padding(12)
+                            .background(surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var recommendationSection: some View {
+        let picks = recommendedSpots
+        return Group {
+            if !picks.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(AppLocalization.text("gulf_recommendations", fallback: "Picked for your next cup"))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(secondaryText)
+                        .textCase(.uppercase)
+                        .tracking(1.1)
+                    ForEach(picks) { spot in
+                        Button {
+                            TallaTelemetry.shared.track("gulf_recommendation_opened", properties: ["spot_id": spot.id, "city": spot.city])
+                            selectedSpot = spot
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: spot.icon)
+                                    .foregroundStyle(Color(hex: 0x1A120C))
+                                    .frame(width: 40, height: 40)
+                                    .background(spot.tint, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(spot.name)
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    Text(spotRecommendationReason(spot))
+                                        .font(.system(size: 12, design: .rounded))
+                                        .foregroundStyle(secondaryText)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(secondaryText)
+                            }
+                            .foregroundStyle(primaryText)
+                            .padding(12)
+                            .background(surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .onAppear {
+                    TallaTelemetry.shared.track("gulf_recommendations_viewed", properties: ["count": String(picks.count)])
+                }
+            }
+        }
+    }
+
+    private var recommendedSpots: [GulfCoffeeSpot] {
+        filteredSpots
+            .filter(\.isVerifiedForMap)
+            .sorted { lhs, rhs in
+                let lhsScore = recommendationScore(lhs)
+                let rhsScore = recommendationScore(rhs)
+                return lhsScore == rhsScore ? lhs.name < rhs.name : lhsScore > rhsScore
+            }
+            .prefix(3)
+            .map { $0 }
+    }
+
+    private func recommendationScore(_ spot: GulfCoffeeSpot) -> Int {
+        (spot.isFeatured ? 4 : 0) + (passportSpotIDs.contains(spot.id) ? 0 : 3) +
+            (spot.offerings.isEmpty ? 0 : 1) + (spot.events.isEmpty ? 0 : 1)
+    }
+
+    private func spotRecommendationReason(_ spot: GulfCoffeeSpot) -> String {
+        if !passportSpotIDs.contains(spot.id) {
+            return AppLocalization.text("gulf_recommendation_new", fallback: "Verified in %@ · new passport stop").replacingOccurrences(of: "%@", with: spot.city)
+        }
+        if !spot.events.isEmpty {
+            return AppLocalization.text("gulf_recommendation_event", fallback: "Verified in %@ · upcoming event").replacingOccurrences(of: "%@", with: spot.city)
+        }
+        return AppLocalization.text("gulf_recommendation_pick", fallback: "Verified in %@ · Talla pick").replacingOccurrences(of: "%@", with: spot.city)
+    }
+
     private var directorySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -390,6 +560,14 @@ private struct GulfCoffeeMapView: View {
             })
             publicReviews = Dictionary(grouping: reviews, by: \.offeringID)
         }
+        if !TallaAccountCredentialStore.accessToken.isEmpty,
+           let remoteVisits = try? await LoyaltyService.fetchGulfCoffeeVisits() {
+            await MainActor.run { passportSpotIDs.formUnion(remoteVisits) }
+        }
+        if !TallaAccountCredentialStore.accessToken.isEmpty,
+           let remoteRSVPs = try? await LoyaltyService.fetchGulfCoffeeEventRSVPs() {
+            await MainActor.run { rsvpEventIDs.formUnion(remoteRSVPs) }
+        }
         guard !TallaAccountCredentialStore.accessToken.isEmpty,
               let remoteRatings = try? await GulfCoffeeMapRatingService.fetchRatings() else { return }
         var merged = ratings
@@ -434,6 +612,8 @@ private struct GulfCoffeeSpotCard: View {
                             Text(spot.name)
                                 .font(.system(size: 18, weight: .bold, design: .rounded))
                                 .foregroundStyle(primaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
                             if spot.isFeatured {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.system(size: 13))
@@ -456,6 +636,7 @@ private struct GulfCoffeeSpotCard: View {
                             .foregroundStyle(TallaTheme.Colors.ink)
                             .lineLimit(2)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
@@ -464,18 +645,23 @@ private struct GulfCoffeeSpotCard: View {
             }
             .buttonStyle(.plain)
 
-            HStack(spacing: 8) {
-                Label(spot.primaryCategory, systemImage: "tag")
-                Label(spot.neighborhood, systemImage: "mappin.and.ellipse")
-                Spacer()
-                if let rating {
-                    Label("You \(rating)/5", systemImage: "star.fill")
-                        .foregroundStyle(TallaTheme.Colors.ink)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Label(spot.primaryCategory, systemImage: "tag").lineLimit(1)
+                    Spacer(minLength: 4)
+                    if let rating {
+                        Label("You \(rating)/5", systemImage: "star.fill")
+                            .foregroundStyle(TallaTheme.Colors.ink)
+                    }
                 }
-                if let summary = spot.offerings.compactMap({ ratingSummaries[$0.id] }).first,
-                   let average = summary.average {
-                    Label(String(format: "%.1f · %d", average, summary.count), systemImage: "person.2.fill")
-                        .foregroundStyle(TallaTheme.Colors.ink)
+                HStack(spacing: 8) {
+                    Label(spot.neighborhood, systemImage: "mappin.and.ellipse").lineLimit(1)
+                    Spacer(minLength: 4)
+                    if let summary = spot.offerings.compactMap({ ratingSummaries[$0.id] }).first,
+                       let average = summary.average {
+                        Label(String(format: "%.1f · %d", average, summary.count), systemImage: "person.2.fill")
+                            .foregroundStyle(TallaTheme.Colors.ink)
+                    }
                 }
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -504,6 +690,7 @@ private struct GulfCoffeeSpotCard: View {
             .scrollClipDisabled()
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(cardSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.primary.opacity(0.09)))
     }
@@ -577,6 +764,9 @@ private struct GulfCoffeeSpotDetail: View {
     @Binding var ratingNotes: [String: String]
     let publicReviews: [String: [GulfCoffeePublicReview]]
     @Binding var ratingTarget: GulfCoffeeOffering?
+    @Binding var passportSpotIDs: Set<String>
+    @Binding var rsvpEventIDs: Set<String>
+    @Binding var brewGuideOffering: GulfCoffeeOffering?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -594,11 +784,96 @@ private struct GulfCoffeeSpotDetail: View {
                                 .font(.system(size: 24, weight: .bold, design: .rounded))
                             Text("\(spot.city), \(spot.country)")
                                 .foregroundStyle(.secondary)
+                            Label(spot.trustLabel, systemImage: spot.isVerifiedForMap ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(spot.isVerifiedForMap ? .green : .orange)
+                        }
+                    }
+                    HStack(spacing: 10) {
+                        Button {
+                            let adding = !passportSpotIDs.contains(spot.id)
+                            if adding {
+                                passportSpotIDs.insert(spot.id)
+                                TallaTelemetry.shared.track("gulf_passport_visit_started", properties: ["spot_id": spot.id, "city": spot.city])
+                                guard !TallaAccountCredentialStore.accessToken.isEmpty else { return }
+                                Task {
+                                    if (try? await LoyaltyService.recordGulfCoffeeVisit(spotID: spot.id)) != nil {
+                                        TallaTelemetry.shared.track("gulf_passport_visit_synced", properties: ["spot_id": spot.id])
+                                    }
+                                }
+                            } else {
+                                passportSpotIDs.remove(spot.id)
+                            }
+                        } label: {
+                            Label(passportSpotIDs.contains(spot.id)
+                                  ? AppLocalization.text("gulf_passport_visited", fallback: "Visited")
+                                  : AppLocalization.text("gulf_passport_mark", fallback: "Add to passport"),
+                                  systemImage: passportSpotIDs.contains(spot.id) ? "checkmark.circle.fill" : "plus.circle")
+                        }
+                        .buttonStyle(.tallaSecondary)
+                        .tint(TallaTheme.Colors.readableAccentLight)
+                        if spot.categories.contains("Cuppings & workshops") {
+                            Label(AppLocalization.text("gulf_events_available", fallback: "Events listed"), systemImage: "calendar.badge.clock")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.secondary)
                         }
                     }
                     Text(spot.longDescription)
                         .font(.system(size: 16, design: .rounded))
                         .foregroundStyle(.secondary)
+                    if !spot.localizedDescription.isEmpty {
+                        Text(spot.localizedDescription)
+                            .font(.system(size: 14, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                    if !spot.localizedTastingNotes.isEmpty {
+                        Label(spot.localizedTastingNotes, systemImage: "nose")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(TallaTheme.Colors.readableAccentLight)
+                    }
+                    if !spot.events.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(AppLocalization.text("gulf_upcoming_events", fallback: "Upcoming at this place"))
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                            ForEach(spot.events) { event in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: event.kind.localizedCaseInsensitiveContains("cup") ? "wineglass" : "calendar")
+                                        .foregroundStyle(TallaTheme.Colors.readableAccentLight)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(event.localizedTitle).font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        Text(event.startsAt).font(.system(size: 12, design: .rounded)).foregroundStyle(.secondary)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Button {
+                                        guard !rsvpEventIDs.contains(event.id) else { return }
+                                        rsvpEventIDs.insert(event.id)
+                                        TallaTelemetry.shared.track("gulf_event_rsvp_started", properties: ["event_id": event.id, "spot_id": spot.id])
+                                        guard !TallaAccountCredentialStore.accessToken.isEmpty else { return }
+                                        Task {
+                                            if (try? await LoyaltyService.rsvpGulfCoffeeEvent(eventID: event.id, spotID: spot.id)) != nil {
+                                                TallaTelemetry.shared.track("gulf_event_rsvp_synced", properties: ["event_id": event.id])
+                                            }
+                                        }
+                                    } label: {
+                                        Label(rsvpEventIDs.contains(event.id)
+                                              ? AppLocalization.text("gulf_event_saved", fallback: "Saved")
+                                              : AppLocalization.text("gulf_event_save", fallback: "Save"),
+                                              systemImage: rsvpEventIDs.contains(event.id) ? "checkmark" : "calendar.badge.plus")
+                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(TallaTheme.Colors.readableAccentLight)
+                                    if let url = event.url {
+                                        Button { openURL(url) } label: { Image(systemName: "arrow.up.right.square") }
+                                            .buttonStyle(.plain)
+                                            .foregroundStyle(TallaTheme.Colors.readableAccentLight)
+                                    }
+                                }
+                                .padding(12)
+                                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                        }
+                    }
                     if !spot.address.isEmpty || !spot.phone.isEmpty || !spot.hours.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             if !spot.address.isEmpty { Label(spot.address, systemImage: "mappin.and.ellipse") }
@@ -617,11 +892,23 @@ private struct GulfCoffeeSpotDetail: View {
                         .buttonStyle(.tallaPrimary)
                         .tint(TallaTheme.Colors.readableAccentLight)
                     }
+                    if let reportURL = correctionURL {
+                        Button {
+                            TallaTelemetry.shared.track("gulf_profile_correction_started", properties: ["spot_id": spot.id])
+                            openURL(reportURL)
+                        } label: {
+                            Label(AppLocalization.text("gulf_report_correction", fallback: "Report a correction"), systemImage: "exclamationmark.bubble")
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    }
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Rate a specific cup or bean")
                             .font(.system(size: 17, weight: .bold, design: .rounded))
                         ForEach(spot.offerings) { offering in
-                            Button { ratingTarget = offering } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Button { ratingTarget = offering } label: {
                                 HStack {
                                     Image(systemName: offering.kind.icon)
                                         .foregroundStyle(TallaTheme.Colors.readableAccentLight)
@@ -648,8 +935,19 @@ private struct GulfCoffeeSpotDetail: View {
                                 }
                                 .padding(13)
                                 .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                if offering.kind != .workshop {
+                                    Button {
+                                        brewGuideOffering = offering
+                                    } label: {
+                                        Label(AppLocalization.text("gulf_brew_at_home", fallback: "Brew this coffee at home"), systemImage: "drop.circle.fill")
+                                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    }
+                                    .buttonStyle(.tallaSecondary)
+                                    .tint(TallaTheme.Colors.readableAccentLight)
+                                }
                             }
-                            .buttonStyle(.plain)
                             if let note = ratingNotes[offering.id], !note.isEmpty {
                                 Text("Your note: \(note)")
                                     .font(.system(size: 13, design: .rounded))
@@ -676,6 +974,12 @@ private struct GulfCoffeeSpotDetail: View {
             .navigationTitle("Place details")
             .navigationBarTitleDisplayMode(.inline)
         }
+    }
+
+    private var correctionURL: URL? {
+        var components = URLComponents(string: "https://wa.me/97339392414")
+        components?.queryItems = [URLQueryItem(name: "text", value: "Hi Talla, I’d like to report a correction for \(spot.name) in \(spot.city).")]
+        return components?.url
     }
 }
 
@@ -753,6 +1057,61 @@ private struct GulfCoffeeOffering: Identifiable, Hashable {
     let name: String
     let detail: String
     let kind: Kind
+
+    var brewMethod: String {
+        if !brewMethodOverride.isEmpty { return brewMethodOverride }
+        switch kind {
+        case .drink: return name.localizedCaseInsensitiveContains("espresso") ? "Espresso" : "Pour-over / V60"
+        case .bean: return "V60 or AeroPress"
+        case .workshop: return "Guided tasting"
+        }
+    }
+
+    var brewRatio: String { !brewRatioOverride.isEmpty ? brewRatioOverride : (kind == .bean ? "15 g coffee · 250 g water" : "Use the barista recipe as your baseline") }
+    var brewTemperature: String { !brewTemperatureOverride.isEmpty ? brewTemperatureOverride : (detail.localizedCaseInsensitiveContains("berry") ? "92–94°C" : "90–93°C") }
+    var brewTip: String { !brewTipOverride.isEmpty ? brewTipOverride : detail.replacingOccurrences(of: " · ", with: ", ") + ". Adjust one variable at a time." }
+
+    func applying(remote: GulfCoffeeMapRatingService.RemoteOffering) -> GulfCoffeeOffering {
+        GulfCoffeeOffering(
+            id: id,
+            name: remote.name.isEmpty ? name : remote.name,
+            detail: (remote.detail ?? "").isEmpty ? detail : (remote.detail ?? ""),
+            kind: Kind(rawValue: remote.kind) ?? kind,
+            detailAR: remote.detailAR ?? "",
+            brewMethodOverride: remote.brewMethod ?? "",
+            brewRatioOverride: remote.brewRatio ?? "",
+            brewTemperatureOverride: remote.brewTemperature ?? "",
+            brewTipOverride: remote.brewTip ?? ""
+        )
+    }
+
+    init(
+        id: String,
+        name: String,
+        detail: String,
+        kind: Kind,
+        detailAR: String = "",
+        brewMethodOverride: String = "",
+        brewRatioOverride: String = "",
+        brewTemperatureOverride: String = "",
+        brewTipOverride: String = ""
+    ) {
+        self.id = id
+        self.name = name
+        self.detail = detail
+        self.kind = kind
+        self.detailAR = detailAR
+        self.brewMethodOverride = brewMethodOverride
+        self.brewRatioOverride = brewRatioOverride
+        self.brewTemperatureOverride = brewTemperatureOverride
+        self.brewTipOverride = brewTipOverride
+    }
+
+    var detailAR: String = ""
+    var brewMethodOverride: String = ""
+    var brewRatioOverride: String = ""
+    var brewTemperatureOverride: String = ""
+    var brewTipOverride: String = ""
 }
 
 private struct GulfCoffeeSpot: Identifiable, Hashable {
@@ -777,6 +1136,11 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
     var verificationStatus: String = "unverified"
     var externalURL: String? = nil
     var logoURL: String? = nil
+    var profileDescriptionEN: String = ""
+    var profileDescriptionAR: String = ""
+    var tastingNotesEN: String = ""
+    var tastingNotesAR: String = ""
+    var events: [GulfCoffeeEvent] = []
     var latitude: Double {
         switch id { case "bhr-seef": 26.1295; case "hambella-riffa": 26.1300; case "tumma-roast-zinj": 26.2050; case "ksa-riyadh": 24.7136; case "uae-dubai": 25.2048; case "kwt-kuwait": 29.3759; case "qat-doha": 25.2854; default: 23.5880 }
     }
@@ -805,6 +1169,23 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
         return isVerifiedForMap ? "Directory listing" : "Pilot listing · admin review"
     }
 
+    var trustLabel: String {
+        switch verificationStatus.lowercased() {
+        case "verified": return AppLocalization.text("gulf_verified_profile", fallback: "Talla verified profile")
+        case "link-verified": return AppLocalization.text("gulf_link_verified", fallback: "Link verified")
+        case "manually-verified": return AppLocalization.text("gulf_manually_verified", fallback: "Manually verified")
+        default: return AppLocalization.text("gulf_awaiting_review", fallback: "Awaiting verification")
+        }
+    }
+
+    var localizedDescription: String {
+        AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? profileDescriptionAR : profileDescriptionEN
+    }
+
+    var localizedTastingNotes: String {
+        AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? tastingNotesAR : tastingNotesEN
+    }
+
     var brandMonogram: String {
         switch id {
         case "not-just-beans": return "NJB"
@@ -831,13 +1212,31 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
             tint: tint,
             mapOffset: mapOffset,
             isFeatured: isFeatured,
-            offerings: offerings,
+            offerings: remote.offerings?.map { remoteOffering in
+                let existing = offerings.first(where: { $0.id == remoteOffering.id })
+                    ?? GulfCoffeeOffering(id: remoteOffering.id, name: remoteOffering.name, detail: remoteOffering.detail ?? "", kind: GulfCoffeeOffering.Kind(rawValue: remoteOffering.kind) ?? .drink)
+                return existing.applying(remote: remoteOffering)
+            } ?? offerings,
             address: remote.address ?? address,
             phone: remote.phone ?? phone,
             hours: remote.hours ?? hours,
             verificationStatus: remote.verificationStatus ?? verificationStatus,
             externalURL: remote.websiteURL ?? externalURL,
-            logoURL: remote.logoURL ?? logoURL
+            logoURL: remote.logoURL ?? logoURL,
+            profileDescriptionEN: remote.description?.en ?? profileDescriptionEN,
+            profileDescriptionAR: remote.description?.ar ?? profileDescriptionAR,
+            tastingNotesEN: remote.tastingNotes?.en ?? tastingNotesEN,
+            tastingNotesAR: remote.tastingNotes?.ar ?? tastingNotesAR,
+            events: remote.events?.compactMap { remoteEvent in
+                GulfCoffeeEvent(
+                    id: remoteEvent.id,
+                    titleEN: remoteEvent.title.en,
+                    titleAR: remoteEvent.title.ar,
+                    kind: remoteEvent.kind,
+                    startsAt: remoteEvent.startsAt,
+                    url: URL(string: remoteEvent.url)
+                )
+            } ?? events
         )
     }
 
@@ -854,7 +1253,65 @@ private struct GulfCoffeeSpot: Identifiable, Hashable {
     ]
 }
 
+private struct GulfCoffeeBrewGuideSheet: View {
+    let offering: GulfCoffeeOffering
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label(AppLocalization.text("gulf_brew_guide", fallback: "Brew this coffee at home"), systemImage: "drop.circle.fill")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+            Text(offering.name)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+            Text(offering.detail)
+                .font(.system(size: 14, design: .rounded))
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                brewRow("Method", offering.brewMethod)
+                brewRow("Dose / water", offering.brewRatio)
+                brewRow("Temperature", offering.brewTemperature)
+                brewRow("Start here", offering.brewTip)
+            }
+            .padding(15)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .padding(24)
+    }
+
+    private func brewRow(_ title: String, _ detail: String) -> some View {
+        HStack(alignment: .top) {
+            Text(title).font(.system(size: 13, weight: .semibold, design: .rounded)).frame(width: 92, alignment: .leading)
+            Text(detail).font(.system(size: 14, design: .rounded)).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
 private enum GulfCoffeeMapRatingService {
+    struct LocalizedText: Decodable {
+        let en: String
+        let ar: String
+    }
+
+    struct RemoteOffering: Decodable {
+        let id: String
+        let name: String
+        let detail: String?
+        let detailAR: String?
+        let kind: String
+        let brewMethod: String?
+        let brewRatio: String?
+        let brewTemperature: String?
+        let brewTip: String?
+    }
+
+    struct RemoteEvent: Decodable {
+        let id: String
+        let title: LocalizedText
+        let kind: String
+        let startsAt: String
+        let url: String
+    }
+
     struct RemotePlace: Decodable {
         let id: String
         let name: String
@@ -871,6 +1328,10 @@ private enum GulfCoffeeMapRatingService {
         let phone: String?
         let hours: String?
         let verificationStatus: String?
+        let description: LocalizedText?
+        let tastingNotes: LocalizedText?
+        let offerings: [RemoteOffering]?
+        let events: [RemoteEvent]?
     }
 
     struct Rating: Decodable {

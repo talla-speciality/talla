@@ -552,6 +552,7 @@ extension BrewingSectionView {
 
     func brewCoachCard(for profile: BrewGuideProfile) -> some View {
         let coachState = coffeeData.brewCoachState()
+        let connectedScaleTitle = scaleManager.connectedScaleName ?? "connected scale"
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "brain.head.profile")
@@ -575,6 +576,40 @@ extension BrewingSectionView {
                 }
             }
 
+            Button {
+                if let selectedBrewModeMethod {
+                    selectBrewModeMethod(selectedBrewModeMethod, start: true)
+                } else if let method = displayedMethods.first {
+                    selectBrewModeMethod(method, start: true)
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: scaleManager.isConnected ? "scalemass.fill" : "play.fill")
+                        .font(.system(size: 12, weight: .bold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(scaleManager.isConnected
+                             ? AppLocalization.text("start_on_scale", fallback: "Start on %@").replacingOccurrences(of: "%@", with: connectedScaleTitle)
+                             : AppLocalization.text("start_guided_brew", fallback: "Start Guided Brew"))
+                            .font(Font.custom("AvenirNext-Bold", size: 12))
+                        Text(scaleManager.isConnected
+                             ? AppLocalization.text("live_recipe_targets", fallback: "Live weight and pour targets will follow this recipe.")
+                             : AppLocalization.text("guided_brew_learns", fallback: "Talla will guide each step and learn from your feedback."))
+                            .font(Font.custom("AvenirNext-Regular", size: 11))
+                            .foregroundColor(secondaryTextColor)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "arrow.forward")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(brewAccentForegroundColor)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 11)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(accentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
             if let action = coachState.nextAction {
                 brewCoachNextActionCard(action, profile: profile, greatBrewCount: coachState.greatBrewCount)
             }
@@ -587,6 +622,7 @@ extension BrewingSectionView {
 
             HStack(spacing: 8) {
                 TextField(AppLocalization.text("brew_coach_placeholder", fallback: "Example: make it sweeter"), text: $brewCoachQuestion)
+                    .textFieldStyle(.plain)
                     .font(Font.custom("AvenirNext-Regular", size: 13))
                     .foregroundColor(primaryTextColor)
                     .submitLabel(.done)
@@ -677,8 +713,7 @@ extension BrewingSectionView {
                 case .exploreNextCoffee:
                     activeDashboardDestination = .coffeeLibrary
                 case .adjust:
-                    brewCoachQuestion = action.title
-                    brewCoachAnswer = action.detail
+                    applyCoachAdjustment(action, profile: profile)
                 }
             } label: {
                 Label(action.kind == .saveHouseRecipe ? "Save house recipe" : action.kind == .exploreNextCoffee ? "Browse next coffee" : "Use this adjustment", systemImage: action.kind == .exploreNextCoffee ? "arrow.right" : "checkmark")
@@ -722,6 +757,38 @@ extension BrewingSectionView {
             grind: profile.grind, temperatureC: Int(profile.temperature.filter("0123456789".contains)),
             controlMode: "Manual", expectedCup: profile.goal
         ))
+    }
+
+    /// Turns a deterministic Brew Coach suggestion into a real next recipe.
+    /// The adjustment remains reversible because it is saved as a separate
+    /// recipe record; the original profile is never mutated in place.
+    private func applyCoachAdjustment(_ action: BrewCoachNextAction, profile: BrewGuideProfile) {
+        let temperature = action.suggestedTemperatureC
+            ?? Int(profile.temperature.filter("0123456789".contains))
+        let ratio = action.suggestedRatio ?? profile.ratio
+        let grind = action.suggestedGrind ?? profile.grind
+        let recipe = BrewRecipeRecord(
+            id: UUID(),
+            title: "Next Brew · \(action.title)",
+            detail: action.detail,
+            coffeeGrams: profile.coffeeGrams,
+            ratio: ratio,
+            totalWaterGrams: profile.coffeeGrams * ratio,
+            brewingWaterGrams: nil,
+            iceGrams: nil,
+            methodID: profile.id,
+            brewerID: nil,
+            brewMode: "Hot",
+            bloomRatio: nil,
+            pourCount: nil,
+            grind: grind,
+            temperatureC: temperature,
+            controlMode: "Manual",
+            expectedCup: profile.goal
+        )
+        saveRecipeAction(recipe)
+        brewCoachQuestion = action.title
+        brewCoachAnswer = AppLocalization.text("brew_coach_saved_next_recipe", fallback: "Saved as your next recipe. Change one variable, then compare the result with your last brew.")
     }
 
     var brewCoachSuggestions: [String] {

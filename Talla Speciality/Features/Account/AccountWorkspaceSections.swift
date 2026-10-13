@@ -119,6 +119,7 @@ struct ProfileManagementSectionView: View {
 
     private func styledTextField(_ title: String, text: Binding<String>) -> some View {
         TextField(title, text: text)
+            .textFieldStyle(.plain)
             .textInputAutocapitalization(.words)
             .autocorrectionDisabled()
             .font(Font.custom("AvenirNext-Regular", size: 15))
@@ -135,6 +136,7 @@ struct ProfileManagementSectionView: View {
 
     private func styledNumberField(_ title: String, text: Binding<String>) -> some View {
         TextField(title, text: text)
+            .textFieldStyle(.plain)
             .keyboardType(.numberPad)
             .font(Font.custom("AvenirNext-Regular", size: 15))
             .foregroundColor(primaryTextColor)
@@ -196,6 +198,7 @@ struct PasswordResetSectionView: View {
 
     private func secureField(_ title: String, text: Binding<String>) -> some View {
         SecureField(title, text: text)
+            .textFieldStyle(.plain)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .font(Font.custom("AvenirNext-Regular", size: 15))

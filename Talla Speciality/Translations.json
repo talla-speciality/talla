@@ -1,4 +1,26 @@
 {
+  "gulf_passport_title": {"en": "Your Gulf coffee passport", "ar": "جواز قهوتك الخليجية"},
+  "gulf_passport_detail": {"en": "Collect verified places, remember the cup, and build a taste trail across the region.", "ar": "اجمع الأماكن الموثقة، وتذكّر فنجانك، وابنِ مسارك الذوقي في الخليج."},
+  "gulf_passport_progress": {"en": "%(visited) of %(total) places visited", "ar": "زرت %(visited) من أصل %(total) مكانًا"},
+  "gulf_passport_visited": {"en": "Visited", "ar": "تمت الزيارة"},
+  "gulf_passport_mark": {"en": "Add to passport", "ar": "أضف إلى الجواز"},
+  "gulf_city_picks": {"en": "City picks", "ar": "اختيارات المدن"},
+  "gulf_city_places": {"en": "places", "ar": "أماكن"},
+  "gulf_verified_profile": {"en": "Talla verified profile", "ar": "ملف موثق من تلة"},
+  "gulf_link_verified": {"en": "Link verified", "ar": "موثق عبر الرابط"},
+  "gulf_manually_verified": {"en": "Manually verified", "ar": "موثق يدويًا"},
+  "gulf_awaiting_review": {"en": "Awaiting verification", "ar": "بانتظار التوثيق"},
+  "gulf_events_available": {"en": "Events listed", "ar": "فعاليات متاحة"},
+  "gulf_brew_at_home": {"en": "Brew this coffee at home", "ar": "حضّر هذه القهوة في المنزل"},
+  "gulf_brew_guide": {"en": "Brew this coffee at home", "ar": "حضّر هذه القهوة في المنزل"},
+  "gulf_upcoming_events": {"en": "Upcoming at this place", "ar": "الفعاليات القادمة هنا"},
+  "gulf_recommendations": {"en": "Picked for your next cup", "ar": "اختيارات لفنجانك القادم"},
+  "gulf_recommendation_new": {"en": "Verified in %@ · new passport stop", "ar": "موثق في %@ · محطة جديدة في جوازك"},
+  "gulf_recommendation_event": {"en": "Verified in %@ · upcoming event", "ar": "موثق في %@ · فعالية قادمة"},
+  "gulf_recommendation_pick": {"en": "Verified in %@ · Talla pick", "ar": "موثق في %@ · اختيار من تلة"},
+  "gulf_event_save": {"en": "Save", "ar": "حفظ"},
+  "gulf_event_saved": {"en": "Saved", "ar": "تم الحفظ"},
+  "gulf_report_correction": {"en": "Report a correction", "ar": "أرسل تصحيحًا"},
   "social_coffee_title": {"en": "Social Coffee", "ar": "قهوة تجمعنا"},
   "social_coffee_eyebrow": {"en": "COFFEE IS BETTER SHARED", "ar": "القهوة أجمل حين نتشاركها"},
   "social_coffee_hero_title": {"en": "Send a little warmth.", "ar": "أرسل لحظة دافئة."},
@@ -3078,6 +3100,21 @@
   "start_guided_brew": {
     "ar": "ابدأ تحضيراً موجهاً"
   },
+  "start_on_scale": {
+    "ar": "ابدأ على %@"
+  },
+  "live_recipe_targets": {
+    "ar": "سيتبع الوزن المباشر وأهداف الصب هذه الوصفة."
+  },
+  "guided_brew_learns": {
+    "ar": "ستوجهك تلة في كل خطوة وتتعلم من ملاحظاتك."
+  },
+  "brew_coach_saved_next_recipe": {
+    "ar": "تم حفظها كوصفة التحضير التالية. غيّر متغيراً واحداً ثم قارن النتيجة بآخر تحضير."
+  },
+  "start_brew_coach": {
+    "ar": "ابدأ مع مدرب التحضير"
+  },
   "start_quiz": {
     "ar": "ابدأ"
   },
@@ -3395,6 +3432,9 @@
   },
   "brew_coach": {
     "ar": "مدرب التحضير"
+  },
+  "brew_coach_default_detail": {
+    "ar": "بداية هادئة وموجّهة لقهوة اليوم. تستخدم تلة تحضيراتك السابقة وملاحظاتك ومعداتك لتجعل الكوب القادم أسهل."
   },
   "brew_coach_detail": {
     "ar": "تعديلات صغيرة للكوب القادم."

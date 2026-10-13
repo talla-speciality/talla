@@ -31,7 +31,7 @@ extension BrewingSectionView {
     var primaryBrewActionCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "wand.and.stars")
+                Image(systemName: "brain.head.profile")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(brewAccentForegroundColor)
                     .frame(width: 46, height: 46)
@@ -40,23 +40,23 @@ extension BrewingSectionView {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(AppLocalization.text("create_brew_recipe", fallback: "Create a Brew Recipe"))
+                    Text(AppLocalization.text("brew_coach", fallback: "Brew Coach"))
                         .font(Font.custom("Georgia-Bold", size: isCompact ? 25 : 30))
                         .foregroundColor(primaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text(AppLocalization.text("create_brew_recipe_detail", fallback: "Tell Talla about your coffee, equipment, and taste goal. We’ll build a recipe around them."))
+                    Text(AppLocalization.text("brew_coach_default_detail", fallback: "A calm, guided start for today’s coffee. Talla uses your last brews, taste feedback, and equipment to make the next cup easier."))
                         .font(bodyFont)
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            HStack(spacing: 10) {
+            VStack(spacing: 10) {
                 Button {
-                    activeDashboardDestination = .createRecipe
+                    activeDashboardDestination = .brewCoach
                 } label: {
-                    Label(AppLocalization.text("create_recipe", fallback: "Create Recipe"), systemImage: "plus")
+                    Label(AppLocalization.text("start_brew_coach", fallback: "Start with Brew Coach"), systemImage: "arrow.forward")
                         .font(Font.custom("AvenirNext-Bold", size: 12))
                         .tracking(AppLocalization.letterSpacing(1.2))
                         .textCase(.uppercase)
@@ -70,27 +70,50 @@ extension BrewingSectionView {
                 }
                 .buttonStyle(.plain)
 
-                if coffeeMemoryEnabled && roastDateOCREnabled {
+                HStack(spacing: 10) {
                     Button {
-                        activeDashboardDestination = .scanCoffeeBag
+                        activeDashboardDestination = .createRecipe
                     } label: {
-                    Text(AppLocalization.text("scan_coffee_bag", fallback: "Scan Coffee Bag"))
-                        .font(Font.custom("AvenirNext-Bold", size: 12))
-                        .tracking(AppLocalization.letterSpacing(1.2))
-                        .textCase(.uppercase)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                        .foregroundColor(primaryTextColor)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
-                        .background(cardFillColor)
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .stroke(TallaTheme.Colors.ink.opacity(0.22), lineWidth: 1)
-                        )
-                        .clipShape(Capsule(style: .continuous))
+                        Label(AppLocalization.text("create_recipe", fallback: "Create Recipe"), systemImage: "slider.horizontal.3")
+                            .font(Font.custom("AvenirNext-Bold", size: 12))
+                            .tracking(AppLocalization.letterSpacing(1.2))
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                            .foregroundColor(primaryTextColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(cardFillColor)
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(TallaTheme.Colors.ink.opacity(0.22), lineWidth: 1)
+                            )
+                            .clipShape(Capsule(style: .continuous))
                     }
                     .buttonStyle(.plain)
+
+                    if coffeeMemoryEnabled && roastDateOCREnabled {
+                        Button {
+                            activeDashboardDestination = .scanCoffeeBag
+                        } label: {
+                            Text(AppLocalization.text("scan_coffee_bag", fallback: "Scan Coffee Bag"))
+                                .font(Font.custom("AvenirNext-Bold", size: 12))
+                                .tracking(AppLocalization.letterSpacing(1.2))
+                                .textCase(.uppercase)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.72)
+                                .foregroundColor(primaryTextColor)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 13)
+                                .background(cardFillColor)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .stroke(TallaTheme.Colors.ink.opacity(0.22), lineWidth: 1)
+                                )
+                                .clipShape(Capsule(style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
@@ -467,7 +490,12 @@ extension BrewingSectionView {
                     case .cuppingMode:
                         CuppingWorkspaceView(isSignedIn: isCustomerSignedIn, accent: brewAccentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     case .communityRecipes:
-                        CommunityRecipesView(isSignedIn: isCustomerSignedIn, accent: brewAccentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
+                        CommunityRecipesView(isSignedIn: isCustomerSignedIn, accent: brewAccentColor, background: brewBackgroundColor, surface: brewSurfaceColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor) { recipe in
+                            brewRecipeName = recipe.title
+                            if let coffeeGrams = recipe.coffeeGrams { ratioCoffeeInput = formattedRatioValue(coffeeGrams) }
+                            if let ratio = recipe.ratio { ratioValueInput = formattedRatioValue(ratio) }
+                            activeDashboardDestination = .brewTimer
+                        }
                     case .privacyControls:
                         PrivacyControlsView(accent: brewAccentColor, background: brewBackgroundColor, primary: brewPrimaryTextColor, secondary: brewSecondaryTextColor)
                     }

@@ -103,6 +103,58 @@ enum LoyaltyService {
         return try await performLoyaltyRequest(request)
     }
 
+    static func recordGulfCoffeeVisit(spotID: String) async throws -> ContentView.LoyaltyAccount {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/gulf-coffee-map/visits"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try AccountService.authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["spotID": spotID])
+        struct Envelope: Decodable { let loyalty: ContentView.LoyaltyAccount }
+        let (data, response) = try await AccountService.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The visit could not be saved.")
+        }
+        return try JSONDecoder().decode(Envelope.self, from: data).loyalty
+    }
+
+    static func fetchGulfCoffeeVisits() async throws -> [String] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/gulf-coffee-map/visits"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try AccountService.authorize(&request)
+        let (data, response) = try await AccountService.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The passport could not be loaded.")
+        }
+        struct Envelope: Decodable { let visitedSpotIDs: [String] }
+        return try JSONDecoder().decode(Envelope.self, from: data).visitedSpotIDs
+    }
+
+    static func fetchGulfCoffeeEventRSVPs() async throws -> [String] {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/gulf-coffee-map/events/rsvps"))
+        request.httpMethod = "GET"
+        try AccountService.authorize(&request)
+        let (data, response) = try await AccountService.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw ContentView.LoyaltyServiceError.operationFailed("The event list could not be loaded.") }
+        struct RSVP: Decodable { let eventID: String }
+        struct Envelope: Decodable { let rsvps: [RSVP] }
+        return try JSONDecoder().decode(Envelope.self, from: data).rsvps.map(\.eventID)
+    }
+
+    static func rsvpGulfCoffeeEvent(eventID: String, spotID: String) async throws {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The loyalty service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/gulf-coffee-map/events/rsvp"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        try AccountService.authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["eventID": eventID, "spotID": spotID])
+        let (_, response) = try await AccountService.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw ContentView.LoyaltyServiceError.operationFailed("The RSVP could not be saved.") }
+    }
+
     struct ReferralAccount: Codable {
         let code: String
         let reward: Reward

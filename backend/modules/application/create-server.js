@@ -217,11 +217,13 @@ module.exports = function createServer(dependencies) {
         adminGulfCoffeeRatings,
         aggregateGulfCoffeeRatings,
         gulfCoffeeDirectoryFor,
+        gulfCoffeeEventRSVPsFor,
         normalizeGulfCoffeeMapStore,
         moderateGulfCoffeeRating,
         replaceGulfCoffeeDirectory,
         gulfCoffeeRatingsFor,
         saveGulfCoffeeRating,
+        saveGulfCoffeeEventRSVP,
         generateVoucherCode,
         generateWalletPass,
         getAccountByAppleUserID,
@@ -1269,6 +1271,7 @@ module.exports = function createServer(dependencies) {
                 directory: gulfCoffeeDirectoryFor(store),
                 ratings: aggregateGulfCoffeeRatings(store),
                 reviews: url.pathname === "/admin/api/gulf-coffee-map/ratings" ? adminGulfCoffeeRatings(store) : [],
+                eventRSVPs: gulfCoffeeEventRSVPSummary(store),
                 totalRatings: Object.values(store.ratings).reduce((count, entries) => count + (Array.isArray(entries) ? entries.length : 0), 0)
             });
             return;
@@ -5124,6 +5127,107 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    if (request.method === "GET" && url.pathname === "/gulf-coffee-map/visits") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const account = await ensureLoyaltyAccount(customer.email);
+        sendJSON(response, 200, {
+            visitedSpotIDs: Array.isArray(account.visitedCafeIDs) ? account.visitedCafeIDs : [],
+            loyalty: loyaltyPayload(account)
+        });
+        return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/gulf-coffee-map/events/rsvps") {
+        const authenticated = parseAuthenticatedCustomer(request, response);
+        if (!authenticated) return;
+        const customer = await resolveCustomerSession(authenticated, response);
+        if (!customer) return;
+        const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+        sendJSON(response, 200, { rsvps: gulfCoffeeEventRSVPsFor(store, customer.email) });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/gulf-coffee-map/events/rsvp") {
+        try {
+            const body = await readBody(request, 16_384);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const store = normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath));
+            const rsvp = saveGulfCoffeeEventRSVP(store, customer.email, body);
+            if (!rsvp) {
+                sendJSON(response, 404, { error: "That event is no longer available." });
+                return;
+            }
+            writeJSON(gulfCoffeeMapStorePath, store);
+            sendJSON(response, 201, { status: "reserved", rsvp });
+        } catch (error) {
+            sendJSON(response, error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400, { error: "Invalid event RSVP payload." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/gulf-coffee-map/visits") {
+        try {
+            const body = await readBody(request, 16_384);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const spotID = String(body.spotID || body.spotId || "").trim().slice(0, 100).toLowerCase();
+            if (!spotID) { sendJSON(response, 400, { error: "spotID is required." }); return; }
+            const directory = gulfCoffeeDirectoryFor(normalizeGulfCoffeeMapStore(readJSON(gulfCoffeeMapStorePath)));
+            if (!directory.some((place) => String(place.id).toLowerCase() === spotID)) {
+                sendJSON(response, 404, { error: "That Gulf Coffee Map place is not available." });
+                return;
+            }
+            const account = await ensureLoyaltyAccount(customer.email);
+            const transactionID = `gulf-map-visit:${spotID}`;
+            if (account.transactions?.some((transaction) => transaction.id === transactionID)) {
+                sendJSON(response, 200, { status: "already_recorded", loyalty: loyaltyPayload(account) });
+                return;
+            }
+            let pointsAwarded = 10;
+            const updated = await updateLoyaltyAccount(customer.email, (loyaltyAccount) => {
+                loyaltyAccount.transactions = Array.isArray(loyaltyAccount.transactions) ? loyaltyAccount.transactions : [];
+                loyaltyAccount.visitedCafeIDs = Array.isArray(loyaltyAccount.visitedCafeIDs) ? loyaltyAccount.visitedCafeIDs : [];
+                const isNewSpot = !loyaltyAccount.visitedCafeIDs.includes(spotID);
+                if (isNewSpot) loyaltyAccount.visitedCafeIDs.push(spotID);
+                loyaltyAccount.crossCafeVisits = loyaltyAccount.visitedCafeIDs.length;
+                loyaltyAccount.pointsBalance += 10;
+                if (isNewSpot && loyaltyAccount.visitedCafeIDs.length >= 2 && !loyaltyAccount.transactions.some((transaction) => transaction.id === "cross-cafe:2")) {
+                    loyaltyAccount.pointsBalance += 25;
+                    pointsAwarded += 25;
+                    loyaltyAccount.transactions.unshift({ id: "cross-cafe:2", type: "earn", points: 25, note: "Cross-café reward", createdAt: new Date().toISOString() });
+                }
+                const today = new Date().toISOString().slice(0, 10);
+                const previous = loyaltyAccount.lastVisitDate ? Date.parse(`${loyaltyAccount.lastVisitDate}T00:00:00Z`) : NaN;
+                const current = Date.parse(`${today}T00:00:00Z`);
+                const isYesterday = Number.isFinite(previous) && current - previous === 86_400_000;
+                const isToday = Number.isFinite(previous) && current === previous;
+                loyaltyAccount.visitStreakDays = isToday ? Number(loyaltyAccount.visitStreakDays || 0) : (isYesterday ? Number(loyaltyAccount.visitStreakDays || 0) + 1 : 1);
+                loyaltyAccount.lastVisitDate = today;
+                if (!isToday && loyaltyAccount.visitStreakDays >= 3) {
+                    const streakID = `visit-streak:${today}`;
+                    if (!loyaltyAccount.transactions.some((transaction) => transaction.id === streakID)) {
+                        loyaltyAccount.pointsBalance += 15;
+                        pointsAwarded += 15;
+                        loyaltyAccount.transactions.unshift({ id: streakID, type: "earn", points: 15, note: `${loyaltyAccount.visitStreakDays}-day visit streak`, createdAt: new Date().toISOString() });
+                    }
+                }
+                loyaltyAccount.transactions.unshift({ id: transactionID, type: "earn", points: 10, note: `Gulf Coffee Map visit • ${spotID}`, createdAt: new Date().toISOString() });
+            });
+            sendJSON(response, 201, { status: "recorded", pointsAwarded, loyalty: loyaltyPayload(updated) });
+        } catch (error) {
+            sendJSON(response, error.code === "REQUEST_BODY_TOO_LARGE" ? 413 : 400, { error: "Invalid Gulf Coffee Map visit payload." });
+        }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/taste-memory/save") {
         try {
             const body = await readBody(request);
@@ -5215,6 +5319,29 @@ module.exports = function createServer(dependencies) {
         sendJSON(response, 200, { recipes: recipes
             .filter((recipe) => recipe.status === "approved" || recipe.authorEmail === customer.email)
             .map(({ authorEmail, ...recipe }) => ({ ...recipe, canEdit: authorEmail === customer.email })) });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/community/recipes/brew-result") {
+        try {
+            const body = await readBody(request);
+            const authenticated = parseAuthenticatedCustomer(request, response);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            const recipeID = trimText(body.id, 160);
+            if (!recipeID) { sendJSON(response, 400, { error: "Recipe id is required." }); return; }
+            const store = readJSON(communityRecipesStorePath);
+            const recipe = (Array.isArray(store.recipes) ? store.recipes : []).find((item) => item.id === recipeID && (item.status === "approved" || item.authorEmail === customer.email));
+            if (!recipe) { sendJSON(response, 404, { error: "Recipe not found." }); return; }
+            recipe.totalBrews = Math.max(0, Math.round(Number(recipe.totalBrews) || 0)) + 1;
+            recipe.successfulBrews = Math.min(recipe.totalBrews, Math.max(0, Math.round(Number(recipe.successfulBrews) || 0)) + (body.successful === true ? 1 : 0));
+            recipe.lastBrewedAt = new Date().toISOString();
+            writeJSON(communityRecipesStorePath, store);
+            sendJSON(response, 200, { recipe: { ...recipe, canEdit: recipe.authorEmail === customer.email } });
+        } catch (error) {
+            sendJSON(response, 400, { error: "Invalid brew result payload." });
+        }
         return;
     }
 
@@ -5698,6 +5825,17 @@ module.exports = function createServer(dependencies) {
                 title,
                 method,
                 detail,
+                coffee: trimText(body.coffee, 120),
+                brewer: trimText(body.brewer, 80),
+                grinder: trimText(body.grinder, 120),
+                tasteGoal: trimText(body.tasteGoal, 60),
+                coffeeGrams: Number.isFinite(Number(body.coffeeGrams)) ? Number(body.coffeeGrams) : null,
+                ratio: Number.isFinite(Number(body.ratio)) ? Number(body.ratio) : null,
+                successfulBrews: Math.min(Math.max(0, Math.round(Number(body.successfulBrews) || 0)), Math.max(0, Math.round(Number(body.totalBrews) || 0))),
+                totalBrews: Math.max(0, Math.round(Number(body.totalBrews) || 0)),
+                beginnerFriendly: body.beginnerFriendly === true,
+                roaster: trimText(body.roaster, 120),
+                barista: trimText(body.barista, 120),
                 author: trimText(body.author, 80) || customer.email.split("@")[0],
                 authorEmail: customer.email,
                 status: "pending",
@@ -5734,6 +5872,17 @@ module.exports = function createServer(dependencies) {
             recipe.title = title;
             recipe.method = method;
             recipe.detail = detail;
+            recipe.coffee = trimText(body.coffee, 120);
+            recipe.brewer = trimText(body.brewer, 80);
+            recipe.grinder = trimText(body.grinder, 120);
+            recipe.tasteGoal = trimText(body.tasteGoal, 60);
+            recipe.coffeeGrams = Number.isFinite(Number(body.coffeeGrams)) ? Number(body.coffeeGrams) : null;
+            recipe.ratio = Number.isFinite(Number(body.ratio)) ? Number(body.ratio) : null;
+            recipe.totalBrews = Math.max(0, Math.round(Number(body.totalBrews) || 0));
+            recipe.successfulBrews = Math.min(recipe.totalBrews, Math.max(0, Math.round(Number(body.successfulBrews) || 0)));
+            recipe.beginnerFriendly = body.beginnerFriendly === true;
+            recipe.roaster = trimText(body.roaster, 120);
+            recipe.barista = trimText(body.barista, 120);
             recipe.status = "pending";
             recipe.updatedAt = new Date().toISOString();
             delete recipe.moderatedAt;

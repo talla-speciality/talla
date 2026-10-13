@@ -297,7 +297,7 @@ struct EspressoWorkspaceView: View {
         }.navigationTitle("New shot").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") { showNewShot = false; finishShot() } } } }
     }
 
-    private func editorField(_ title: String, text: Binding<String>) -> some View { TextField(title, text: text).textFieldStyle(.talla) }
+    private func editorField(_ title: String, text: Binding<String>) -> some View { TextField(title, text: text) }
     private func startShot() { elapsed = 0; firstDrop = nil; liveWeight = 0; weightSamples = []; advancedTelemetry = []; didAlertTarget = false; isRunning = true; advancedTelemetry.append(EspressoTelemetrySample(elapsedSeconds: 0, kind: .temperature, value: draft.temperature)); if let pressure = draft.pressure { advancedTelemetry.append(EspressoTelemetrySample(elapsedSeconds: 0, kind: .pressure, value: pressure)) }; TallaWatchPhoneBridge.sendEspressoState(elapsed: 0, weight: 0, ratio: draft.ratio, flow: 0, targetYield: draft.yield, isRunning: true); if scaleManager.isConnected { scaleManager.tare(); scaleManager.startTimer() } }
     private func finishShot() {
         guard !isRunning || elapsed > 0 else { return }

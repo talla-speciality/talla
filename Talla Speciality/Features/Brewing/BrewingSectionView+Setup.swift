@@ -714,6 +714,7 @@ extension BrewingSectionView {
                                 .foregroundColor(brewSecondaryTextColor)
                                 .accessibilityHidden(true)
                             TextField(AppLocalization.text("search_methods", fallback: "Search methods"), text: $methodSearchText)
+                                .textFieldStyle(.plain)
                                 .textInputAutocapitalization(.words)
                                 .disableAutocorrection(true)
                                 .font(.system(size: 16))
@@ -764,18 +765,23 @@ extension BrewingSectionView {
                                 .frame(maxWidth: .infinity, minHeight: 50)
                         }
                         .buttonStyle(.plain)
-                        .foregroundColor(brewAccentForegroundColor)
-                        .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .background(brewSurfaceColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(brewBorderColor, lineWidth: 1)
+                        )
 
                         Button {
                             beginCustomRecipeSetup(with: selectedMethodChoice)
                         } label: {
                             Text(AppLocalization.text("customize_recipe", fallback: "Customize recipe"))
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(brewAccentColor)
-                                .frame(maxWidth: .infinity, minHeight: 36)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(brewAccentForegroundColor)
+                                .frame(maxWidth: .infinity, minHeight: 50)
                         }
                         .buttonStyle(.plain)
+                        .background(brewAccentColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                         .padding(.bottom, 4)
                     }

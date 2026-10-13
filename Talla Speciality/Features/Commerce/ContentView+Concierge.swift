@@ -75,6 +75,7 @@ extension ContentView {
 
             HStack(spacing: 8) {
                 TextField(AppLocalization.text("coffee_concierge_placeholder", fallback: "Example: why does my espresso taste sour?"), text: $conciergeRequest)
+                    .textFieldStyle(.plain)
                     .font(bodyFont(size: 13))
                     .foregroundColor(primaryTextColor)
                     .textInputAutocapitalization(.sentences)

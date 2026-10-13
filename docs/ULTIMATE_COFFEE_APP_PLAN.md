@@ -12,6 +12,43 @@ Talla should help a customer discover better coffee, buy it with confidence, bre
 
 ## Priority product pillars
 
+### 7. One coherent Talla layer
+
+Talla should combine the strongest competitor patterns into one calm loop rather than expose a collection of separate tools:
+
+| Competitor strength | Talla response |
+| --- | --- |
+| Filtru’s calm guided brewing | Make Brew Coach the default brewing entry point, with one obvious path into a guided brew. |
+| Beanconqueror’s depth | Keep advanced data, history, curves, calibration, and science behind progressive disclosure. |
+| Acaia’s scale recipes | Handoff recipe targets to the connected scale profile and show the device-specific live start when available. |
+| Brewfather’s versioning and AI | Treat every completed brew and taste signal as input to the next recipe revision, with explainable adjustments. |
+| Talla’s advantage | Connect the brew loop directly to local coffee discovery, commerce, loyalty, delivery, and Gulf context. |
+
+The product loop is `Coach → Brew → Taste → Improve → Discover or reorder`. The default surface should feel quiet and useful for a beginner; experts can expand recipe science, equipment, measured curves, and calibration without losing the simple path. A connected device should reduce effort rather than become a prerequisite: when a supported scale is available, the recipe becomes a device-aware live session; when it is not, the same guided session remains fully usable.
+
+Every completed brew should offer one next action: save the feedback, apply a small recipe revision, or discover the next local coffee. Recommendations remain explainable and overridable, and any commerce or Gulf discovery handoff should preserve the coffee, method, and taste context that produced the recommendation.
+
+### Gulf Coffee Map moat
+
+The Gulf Coffee Map should be treated as Talla’s regional knowledge layer, not a directory screen. Every listing becomes a maintained coffee profile with a visible trust state, Arabic and English identity, city context, current offerings, verified tasting notes, brew guidance, and an events surface.
+
+The defensibility comes from the loop: Talla verifies a place or roaster, customers log a visit and taste, baristas and partners add structured sensory context, and the resulting regional coffee graph improves city recommendations and “brew this coffee at home” guidance. Ratings alone are easy to copy; verified provenance, local language, repeat tasting history, and partner-maintained freshness are not.
+
+The first product slice should connect:
+
+- verified profiles and link/manual verification states;
+- a regional coffee passport tied to visited places and coffees tried;
+- structured tasting notes with moderation and provenance;
+- a recipe handoff from any bean or drink to a home-brew guide;
+- city picks, cuppings, workshops, and local events;
+- Arabic-first discovery copy with English parity.
+
+The backend should make profile freshness explicit (`verifiedAt`, `verifiedBy`, `lastCheckedAt`, and `sourceURL`), keep public notes separate from private memory, and record explainable recommendation signals. The operating metric is not map views; it is verified discovery that becomes a saved taste memory, a completed brew, a repeat visit, or a Talla reorder.
+
+The admin workspace owns the maintenance loop: editors can update trust and freshness fields, bilingual profile copy, tasting notes, offerings, brew guidance, and local events from the Gulf Coffee Map directory editor. This keeps the moat alive as places, menus, and event calendars change.
+
+Published events are now part of the same profile graph, allowing a place to surface its next cupping or workshop in context instead of sending customers to a disconnected calendar.
+
 ### 1. Discover and choose
 
 - Taste quiz that recommends a coffee, brew method, grind, and starter recipe.

@@ -743,7 +743,6 @@ struct CoffeeLibraryView: View {
                     HStack(spacing: 10) {
                         TextField("Dose (g)", text: $quickDose)
                             .keyboardType(.decimalPad)
-                            .textFieldStyle(.roundedBorder)
                         Text("Tap a bag below to deduct this dose without saving a journal entry.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1362,7 +1361,7 @@ extension CoffeeDataStore {
             value.contains("sour") || value.contains("acid") || value.contains("bitter") || value.contains("dry") || value.contains("weak") || value.contains("strong") || value.contains("loved") || value.contains("sweet") || value.contains("like this") || value.contains("balanced") || value.contains("bright") || value.contains("pleasant")
         }) ?? ""
         let title = latest["title"] as? String ?? "This coffee"
-        let method = latest["method"] as? String ?? "your brew"
+        _ = latest["method"] as? String ?? "your brew"
         let dose = (latest["coffeeGrams"] as? NSNumber)?.doubleValue
         let water = (latest["waterGrams"] as? NSNumber)?.doubleValue
         let ratio: Double? = {

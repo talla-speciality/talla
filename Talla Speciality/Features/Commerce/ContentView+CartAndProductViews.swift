@@ -421,16 +421,13 @@ extension ContentView {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField(AppLocalization.text("gift_recipient_name", fallback: "Recipient name"), text: $giftRecipientName)
                         .textContentType(.name)
-                        .textFieldStyle(.talla)
                         .accessibilityIdentifier("checkout.gift.recipient")
                     TextField(AppLocalization.text("gift_recipient_phone", fallback: "Recipient phone"), text: $giftRecipientPhone)
                         .keyboardType(.phonePad)
                         .textContentType(.telephoneNumber)
-                        .textFieldStyle(.talla)
                         .accessibilityIdentifier("checkout.gift.phone")
                     TextField(AppLocalization.text("gift_message", fallback: "Add a message (optional)"), text: $giftMessage, axis: .vertical)
                         .lineLimit(2...4)
-                        .textFieldStyle(.talla)
                         .accessibilityIdentifier("checkout.gift.message")
                 }
                 .padding(12)
@@ -442,7 +439,6 @@ extension ContentView {
                         .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
-                        .textFieldStyle(.talla)
                     Text("Shopify sends the gift card code to this email after the order is fulfilled.")
                         .font(bodyFont(size: 11)).foregroundColor(secondaryTextColor)
                 }
@@ -791,13 +787,9 @@ extension ContentView {
                 .foregroundColor(secondaryTextColor)
             TextField("Company legal name (required)", text: $officeCompanyName)
                 .textContentType(.organizationName)
-                .textFieldStyle(.talla)
             TextField("VAT registration number (optional)", text: $officeVATNumber)
-                .textFieldStyle(.talla)
             TextField("Commercial registration number (optional)", text: $officeCommercialRegistrationNumber)
-                .textFieldStyle(.talla)
             TextField("Purchase order reference (optional)", text: $officePurchaseOrderReference)
-                .textFieldStyle(.talla)
         }
         .padding(14)
         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))

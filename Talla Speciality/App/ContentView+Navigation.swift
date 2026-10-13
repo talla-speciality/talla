@@ -99,8 +99,7 @@ extension ContentView {
             break
         }
 
-        activeTab = .more
-        isAccountPresentedFromMore = true
+        activeTab = .account
         accountScrollTarget = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
             accountScrollTarget = target

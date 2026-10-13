@@ -11,9 +11,21 @@
       "address": "Villa 336, Street 1307, Riffa 913",
       "categories": ["Cafés", "Roasters", "Work-friendly"],
       "tags": ["pour over", "quiet", "single origin"],
+      "description": {
+        "en": "Talla’s home location for coffee, conversation and beans.",
+        "ar": "موقع تلة الرئيسي للقهوة والحديث وحبوب القهوة."
+      },
+      "tastingNotes": {
+        "en": "Floral, peach, tea-like",
+        "ar": "زهري، خوخ، بنكهة الشاي"
+      },
+      "verifiedAt": "2026-10-12T00:00:00.000Z",
+      "verifiedBy": "talla-editorial",
+      "lastCheckedAt": "2026-10-12T00:00:00.000Z",
+      "sourceURL": "https://maps.app.goo.gl/PaaVd6sz66JGk4KS9?g_st=ic",
       "offerings": [
-        {"id": "bhr-seef-v60", "name": "Ethiopia V60", "kind": "drink"},
-        {"id": "bhr-seef-bean", "name": "House seasonal lot", "kind": "bean"}
+        {"id": "bhr-seef-v60", "name": "Ethiopia V60", "kind": "drink", "detail": "Floral · peach · tea-like", "detailAR": "زهري · خوخ · بنكهة الشاي", "brewMethod": "V60", "brewRatio": "15 g coffee · 250 g water", "brewTemperature": "92–94°C", "brewTip": "Start with a medium-fine grind and pour slowly."},
+        {"id": "bhr-seef-bean", "name": "House seasonal lot", "kind": "bean", "detail": "250 g · light roast", "detailAR": "250 غ · تحميص فاتح", "brewMethod": "V60 or AeroPress", "brewRatio": "15 g coffee · 250 g water", "brewTemperature": "90–93°C", "brewTip": "Adjust grind before changing the recipe."}
       ],
       "verificationStatus": "verified"
     },

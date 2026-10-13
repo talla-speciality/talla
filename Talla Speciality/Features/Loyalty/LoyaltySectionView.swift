@@ -393,6 +393,7 @@ struct LoyaltySectionView: View {
                 .foregroundColor(TallaTheme.Colors.ink)
 
             TextField("name@email.com", text: $loyaltyEmail)
+                .textFieldStyle(.plain)
                 .textInputAutocapitalization(.never)
                 .keyboardType(.emailAddress)
                 .autocorrectionDisabled()
@@ -584,7 +585,6 @@ private struct ReferralSectionView: View {
             HStack {
                 TextField(AppLocalization.text("referral_code_placeholder", fallback: "TALLA-XXXXXXXX"), text: $redeemCode)
                     .textInputAutocapitalization(.characters)
-                    .textFieldStyle(.talla)
                 Button(AppLocalization.text("redeem", fallback: "Redeem")) { redeem() }
                     .buttonStyle(.tallaSecondary)
                     .disabled(isLoading || redeemCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

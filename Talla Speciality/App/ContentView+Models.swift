@@ -34,11 +34,9 @@ extension ContentView {
     enum Tab: String, CaseIterable, Identifiable {
         case home
         case shop
-        case club
         case brewing
-        case map
+        case discover
         case account
-        case more
         case search
 
         var id: String { rawValue }
@@ -49,16 +47,12 @@ extension ContentView {
                 return "house"
             case .shop:
                 return "square.grid.2x2"
-            case .club:
-                return "sparkles"
             case .brewing:
                 return "drop"
-            case .map:
-                return "map"
+            case .discover:
+                return "safari"
             case .account:
                 return "person"
-            case .more:
-                return "ellipsis"
             case .search:
                 return "magnifyingglass"
             }

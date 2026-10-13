@@ -2,6 +2,50 @@ const crypto = require("crypto");
 
 const ALLOWED_RATINGS = new Set([1, 2, 3, 4, 5]);
 
+function text(value, limit = 500) {
+    return String(value || "").trim().slice(0, limit);
+}
+
+function localized(value, limit = 500) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return { en: "", ar: "" };
+    return { en: text(value.en, limit), ar: text(value.ar, limit) };
+}
+
+function normalizeOffering(offering, index) {
+    if (!offering || typeof offering !== "object") return null;
+    const id = text(offering.id, 140) || `offering-${index + 1}`;
+    const kind = ["drink", "bean", "workshop"].includes(String(offering.kind || "").toLowerCase())
+        ? String(offering.kind).toLowerCase()
+        : "drink";
+    return {
+        ...offering,
+        id,
+        name: text(offering.name, 160),
+        detail: text(offering.detail, 300),
+        detailAR: text(offering.detailAR, 300),
+        kind,
+        brewMethod: text(offering.brewMethod, 120),
+        brewRatio: text(offering.brewRatio, 160),
+        brewTemperature: text(offering.brewTemperature, 80),
+        brewTip: text(offering.brewTip, 300)
+    };
+}
+
+function normalizeEvent(event, index) {
+    if (!event || typeof event !== "object") return null;
+    const id = text(event.id, 120) || `event-${index + 1}`;
+    const title = localized(event.title, 160);
+    return {
+        ...event,
+        id,
+        title,
+        kind: text(event.kind, 80),
+        startsAt: text(event.startsAt, 50),
+        url: text(event.url, 500),
+        status: ["published", "cancelled", "draft"].includes(event.status) ? event.status : "published"
+    };
+}
+
 const defaultDirectory = [
     { id: "bhr-seef", name: "Talla Speciality", city: "Riffa", country: "Bahrain", neighborhood: "Riffa 913", websiteURL: "https://maps.app.goo.gl/PaaVd6sz66JGk4KS9?g_st=ic", address: "Villa 336, Street 1307, Riffa 913", categories: ["Cafés", "Roasters", "Work-friendly"], tags: ["pour over", "quiet", "single origin"], offerings: [{ id: "bhr-seef-v60", name: "Ethiopia V60", kind: "drink" }, { id: "bhr-seef-bean", name: "House seasonal lot", kind: "bean" }] },
     { id: "ksa-riyadh", name: "Origin Room", city: "Riyadh", country: "Saudi Arabia", neighborhood: "Al Olaya", categories: ["Cafés", "Cuppings & workshops", "Work-friendly"], tags: ["cupping", "espresso", "work tables"], offerings: [{ id: "ksa-riyadh-espresso", name: "House espresso", kind: "drink" }, { id: "ksa-riyadh-cupping", name: "Friday cupping", kind: "workshop" }] },
@@ -32,7 +76,8 @@ function normalizeStore(store) {
     const ratings = store && typeof store.ratings === "object" && !Array.isArray(store.ratings) ? store.ratings : {};
     // An explicitly saved empty directory is intentional: admin removals must persist.
     const directory = Array.isArray(store?.directory) ? store.directory : defaultDirectory;
-    return { version: 1, directory, ratings };
+    const rsvps = store && typeof store.rsvps === "object" && !Array.isArray(store.rsvps) ? store.rsvps : {};
+    return { version: 1, directory, ratings, rsvps };
 }
 
 function directoryFor(store) {
@@ -56,8 +101,15 @@ function replaceDirectory(store, directory) {
         address: String(place.address || "").trim().slice(0, 300),
         phone: String(place.phone || "").trim().slice(0, 80),
         hours: String(place.hours || "").trim().slice(0, 300),
-        verificationStatus: String(place.verificationStatus || "unverified").trim().slice(0, 40),
-        offerings: Array.isArray(place.offerings) ? place.offerings.slice(0, 30) : []
+        verificationStatus: text(place.verificationStatus || "unverified", 40),
+        verifiedAt: text(place.verifiedAt, 50),
+        verifiedBy: text(place.verifiedBy, 160),
+        lastCheckedAt: text(place.lastCheckedAt, 50),
+        sourceURL: text(place.sourceURL, 500),
+        description: localized(place.description, 700),
+        tastingNotes: localized(place.tastingNotes, 500),
+        offerings: Array.isArray(place.offerings) ? place.offerings.slice(0, 30).map(normalizeOffering).filter(Boolean) : [],
+        events: Array.isArray(place.events) ? place.events.slice(0, 30).map(normalizeEvent).filter(Boolean) : []
     }));
     if (next.some((place) => !place.id || !place.name || !place.city || !place.country)) return null;
     normalized.directory = next;
@@ -77,6 +129,47 @@ function saveRating(store, email, input) {
     const current = ratingsFor(normalized, email).filter((entry) => entry.offeringID !== next.offeringID);
     normalized.ratings[email] = [next, ...current].slice(0, 500);
     return next;
+}
+
+function saveEventRSVP(store, email, input) {
+    const normalized = normalizeStore(store);
+    const eventID = text(input?.eventID || input?.eventId, 120);
+    const spotID = text(input?.spotID || input?.spotId, 100);
+    if (!email || !eventID || !spotID) return null;
+    const place = normalized.directory.find((entry) => entry.id === spotID);
+    const event = place?.events?.find((entry) => entry.id === eventID && entry.status === "published");
+    if (!event) return null;
+    const current = Array.isArray(normalized.rsvps[email]) ? normalized.rsvps[email] : [];
+    const existing = current.find((entry) => entry.eventID === eventID);
+    if (existing) return existing;
+    const record = { id: `gcmrsvp_${crypto.randomUUID()}`, eventID, spotID, startsAt: event.startsAt, createdAt: new Date().toISOString() };
+    normalized.rsvps[email] = [record, ...current].slice(0, 200);
+    return record;
+}
+
+function eventRSVPsFor(store, email) {
+    const normalized = normalizeStore(store);
+    return (Array.isArray(normalized.rsvps[email]) ? normalized.rsvps[email] : []).slice(0, 200);
+}
+
+function eventRSVPSummary(store) {
+    const normalized = normalizeStore(store);
+    const counts = {};
+    for (const entries of Object.values(normalized.rsvps)) {
+        for (const entry of Array.isArray(entries) ? entries : []) {
+            if (!entry?.eventID) continue;
+            counts[entry.eventID] = (counts[entry.eventID] || 0) + 1;
+        }
+    }
+    return normalized.directory.flatMap((place) => (Array.isArray(place.events) ? place.events : []).map((event) => ({
+        eventID: event.id,
+        spotID: place.id,
+        spotName: place.name,
+        title: event.title,
+        startsAt: event.startsAt,
+        status: event.status,
+        rsvpCount: counts[event.id] || 0
+    })));
 }
 
 function aggregateRatings(store) {
@@ -139,4 +232,4 @@ function moderateRating(store, ratingID, status, adminUsername) {
     return null;
 }
 
-module.exports = { adminRatings, aggregateRatings, defaultDirectory, directoryFor, moderateRating, normalizeRatingInput, normalizeStore, publicReviews, ratingsFor, replaceDirectory, saveRating };
+module.exports = { adminRatings, aggregateRatings, defaultDirectory, directoryFor, eventRSVPsFor, eventRSVPSummary, moderateRating, normalizeRatingInput, normalizeStore, publicReviews, ratingsFor, replaceDirectory, saveEventRSVP, saveRating };

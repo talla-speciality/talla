@@ -60,6 +60,7 @@ extension BrewingSectionView {
                         .font(brewEyebrowFont)
                         .foregroundColor(brewSecondaryTextColor)
                     TextField(AppLocalization.text("coffee_name_placeholder", fallback: "Coffee name"), text: $coffeeName)
+                        .textFieldStyle(.plain)
                         .textInputAutocapitalization(.words)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(brewPrimaryTextColor)
@@ -566,6 +567,7 @@ extension BrewingSectionView {
                 .foregroundColor(brewSecondaryTextColor)
 
             TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
                 .font(.system(size: 15))
                 .foregroundColor(brewPrimaryTextColor)
                 .textInputAutocapitalization(.words)
@@ -616,7 +618,8 @@ extension BrewingSectionView {
             .buttonStyle(.plain)
 
             if selection.wrappedValue.isEmpty {
-                TextField(customPlaceholder, text: selection)
+            TextField(customPlaceholder, text: selection)
+                .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .foregroundColor(brewPrimaryTextColor)
                     .textInputAutocapitalization(.words)

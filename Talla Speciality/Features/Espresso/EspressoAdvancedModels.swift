@@ -301,6 +301,7 @@ struct EspressoAdvancedPanel: View {
                     .frame(maxWidth: .infinity)
             }.buttonStyle(.tallaSecondary)
             TextField("Video URL (optional)", text: $videoURL)
+                .textFieldStyle(.plain)
                 .textInputAutocapitalization(.never)
                 .keyboardType(.URL)
                 .padding(.horizontal, 12).padding(.vertical, 10)
@@ -345,6 +346,7 @@ struct EspressoAdvancedPanel: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.caption2).foregroundStyle(.secondary)
             TextField(title, value: value, format: .number)
+                .textFieldStyle(.plain)
                 .keyboardType(.decimalPad)
                 .font(.body.monospacedDigit())
         }

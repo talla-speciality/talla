@@ -150,6 +150,17 @@ enum AccountService {
         let method: String
         let detail: String
         let author: String
+        let coffee: String?
+        let brewer: String?
+        let grinder: String?
+        let tasteGoal: String?
+        let coffeeGrams: Double?
+        let ratio: Double?
+        let successfulBrews: Int?
+        let totalBrews: Int?
+        let beginnerFriendly: Bool?
+        let roaster: String?
+        let barista: String?
         let status: String
         let createdAt: String
         let canEdit: Bool?
@@ -165,26 +176,41 @@ enum AccountService {
         return try JSONDecoder().decode(Envelope.self, from: data).recipes
     }
 
-    static func submitCommunityRecipe(title: String, method: String, detail: String, author: String = "") async throws -> CommunityRecipe {
+    static func submitCommunityRecipe(title: String, method: String, detail: String, author: String = "", coffee: String = "", brewer: String = "", grinder: String = "", tasteGoal: String = "", coffeeGrams: Double? = nil, ratio: Double? = nil, successfulBrews: Int = 0, totalBrews: Int = 0, beginnerFriendly: Bool = false, roaster: String = "", barista: String = "") async throws -> CommunityRecipe {
         guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The community service is unavailable.") }
         var request = URLRequest(url: baseURL.appending(path: "/community/recipes"))
         request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["title": title, "method": method, "detail": detail, "author": author])
+        var payload: [String: Any] = ["title": title, "method": method, "detail": detail, "author": author, "coffee": coffee, "brewer": brewer, "grinder": grinder, "tasteGoal": tasteGoal, "successfulBrews": successfulBrews, "totalBrews": totalBrews, "beginnerFriendly": beginnerFriendly, "roaster": roaster, "barista": barista]
+        if let coffeeGrams { payload["coffeeGrams"] = coffeeGrams }
+        if let ratio { payload["ratio"] = ratio }
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         let (data, response) = try await Self.data(for: request)
         guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
         struct Envelope: Decodable { let recipe: CommunityRecipe }
         return try JSONDecoder().decode(Envelope.self, from: data).recipe
     }
 
-    static func updateCommunityRecipe(id: String, title: String, method: String, detail: String) async throws -> CommunityRecipe {
+    static func updateCommunityRecipe(id: String, title: String, method: String, detail: String, coffee: String = "", brewer: String = "", grinder: String = "", tasteGoal: String = "", coffeeGrams: Double? = nil, ratio: Double? = nil, successfulBrews: Int = 0, totalBrews: Int = 0, beginnerFriendly: Bool = false, roaster: String = "", barista: String = "") async throws -> CommunityRecipe {
         guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The community service is unavailable.") }
         var request = URLRequest(url: baseURL.appending(path: "/community/recipes"))
         request.httpMethod = "PUT"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["id": id, "title": title, "method": method, "detail": detail])
+        var payload: [String: Any] = ["id": id, "title": title, "method": method, "detail": detail, "coffee": coffee, "brewer": brewer, "grinder": grinder, "tasteGoal": tasteGoal, "successfulBrews": successfulBrews, "totalBrews": totalBrews, "beginnerFriendly": beginnerFriendly, "roaster": roaster, "barista": barista]
+        if let coffeeGrams { payload["coffeeGrams"] = coffeeGrams }
+        if let ratio { payload["ratio"] = ratio }
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         let (data, response) = try await Self.data(for: request)
         guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
         struct Envelope: Decodable { let recipe: CommunityRecipe }
         return try JSONDecoder().decode(Envelope.self, from: data).recipe
+    }
+
+    static func recordCommunityRecipeBrew(id: String, successful: Bool) async throws {
+        guard let baseURL else { throw ContentView.LoyaltyServiceError.operationFailed("The community service is unavailable.") }
+        var request = URLRequest(url: baseURL.appending(path: "/community/recipes/brew-result"))
+        request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("application/json", forHTTPHeaderField: "Content-Type"); try authorize(&request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["id": id, "successful": successful])
+        let (_, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { throw URLError(.badServerResponse) }
     }
 
     static func submitSharedEspressoProfile(_ profile: SharedEspressoProfile) async throws -> SharedEspressoProfile {

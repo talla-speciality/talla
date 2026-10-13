@@ -109,22 +109,39 @@ extension AdminContentArea {
             .init("correctAnswer", "Correct answer", required: true),
             .init("explanation", "Explanation", .multiline)
         ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "prompt": .string("New coffee question"), "options": .array([.string("Option A"), .string("Option B")]), "correctAnswer": .string("Option A"), "explanation": .string("Explain why this is correct.")]))]
-        case .gulfCoffeeMap: return [.init(path: "directory", title: "Directory listings", groups: [.init("Listing", [
-            .init("id", "Listing identifier", required: true),
-            .init("name", "Name", required: true),
-            .init("city", "City or Online", required: true),
-            .init("country", "Country or GCC", required: true),
-            .init("neighborhood", "Neighborhood / listing type"),
-            .init("websiteURL", "Website or map link"),
-            .init("logoURL", "Logo image URL (optional)"),
-            .init("address", "Address", .multiline),
-            .init("phone", "Phone"),
-            .init("hours", "Opening hours", .multiline),
-            .init("verificationStatus", "Verification status", .choice(["unverified", "link-provided", "link-verified", "admin-verified"])),
-            .init("categories", "Categories", .words),
-            .init("tags", "Tags", .words),
-            .init("offerings", "Drinks, beans, and workshops JSON", .json)
-        ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New listing"), "city": .string(""), "country": .string(""), "categories": .array([]), "tags": .array([]), "offerings": .array([]), "verificationStatus": .string("unverified"), "logoURL": .string("")]))]
+        case .gulfCoffeeMap: return [.init(path: "directory", title: "Directory listings", groups: [
+            .init("Identity", [
+                .init("id", "Listing identifier", required: true),
+                .init("name", "Name", required: true),
+                .init("city", "City or Online", required: true),
+                .init("country", "Country or GCC", required: true),
+                .init("neighborhood", "Neighborhood / listing type"),
+                .init("categories", "Categories", .words),
+                .init("tags", "Tags", .words)
+            ]),
+            .init("Location", [
+                .init("websiteURL", "Website or map link"),
+                .init("sourceURL", "Verification source URL"),
+                .init("logoURL", "Logo image URL (optional)"),
+                .init("address", "Address", .multiline),
+                .init("phone", "Phone"),
+                .init("hours", "Opening hours", .multiline)
+            ]),
+            .init("Trust and freshness", [
+                .init("verificationStatus", "Verification status", .choice(["unverified", "link-provided", "link-verified", "manually-verified", "verified"])),
+                .init("verifiedBy", "Verified by"),
+                .init("verifiedAt", "Verified at (ISO date)"),
+                .init("lastCheckedAt", "Last checked at (ISO date)")
+            ]),
+            .init("Bilingual profile", [
+                .init("description", "English and Arabic description JSON", .json),
+                .init("tastingNotes", "English and Arabic tasting notes JSON", .json)
+            ]),
+            .init("Coffee knowledge", [
+                .init("offerings", "Drinks, beans, and workshops JSON", .json),
+                .init("events", "Cuppings and local events JSON", .json)
+            ])
+        ], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New listing"), "city": .string(""), "country": .string(""), "categories": .array([]), "tags": .array([]), "offerings": .array([]), "events": .array([]), "description": .object(["en": .string(""), "ar": .string("")]), "tastingNotes": .object(["en": .string(""), "ar": .string("")]), "verificationStatus": .string("unverified"), "logoURL": .string("")]))]
         }
 }
 

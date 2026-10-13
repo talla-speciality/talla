@@ -928,6 +928,7 @@ extension ContentView {
                                     : AppLocalization.text("phone_number", fallback: "Phone number"),
                                 text: $addressPhone
                             )
+                            .textFieldStyle(.plain)
                                 .keyboardType(.phonePad)
                                 .font(bodyFont(size: 15))
                                 .foregroundColor(primaryTextColor)
@@ -1015,6 +1016,7 @@ extension ContentView {
         capitalization: TextInputAutocapitalization
     ) -> some View {
         TextField(title, text: text)
+            .textFieldStyle(.plain)
             .textInputAutocapitalization(capitalization)
             .font(bodyFont(size: 15))
             .foregroundColor(primaryTextColor)
@@ -1105,6 +1107,7 @@ extension ContentView {
                         : AppLocalization.text("phone", fallback: "Phone"),
                     text: $addressPhone
                 )
+                .textFieldStyle(.plain)
                 .keyboardType(.phonePad)
                 .font(bodyFont(size: 14))
                 .foregroundColor(primaryTextColor)
@@ -1176,6 +1179,7 @@ extension ContentView {
         capitalization: TextInputAutocapitalization
     ) -> some View {
         TextField(title, text: text)
+            .textFieldStyle(.plain)
             .textInputAutocapitalization(capitalization)
             .font(bodyFont(size: 14))
             .foregroundColor(primaryTextColor)

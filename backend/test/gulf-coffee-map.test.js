@@ -9,6 +9,9 @@ const {
     publicReviews,
     replaceDirectory,
     ratingsFor,
+    eventRSVPsFor,
+    eventRSVPSummary,
+    saveEventRSVP,
     saveRating
 } = require("../modules/discovery/gulf-coffee-map");
 
@@ -64,4 +67,52 @@ test("Gulf Coffee Map directory has one pilot entry per GCC market and supports 
 test("an explicitly empty admin directory stays empty", () => {
     const next = replaceDirectory(normalizeStore({}), []);
     assert.deepEqual(directoryFor(next), []);
+});
+
+test("directory profiles preserve verified regional knowledge safely", () => {
+    const next = replaceDirectory(normalizeStore({}), [{
+        id: "bhr-test",
+        name: "Test Roaster",
+        city: "Manama",
+        country: "Bahrain",
+        description: { en: "A careful profile.", ar: "ملف موثق." },
+        tastingNotes: { en: "Date, cocoa", ar: "تمر، كاكاو" },
+        verifiedAt: "2026-10-12T00:00:00.000Z",
+        verifiedBy: "editor@example.com",
+        lastCheckedAt: "2026-10-12T00:00:00.000Z",
+        sourceURL: "https://example.com/roaster",
+        offerings: [{
+            id: "bhr-test-bean",
+            name: "House lot",
+            detail: "Cocoa · date",
+            detailAR: "كاكاو · تمر",
+            kind: "bean",
+            brewMethod: "V60",
+            brewRatio: "15 g · 250 g",
+            brewTip: "Start with a medium grind."
+        }],
+        events: [{ id: "bhr-test-cupping", title: { en: "Friday cupping", ar: "جلسة تذوق الجمعة" }, startsAt: "2026-10-16T16:00:00.000Z", kind: "cupping", url: "https://example.com/cupping" }]
+    }]);
+    const profile = directoryFor(next)[0];
+    assert.equal(profile.description.ar, "ملف موثق.");
+    assert.equal(profile.offerings[0].brewMethod, "V60");
+    assert.equal(profile.events[0].title.ar, "جلسة تذوق الجمعة");
+    assert.equal(profile.events[0].status, "published");
+});
+
+test("published Gulf Coffee Map events support idempotent RSVPs", () => {
+    const store = normalizeStore({ directory: [{
+        id: "bhr-test",
+        name: "Test Roaster",
+        city: "Manama",
+        country: "Bahrain",
+        events: [{ id: "cupping-1", title: { en: "Friday cupping" }, startsAt: "2026-10-16T16:00:00.000Z", status: "published" }]
+    }] });
+    const first = saveEventRSVP(store, "reader@example.com", { spotID: "bhr-test", eventID: "cupping-1" });
+    const second = saveEventRSVP(store, "reader@example.com", { spotID: "bhr-test", eventID: "cupping-1" });
+    assert.equal(first.eventID, "cupping-1");
+    assert.equal(second.id, first.id);
+    assert.equal(eventRSVPsFor(store, "reader@example.com").length, 1);
+    assert.equal(saveEventRSVP(store, "reader@example.com", { spotID: "bhr-test", eventID: "missing" }), null);
+    assert.equal(eventRSVPSummary(store)[0].rsvpCount, 1);
 });

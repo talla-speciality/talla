@@ -97,16 +97,14 @@ extension ContentView {
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
             DispatchQueue.main.async {
-                activeTab = .more
-                isAccountPresentedFromMore = true
+                activeTab = .account
             }
         case "account-orders-replay":
             customerProfile = ShopifyCustomerProfile(
                 id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
             )
             DispatchQueue.main.async {
-                activeTab = .more
-                isAccountPresentedFromMore = true
+                activeTab = .account
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 accountOrdersPresentationRequest = 1

@@ -19,6 +19,17 @@ struct CommunityRecipeEntry: Codable, Identifiable, Hashable {
     var method: String
     var detail: String
     var author: String
+    var coffee: String? = nil
+    var brewer: String? = nil
+    var grinder: String? = nil
+    var tasteGoal: String? = nil
+    var coffeeGrams: Double? = nil
+    var ratio: Double? = nil
+    var successfulBrews: Int? = nil
+    var totalBrews: Int? = nil
+    var beginnerFriendly: Bool? = nil
+    var roaster: String? = nil
+    var barista: String? = nil
     var status: ModerationStatus = .pending
     var createdAt = Date()
     var canEdit = true
@@ -51,13 +62,13 @@ struct CuppingWorkspaceView: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text(AppLocalization.text("cupping_new_sample", fallback: "New sample")).font(.headline).foregroundStyle(primary)
-                    TextField(AppLocalization.text("cupping_sample_name", fallback: "Coffee or sample name"), text: $name).textFieldStyle(.talla)
+                    TextField(AppLocalization.text("cupping_sample_name", fallback: "Coffee or sample name"), text: $name)
                     cuppingSlider("Aroma", value: $draftAroma)
                     cuppingSlider("Acidity", value: $draftAcidity)
                     cuppingSlider("Sweetness", value: $draftSweetness)
                     cuppingSlider("Body", value: $draftBody)
                     cuppingSlider("Clarity", value: $draftClarity)
-                    TextField(AppLocalization.text("cupping_notes", fallback: "Sensory notes"), text: $notes, axis: .vertical).lineLimit(3...6).textFieldStyle(.talla)
+                    TextField(AppLocalization.text("cupping_notes", fallback: "Sensory notes"), text: $notes, axis: .vertical).lineLimit(3...6)
                     Button {
                         let entry = CuppingEntry(name: name.isEmpty ? "Sample (entries.count + 1)" : name, aroma: draftAroma, acidity: draftAcidity, sweetness: draftSweetness, body: draftBody, clarity: draftClarity, notes: notes)
                         entries.insert(entry, at: 0); save(); name = ""; notes = ""
@@ -119,34 +130,63 @@ struct CommunityRecipesView: View {
     let surface: Color
     let primary: Color
     let secondary: Color
+    let onImportRecipe: (CommunityRecipeEntry) -> Void
     @State private var recipes: [CommunityRecipeEntry] = []
     @State private var title = ""
     @State private var method = ""
     @State private var detail = ""
+    @State private var coffee = ""
+    @State private var brewer = ""
+    @State private var grinder = ""
+    @State private var tasteGoal = "balanced"
+    @State private var coffeeGrams = "20"
+    @State private var ratio = "16"
+    @State private var successfulBrews = "0"
+    @State private var totalBrews = "0"
+    @State private var beginnerFriendly = false
+    @State private var roaster = ""
+    @State private var barista = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var editingRecipe: CommunityRecipeEntry?
+    @State private var coffeeFilter = ""
+    @State private var brewerFilter = "All"
+    @State private var grinderFilter = "All"
+    @State private var tasteGoalFilter = "All"
+    @State private var sortMode = "Reliable"
+    @AppStorage("community.activeRecipeID") private var activeRecipeID = ""
     @AppStorage("privacy.community.sharing.optOut") private var communitySharingOptOut = false
     private let key = "talla.community.recipes.v1"
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(AppLocalization.text("community_moderation_detail", fallback: "New recipes are reviewed before they appear publicly. Your saved drafts stay on this device until approved."))
+                Text("Community recipes are ranked by repeatable results. Find a recipe for your coffee and setup, then start brewing in one tap.")
                     .font(.subheadline).foregroundStyle(secondary)
 
+                discoveryControls
+
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Submit a recipe").font(.headline).foregroundStyle(primary)
-                    TextField("Title", text: $title).textFieldStyle(.talla)
-                    TextField("Method", text: $method).textFieldStyle(.talla)
-                    TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(3...7).textFieldStyle(.talla)
+                    Text("Share a proven recipe").font(.headline).foregroundStyle(primary)
+                    TextField("Title", text: $title)
+                    TextField("Method", text: $method)
+                    TextField("Coffee / bean", text: $coffee)
+                    TextField("Brewer (V60, AeroPress…)", text: $brewer)
+                    TextField("Grinder", text: $grinder)
+                    TextField("Roaster (optional)", text: $roaster)
+                    TextField("Barista / author profile (optional)", text: $barista)
+                    HStack { TextField("Dose g", text: $coffeeGrams).keyboardType(.decimalPad); TextField("Ratio", text: $ratio).keyboardType(.decimalPad) }
+                    TextField("Successful brews", text: $successfulBrews).keyboardType(.numberPad)
+                    TextField("Total brews", text: $totalBrews).keyboardType(.numberPad)
+                    Toggle("Best for beginners", isOn: $beginnerFriendly).tint(accent)
+                    TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(3...7)
                     Button(communitySharingOptOut ? "Community sharing is off" : "Submit for review") { submit() }
                         .buttonStyle(.tallaPrimary).tint(accent)
                         .disabled(communitySharingOptOut || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let errorMessage { Text(errorMessage).font(.footnote).foregroundStyle(TallaTheme.Colors.destructive) }
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(surface).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-                recipeSection("Approved recipes", recipes.filter { $0.status == .approved }, showStatus: false)
+                recipeSection("Recipes that work", filteredRecipes.filter { $0.status == .approved }, showStatus: false)
                 recipeSection("Your submissions", recipes.filter { $0.status != .approved }, showStatus: true)
             }.padding(.horizontal, 20).padding(.vertical, 16)
         }.background(background.ignoresSafeArea()).navigationTitle("Community recipes").onAppear { load() }
@@ -156,8 +196,41 @@ struct CommunityRecipesView: View {
             } }
         }
     }
+    private var filteredRecipes: [CommunityRecipeEntry] {
+        let filtered = recipes.filter { recipe in
+            let coffeeMatches = coffeeFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || [recipe.coffee, recipe.roaster, recipe.title].compactMap { $0 }.joined(separator: " ").localizedCaseInsensitiveContains(coffeeFilter)
+            let brewerMatches = brewerFilter == "All" || recipe.brewer == brewerFilter
+            let grinderMatches = grinderFilter == "All" || recipe.grinder == grinderFilter
+            let goalMatches = tasteGoalFilter == "All" || recipe.tasteGoal == tasteGoalFilter
+            return coffeeMatches && brewerMatches && grinderMatches && goalMatches
+        }
+        return filtered.sorted { lhs, rhs in
+            if sortMode == "Beginner" { return (lhs.beginnerFriendly ?? false) && !(rhs.beginnerFriendly ?? false) }
+            if sortMode == "Bean" {
+                let query = coffeeFilter.trimmingCharacters(in: .whitespacesAndNewlines)
+                let leftMatches = !query.isEmpty && (lhs.coffee ?? "").localizedCaseInsensitiveContains(query)
+                let rightMatches = !query.isEmpty && (rhs.coffee ?? "").localizedCaseInsensitiveContains(query)
+                if leftMatches != rightMatches { return leftMatches }
+            }
+            let left = reliability(for: lhs); let right = reliability(for: rhs)
+            return left == right ? (lhs.totalBrews ?? 0) > (rhs.totalBrews ?? 0) : left > right
+        }
+    }
+    private func reliability(for recipe: CommunityRecipeEntry) -> Double { guard let total = recipe.totalBrews, total > 0 else { return 0 }; return Double(recipe.successfulBrews ?? 0) / Double(total) }
+    private var discoveryControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Find your next brew").font(.headline).foregroundStyle(primary)
+            TextField("Search bean or roaster", text: $coffeeFilter)
+            HStack {
+                Picker("Brewer", selection: $brewerFilter) { Text("All brewers").tag("All"); ForEach(Array(Set(recipes.compactMap(\.brewer))).sorted(), id: \.self) { Text($0).tag($0) } }.pickerStyle(.menu)
+                Picker("Grinder", selection: $grinderFilter) { Text("All grinders").tag("All"); ForEach(Array(Set(recipes.compactMap(\.grinder))).sorted(), id: \.self) { Text($0).tag($0) } }.pickerStyle(.menu)
+                Picker("Goal", selection: $tasteGoalFilter) { Text("Any taste").tag("All"); ForEach(["bright", "sweet", "balanced", "rich"], id: \.self) { Text($0.capitalized).tag($0) } }.pickerStyle(.menu)
+            }.font(.caption)
+            Picker("Sort", selection: $sortMode) { Text("Reliable").tag("Reliable"); Text("Beginners").tag("Beginner"); Text("This bean").tag("Bean") }.pickerStyle(.segmented)
+        }.padding(14).background(surface).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
     private func recipeRow(_ recipe: CommunityRecipeEntry, showStatus: Bool) -> some View {
-        HStack { VStack(alignment: .leading) { Text(recipe.title).font(.headline); Text("\(recipe.method) · \(recipe.detail)").font(.caption).foregroundStyle(secondary); if showStatus { Text(recipe.status.rawValue.capitalized).font(.caption.weight(.semibold)).foregroundStyle(accent) } }; Spacer(); if recipe.canEdit { Button("Edit") { editingRecipe = recipe }.buttonStyle(.tallaSecondary).tint(accent) } }
+        VStack(alignment: .leading, spacing: 8) { HStack { VStack(alignment: .leading) { Text(recipe.title).font(.headline); Text("\(recipe.method) · \(recipe.coffee ?? "Coffee not specified")").font(.caption).foregroundStyle(secondary); if let roaster = recipe.roaster, !roaster.isEmpty { Text("From \(roaster) · \(recipe.barista ?? recipe.author)").font(.caption2).foregroundStyle(secondary) } }; Spacer(); Text(reliability(for: recipe) > 0 ? "\(Int(reliability(for: recipe) * 100))% reliable" : "New").font(.caption.weight(.semibold)).foregroundStyle(accent) }; Text(recipe.detail).font(.caption).foregroundStyle(secondary).lineLimit(2); HStack { if recipe.beginnerFriendly == true { Label("Beginner friendly", systemImage: "graduationcap") }; if let total = recipe.totalBrews, total > 0 { Label("\(recipe.successfulBrews ?? 0)/\(total) successful brews", systemImage: "checkmark.seal") }; Spacer(); Button("Brew this") { activeRecipeID = recipe.id; onImportRecipe(recipe) }.buttonStyle(.tallaPrimary).tint(accent); if showStatus { Text(recipe.status.rawValue.capitalized).font(.caption.weight(.semibold)).foregroundStyle(accent) }; if recipe.canEdit { Button("Edit") { editingRecipe = recipe }.buttonStyle(.tallaSecondary).tint(accent) } }.font(.caption) }
     }
     @ViewBuilder private func recipeSection(_ title: String, _ recipes: [CommunityRecipeEntry], showStatus: Bool) -> some View {
         if !recipes.isEmpty {
@@ -168,13 +241,13 @@ struct CommunityRecipesView: View {
         }
     }
     private func submit() {
-        let local = CommunityRecipeEntry(title: title, method: method, detail: detail, author: "You")
+        let local = CommunityRecipeEntry(title: title, method: method, detail: detail, author: "You", coffee: coffee, brewer: brewer, grinder: grinder, tasteGoal: tasteGoal, coffeeGrams: Double(coffeeGrams), ratio: Double(ratio), successfulBrews: Int(successfulBrews), totalBrews: Int(totalBrews), beginnerFriendly: beginnerFriendly, roaster: roaster, barista: barista)
         recipes.insert(local, at: 0); persistLocal(); title = ""; method = ""; detail = ""
         guard isSignedIn else { return }
         isLoading = true
         Task {
             do {
-                _ = try await AccountService.submitCommunityRecipe(title: local.title, method: local.method, detail: local.detail)
+                _ = try await AccountService.submitCommunityRecipe(title: local.title, method: local.method, detail: local.detail, coffee: local.coffee ?? "", brewer: local.brewer ?? "", grinder: local.grinder ?? "", tasteGoal: local.tasteGoal ?? "", coffeeGrams: local.coffeeGrams, ratio: local.ratio, successfulBrews: local.successfulBrews ?? 0, totalBrews: local.totalBrews ?? 0, beginnerFriendly: local.beginnerFriendly ?? false, roaster: local.roaster ?? "", barista: local.barista ?? "")
                 await loadFromServer()
             } catch { await MainActor.run { errorMessage = "Saved offline; it will sync when the community service is available." } }
             await MainActor.run { isLoading = false }
@@ -188,7 +261,7 @@ struct CommunityRecipesView: View {
     private func loadFromServer() async {
         do {
             let remote = try await AccountService.fetchCommunityRecipes()
-            let mapped = remote.map { CommunityRecipeEntry(id: $0.id, title: $0.title, method: $0.method, detail: $0.detail, author: $0.author, status: CommunityRecipeEntry.ModerationStatus(rawValue: $0.status) ?? .pending, canEdit: $0.canEdit ?? false) }
+            let mapped = remote.map { CommunityRecipeEntry(id: $0.id, title: $0.title, method: $0.method, detail: $0.detail, author: $0.author, coffee: $0.coffee, brewer: $0.brewer, grinder: $0.grinder, tasteGoal: $0.tasteGoal, coffeeGrams: $0.coffeeGrams, ratio: $0.ratio, successfulBrews: $0.successfulBrews, totalBrews: $0.totalBrews, beginnerFriendly: $0.beginnerFriendly, roaster: $0.roaster, barista: $0.barista, status: CommunityRecipeEntry.ModerationStatus(rawValue: $0.status) ?? .pending, canEdit: $0.canEdit ?? false) }
             await MainActor.run { recipes = mapped; persistLocal() }
         } catch { }
     }
@@ -206,17 +279,33 @@ private struct CommunityRecipeEditorView: View {
     @State private var title: String
     @State private var method: String
     @State private var detail: String
+    @State private var coffee: String
+    @State private var brewer: String
+    @State private var grinder: String
+    @State private var tasteGoal: String
+    @State private var coffeeGrams: String
+    @State private var ratio: String
+    @State private var successfulBrews: String
+    @State private var totalBrews: String
+    @State private var beginnerFriendly: Bool
+    @State private var roaster: String
+    @State private var barista: String
     @State private var saving = false
     @State private var errorMessage: String?
 
     init(recipe: CommunityRecipeEntry, accent: Color, background: Color, primary: Color, secondary: Color, onSaved: @escaping (CommunityRecipeEntry) -> Void) {
         self.recipe = recipe; self.accent = accent; self.background = background; self.primary = primary; self.secondary = secondary; self.onSaved = onSaved
         _title = State(initialValue: recipe.title); _method = State(initialValue: recipe.method); _detail = State(initialValue: recipe.detail)
+        _coffee = State(initialValue: recipe.coffee ?? ""); _brewer = State(initialValue: recipe.brewer ?? ""); _grinder = State(initialValue: recipe.grinder ?? ""); _tasteGoal = State(initialValue: recipe.tasteGoal ?? "balanced")
+        _coffeeGrams = State(initialValue: recipe.coffeeGrams.map { String($0) } ?? "20")
+        _ratio = State(initialValue: recipe.ratio.map { String($0) } ?? "16")
+        _successfulBrews = State(initialValue: String(recipe.successfulBrews ?? 0)); _totalBrews = State(initialValue: String(recipe.totalBrews ?? 0)); _beginnerFriendly = State(initialValue: recipe.beginnerFriendly ?? false)
+        _roaster = State(initialValue: recipe.roaster ?? ""); _barista = State(initialValue: recipe.barista ?? "")
     }
 
     var body: some View {
         Form {
-            Section("Recipe") { TextField("Title", text: $title); TextField("Method", text: $method); TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(4...10) }
+            Section("Recipe") { TextField("Title", text: $title); TextField("Method", text: $method); TextField("Coffee / bean", text: $coffee); TextField("Brewer", text: $brewer); TextField("Grinder", text: $grinder); TextField("Taste goal", text: $tasteGoal); TextField("Dose g", text: $coffeeGrams); TextField("Ratio", text: $ratio); TextField("Successful brews", text: $successfulBrews); TextField("Total brews", text: $totalBrews); Toggle("Best for beginners", isOn: $beginnerFriendly); TextField("Roaster", text: $roaster); TextField("Barista / author", text: $barista); TextField("Recipe and notes", text: $detail, axis: .vertical).lineLimit(4...10) }
             if let errorMessage { Text(errorMessage).foregroundStyle(TallaTheme.Colors.destructive) }
             Section { Button(saving ? "Saving…" : "Save changes") { save() }.disabled(saving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
             Section { Text("Editing sends the recipe back for review before it appears publicly again.").font(.footnote).foregroundStyle(secondary) }
@@ -227,8 +316,8 @@ private struct CommunityRecipeEditorView: View {
         saving = true; errorMessage = nil
         Task {
             do {
-                let updated = try await AccountService.updateCommunityRecipe(id: recipe.id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), method: method.trimmingCharacters(in: .whitespacesAndNewlines), detail: detail.trimmingCharacters(in: .whitespacesAndNewlines))
-                let entry = CommunityRecipeEntry(id: updated.id, title: updated.title, method: updated.method, detail: updated.detail, author: updated.author, status: CommunityRecipeEntry.ModerationStatus(rawValue: updated.status) ?? .pending, canEdit: updated.canEdit ?? true)
+                let updated = try await AccountService.updateCommunityRecipe(id: recipe.id, title: title.trimmingCharacters(in: .whitespacesAndNewlines), method: method.trimmingCharacters(in: .whitespacesAndNewlines), detail: detail.trimmingCharacters(in: .whitespacesAndNewlines), coffee: coffee, brewer: brewer, grinder: grinder, tasteGoal: tasteGoal, coffeeGrams: Double(coffeeGrams), ratio: Double(ratio), successfulBrews: Int(successfulBrews) ?? 0, totalBrews: Int(totalBrews) ?? 0, beginnerFriendly: beginnerFriendly, roaster: roaster, barista: barista)
+                let entry = CommunityRecipeEntry(id: updated.id, title: updated.title, method: updated.method, detail: updated.detail, author: updated.author, coffee: updated.coffee, brewer: updated.brewer, grinder: updated.grinder, tasteGoal: updated.tasteGoal, coffeeGrams: updated.coffeeGrams, ratio: updated.ratio, successfulBrews: updated.successfulBrews, totalBrews: updated.totalBrews, beginnerFriendly: updated.beginnerFriendly, roaster: updated.roaster, barista: updated.barista, status: CommunityRecipeEntry.ModerationStatus(rawValue: updated.status) ?? .pending, canEdit: updated.canEdit ?? true)
                 await MainActor.run { onSaved(entry); dismiss() }
             } catch {
                 await MainActor.run {

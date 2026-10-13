@@ -268,12 +268,12 @@ struct SocialCoffeeView: View {
             Text("Save a tasting note, keep a wish list, and choose who gets to see what you taste.")
                 .font(.subheadline).foregroundStyle(secondary)
             TextField("e.g. date sweetness, cardamom, silky finish", text: $tastingNote, axis: .vertical)
+                .textFieldStyle(.plain)
                 .lineLimit(2...4)
                 .padding(12)
                 .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             if isSignedIn {
                 TextField("Name shown with a public note", text: $publicDisplayName)
-                    .textFieldStyle(.roundedBorder)
                     .font(.subheadline)
             }
             HStack {
@@ -373,7 +373,6 @@ struct SocialCoffeeView: View {
                 }
                 HStack {
                     TextField("Or add a custom wish", text: $wishListDraft)
-                        .textFieldStyle(.roundedBorder)
                     Button { addWishListItem() } label: { Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(TallaTheme.Colors.ink) }
                         .disabled(wishListDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .accessibilityLabel("Add coffee to wish list")
@@ -421,7 +420,6 @@ struct SocialCoffeeView: View {
             }
             if isSignedIn {
                 TextField("Find a public coffee person", text: $peopleSearch)
-                    .textFieldStyle(.roundedBorder)
                 ForEach(discoverablePeople) { person in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {

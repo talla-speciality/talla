@@ -314,7 +314,7 @@ extension ContentView {
         .sheet(item: $socialCoffeeInvite) { invite in
             SocialCoffeeGroupInviteView(invite: invite, products: products, isSignedIn: customerProfile != nil, hasItemsInBag: { !cartItems.isEmpty }, clearBagAction: clearBagForNewFlow, accountAction: {
                 accountScrollTarget = nil
-                isAccountPresentedFromMore = true
+                openTab(.account)
             }, checkoutAction: { group in
                 guard cartItems.isEmpty else {
                     showToast(message: "Finish or clear your current bag before reviewing this group order.")
@@ -611,17 +611,6 @@ extension ContentView {
             }
 
             SwiftUI.Tab(
-                AppLocalization.text("club", fallback: "Club"),
-                systemImage: Tab.club.systemImage,
-                value: Tab.club
-            ) {
-                tabScreen(tab: .club) {
-                    clubView
-                }
-                .accessibilityIdentifier("tab.club")
-            }
-
-            SwiftUI.Tab(
                 AppLocalization.text("brew", fallback: "Brew"),
                 systemImage: Tab.brewing.systemImage,
                 value: Tab.brewing
@@ -633,14 +622,25 @@ extension ContentView {
             }
 
             SwiftUI.Tab(
-                "More",
-                systemImage: Tab.more.systemImage,
-                value: Tab.more
+                AppLocalization.text("discover", fallback: "Discover"),
+                systemImage: Tab.discover.systemImage,
+                value: Tab.discover
             ) {
-                tabScreen(tab: .more) {
-                    moreView
+                tabScreen(tab: .discover) {
+                    discoverView
                 }
-                .accessibilityIdentifier("tab.more")
+                .accessibilityIdentifier("tab.discover")
+            }
+
+            SwiftUI.Tab(
+                AppLocalization.text("account", fallback: "Account"),
+                systemImage: Tab.account.systemImage,
+                value: Tab.account
+            ) {
+                tabScreen(tab: .account) {
+                    accountView
+                }
+                .accessibilityIdentifier("tab.account")
             }
         }
         .toolbar(.visible, for: .tabBar)
@@ -664,24 +664,24 @@ extension ContentView {
                     Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
                 }
 
-            tabScreen(tab: .club) { clubView }
-                .tag(Tab.club)
-                .accessibilityIdentifier("tab.club")
-                .tabItem {
-                    Label(AppLocalization.text("club", fallback: "Club"), systemImage: Tab.club.systemImage)
-                }
-
             tabScreen(tab: .brewing) { brewingView }
                 .tag(Tab.brewing)
                 .accessibilityIdentifier("tab.brewing")
                 .tabItem {
                     Label(AppLocalization.text("brew", fallback: "Brew"), systemImage: Tab.brewing.systemImage)
                 }
-            tabScreen(tab: .more) { moreView }
-                .tag(Tab.more)
-                .accessibilityIdentifier("tab.more")
+            tabScreen(tab: .discover) { discoverView }
+                .tag(Tab.discover)
+                .accessibilityIdentifier("tab.discover")
                 .tabItem {
-                    Label("More", systemImage: Tab.more.systemImage)
+                    Label(AppLocalization.text("discover", fallback: "Discover"), systemImage: Tab.discover.systemImage)
+                }
+
+            tabScreen(tab: .account) { accountView }
+                .tag(Tab.account)
+                .accessibilityIdentifier("tab.account")
+                .tabItem {
+                    Label(AppLocalization.text("account", fallback: "Account"), systemImage: Tab.account.systemImage)
                 }
 
         }
@@ -779,29 +779,31 @@ extension ContentView {
         return isOLEDAppearance ? .black : TallaTheme.Colors.darkSurface.opacity(0.98)
     }
 
-    var moreView: some View {
+    var discoverView: some View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("TALLA SPECIALITY")
                     .font(labelFont(size: 11, weight: .bold))
                     .tracking(1.6)
                     .foregroundStyle(readableBrandGoldColor)
-                Text("Everything in one place.")
+                Text("Find your next coffee moment.")
                     .font(displayFont(size: 30))
                     .foregroundStyle(primaryTextColor)
-                Text("Explore the Gulf coffee guide or manage your Talla account.")
+                Text("Explore cafés, roasters, community, and the wider coffee world.")
                     .font(bodyFont(size: 15))
                     .foregroundStyle(secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 18)
+
+            clubView
 
             VStack(spacing: 12) {
                 if remoteAppSettings?.appFeatures?.showGulfCoffeeMap != false {
                     NavigationLink {
                         gulfCoffeeMapView
                     } label: {
-                        moreNavigationRow(
+                        discoverNavigationRow(
                             title: "Gulf Coffee Map",
                             detail: "Find cafés, roasters and places carrying Talla beans.",
                             systemImage: "map.fill"
@@ -829,7 +831,7 @@ extension ContentView {
                         openCartAction: { cartOpen = true },
                         accountAction: {
                             accountScrollTarget = nil
-                            isAccountPresentedFromMore = true
+                            openTab(.account)
                         },
                         addGiftCardAction: { product, variantID, recipientName, recipientEmail, recipientMessage in
                             guard cartItems.isEmpty else {
@@ -899,7 +901,7 @@ extension ContentView {
                         }
                     )
                 } label: {
-                    moreNavigationRow(
+                    discoverNavigationRow(
                         title: "Social Coffee",
                         detail: "Send, gift, gather, and keep your coffee people close.",
                         systemImage: "person.2.wave.2.fill"
@@ -907,49 +909,18 @@ extension ContentView {
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    accountScrollTarget = nil
-                    isAccountPresentedFromMore = true
-                } label: {
-                    moreNavigationRow(
-                        title: "Account",
-                        detail: "Orders, rewards, saved coffees and settings.",
-                        systemImage: "person.fill"
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("more.account")
             }
-
-            Text("More from Talla")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(tertiaryTextColor)
-                .textCase(.uppercase)
-                .tracking(1.1)
-
-            HStack(spacing: 12) {
-                moreFeatureTile(title: "Brew", detail: "Dial in", systemImage: "drop.fill") {
-                    openTab(.brewing)
-                }
-                moreFeatureTile(title: "Club", detail: "Earn beans", systemImage: "sparkles") {
-                    openTab(.club)
-                }
-            }
+            .padding(.horizontal, 18)
         }
-        .padding(.horizontal, 18)
         .padding(.top, 18)
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(pageBackgroundColor)
-        .sheet(isPresented: $isAccountPresentedFromMore) {
-            accountPresentationView
-                .tallaSystemSheetSurface()
-        }
-        .navigationTitle("More")
+        .navigationTitle(AppLocalization.text("discover", fallback: "Discover"))
         .navigationBarTitleDisplayMode(.large)
     }
 
-    func moreNavigationRow(title: String, detail: String, systemImage: String) -> some View {
+    func discoverNavigationRow(title: String, detail: String, systemImage: String) -> some View {
         HStack(spacing: 14) {
             Image(systemName: systemImage)
                 .font(.system(size: 20, weight: .semibold))

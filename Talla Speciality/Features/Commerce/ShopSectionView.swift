@@ -281,6 +281,7 @@ struct ShopSectionView: View {
                 .foregroundColor(TallaTheme.Colors.ink)
 
             TextField(AppLocalization.text("search_shop_placeholder", fallback: "Search products"), text: $searchQuery)
+                .textFieldStyle(.plain)
                 .font(bodyFont)
                 .foregroundColor(primaryTextColor)
                 .focused($isSearchFocused)
