@@ -191,7 +191,6 @@ struct ContentView: View {
     @AppStorage("customerLibrary.cacheOwnerEmail") var customerLibraryCacheOwnerEmail = ""
     @AppStorage("tasteMemory.saved") var savedTasteMemory = ""
     @AppStorage("carts.saved") var savedCartsPayload = ""
-    @AppStorage("loyalty.phase6.completed") var phaseSixCompletedPayload = ""
     @AppStorage("brewing.deletedRecipeIDs") var deletedBrewRecipeIDsPayload = ""
     @State var selectedJournalCoffeeID: UUID?
     @AppStorage("app.language") var savedAppLanguage = AppLanguage.arabic.rawValue
@@ -207,6 +206,11 @@ struct ContentView: View {
     @State var accountEmail = ""
     @State var accountPassword = ""
     @State var accountConfirmPassword = ""
+    @State var guestName = ""
+    @State var guestPhone = ""
+    @State var guestAddressLine1 = ""
+    @State var guestAddressCity = ""
+    @State var isStartingGuestSession = false
     @State var profileFirstName = ""
     @State var profileLastName = ""
     @State var birthdayMonth = ""

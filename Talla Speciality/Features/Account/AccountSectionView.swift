@@ -500,7 +500,7 @@ struct AccountSectionView: View {
     }
 
     private func accountNavigationRow(_ row: AccountNavigationRowData) -> some View {
-        let rowColor = row.isDestructive ? TallaTheme.Colors.destructive : accentColor
+        let rowColor = row.isDestructive ? TallaTheme.Colors.destructive : TallaTheme.Colors.ink
 
         return Button {
             row.action?()

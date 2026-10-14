@@ -8,7 +8,25 @@ const { normalizeProfile, normalizeRoasterRecipe } = require("../brewing/espress
 const { espressoMachineCatalog } = require("../brewing/espresso-machine-catalog");
 const { recommendNextCup } = require("../discovery/next-cup-recommendations");
 const { buildCoffeeInsights } = require("../discovery/coffee-insights");
+const { createCoffeeConcierge } = require("../ai/coffee-concierge");
 const path = require("path");
+
+const loyaltyMutationLocks = new Map();
+async function withLoyaltyMutationLock(key, work) {
+    const previous = loyaltyMutationLocks.get(key) || Promise.resolve();
+    let release;
+    const current = new Promise((resolve) => { release = resolve; });
+    const chain = previous.then(() => current);
+    loyaltyMutationLocks.set(key, chain);
+    await previous;
+    try {
+        return await work();
+    } finally {
+        release();
+        if (loyaltyMutationLocks.get(key) === chain) loyaltyMutationLocks.delete(key);
+    }
+}
+
 module.exports = function createServer(dependencies) {
     const {
         URL,
@@ -525,6 +543,7 @@ module.exports = function createServer(dependencies) {
         writeWalletStampStrips
     } = dependencies;
     const educationContent = createEducationContentStore();
+    const coffeeConcierge = createCoffeeConcierge({ config });
     const socialCoffeeStore = createSocialCoffeeStore({ database, path: socialCoffeeStorePath, readJSON, writeJSON });
     const readSocialCoffeeStore = async (response) => {
         try { return await socialCoffeeStore.read(); }
@@ -714,6 +733,29 @@ module.exports = function createServer(dependencies) {
         } catch (error) {
             console.error("AI web research failed:", error.code || error.message || "AI_WEB_RESEARCH_FAILED");
             sendJSON(response, error.statusCode === 429 ? 429 : 503, { error: "AI web research is temporarily unavailable." });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/ai/coffee-concierge") {
+        try {
+            const body = await readBody(request, 32_768);
+            const question = trimText(body.question, 1200);
+            const context = trimText(body.context, 4000);
+            if (!question || !isCoffeeQuestion(question)) {
+                sendJSON(response, 400, { error: "A coffee-related question is required." });
+                return;
+            }
+            const result = await coffeeConcierge.ask({ question, context });
+            sendJSON(response, 200, {
+                answer: result.answer,
+                model: "coffee-ai-v1",
+                source: "talla-local-model",
+                usedUserContext: Boolean(context)
+            }, { "Cache-Control": "no-store" });
+        } catch (error) {
+            console.error("Coffee Concierge failed:", error.code || error.message || "COFFEE_AI_FAILED");
+            sendJSON(response, 503, { error: "Coffee Concierge is temporarily unavailable." });
         }
         return;
     }
@@ -3313,6 +3355,68 @@ module.exports = function createServer(dependencies) {
         return;
     }
 
+    // Guest checkout still needs a revocable customer session so payment,
+    // address, and order routes can apply the same ownership checks as
+    // signed-in customers. The account is intentionally lightweight: no
+    // password or email is requested from the customer.
+    if (request.method === "POST" && url.pathname === "/accounts/guest") {
+        try {
+            const body = await readBody(request, 16_384);
+            const fullName = String(body.name || "").trim().replace(/\s+/g, " ");
+            const phone = String(body.phone || "").trim();
+            const address = body.address && typeof body.address === "object" ? body.address : {};
+            const line1 = String(address.line1 || "").trim();
+            const city = String(address.city || "").trim();
+            const countryCode = normalizeCountryCode(address.countryCode, "BH");
+
+            if (!fullName || !phone || !line1 || !city || !countryCode) {
+                sendJSON(response, 400, { error: "Guest name, phone, and delivery address are required" });
+                return;
+            }
+
+            const nameParts = fullName.split(" ");
+            const firstName = nameParts.shift() || fullName;
+            const lastName = nameParts.join(" ") || "Guest";
+            const email = `guest_${Date.now()}_${crypto.randomBytes(6).toString("hex")}@guest.talla.app`;
+            const account = {
+                id: `acct_${Date.now()}`,
+                firstName,
+                lastName,
+                email,
+                passwordHash: hashPassword(`guest:${crypto.randomBytes(32).toString("hex")}`),
+                createdAt: new Date().toISOString(),
+                isGuest: true
+            };
+
+            await createAccountRecord(account);
+            await saveAddress(email, {
+                label: String(address.label || "Home").trim() || "Home",
+                fullName,
+                phone,
+                line1,
+                city,
+                countryCode,
+                isPreferred: true,
+                notes: address.notes ? String(address.notes).trim() : null,
+                details: normalizeAddressDetails(address.details)
+            });
+            await ensureLoyaltyAccount(email);
+            const session = await createCustomerSession(email);
+            sendJSON(response, 201, {
+                profile: profilePayload(account),
+                accessToken: session.accessToken,
+                expiresAt: session.expiresAt,
+                refreshToken: session.refreshToken,
+                refreshExpiresAt: session.refreshExpiresAt,
+                guest: true
+            });
+        } catch (error) {
+            console.error("Guest account creation failed.", error);
+            sendJSON(response, 400, { error: "Guest checkout could not be started" });
+        }
+        return;
+    }
+
     if (request.method === "POST" && url.pathname === "/accounts/login") {
         try {
             const body = await readBody(request);
@@ -3801,34 +3905,32 @@ module.exports = function createServer(dependencies) {
                 sendJSON(response, 400, { error: "Invalid referral code." });
                 return;
             }
-            const store = readJSON(loyaltyStorePath);
-            const referral = store.referrals?.[code];
-            if (!referral || referral.email === customer.email) {
-                sendJSON(response, 409, { error: "This referral code cannot be used." });
-                return;
-            }
-            referral.redeemedBy = referral.redeemedBy || [];
-            if (referral.redeemedBy.includes(customer.email)) {
-                sendJSON(response, 409, { error: "This referral has already been used." });
-                return;
-            }
-            const referrer = await updateLoyaltyAccount(referral.email, (account) => {
-                account.pointsBalance += 100;
-                account.transactions = account.transactions || [];
-                account.transactions.unshift({ id: `txn_${Date.now()}_referrer`, type: "earn", points: 100, note: "Referral reward", createdAt: new Date().toISOString() });
+            const result = await withLoyaltyMutationLock(`referral:${code}`, async () => {
+                const store = readJSON(loyaltyStorePath);
+                const referral = store.referrals?.[code];
+                if (!referral || referral.email === customer.email) return { error: "This referral code cannot be used." };
+                referral.redeemedBy = referral.redeemedBy || [];
+                if (referral.redeemedBy.includes(customer.email)) return { error: "This referral has already been used." };
+                const referrer = await updateLoyaltyAccount(referral.email, (account) => {
+                    account.pointsBalance += 100;
+                    account.transactions = account.transactions || [];
+                    account.transactions.unshift({ id: `txn_${Date.now()}_referrer`, type: "earn", points: 100, note: "Referral reward", createdAt: new Date().toISOString() });
+                });
+                const recipient = await updateLoyaltyAccount(customer.email, (account) => {
+                    account.pointsBalance += 50;
+                    account.transactions = account.transactions || [];
+                    account.transactions.unshift({ id: `txn_${Date.now()}_recipient`, type: "earn", points: 50, note: "Welcome referral reward", createdAt: new Date().toISOString() });
+                });
+                if (!referrer || !recipient) return { error: "Rewards account not found." };
+                referral.redeemedBy.push(customer.email);
+                writeJSON(loyaltyStorePath, store);
+                return { account: recipient };
             });
-            const recipient = await updateLoyaltyAccount(customer.email, (account) => {
-                account.pointsBalance += 50;
-                account.transactions = account.transactions || [];
-                account.transactions.unshift({ id: `txn_${Date.now()}_recipient`, type: "earn", points: 50, note: "Welcome referral reward", createdAt: new Date().toISOString() });
-            });
-            if (!referrer || !recipient) {
-                sendJSON(response, 404, { error: "Rewards account not found." });
+            if (result.error) {
+                sendJSON(response, result.error === "Rewards account not found." ? 404 : 409, { error: result.error });
                 return;
             }
-            referral.redeemedBy.push(customer.email);
-            writeJSON(loyaltyStorePath, store);
-            sendJSON(response, 200, { status: "redeemed", account: loyaltyPayload(recipient) });
+            sendJSON(response, 200, { status: "redeemed", account: loyaltyPayload(result.account) });
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid referral request." });
         }
@@ -6580,8 +6682,13 @@ module.exports = function createServer(dependencies) {
                 return;
             }
 
-            if (!Number.isFinite(points) || points <= 0) {
+            if (!Number.isFinite(points) || points <= 0 || !idempotencyKey) {
                 sendJSON(response, 400, { error: "Invalid earn payload" });
+                return;
+            }
+
+            if (!idempotencyKey.startsWith("phase6:")) {
+                sendJSON(response, 403, { error: "Beans can only be awarded for a verified activity." });
                 return;
             }
 
@@ -6692,6 +6799,7 @@ module.exports = function createServer(dependencies) {
                 return;
             }
 
+            const voucher = buildVoucherRecord(customer.email, reward, points);
             const updated = await updateLoyaltyAccount(customer.email, (account) => {
                 if (account.pointsBalance < points) {
                     throw new Error("INSUFFICIENT_POINTS");
@@ -6699,8 +6807,6 @@ module.exports = function createServer(dependencies) {
 
                 account.pointsBalance -= points;
                 account.transactions = account.transactions || [];
-                const voucher = buildVoucherRecord(customer.email, reward, points);
-                void storeVoucherRecord(voucher);
                 account.transactions.unshift({
                     id: `txn_${Date.now()}`,
                     type: "redeem",
@@ -6719,6 +6825,8 @@ module.exports = function createServer(dependencies) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
             }
+
+            await storeVoucherRecord(voucher);
 
             sendJSON(response, 200, loyaltyPayload(updated));
         } catch (error) {

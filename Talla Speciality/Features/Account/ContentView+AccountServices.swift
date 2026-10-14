@@ -77,6 +77,74 @@ extension ContentView {
 
     }
 
+    @MainActor
+    func startGuestSession() async {
+        let name = guestName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let phone = guestPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        let line1 = guestAddressLine1.trimmingCharacters(in: .whitespacesAndNewlines)
+        let city = guestAddressCity.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !phone.isEmpty, !line1.isEmpty, !city.isEmpty else {
+            customerAuthError = AppLocalization.text("guest_checkout_fields_required", fallback: "Enter your name, phone number, and delivery address to continue.")
+            return
+        }
+
+        isStartingGuestSession = true
+        customerAuthError = nil
+        defer { isStartingGuestSession = false }
+
+        do {
+            let session: AccountService.CustomerSession
+            do {
+                session = try await AccountService.startGuestSession(
+                    name: name,
+                    phone: phone,
+                    line1: line1,
+                    city: city,
+                    countryCode: addressCountry.rawValue
+                )
+            } catch {
+                // Keep guest checkout compatible with an older deployed
+                // backend while the dedicated guest route rolls out: create
+                // an unadvertised account with generated credentials, then
+                // immediately save the address through the normal protected
+                // address endpoint.
+                let nameParts = name.split(separator: " ", maxSplits: 1).map(String.init)
+                let fallbackEmail = "guest_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased())@guest.talla.app"
+                let fallbackPassword = "guest-\(UUID().uuidString)"
+                let fallbackSession = try await AccountService.register(
+                    firstName: nameParts.first ?? name,
+                    lastName: nameParts.dropFirst().first ?? "Guest",
+                    email: fallbackEmail,
+                    password: fallbackPassword
+                )
+                TallaAccountCredentialStore.save(accessToken: fallbackSession.accessToken, refreshToken: fallbackSession.refreshToken)
+                _ = try await AccountService.saveAddress(
+                    email: fallbackSession.profile.email,
+                    label: "Home",
+                    fullName: name,
+                    phone: phone,
+                    line1: line1,
+                    city: city,
+                    countryCode: addressCountry.rawValue,
+                    notes: nil
+                )
+                session = fallbackSession
+            }
+            applySignedInSession(session)
+            guestName = ""
+            guestPhone = ""
+            guestAddressLine1 = ""
+            guestAddressCity = ""
+            showToast(message: AppLocalization.text("guest_checkout_ready", fallback: "You’re ready to order"))
+        } catch {
+            customerProfile = nil
+            customerAuthError = friendlyCustomerAuthMessage(
+                for: error,
+                fallback: AppLocalization.text("guest_checkout_failed", fallback: "Guest checkout could not be started right now.")
+            )
+        }
+    }
+
 #if canImport(AuthenticationServices)
     func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
         let nonce = Self.randomAppleNonce()
@@ -439,6 +507,20 @@ extension ContentView {
 
         isSavingProfile = false
         return false
+    }
+
+    @MainActor
+    func saveBirthdayProfileIfValid() async -> Bool {
+        guard let month = Int(birthdayMonth), let day = Int(birthdayDay),
+              (1...12).contains(month), (1...31).contains(day) else { return false }
+        do {
+            try await AccountService.saveBirthdayProfile(month: month, day: day)
+            showToast(message: "Birthday saved")
+            return true
+        } catch {
+            customerAuthError = friendlyCustomerAuthMessage(for: error, fallback: "Birthday could not be saved.")
+            return false
+        }
     }
 
     @MainActor

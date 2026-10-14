@@ -71,6 +71,8 @@ module.exports = {
     openAIAPIKey: process.env.OPENAI_API_KEY || "",
     openAIWebSearchModel: process.env.OPENAI_WEB_SEARCH_MODEL || "gpt-4.1-mini",
     openAIWebSearchEnabled: process.env.OPENAI_WEB_SEARCH_ENABLED !== "false",
+    coffeeAIPath: process.env.COFFEE_AI_PATH || "",
+    coffeeAIPython: process.env.COFFEE_AI_PYTHON || "",
     appleSignInClientID: process.env.APPLE_SIGN_IN_CLIENT_ID || "Talla-Speciality.Talla-Speciality",
     appAttestAppID: process.env.APP_ATTEST_APP_ID || "TAG9WXY85M.Talla-Speciality.Talla-Speciality",
     appAttestEnforce: process.env.APP_ATTEST_ENFORCE

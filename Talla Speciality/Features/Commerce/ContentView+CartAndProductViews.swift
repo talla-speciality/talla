@@ -866,7 +866,7 @@ extension ContentView {
             } else {
                 Button {
                     isCheckoutPresented = false
-                    openAccountSection(AccountSectionView.ScrollTarget.library)
+                    openAccountSection(AccountSectionView.ScrollTarget.customer)
                 } label: {
                     Label(AppLocalization.text("sign_in_before_checkout", fallback: "Sign in to add a delivery address"), systemImage: "person.crop.circle")
                         .font(.body.weight(.semibold))
@@ -1554,7 +1554,7 @@ extension ContentView {
                     checkoutError = nil
                     if customerProfile == nil {
                         isCheckoutPresented = false
-                        openAccountSection(AccountSectionView.ScrollTarget.library)
+                        openAccountSection(AccountSectionView.ScrollTarget.customer)
                     } else {
                         isCheckoutAddressSheetPresented = true
                     }

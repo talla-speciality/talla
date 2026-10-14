@@ -2580,12 +2580,12 @@ extension ContentView {
     }
 
     var phaseSixLoyaltySection: some View {
-        let completed = Set(phaseSixCompletedPayload.split(separator: ",").map(String.init))
-        let activities: [(String, String, String, Int)] = [
-            ("birthday", "Birthday reward", "A complimentary birthday drink is waiting in your birthday month.", 50),
-            ("mission", "Monthly brewing mission", "Brew three different methods and log the cups this month.", 40),
-            ("achievement", "Method achievement", "Unlock badges for V60, espresso, immersion, and traditional brewing.", 30),
-            ("review", "Useful review", "Share a helpful tasting note or complete a coffee lesson.", 25)
+        let completed = phaseSixCompletedActivityIDs
+        let activities: [(String, String, String)] = [
+            ("birthday", "Birthday reward", "A complimentary birthday drink is waiting in your birthday month."),
+            ("mission", "Monthly brewing mission", "Brew three different methods and log the cups this month."),
+            ("achievement", "Method achievement", "Unlock badges for V60, espresso, immersion, and traditional brewing."),
+            ("review", "Useful review", "Share a helpful tasting note or complete a coffee lesson.")
         ]
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -2593,11 +2593,10 @@ extension ContentView {
                     .font(labelFont(size: 11, weight: .bold))
                     .foregroundStyle(TallaTheme.Colors.ink)
                 Spacer()
-                Text("Phase 6").font(.caption.weight(.bold)).foregroundStyle(secondaryTextColor)
             }
             Text("Birthday rewards, monthly missions, method achievements, and useful reviews turn your coffee habits into Beans.")
                 .font(bodyFont(size: 15)).foregroundStyle(secondaryTextColor)
-            ForEach(activities, id: \.0) { id, title, detail, points in
+            ForEach(activities, id: \.0) { id, title, detail in
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: completed.contains(id) ? "checkmark.seal.fill" : "circle.dotted")
                         .foregroundStyle(completed.contains(id) ? TallaTheme.Colors.ink : secondaryTextColor)
@@ -2606,16 +2605,9 @@ extension ContentView {
                         Text(detail).font(.caption).foregroundStyle(secondaryTextColor)
                     }
                     Spacer()
-                    if !completed.contains(id) {
-                        Button("+\(points)") {
-                            let next = completed.union([id]).sorted().joined(separator: ",")
-                            phaseSixCompletedPayload = next
-                            Task { await earnPhaseSixPoints(activityID: id, points: points, note: title) }
-                        }
-                        .font(.caption.weight(.bold))
-                        .buttonStyle(.tallaPrimary)
-                        .tint(TallaTheme.Colors.ink)
-                    }
+                    Text(completed.contains(id) ? "Reward added" : "Automatic")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(completed.contains(id) ? TallaTheme.Colors.ink : secondaryTextColor)
                 }
             }
             if !phaseSixPersonalizedOfferTitles.isEmpty {
@@ -2634,14 +2626,16 @@ extension ContentView {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    func earnPhaseSixPoints(activityID: String, points: Int, note: String) async {
-        guard !savedLoyaltyEmail.isEmpty else { return }
-        let idempotencyKey = activityID == "birthday"
-            ? "phase6:birthday:\(Calendar.current.component(.year, from: .now))"
-            : "phase6:\(activityID)"
-        if let updated = try? await LoyaltyService.earnPoints(email: savedLoyaltyEmail, points: points, note: note, idempotencyKey: idempotencyKey) {
-            await MainActor.run { loyaltyAccount = updated }
+    var phaseSixCompletedActivityIDs: Set<String> {
+        guard let loyaltyAccount else { return [] }
+        var completed = Set<String>()
+        for transaction in loyaltyAccount.transactions where transaction.type == "earn" {
+            if transaction.id.hasPrefix("phase6:birthday:") { completed.insert("birthday") }
+            if transaction.id.hasPrefix("phase6:mission:") { completed.insert("mission") }
+            if transaction.id == "phase6:achievement" { completed.insert("achievement") }
+            if transaction.id.hasPrefix("review:") || transaction.id == "phase6:education" { completed.insert("review") }
         }
+        return completed
     }
 
     var phaseSixPersonalizedOfferTitles: [String] {

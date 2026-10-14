@@ -286,7 +286,7 @@ struct LoyaltySectionView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(TallaTheme.Colors.ink)
 
-                Text(AppLocalization.text("loyalty_bottle_value", fallback: "Every 50 Beans fills one bottle and unlocks a drink of your choice."))
+                Text(AppLocalization.text("loyalty_bottle_value", fallback: "Every 50 Beans fills one bottle toward your next reward. Redeem when you reach a reward’s listed Bean value."))
                     .font(Font.custom("AvenirNext-Medium", size: 12))
                     .foregroundColor(secondaryTextColor)
 

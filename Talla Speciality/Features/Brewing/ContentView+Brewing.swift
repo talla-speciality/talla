@@ -758,6 +758,7 @@ extension ContentView {
             let brewedFeedbackTags = pendingBrewFeedbackTags
             Task {
                 _ = try? await AccountService.saveBrewJournal(entry)
+                await loadLoyaltyAccount()
                 if entry.rating >= 4 || entry.rating <= 2 {
                     let reaction = entry.rating >= 4 ? "loved" : "not-for-me"
                     _ = try? await AccountService.saveTasteMemory(

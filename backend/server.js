@@ -2509,9 +2509,15 @@ async function birthdayProfileFor(email) {
 
 async function saveBirthdayProfile(email, month, day) {
     const normalizedEmail = normalizeEmail(email);
-    const birthMonth = Math.round(Number(month));
-    const birthDay = Math.round(Number(day));
-    if (!normalizedEmail || birthMonth < 1 || birthMonth > 12 || birthDay < 1 || birthDay > 31) return null;
+    const rawMonth = Number(month);
+    const rawDay = Number(day);
+    const birthMonth = Math.round(rawMonth);
+    const birthDay = Math.round(rawDay);
+    const calendarDate = new Date(Date.UTC(2000, birthMonth - 1, birthDay));
+    const isValidCalendarDate = calendarDate.getUTCFullYear() === 2000
+        && calendarDate.getUTCMonth() === birthMonth - 1
+        && calendarDate.getUTCDate() === birthDay;
+    if (!normalizedEmail || !Number.isInteger(rawMonth) || !Number.isInteger(rawDay) || !isValidCalendarDate) return null;
     if (database.isEnabled()) {
         await database.query(
             `INSERT INTO customer_birthday_profiles (email, birth_month, birth_day, updated_at)
@@ -4830,6 +4836,23 @@ async function hasLoyaltyTransaction(email, transactionID) {
     return transactions.some((transaction) => transaction.id === transactionID);
 }
 
+const loyaltyMutationLocks = new Map();
+
+async function withLoyaltyMutationLock(key, work) {
+    const previous = loyaltyMutationLocks.get(key) || Promise.resolve();
+    let release;
+    const current = new Promise((resolve) => { release = resolve; });
+    const chain = previous.then(() => current);
+    loyaltyMutationLocks.set(key, chain);
+    await previous;
+    try {
+        return await work();
+    } finally {
+        release();
+        if (loyaltyMutationLocks.get(key) === chain) loyaltyMutationLocks.delete(key);
+    }
+}
+
 async function awardOrderBeans(order) {
     if (!completedOrderStatuses().has(order.status)) {
         return { awarded: false, points: 0, reason: "ORDER_NOT_COMPLETED" };
@@ -4840,28 +4863,30 @@ async function awardOrderBeans(order) {
         return { awarded: false, points: 0, reason: "NO_POINTS" };
     }
 
-    const transactionID = loyaltyTransactionIDForOrder(order);
-    if (await hasLoyaltyTransaction(order.email, transactionID)) {
-        return { awarded: false, points, reason: "ALREADY_AWARDED" };
-    }
+    return withLoyaltyMutationLock(`order:${order.email}:${order.id}`, async () => {
+        const transactionID = loyaltyTransactionIDForOrder(order);
+        if (await hasLoyaltyTransaction(order.email, transactionID)) {
+            return { awarded: false, points, reason: "ALREADY_AWARDED" };
+        }
 
-    const updated = await updateLoyaltyAccount(order.email, (account) => {
-        account.pointsBalance += points;
-        account.transactions = account.transactions || [];
-        account.transactions.unshift({
-            id: transactionID,
-            type: "earn",
-            points,
-            note: `Completed order ${order.title} • ${points} Beans • ${order.total}`,
-            createdAt: new Date().toISOString()
+        const updated = await updateLoyaltyAccount(order.email, (account) => {
+            account.pointsBalance += points;
+            account.transactions = account.transactions || [];
+            account.transactions.unshift({
+                id: transactionID,
+                type: "earn",
+                points,
+                note: `Completed order ${order.title} • ${points} Beans • ${order.total}`,
+                createdAt: new Date().toISOString()
+            });
         });
+
+        if (!updated) {
+            return { awarded: false, points, reason: "LOYALTY_ACCOUNT_NOT_FOUND" };
+        }
+
+        return { awarded: true, points };
     });
-
-    if (!updated) {
-        return { awarded: false, points, reason: "LOYALTY_ACCOUNT_NOT_FOUND" };
-    }
-
-    return { awarded: true, points };
 }
 
 function cardPaymentRowToRecord(row) {

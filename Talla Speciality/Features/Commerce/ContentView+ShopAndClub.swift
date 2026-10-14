@@ -139,9 +139,14 @@ extension ContentView {
             accountEmail: $accountEmail,
             accountPassword: $accountPassword,
             accountConfirmPassword: $accountConfirmPassword,
+            guestName: $guestName,
+            guestPhone: $guestPhone,
+            guestAddressLine1: $guestAddressLine1,
+            guestAddressCity: $guestAddressCity,
             isSigningIn: isSigningIn,
             isCreatingAccount: isCreatingAccount,
             isResettingPassword: isResettingPassword,
+            isStartingGuestSession: isStartingGuestSession,
             isRequestingPasswordResetLink: isRequestingPasswordResetLink,
             isSigningInWithApple: isSigningInWithApple,
             isLoadingCustomer: isLoadingCustomer,
@@ -161,6 +166,9 @@ extension ContentView {
                         await signInCustomer()
                     }
                 }
+            },
+            guestAction: {
+                Task { await startGuestSession() }
             },
             requestPasswordResetLinkAction: {
                 Task {
@@ -237,6 +245,9 @@ extension ContentView {
                 isSaving: isSavingProfile,
                 saveAction: {
                     await saveProfile()
+                },
+                saveBirthdayAction: {
+                    await saveBirthdayProfileIfValid()
                 }
             )
 

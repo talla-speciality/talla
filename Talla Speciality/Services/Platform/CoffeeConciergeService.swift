@@ -144,6 +144,20 @@ enum CoffeeConciergeService {
             imageAnalysis: imageAnalysis
         )
 
+        if shouldUseLocalModel(for: trimmedRequest),
+           let localResult = await localModelResearch(
+               for: trimmedRequest,
+               context: [equipmentKnowledge, memoryContext(for: trimmedRequest)].joined(separator: "\n\n")
+           ) {
+            return CoffeeConciergeResult(
+                message: localResult.answer,
+                productIDs: [],
+                usedAppleIntelligence: false,
+                giftMessageSuggestions: [],
+                canBuildCart: false
+            )
+        }
+
         if allowWebResearch, shouldUseWebResearch(for: trimmedRequest),
            let webResult = await webResearch(for: trimmedRequest) {
             let webRankedProducts = requestLooksLikeProductRecommendation(trimmedRequest, hasImage: imageAnalysis != nil)
@@ -158,36 +172,6 @@ enum CoffeeConciergeService {
                 sourceURLs: webResult.sources.map(\.url)
             )
         }
-
-#if canImport(FoundationModels)
-        if #available(iOS 26.0, macOS 26.0, *) {
-            if let modelOutput = try? await foundationModelOutput(
-                request: trimmedRequest,
-                rankingRequest: rankingRequest,
-                products: products,
-                localeIdentifier: localeIdentifier,
-                imageAnalysis: imageAnalysis
-            ) {
-                let modelRankedProducts = rankedProducts(
-                    for: [rankingRequest, modelOutput.itemRequests.joined(separator: " ")].joined(separator: " "),
-                    products: products
-                )
-                let wantsProducts = requestLooksLikeProductRecommendation(trimmedRequest, hasImage: imageAnalysis != nil)
-                let modelMessageIsUseful = isRelevant(modelOutput.message, to: trimmedRequest)
-                    && !isGenericDeflection(modelOutput.message)
-                    && (!wantsProducts || modelRankedProducts.isEmpty || modelRankedProducts.prefix(3).contains { modelOutput.message.localizedCaseInsensitiveContains($0.name) })
-                guard modelMessageIsUseful else { return fallback }
-                let modelProductIDs = wantsProducts ? Array(modelRankedProducts.prefix(3)).map(\.id) : []
-                return CoffeeConciergeResult(
-                    message: modelOutput.message,
-                    productIDs: modelProductIDs.isEmpty && wantsProducts ? fallback.productIDs : modelProductIDs,
-                    usedAppleIntelligence: true,
-                    giftMessageSuggestions: wantsProducts && modelOutput.giftMessageSuggestions.isEmpty ? fallback.giftMessageSuggestions : (wantsProducts ? modelOutput.giftMessageSuggestions : []),
-                    canBuildCart: wantsProducts && (modelOutput.wantsCart || fallback.canBuildCart)
-                )
-            }
-        }
-#endif
 
         return fallback
     }
@@ -279,6 +263,40 @@ enum CoffeeConciergeService {
         struct Source: Decodable { let url: String }
         let answer: String
         let sources: [Source]
+    }
+
+    private struct LocalModelResponse: Decodable {
+        let answer: String
+        let model: String?
+        let source: String?
+        let usedUserContext: Bool?
+    }
+
+    private static func localModelResearch(for question: String, context: String) async -> LocalModelResponse? {
+        guard let baseURL = BackendConfiguration.serviceBaseURL else { return nil }
+        var request = URLRequest(url: baseURL.appending(path: "/ai/coffee-concierge"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let body: [String: String] = ["question": question, "context": context]
+        guard let encodedBody = try? JSONEncoder().encode(body) else { return nil }
+        request.httpBody = encodedBody
+        do {
+            let (data, response) = try await TallaSecureSession.data(for: request)
+            guard let http = response as? HTTPURLResponse, 200 ..< 300 ~= http.statusCode else { return nil }
+            let result = try JSONDecoder().decode(LocalModelResponse.self, from: data)
+            return result.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : result
+        } catch {
+            return nil
+        }
+    }
+
+    private static func shouldUseLocalModel(for request: String) -> Bool {
+        let normalized = request.lowercased()
+        let coffeeTerms = ["coffee", "espresso", "brew", "grind", "grinder", "bean", "roast", "v60", "pour over", "aeropress", "chemex", "kalita", "origami", "kettle", "dripper", "scale", "barista", "caffeine", "decaf", "latte", "cappuccino", "water", "filter", "dose", "yield", "extraction", "قهوة", "إسبريسو", "تحضير", "طحن", "حبوب", "تحميص", "مقطرة", "ميزان", "كافيين", "ماء"]
+        guard coffeeTerms.contains(where: normalized.contains) else { return false }
+        let liveOrCatalogTerms = ["latest", "current", "new", "price", "available", "buy", "cart", "shop", "catalog", "live", "الأحدث", "السعر", "متاح", "شراء"]
+        return !liveOrCatalogTerms.contains(where: normalized.contains)
     }
 
     private static func shouldUseWebResearch(for request: String) -> Bool {

@@ -21,9 +21,14 @@ struct CustomerAccountSectionView: View {
     @Binding var accountEmail: String
     @Binding var accountPassword: String
     @Binding var accountConfirmPassword: String
+    @Binding var guestName: String
+    @Binding var guestPhone: String
+    @Binding var guestAddressLine1: String
+    @Binding var guestAddressCity: String
     let isSigningIn: Bool
     let isCreatingAccount: Bool
     let isResettingPassword: Bool
+    let isStartingGuestSession: Bool
     let isRequestingPasswordResetLink: Bool
     let isSigningInWithApple: Bool
     let isLoadingCustomer: Bool
@@ -32,6 +37,7 @@ struct CustomerAccountSectionView: View {
     let primaryActionTitle: String
     let toggleModeAction: (ContentView.AccountAuthMode) -> Void
     let submitAction: () -> Void
+    let guestAction: () -> Void
     let requestPasswordResetLinkAction: () -> Void
 #if canImport(AuthenticationServices)
     let configureAppleSignInRequest: (ASAuthorizationAppleIDRequest) -> Void
@@ -66,6 +72,8 @@ struct CustomerAccountSectionView: View {
                 }
 
                 signInForm
+
+                guestCheckoutForm
             }
 
             if let customerAuthError {
@@ -83,6 +91,40 @@ struct CustomerAccountSectionView: View {
         )
         .tallaGlassCard(tint: Color(hex: 0x3D1F00).opacity(0.18), cornerRadius: 28)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
+
+    private var guestCheckoutForm: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider().overlay(TallaTheme.Colors.ink.opacity(0.12))
+                .padding(.vertical, 4)
+
+            Text(AppLocalization.text("guest_checkout_title", fallback: "Order as a guest"))
+                .font(sectionTitleFont)
+                .foregroundColor(primaryTextColor)
+            Text(AppLocalization.text("guest_checkout_detail", fallback: "Use your name, phone number, and delivery address to start ordering immediately. You can create a full account later."))
+                .font(bodyFont)
+                .foregroundColor(secondaryTextColor)
+
+            styledTextField(AppLocalization.text("full_name", fallback: "Full name"), text: $guestName, capitalization: .words)
+            styledTextField(AppLocalization.text("phone", fallback: "Phone number"), text: $guestPhone, capitalization: .never, keyboardType: .phonePad)
+            styledTextField(AppLocalization.text("address_line", fallback: "Delivery address"), text: $guestAddressLine1, capitalization: .words)
+            styledTextField(AppLocalization.text("city", fallback: "City"), text: $guestAddressCity, capitalization: .words)
+
+            Button(action: guestAction) {
+                HStack {
+                    if isStartingGuestSession { ProgressView().tint(.white) }
+                    Text(isStartingGuestSession
+                        ? AppLocalization.text("starting_guest_checkout", fallback: "STARTING...")
+                        : AppLocalization.text("continue_as_guest", fallback: "CONTINUE AS GUEST"))
+                        .font(Font.custom("AvenirNext-Bold", size: 12))
+                        .tracking(AppLocalization.letterSpacing(2.2))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 2)
+            }
+            .buttonStyle(.tallaSecondary)
+            .disabled(isStartingGuestSession || guestName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || guestPhone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || guestAddressLine1.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || guestAddressCity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
     }
 
     private var signInForm: some View {
@@ -283,7 +325,7 @@ struct CustomerAccountSectionView: View {
                 .font(Font.custom("AvenirNext-Bold", size: 10))
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
-                .foregroundColor(isSelected ? Color(hex: 0x151515) : secondaryTextColor)
+                .foregroundColor(isSelected ? Color.white : secondaryTextColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(

@@ -3,8 +3,8 @@
     "guest@talla.example": {
       "memberID": "TALLA-1001",
       "pointsBalance": 245,
-      "tier": "Gold",
-      "nextReward": "55 points to your next reward",
+      "tier": "Silver",
+      "nextReward": "5 Beans to your next reward",
       "perks": [
         "Collect points across coffees, beans, and accessories",
         "Unlock seasonal offers and complimentary extras"
@@ -29,8 +29,8 @@
     "ahmad.alweswasi@gmail.com": {
       "memberID": "TALLA-AHMADALW",
       "pointsBalance": 820,
-      "tier": "Roastery Gold",
-      "nextReward": "80 points to your next reward",
+      "tier": "Reserve",
+      "nextReward": "30 Beans to your next reward",
       "perks": [
         "Collect points across coffees, beans, and accessories",
         "Unlock seasonal offers and member-only extras"

@@ -14,7 +14,9 @@ struct ProfileManagementSectionView: View {
     @Binding var birthdayDay: String
     let isSaving: Bool
     let saveAction: () async -> Bool
+    let saveBirthdayAction: () async -> Bool
     @State private var isEditingName = false
+    @State private var birthdaySaveTask: Task<Void, Never>?
 
     private var hasSavedName: Bool {
         !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -103,7 +105,9 @@ struct ProfileManagementSectionView: View {
                     .foregroundColor(primaryTextColor)
                 HStack(spacing: 10) {
                     styledNumberField("Month", text: $birthdayMonth)
+                        .onChange(of: birthdayMonth) { _, _ in scheduleBirthdaySave() }
                     styledNumberField("Day", text: $birthdayDay)
+                        .onChange(of: birthdayDay) { _, _ in scheduleBirthdaySave() }
                 }
                 Text("Save your month and day to unlock the birthday reward on the correct date.")
                     .font(Font.custom("AvenirNext-Regular", size: 11))
@@ -114,6 +118,19 @@ struct ProfileManagementSectionView: View {
             if !hasSavedName {
                 isEditingName = true
             }
+            scheduleBirthdaySave()
+        }
+        .onDisappear { birthdaySaveTask?.cancel() }
+    }
+
+    private func scheduleBirthdaySave() {
+        birthdaySaveTask?.cancel()
+        guard let month = Int(birthdayMonth), let day = Int(birthdayDay),
+              (1...12).contains(month), (1...31).contains(day) else { return }
+        birthdaySaveTask = Task {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
+            _ = await saveBirthdayAction()
         }
     }
 
@@ -1178,7 +1195,7 @@ struct OrderHistorySectionView: View {
 
             Image(systemName: "leaf.fill")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(Color(hex: 0x151515))
+                .foregroundColor(.white)
                 .offset(y: 3)
         }
         .frame(width: 28, height: 30)

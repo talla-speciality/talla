@@ -448,6 +448,38 @@ enum AccountService {
         return try await performCustomerSessionRequest(request)
     }
 
+    static func startGuestSession(
+        name: String,
+        phone: String,
+        line1: String,
+        city: String,
+        countryCode: String,
+        label: String = "Home"
+    ) async throws -> CustomerSession {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Guest checkout"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/accounts/guest"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "name": name,
+            "phone": phone,
+            "address": [
+                "label": label,
+                "fullName": name,
+                "phone": phone,
+                "line1": line1,
+                "city": city,
+                "countryCode": countryCode
+            ]
+        ])
+
+        return try await performCustomerSessionRequest(request)
+    }
+
     static func signIn(email: String, password: String) async throws -> CustomerSession {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed("The account service is unavailable.")
