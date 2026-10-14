@@ -444,6 +444,7 @@ enum AppLocalization {
 
 enum BackendConfiguration {
     private static let infoPlistKey = "BackendBaseURL"
+    private static let coffeeAIInfoPlistKey = "CoffeeAIBaseURL"
     private static let simulatorDefaultURL = URL(string: "http://127.0.0.1:8787")
 
     static var serviceBaseURL: URL? {
@@ -467,6 +468,13 @@ enum BackendConfiguration {
         #endif
     }
 
+    static var coffeeAIBaseURL: URL? {
+        if let configuredURL = configuredURL(for: coffeeAIInfoPlistKey) {
+            return configuredURL
+        }
+        return serviceBaseURL
+    }
+
     static func unavailableMessage(for serviceName: String) -> String {
         AppLocalization.text("service_unavailable", fallback: "This part of Talla is unavailable right now. Please try again in a moment.")
     }
@@ -476,7 +484,11 @@ enum BackendConfiguration {
     }
 
     private static var configuredURL: URL? {
-        guard let rawValue = Bundle.main.object(forInfoDictionaryKey: infoPlistKey) as? String else {
+        configuredURL(for: infoPlistKey)
+    }
+
+    private static func configuredURL(for key: String) -> URL? {
+        guard let rawValue = Bundle.main.object(forInfoDictionaryKey: key) as? String else {
             return nil
         }
 

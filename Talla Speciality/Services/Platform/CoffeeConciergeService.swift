@@ -273,7 +273,7 @@ enum CoffeeConciergeService {
     }
 
     private static func localModelResearch(for question: String, context: String) async -> LocalModelResponse? {
-        guard let baseURL = BackendConfiguration.serviceBaseURL else { return nil }
+        guard let baseURL = BackendConfiguration.coffeeAIBaseURL else { return nil }
         var request = URLRequest(url: baseURL.appending(path: "/ai/coffee-concierge"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

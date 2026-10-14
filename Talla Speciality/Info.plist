@@ -4,6 +4,8 @@
 <dict>
 	<key>BackendBaseURL</key>
 	<string>https://talla-backend.onrender.com</string>
+	<key>CoffeeAIBaseURL</key>
+	<string>https://talla-backend-ai.onrender.com</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleURLTypes</key>
