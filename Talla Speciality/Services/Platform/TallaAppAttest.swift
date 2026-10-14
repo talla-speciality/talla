@@ -75,7 +75,10 @@ actor TallaAppAttest {
 #if canImport(DeviceCheck) && canImport(CryptoKit) && os(iOS)
         let service = DCAppAttestService.shared
         guard service.isSupported else { return nil }
-        guard let baseURL = await BackendConfiguration.serviceBaseURL else { return nil }
+        let configuredBaseURL = await BackendConfiguration.serviceBaseURL
+        let coffeeAIURL = await BackendConfiguration.coffeeAIBaseURL
+        let baseURL = request.url?.host == coffeeAIURL?.host ? coffeeAIURL : configuredBaseURL
+        guard let baseURL else { return nil }
 
         do {
             return try await makeAssertionHeaders(for: request, service: service, baseURL: baseURL)
