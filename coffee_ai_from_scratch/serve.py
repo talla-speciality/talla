@@ -7,6 +7,8 @@ from pathlib import Path
 
 import torch
 
+torch.set_num_threads(1)
+
 from model import CoffeeTransformer
 from tokenizer import CharTokenizer
 
@@ -25,9 +27,9 @@ def generate(question: str, context: str = "") -> str:
         prompt = f"\nUser context: {context}\n" + prompt
     ids = torch.tensor([tokenizer.encode(prompt)], dtype=torch.long)
     with torch.no_grad():
-        # Keep the free Render CPU instance responsive while preserving enough
-        # room for a concise brewing recommendation.
-        output = model.generate(ids, max_new_tokens=120, temperature=0.2)[0].tolist()
+        # Keep the free Render CPU instance responsive while preserving room
+        # for a concise brewing recommendation.
+        output = model.generate(ids, max_new_tokens=48, temperature=0.2)[0].tolist()
     answer = tokenizer.decode(output[len(ids[0]) :])
     for marker in ("\nUser:", "\n\nUser:"):
         if marker in answer:
