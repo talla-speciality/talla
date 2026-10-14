@@ -515,6 +515,9 @@ extension ContentView {
               (1...12).contains(month), (1...31).contains(day) else { return false }
         do {
             try await AccountService.saveBirthdayProfile(month: month, day: day)
+            #if canImport(UserNotifications)
+            _ = await BirthdayNotificationService.schedule(month: month, day: day)
+            #endif
             showToast(message: "Birthday saved")
             return true
         } catch {

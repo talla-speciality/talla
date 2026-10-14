@@ -52,6 +52,55 @@ enum ProductAlertNotificationService {
 
 }
 
+enum BirthdayNotificationService {
+    static let center = UNUserNotificationCenter.current()
+    private static let identifier = "talla-birthday"
+
+    static func schedule(month: Int, day: Int) async -> Bool {
+        let settings = await ProductAlertNotificationService.authorizationStatus()
+        let authorized: Bool
+        switch settings {
+        case .authorized, .provisional, .ephemeral:
+            authorized = true
+        case .notDetermined:
+            authorized = await ProductAlertNotificationService.requestAuthorization()
+        default:
+            authorized = false
+        }
+        guard authorized else { return false }
+
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        let content = UNMutableNotificationContent()
+        content.title = "Happy birthday from Talla"
+        content.body = "Your birthday reward is ready. Open Talla to see it."
+        content.sound = .default
+        content.userInfo = ["type": "birthday_reward", "url": "talla://account/loyalty"]
+
+        let calendar = Calendar.current
+        let today = calendar.dateComponents([.month, .day], from: .now)
+        let trigger: UNNotificationTrigger
+        if today.month == month && today.day == day {
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: false)
+        } else {
+            var components = DateComponents()
+            components.month = month
+            components.day = day
+            components.hour = 9
+            components.minute = 0
+            trigger = UNCalendarNotificationTrigger(
+                dateMatching: components,
+                repeats: true
+            )
+        }
+        do {
+            try await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
+            return true
+        } catch {
+            return false
+        }
+    }
+}
+
 enum BrewTimerNotificationService {
     static let center = UNUserNotificationCenter.current()
 
