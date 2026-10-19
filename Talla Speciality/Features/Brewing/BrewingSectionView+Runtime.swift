@@ -382,7 +382,22 @@ extension BrewingSectionView {
 
     func methodMetaLine(for method: ContentView.BrewingMethod) -> String {
         let category = method.categories.first ?? AppLocalization.text("brewing_guide", fallback: "Brewing Guide")
-        return [method.brewTime, method.difficulty, category]
+        var recipeParts: [String] = []
+        if let coffeeDisplay = method.publishedRecipe?.coffeeDisplay {
+            recipeParts.append(coffeeDisplay)
+        } else if let coffeeGrams = method.publishedRecipe?.coffeeGrams {
+            recipeParts.append("\(formattedWholeGram(coffeeGrams)) g coffee")
+        }
+        if let ratioDisplay = method.publishedRecipe?.ratioDisplay {
+            recipeParts.append("1:\(ratioDisplay)")
+        } else if let ratio = method.publishedRecipe?.ratio {
+            recipeParts.append("1:\(formattedRatioValue(ratio))")
+        }
+        if let waterGrams = method.publishedRecipe?.waterGrams {
+            recipeParts.append("\(formattedWholeGram(waterGrams)) g water")
+        }
+
+        return (recipeParts + [method.brewTime, method.difficulty, category])
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             .joined(separator: " · ")
     }
@@ -635,7 +650,14 @@ extension BrewingSectionView {
     }
 
     var brewModeWaterAmount: Double {
-        isV60IcedRecipe ? recipeBrewingWaterAmount : validWaterAmount
+        if isV60IcedRecipe {
+            return recipeBrewingWaterAmount
+        }
+
+        // The published guide is the source of truth for remote recipes. This
+        // matters for guides such as Arabic Qahwa, which specifies 500 ml
+        // water but expresses coffee as tablespoons rather than grams.
+        return selectedBrewModeMethod?.publishedRecipe?.waterGrams ?? validWaterAmount
     }
 
     var selectedBrewModeMethod: ContentView.BrewingMethod? {
@@ -652,6 +674,9 @@ extension BrewingSectionView {
             return max((generatedPourRows.last?.startTime ?? 165) + 45, 1)
         }
         if let activeSmartRecipe {
+            if let methodSeconds = selectedBrewModeMethod.flatMap({ seconds(from: $0.brewTime) }) {
+                return methodSeconds
+            }
             return activeSmartRecipe.targetSeconds
         }
 
@@ -740,15 +765,24 @@ extension BrewingSectionView {
             return
         }
 
-        guard isGeneratedRecipeActive,
+        guard (isGeneratedRecipeActive || activeSmartRecipe != nil),
               lastScaleAutoAdvancedStepID != currentBrewModeStep.id,
-              let row = generatedPourRows.first(where: { $0.id == currentBrewModeStep.id }),
-              let target = currentBrewModeStep.waterTarget,
+              let target = currentBrewModeStep.waterTarget else { return }
+
+        let waterAdded: Int?
+        if isGeneratedRecipeActive {
+            waterAdded = generatedPourRows.first(where: { $0.id == currentBrewModeStep.id })?.waterAdded
+        } else {
+            let added = max(target - previousWaterTarget, 0)
+            waterAdded = added > 0 ? Int(added.rounded()) : nil
+        }
+
+        guard let waterAdded,
               SmartScaleGuidanceRules.shouldAdvance(
                 isConnected: scaleManager.isConnected,
                 isRunning: isBrewModeRunning,
-                waterAdded: row.waterAdded,
-                stepTitle: row.title,
+                waterAdded: waterAdded,
+                stepTitle: currentBrewModeStep.title,
                 previousWeight: previousWeight,
                 currentWeight: currentWeight,
                 targetWeight: target
@@ -756,7 +790,11 @@ extension BrewingSectionView {
 
         let completedIndex = currentBrewModeStepIndex
         lastScaleAutoAdvancedStepID = currentBrewModeStep.id
-        let hasLaterPour = generatedPourRows.dropFirst(completedIndex + 1).contains { $0.waterAdded != nil }
+        let hasLaterPour = brewModeSteps.indices.drop(while: { $0 <= completedIndex }).contains { index in
+            guard let laterTarget = brewModeSteps[index].waterTarget else { return false }
+            let priorTarget = index > 0 ? brewModeSteps[index - 1].waterTarget ?? 0 : 0
+            return laterTarget > priorTarget
+        }
         if brewModeSteps.indices.contains(completedIndex + 1) {
             scaleStepOverrideIndex = completedIndex + 1
         }
@@ -917,22 +955,54 @@ extension BrewingSectionView {
                 )
             }
         }
+        if let publishedSteps = selectedBrewModeMethod?.publishedSteps, !publishedSteps.isEmpty {
+            return publishedSteps.enumerated().map { index, step in
+                BrewModeStep(
+                    id: index,
+                    time: step.startSeconds ?? (index == 0 ? 0 : stepTime(Double(index + 1) / Double(publishedSteps.count + 1), minimum: 15)),
+                    title: step.title,
+                    detail: step.detail,
+                    waterTarget: step.waterGrams
+                )
+            }
+        }
+
         if let activeSmartRecipe {
             return smartRecipeBrewModeSteps(for: activeSmartRecipe)
         }
 
         let method = selectedBrewModeMethod
-        let categoryText = (method?.categories.joined(separator: " ") ?? method?.name ?? "").lowercased()
+        let methodText = ([method?.name ?? ""] + (method?.categories ?? [])).joined(separator: " ").lowercased()
 
-        if categoryText.contains("cold") {
+        if methodText.contains("cold drip") {
+            return coldDripBrewModeSteps
+        }
+
+        if methodText.contains("cold") {
             return coldBrewModeSteps
         }
 
-        if categoryText.contains("traditional") || categoryText.contains("arabic") {
+        if methodText.contains("turkish") {
+            return turkishCoffeeBrewModeSteps
+        }
+
+        if methodText.contains("shamali") {
+            return shamaliAgedBrewModeSteps
+        }
+
+        if methodText.contains("traditional") || methodText.contains("arabic") || methodText.contains("qahwa") {
             return traditionalBrewModeSteps
         }
 
-        if categoryText.contains("immersion") || categoryText.contains("press") {
+        if methodText.contains("moka") {
+            return mokaPotBrewModeSteps
+        }
+
+        if methodText.contains("drip") && methodText.contains("bag") {
+            return dripCoffeeBagBrewModeSteps
+        }
+
+        if methodText.contains("immersion") || methodText.contains("press") {
             return immersionBrewModeSteps
         }
 
@@ -963,65 +1033,72 @@ extension BrewingSectionView {
                 BrewModeStep(id: 4, time: 50_400, title: "Filter and serve over ice", detail: "Use 1 part concentrate to 2 parts water or milk. A good serving is 100 g concentrate, 200 g mixer, and about 100 g ice.", waterTarget: brewingWater)
             ]
         case "balanced-filter":
+            let bloomWater = min(validWaterAmount, validCoffeeAmount * 3)
+            let firstPourWater = min(validWaterAmount, roundedBrewTarget(validWaterAmount * 0.6875))
             return [
                 BrewModeStep(
                     id: 0,
                     time: 0,
-                    title: "Add 20 g coffee",
+                    title: "Add \(formattedWholeGram(validCoffeeAmount)) g coffee",
                     detail: "Use a medium-fine grind, rinse the filter, warm the brewer, and level the bed.",
                     waterTarget: nil
                 ),
                 BrewModeStep(
                     id: 1,
                     time: 10,
-                    title: "Bloom to 60 g",
+                    title: "Bloom to \(formattedWholeGram(bloomWater)) g",
                     detail: "Pour just enough 92–94 °C water to wet every ground, then let gas release.",
-                    waterTarget: 60
+                    waterTarget: bloomWater
                 ),
                 BrewModeStep(
                     id: 2,
                     time: 45,
-                    title: "Pour to 220 g",
+                    title: "Pour to \(formattedWholeGram(firstPourWater)) g",
                     detail: "Use slow circles, keep the slurry even, and avoid pouring hard on the filter wall.",
-                    waterTarget: 220
+                    waterTarget: firstPourWater
                 ),
                 BrewModeStep(
                     id: 3,
                     time: 90,
-                    title: "Finish at 320 g",
-                    detail: "Top up gently to the final 1:16 target and let the bed settle flat.",
-                    waterTarget: 320
+                    title: "Finish at \(formattedWholeGram(validWaterAmount)) g",
+                    detail: "Top up gently to the final 1:\(formattedRatioValue(validRatioValue)) target and let the bed settle flat.",
+                    waterTarget: validWaterAmount
                 ),
                 BrewModeStep(
                     id: 4,
                     time: 210,
                     title: "Taste and save",
-                    detail: "Target 3:30. If the cup is sweet and clean, save this recipe for next time.",
-                    waterTarget: 320
+                    detail: "Target \(formattedTimerTime(brewModeTotalSeconds)). If the cup is sweet and clean, save this recipe for next time.",
+                    waterTarget: validWaterAmount
                 )
             ]
         case "espresso-base":
+            let dose = formattedWholeGram(validCoffeeAmount)
+            let yield = formattedWholeGram(validCoffeeAmount * validRatioValue)
             return [
-                BrewModeStep(id: 0, time: 0, title: "Dose 18 g coffee", detail: "Grind fine, distribute evenly, and tamp level.", waterTarget: nil),
+                BrewModeStep(id: 0, time: 0, title: "Dose \(dose) g coffee", detail: "Grind fine, distribute evenly, and tamp level.", waterTarget: nil),
                 BrewModeStep(id: 1, time: 5, title: "Start the shot", detail: "Watch for an even flow across the basket.", waterTarget: nil),
                 BrewModeStep(id: 2, time: 20, title: "Track the yield", detail: "Aim for the stream to stay steady and sweet, not pale too early.", waterTarget: nil),
-                BrewModeStep(id: 3, time: 30, title: "Stop at 36 g", detail: "Taste before changing the next shot. Adjust grind first.", waterTarget: nil)
+                BrewModeStep(id: 3, time: 30, title: "Stop at \(yield) g", detail: "Taste before changing the next shot. Adjust grind first.", waterTarget: nil)
             ]
         case "french-press-sweet":
+            let dose = formattedWholeGram(validCoffeeAmount)
+            let water = formattedWholeGram(brewModeWaterAmount)
             return [
-                BrewModeStep(id: 0, time: 0, title: "Add 24 g coffee", detail: "Use a coarse grind and preheat the press.", waterTarget: nil),
-                BrewModeStep(id: 1, time: 10, title: "Pour to 360 g", detail: "Saturate all grounds, then stir gently.", waterTarget: 360),
-                BrewModeStep(id: 2, time: 60, title: "Let sweetness build", detail: "Leave the slurry still while the coffee extracts.", waterTarget: 360),
-                BrewModeStep(id: 3, time: 210, title: "Break and skim", detail: "Break the crust, skim the foam, then press slowly.", waterTarget: 360),
-                BrewModeStep(id: 4, time: 240, title: "Serve fully", detail: "Pour everything out so it stops extracting in the brewer.", waterTarget: 360)
+                BrewModeStep(id: 0, time: 0, title: "Add \(dose) g coffee", detail: "Use a coarse grind and preheat the press.", waterTarget: nil),
+                BrewModeStep(id: 1, time: 10, title: "Pour to \(water) g", detail: "Saturate all grounds, then stir gently.", waterTarget: brewModeWaterAmount),
+                BrewModeStep(id: 2, time: 60, title: "Let sweetness build", detail: "Leave the slurry still while the coffee extracts.", waterTarget: brewModeWaterAmount),
+                BrewModeStep(id: 3, time: 240, title: "Break and skim", detail: "Break the crust, skim the foam, then press slowly.", waterTarget: brewModeWaterAmount),
+                BrewModeStep(id: 4, time: 270, title: "Serve fully", detail: "Pour everything out so it stops extracting in the brewer.", waterTarget: brewModeWaterAmount)
             ]
         case "arabic-majlis":
+            let dose = formattedWholeGram(validCoffeeAmount)
             return [
-                BrewModeStep(id: 0, time: 0, title: "Measure 18 g coffee", detail: "Use a medium-coarse grind and prepare your spices if using them.", waterTarget: nil),
-                BrewModeStep(id: 1, time: 45, title: "Add 324 g water", detail: "Heat gently and avoid a hard boil.", waterTarget: 324),
-                BrewModeStep(id: 2, time: 150, title: "Simmer low", detail: "Keep heat calm so aroma develops without harshness.", waterTarget: 324),
-                BrewModeStep(id: 3, time: 360, title: "Add spices and rest", detail: "Finish aromatics near the end, then let sediment settle.", waterTarget: 324),
-                BrewModeStep(id: 4, time: 480, title: "Serve slowly", detail: "Pour cleanly into the dallah or cups.", waterTarget: 324)
+                BrewModeStep(id: 0, time: 0, title: "Measure \(dose) g coffee", detail: "Use a fine grind and prepare cardamom, cloves, or saffron if using them.", waterTarget: nil),
+                BrewModeStep(id: 1, time: 0, title: "Add \(formattedWholeGram(brewModeWaterAmount)) g water", detail: "Bring the water and coffee to a gentle boil.", waterTarget: brewModeWaterAmount),
+                BrewModeStep(id: 2, time: 900, title: "Simmer for 15 minutes", detail: "Keep the coffee at a gentle simmer so the flavour develops without a hard boil.", waterTarget: brewModeWaterAmount),
+                BrewModeStep(id: 3, time: 1200, title: "Rest for 5 minutes", detail: "Remove from heat and let the grounds settle before serving.", waterTarget: brewModeWaterAmount),
+                BrewModeStep(id: 4, time: 1200, title: "Serve slowly", detail: "Pour cleanly into the dallah or cups.", waterTarget: brewModeWaterAmount)
             ]
         default:
             return pourOverBrewModeSteps
@@ -1071,6 +1148,60 @@ extension BrewingSectionView {
         ]
     }
 
+    var dripCoffeeBagBrewModeSteps: [BrewModeStep] {
+        let water = brewModeWaterAmount > 0 ? brewModeWaterAmount : 190
+        let bloom = min(30, water)
+        return [
+            BrewModeStep(id: 0, time: 0, title: "Add \(formattedWholeGram(validCoffeeAmount)) g coffee bag", detail: "Place the bag securely over the cup and start the timer.", waterTarget: nil),
+            BrewModeStep(id: 1, time: 0, title: "Bloom to \(formattedWholeGram(bloom)) g", detail: "Pour 30 ml of hot water over the grounds and wait 30 seconds.", waterTarget: bloom),
+            BrewModeStep(id: 2, time: 30, title: "Pour to \(formattedWholeGram(water)) g", detail: "Pour steadily in small circles until the guide's 180–200 ml total is reached.", waterTarget: water),
+            BrewModeStep(id: 3, time: 150, title: "Let it draw down", detail: "Allow the coffee to finish draining, then remove the bag and serve.", waterTarget: water)
+        ]
+    }
+
+    var turkishCoffeeBrewModeSteps: [BrewModeStep] {
+        let water = brewModeWaterAmount > 0 ? brewModeWaterAmount : 180
+        return [
+            BrewModeStep(id: 0, time: 0, title: "Add coffee and cold water", detail: "Combine finely ground coffee, cold water, and sugar if using in the cezve.", waterTarget: water),
+            BrewModeStep(id: 1, time: 90, title: "Heat slowly", detail: "Do not stir once heating starts. Watch for foam to build.", waterTarget: water),
+            BrewModeStep(id: 2, time: 240, title: "Lift the foam", detail: "Remove from heat before a full boil, then repeat the foam-building cycle 2–3 times.", waterTarget: water),
+            BrewModeStep(id: 3, time: 390, title: "Settle and serve", detail: "Let the coffee settle for 30 seconds, then pour slowly into two cups.", waterTarget: water)
+        ]
+    }
+
+    var mokaPotBrewModeSteps: [BrewModeStep] {
+        let water = brewModeWaterAmount > 0 ? brewModeWaterAmount : 200
+        return [
+            BrewModeStep(id: 0, time: 0, title: "Preheat the water", detail: "Use boiling water, then fill the base chamber to just below the safety valve.", waterTarget: water),
+            BrewModeStep(id: 1, time: 15, title: "Add 20 g coffee", detail: "Insert the basket and fill it with medium-fine coffee. Level evenly and do not tamp.", waterTarget: water),
+            BrewModeStep(id: 2, time: 30, title: "Brew on medium heat", detail: "Assemble the pot, leave the lid open, and monitor the flow.", waterTarget: water),
+            BrewModeStep(id: 3, time: 300, title: "Remove and serve", detail: "Once the coffee begins to sputter, remove from heat after about 10 seconds and serve immediately.", waterTarget: water)
+        ]
+    }
+
+    var coldDripBrewModeSteps: [BrewModeStep] {
+        let water = brewModeWaterAmount > 0 ? brewModeWaterAmount : 500
+        return [
+            BrewModeStep(id: 0, time: 0, title: "Assemble the tower", detail: "Insert the bottom filter into the coffee chamber.", waterTarget: nil),
+            BrewModeStep(id: 1, time: 0, title: "Add 60 g coffee", detail: "Use a medium-coarse grind and level the bed evenly.", waterTarget: nil),
+            BrewModeStep(id: 2, time: 0, title: "Place the top filter", detail: "Add the paper or mesh filter over the coffee bed for even dispersion.", waterTarget: nil),
+            BrewModeStep(id: 3, time: 30, title: "Fill to \(formattedWholeGram(water)) g", detail: "Use room-temperature filtered water in the upper chamber.", waterTarget: water),
+            BrewModeStep(id: 4, time: 60, title: "Set the drip rate", detail: "Adjust to one drip every 2–3 seconds.", waterTarget: water),
+            BrewModeStep(id: 5, time: 21_600, title: "Refrigerate and serve", detail: "After about 6 hours, refrigerate the concentrate. Keep up to 2 weeks and dilute 1 part concentrate to 2 parts water or milk over ice.", waterTarget: water)
+        ]
+    }
+
+    var shamaliAgedBrewModeSteps: [BrewModeStep] {
+        let water = brewModeWaterAmount > 0 ? brewModeWaterAmount : 1_000
+        return [
+            BrewModeStep(id: 0, time: 0, title: "Add 80 g coffee and 1 L water", detail: "Use medium-fine coffee in a brewing pot or saucepan.", waterTarget: water),
+            BrewModeStep(id: 1, time: 300, title: "Heat until the coffee rises", detail: "Brew on the stove, then let it rest for one hour before bottling.", waterTarget: water),
+            BrewModeStep(id: 2, time: 1_200, title: "Bottle and age", detail: "Pour into airtight bottles and store at room temperature for several days. Do not refrigerate.", waterTarget: water),
+            BrewModeStep(id: 3, time: 1_200, title: "Re-brew with 25 g coffee", detail: "After resting, pour the coffee back into the pot and add 25 g coffee.", waterTarget: water),
+            BrewModeStep(id: 4, time: 1_200, title: "Heat again and finish", detail: "Brew until the coffee rises again, then serve or return it to the bottles for further aging.", waterTarget: water)
+        ]
+    }
+
     var immersionBrewModeSteps: [BrewModeStep] {
         [
             BrewModeStep(
@@ -1112,7 +1243,8 @@ extension BrewingSectionView {
     }
 
     var traditionalBrewModeSteps: [BrewModeStep] {
-        [
+        let water = brewModeWaterAmount
+        return [
             BrewModeStep(
                 id: 0,
                 time: 0,
@@ -1123,23 +1255,23 @@ extension BrewingSectionView {
             BrewModeStep(
                 id: 1,
                 time: stepTime(0.10, minimum: 45),
-                title: "Add \(formattedWholeGram(validWaterAmount)) g water",
+                title: "Add \(formattedWholeGram(water)) g water",
                 detail: AppLocalization.text("traditional_step_water", fallback: "Bring the water up gently before adding coffee."),
-                waterTarget: validWaterAmount
+                waterTarget: water
             ),
             BrewModeStep(
                 id: 2,
                 time: stepTime(0.36, minimum: 150),
                 title: AppLocalization.text("traditional_step_simmer", fallback: "Simmer gently"),
                 detail: AppLocalization.text("traditional_step_simmer_detail", fallback: "Keep the heat low and let the aroma develop."),
-                waterTarget: validWaterAmount
+                waterTarget: water
             ),
             BrewModeStep(
                 id: 3,
                 time: stepTime(0.72, minimum: 300),
                 title: AppLocalization.text("traditional_step_settle", fallback: "Let it settle"),
                 detail: AppLocalization.text("traditional_step_settle_detail", fallback: "Rest briefly so the cup pours cleanly."),
-                waterTarget: validWaterAmount
+                waterTarget: water
             ),
             BrewModeStep(
                 id: 4,
@@ -1289,6 +1421,16 @@ extension BrewingSectionView {
         if !preserveRecipeIdentity {
             brewRecipeName = method.name
             isGeneratedRecipeActive = false
+        }
+
+        if !usesSmartRecipe {
+            usePublishedRecipe(method.publishedRecipe)
+            if let coffeeGrams = method.publishedRecipe?.coffeeGrams {
+                ratioCoffeeInput = formattedRatioValue(coffeeGrams)
+            }
+            if let ratio = method.publishedRecipe?.ratio {
+                ratioValueInput = formattedRatioValue(ratio)
+            }
         }
         brewModeElapsedSeconds = 0
         lastCueStepIndex = -1
@@ -1886,6 +2028,24 @@ extension BrewingSectionView {
 
     func seconds(from brewTime: String) -> Int? {
         let lowercasedTime = brewTime.lowercased()
+
+        // Handle clock-style durations before extracting individual numbers.
+        // Without this, a value such as "2:15" was interpreted as the average
+        // of 2 and 15 minutes (8:30) instead of 2 minutes 15 seconds.
+        if let clockMatch = lowercasedTime.firstMatch(of: /(\d+)\s*:\s*(\d{1,2})/) {
+            guard let minutes = Int(clockMatch.1), let seconds = Int(clockMatch.2), seconds < 60 else {
+                return nil
+            }
+            return max(minutes * 60 + seconds, 1)
+        }
+
+        if let minuteSecondMatch = lowercasedTime.firstMatch(of: /(\d+)\s*min(?:ute)?s?\s*(\d{1,2})\s*sec/) {
+            guard let minutes = Int(minuteSecondMatch.1), let seconds = Int(minuteSecondMatch.2), seconds < 60 else {
+                return nil
+            }
+            return max(minutes * 60 + seconds, 1)
+        }
+
         let matches = lowercasedTime.matches(of: /\d+(?:\.\d+)?/)
             .compactMap { Double($0.output) }
 

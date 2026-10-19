@@ -407,7 +407,6 @@ struct BrewingSectionView: View {
     @State var isRecentRecipesExpanded = false
     @State var isBrewingLibraryExpanded = false
     @State var isBrewingGuidesExpanded = false
-    @State var areAllBrewingGuidesVisible = false
     @State var selectedBrewingGuide: ContentView.BrewingMethod?
     @State var methodSearchText = ""
     @State var methodCategoryFilter = "All"

@@ -962,7 +962,8 @@ extension ContentView {
                     categories: ["Pour Over", "Filter"],
                     difficulty: "Intermediate",
                     brewTime: "3-4 min",
-                    publishedRecipe: nil
+                    publishedRecipe: nil,
+                    publishedSteps: []
                 ),
                 BrewingMethod(
                     id: "fallback-french-press",
@@ -974,7 +975,8 @@ extension ContentView {
                     categories: ["Immersion"],
                     difficulty: "Easy",
                     brewTime: "4 min",
-                    publishedRecipe: nil
+                    publishedRecipe: nil,
+                    publishedSteps: []
                 ),
                 BrewingMethod(
                     id: "fallback-chemex",
@@ -986,7 +988,8 @@ extension ContentView {
                     categories: ["Pour Over", "Filter"],
                     difficulty: "Intermediate",
                     brewTime: "4-5 min",
-                    publishedRecipe: nil
+                    publishedRecipe: nil,
+                    publishedSteps: []
                 ),
                 BrewingMethod(
                     id: "fallback-arabic-coffee",
@@ -998,7 +1001,8 @@ extension ContentView {
                     categories: ["Traditional"],
                     difficulty: "Intermediate",
                     brewTime: "8 min",
-                    publishedRecipe: nil
+                    publishedRecipe: nil,
+                    publishedSteps: []
                 ),
                 BrewingMethod(
                     id: "fallback-cold-brew",
@@ -1010,7 +1014,8 @@ extension ContentView {
                     categories: ["Cold Brew"],
                     difficulty: "Easy",
                     brewTime: "12 hr",
-                    publishedRecipe: nil
+                    publishedRecipe: nil,
+                    publishedSteps: []
                 )
             ]
         } else {

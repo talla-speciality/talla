@@ -5,11 +5,6 @@ import UIKit
 import LocalAuthentication
 import Security
 
-private struct AdminBiometricCredential: Codable {
-    let username: String
-    let password: String
-}
-
 private enum AdminBiometricStore {
     private static let service = "com.talla.admin.biometric-login"
     private static let account = "admin-credential"
@@ -31,8 +26,8 @@ private enum AdminBiometricStore {
         return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
     }
 
-    static func save(username: String, password: String) throws {
-        let data = try JSONEncoder().encode(AdminBiometricCredential(username: username, password: password))
+    static func save() throws {
+        let data = Data("enabled".utf8)
         var accessError: Unmanaged<CFError>?
         guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
@@ -51,7 +46,7 @@ private enum AdminBiometricStore {
         guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else { throw AdminAPIError.server("Could not enable biometric sign-in.") }
     }
 
-    static func read() throws -> AdminBiometricCredential? {
+    static func authenticate() throws {
         let context = LAContext()
         context.localizedReason = "Sign in to Talla Admin"
         let query: [String: Any] = [
@@ -64,9 +59,9 @@ private enum AdminBiometricStore {
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { return nil }
+        if status == errSecItemNotFound { throw AdminAPIError.server("Face ID / Touch ID is not enabled.") }
         guard status == errSecSuccess, let data = result as? Data else { throw AdminAPIError.server("Biometric sign-in was not completed.") }
-        return try JSONDecoder().decode(AdminBiometricCredential.self, from: data)
+        guard data == Data("enabled".utf8) else { throw AdminAPIError.server("Biometric sign-in was not completed.") }
     }
 
     static func remove() {
@@ -117,8 +112,6 @@ final class AdminSession: ObservableObject {
             if session.authenticated {
                 await api.synchronizeWebCookies()
                 await refreshOrders()
-            } else if biometricEnabled {
-                await loginWithBiometrics()
             }
         } catch {
             isAuthenticated = false
@@ -141,7 +134,7 @@ final class AdminSession: ObservableObject {
             permissions = Set(response.permissions ?? [])
             if saveBiometrics {
                 do {
-                    try AdminBiometricStore.save(username: username, password: password)
+                    try AdminBiometricStore.save()
                     biometricEnabled = true
                 } catch { errorMessage = error.localizedDescription }
             }
@@ -164,8 +157,18 @@ final class AdminSession: ObservableObject {
     func loginWithBiometrics() async {
         guard biometricAvailable, !isAuthenticated else { return }
         do {
-            guard let credential = try AdminBiometricStore.read() else { biometricEnabled = false; return }
-            _ = await login(username: credential.username, password: credential.password)
+            try AdminBiometricStore.authenticate()
+            let response = try await api.restoreSession()
+            guard response.authenticated else {
+                throw AdminAPIError.server("Your admin session expired. Sign in with your password.")
+            }
+            username = response.username ?? ""
+            role = response.role ?? "viewer"
+            permissions = Set(response.permissions ?? [])
+            isAuthenticated = true
+            await api.synchronizeWebCookies()
+            await refreshOrders()
+            await refreshNotificationState()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -181,6 +184,7 @@ final class AdminSession: ObservableObject {
             try? await api.unregisterPushToken(token)
         }
         try? await api.logout()
+        AdminBiometricStore.remove()
         isAuthenticated = false
         username = ""
         role = "viewer"

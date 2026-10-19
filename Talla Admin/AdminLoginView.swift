@@ -85,7 +85,7 @@ struct AdminLoginView: View {
                                     isSigningIn = false
                                 }
                             } label: {
-                                Label("Sign In with Face ID / Touch ID", systemImage: "faceid")
+                                Label("Unlock Existing Session with Face ID / Touch ID", systemImage: "faceid")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)

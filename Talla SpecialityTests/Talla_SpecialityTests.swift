@@ -54,6 +54,37 @@ struct Talla_SpecialityTests {
         #expect(!result.giftMessageSuggestions.isEmpty)
     }
 
+    @Test func conciergeDoesNotAttachCoffeeProductsToEquipmentAdvice() async {
+        let products = [
+            conciergeProduct(id: "durrat", name: "Durrat Al-Bahrain", price: "5.000 BHD", categoryKey: "coffee", desc: "Sweet and balanced coffee"),
+            conciergeProduct(id: "v60-filters", name: "V60 Filters", price: "2.000 BHD", categoryKey: "coffee", desc: "Paper filters")
+        ]
+
+        let result = await CoffeeConciergeService.recommend(
+            request: "What's the best espresso grinder?",
+            products: products,
+            localeIdentifier: "en",
+            allowWebResearch: false
+        )
+
+        #expect(result.productIDs.isEmpty)
+        #expect(!result.canBuildCart)
+    }
+
+    @Test func conciergeAnswersEquipmentRecommendationsWithEquipment() async {
+        let result = await CoffeeConciergeService.recommend(
+            request: "What's the best pour over grinder?",
+            products: [],
+            localeIdentifier: "en",
+            allowWebResearch: false
+        )
+
+        #expect(result.message.contains("Fellow Ode Gen 2"))
+        #expect(result.message.contains("1Zpresso K-Ultra"))
+        #expect(result.productIDs.isEmpty)
+        #expect(!result.canBuildCart)
+    }
+
     @Test func socialCoffeeLinksAcceptPublishedPagesAndLegacyRoutes() {
         let id = "0123456789abcdef"
         let invite = "0123456789abcdef0123456789abcdef"

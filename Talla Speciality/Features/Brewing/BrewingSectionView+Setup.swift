@@ -940,22 +940,6 @@ extension BrewingSectionView {
         Group {
             if brewingGuidesEnabled && !displayedMethods.isEmpty {
                 if isBrewingGuidesExpanded {
-                        if displayedMethods.count > 3 {
-                            HStack {
-                                Spacer(minLength: 0)
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.22)) {
-                                        areAllBrewingGuidesVisible.toggle()
-                                    }
-                                } label: {
-                                    Text(areAllBrewingGuidesVisible ? AppLocalization.text("show_less", fallback: "Show Less") : AppLocalization.text("view_all", fallback: "View All"))
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(brewAccentColor)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-
                         VStack(spacing: 0) {
             ForEach(Array(visibleBrewingGuides.enumerated()), id: \.element.id) { index, method in
                                 if index > 0 {
@@ -977,7 +961,9 @@ extension BrewingSectionView {
     }
 
     var visibleBrewingGuides: [ContentView.BrewingMethod] {
-        areAllBrewingGuidesVisible ? displayedMethods : Array(displayedMethods.prefix(3))
+        // Guided Brew must expose the complete recipe catalog. Truncating this
+        // list makes valid recipes appear to be missing from the customer flow.
+        displayedMethods
     }
 
     func brewingGuideEntryRow(_ method: ContentView.BrewingMethod) -> some View {
@@ -1001,6 +987,11 @@ extension BrewingSectionView {
                         Text(method.summary)
                             .font(.system(size: 14))
                             .foregroundColor(brewSecondaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(methodMetaLine(for: method))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(brewAccentColor)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 

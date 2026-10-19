@@ -141,7 +141,10 @@ enum SmartBrewRecipeEngine {
             process: process,
             agitation: agitation
         )
-        let end = steps.last?.startTime ?? 180
+        // The guided timer keeps the final drawdown/settling window open for
+        // 45 seconds after the last pour step. Keep the displayed target range
+        // aligned with that same endpoint.
+        let end = (steps.last?.startTime ?? 180) + 45
         let target = cold ? "12–16 hr" : timeRange(around: end, brewerID: input.brewerID)
         let retention = cold ? 0 : dose * 2.1
         let expected = iced ? total : max(total - retention, 1)

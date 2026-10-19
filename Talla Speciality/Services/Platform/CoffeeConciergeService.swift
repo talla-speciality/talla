@@ -144,6 +144,16 @@ enum CoffeeConciergeService {
             imageAnalysis: imageAnalysis
         )
 
+        if let equipmentRecommendation = equipmentRecommendationFallback(for: trimmedRequest) {
+            return CoffeeConciergeResult(
+                message: equipmentRecommendation,
+                productIDs: [],
+                usedAppleIntelligence: false,
+                giftMessageSuggestions: [],
+                canBuildCart: false
+            )
+        }
+
         if shouldUseLocalModel(for: trimmedRequest),
            let localResult = await localModelResearch(
                for: trimmedRequest,
@@ -161,6 +171,7 @@ enum CoffeeConciergeService {
         if allowWebResearch, shouldUseWebResearch(for: trimmedRequest),
            let webResult = await webResearch(for: trimmedRequest) {
             let webRankedProducts = requestLooksLikeProductRecommendation(trimmedRequest, hasImage: imageAnalysis != nil)
+                && !isEquipmentQuestion(trimmedRequest)
                 ? Array(rankedProducts(for: rankingRequest, products: products).prefix(3)).map(\.id)
                 : []
             return CoffeeConciergeResult(
@@ -168,7 +179,7 @@ enum CoffeeConciergeService {
                 productIDs: webRankedProducts,
                 usedAppleIntelligence: false,
                 giftMessageSuggestions: [],
-                canBuildCart: requestLooksLikeCartBuild(trimmedRequest),
+                canBuildCart: requestLooksLikeCartBuild(trimmedRequest) && !isEquipmentQuestion(trimmedRequest),
                 sourceURLs: webResult.sources.map(\.url)
             )
         }
@@ -183,6 +194,7 @@ enum CoffeeConciergeService {
         imageAnalysis: ImageAnalysis?
     ) -> CoffeeConciergeResult {
         let wantsProducts = requestLooksLikeProductRecommendation(request, hasImage: imageAnalysis != nil)
+            && !isEquipmentQuestion(request)
         guard wantsProducts else {
             return CoffeeConciergeResult(
                 message: coffeeKnowledgeFallback(for: request, imageAnalysis: imageAnalysis),
@@ -471,6 +483,27 @@ enum CoffeeConciergeService {
             || normalized.contains("أفضل v60")
     }
 
+    /// Equipment advice should not be converted into Talla bean/product cards.
+    /// The catalog currently contains coffee and gift products, while equipment
+    /// questions are answered from the Coffee AI knowledge base or web research.
+    private static func isEquipmentQuestion(_ request: String) -> Bool {
+        let normalized = request.lowercased()
+        let equipmentTerms = [
+            "grinder", "grinders", "scale", "scales", "dripper", "drippers", "brewer", "brewers",
+            "kettle", "espresso machine", "coffee machine", "frothed", "frother", "milk frother",
+            "equipment", "gear", "burr", "portafilter", "tamper", "filter holder", "v60", "chemex",
+            "kalita", "origami", "aeropress", "french press", "moka pot", "مطحنة", "طاحونة", "ميزان",
+            "معدات", "مقطرة", "ماكينة اسبريسو", "إسبريسو"
+        ]
+        guard equipmentTerms.contains(where: normalized.contains) else { return false }
+
+        let explicitTallaPurchaseTerms = [
+            "talla product", "talla item", "from talla", "in the shop", "in your shop", "catalog",
+            "buy this", "add this", "add to cart", "اشتري", "أضف للسلة", "من تالا"
+        ]
+        return !explicitTallaPurchaseTerms.contains(where: normalized.contains)
+    }
+
     private static func coffeeKnowledgeFallback(for request: String, imageAnalysis: ImageAnalysis?) -> String {
         let normalized = request.lowercased()
         if normalized.contains("timemore") || normalized.contains("acaia") || normalized.contains("felicita") || normalized.contains("hario scale") || normalized.contains("black mirror") {
@@ -534,6 +567,39 @@ enum CoffeeConciergeService {
             return "I can use the image as a coffee clue, but I need one detail to give useful advice: are you trying to identify the beans, reproduce the drink, or fix a brewing problem?"
         }
         return "I can help you diagnose a cup, choose a recipe, understand beans and roasting, or improve your equipment setup. Tell me your brew method, coffee dose, water amount, time, and what the cup tastes like."
+    }
+
+    private static func equipmentRecommendationFallback(for request: String) -> String? {
+        let normalized = request.lowercased()
+        let asksForRecommendation = [
+            "best", "recommend", "recommendation", "which", "what should i buy", "compare", "top",
+            "أفضل", "أرشح", "ترشيح", "أي", "قارن"
+        ].contains { normalized.contains($0) }
+        guard asksForRecommendation else { return nil }
+
+        if normalized.contains("grinder") || normalized.contains("grinders") || normalized.contains("مطحنة") || normalized.contains("طاحونة") {
+            if normalized.contains("espresso") || normalized.contains("إسبريسو") {
+                return "For espresso, start with the Baratza Encore ESP for a budget-friendly choice, the DF54 for a strong single-dose flat-burr option, or the Eureka Mignon Specialita for a quieter timed workflow. Choose the Niche Zero when low-retention single dosing matters most. Tell me your budget and whether you prefer single dosing or a hopper."
+            }
+            if normalized.contains("pour over") || normalized.contains("pourover") || normalized.contains("filter") || normalized.contains("drip") {
+                return "For pour-over, the Fellow Ode Gen 2 is a strong clarity-focused electric choice, the Timemore Sculptor 078 is a premium option, and the Baratza Encore is a dependable budget pick. For manual grinding, consider the 1Zpresso K-Ultra or KINGrinder K6. The Ode and most filter grinders are not suitable for espresso. Tell me your budget and whether you want electric or manual."
+            }
+            return "For one grinder that covers multiple methods, consider the 1Zpresso K-Ultra for manual use, the Baratza Encore ESP for a lower-cost electric option, or the DF54 for single dosing and espresso flexibility. Choose based on your main brew method, budget, and whether you prefer speed or portability."
+        }
+
+        if normalized.contains("scale") || normalized.contains("scales") || normalized.contains("ميزان") {
+            return "For pour-over, the BOOKOO Themis Ultra is the most feature-rich option, the Timemore Black Mirror is a strong everyday value, and the OXO Precision Scale is a simple budget choice. For espresso, choose the compact Acaia Lunar or a Timemore Nano-style scale that fits your drip tray. Prioritize 0.1 g resolution, fast response, a timer, and water resistance."
+        }
+
+        if normalized.contains("dripper") || normalized.contains("v60") || normalized.contains("chemex") || normalized.contains("kalita") {
+            return "For pour-over, choose the Hario V60 for clarity and control, the Kalita Wave 185 for a more forgiving balanced brew, the Hario Switch for immersion plus pour-over, or the Chemex when serving several people. The V60 is the best starting point if you want to learn pouring and dialing-in."
+        }
+
+        if normalized.contains("espresso machine") || normalized.contains("coffee machine") || normalized.contains("ماكينة") {
+            return "For home espresso, the Breville Bambino Plus is a compact beginner-friendly choice, the Gaggia Classic Pro offers a more traditional workflow, and the Lelit Bianca is a high-end dual-boiler option with flow control. Choose based on milk drinks, workflow, budget, and whether you want a built-in grinder."
+        }
+
+        return nil
     }
 
     private static func requestLooksLikeCartBuild(_ request: String) -> Bool {

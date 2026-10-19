@@ -2393,7 +2393,30 @@ function verifyShopifyWebhook(rawBody, hmacHeader) {
 }
 
 function hashPassword(password) {
-    return crypto.createHash("sha256").update(String(password)).digest("hex");
+    const salt = crypto.randomBytes(16).toString("hex");
+    const derived = crypto.scryptSync(String(password), salt, 64).toString("hex");
+    return `scrypt$${salt}$${derived}`;
+}
+
+function verifyPassword(password, encoded) {
+    const value = String(encoded || "");
+    const [algorithm, salt, expected] = value.split("$");
+    if (algorithm === "scrypt" && salt && expected) {
+        const actual = crypto.scryptSync(String(password), salt, 64).toString("hex");
+        return actual.length === expected.length
+            && crypto.timingSafeEqual(Buffer.from(actual, "utf8"), Buffer.from(expected, "utf8"));
+    }
+
+    if (/^[0-9a-f]{64}$/i.test(value)) {
+        const actual = crypto.createHash("sha256").update(String(password)).digest("hex");
+        return crypto.timingSafeEqual(Buffer.from(actual, "utf8"), Buffer.from(value, "utf8"));
+    }
+
+    return false;
+}
+
+function hashResetToken(token) {
+    return crypto.createHash("sha256").update(String(token)).digest("hex");
 }
 
 function sha256Hex(value) {
@@ -9518,6 +9541,8 @@ const server = createServer({
     hasLoyaltyTransaction,
     hashCustomerToken,
     hashPassword,
+    hashResetToken,
+    verifyPassword,
     homeSettingsStorePath,
     host,
     http,

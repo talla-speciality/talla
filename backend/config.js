@@ -170,7 +170,7 @@ module.exports = {
         gulfCoffeeMap: path.join(dataDirectory, "gulfCoffeeMap.json"),
         adminUsers: path.join(dataDirectory, "adminUsers.json")
     },
-    corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "*",
+    corsAllowedOrigin: process.env.CORS_ALLOWED_ORIGIN || "https://talla.me",
     walletPassTemplateDirectory,
     walletPassCertificatePath: toAbsolutePath(process.env.WALLET_P12_PATH),
     walletPassCertificateBase64: process.env.WALLET_P12_BASE64 || "",

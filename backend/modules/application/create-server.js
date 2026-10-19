@@ -262,6 +262,8 @@ module.exports = function createServer(dependencies) {
         hasLoyaltyTransaction,
         hashCustomerToken,
         hashPassword,
+        hashResetToken,
+        verifyPassword,
         homeSettingsStorePath,
         host,
         http,
@@ -2634,7 +2636,7 @@ module.exports = function createServer(dependencies) {
                 }
 
                 const token = createPasswordResetToken();
-                const tokenHash = hashPassword(token);
+                const tokenHash = hashResetToken(token);
                 const createdAt = new Date().toISOString();
                 const expiresAt = new Date(Date.now() + (passwordResetTokenHours * 60 * 60 * 1000)).toISOString();
 
@@ -3430,9 +3432,15 @@ module.exports = function createServer(dependencies) {
 
             const account = await getAccountByEmail(email);
 
-            if (!account || account.passwordHash !== hashPassword(password)) {
+            if (!account || !verifyPassword(password, account.passwordHash)) {
                 sendJSON(response, 401, { error: "Invalid email or password" });
                 return;
+            }
+
+            // Upgrade legacy unsalted SHA-256 records after a successful
+            // sign-in. New and changed passwords use scrypt.
+            if (/^[0-9a-f]{64}$/i.test(String(account.passwordHash || ""))) {
+                await updateAccountPasswordRecord(email, hashPassword(password));
             }
 
             if (account.isActive === false) {
@@ -3708,7 +3716,7 @@ module.exports = function createServer(dependencies) {
             const account = await getAccountByEmail(email);
             if (account) {
                 const token = createPasswordResetToken();
-                const tokenHash = hashPassword(token);
+                const tokenHash = hashResetToken(token);
                 const createdAt = new Date().toISOString();
                 const expiresAt = new Date(Date.now() + (passwordResetTokenHours * 60 * 60 * 1000)).toISOString();
 
@@ -3736,7 +3744,7 @@ module.exports = function createServer(dependencies) {
             return;
         }
 
-        if (await passwordResetTokenIsValid(hashPassword(token))) {
+        if (await passwordResetTokenIsValid(hashResetToken(token))) {
             sendJSON(response, 200, { status: "ok" });
             return;
         }
@@ -3756,7 +3764,7 @@ module.exports = function createServer(dependencies) {
                 return;
             }
 
-            const resetRecord = await consumePasswordResetTokenRecord(hashPassword(token));
+            const resetRecord = await consumePasswordResetTokenRecord(hashResetToken(token));
             if (!resetRecord) {
                 sendJSON(response, 410, { error: "This password reset link is invalid or expired" });
                 return;
@@ -3804,7 +3812,7 @@ module.exports = function createServer(dependencies) {
                 return;
             }
 
-            if (account.passwordHash !== hashPassword(currentPassword)) {
+            if (!verifyPassword(currentPassword, account.passwordHash)) {
                 sendJSON(response, 401, { error: "Current password is incorrect" });
                 return;
             }
@@ -3837,7 +3845,7 @@ module.exports = function createServer(dependencies) {
                 return;
             }
 
-            if (account.passwordHash !== hashPassword(currentPassword)) {
+            if (!verifyPassword(currentPassword, account.passwordHash)) {
                 sendJSON(response, 401, { error: "Current password is incorrect" });
                 return;
             }
@@ -6652,7 +6660,7 @@ module.exports = function createServer(dependencies) {
             response.writeHead(200, {
                 "Content-Type": "application/vnd.apple.pkpass",
                 "Content-Length": fs.statSync(generatedPass.path).size,
-                "Access-Control-Allow-Origin": "*"
+                "Access-Control-Allow-Origin": config.corsAllowedOrigin
             });
 
             const stream = fs.createReadStream(generatedPass.path);

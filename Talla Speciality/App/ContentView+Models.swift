@@ -378,6 +378,15 @@ extension ContentView {
             let ratio: Double?
             let waterGrams: Double?
             let iceGrams: Double?
+            let coffeeDisplay: String?
+            let ratioDisplay: String?
+        }
+
+        struct PublishedStep: Hashable {
+            let title: String
+            let detail: String
+            let startSeconds: Int?
+            let waterGrams: Double?
         }
 
         let id: String
@@ -390,6 +399,7 @@ extension ContentView {
         let difficulty: String
         let brewTime: String
         let publishedRecipe: PublishedRecipe?
+        let publishedSteps: [PublishedStep]
     }
 
     struct ShopCategory: Identifiable, Hashable {

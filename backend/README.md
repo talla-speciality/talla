@@ -41,7 +41,7 @@ The server reads configuration from environment variables:
 - `HOST`: bind address, defaults to `0.0.0.0`
 - `PORT`: listener port, defaults to `8787`
 - `APP_URL`: public URL used in logs and health output
-- `CORS_ALLOWED_ORIGIN`: CORS origin, defaults to `*`
+- `CORS_ALLOWED_ORIGIN`: explicit CORS origin, defaults to `https://talla.me`; use a comma-separated allowlist when multiple browser origins are required
 - `DATA_DIRECTORY`: JSON data storage directory
 - `DATABASE_URL`: optional Postgres connection string for accounts, loyalty, wallet pass metadata, addresses, vouchers, orders, stock alerts, and alert inbox
 - `ADMIN_USERNAME`: admin username for `/admin`

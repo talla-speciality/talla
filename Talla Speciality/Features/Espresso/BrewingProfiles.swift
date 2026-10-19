@@ -125,8 +125,8 @@ extension BrewingSectionView {
                 ratio: 15,
                 grind: AppLocalization.text("coarse", fallback: "Coarse"),
                 temperature: "94 °C",
-                time: "4:00",
-                targetSeconds: 240,
+                time: "4:30",
+                targetSeconds: 270,
                 goal: AppLocalization.text("round_full_goal", fallback: "Round, full, sweet"),
                 steps: [
                     AppLocalization.text("press_step_1", fallback: "Add 24 g coarse coffee and pour 360 g water."),
