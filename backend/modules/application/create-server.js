@@ -237,6 +237,7 @@ module.exports = function createServer(dependencies) {
         adminGulfCoffeeRatings,
         aggregateGulfCoffeeRatings,
         gulfCoffeeDirectoryFor,
+        gulfCoffeeEventRSVPSummary,
         gulfCoffeeEventRSVPsFor,
         normalizeGulfCoffeeMapStore,
         moderateGulfCoffeeRating,
