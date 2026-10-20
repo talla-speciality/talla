@@ -169,6 +169,50 @@ struct BrewingSectionView: View {
         let goal: String
         let steps: [String]
         let learningNotes: [String]
+        let methodID: String?
+        let coffeeDisplay: String?
+        let waterDisplay: String?
+        let iceDisplay: String?
+
+        init(
+            id: String,
+            title: String,
+            subtitle: String,
+            icon: String,
+            methodKeywords: [String],
+            coffeeGrams: Double,
+            ratio: Double,
+            grind: String,
+            temperature: String,
+            time: String,
+            targetSeconds: Int,
+            goal: String,
+            steps: [String],
+            learningNotes: [String],
+            methodID: String? = nil,
+            coffeeDisplay: String? = nil,
+            waterDisplay: String? = nil,
+            iceDisplay: String? = nil
+        ) {
+            self.id = id
+            self.title = title
+            self.subtitle = subtitle
+            self.icon = icon
+            self.methodKeywords = methodKeywords
+            self.coffeeGrams = coffeeGrams
+            self.ratio = ratio
+            self.grind = grind
+            self.temperature = temperature
+            self.time = time
+            self.targetSeconds = targetSeconds
+            self.goal = goal
+            self.steps = steps
+            self.learningNotes = learningNotes
+            self.methodID = methodID
+            self.coffeeDisplay = coffeeDisplay
+            self.waterDisplay = waterDisplay
+            self.iceDisplay = iceDisplay
+        }
     }
 
     enum BrewingDashboardDestination: String, Identifiable {

@@ -166,6 +166,45 @@ extension BrewingSectionView {
         ] + phaseFiveProfiles
     }
 
+    /// The customer-facing guided shelf must use the same published recipes
+    /// as the Brewing Guides list. This keeps all 21 Shopify guides, including
+    /// non-gram doses such as tablespoons, in sync with guided brewing.
+    var customerGuideProfiles: [BrewGuideProfile] {
+        guard !displayedMethods.isEmpty else { return brewGuideProfiles }
+
+        return displayedMethods.map { method in
+            let recipe = method.publishedRecipe
+
+            let coffeeDisplay = recipe?.coffeeDisplay ?? "See published guide"
+            let waterDisplay = recipe?.waterGrams.map { "\(formattedWholeGram($0)) g water" }
+            let iceDisplay = recipe?.iceGrams.map { "\(formattedWholeGram($0)) g ice" }
+            let steps = method.publishedSteps.map { step in
+                "\(step.title) — \(step.detail)"
+            }
+
+            return BrewGuideProfile(
+                id: "published-\(method.id)",
+                title: method.name,
+                subtitle: method.summary,
+                icon: method.symbol,
+                methodKeywords: [method.name.lowercased()],
+                coffeeGrams: recipe?.coffeeGrams ?? 0,
+                ratio: recipe?.ratio ?? 0,
+                grind: method.difficulty,
+                temperature: "See guide",
+                time: method.brewTime,
+                targetSeconds: seconds(from: method.brewTime) ?? 210,
+                goal: "Published Talla recipe",
+                steps: steps,
+                learningNotes: [method.detail],
+                methodID: method.id,
+                coffeeDisplay: coffeeDisplay,
+                waterDisplay: waterDisplay,
+                iceDisplay: iceDisplay
+            )
+        }
+    }
+
     /// Dial-in profiles are deliberately data-driven so the phone and Watch
     /// can synchronize the selected title, ratio, water target, and timing.
     private var phaseFiveProfiles: [BrewGuideProfile] {

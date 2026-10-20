@@ -1506,10 +1506,13 @@ extension ContentView.BrewingMethod {
         let summarySource = [article.excerpt, article.content]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty } ?? "Brew guide from Shopify."
+        let parsedRecipe = Self.publishedRecipe(from: article.content).map {
+            Self.canonicalRecipe($0, for: article.title)
+        }
 
         self.init(
             id: article.id,
-            name: article.title,
+            name: Self.canonicalTitle(article.title),
             summary: summarySource,
             detail: article.blog.title,
             symbol: Self.symbol(title: article.title, tags: article.tags),
@@ -1517,8 +1520,40 @@ extension ContentView.BrewingMethod {
             categories: Self.categories(title: article.title, tags: article.tags),
             difficulty: Self.difficulty(title: article.title, tags: article.tags),
             brewTime: Self.brewTime(title: article.title, tags: article.tags, content: article.content),
-            publishedRecipe: Self.publishedRecipe(from: article.content),
+            publishedRecipe: parsedRecipe,
             publishedSteps: Self.publishedSteps(from: article.content)
+        )
+    }
+
+    static func canonicalTitle(_ title: String) -> String {
+        // The app's customer-facing method name is Greek Coffee, even when
+        // the remote article is titled Turkish Coffee.
+        if title.caseInsensitiveCompare("Turkish Coffee") == .orderedSame {
+            return "Greek Coffee"
+        }
+        return title
+    }
+
+    static func canonicalRecipe(
+        _ recipe: ContentView.BrewingMethod.PublishedRecipe,
+        for title: String
+    ) -> ContentView.BrewingMethod.PublishedRecipe {
+        guard title.caseInsensitiveCompare("Greek Coffee") == .orderedSame
+                || title.caseInsensitiveCompare("Turkish Coffee") == .orderedSame else {
+            return recipe
+        }
+
+        let display = recipe.coffeeDisplay
+            .map { value in
+                value.replacingOccurrences(of: "Turkish coffee", with: "Greek coffee", options: .caseInsensitive)
+            }
+        return ContentView.BrewingMethod.PublishedRecipe(
+            coffeeGrams: recipe.coffeeGrams ?? 20,
+            ratio: recipe.ratio ?? 9,
+            waterGrams: recipe.waterGrams ?? 180,
+            iceGrams: recipe.iceGrams,
+            coffeeDisplay: display ?? "2 heaping tbsp (20 g) Greek coffee",
+            ratioDisplay: recipe.ratioDisplay ?? "9"
         )
     }
 
@@ -1542,15 +1577,26 @@ extension ContentView.BrewingMethod {
             methodContent = content
         }
 
-        let range = NSRange(methodContent.startIndex..<methodContent.endIndex, in: methodContent)
-        var cumulativeWater = 0.0
-        return expression.matches(in: methodContent, range: range).compactMap { match in
+        let htmlItems: [String] = expression.matches(
+            in: methodContent,
+            range: NSRange(methodContent.startIndex..<methodContent.endIndex, in: methodContent)
+        ).compactMap { match in
             guard let itemRange = Range(match.range(at: 1), in: methodContent) else { return nil }
-
-            let item = methodContent[itemRange]
+            return String(methodContent[itemRange])
+        }
+        let rawItems = htmlItems.isEmpty ? plainMethodItems(from: content) : htmlItems
+        var cumulativeWater = 0.0
+        var accumulatedSeconds = 0
+        return rawItems.compactMap { rawItem in
+            let item = rawItem
                 .replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
                 .replacingOccurrences(of: "&nbsp;", with: " ")
                 .replacingOccurrences(of: "&amp;", with: "&")
+                .replacingOccurrences(of: "&ndash;", with: "–")
+                .replacingOccurrences(of: "&mdash;", with: "—")
+                .replacingOccurrences(of: "&quot;", with: "\"")
+                .replacingOccurrences(of: "&#39;", with: "'")
+                .replacingOccurrences(of: "&deg;", with: "°")
                 .replacingOccurrences(of: "\u{00A0}", with: " ")
                 .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1564,23 +1610,70 @@ extension ContentView.BrewingMethod {
             let detail = String(item[separator.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
             guard !title.isEmpty, !detail.isEmpty else { return nil }
 
-            let extractedWater = firstNumber(in: item, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\b"#)
             let lowercasedItem = item.lowercased()
             let describesTotal = lowercasedItem.contains("total") || lowercasedItem.contains("reach") || lowercasedItem.contains("up to")
             let describesIncrement = lowercasedItem.contains("remaining") || lowercasedItem.contains("last") || (lowercasedItem.contains("pour") && !describesTotal)
+            // When a step says “pour X g to reach Y g”, Y is the target the
+            // customer must see. Using the last water value handles both that
+            // wording and guides that omit the word “total”.
+            let extractedWater = lastNumber(in: item, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\b"#)
+                ?? firstNumber(in: item, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\b"#)
             if let extractedWater {
                 cumulativeWater = describesIncrement && cumulativeWater > 0
                     ? cumulativeWater + extractedWater
                     : max(cumulativeWater, extractedWater)
             }
 
+            let explicitStart = startSeconds(from: item)
+            let stepStart = explicitStart ?? accumulatedSeconds
+            if let rangeEnd = endSeconds(from: item) {
+                accumulatedSeconds = max(accumulatedSeconds, rangeEnd)
+            } else if let duration = durationSeconds(from: item) {
+                accumulatedSeconds = max(accumulatedSeconds, stepStart + duration)
+            }
+
             return ContentView.BrewingMethod.PublishedStep(
                 title: title,
                 detail: detail,
-                startSeconds: startSeconds(from: item),
+                startSeconds: stepStart,
                 waterGrams: extractedWater == nil ? nil : cumulativeWater
             )
         }
+    }
+
+    static func plainMethodItems(from content: String) -> [String] {
+        let plain = plainText(from: content)
+        guard let methodRange = plain.range(of: "METHOD", options: [.caseInsensitive]) else {
+            return []
+        }
+
+        let methodStart = methodRange.upperBound
+        let afterMethod = String(plain[methodStart...])
+        let methodEndOffset = afterMethod.range(of: "FLAVOR NOTES", options: [.caseInsensitive])?.lowerBound
+        let method = (methodEndOffset.map { String(afterMethod[..<$0]) } ?? afterMethod)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let itemExpression = try? NSRegularExpression(
+            pattern: #"(?s)(.*?(?:\.|\z))(?=\s+[^.]{1,100}\s+[–—-]\s+|\z)"#
+        ) else {
+            return []
+        }
+
+        let range = NSRange(method.startIndex..<method.endIndex, in: method)
+        let matches = itemExpression.matches(in: method, range: range)
+        var items = matches.compactMap { match -> String? in
+            guard let itemRange = Range(match.range(at: 1), in: method) else { return nil }
+            let item = String(method[itemRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return item.isEmpty ? nil : item
+        }
+
+        if let lastMatch = matches.last,
+           let lastRange = Range(lastMatch.range, in: method),
+           lastRange.upperBound < method.endIndex {
+            let remainder = String(method[lastRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !remainder.isEmpty { items.append(remainder) }
+        }
+
+        return items
     }
 
     static func startSeconds(from text: String) -> Int? {
@@ -1589,12 +1682,35 @@ extension ContentView.BrewingMethod {
             return minutes * 60 + seconds
         }
 
-        if let match = text.firstMatch(of: /(\d+(?:\.\d+)?)\s*(?:min|minute|minutes)/) {
-            guard let minutes = Double(match.1) else { return nil }
-            return Int(minutes * 60)
-        }
-
         return nil
+    }
+
+    static func endSeconds(from text: String) -> Int? {
+        guard let match = text.firstMatch(of: /(\d+)\s*:\s*(\d{1,2})\s*[–—-]\s*(\d+)\s*:\s*(\d{1,2})/) else {
+            return nil
+        }
+        guard let minutes = Int(String(match.3)), let seconds = Int(String(match.4)), seconds < 60 else {
+            return nil
+        }
+        return minutes * 60 + seconds
+    }
+
+    static func durationSeconds(from text: String) -> Int? {
+        let matches = text.matches(of: /(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/)
+        guard !matches.isEmpty else { return nil }
+
+        let total = matches.reduce(0.0) { partial, match in
+            guard let value = Double(match.1) else { return partial }
+            let unit = String(match.2).lowercased()
+            if unit.hasPrefix("hour") || unit.hasPrefix("hr") {
+                return partial + value * 3_600
+            }
+            if unit.hasPrefix("min") {
+                return partial + value * 60
+            }
+            return partial + value
+        }
+        return Int(total.rounded())
     }
 
     static func publishedRecipe(from content: String) -> PublishedRecipe? {
@@ -1602,11 +1718,12 @@ extension ContentView.BrewingMethod {
         let coffee = firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*g\)?\s+(?:[A-Za-z-]+\s+){0,3}coffee"#)
         let ratio = firstNumber(in: plainText, pattern: #"Brew\s*Ratio\s*:\s*1\s*:\s*([0-9]+(?:\.[0-9]+)?)"#)
         let coffeeDisplay = firstText(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?\s*(?:g|tbsp|tablespoons?)\s+(?:[A-Za-z-]+\s+){0,3}coffee)"#)
-            ?? firstText(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?\s+heaping\s+tbsp[^\n<]*coffee)"#)
+            ?? firstText(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?\s+heaping\s+tbsp(?:\s+\([^)]*\))?(?:\s+[A-Za-z-]+){0,4}\s+coffee)"#)
         let ratioDisplay = firstText(in: plainText, pattern: #"Brew\s*Ratio\s*:\s*1\s*:\s*([0-9]+(?:\.[0-9]+)?(?:\s*[–-]\s*[0-9]+(?:\.[0-9]+)?)?)"#)
         let water = firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\s+(?:[A-Za-z-]+\s+){0,3}water"#)
             ?? firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*l(?:itre|iter)?\s+(?:[A-Za-z-]+\s+){0,3}water"#).map { $0 * 1_000 }
         let ice = firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*g\s+ice"#)
+            ?? firstNumber(in: plainText, pattern: #"ice[^0-9]{0,12}([0-9]+(?:\.[0-9]+)?)\s*g"#)
 
         guard coffee != nil || ratio != nil || water != nil || ice != nil else {
             return nil
@@ -1656,6 +1773,21 @@ extension ContentView.BrewingMethod {
 
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         guard let match = expression.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let numberRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+
+        return Double(text[numberRange])
+    }
+
+    static func lastNumber(in text: String, pattern: String) -> Double? {
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = expression.matches(in: text, range: range).last,
               match.numberOfRanges > 1,
               let numberRange = Range(match.range(at: 1), in: text) else {
             return nil
@@ -1811,6 +1943,14 @@ extension ContentView.BrewingMethod {
 
         let plainText = plainText(from: content)
         let range = NSRange(plainText.startIndex..<plainText.endIndex, in: plainText)
+
+        if let clockMatch = plainText.firstMatch(of: /(?i)(?:brew\s*time|time)\s*:\s*~?\s*(\d+\s*:\s*\d{1,2})/) {
+            return String(clockMatch.1).replacingOccurrences(of: " ", with: "")
+        }
+
+        if let minuteSecondMatch = plainText.firstMatch(of: /(?i)(?:brew\s*time|time)\s*:\s*~?\s*(\d+\s*min(?:ute)?s?\s*\d{1,2}\s*sec(?:ond)?s?)/) {
+            return String(minuteSecondMatch.1)
+        }
 
         guard let match = expression.firstMatch(in: plainText, range: range),
               let valueRange = Range(match.range(at: 1), in: plainText) else {

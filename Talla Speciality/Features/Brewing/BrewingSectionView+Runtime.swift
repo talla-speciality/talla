@@ -396,6 +396,9 @@ extension BrewingSectionView {
         if let waterGrams = method.publishedRecipe?.waterGrams {
             recipeParts.append("\(formattedWholeGram(waterGrams)) g water")
         }
+        if let iceGrams = method.publishedRecipe?.iceGrams {
+            recipeParts.append("\(formattedWholeGram(iceGrams)) g ice")
+        }
 
         return (recipeParts + [method.brewTime, method.difficulty, category])
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -431,6 +434,11 @@ extension BrewingSectionView {
     }
 
     func matchingMethod(for profile: BrewGuideProfile) -> ContentView.BrewingMethod? {
+        if let methodID = profile.methodID,
+           let method = displayedMethods.first(where: { $0.id == methodID }) {
+            return method
+        }
+
         displayedMethods.first { method in
             let source = ([method.name, method.summary, method.detail, method.difficulty, method.brewTime] + method.categories)
                 .joined(separator: " ")
@@ -450,6 +458,8 @@ extension BrewingSectionView {
             usePublishedRecipe(method.publishedRecipe)
             if let coffeeGrams = method.publishedRecipe?.coffeeGrams {
                 ratioCoffeeInput = formattedRatioValue(coffeeGrams)
+            } else {
+                ratioCoffeeInput = ""
             }
             if let ratio = method.publishedRecipe?.ratio {
                 ratioValueInput = formattedRatioValue(ratio)
@@ -946,7 +956,7 @@ extension BrewingSectionView {
     var brewModeSteps: [BrewModeStep] {
         if isGeneratedRecipeActive {
             return generatedPourRows.map { row in
-                BrewModeStep(
+                return BrewModeStep(
                     id: row.id,
                     time: row.startTime,
                     title: row.title,
@@ -955,9 +965,10 @@ extension BrewingSectionView {
                 )
             }
         }
-        if let publishedSteps = selectedBrewModeMethod?.publishedSteps, !publishedSteps.isEmpty {
+        if let publishedSteps = selectedBrewModeMethod?.publishedSteps,
+           !publishedSteps.isEmpty {
             return publishedSteps.enumerated().map { index, step in
-                BrewModeStep(
+                return BrewModeStep(
                     id: index,
                     time: step.startSeconds ?? (index == 0 ? 0 : stepTime(Double(index + 1) / Double(publishedSteps.count + 1), minimum: 15)),
                     title: step.title,
@@ -982,7 +993,7 @@ extension BrewingSectionView {
             return coldBrewModeSteps
         }
 
-        if methodText.contains("turkish") {
+        if methodText.contains("turkish") || methodText.contains("greek") {
             return turkishCoffeeBrewModeSteps
         }
 
@@ -1106,6 +1117,17 @@ extension BrewingSectionView {
     }
 
     var pourOverBrewModeSteps: [BrewModeStep] {
+        let methodName = selectedBrewModeMethod?.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        if methodName == "v60" {
+            return [
+                BrewModeStep(id: 0, time: 0, title: "Add \(formattedWholeGram(validCoffeeAmount)) g coffee", detail: AppLocalization.text("brew_mode_step_grind", fallback: "Level the bed, start the timer, and get ready to bloom."), waterTarget: nil),
+                BrewModeStep(id: 1, time: 10, title: "Pour to 45 g", detail: AppLocalization.text("brew_mode_step_bloom", fallback: "Cover all grounds and let the coffee bloom."), waterTarget: 45),
+                BrewModeStep(id: 2, time: 35, title: "Continue pouring to 100 g", detail: AppLocalization.text("brew_mode_step_main_pour", fallback: "Pour slowly in circles and keep the bed even."), waterTarget: 100),
+                BrewModeStep(id: 3, time: 60, title: "Continue pouring to 150 g", detail: AppLocalization.text("brew_mode_step_main_pour", fallback: "Pour slowly in circles and keep the bed even."), waterTarget: 150),
+                BrewModeStep(id: 4, time: 90, title: "Finish at 250 g", detail: AppLocalization.text("brew_mode_step_finish_pour", fallback: "Use the remaining water and let the drawdown settle."), waterTarget: 250),
+                BrewModeStep(id: 5, time: 165, title: AppLocalization.text("brew_mode_step_serve_title", fallback: "Serve and taste"), detail: AppLocalization.text("brew_mode_step_serve_detail", fallback: "Swirl, pour, and save the recipe if this cup worked."), waterTarget: nil)
+            ]
+        }
         let bloomWater = min(validWaterAmount, validCoffeeAmount * 3)
         let firstPourWater = min(validWaterAmount, max(bloomWater, roundedBrewTarget(validWaterAmount * 0.56)))
 
@@ -1161,8 +1183,10 @@ extension BrewingSectionView {
 
     var turkishCoffeeBrewModeSteps: [BrewModeStep] {
         let water = brewModeWaterAmount > 0 ? brewModeWaterAmount : 180
+        let coffee = selectedBrewModeMethod?.publishedRecipe?.coffeeDisplay
+            ?? "\(formattedWholeGram(validCoffeeAmount)) g coffee"
         return [
-            BrewModeStep(id: 0, time: 0, title: "Add coffee and cold water", detail: "Combine finely ground coffee, cold water, and sugar if using in the cezve.", waterTarget: water),
+            BrewModeStep(id: 0, time: 0, title: "Add \(coffee) and \(formattedWholeGram(water)) g cold water", detail: "Combine the finely ground coffee, cold water, and sugar if using in the cezve.", waterTarget: water),
             BrewModeStep(id: 1, time: 90, title: "Heat slowly", detail: "Do not stir once heating starts. Watch for foam to build.", waterTarget: water),
             BrewModeStep(id: 2, time: 240, title: "Lift the foam", detail: "Remove from heat before a full boil, then repeat the foam-building cycle 2–3 times.", waterTarget: water),
             BrewModeStep(id: 3, time: 390, title: "Settle and serve", detail: "Let the coffee settle for 30 seconds, then pour slowly into two cups.", waterTarget: water)
@@ -1244,11 +1268,13 @@ extension BrewingSectionView {
 
     var traditionalBrewModeSteps: [BrewModeStep] {
         let water = brewModeWaterAmount
+        let coffee = selectedBrewModeMethod?.publishedRecipe?.coffeeDisplay
+            ?? "\(formattedWholeGram(validCoffeeAmount)) g coffee"
         return [
             BrewModeStep(
                 id: 0,
                 time: 0,
-                title: "Measure \(formattedWholeGram(validCoffeeAmount)) g coffee",
+                title: "Measure \(coffee)",
                 detail: selectedBrewModeMethod?.summary ?? AppLocalization.text("traditional_step_measure", fallback: "Prepare your pot, coffee, and spices before heating."),
                 waterTarget: nil
             ),

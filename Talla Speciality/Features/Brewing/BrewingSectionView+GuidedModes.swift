@@ -324,6 +324,8 @@ extension BrewingSectionView {
     }
 
     var bestRecipeShelf: some View {
+        let profiles = customerGuideProfiles
+
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("best_recipes", fallback: "Best recipes"))
                 .font(Font.custom("AvenirNext-Bold", size: 10))
@@ -332,7 +334,7 @@ extension BrewingSectionView {
                 .foregroundColor(TallaTheme.Colors.ink)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 142 : 168), spacing: 10)], spacing: 10) {
-                ForEach(brewGuideProfiles) { profile in
+                ForEach(profiles) { profile in
                     brewGuideProfileButton(profile)
                 }
             }
@@ -408,7 +410,7 @@ extension BrewingSectionView {
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
 
-                Text("\(formattedRatioValue(profile.coffeeGrams)) g · 1:\(formattedRatioValue(profile.ratio)) · \(profile.time)")
+                Text(guideRecipeMetaLine(profile))
                     .font(Font.custom("AvenirNext-Bold", size: 10))
                     .tracking(AppLocalization.letterSpacing(0.8))
                     .textCase(.uppercase)
@@ -426,6 +428,14 @@ extension BrewingSectionView {
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    func guideRecipeMetaLine(_ profile: BrewGuideProfile) -> String {
+        let dose = profile.coffeeDisplay ?? "\(formattedRatioValue(profile.coffeeGrams)) g coffee"
+        let ratio = profile.ratio > 0 ? "1:\(formattedRatioValue(profile.ratio))" : nil
+        return ([dose, ratio, profile.waterDisplay, profile.iceDisplay, profile.time]
+            .compactMap { $0 }
+            .joined(separator: " · "))
     }
 
     func guideProfileDetail(_ profile: BrewGuideProfile) -> some View {
@@ -460,10 +470,16 @@ extension BrewingSectionView {
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], spacing: 8) {
-                guideMetric(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), value: "\(formattedRatioValue(profile.coffeeGrams)) g", systemImage: "scalemass.fill")
-                guideMetric(title: AppLocalization.text("ratio", fallback: "Ratio"), value: "1:\(formattedRatioValue(profile.ratio))", systemImage: "drop.fill")
+                guideMetric(title: AppLocalization.text("coffee", fallback: "Coffee"), value: profile.coffeeDisplay ?? "\(formattedRatioValue(profile.coffeeGrams)) g", systemImage: "scalemass.fill")
+                guideMetric(title: AppLocalization.text("ratio", fallback: "Ratio"), value: profile.ratio > 0 ? "1:\(formattedRatioValue(profile.ratio))" : "See guide", systemImage: "drop.fill")
                 guideMetric(title: AppLocalization.text("grind", fallback: "Grind"), value: profile.grind, systemImage: "circle.grid.3x3.fill")
                 guideMetric(title: AppLocalization.text("temperature", fallback: "Temp"), value: profile.temperature, systemImage: "thermometer.medium")
+                if let waterDisplay = profile.waterDisplay {
+                    guideMetric(title: AppLocalization.text("water", fallback: "Water"), value: waterDisplay, systemImage: "drop.fill")
+                }
+                if let iceDisplay = profile.iceDisplay {
+                    guideMetric(title: AppLocalization.text("ice", fallback: "Ice"), value: iceDisplay, systemImage: "snowflake")
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
