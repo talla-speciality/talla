@@ -941,12 +941,16 @@ extension BrewingSectionView {
             brewBackgroundColor
             .ignoresSafeArea()
 
-            if (brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale) && !isBrewModeRunning {
-                focusedAfterBrewView
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-            } else {
-                focusedLiveBrewView
-                    .transition(.opacity)
+            DuoSafePane {
+                Group {
+                    if (brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale) && !isBrewModeRunning {
+                        focusedAfterBrewView
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    } else {
+                        focusedLiveBrewView
+                            .transition(.opacity)
+                    }
+                }
             }
         }
         .interactiveDismissDisabled(isBrewModeRunning || brewModeElapsedSeconds > 0)
@@ -992,9 +996,12 @@ extension BrewingSectionView {
             // (roughly 740 points wide), so it must use the landscape brew
             // workspace instead of the vertically scrolling phone layout.
             let isLandscape = proxy.size.width > proxy.size.height
+            let usesDuoOuterPortraitLayout = !isLandscape && proxy.size.width >= 350
             Group {
                 if isLandscape {
                     focusedDuoLandscapeLiveBrewView
+                } else if usesDuoOuterPortraitLayout {
+                    focusedDuoPortraitLiveBrewView
                 } else {
                     focusedPortraitLiveBrewView
                 }
@@ -1178,7 +1185,6 @@ extension BrewingSectionView {
             .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .ignoresSafeArea(.container, edges: .horizontal)
     }
 
     var focusedDuoLandscapeActiveContent: some View {

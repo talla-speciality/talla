@@ -31,8 +31,15 @@ import UIKit
 #endif
 
 struct DuoToolbarBehavior: ViewModifier {
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
+        if #available(iOS 27.1, *) {
+            content
+                .toolbarVerticalBehavior(.automatic)
+                .toolbarVerticalCompressionBehavior(.prefersToolbarItems)
+        } else {
+            content
+        }
     }
 }
 

@@ -719,53 +719,55 @@ extension ContentView {
     }
 
     func tabScrollContent<Content: View>(tab: Tab, @ViewBuilder content: @escaping () -> Content) -> some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        Color.clear
-                            .frame(height: 0)
-                            .id("tab-top")
-                        if tab == .home {
-                            header
+        DuoSafePane {
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            Color.clear
+                                .frame(height: 0)
+                                .id("tab-top")
+                            if tab == .home {
+                                header
+                            }
+                            // Keep each tab's view identity and local state while resizing.
+                            content()
+                            Color.clear
+                                .frame(height: bottomScrollPadding(for: tab))
                         }
-                        // Keep each tab's view identity and local state while resizing.
-                        content()
-                        Color.clear
-                            .frame(height: bottomScrollPadding(for: tab))
+                        .padding(.top, topScrollPadding(for: tab))
                     }
-                    .padding(.top, topScrollPadding(for: tab))
-                }
-                .safeAreaPadding(.top, tab == .home ? 1 : 0)
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: accountScrollTarget) { _, target in
-                    guard activeTab == .account, let target else { return }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            proxy.scrollTo(target, anchor: .top)
-                        }
-                        accountScrollTarget = nil
-                    }
-                }
-                .onChange(of: tabScrollTarget) { _, target in
-                    guard activeTab == tab, target == tab else { return }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                        withAnimation(.easeInOut(duration: 0.28)) {
-                            proxy.scrollTo("tab-top", anchor: .top)
-                        }
-                        tabScrollTarget = nil
-                    }
-                }
-                .onChange(of: shopCatalogueScrollRequest) { _, _ in
-                    guard activeTab == .shop, tab == .shop else { return }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                        withAnimation(.easeInOut(duration: 0.28)) {
-                            proxy.scrollTo("shop-catalogue", anchor: .top)
+                    .safeAreaPadding(.top, tab == .home ? 1 : 0)
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: accountScrollTarget) { _, target in
+                        guard activeTab == .account, let target else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo(target, anchor: .top)
+                            }
+                            accountScrollTarget = nil
                         }
                     }
+                    .onChange(of: tabScrollTarget) { _, target in
+                        guard activeTab == tab, target == tab else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            withAnimation(.easeInOut(duration: 0.28)) {
+                                proxy.scrollTo("tab-top", anchor: .top)
+                            }
+                            tabScrollTarget = nil
+                        }
+                    }
+                    .onChange(of: shopCatalogueScrollRequest) { _, _ in
+                        guard activeTab == .shop, tab == .shop else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            withAnimation(.easeInOut(duration: 0.28)) {
+                                proxy.scrollTo("shop-catalogue", anchor: .top)
+                            }
+                        }
+                    }
                 }
+                .frame(maxHeight: .infinity)
             }
-            .frame(maxHeight: .infinity)
         }
         .frame(maxWidth: contentMaxWidth)
         .frame(maxWidth: .infinity)
@@ -955,5 +957,58 @@ extension ContentView {
         case .account: 56
         default: 28
         }
+    }
+}
+
+/// Keeps a single-column screen inside one physical Duo pane when iOS reports
+/// a vertical division region. This is intentionally conservative: a feed or
+/// form is easier to use in one uninterrupted pane than split across the hinge.
+struct DuoSafePane<Content: View>: View {
+    @Environment(\.layoutDirection) private var layoutDirection
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        GeometryReader { proxy in
+            let division = Self.division(in: proxy)
+            let isVerticalDivision = division.width > 0 && division.height > division.width
+            let isHorizontalDivision = division.height > 0 && division.width > division.height
+            let leadingWidth = max(0, division.minX - 24)
+            let trailingWidth = max(0, proxy.size.width - division.maxX - 24)
+            let paneWidth = layoutDirection == .rightToLeft ? trailingWidth : leadingWidth
+            let topHeight = max(0, division.minY - 24)
+
+            Group {
+                if isVerticalDivision && paneWidth >= 280 {
+                    content()
+                        .frame(width: paneWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: layoutDirection == .rightToLeft ? .trailing : .leading)
+                } else if isHorizontalDivision && topHeight >= 280 {
+                    content()
+                        .frame(maxHeight: topHeight, alignment: .top)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                } else {
+                    content()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private static func division(in proxy: GeometryProxy) -> CGRect {
+        guard #available(iOS 27.1, *) else { return .zero }
+
+        return proxy.reservedRegions(kind: .division)
+            .map(\.frame)
+            .first(where: {
+                let verticalDivision = $0.height > $0.width
+                    && $0.minX > 0
+                    && $0.maxX < proxy.size.width
+                    && $0.width < proxy.size.width * 0.25
+                let horizontalDivision = $0.width > $0.height
+                    && $0.minY > 0
+                    && $0.maxY < proxy.size.height
+                    && $0.height < proxy.size.height * 0.25
+                return verticalDivision || horizontalDivision
+            }) ?? .zero
     }
 }

@@ -304,10 +304,13 @@ extension View {
     /// Liquid Glass can respond to the user's clear/tinted preference.
     @ViewBuilder
     func tallaSystemSheetSurface() -> some View {
+        let duoSafeContent = DuoSafePane { self }
         if #available(iOS 26.0, *) {
-            presentationCornerRadius(TallaTheme.CornerRadius.sheet)
+            duoSafeContent
+                .presentationCornerRadius(TallaTheme.CornerRadius.sheet)
         } else {
-            presentationBackground(.background)
+            duoSafeContent
+                .presentationBackground(.background)
         }
     }
 }

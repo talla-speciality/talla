@@ -309,20 +309,22 @@ extension ContentView {
     }
 
     var cartDrawer: some View {
-        CartDrawerView(
-            scrimColor: scrimColor,
-            primaryTextColor: primaryTextColor,
-            secondaryTextColor: secondaryTextColor,
-            elevatedSurfaceColor: elevatedSurfaceColor,
-            accentColor: TallaTheme.Colors.accent,
-            hasItems: !cartItems.isEmpty,
-            emptyState: AnyView(cartEmptyState),
-            reviewContent: AnyView(cartReviewContent),
-            footerContent: AnyView(cartBagFooterContent),
-            closeAction: {
-                cartOpen = false
-            }
-        )
+        DuoSafePane {
+            CartDrawerView(
+                scrimColor: scrimColor,
+                primaryTextColor: primaryTextColor,
+                secondaryTextColor: secondaryTextColor,
+                elevatedSurfaceColor: elevatedSurfaceColor,
+                accentColor: TallaTheme.Colors.accent,
+                hasItems: !cartItems.isEmpty,
+                emptyState: AnyView(cartEmptyState),
+                reviewContent: AnyView(cartReviewContent),
+                footerContent: AnyView(cartBagFooterContent),
+                closeAction: {
+                    cartOpen = false
+                }
+            )
+        }
     }
 
     var cartEmptyState: some View {
