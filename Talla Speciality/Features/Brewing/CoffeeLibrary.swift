@@ -868,15 +868,13 @@ struct CoffeeLibraryView: View {
         case .offline, .failed(_):
             VStack(alignment: .leading, spacing: 10) {
                 Label(AppLocalization.text("coffee_offline_cache", fallback: "Offline. Showing saved coffee data."), systemImage: "icloud.slash")
+                    .accessibilityIdentifier("offline.status")
                 Button(AppLocalization.text("retry", fallback: "Retry connection")) {
                     Task { await coffeeData.retryCurrentAccountSynchronization() }
                 }
                 .buttonStyle(.tallaSecondary)
                 .accessibilityIdentifier("offline.retry")
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(AppLocalization.text("coffee_offline_cache", fallback: "Offline. Showing saved coffee data."))
-            .accessibilityIdentifier("offline.status")
         }
     }
 
@@ -1236,21 +1234,6 @@ extension CoffeeDataStore {
         }.values.sorted { $0.seconds < $1.seconds }
     }
 
-    func compareMeasuredBrews(referenceID: UUID, attemptID: UUID) -> BrewCurveComparison {
-        let reference = measuredCurve(for: referenceID), attempt = measuredCurve(for: attemptID)
-        return BrewCurveComparison(reference: reference, attempt: attempt,
-            finalWeightDifference: (attempt.last?.weightGrams ?? 0) - (reference.last?.weightGrams ?? 0),
-            timeDifference: (attempt.last?.seconds ?? 0) - (reference.last?.seconds ?? 0))
-    }
-
-    func markBestMeasuredBrew(_ sessionID: UUID) {
-        UserDefaults.standard.set(sessionID.uuidString, forKey: "talla.brewing.referenceBrewID.v1")
-    }
-
-    func bestMeasuredBrewID() -> UUID? {
-        UUID(uuidString: UserDefaults.standard.string(forKey: "talla.brewing.referenceBrewID.v1") ?? "")
-    }
-
     func recommendation(for sessionID: UUID, targetSeconds: Double? = nil, targetWeight: Double? = nil, rating: Int? = nil, tasteNotes: String = "") -> BrewMeasurementRecommendation? {
         let curve = measuredCurve(for: sessionID)
         guard let last = curve.last else { return nil }
@@ -1416,10 +1399,6 @@ extension CoffeeDataStore {
         return nil
     }
 
-    func shareableBrewCard(sessionID: UUID, title: String, method: String, doseGrams: Double?, isReference: Bool = false) -> ShareableBrewCard {
-        let curve = measuredCurve(for: sessionID)
-        return ShareableBrewCard(title: title, method: method, doseGrams: doseGrams, finalWeightGrams: curve.last?.weightGrams, durationSeconds: curve.last?.seconds, curve: curve, isReference: isReference)
-    }
 }
 
 private struct TallaCoffeeGroupBoxStyle: GroupBoxStyle {

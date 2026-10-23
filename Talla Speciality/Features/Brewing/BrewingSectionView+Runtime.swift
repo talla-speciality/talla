@@ -109,79 +109,6 @@ extension BrewingSectionView {
         }
     }
 
-    func methodCard(_ method: ContentView.BrewingMethod) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            brewerIllustration(for: method)
-
-            Text(method.name)
-                .font(.system(size: isCompact ? 20 : 22, weight: .bold, design: .serif))
-                .tracking(AppLocalization.letterSpacing(1))
-                .foregroundColor(primaryTextColor)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-
-            Text(method.summary)
-                .font(Font.custom("AvenirNext-Regular", size: 14))
-                .foregroundColor(secondaryTextColor)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(methodMetaLine(for: method))
-                .font(Font.custom("AvenirNext-Bold", size: 11))
-                .foregroundColor(TallaTheme.Colors.ink)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-
-            HStack(spacing: 10) {
-                Button {
-                    if let articleURL = method.articleURL {
-                        openArticleAction(articleURL)
-                    } else {
-                        restartBrewMode()
-                    }
-                } label: {
-                    Text(AppLocalization.text("read_guide", fallback: "Read Guide"))
-                        .font(Font.custom("AvenirNext-Bold", size: 11))
-                        .tracking(AppLocalization.letterSpacing(1.2))
-                        .textCase(.uppercase)
-                        .foregroundColor(TallaTheme.Colors.ink)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button {
-                    selectBrewModeMethod(method, start: true)
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(AppLocalization.text("brew_now", fallback: "Brew Now"))
-                            .font(Font.custom("AvenirNext-Bold", size: 10))
-                            .tracking(AppLocalization.letterSpacing(1.2))
-                            .textCase(.uppercase)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
-                        Image(systemName: "arrow.forward")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    .foregroundColor(brewAccentForegroundColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(accentColor)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
     func brewerIllustration(for method: ContentView.BrewingMethod) -> some View {
         let methodText = ([method.name] + method.categories).joined(separator: " ").lowercased()
 
@@ -405,18 +332,6 @@ extension BrewingSectionView {
             .joined(separator: " · ")
     }
 
-    func methodTag(_ title: String) -> some View {
-        Text(title)
-            .font(Font.custom("AvenirNext-Bold", size: 10))
-            .tracking(AppLocalization.letterSpacing(1.4))
-            .textCase(.uppercase)
-            .foregroundColor(TallaTheme.Colors.ink)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(accentColor.opacity(0.1))
-            .clipShape(Capsule())
-    }
-
     var selectedGuideProfile: BrewGuideProfile? {
         brewGuideProfiles.first { $0.id == selectedGuideProfileID } ?? brewGuideProfiles.first
     }
@@ -439,7 +354,7 @@ extension BrewingSectionView {
             return method
         }
 
-        displayedMethods.first { method in
+        return displayedMethods.first { method in
             let source = ([method.name, method.summary, method.detail, method.difficulty, method.brewTime] + method.categories)
                 .joined(separator: " ")
                 .lowercased()
@@ -1349,39 +1264,6 @@ extension BrewingSectionView {
         ]
     }
 
-    func brewModeStepRow(_ step: BrewModeStep, index: Int) -> some View {
-        let isActive = index == currentBrewModeStepIndex
-        let isComplete = brewModeElapsedSeconds > step.time && index < currentBrewModeStepIndex
-
-        return HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(isActive ? accentColor : accentColor.opacity(isComplete ? 0.26 : 0.1))
-                    .frame(width: 30, height: 30)
-
-                Image(systemName: isComplete ? "checkmark" : "drop.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(isActive ? .white : TallaTheme.Colors.ink)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(formattedTimerTime(step.time)) - \(step.title)")
-                    .font(Font.custom("AvenirNext-Bold", size: isActive ? 14 : 13))
-                    .foregroundColor(isActive ? primaryTextColor : secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(step.detail)
-                    .font(Font.custom("AvenirNext-Regular", size: 12))
-                    .foregroundColor(tertiaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isActive ? accentColor.opacity(0.12) : accentColor.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
     func brewHistoryButton(_ item: BrewRecipeRecord, isPrimary: Bool) -> some View {
         Button {
             brewRecipeName = item.title
@@ -2151,20 +2033,6 @@ extension BrewingSectionView {
                 .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    func brewingDetail(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.system(size: 9, weight: .light))
-                .tracking(AppLocalization.letterSpacing(3))
-                .textCase(.uppercase)
-                .foregroundColor(tertiaryTextColor)
-
-            Text(value)
-                .font(Font.custom("AvenirNext-Bold", size: 13))
-                .foregroundColor(TallaTheme.Colors.ink)
-        }
     }
 
     func strengthRatioButton(ratio: String, title: String) -> some View {

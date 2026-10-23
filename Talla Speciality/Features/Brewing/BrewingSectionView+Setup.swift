@@ -1459,18 +1459,6 @@ extension BrewingSectionView {
         }?.id
     }
 
-    func continueRecipeDetail(_ latest: BrewRecipeRecord?) -> String {
-        if let latest {
-            return latest.detail
-        }
-
-        if let profile = selectedGuideProfile {
-            return "\(formattedRatioValue(profile.coffeeGrams)) g · 1:\(formattedRatioValue(profile.ratio)) · \(profile.time)"
-        }
-
-        return "20 g · 1:16 · 3:30"
-    }
-
     var brewProfileExperienceChoices: [BrewChoice] {
         [
             BrewChoice(id: "starting", title: AppLocalization.text("profile_exp_starting", fallback: "Just starting out"), detail: AppLocalization.text("profile_exp_starting_detail", fallback: "Keep the recipe simple and guide every step."), systemImage: "1.circle"),
@@ -1683,14 +1671,6 @@ extension BrewingSectionView {
         }
     }
 
-    func applyRecommendedProfileForBrewProfile() {
-        if let profile = recommendedProfileForCreateRecipe {
-            applyGuideProfile(profile, start: true)
-        } else if let profile = brewGuideProfiles.first(where: { $0.id == "balanced-filter" }) {
-            applyGuideProfile(profile, start: true)
-        }
-    }
-
     func prepareNewRecipeJourney(startsWithScan: Bool) {
         createRecipeStep = .coffeeDetails
         coffeeDetailsMode = startsWithScan ? .scan : nil
@@ -1748,17 +1728,6 @@ extension BrewingSectionView {
                 "Espresso"
             )
         ]
-    }
-
-    func openMethodCategory(_ query: String) {
-        if brewingCategories.contains(query) {
-            activeCategory = query
-            return
-        }
-
-        if let match = brewingCategories.first(where: { $0.localizedCaseInsensitiveContains(query) || query.localizedCaseInsensitiveContains($0) }) {
-            activeCategory = match
-        }
     }
 
 }

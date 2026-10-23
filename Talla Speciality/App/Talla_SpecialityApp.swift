@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+#if canImport(BackgroundTasks)
+import BackgroundTasks
+#endif
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
@@ -32,7 +35,13 @@ private final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotifica
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        TallaBackgroundRefresh.register()
+        TallaBackgroundRefresh.schedule()
         return true
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        TallaBackgroundRefresh.schedule()
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

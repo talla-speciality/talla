@@ -188,21 +188,6 @@ extension ContentView {
 #endif
     }
 
-    func copyPushDeviceToken() {
-        let token = savedPushDeviceToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else {
-            showToast(message: AppLocalization.text("push_token_waiting", fallback: "No APNs device token yet. Enable notifications on a real device to create one."))
-            return
-        }
-
-#if canImport(UIKit)
-        UIPasteboard.general.string = token
-        showToast(message: AppLocalization.text("device_token_copied", fallback: "Device token copied"))
-#else
-        showToast(message: token)
-#endif
-    }
-
     @MainActor
     func syncRemotePushTokenIfPossible() async {
         let normalizedToken = savedPushDeviceToken

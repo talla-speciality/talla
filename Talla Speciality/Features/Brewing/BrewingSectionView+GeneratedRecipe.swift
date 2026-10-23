@@ -16,7 +16,6 @@ import WatchConnectivity
 import UIKit
 #endif
 
-
 extension BrewingSectionView {
     func createBrewRecipeFlow(startsWithScan: Bool) -> some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -682,23 +681,6 @@ extension BrewingSectionView {
         .buttonStyle(.plain)
     }
 
-    func recipeIconButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(brewPrimaryTextColor)
-                .frame(width: 40, height: 40)
-                .background(brewSurfaceColor)
-                .overlay(
-                    Circle()
-                        .stroke(brewBorderColor, lineWidth: 1)
-                )
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-    }
-
     func recipeSectionHeading(_ title: String) -> some View {
         Text(title)
             .font(brewEyebrowFont)
@@ -930,122 +912,6 @@ extension BrewingSectionView {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
-    }
-
-    func adjustableRecipeValueCard(title: String, value: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(TallaTheme.Colors.ink)
-                        .frame(width: 32, height: 32)
-                        .background(accentColor.opacity(0.10))
-                        .clipShape(Circle())
-                        .accessibilityHidden(true)
-
-                    Spacer(minLength: 0)
-
-                    Image(systemName: "plusminus")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(tertiaryTextColor)
-                        .accessibilityHidden(true)
-                }
-
-                Text(title)
-                    .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(AppLocalization.letterSpacing(1.2))
-                    .textCase(.uppercase)
-                    .foregroundColor(tertiaryTextColor)
-
-                Text(value)
-                    .font(Font.custom("Georgia-Bold", size: 24))
-                    .foregroundColor(primaryTextColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                Text(detail)
-                    .font(Font.custom("AvenirNext-Regular", size: 12))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 156, alignment: .leading)
-            .background(accentColor.opacity(0.07))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(TallaTheme.Colors.ink.opacity(0.15), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(AppLocalization.text("tap_to_adjust", fallback: "Tap to adjust"))
-    }
-
-    func recipeInfoRow(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title)
-                .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(AppLocalization.letterSpacing(1.1))
-                .textCase(.uppercase)
-                .foregroundColor(tertiaryTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.74)
-
-            Text(value)
-                .font(Font.custom("AvenirNext-Bold", size: 15))
-                .foregroundColor(primaryTextColor)
-                .lineLimit(2)
-                .minimumScaleFactor(0.78)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-
-    func generatedPourRowView(_ row: GeneratedPourRow) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                Text("\(row.id)")
-                    .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .foregroundColor(TallaTheme.Colors.ink)
-                    .monospacedDigit()
-                    .frame(width: 24, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.title)
-                        .font(Font.custom("Georgia-Bold", size: 17))
-                        .foregroundColor(primaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(row.instruction)
-                        .font(Font.custom("AvenirNext-Regular", size: 12))
-                        .foregroundColor(secondaryTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-
-                Text(formattedTimerTime(row.startTime))
-                    .font(Font.custom("AvenirNext-Bold", size: 11))
-                    .foregroundColor(TallaTheme.Colors.ink)
-                    .monospacedDigit()
-            }
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 6)], spacing: 6) {
-                recipeMiniStat(title: AppLocalization.text("water_added", fallback: "Water"), value: row.waterAdded.map { "\($0) g" } ?? "—")
-                recipeMiniStat(title: AppLocalization.text("total", fallback: "Total"), value: row.cumulativeWater.map { "\($0) g" } ?? "—")
-                recipeMiniStat(title: AppLocalization.text("flow", fallback: "Flow"), value: row.flowRate)
-            }
-        }
-        .padding(14)
-        .accessibilityElement(children: .combine)
     }
 
     func recipeMiniStat(title: String, value: String) -> some View {
@@ -1380,15 +1246,6 @@ extension BrewingSectionView {
         persistCoffeeCalibrations([record] + records.sorted { $0.updatedAt > $1.updatedAt })
     }
 
-    func generatedPourStartTime(for index: Int) -> Int {
-        switch index {
-        case 1: return 10 + bloomDurationSeconds
-        case 2: return 75
-        case 3: return 110
-        default: return 145
-        }
-    }
-
     var expectedCupSweetness: String {
         createRecipeTasteGoal == "sweet" ? AppLocalization.text("high", fallback: "High") : AppLocalization.text("medium_high", fallback: "Medium-high")
     }
@@ -1412,15 +1269,6 @@ extension BrewingSectionView {
             return "\(smartRecipe.expectedCup) Look for \(notes)."
         }
         return smartRecipe.expectedCup
-    }
-
-    func cycleGeneratedGrind() {
-        let options = ["Medium-fine", "Medium", "Medium-coarse"]
-        guard let index = options.firstIndex(of: generatedGrindDescription) else {
-            generatedGrindDescription = options[0]
-            return
-        }
-        generatedGrindDescription = options[(index + 1) % options.count]
     }
 
     func adjustGeneratedGrind(by offset: Int) {

@@ -16,7 +16,6 @@ import WatchConnectivity
 import UIKit
 #endif
 
-
 extension BrewingSectionView {
     var bluetoothScalePickerFootnote: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -632,15 +631,6 @@ extension BrewingSectionView {
         recipeRevisionChanges = conservativeRecipeChanges()
         revisedRecipeVersionTitle = nil
         brewStepHaptic(strong: true)
-    }
-
-    func improveNextBrew() {
-        saveAfterBrewJournalEntryIfNeeded()
-
-        let changes = conservativeRecipeChanges()
-        recipeRevisionChanges = changes
-
-        saveRevisedRecipeVersion()
     }
 
     func saveRevisedRecipeVersion() {

@@ -4,6 +4,10 @@
 <dict>
 	<key>BackendBaseURL</key>
 	<string>https://talla-backend.onrender.com</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>Talla-Speciality.catalog-refresh</string>
+	</array>
 	<key>CoffeeAIBaseURL</key>
 	<string>https://talla-backend-ai.onrender.com</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
@@ -66,5 +70,9 @@
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 </dict>
 </plist>

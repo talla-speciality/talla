@@ -800,40 +800,4 @@ struct AccountSectionView: View {
         .buttonStyle(.plain)
     }
 
-    private func accountCollectionSection(
-        title: String,
-        subtitle: String,
-        isExpanded: Binding<Bool>,
-        content: AnyView
-    ) -> some View {
-        CollapsibleSectionCard(
-            title: title,
-            subtitle: subtitle,
-            isExpanded: isExpanded,
-            titleFont: sectionTitleFont,
-            subtitleFont: sectionBodyFont,
-            titleColor: primaryTextColor,
-            subtitleColor: secondaryTextColor,
-            accentColor: accentColor,
-            backgroundColor: cardFillColor,
-            strokeColor: accentColor.opacity(isLightAppearance ? 0.14 : 0.08)
-        ) {
-            content
-        }
-    }
-
-    private func accountCountDetail(
-        count: Int,
-        singularKey: String,
-        singularFallback: String,
-        pluralKey: String,
-        pluralFallback: String
-    ) -> String {
-        if count == 1 {
-            return AppLocalization.text(singularKey, fallback: singularFallback)
-        }
-
-        return AppLocalization.text(pluralKey, fallback: pluralFallback.replacingOccurrences(of: "\(count)", with: String(count)))
-            .replacingOccurrences(of: "%d", with: String(count))
-    }
 }

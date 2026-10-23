@@ -81,10 +81,7 @@ final class Talla_SpecialityUITests: XCTestCase {
         let home = app.buttons["Home"].firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 5))
         home.tap()
-        let more = app.buttons["More"].firstMatch
-        XCTAssertTrue(more.waitForExistence(timeout: 5))
-        more.tap()
-        let account = app.buttons["more.account"].firstMatch
+        let account = app.buttons["Account"].firstMatch
         XCTAssertTrue(account.waitForExistence(timeout: 5))
         account.tap()
 
@@ -356,19 +353,21 @@ final class TallaDeviceLayoutTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["Home"].firstMatch.waitForExistence(timeout: 20))
         XCTAssertTrue(app.descendants(matching: .any)["home.todayCard"].waitForExistence(timeout: 5))
+        let homeScrollView = app.scrollViews.firstMatch
         let moreFromTalla = app.descendants(matching: .any)["home.more"].firstMatch
         for _ in 0..<6 where !moreFromTalla.isHittable {
-            app.swipeUp()
+            homeScrollView.swipeUp()
         }
         XCTAssertTrue(moreFromTalla.exists)
         for orientation: UIDeviceOrientation in [.portrait, .landscapeLeft, .portrait] {
             XCUIDevice.shared.orientation = orientation
-            if !moreFromTalla.isHittable {
-                app.swipeUp()
+            let rotatedMoreFromTalla = app.descendants(matching: .any)["home.more"].firstMatch
+            for _ in 0..<6 where !rotatedMoreFromTalla.isHittable {
+                homeScrollView.swipeUp()
             }
-            XCTAssertTrue(moreFromTalla.isHittable, "Home's expandable action must remain reachable")
-            XCTAssertGreaterThanOrEqual(moreFromTalla.frame.height, 44)
-            XCTAssertTrue(app.frame.contains(moreFromTalla.frame), "The action must stay inside the window")
+            XCTAssertTrue(rotatedMoreFromTalla.isHittable, "Home's expandable action must remain reachable")
+            XCTAssertGreaterThanOrEqual(rotatedMoreFromTalla.frame.height, 44)
+            XCTAssertTrue(app.frame.contains(rotatedMoreFromTalla.frame), "The action must stay inside the window")
             let capture = XCTAttachment(screenshot: app.screenshot())
             capture.name = "home-\(orientation.rawValue)"
             capture.lifetime = .keepAlways
@@ -411,7 +410,7 @@ final class TallaDeviceLayoutTests: XCTestCase {
         screenshot.name = "shop-landscape"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        for title in ["Brew", "More", "Home", "Shop"] {
+        for title in ["Brew", "Discover", "Account", "Home", "Shop"] {
             let tab = app.buttons[title].firstMatch
             XCTAssertTrue(tab.waitForExistence(timeout: 8))
             tab.tap()
@@ -440,7 +439,9 @@ final class TallaDeviceLayoutTests: XCTestCase {
         search.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 8))
 
-        let openBag = app.buttons["Open bag"].firstMatch
+        let systemBag = app.descendants(matching: .any)["navigation.bag"].firstMatch
+        let legacyBag = app.buttons["Open bag"].firstMatch
+        let openBag = systemBag.waitForExistence(timeout: 5) ? systemBag : legacyBag
         XCTAssertTrue(openBag.waitForExistence(timeout: 5))
         openBag.tap()
 

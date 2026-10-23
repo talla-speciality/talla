@@ -945,26 +945,6 @@ extension ContentView {
         .tallaCard(.standard, cornerRadius: TallaTheme.CornerRadius.card)
     }
 
-    func moreFeatureTile(title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(readableBrandGoldColor)
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(primaryTextColor)
-                Text(detail)
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(secondaryTextColor)
-            }
-            .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
-            .padding(16)
-            .tallaCard(.elevated, cornerRadius: TallaTheme.CornerRadius.card)
-        }
-        .buttonStyle(.plain)
-    }
-
     func topScrollPadding(for tab: Tab) -> CGFloat {
         tab == .account ? 8 : 0
     }

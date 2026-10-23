@@ -1,36 +1,4 @@
 import Foundation
-#if canImport(FoundationModels)
-import FoundationModels
-
-@available(iOS 26.0, macOS 26.0, *)
-@Generable(description: "The customer's coffee intent extracted from natural language.")
-private struct ConciergeIntent {
-    @Guide(description: "The coffee question or goal, such as choosing beans, fixing sour espresso, or dialing in pour-over.")
-    let coffeeGoal: String?
-    @Guide(description: "The equipment type, such as grinder, scale, dripper, kettle, espresso machine, brewer, filter, or water system. Use nil when absent.")
-    let equipmentType: String?
-    @Guide(description: "The equipment brand and model, such as Fellow Ode, Fellow Opus, Timemore Black Mirror, Comandante C40, V60, or Flair. Use nil when absent.")
-    let equipmentModel: String?
-    @Guide(description: "The brew method, such as espresso, V60, French press, AeroPress, moka pot, or cold brew. Use nil when absent.")
-    let brewMethod: String?
-    @Guide(description: "The grind size or adjustment requested. Use nil when absent.")
-    let grind: String?
-    @Guide(description: "The water temperature in Celsius if stated or clearly requested. Use nil when absent.")
-    let waterTemperatureC: Double?
-    @Guide(description: "The recipient, such as friend, mother, colleague, or host. Use nil when absent.")
-    let recipient: String?
-    @Guide(description: "The occasion, such as birthday, thank-you, Ramadan, or hosting. Use nil when absent.")
-    let occasion: String?
-    @Guide(description: "The maximum budget in BHD, if the customer stated one.")
-    let budgetBHD: Double?
-    @Guide(description: "Whether the customer explicitly asked to add or buy the recommendations.")
-    let wantsCart: Bool
-    @Guide(description: "Short catalog item descriptions the customer wants added, without inventing products.")
-    let itemRequests: [String]
-    @Guide(description: "Up to three concise gift messages in the customer's language. Return an empty list when not relevant.")
-    let giftMessageSuggestions: [String]
-}
-#endif
 #if canImport(Vision) && canImport(UIKit)
 import UIKit
 import Vision
@@ -98,9 +66,6 @@ enum CoffeeConciergeService {
         }.prefix(3)
         guard !relevant.isEmpty else { return "No previous customer examples are relevant." }
         return relevant.map { "Previous customer question: \($0.question)\nPrevious answer: \($0.answer)\( $0.feedback == 1 ? "\nCustomer liked this answer." : $0.feedback == -1 ? "\nCustomer did not like this answer; improve it." : "")" }.joined(separator: "\n---\n")
-    }
-    private enum ConciergeError: Error {
-        case unavailable
     }
 
     private struct ImageAnalysis: Sendable {
@@ -723,85 +688,5 @@ enum CoffeeConciergeService {
         return signals
     }
 
-#if canImport(FoundationModels)
-    @available(iOS 26.0, macOS 26.0, *)
-    private static func foundationModelOutput(
-        request: String,
-        rankingRequest: String,
-        products: [ContentView.Product],
-        localeIdentifier: String,
-        imageAnalysis: ImageAnalysis?
-    ) async throws -> (message: String, giftMessageSuggestions: [String], wantsCart: Bool, itemRequests: [String]) {
-        let model = SystemLanguageModel.default
-        guard case .available = model.availability else { throw ConciergeError.unavailable }
-        guard model.supportsLocale(Locale(identifier: localeIdentifier)) else { throw ConciergeError.unavailable }
 
-        let catalog = products
-            .filter(\.isAvailableForSale)
-            .prefix(24)
-            .map { product in
-                "- id=\(product.id) | \(product.name) | \(product.categoryLabel) | \(product.price) | \(product.desc.prefix(90))"
-            }
-            .joined(separator: "\n")
-
-        let session = LanguageModelSession(
-            model: model,
-            instructions: """
-            You are Talla AI, an expert coffee coach, roaster, barista, and equipment technician. Answer only coffee-related questions. Build answers from first principles and model-specific knowledge across beans, origins, varietals, processing, roasting, freshness, storage, grinding, burr geometry, grinder calibration, retention, alignment, static, espresso, pour-over, V60, Kalita, Chemex, Origami, French press, AeroPress, moka pot, cezve, batch brewers, cold brew, immersion, siphon, recipes, dose, ratio, yield, brew time, agitation, water chemistry, temperature, filters, kettles, goosenecks, scales, timers, refractometers, espresso machines, boilers, pumps, pressure, flow control, portafilters, baskets, tampers, distribution, puck prep, steam wands, milk, cleaning, descaling, maintenance, and sensory tasting. Recognize major equipment families and brands when the customer names them, including Fellow, Baratza, Eureka, Niche, Mazzer, DF, Comandante, 1Zpresso, Timemore, Acaia, Felicita, Hario, Brewista, Bonavita, Breville/Sage, De’Longhi, Gaggia, Rancilio, Lelit, Profitec, Rocket, La Marzocco, Ascaso, Flair, AeroPress, Chemex, Hario, Kalita, Origami, Clever, Tricolate, and Bunn. Never invent a model specification; if a model generation matters, say so and ask for the exact model.
-            If the request is not coffee-related, politely say you can help only with coffee. When the customer asks for the best, a recommendation, or a product comparison, answer directly with the best matching catalog item first, explain why in one or two sentences, then ask at most one optional follow-up question. Do not make the customer provide dose, water, time, or taste details before answering a simple product question. Keep answers practical, specific, and under 100 words. Do not invent products, prices, discounts, stock, policies, or medical claims. If the request is Arabic, answer in Arabic.
-            Think like a skilled barista, roaster, and service technician: identify likely causes, explain the mechanism, give a safe ordered test, state what result to expect, and ask one focused follow-up question when equipment model or measurements are missing. Never claim a setting is universal across models. For scales, cover tare, auto-start, timer, flow-rate, Bluetooth, battery, waterproofing, calibration, and measurement error. For grinders, cover burrs, calibration, grind range, retention, clogging, alignment, and motor safety. For drippers, cover geometry, bypass, filter fit, agitation, drawdown, and recipe adjustment. The catalog is authoritative only when product recommendations are requested.
-            Use Celsius values appropriate for coffee brewing; normal V60 water is roughly 90–96°C, never 205°C.
-            Think like a skilled barista: diagnose the likely cause, explain why, give an ordered experiment, include useful ratios/temperatures/times when relevant, and ask one focused follow-up question when key information is missing. Use the customer's brew method, dose, water, time, and taste. The catalog is authoritative only when product recommendations are requested.
-            """
-        )
-
-        let imageContext = imageAnalysis?.summary.isEmpty == false
-            ? "Local Vision detected these shopping signals: \(imageAnalysis?.summary ?? ""). Use them as hints only, and recommend only catalog products."
-            : "No useful image signals."
-
-        let prompt = """
-        Customer request: \(request.isEmpty ? "Recommend a good starting point" : request)
-        Ranked request context: \(rankingRequest)
-        Image context: \(imageContext)
-        The customer asked one question. Answer that question directly. Do not add unrelated recommendations, shopping, gift ideas, or background information unless the question asks for them.
-        If this is a product question, use the available catalog and name the best matching catalog item in the first sentence. Never answer a product question with only a request for more brewing measurements.
-        If the request is ambiguous, ask one short clarifying question instead of guessing.
-        Relevant local learning from earlier conversations (use only when it matches the current question):
-        \(memoryContext(for: request))
-
-        Research-backed baseline guidance:
-        - A useful starting point for filter brewing is about 55 g coffee per litre of water, then adjust to taste; this is a baseline, not a universal recipe.
-        - Water quality matters: balanced mineral content and moderate alkalinity support extraction; very hard water can cause scale and very low-mineral water can taste flat.
-        - Fellow Ode is designed for brewed coffee and is not an espresso grinder; Fellow Opus is designed to cover espresso through cold brew. Never force a grinder burr or put fingers near powered burrs.
-        - For equipment safety, distinguish user-safe checks from disassembly or electrical repairs and direct the customer to the manufacturer when needed.
-
-        Brand and equipment reference:
-        \(equipmentKnowledge)
-
-        Available catalog:
-        \(catalog)
-        """
-
-        let response = try await session.respond(to: prompt)
-        guard let content = cleanModelMessage(response.content) else { throw ConciergeError.unavailable }
-        guard isRelevant(content, to: request) else { throw ConciergeError.unavailable }
-        let fallbackMessages = giftMessageSuggestions(for: request)
-        return (content, fallbackMessages, requestLooksLikeCartBuild(request), rankingRequest.split(separator: " ").map(String.init))
-    }
-
-    private static func isRelevant(_ answer: String, to request: String) -> Bool {
-        let questionTerms = Set(request.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 3 })
-        guard !questionTerms.isEmpty else { return true }
-        let answerTerms = Set(answer.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init))
-        let coffeeTerms = ["coffee", "espresso", "brew", "grind", "water", "temperature", "filter", "ratio", "dose", "yield", "roast", "bean", "machine", "kettle", "scale", "dripper", "قهوة", "إسبريسو", "طحن", "ماء"]
-        return !questionTerms.isDisjoint(with: answerTerms) || coffeeTerms.contains { answer.lowercased().contains($0) }
-    }
-
-    private static func isGenericDeflection(_ answer: String) -> Bool {
-        let normalized = answer.lowercased()
-        return normalized.hasPrefix("i can help only with coffee")
-            || normalized == "i can help with coffee questions."
-            || (normalized.contains("to determine the best") && normalized.contains("must first clarify"))
-    }
-#endif
 }

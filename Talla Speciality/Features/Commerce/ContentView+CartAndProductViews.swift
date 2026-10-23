@@ -1675,31 +1675,6 @@ extension ContentView {
         }
     }
 
-    func paymentMethodChip(title: String, systemImage: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
-
-            Text(title)
-                .font(labelFont(size: 9, weight: .bold))
-                .tracking(AppLocalization.letterSpacing(1))
-                .textCase(.uppercase)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-        }
-        .foregroundColor(primaryTextColor)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
-        .background(elevatedSurfaceColor)
-        .overlay(
-            Capsule(style: .continuous)
-                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
-        )
-        .clipShape(Capsule(style: .continuous))
-        .accessibilityValue(AppLocalization.text("available_in_secure_checkout", fallback: "Available in secure checkout"))
-    }
-
     var cartItemsListSection: some View {
         ForEach($cartItems) { $item in
             HStack(alignment: .center, spacing: 10) {

@@ -2,7 +2,52 @@ import Foundation
 import Testing
 @testable import Talla_Speciality
 
+@MainActor
 struct Talla_SpecialityTests {
+
+    @Test func catalogCacheRoundTripsProducts() throws {
+        let variant = ContentView.Product.Variant(
+            id: "cache-variant",
+            title: "Standard",
+            price: "5.000 BHD",
+            isAvailableForSale: true,
+            requiresShipping: true,
+            weightGrams: 250
+        )
+        let product = ContentView.Product(
+            id: "cache-product",
+            handle: "cache-product",
+            variantID: variant.id,
+            variants: [variant],
+            name: "Cache Test Coffee",
+            price: "5.000 BHD",
+            categoryKey: "coffee",
+            categoryLabel: "Coffee",
+            imageURL: URL(string: "https://example.com/coffee.png"),
+            desc: "A cache test product",
+            tag: "Test",
+            tags: ["test"],
+            countryOfOrigin: "Bahrain",
+            isAvailableForSale: true
+        )
+
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try TallaCatalogCache.save([product], languageCode: "en", directory: directory)
+        let restored = try #require(TallaCatalogCache.load(languageCode: "en", directory: directory))
+        #expect(restored == [product])
+        #expect(TallaCatalogCache.load(languageCode: "ar", directory: directory) == nil)
+        try TallaCatalogCache.save([], languageCode: "ar", directory: directory)
+        #expect(TallaCatalogCache.load(languageCode: "ar", directory: directory) == [])
+        #expect(TallaCatalogCache.load(languageCode: "en", directory: directory) == [product])
+    }
+
+    @Test func remoteSettingsCacheRoundTripsRawJSON() throws {
+        let data = Data(#"{"release":{"latestVersion":"1.0.0"}}"#.utf8)
+        try TallaRemoteSettingsCache.saveAppSettings(data)
+        #expect(TallaRemoteSettingsCache.loadAppSettings() == data)
+    }
 
     private func conciergeProduct(
         id: String,

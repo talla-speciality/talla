@@ -184,7 +184,7 @@ final class AdminSession: ObservableObject {
             try? await api.unregisterPushToken(token)
         }
         try? await api.logout()
-        AdminBiometricStore.remove()
+        disableBiometricLogin()
         isAuthenticated = false
         username = ""
         role = "viewer"

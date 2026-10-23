@@ -776,32 +776,6 @@ struct ClubSectionView: View {
         .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1))
     }
 
-    private func dashboardStat(title: String, value: String, icon: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(TallaTheme.Colors.ink)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 8, weight: .bold)).tracking(1.2).foregroundColor(secondaryTextColor)
-                Text(value).font(.system(size: 13, weight: .semibold)).foregroundColor(primaryTextColor).lineLimit(1)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(11)
-        .background(accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private func dashboardPreferenceChip(title: String, icon: String) -> some View {
-        Label(title, systemImage: icon)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(primaryTextColor)
-            .lineLimit(1)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 9)
-            .background(cardFillColor, in: Capsule())
-            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1))
-    }
-
     private func formattedClubDate(_ value: String) -> String {
         let parser = ISO8601DateFormatter()
         if let date = parser.date(from: value) {
@@ -1022,50 +996,6 @@ struct ClubSectionView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 52)
         .background(Color.white.opacity(0.38), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-    }
-
-    private func clubCard(eyebrow: String, title: String, detail: String, icon: String, actionTitle: String, emphasis: Bool = false, action: @escaping () -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(emphasis ? Color(hex: 0xEFD6AF) : TallaTheme.Colors.ink)
-                    .frame(width: 44, height: 44)
-                    .background(accentColor.opacity(isLightAppearance ? 0.12 : 0.18), in: Circle())
-                Spacer()
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(emphasis ? Color.white.opacity(0.7) : secondaryTextColor)
-            }
-            Text(eyebrow)
-                .font(.system(size: 10, weight: .bold))
-                .tracking(2)
-                .foregroundColor(emphasis ? Color(hex: 0xEFD6AF) : TallaTheme.Colors.ink)
-            Text(title)
-                .font(.system(size: 23, weight: .semibold, design: .serif))
-                .foregroundColor(emphasis ? .white : primaryTextColor)
-            Text(detail)
-                .font(.system(size: 14))
-                .foregroundColor(emphasis ? Color.white.opacity(0.72) : secondaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(actionTitle, action: action)
-                .font(.system(size: 11, weight: .bold))
-                .tracking(1.5)
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 42)
-                .background(emphasis ? Color(hex: 0x151515) : accentColor, in: Capsule())
-                .buttonStyle(.plain)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            emphasis
-                ? AnyShapeStyle(LinearGradient(colors: [Color(hex: 0x151515), Color(hex: 0x4A2A16)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                : AnyShapeStyle(cardFillColor),
-            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(emphasis ? Color(hex: 0x151515).opacity(0.32) : accentColor.opacity(isLightAppearance ? 0.16 : 0.10), lineWidth: 1))
     }
 
     private var coffeeClubDetail: some View {

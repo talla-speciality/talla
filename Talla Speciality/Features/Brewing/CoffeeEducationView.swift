@@ -343,12 +343,6 @@ struct CoffeeEducationView: View {
     private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline).foregroundStyle(TallaTheme.Colors.ink); Text(item.1).font(.caption).foregroundStyle(Color.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(educationSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)) } } } }
 }
 
-private extension View {
-    func educationCard(cornerRadius: CGFloat, accent: Color) -> some View {
-        self
-            .tallaCard(cornerRadius: cornerRadius)
-    }
-}
 
 private struct BrewMethodLesson: Identifiable { let id = UUID(); let name: String; let icon: String; let time: String; let grind: String; let description: String; let tip: String }
 private struct MethodLessonSheet: View { let lesson: BrewMethodLesson; var body: some View { VStack(alignment: .leading, spacing: 18) { Image(systemName: lesson.icon).font(.system(size: 42)).foregroundStyle(Color(red: 0.79, green: 0.59, blue: 0.35)); Text(lesson.name).font(.system(.largeTitle, design: .serif, weight: .bold)); Text(lesson.description).font(.title3); Divider(); Text("Starting point").font(.headline); Text("Time: \(lesson.time)\nGrind: \(lesson.grind)"); Text("Barista tip").font(.headline); Text(lesson.tip); Spacer() }.padding(24).presentationDetents([.medium, .large]) } }

@@ -1,66 +1,5 @@
 import SwiftUI
 
-struct LambIconView: View {
-    let color: Color
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(color.opacity(0.88))
-                .frame(width: size * 0.16, height: size * 0.16)
-                .offset(x: -size * 0.38, y: -size * 0.02)
-
-            Circle()
-                .fill(color)
-                .frame(width: size * 0.24, height: size * 0.24)
-                .offset(x: -size * 0.22, y: -size * 0.08)
-
-            Circle()
-                .fill(color)
-                .frame(width: size * 0.30, height: size * 0.30)
-                .offset(x: -size * 0.04, y: -size * 0.12)
-
-            Circle()
-                .fill(color)
-                .frame(width: size * 0.26, height: size * 0.26)
-                .offset(x: size * 0.15, y: -size * 0.04)
-
-            Circle()
-                .fill(color)
-                .frame(width: size * 0.28, height: size * 0.28)
-                .offset(x: -size * 0.17, y: size * 0.08)
-
-            Circle()
-                .fill(color)
-                .frame(width: size * 0.30, height: size * 0.30)
-                .offset(x: size * 0.05, y: size * 0.11)
-
-            Circle()
-                .fill(color)
-                .frame(width: size * 0.25, height: size * 0.22)
-                .offset(x: size * 0.35, y: size * 0.02)
-
-            Circle()
-                .fill(color)
-                .frame(width: size * 0.12, height: size * 0.12)
-                .offset(x: size * 0.28, y: -size * 0.12)
-
-            Capsule()
-                .fill(color.opacity(0.92))
-                .frame(width: size * 0.07, height: size * 0.22)
-                .offset(x: -size * 0.17, y: size * 0.30)
-
-            Capsule()
-                .fill(color.opacity(0.92))
-                .frame(width: size * 0.07, height: size * 0.22)
-                .offset(x: size * 0.06, y: size * 0.31)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
-    }
-}
-
 enum WelcomeChoice {
     case beans
     case drinks
@@ -513,33 +452,6 @@ struct DetailStatusCardView: View {
     }
 }
 
-struct SummaryValueRow: View {
-    let title: String
-    let value: String
-    let emphasized: Bool
-    let regularFont: Font
-    let emphasizedFont: Font
-    let primaryTextColor: Color
-    let secondaryTextColor: Color
-    let accentColor: Color
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(emphasized ? emphasizedFont : regularFont)
-                .tracking(emphasized ? 1.5 : 0)
-                .foregroundColor(emphasized ? primaryTextColor : secondaryTextColor)
-
-            Spacer()
-
-            Text(value)
-                .font(emphasized ? emphasizedFont : regularFont)
-                .tracking(emphasized ? 1.2 : 0)
-                .foregroundColor(emphasized ? TallaTheme.Colors.ink : primaryTextColor)
-        }
-    }
-}
-
 struct CoffeeBeansBurstView: View {
     let accentColor: Color
     let id: Int
@@ -595,32 +507,3 @@ private struct CoffeeBeanParticle: View {
     }
 }
 
-struct ToastBannerView: View {
-    let message: String
-    let font: Font
-    let backgroundColor: Color
-    let foregroundColor: Color
-
-    var body: some View {
-        Label {
-            Text(message)
-                .font(font)
-        } icon: {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.body.weight(.semibold))
-        }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .background(backgroundColor, in: Capsule(style: .continuous))
-            .foregroundStyle(foregroundColor)
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-            }
-            .shadow(color: Color.black.opacity(0.18), radius: 12, y: 6)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .padding(.horizontal, TallaTheme.Spacing.page)
-            .padding(.bottom, TallaTheme.Spacing.section)
-            .accessibilityAddTraits(.isStaticText)
-    }
-}

@@ -448,7 +448,8 @@ enum BackendConfiguration {
     private static let simulatorDefaultURL = URL(string: "http://127.0.0.1:8787")
 
     static var serviceBaseURL: URL? {
-        #if DEBUG && targetEnvironment(simulator)
+        #if DEBUG
+        // The UI-test runner hosts its loopback service on the same device.
         if let override = ProcessInfo.processInfo.environment["TALLA_BACKEND_BASE_URL"]?
             .trimmingCharacters(in: .whitespacesAndNewlines),
            !override.isEmpty,

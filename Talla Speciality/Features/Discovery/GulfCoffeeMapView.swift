@@ -1076,21 +1076,6 @@ private struct GulfCoffeeRatingSheet: View {
     }
 }
 
-private struct CoffeeRegionContour: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + rect.width * 0.08, y: rect.height * 0.46))
-        path.addCurve(to: CGPoint(x: rect.width * 0.34, y: rect.height * 0.27), control1: CGPoint(x: rect.width * 0.18, y: rect.height * 0.38), control2: CGPoint(x: rect.width * 0.23, y: rect.height * 0.19))
-        path.addCurve(to: CGPoint(x: rect.width * 0.57, y: rect.height * 0.34), control1: CGPoint(x: rect.width * 0.42, y: rect.height * 0.32), control2: CGPoint(x: rect.width * 0.51, y: rect.height * 0.29))
-        path.addCurve(to: CGPoint(x: rect.width * 0.76, y: rect.height * 0.60), control1: CGPoint(x: rect.width * 0.67, y: rect.height * 0.39), control2: CGPoint(x: rect.width * 0.73, y: rect.height * 0.57))
-        path.addCurve(to: CGPoint(x: rect.width * 0.90, y: rect.height * 0.70), control1: CGPoint(x: rect.width * 0.80, y: rect.height * 0.63), control2: CGPoint(x: rect.width * 0.86, y: rect.height * 0.66))
-        path.addCurve(to: CGPoint(x: rect.width * 0.64, y: rect.height * 0.87), control1: CGPoint(x: rect.width * 0.83, y: rect.height * 0.81), control2: CGPoint(x: rect.width * 0.73, y: rect.height * 0.91))
-        path.addCurve(to: CGPoint(x: rect.width * 0.30, y: rect.height * 0.76), control1: CGPoint(x: rect.width * 0.52, y: rect.height * 0.87), control2: CGPoint(x: rect.width * 0.43, y: rect.height * 0.70))
-        path.addCurve(to: CGPoint(x: rect.minX + rect.width * 0.08, y: rect.height * 0.46), control1: CGPoint(x: rect.width * 0.17, y: rect.height * 0.80), control2: CGPoint(x: rect.width * 0.10, y: rect.height * 0.58))
-        return path
-    }
-}
-
 private struct GulfCoffeeOffering: Identifiable, Hashable {
     enum Kind: String, Hashable {
         case drink, bean, workshop

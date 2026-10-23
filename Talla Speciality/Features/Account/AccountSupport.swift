@@ -7,6 +7,9 @@ import WidgetKit
 #endif
 
 enum TallaAccountCredentialStore {
+    // Changes only when identity changes, not when an access token rotates.
+    private(set) static var sessionID = UUID()
+
     static let tokenDefaultsKey = "local.customerAccessToken"
     static let keychainService = "Talla-Speciality.customer-session"
     static let keychainAccount = "current"
@@ -27,9 +30,10 @@ enum TallaAccountCredentialStore {
         return legacyToken
     }
 
-    static func save(_ token: String) {
+    static func save(_ token: String, preservingSession: Bool = false) {
         let normalizedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedToken.isEmpty else { clear(); return }
+        if !preservingSession { sessionID = UUID() }
         saveToKeychain(normalizedToken, account: keychainAccount)
         UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
     }
@@ -41,13 +45,14 @@ enum TallaAccountCredentialStore {
         return readFromKeychain(account: refreshKeychainAccount)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
-    static func save(accessToken: String, refreshToken: String) {
-        save(accessToken)
+    static func save(accessToken: String, refreshToken: String, preservingSession: Bool = false) {
+        save(accessToken, preservingSession: preservingSession)
         let normalizedRefreshToken = refreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
         if normalizedRefreshToken.isEmpty { deleteFromKeychain(account: refreshKeychainAccount) } else { saveToKeychain(normalizedRefreshToken, account: refreshKeychainAccount) }
     }
 
     static func clear() {
+        sessionID = UUID()
         UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
         deleteFromKeychain(account: keychainAccount)
         deleteFromKeychain(account: refreshKeychainAccount)

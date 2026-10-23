@@ -326,7 +326,7 @@ extension BrewingSectionView {
     var bestRecipeShelf: some View {
         let profiles = customerGuideProfiles
 
-        VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.text("best_recipes", fallback: "Best recipes"))
                 .font(Font.custom("AvenirNext-Bold", size: 10))
                 .tracking(AppLocalization.letterSpacing(1.8))

@@ -331,41 +331,51 @@ extension ContentView {
 
     @MainActor
     func loadCustomerProfile() async {
+        let generation = customerSessionGeneration
         guard !savedCustomerAccessToken.isEmpty, !isLoadingCustomer else { return }
 
         isLoadingCustomer = true
+        defer { if generation == customerSessionGeneration { isLoadingCustomer = false } }
         customerAuthError = nil
 
         do {
             let profile = try await AccountService.fetchProfile()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             applySignedInProfile(profile, loadLoyalty: loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } catch AccountService.SessionError.invalid {
+            guard generation == customerSessionGeneration else { return }
             signOutCustomer(clearError: false)
             customerAuthError = AppLocalization.text("account_session_expired", fallback: "Your account session expired. Sign in again to continue.")
+        } catch is CancellationError {
+            return
         } catch {
+            guard generation == customerSessionGeneration else { return }
             customerAuthError = friendlyCustomerAuthMessage(for: error)
         }
 
-        isLoadingCustomer = false
     }
 
     @MainActor
     func refreshSignedInProfile() async {
+        let generation = customerSessionGeneration
         guard customerProfile != nil, !isLoadingCustomer else { return }
         isLoadingCustomer = true
-        defer { isLoadingCustomer = false }
+        defer { if generation == customerSessionGeneration { isLoadingCustomer = false } }
 
         do {
             let profile = try await AccountService.fetchProfile()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             customerProfile = profile
             savedCustomerEmail = profile.email
             accountEmail = profile.email
             profileFirstName = profile.firstName ?? ""
             profileLastName = profile.lastName ?? ""
         } catch AccountService.SessionError.invalid {
+            guard generation == customerSessionGeneration else { return }
             signOutCustomer(clearError: false)
             customerAuthError = AppLocalization.text("account_session_expired", fallback: "Your account session expired. Sign in again to continue.")
         } catch {
+            guard generation == customerSessionGeneration else { return }
             // Keep the last known account state during transient network failures.
         }
     }
@@ -381,7 +391,18 @@ extension ContentView {
         return !syncedToken.isEmpty
     }
 
+    @MainActor
+    func invalidateCustomerRequests() {
+        customerSessionGeneration = UUID()
+        customerBootstrapTask?.cancel()
+        customerBootstrapTask = nil
+        isLoadingCustomer = false
+        isLoadingOrders = false
+        isLoadingBackendAlerts = false
+    }
+
     func signOutCustomer(clearError: Bool = true, unregisterBackend: Bool = true) {
+        invalidateCustomerRequests()
         let emailToUnregister = customerProfile?.email ?? (!savedCustomerEmail.isEmpty ? savedCustomerEmail : nil)
         let accessTokenToUnregister = TallaAccountCredentialStore.accessToken
         if unregisterBackend {
@@ -450,27 +471,41 @@ extension ContentView {
         }
 
         registerForRemoteNotifications()
-        Task {
+        customerBootstrapTask?.cancel()
+        let generation = customerSessionGeneration
+        customerBootstrapTask = Task {
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await refreshWalletPassPresence()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await syncRemotePushTokenIfPossible()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await synchronizeCustomerLibrary()
             if loadLoyalty {
+                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
                 await loadLoyaltyAccount()
             }
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await loadOrderHistory()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             if let birthday = try? await AccountService.fetchBirthdayProfile() {
+                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
                 birthdayMonth = String(birthday.month)
                 birthdayDay = String(birthday.day)
             }
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await syncBackendStockAlerts()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await loadBackendStockAlerts()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await loadAddresses()
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await loadAlertInbox()
         }
     }
 
     @MainActor
     func applySignedInSession(_ session: AccountService.CustomerSession, loadLoyalty: Bool = true) {
+        invalidateCustomerRequests()
         TallaAccountCredentialStore.save(accessToken: session.accessToken, refreshToken: session.refreshToken)
         savedCustomerAccessToken = session.accessToken
         applySignedInProfile(session.profile, loadLoyalty: loadLoyalty)
@@ -683,19 +718,27 @@ extension ContentView {
 
     @MainActor
     func loadOrderHistory() async {
+        let generation = customerSessionGeneration
         guard let profile = customerProfile, !isLoadingOrders else { return }
 
         isLoadingOrders = true
+        defer { if generation == customerSessionGeneration { isLoadingOrders = false } }
         ordersError = nil
 
         do {
-            orderHistory = try await AccountService.fetchOrders(email: profile.email)
+            let loadedOrders = try await AccountService.fetchOrders(email: profile.email)
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
+            orderHistory = loadedOrders
             TallaSpotlightIndexer.reindex(orders: orderHistory)
             try? coffeeData.importPurchasedCoffee(from: orderHistory, catalog: products, ownerID: profile.email.lowercased())
             if let remoteTasteMemory = try? await AccountService.fetchTasteMemory(email: profile.email) {
+                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
                 persistTasteMemoryRecords(remoteTasteMemory)
             }
+        } catch is CancellationError {
+            return
         } catch {
+            guard generation == customerSessionGeneration else { return }
             orderHistory = []
             ordersError = customerFacingServiceMessage(
                 for: error,
@@ -703,36 +746,45 @@ extension ContentView {
             )
         }
 
-        isLoadingOrders = false
     }
 
     @MainActor
     func syncWidgetGroupOrderState() async {
+        let generation = customerSessionGeneration
         guard customerProfile != nil else {
             AppWidgetSharedState.syncGroupOrderWidgetState([], reload: false)
             return
         }
         let groups = (try? await AccountService.fetchSocialCoffeeGroups()) ?? []
+        guard generation == customerSessionGeneration, !Task.isCancelled else { return }
         AppWidgetSharedState.syncGroupOrderWidgetState(groups, reload: false)
     }
 
     @MainActor
     func loadBackendStockAlerts() async {
+        let generation = customerSessionGeneration
         guard let profile = customerProfile, !isLoadingBackendAlerts else { return }
 
         isLoadingBackendAlerts = true
+        defer { if generation == customerSessionGeneration { isLoadingBackendAlerts = false } }
         do {
-            backendStockAlerts = try await AccountService.fetchStockAlerts(email: profile.email)
+            let loadedAlerts = try await AccountService.fetchStockAlerts(email: profile.email)
+            guard generation == customerSessionGeneration, !Task.isCancelled else { return }
+            backendStockAlerts = loadedAlerts
+        } catch is CancellationError {
+            return
         } catch {
+            guard generation == customerSessionGeneration else { return }
             backendStockAlerts = []
         }
-        isLoadingBackendAlerts = false
     }
 
     @MainActor
     func loadAddresses() async {
+        let generation = customerSessionGeneration
         guard let profile = customerProfile else { return }
         if let loaded = try? await AccountService.fetchAddresses(email: profile.email) {
+                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             addresses = loaded
             if loaded.isEmpty {
                 prepareAccountOnboarding(for: profile)
@@ -758,14 +810,17 @@ extension ContentView {
 
     @MainActor
     func loadAlertInbox() async {
+        let generation = customerSessionGeneration
         guard let profile = customerProfile else { return }
         if let loaded = try? await AccountService.fetchAlertInbox(email: profile.email) {
+                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             alertInbox = loaded
         }
     }
 
     @MainActor
     func syncBackendStockAlerts() async {
+        let generation = customerSessionGeneration
         guard let profile = customerProfile, !alertProducts.isEmpty else { return }
 
         let records = alertProducts.map {
@@ -780,6 +835,7 @@ extension ContentView {
         }
 
         if let synced = try? await AccountService.syncStockAlerts(email: profile.email, alerts: records) {
+                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             backendStockAlerts = synced
         }
     }
@@ -1029,6 +1085,7 @@ extension ContentView {
                 return
             }
             products = fetchedProducts
+            try? TallaCatalogCache.save(fetchedProducts, languageCode: requestedLanguage)
             cartItems = cartItems.map { item in
                 guard let product = fetchedProducts.first(where: { $0.id == item.product.id }),
                       let variant = product.variants.first(where: { $0.id == item.variant.id }) else { return item }
@@ -1058,10 +1115,22 @@ extension ContentView {
                 await loadBackendStockAlerts()
             }
         } catch {
-            loadingError = customerFacingServiceMessage(
-                for: error,
-                fallback: AppLocalization.text("shop_retry_later", fallback: "Products could not be loaded right now. Please try again.")
-            )
+            guard requestedLanguage == AppLocalization.currentLanguage.effectiveLanguageCode else {
+                isLoadingProducts = false
+                await loadProducts(force: true)
+                return
+            }
+            if let cachedProducts = TallaCatalogCache.load(languageCode: requestedLanguage), !cachedProducts.isEmpty {
+                products = cachedProducts
+                hasLoadedProducts = false
+                lastProductsRefreshAt = nil
+                loadingError = nil
+            } else {
+                loadingError = customerFacingServiceMessage(
+                    for: error,
+                    fallback: AppLocalization.text("shop_retry_later", fallback: "Products could not be loaded right now. Please try again.")
+                )
+            }
         }
 
         isLoadingProducts = false
@@ -1091,7 +1160,9 @@ extension ContentView {
     @MainActor
     func loadAppSettings() async {
         do {
-            let settings = try await HomeSettingsService.fetchAppSettings()
+            let data = try await HomeSettingsService.fetchAppSettingsData()
+            let settings = try JSONDecoder().decode(AppSettings.self, from: data)
+            try? TallaRemoteSettingsCache.saveAppSettings(data)
             remoteAppSettings = settings
             if let firstLocation = settings.fulfillment?.locations?.first,
                selectedPickupLocationID.isEmpty || settings.fulfillment?.locations?.contains(where: { $0.id == selectedPickupLocationID }) != true {
@@ -1106,7 +1177,11 @@ extension ContentView {
                 fulfillmentMethod = .delivery
             }
         } catch {
-            // Keep the bundled defaults when live controls are unavailable.
+            if let data = TallaRemoteSettingsCache.loadAppSettings(),
+               let cachedSettings = try? JSONDecoder().decode(AppSettings.self, from: data) {
+                remoteAppSettings = cachedSettings
+            }
+            // Keep the bundled defaults when live controls and the cache are unavailable.
         }
     }
 

@@ -262,7 +262,6 @@ struct SocialCoffeeView: View {
         }
     }
 
-
     private var tastingSection: some View {
         socialCard(title: AppLocalization.text("social_coffee_memory_title", fallback: "Keep the good cups close"), eyebrow: AppLocalization.text("social_coffee_memory_eyebrow", fallback: "YOUR COFFEE MEMORY"), icon: "text.quote") {
             Text("Save a tasting note, keep a wish list, and choose who gets to see what you taste.")
@@ -1140,11 +1139,6 @@ private struct SocialCoffeeFlowSheet: View {
             catch { groupError = "Couldn’t create the group order. Please try again." }
             isCreatingGroup = false
         }
-    }
-
-    private func openGroupOrder() {
-        let text = "Hi Talla, can you help arrange a group order for \(quantity) coffees or bags for \(recipient.isEmpty ? "our gathering" : recipient)?"
-        openWhatsApp(text)
     }
 
     private func requestGiftCard() {

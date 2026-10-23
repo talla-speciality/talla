@@ -641,15 +641,6 @@ extension ContentView {
         }
     }
 
-    func accountWorkspaceCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        SectionCardView(
-            backgroundColor: cardFillColor,
-            strokeColor: TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.14 : 0.08)
-        ) {
-            content()
-        }
-    }
-
     func actionEmptyState(
         message: String,
         actionTitle: String,

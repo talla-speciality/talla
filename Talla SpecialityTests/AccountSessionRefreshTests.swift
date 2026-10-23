@@ -129,4 +129,49 @@ struct AccountSessionRefreshTests {
             }
         }
     }
+
+    @Test(arguments: [200, 401]) func accountResponseCannotCrossSignOut(status: Int) async throws {
+        try await withCredentials {
+            var request = URLRequest(url: URL(string: "https://example.com/orders")!)
+            try AccountService.authorize(&request)
+            do {
+                _ = try await AccountService.data(for: request, send: {
+                    TallaAccountCredentialStore.clear()
+                    return response($0, status: status)
+                })
+                Issue.record("A response from a signed-out session must be discarded")
+            } catch is CancellationError {
+                #expect(TallaAccountCredentialStore.accessToken.isEmpty)
+            }
+        }
+    }
+
+    @Test(arguments: [200, 401]) func accountResponseCannotCrossNewLogin(status: Int) async throws {
+        try await withCredentials {
+            var request = URLRequest(url: URL(string: "https://example.com/addresses")!)
+            try AccountService.authorize(&request)
+            do {
+                _ = try await AccountService.data(for: request, send: {
+                    TallaAccountCredentialStore.save(accessToken: "other-access", refreshToken: "other-refresh")
+                    return response($0, status: status)
+                })
+                Issue.record("An old response must not update or refresh a different account")
+            } catch is CancellationError {
+                #expect(TallaAccountCredentialStore.accessToken == "other-access")
+            }
+        }
+    }
+
+    @Test func tokenRotationKeepsInFlightAccountReadsValid() async throws {
+        try await withCredentials {
+            var request = URLRequest(url: URL(string: "https://example.com/orders")!)
+            try AccountService.authorize(&request)
+            let result = try await AccountService.data(for: request, send: {
+                TallaAccountCredentialStore.save(accessToken: "rotated-access", refreshToken: "rotated-refresh", preservingSession: true)
+                return response($0, status: 200)
+            })
+            #expect((result.1 as? HTTPURLResponse)?.statusCode == 200)
+        }
+    }
+
 }

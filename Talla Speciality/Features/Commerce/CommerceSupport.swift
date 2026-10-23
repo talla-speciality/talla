@@ -177,7 +177,7 @@ enum HomeSettingsService {
         return try JSONDecoder().decode(ContentView.PassportSettings.self, from: data)
     }
 
-    static func fetchAppSettings() async throws -> ContentView.AppSettings {
+    static func fetchAppSettingsData() async throws -> Data {
         guard let baseURL else {
             throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "App settings service"))
         }
@@ -197,7 +197,7 @@ enum HomeSettingsService {
             throw ContentView.LoyaltyServiceError.operationFailed("The app settings service could not complete your request.")
         }
 
-        return try JSONDecoder().decode(ContentView.AppSettings.self, from: data)
+        return data
     }
 
     static func fetchEventSettings() async throws -> ContentView.EventSettings {
@@ -419,122 +419,6 @@ enum ShopifyStorefrontClient {
         return nodes.filter { node in
             seenIDs.insert(node.id).inserted
         }
-    }
-
-    static func createCustomerAccessToken(email: String, password: String) async throws -> ShopifyCustomerSession {
-        let body = ShopifyGraphQLRequest(
-            query: """
-            mutation CustomerAccessTokenCreate($input: CustomerAccessTokenCreateInput!) {
-              customerAccessTokenCreate(input: $input) {
-                customerAccessToken {
-                  accessToken
-                  expiresAt
-                }
-                customerUserErrors {
-                  message
-                }
-              }
-            }
-            """,
-            variables: [
-                "input": [
-                    "email": email,
-                    "password": password
-                ]
-            ]
-        )
-
-        let decoded: ShopifyCustomerAccessTokenCreateResponse = try await performRequest(body)
-
-        if let errors = decoded.errors, let first = errors.first {
-            throw ShopifyError.api(first.message)
-        }
-
-        if let userError = decoded.data?.customerAccessTokenCreate.customerUserErrors.first {
-            throw ShopifyError.api(userError.message)
-        }
-
-        guard let session = decoded.data?.customerAccessTokenCreate.customerAccessToken else {
-            throw ShopifyError.invalidResponse
-        }
-
-        return session
-    }
-
-    static func createCustomer(firstName: String, lastName: String, email: String, password: String) async throws -> ShopifyCustomerCreateResponse.CreatedCustomer {
-        let body = ShopifyGraphQLRequest(
-            query: """
-            mutation CustomerCreate($input: CustomerCreateInput!) {
-              customerCreate(input: $input) {
-                customer {
-                  id
-                }
-                customerUserErrors {
-                  message
-                }
-              }
-            }
-            """,
-            variables: [
-                "input": [
-                    "firstName": firstName,
-                    "lastName": lastName,
-                    "email": email,
-                    "password": password
-                ]
-            ]
-        )
-
-        let decoded: ShopifyCustomerCreateResponse = try await performRequest(body)
-
-        if let errors = decoded.errors, let first = errors.first {
-            throw ShopifyError.api(first.message)
-        }
-
-        if let userError = decoded.data?.customerCreate.customerUserErrors.first {
-            throw ShopifyError.api(userError.message)
-        }
-
-        guard let customer = decoded.data?.customerCreate.customer else {
-            throw ShopifyError.invalidResponse
-        }
-
-        return customer
-    }
-
-    static func fetchCustomer(accessToken: String) async throws -> ContentView.ShopifyCustomerProfile {
-        let body = ShopifyGraphQLRequest(
-            query: """
-            query Customer($customerAccessToken: String!) {
-              customer(customerAccessToken: $customerAccessToken) {
-                id
-                firstName
-                lastName
-                email
-              }
-            }
-            """,
-            variables: [
-                "customerAccessToken": accessToken
-            ]
-        )
-
-        let decoded: ShopifyCustomerQueryResponse = try await performRequest(body)
-
-        if let errors = decoded.errors, let first = errors.first {
-            throw ShopifyError.api(first.message)
-        }
-
-        guard let customer = decoded.data?.customer else {
-            throw ShopifyError.api("Your account session has expired. Please sign in again.")
-        }
-
-        return ContentView.ShopifyCustomerProfile(
-            id: customer.id,
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            email: customer.email
-        )
     }
 
     static func fetchPage(after cursor: String?, languageCode: String = "EN") async throws -> ShopifyProductsResponse.DataPayload {
@@ -2003,14 +1887,6 @@ extension Color {
     }
 }
 
-extension Array where Element: Identifiable {
-    func uniquedByID() -> [Element] where Element.ID: Hashable {
-        var seenIDs = Set<Element.ID>()
-        return filter { element in
-            seenIDs.insert(element.id).inserted
-        }
-    }
-}
 
 extension ContentView {
     struct HomeSettings: Decodable {

@@ -322,30 +322,6 @@ extension ContentView {
             : AppLocalization.text("add", fallback: "Add")
     }
 
-    func productPreviewDescription(for product: Product) -> String {
-        let plainDescription = product.desc
-            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-            .replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-
-        let fallback = product.categoryLabel.isEmpty
-            ? AppLocalization.text("shop_product_preview_fallback", fallback: "Tap for full details.")
-            : product.categoryLabel
-        let cleanedDescription = customerFacingText(plainDescription)
-        let description = cleanedDescription.isEmpty ? fallback : cleanedDescription
-        let maxLength = isCompact ? 74 : 112
-
-        guard description.count > maxLength else { return description }
-
-        let endIndex = description.index(description.startIndex, offsetBy: maxLength)
-        return description[..<endIndex].trimmingCharacters(in: .whitespacesAndNewlines) + "..."
-    }
-
     func customerFacingProductName(for product: Product) -> String {
         let cleanedName = customerFacingText(product.name)
         return cleanedName.isEmpty ? AppLocalization.text("this_product", fallback: "this product") : cleanedName
@@ -381,12 +357,6 @@ extension ContentView {
         }
 
         return cleaned
-    }
-
-    func recommendationCopy(source: Product, recommended: Product) -> String {
-        let sourceName = customerFacingProductName(for: source)
-        let recommendedName = customerFacingProductName(for: recommended)
-        return String(format: AppLocalization.text("similar_order_recommendation_plain", fallback: "Loved %@? Try %@ for your next gathering."), sourceName, recommendedName)
     }
 
     func productOriginLabel(for product: Product) -> String {
@@ -496,48 +466,6 @@ extension ContentView {
         return notes.compactMap { pair in
             searchableText.contains(pair.keyword) ? AppLocalization.catalogOption(pair.note) : nil
         }
-    }
-
-    func productBrewRecommendation(for product: Product) -> String {
-        let searchableText = normalizedSearchText(for: product)
-
-        if product.categoryKey == "gifts" {
-            return AppLocalization.text("best_for_gifts", fallback: "A curated gift box for sharing and special moments.")
-        }
-
-        if product.categoryKey == "ready-made-drinks" {
-            return AppLocalization.text("best_ready_to_drink", fallback: "Best served chilled and ready to drink.")
-        }
-
-        if product.categoryKey == "summer-drinks" {
-            return AppLocalization.text("best_summer_box", fallback: "A chilled seasonal box made for sharing.")
-        }
-
-        if product.categoryKey == "cups" {
-            return AppLocalization.text("best_for_cups", fallback: "Best for serving hot and cold drinks.")
-        }
-
-        if product.categoryKey == "coffee-equipment" {
-            return AppLocalization.text("best_for_home_brewing", fallback: "Best for your home brewing setup.")
-        }
-
-        if searchableText.contains("arabic") {
-            return AppLocalization.text("best_for_arabic_coffee", fallback: "Best for Arabic coffee and sharing.")
-        }
-
-        if searchableText.contains("espresso") {
-            return AppLocalization.text("best_for_espresso", fallback: "Best for espresso and milk drinks.")
-        }
-
-        if searchableText.contains("iced") || searchableText.contains("cold") {
-            return AppLocalization.text("best_for_iced_v60", fallback: "Best for V60 and iced coffee.")
-        }
-
-        if searchableText.contains("drip") {
-            return AppLocalization.text("best_for_drip_bags", fallback: "Best for easy travel brewing.")
-        }
-
-        return AppLocalization.text("best_for_v60", fallback: "Best for V60 and filter brewing.")
     }
 
     func productMetadataChips(for product: Product) -> [(icon: String, title: String)] {
@@ -1205,58 +1133,6 @@ extension ContentView {
         }
     }
 
-    func heroStat(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(value)
-                .font(titleFont(size: 22))
-                .foregroundColor(primaryTextColor)
-
-            Text(label)
-                .font(bodyFont(size: 12))
-                .foregroundColor(secondaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Capsule(style: .continuous)
-                .fill(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.22 : 0.14))
-                .frame(width: 34, height: 4)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: isLightAppearance
-                            ? [
-                                Color.white.opacity(0.88),
-                                Color(hex: 0xF3E3CC).opacity(0.94)
-                            ]
-                            : (isOLEDAppearance
-                                ? [.black, .black]
-                                : [
-                                    Color.white.opacity(0.03),
-                                    Color(hex: 0x2A1D14).opacity(0.82)
-                                ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.18 : 0.09), lineWidth: 1)
-        )
-        .overlay(alignment: .topTrailing) {
-            Circle()
-                .fill(Color(hex: 0xD6A667).opacity(isLightAppearance ? 0.16 : 0.08))
-                .frame(width: 42, height: 42)
-                .blur(radius: 8)
-                .offset(x: 6, y: -6)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
     func loyaltyBenefit(title: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -1387,84 +1263,6 @@ extension ContentView {
                 }
             }
         )
-    }
-
-    func infoChip(symbol: String, text: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 16))
-                .foregroundColor(readableBrandGoldColor)
-
-            Text(text)
-                .font(.system(size: 11, weight: .medium))
-                .tracking(AppLocalization.letterSpacing(2))
-                .textCase(.uppercase)
-                .foregroundColor(secondaryTextColor)
-
-            Spacer()
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 2)
-                .stroke(TallaTheme.Colors.ink.opacity(0.15), lineWidth: 1)
-        )
-    }
-
-    func infoTile(title: String, detail: String, actionTitle: String, destination: URL) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(title)
-                    .font(titleFont(size: 20))
-                    .foregroundColor(primaryTextColor)
-
-                Text(detail)
-                    .font(bodyFont(size: 14))
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 0)
-
-            Button {
-                openURL(destination)
-            } label: {
-                HStack(spacing: 6) {
-                    Text(actionTitle)
-                    Image(systemName: "arrow.up.right")
-                }
-                .font(labelFont(size: 11, weight: .bold))
-                .tracking(AppLocalization.letterSpacing(1.8))
-                .textCase(.uppercase)
-                .foregroundColor(readableBrandGoldColor)
-            }
-            .buttonStyle(.plain)
-        }
-        .frame(maxWidth: .infinity, minHeight: 164, alignment: .topLeading)
-        .padding(18)
-        .background(cardFillColor)
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-    }
-
-    func socialChip(label: String, systemImage: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: systemImage)
-            Text(label)
-        }
-        .font(.system(size: 10, weight: .medium))
-        .tracking(AppLocalization.letterSpacing(2))
-        .textCase(.uppercase)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 2)
-                .stroke(TallaTheme.Colors.ink.opacity(0.2), lineWidth: 1)
-        )
-        .foregroundColor(primaryTextColor)
     }
 
     func formattedRatioValue(_ value: Double) -> String {

@@ -1366,16 +1366,6 @@ extension ContentView {
         return "shippingbox.fill"
     }
 
-    func bundledLoyaltyPass() -> PKPass? {
-        guard let passURL = Bundle.main.url(forResource: "TallaLoyalty", withExtension: "pkpass"),
-              let data = try? Data(contentsOf: passURL),
-              let pass = try? PKPass(data: data) else {
-            return nil
-        }
-
-        return pass
-    }
-
     func priceValue(from price: String) -> Double {
         let sanitized = price
             .replacingOccurrences(of: "BHD", with: "")
@@ -1383,10 +1373,6 @@ extension ContentView {
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         return Double(sanitized) ?? 0
-    }
-
-    func formattedBHD(_ value: Double) -> String {
-        CheckoutCurrencyFormatter.bhd(Decimal(value))
     }
 
     func formattedCustomerCurrency(_ value: Double) -> String {

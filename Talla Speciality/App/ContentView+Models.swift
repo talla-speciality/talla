@@ -102,8 +102,8 @@ extension ContentView {
         }
     }
 
-    struct Product: Identifiable, Hashable {
-        struct Variant: Identifiable, Hashable {
+    struct Product: Identifiable, Hashable, Codable {
+        struct Variant: Identifiable, Hashable, Codable {
             let id: String
             let title: String
             let price: String

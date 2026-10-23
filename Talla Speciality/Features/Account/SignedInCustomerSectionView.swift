@@ -80,25 +80,6 @@ struct SignedInCustomerSectionView: View {
         }
     }
 
-    private func workspaceBenefit(title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(Font.custom("AvenirNext-Bold", size: 10))
-                .tracking(AppLocalization.letterSpacing(1.8))
-                .textCase(.uppercase)
-                .foregroundColor(TallaTheme.Colors.ink)
-
-            Text(detail)
-                .font(Font.custom("AvenirNext-Regular", size: 13))
-                .foregroundColor(primaryTextColor)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardFillColor)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
     private func workspaceCard(content: AnyView) -> some View {
         SectionCardView(
             backgroundColor: cardFillColor,
@@ -108,20 +89,4 @@ struct SignedInCustomerSectionView: View {
         }
     }
 
-    private func signedInCountDetail(
-        count: Int,
-        singularKey: String,
-        singularFallback: String,
-        pluralKey: String,
-        pluralFallback: String
-    ) -> String {
-        if count == 1 {
-            return AppLocalization.text(singularKey, fallback: singularFallback)
-        }
-
-        return String(
-            format: AppLocalization.text(pluralKey, fallback: pluralFallback),
-            count
-        )
-    }
 }

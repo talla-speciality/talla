@@ -367,23 +367,41 @@ enum AccountService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     }
 
-    static func data(for request: URLRequest, allowRefresh: Bool = true) async throws -> (Data, URLResponse) {
-        let result = try await TallaSecureSession.data(for: request)
+    static func data(
+        for request: URLRequest,
+        allowRefresh: Bool = true,
+        send: (URLRequest) async throws -> (Data, URLResponse) = TallaSecureSession.data(for:)
+    ) async throws -> (Data, URLResponse) {
+        let sessionID = TallaAccountCredentialStore.sessionID
+        let isAuthenticated = request.value(forHTTPHeaderField: "Authorization") != nil
+        func checkSession() throws {
+            try Task.checkCancellation()
+            if isAuthenticated && sessionID != TallaAccountCredentialStore.sessionID {
+                throw CancellationError()
+            }
+        }
+        let result: (Data, URLResponse)
+        do {
+            result = try await send(request)
+        } catch {
+            try checkSession()
+            throw error
+        }
+        try checkSession()
         guard allowRefresh,
               (result.1 as? HTTPURLResponse)?.statusCode == 401,
-              request.value(forHTTPHeaderField: "Authorization") != nil,
+              isAuthenticated,
               !TallaAccountCredentialStore.refreshToken.isEmpty else {
             return result
         }
 
         let tokens = try await refreshCoordinator.refresh()
+        try checkSession()
         var retry = request
         retry.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
-        return try await TallaSecureSession.data(for: retry)
-    }
-
-    static func refreshSession() async throws -> AccountTokenRefreshResponse {
-        try await refreshCoordinator.refresh()
+        let retriedResult = try await send(retry)
+        try checkSession()
+        return retriedResult
     }
 
     static func performRefreshSession(
@@ -425,7 +443,7 @@ enum AccountService {
         guard TallaAccountCredentialStore.refreshToken == refreshToken else {
             throw CancellationError()
         }
-        TallaAccountCredentialStore.save(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken)
+        TallaAccountCredentialStore.save(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, preservingSession: true)
         return tokens
     }
 
@@ -1031,20 +1049,6 @@ enum AccountService {
             throw ContentView.LoyaltyServiceError.operationFailed(errorPayload.error)
         }
         throw ContentView.LoyaltyServiceError.operationFailed("The payment service could not confirm the payment.")
-    }
-
-    static func createEazyShopifyPaymentSession(tallaPaymentID: String) async throws -> EazyShopifyPaymentResponse {
-        guard let baseURL else {
-            throw ContentView.LoyaltyServiceError.operationFailed("The payment service is unavailable.")
-        }
-        var request = URLRequest(url: baseURL.appending(path: "/api/payments/eazy/shopify/session"))
-        request.httpMethod = "POST"
-        request.timeoutInterval = 20
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        try authorize(&request)
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["tallaPaymentId": tallaPaymentID])
-        return try await performEazyShopifyPaymentRequest(request)
     }
 
     static func fetchEazyShopifyPaymentStatus(tallaPaymentID: String) async throws -> EazyShopifyPaymentResponse {

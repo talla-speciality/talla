@@ -1140,13 +1140,6 @@ enum TallaPaymentService {
         try await post(path: "/api/payments/card/order/retrieve", payload: ["orderID": orderID])
     }
 
-    static func initiateAuthentication(orderID: String, sessionID: String) async throws -> Data {
-        try await postData(
-            path: "/api/payments/card/authentication/initiate",
-            payload: ["orderID": orderID, "sessionId": sessionID]
-        )
-    }
-
     static func registerSDKAuthentication(
         orderID: String,
         sessionID: String,
@@ -1160,13 +1153,6 @@ enum TallaPaymentService {
                 "transactionId": transactionID,
                 "sdkManaged": true
             ]
-        )
-    }
-
-    static func authenticatePayer(orderID: String, sessionID: String) async throws -> Data {
-        try await postData(
-            path: "/api/payments/card/authentication/complete",
-            payload: ["orderID": orderID, "sessionId": sessionID]
         )
     }
 

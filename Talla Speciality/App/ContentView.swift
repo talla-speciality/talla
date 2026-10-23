@@ -230,6 +230,8 @@ struct ContentView: View {
     @State var customerAuthError: String?
     @State var isSigningIn = false
     @State var isCreatingAccount = false
+    @State var customerSessionGeneration = UUID()
+    @State var customerBootstrapTask: Task<Void, Never>?
     @State var isLoadingCustomer = false
     @State var orderHistory: [AccountOrder] = []
     @State var isLoadingOrders = false
