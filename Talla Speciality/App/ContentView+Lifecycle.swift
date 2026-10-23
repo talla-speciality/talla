@@ -119,6 +119,10 @@ extension ContentView {
         await bootstrapTask
         await notificationTask
         guard !Task.isCancelled else { return }
+        // Ask for push permission on the first real app launch. The APNs token
+        // is associated with the customer after sign-in by the existing sync
+        // flow, so customers can opt in before or after creating an account.
+        _ = await requestNotificationAccessIfNeeded()
         await syncWidgetGroupOrderState()
         await syncRemotePushTokenIfPossible()
     }

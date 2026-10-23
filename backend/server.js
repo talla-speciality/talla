@@ -7938,10 +7938,6 @@ async function sendAPNsPushToDevice(deviceToken, notification, options = {}) {
         return false;
     }
 
-    const useSandbox = options.sandbox ?? apnsUseSandbox;
-    const authority = useSandbox
-        ? "https://api.sandbox.push.apple.com"
-        : "https://api.push.apple.com";
     let authorizationToken = "";
 
     try {
@@ -7950,13 +7946,16 @@ async function sendAPNsPushToDevice(deviceToken, notification, options = {}) {
         return false;
     }
 
-    return await new Promise((resolve) => {
+    const sendToEnvironment = async (useSandbox) => await new Promise((resolve) => {
+        const authority = useSandbox
+            ? "https://api.sandbox.push.apple.com"
+            : "https://api.push.apple.com";
         const client = http2.connect(authority);
         const payload = JSON.stringify(remotePushPayload(notification));
 
         client.on("error", () => {
             client.close();
-            resolve(false);
+            resolve({ sent: false, reason: "CONNECTION_ERROR" });
         });
 
         const request = client.request({
@@ -7982,31 +7981,48 @@ async function sendAPNsPushToDevice(deviceToken, notification, options = {}) {
             client.close();
 
             if (statusCode === 200) {
-                if (options.adminDevice) await markAdminPushDeviceSent(normalizedToken);
-                else await markPushDeviceSent(normalizedToken);
-                resolve(true);
+                resolve({ sent: true, reason: "" });
                 return;
             }
 
             try {
                 const parsed = responseBody ? JSON.parse(responseBody) : null;
-                const reason = parsed?.reason || "";
-                if (["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(reason)) {
-                    if (options.adminDevice) await unregisterAdminNativePushDevice(normalizedToken);
-                    else await prunePushDevice(normalizedToken);
-                }
+                resolve({ sent: false, reason: parsed?.reason || `APNS_HTTP_${statusCode}` });
             } catch (error) {
-                // Ignore malformed APNs error bodies.
+                resolve({ sent: false, reason: `APNS_HTTP_${statusCode}` });
             }
-
-            resolve(false);
         });
         request.on("error", () => {
             client.close();
-            resolve(false);
+            resolve({ sent: false, reason: "REQUEST_ERROR" });
         });
         request.end(payload);
     });
+
+    const requestedSandbox = options.sandbox;
+    const primarySandbox = requestedSandbox ?? apnsUseSandbox;
+    let result = await sendToEnvironment(primarySandbox);
+
+    // Customer tokens do not currently store their APNs environment. A token
+    // registered by a development build is only valid on the sandbox endpoint,
+    // while App Store/TestFlight tokens are only valid on production. Retry a
+    // rejected customer token against the other endpoint before pruning it.
+    if (!result.sent && requestedSandbox === undefined && result.reason === "BadDeviceToken") {
+        result = await sendToEnvironment(!primarySandbox);
+    }
+
+    if (result.sent) {
+        if (options.adminDevice) await markAdminPushDeviceSent(normalizedToken);
+        else await markPushDeviceSent(normalizedToken);
+        return true;
+    }
+
+    if (["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(result.reason)) {
+        if (options.adminDevice) await unregisterAdminNativePushDevice(normalizedToken);
+        else await prunePushDevice(normalizedToken);
+    }
+
+    return false;
 }
 
 async function sendAdminNativeNewOrderPush(order) {
