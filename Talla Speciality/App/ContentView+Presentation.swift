@@ -1113,6 +1113,10 @@ private struct DuoOuterTabChooser: View {
         .padding(.trailing, 18)
         .padding(.bottom, 28)
         .frame(maxHeight: .infinity, alignment: .top)
+        // The outer Duo content can report the usable pane width rather than
+        // the physical display width. Offset the rail back to the device edge
+        // so it aligns with the system Bag/Menu controls.
+        .offset(x: 84)
         .accessibilityElement(children: .contain)
     }
 
