@@ -591,7 +591,7 @@ extension ContentView {
     }
 
     var duoOuterTabView: some View {
-        ZStack(alignment: .leading) {
+        ZStack(alignment: .topTrailing) {
             ZStack {
                 tabScreen(tab: .home) { homeView }
                     .opacity(activeTab == .home ? 1 : 0)
@@ -1069,71 +1069,69 @@ private struct DuoOuterTabChooser: View {
     private let tabs: [ContentView.Tab] = [.home, .shop, .brewing, .discover, .account]
 
     var body: some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+
             if isExpanded {
-                ForEach(tabs) { tab in
-                    Button {
-                        activeTab = tab
-                        withAnimation(.easeOut(duration: 0.18)) {
-                            isExpanded = false
+                VStack(spacing: 6) {
+                    ForEach(tabs.filter { $0 != .home }) { tab in
+                        railButton(systemImage: tab.systemImage, label: title(tab)) {
+                            activeTab = tab
+                            withAnimation(.easeOut(duration: 0.18)) {
+                                isExpanded = false
+                            }
                         }
-                    } label: {
-                        VStack(spacing: 3) {
-                            Image(systemName: tab.systemImage)
-                                .font(.system(size: 16, weight: .semibold))
-                            Text(title(tab))
-                                .font(.caption2.weight(.semibold))
-                                .lineLimit(1)
-                        }
-                        .frame(minWidth: 48, minHeight: 44)
-                        .foregroundStyle(activeTab == tab ? TallaTheme.Colors.ink : TallaTheme.Colors.ink.opacity(0.62))
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(activeTab == tab ? TallaTheme.Colors.accent.opacity(0.24) : .clear)
-                        )
+                        .accessibilityAddTraits(activeTab == tab ? .isSelected : [])
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(title(tab))
-                    .accessibilityAddTraits(activeTab == tab ? .isSelected : [])
                 }
-            } else {
-                Button {
-                    withAnimation(.easeOut(duration: 0.18)) {
-                        isExpanded = true
-                    }
-                } label: {
-                    Image(systemName: activeTab.systemImage)
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 48, height: 48)
-                        .foregroundStyle(TallaTheme.Colors.ink)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(title(activeTab))
-                .accessibilityHint("Show app tabs")
+                .padding(.top, 8)
+                .transition(.scale.combined(with: .opacity))
             }
 
-            Button {
-                withAnimation(.easeOut(duration: 0.18)) {
-                    isExpanded.toggle()
+            railButton(systemImage: "house.fill", label: title(.home)) {
+                if activeTab == .home {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        isExpanded.toggle()
+                    }
+                } else {
+                    activeTab = .home
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        isExpanded = false
+                    }
                 }
-            } label: {
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
-                    .font(.system(size: 13, weight: .bold))
-                    .frame(width: 32, height: 48)
-                    .foregroundStyle(TallaTheme.Colors.ink.opacity(0.72))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isExpanded ? "Collapse tabs" : "Expand tabs")
+            .accessibilityHint(activeTab == .home ? "Show app tabs" : "Go to Home")
+            .accessibilityAddTraits(activeTab == .home ? .isSelected : [])
+
+            Circle()
+                .fill(Color.black)
+                .frame(width: 36, height: 36)
+                .padding(.top, 8)
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 8)
-        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
-        .overlay {
-            Capsule(style: .continuous)
-                .stroke(TallaTheme.Colors.ink.opacity(0.10), lineWidth: 1)
-        }
-        .padding(.leading, 12)
-        .padding(.top, 12)
-        .shadow(color: .black.opacity(0.10), radius: 12, y: 5)
+        .padding(.top, 24)
+        .padding(.trailing, 18)
+        .padding(.bottom, 28)
+        .frame(maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
+    }
+
+    private func railButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .frame(width: 52, height: 52)
+                .foregroundStyle(TallaTheme.Colors.ink)
+                .background(
+                    Circle()
+                        .fill(activeTab == .home && label == title(.home) ? .white : .white.opacity(0.76))
+                )
+                .overlay {
+                    Circle()
+                        .stroke(TallaTheme.Colors.ink.opacity(0.10), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
