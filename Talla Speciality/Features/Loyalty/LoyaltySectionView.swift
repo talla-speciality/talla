@@ -38,6 +38,15 @@ struct LoyaltySectionView: View {
         VStack(alignment: .leading, spacing: 16) {
             if isCustomerSignedIn {
                 rewardsConnectedCard
+                if isLoadingLoyalty {
+                    ProgressView("Loading Beans and rewards…")
+                }
+                if let loyaltyError {
+                    Text(loyaltyError)
+                        .font(.callout)
+                        .foregroundStyle(secondaryTextColor)
+                        .accessibilityIdentifier("rewards.loadError")
+                }
             } else {
                 loyaltyLookupCard
 
@@ -475,7 +484,7 @@ struct LoyaltySectionView: View {
                     .foregroundColor(TallaTheme.Colors.ink)
             }
             .buttonStyle(.plain)
-            .disabled(isLoadingLoyalty || savedLoyaltyEmail.isEmpty)
+            .disabled(isLoadingLoyalty)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

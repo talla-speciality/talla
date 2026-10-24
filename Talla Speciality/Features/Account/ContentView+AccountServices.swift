@@ -1232,7 +1232,12 @@ extension ContentView {
 
     @MainActor
     func loadLoyaltyAccount() async {
-        let trimmedEmail = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let accountEmail = customerProfile?.email ?? savedLoyaltyEmail
+        let enteredEmail = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = enteredEmail.isEmpty
+            ? accountEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+            : enteredEmail
+        loyaltyEmail = trimmedEmail
         guard !trimmedEmail.isEmpty else {
             loyaltyError = AppLocalization.text("enter_order_email_loyalty", fallback: "Enter the email you use for your coffee orders.")
             return
@@ -1251,7 +1256,6 @@ extension ContentView {
             await walletTask
             showToast(message: AppLocalization.text("rewards_loaded_toast", fallback: "Rewards loaded"))
         } catch {
-            loyaltyAccount = nil
             loyaltyError = customerFacingServiceMessage(
                 for: error,
                 fallback: AppLocalization.text("rewards_refresh_failed", fallback: "Rewards could not be refreshed right now.")
