@@ -46,7 +46,6 @@ struct ContentView: View {
     @Environment(\.openURL) var openURL
 
     @State var activeTab: Tab = .home
-    @State var isDuoTabChooserExpanded = false
     @State var activeCategory = "all"
     @State var shopSearchQuery = ""
     @State var surprisePickProductID = ""

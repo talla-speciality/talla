@@ -569,60 +569,17 @@ extension ContentView {
 
     @ViewBuilder
     var appTabView: some View {
-        GeometryReader { proxy in
-            if isCompactSinglePaneDisplay(proxy) {
-                duoOuterTabView
-            } else if #available(iOS 18.0, *) {
-                baseTabView
-                    .tabViewStyle(.sidebarAdaptable)
-            } else {
-                baseTabView
-            }
+        if #available(iOS 26.0, *) {
+            baseTabView
+                .tabViewStyle(.sidebarAdaptable)
+                .tabBarMinimizeBehavior(.onScrollDown)
+                .modifier(DuoToolbarBehavior())
+        } else if #available(iOS 18.0, *) {
+            baseTabView
+                .tabViewStyle(.sidebarAdaptable)
+        } else {
+            baseTabView
         }
-    }
-
-    /// The Duo outer display is tall and narrow, but it has enough width for
-    /// the app to use edge-to-edge. A custom collapsed chooser keeps that
-    /// width available instead of reserving it for the adaptable sidebar.
-    func isCompactSinglePaneDisplay(_ proxy: GeometryProxy) -> Bool {
-        proxy.size.width >= 350
-            && proxy.size.width < 600
-            && proxy.size.height > proxy.size.width * 1.18
-    }
-
-    var duoOuterTabView: some View {
-        ZStack(alignment: .topTrailing) {
-            ZStack {
-                tabScreen(tab: .home) { homeView }
-                    .opacity(activeTab == .home ? 1 : 0)
-                tabScreen(tab: .shop) { shopView }
-                    .opacity(activeTab == .shop ? 1 : 0)
-                tabScreen(tab: .brewing) { brewingView }
-                    .opacity(activeTab == .brewing ? 1 : 0)
-                tabScreen(tab: .discover) { discoverView }
-                    .opacity(activeTab == .discover ? 1 : 0)
-                tabScreen(tab: .account) { accountView }
-                    .opacity(activeTab == .account ? 1 : 0)
-            }
-            .allowsHitTesting(!isDuoTabChooserExpanded)
-
-            DuoOuterTabChooser(
-                activeTab: $activeTab,
-                isExpanded: $isDuoTabChooserExpanded,
-                title: { tab in
-                    switch tab {
-                    case .home: AppLocalization.text("home", fallback: "Home")
-                    case .shop: AppLocalization.text("shop", fallback: "Shop")
-                    case .brewing: AppLocalization.text("brew", fallback: "Brew")
-                    case .discover: AppLocalization.text("discover", fallback: "Discover")
-                    case .account: AppLocalization.text("account", fallback: "Account")
-                    case .search: "Search"
-                    }
-                }
-            )
-        }
-        .toolbar(.hidden, for: .tabBar)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: activeTab)
     }
 
     @ViewBuilder
@@ -1058,84 +1015,5 @@ struct DuoSafePane<Content: View>: View {
                     && $0.height < proxy.size.height * 0.25
                 return verticalDivision || horizontalDivision
             }) ?? .zero
-    }
-}
-
-private struct DuoOuterTabChooser: View {
-    @Binding var activeTab: ContentView.Tab
-    @Binding var isExpanded: Bool
-    let title: (ContentView.Tab) -> String
-
-    private let tabs: [ContentView.Tab] = [.home, .shop, .brewing, .discover, .account]
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-
-            if isExpanded {
-                VStack(spacing: 6) {
-                    ForEach(tabs.filter { $0 != .home }) { tab in
-                        railButton(systemImage: tab.systemImage, label: title(tab)) {
-                            activeTab = tab
-                            withAnimation(.easeOut(duration: 0.18)) {
-                                isExpanded = false
-                            }
-                        }
-                        .accessibilityAddTraits(activeTab == tab ? .isSelected : [])
-                    }
-                }
-                .padding(.top, 8)
-                .transition(.scale.combined(with: .opacity))
-            }
-
-            railButton(systemImage: "house.fill", label: title(.home)) {
-                if activeTab == .home {
-                    withAnimation(.easeOut(duration: 0.18)) {
-                        isExpanded.toggle()
-                    }
-                } else {
-                    activeTab = .home
-                    withAnimation(.easeOut(duration: 0.18)) {
-                        isExpanded = false
-                    }
-                }
-            }
-            .accessibilityHint(activeTab == .home ? "Show app tabs" : "Go to Home")
-            .accessibilityAddTraits(activeTab == .home ? .isSelected : [])
-
-            Circle()
-                .fill(Color.black)
-                .frame(width: 36, height: 36)
-                .padding(.top, 8)
-                .accessibilityHidden(true)
-        }
-        .padding(.top, 24)
-        .padding(.trailing, 18)
-        .padding(.bottom, 28)
-        .frame(maxHeight: .infinity, alignment: .top)
-        // The outer Duo content can report the usable pane width rather than
-        // the physical display width. Offset the rail back to the device edge
-        // so it aligns with the system Bag/Menu controls.
-        .offset(x: 84)
-        .accessibilityElement(children: .contain)
-    }
-
-    private func railButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .frame(width: 52, height: 52)
-                .foregroundStyle(TallaTheme.Colors.ink)
-                .background(
-                    Circle()
-                        .fill(activeTab == .home && label == title(.home) ? .white : .white.opacity(0.76))
-                )
-                .overlay {
-                    Circle()
-                        .stroke(TallaTheme.Colors.ink.opacity(0.10), lineWidth: 1)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 }
