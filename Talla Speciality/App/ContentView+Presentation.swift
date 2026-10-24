@@ -569,12 +569,60 @@ extension ContentView {
 
     @ViewBuilder
     var appTabView: some View {
-        if #available(iOS 18.0, *) {
-            baseTabView
-                .tabViewStyle(.sidebarAdaptable)
-        } else {
-            baseTabView
+        GeometryReader { proxy in
+            if isCompactSinglePaneDisplay(proxy) {
+                duoOuterTabView
+            } else if #available(iOS 18.0, *) {
+                baseTabView
+                    .tabViewStyle(.sidebarAdaptable)
+            } else {
+                baseTabView
+            }
         }
+    }
+
+    /// The Duo outer display is tall and narrow, but it has enough width for
+    /// the app to use edge-to-edge. A custom collapsed chooser keeps that
+    /// width available instead of reserving it for the adaptable sidebar.
+    func isCompactSinglePaneDisplay(_ proxy: GeometryProxy) -> Bool {
+        proxy.size.width >= 350
+            && proxy.size.width < 600
+            && proxy.size.height > proxy.size.width * 1.18
+    }
+
+    var duoOuterTabView: some View {
+        ZStack(alignment: .leading) {
+            ZStack {
+                tabScreen(tab: .home) { homeView }
+                    .opacity(activeTab == .home ? 1 : 0)
+                tabScreen(tab: .shop) { shopView }
+                    .opacity(activeTab == .shop ? 1 : 0)
+                tabScreen(tab: .brewing) { brewingView }
+                    .opacity(activeTab == .brewing ? 1 : 0)
+                tabScreen(tab: .discover) { discoverView }
+                    .opacity(activeTab == .discover ? 1 : 0)
+                tabScreen(tab: .account) { accountView }
+                    .opacity(activeTab == .account ? 1 : 0)
+            }
+            .allowsHitTesting(!isDuoTabChooserExpanded)
+
+            DuoOuterTabChooser(
+                activeTab: $activeTab,
+                isExpanded: $isDuoTabChooserExpanded,
+                title: { tab in
+                    switch tab {
+                    case .home: AppLocalization.text("home", fallback: "Home")
+                    case .shop: AppLocalization.text("shop", fallback: "Shop")
+                    case .brewing: AppLocalization.text("brew", fallback: "Brew")
+                    case .discover: AppLocalization.text("discover", fallback: "Discover")
+                    case .account: AppLocalization.text("account", fallback: "Account")
+                    case .search: "Search"
+                    }
+                }
+            )
+        }
+        .toolbar(.hidden, for: .tabBar)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: activeTab)
     }
 
     @ViewBuilder
@@ -1010,5 +1058,82 @@ struct DuoSafePane<Content: View>: View {
                     && $0.height < proxy.size.height * 0.25
                 return verticalDivision || horizontalDivision
             }) ?? .zero
+    }
+}
+
+private struct DuoOuterTabChooser: View {
+    @Binding var activeTab: ContentView.Tab
+    @Binding var isExpanded: Bool
+    let title: (ContentView.Tab) -> String
+
+    private let tabs: [ContentView.Tab] = [.home, .shop, .brewing, .discover, .account]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if isExpanded {
+                ForEach(tabs) { tab in
+                    Button {
+                        activeTab = tab
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            isExpanded = false
+                        }
+                    } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: tab.systemImage)
+                                .font(.system(size: 16, weight: .semibold))
+                            Text(title(tab))
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        .frame(minWidth: 48, minHeight: 44)
+                        .foregroundStyle(activeTab == tab ? TallaTheme.Colors.ink : TallaTheme.Colors.ink.opacity(0.62))
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(activeTab == tab ? TallaTheme.Colors.accent.opacity(0.24) : .clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(title(tab))
+                    .accessibilityAddTraits(activeTab == tab ? .isSelected : [])
+                }
+            } else {
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        isExpanded = true
+                    }
+                } label: {
+                    Image(systemName: activeTab.systemImage)
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 48, height: 48)
+                        .foregroundStyle(TallaTheme.Colors.ink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(title(activeTab))
+                .accessibilityHint("Show app tabs")
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
+                    .font(.system(size: 13, weight: .bold))
+                    .frame(width: 32, height: 48)
+                    .foregroundStyle(TallaTheme.Colors.ink.opacity(0.72))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isExpanded ? "Collapse tabs" : "Expand tabs")
+        }
+        .padding(.horizontal, 8)
+        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+        .overlay {
+            Capsule(style: .continuous)
+                .stroke(TallaTheme.Colors.ink.opacity(0.10), lineWidth: 1)
+        }
+        .padding(.leading, 12)
+        .padding(.top, 12)
+        .shadow(color: .black.opacity(0.10), radius: 12, y: 5)
+        .accessibilityElement(children: .contain)
     }
 }
