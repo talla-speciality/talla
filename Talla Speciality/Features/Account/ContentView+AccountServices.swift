@@ -475,15 +475,15 @@ extension ContentView {
         let generation = customerSessionGeneration
         customerBootstrapTask = Task {
             guard generation == customerSessionGeneration, !Task.isCancelled else { return }
+            if loadLoyalty {
+                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
+                await loadLoyaltyAccount()
+            }
             await refreshWalletPassPresence()
             guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await syncRemotePushTokenIfPossible()
             guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await synchronizeCustomerLibrary()
-            if loadLoyalty {
-                guard generation == customerSessionGeneration, !Task.isCancelled else { return }
-                await loadLoyaltyAccount()
-            }
             guard generation == customerSessionGeneration, !Task.isCancelled else { return }
             await loadOrderHistory()
             guard generation == customerSessionGeneration, !Task.isCancelled else { return }

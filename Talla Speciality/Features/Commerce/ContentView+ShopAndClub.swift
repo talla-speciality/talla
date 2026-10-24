@@ -98,6 +98,9 @@ extension ContentView {
                     .padding(.top, 20)
                     .padding(.bottom, 28)
             }
+            .task {
+                if !isLoadingLoyalty { await loadLoyaltyAccount() }
+            }
             .background(pageBackgroundColor.ignoresSafeArea())
             .navigationTitle(AppLocalization.text("the_talla_club", fallback: "The Talla Club"))
             .navigationBarTitleDisplayMode(.inline)
