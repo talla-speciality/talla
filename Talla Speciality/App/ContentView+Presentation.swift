@@ -965,55 +965,13 @@ extension ContentView {
     }
 }
 
-/// Keeps a single-column screen inside one physical Duo pane when iOS reports
-/// a vertical division region. This is intentionally conservative: a feed or
-/// form is easier to use in one uninterrupted pane than split across the hinge.
+/// Preserves the window's proposed size across Duo fold transitions.
+/// A division marks the fold; it does not make either display half unavailable.
+/// Native safe areas and toolbars continue to handle display-edge occlusions.
 struct DuoSafePane<Content: View>: View {
-    @Environment(\.layoutDirection) private var layoutDirection
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        GeometryReader { proxy in
-            let division = Self.division(in: proxy)
-            let isVerticalDivision = division.width > 0 && division.height > division.width
-            let isHorizontalDivision = division.height > 0 && division.width > division.height
-            let leadingWidth = max(0, division.minX - 24)
-            let trailingWidth = max(0, proxy.size.width - division.maxX - 24)
-            let paneWidth = layoutDirection == .rightToLeft ? trailingWidth : leadingWidth
-            let topHeight = max(0, division.minY - 24)
-
-            Group {
-                if isVerticalDivision && paneWidth >= 280 {
-                    content()
-                        .frame(width: paneWidth, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: layoutDirection == .rightToLeft ? .trailing : .leading)
-                } else if isHorizontalDivision && topHeight >= 280 {
-                    content()
-                        .frame(maxHeight: topHeight, alignment: .top)
-                        .frame(maxHeight: .infinity, alignment: .top)
-                } else {
-                    content()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-    }
-
-    private static func division(in proxy: GeometryProxy) -> CGRect {
-        guard #available(iOS 27.1, *) else { return .zero }
-
-        return proxy.reservedRegions(kind: .division)
-            .map(\.frame)
-            .first(where: {
-                let verticalDivision = $0.height > $0.width
-                    && $0.minX > 0
-                    && $0.maxX < proxy.size.width
-                    && $0.width < proxy.size.width * 0.25
-                let horizontalDivision = $0.width > $0.height
-                    && $0.minY > 0
-                    && $0.maxY < proxy.size.height
-                    && $0.height < proxy.size.height * 0.25
-                return verticalDivision || horizontalDivision
-            }) ?? .zero
+        content()
     }
 }
