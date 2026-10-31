@@ -40,6 +40,10 @@ extension ContentView {
             .controlSize(.large)
             .sensoryFeedback(.selection, trigger: activeTab)
             .onOpenURL(perform: handleDeepLink)
+            .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                guard let url = activity.webpageURL else { return }
+                handleDeepLink(url)
+            }
             .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
             .environment(\.layoutDirection, appLanguage.layoutDirection)
             .preferredColorScheme(appearanceMode.colorScheme)

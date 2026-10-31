@@ -354,14 +354,34 @@ extension ContentView {
 
     func openProductLink(handle: String) {
         hasSeenWelcome = true
-        pendingUniversalLinkProductHandle = handle
-        openShop(searchQuery: handle.replacingOccurrences(of: "-", with: " "))
+        let normalizedHandle = handle
+            .removingPercentEncoding?
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased() ?? handle.lowercased()
+        pendingUniversalLinkProductHandle = normalizedHandle
+        openShop(searchQuery: normalizedHandle.replacingOccurrences(of: "-", with: " "))
         resolvePendingUniversalLinkProduct()
+
+        // A cold launch can deliver the universal link before the Shopify
+        // catalog has finished loading. Retry briefly so the link resolves
+        // without requiring the customer to search manually.
+        Task { @MainActor in
+            for _ in 0..<8 where !pendingUniversalLinkProductHandle.isEmpty {
+                try? await Task.sleep(for: .milliseconds(350))
+                resolvePendingUniversalLinkProduct()
+            }
+        }
     }
 
     func resolvePendingUniversalLinkProduct() {
-        guard !pendingUniversalLinkProductHandle.isEmpty,
-              let product = products.first(where: { $0.handle.caseInsensitiveCompare(pendingUniversalLinkProductHandle) == .orderedSame }) else {
+        guard !pendingUniversalLinkProductHandle.isEmpty else { return }
+
+        let targetHandle = pendingUniversalLinkProductHandle
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased()
+        guard let product = products.first(where: {
+            $0.handle.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased() == targetHandle
+        }) else {
             return
         }
 
