@@ -4,7 +4,7 @@ import StoreKit
 #if canImport(Security)
 import Security
 #endif
-#if canImport(UIKit)
+#if canImport(UIKit) && os(iOS)
 import UIKit
 #endif
 #if canImport(AuthenticationServices)
@@ -713,7 +713,7 @@ extension ContentView {
                             }
                         }
                         ToolbarItem(placement: .secondaryAction) {
-                            appearanceMenu
+                            makeAppearanceMenu(showTitle: true)
                         }
                     }
                 }
@@ -965,13 +965,123 @@ extension ContentView {
     }
 }
 
-/// Preserves the window's proposed size across Duo fold transitions.
-/// A division marks the fold; it does not make either display half unavailable.
-/// Native safe areas and toolbars continue to handle display-edge occlusions.
+/// The parts of a window that iPhone Duo reserves for a display division.
+/// These are intentionally exposed as an environment value so feature views
+/// can keep important content on one side of the fold without rebuilding the
+/// navigation hierarchy or changing the window's proposed size.
+struct DuoLayoutContext: Equatable {
+    var divisionFrames: [CGRect] = []
+    var hingeAngle: CGFloat?
+    var hingeStatus: HingeStatus = .unknown
+
+    enum HingeStatus: String, Equatable {
+        case unknown
+        case closed
+        case partiallyOpen
+        case fullyOpen
+    }
+
+    var hasVerticalDivision: Bool {
+        divisionFrames.contains { $0.height > $0.width }
+    }
+}
+
+private struct DuoLayoutContextKey: EnvironmentKey {
+    static let defaultValue = DuoLayoutContext()
+}
+
+extension EnvironmentValues {
+    var duoLayoutContext: DuoLayoutContext {
+        get { self[DuoLayoutContextKey.self] }
+        set { self[DuoLayoutContextKey.self] = newValue }
+    }
+}
+
+#if canImport(UIKit) && os(iOS)
+@available(iOS 27.1, *)
+private final class DuoReservedRegionProbeView: UIView {
+    var onUpdate: ((DuoLayoutContext) -> Void)?
+    private var lastContext = DuoLayoutContext()
+    private var hingeInteraction: UIHingeInteraction?
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard hingeInteraction == nil else { return }
+
+        let interaction = UIHingeInteraction { [weak self] _, update in
+            guard let self else { return }
+            let status: DuoLayoutContext.HingeStatus
+            switch update.hinge?.status {
+            case .closed: status = .closed
+            case .partiallyOpen: status = .partiallyOpen
+            case .fullyOpen: status = .fullyOpen
+            default: status = .unknown
+            }
+            self.publish(hingeAngle: update.hinge?.angle, hingeStatus: status)
+        }
+        addInteraction(interaction)
+        hingeInteraction = interaction
+        publish()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        publish()
+    }
+
+    private func publish(hingeAngle: CGFloat? = nil, hingeStatus: DuoLayoutContext.HingeStatus? = nil) {
+        let divisions = reservedRegions(kind: .division)
+            .filter(\.isActive)
+            .map(\.frame)
+        var context = lastContext
+        context.divisionFrames = divisions
+        if let hingeAngle { context.hingeAngle = hingeAngle }
+        if let hingeStatus { context.hingeStatus = hingeStatus }
+        guard context != lastContext else { return }
+        lastContext = context
+        onUpdate?(context)
+    }
+}
+
+@available(iOS 27.1, *)
+private struct DuoReservedRegionProbe: UIViewRepresentable {
+    let onUpdate: (DuoLayoutContext) -> Void
+
+    func makeUIView(context: Context) -> DuoReservedRegionProbeView {
+        let view = DuoReservedRegionProbeView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        view.onUpdate = onUpdate
+        return view
+    }
+
+    func updateUIView(_ uiView: DuoReservedRegionProbeView, context: Context) {
+        uiView.onUpdate = onUpdate
+    }
+}
+#endif
+
+/// Preserves the window's proposed size across Duo fold transitions while
+/// forwarding the active division and hinge state to descendants. A division
+/// marks the fold; it does not make either display half unavailable. Native
+/// safe areas and toolbars continue to handle display-edge occlusions.
 struct DuoSafePane<Content: View>: View {
     @ViewBuilder let content: () -> Content
+    @State private var layoutContext = DuoLayoutContext()
 
     var body: some View {
         content()
+            .environment(\.duoLayoutContext, layoutContext)
+#if canImport(UIKit) && os(iOS)
+            .background {
+                if #available(iOS 27.1, *) {
+                    DuoReservedRegionProbe { context in
+                        guard context != layoutContext else { return }
+                        layoutContext = context
+                    }
+                    .accessibilityHidden(true)
+                }
+            }
+#endif
     }
 }

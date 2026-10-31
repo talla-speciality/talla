@@ -324,10 +324,10 @@ struct ArabicLocalizationTests {
         }
     }
 
-    @Test func catalogFallbackKeepsPublishedArabicAndRejectsStaleCopy() {
+    @Test func catalogFallbackPrefersBundledArabicWhileSourceMatches() {
         inArabic {
             #expect(AppLocalization.catalogText("Riffa", source: "Riffa", key: "catalog_riffa_name") == "الرفاع")
-            #expect(AppLocalization.catalogText("رفاع جديد", source: "Riffa", key: "catalog_riffa_name") == "رفاع جديد")
+            #expect(AppLocalization.catalogText("رفاع جديد", source: "Riffa", key: "catalog_riffa_name") == "الرفاع")
             #expect(AppLocalization.catalogText("Riffa Reserve", source: "Riffa Reserve", key: "catalog_riffa_name") == "Riffa Reserve")
         }
     }

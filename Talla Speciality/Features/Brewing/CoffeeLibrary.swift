@@ -1197,9 +1197,11 @@ private struct CoffeeLotEditorView: View {
             .background((colorScheme == .dark ? Color(hex: 0x151515) : Color(hex: 0xFBF8F1)).ignoresSafeArea())
             .navigationTitle("Edit bean lot")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Label("Cancel", systemImage: "xmark") }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button {
                         do {
                             try coffeeData.saveLot(BeanLotRecord(
                                 id: lot.id, name: name, roaster: roaster, origin: origin, region: region,
@@ -1210,6 +1212,8 @@ private struct CoffeeLotEditorView: View {
                             ))
                             dismiss()
                         } catch { errorMessage = error.localizedDescription }
+                    } label: {
+                        Label("Save", systemImage: "checkmark")
                     }
                 }
             }

@@ -11,7 +11,9 @@ extension ContentView {
     var todayView: some View {
         VStack(alignment: .leading, spacing: 18) {
             todayGreeting
-            todayNextCupCard
+            DuoLeadingColumn {
+                todayNextCupCard
+            }
             todayBrewCard
             todayLastResultCard
             todayReorderCard
@@ -187,50 +189,88 @@ extension ContentView {
     }
 
     var todayCompactCard: some View {
-        Button {
-            if let product = todayBrewProduct {
-                openShop(category: product.categoryKey, searchQuery: product.name)
-            } else if tasteProfileConfigured {
-                openShop(category: "coffee-beans")
-            } else {
-                openTasteProfileEditor()
-            }
-        } label: {
-            HStack(spacing: 11) {
-                Image(systemName: "sunrise.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(readableBrandGoldColor)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(AppLocalization.text("today", fallback: "Today"))
-                        .font(labelFont(size: 9, weight: .bold))
-                        .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 0.8)
-                        .textCase(.uppercase)
-                        .foregroundColor(readableBrandGoldColor)
-                    Text(todayDateTitle)
-                        .font(bodyFont(size: 13))
-                        .foregroundColor(primaryTextColor)
-                        .lineLimit(1)
+        VStack(spacing: 8) {
+            Button {
+                if let product = todayBrewProduct {
+                    openShop(category: product.categoryKey, searchQuery: product.name)
+                } else if tasteProfileConfigured {
+                    openShop(category: "coffee-beans")
+                } else {
+                    openTasteProfileEditor()
                 }
+            } label: {
+                HStack(spacing: 11) {
+                    Image(systemName: "sunrise.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(readableBrandGoldColor)
 
-                Spacer(minLength: 10)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(AppLocalization.text("today", fallback: "Today"))
+                            .font(labelFont(size: 9, weight: .bold))
+                            .tracking(appLanguage.layoutDirection == .rightToLeft ? 0 : 0.8)
+                            .textCase(.uppercase)
+                            .foregroundColor(readableBrandGoldColor)
+                        Text(todayDateTitle)
+                            .font(bodyFont(size: 13))
+                            .foregroundColor(primaryTextColor)
+                            .lineLimit(1)
+                    }
 
-                Text(todayBrewProduct.map { customerFacingProductName(for: $0) } ?? AppLocalization.text("today_start", fallback: "Start your ritual"))
-                    .font(bodyFont(size: 11))
-                    .foregroundColor(secondaryTextColor)
-                    .lineLimit(1)
+                    Spacer(minLength: 10)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(readableBrandGoldColor)
+                    Text(todayBrewProduct.map { customerFacingProductName(for: $0) } ?? AppLocalization.text("today_start", fallback: "Start your ritual"))
+                        .font(bodyFont(size: 11))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                .background(cardFillColor.opacity(isLightAppearance ? 0.78 : 0.62))
+                .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 0.8))
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             }
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-            .background(cardFillColor.opacity(isLightAppearance ? 0.78 : 0.62))
-            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 0.8))
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .buttonStyle(.plain)
+
+            Button {
+                openCoffeeConcierge()
+            } label: {
+                HStack(spacing: 10) {
+                    TallaCompanionView(isThinking: isRunningConcierge, size: 18)
+                        .frame(width: 28, height: 28)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Ask Talla")
+                            .font(labelFont(size: 10, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                        Text("Your coffee companion")
+                            .font(bodyFont(size: 10))
+                            .foregroundColor(secondaryTextColor)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .padding(.horizontal, 13)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cardFillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.24 : 0.18), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open Talla coffee companion")
+            .accessibilityIdentifier("home.tallaCompanion")
         }
-        .buttonStyle(.plain)
         .padding(.horizontal, 18)
         .padding(.bottom, 8)
         .accessibilityIdentifier("home.todayCard")
@@ -480,5 +520,23 @@ extension ContentView {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
             .fill(cardFillColor.opacity(isLightAppearance ? 0.82 : 0.66))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.10), lineWidth: 1))
+    }
+}
+
+/// Keeps the primary home action on the leading display when Duo reports a
+/// vertical division, while leaving the rest of the feed continuous across
+/// both displays.
+struct DuoLeadingColumn<Content: View>: View {
+    @Environment(\.duoLayoutContext) private var duoLayoutContext
+    let content: () -> Content
+
+    init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
+    }
+
+    var body: some View {
+        content()
+            .frame(maxWidth: duoLayoutContext.hasVerticalDivision ? 560 : .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

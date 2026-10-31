@@ -392,14 +392,21 @@ enum AppLocalization {
         }
     }
 
-    // Use bundled catalog copy only while it still matches the source product.
-    // New Shopify translations win; changed English copy never gets an outdated translation.
+    // Use bundled catalog copy while its English source still matches the product.
+    // This also corrects stale or inaccurate Arabic translations returned by Shopify.
     static func catalogText(_ value: String, source: String, key: String) -> String {
         func normalized(_ text: String) -> String {
             text.components(separatedBy: .whitespacesAndNewlines).joined()
         }
+        let canonicalBoxNames: [String: (english: String, arabic: String)] = [
+            "catalog_talla-box_name": ("Talla Box", "صندوق تله"),
+            "catalog_mini-talla-box_name": ("Mini Talla Box", "صندوق تله الصغير"),
+            "catalog_talla-signature-box_name": ("Talla Signature Box", "صندوق تله المميز")
+        ]
+        if let canonical = canonicalBoxNames[key] {
+            return currentLanguage.effectiveLanguageCode == "ar" ? canonical.arabic : canonical.english
+        }
         guard currentLanguage.effectiveLanguageCode == "ar",
-              normalized(value) == normalized(source),
               let entry = translations[key], let original = entry["en"],
               normalized(original) == normalized(source), let arabic = entry["ar"] else {
             return normalizedArabicBrand(in: value)

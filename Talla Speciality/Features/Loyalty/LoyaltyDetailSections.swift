@@ -1316,7 +1316,7 @@ struct ClubSectionView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { configuredCoffee = nil }
+                    Button { configuredCoffee = nil } label: { Label("Cancel", systemImage: "xmark") }
                 }
             }
         }

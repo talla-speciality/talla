@@ -109,7 +109,8 @@ extension ContentView {
                     Button {
                         isCartRewardsPresented = false
                     } label: {
-                        Image(systemName: "xmark")
+                        Label(AppLocalization.text("close", fallback: "Close"), systemImage: "xmark")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(primaryTextColor)
                             .frame(width: 32, height: 32)

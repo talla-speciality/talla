@@ -365,8 +365,46 @@ extension ContentView {
             let accentHex: String
             let secondaryHex: String
             let symbol: String
+            let symbols: [String]
+            let presetID: String
             let productIDs: [String]
             let priority: Int
+
+            private enum CodingKeys: String, CodingKey {
+                case id, enabled, name, titleEN, titleAR, subtitleEN, subtitleAR, badgeEN, badgeAR, ctaEN, ctaAR
+                case categoryTitleEN, categoryTitleAR, categorySubtitleEN, categorySubtitleAR, startAt, endAt, imageURL
+                case accentHex, secondaryHex, symbol, symbols, presetID, productIDs, priority
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                id = try container.decode(String.self, forKey: .id)
+                enabled = try container.decode(Bool.self, forKey: .enabled)
+                name = try container.decode(String.self, forKey: .name)
+                titleEN = try container.decode(String.self, forKey: .titleEN)
+                titleAR = try container.decodeIfPresent(String.self, forKey: .titleAR) ?? ""
+                subtitleEN = try container.decodeIfPresent(String.self, forKey: .subtitleEN) ?? ""
+                subtitleAR = try container.decodeIfPresent(String.self, forKey: .subtitleAR) ?? ""
+                badgeEN = try container.decodeIfPresent(String.self, forKey: .badgeEN) ?? ""
+                badgeAR = try container.decodeIfPresent(String.self, forKey: .badgeAR) ?? ""
+                ctaEN = try container.decodeIfPresent(String.self, forKey: .ctaEN) ?? ""
+                ctaAR = try container.decodeIfPresent(String.self, forKey: .ctaAR) ?? ""
+                categoryTitleEN = try container.decodeIfPresent(String.self, forKey: .categoryTitleEN) ?? ""
+                categoryTitleAR = try container.decodeIfPresent(String.self, forKey: .categoryTitleAR) ?? ""
+                categorySubtitleEN = try container.decodeIfPresent(String.self, forKey: .categorySubtitleEN) ?? ""
+                categorySubtitleAR = try container.decodeIfPresent(String.self, forKey: .categorySubtitleAR) ?? ""
+                startAt = try container.decodeIfPresent(String.self, forKey: .startAt)
+                endAt = try container.decodeIfPresent(String.self, forKey: .endAt)
+                imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL) ?? ""
+                accentHex = try container.decodeIfPresent(String.self, forKey: .accentHex) ?? "#C8965A"
+                secondaryHex = try container.decodeIfPresent(String.self, forKey: .secondaryHex) ?? "#2A1D14"
+                symbol = try container.decodeIfPresent(String.self, forKey: .symbol) ?? "sparkles"
+                let decodedSymbols = try container.decodeIfPresent([String].self, forKey: .symbols) ?? []
+                symbols = decodedSymbols.isEmpty ? [symbol] : decodedSymbols
+                presetID = try container.decodeIfPresent(String.self, forKey: .presetID) ?? ""
+                productIDs = try container.decodeIfPresent([String].self, forKey: .productIDs) ?? []
+                priority = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
+            }
         }
 
         let events: [SeasonalEvent]

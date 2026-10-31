@@ -30,6 +30,55 @@ import SafariServices
 import UIKit
 #endif
 
+struct ConciergeChatMessage: Identifiable, Equatable, Codable {
+    enum Role: String, Equatable, Codable {
+        case user
+        case assistant
+    }
+
+    let id = UUID()
+    let role: Role
+    let text: String
+    let result: CoffeeConciergeResult?
+
+    init(role: Role, text: String, result: CoffeeConciergeResult? = nil) {
+        self.role = role
+        self.text = text
+        self.result = result
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case role
+        case text
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        role = try container.decode(Role.self, forKey: .role)
+        text = try container.decode(String.self, forKey: .text)
+        result = nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(role, forKey: .role)
+        try container.encode(text, forKey: .text)
+    }
+
+    static func restore() -> [ConciergeChatMessage] {
+        guard let data = UserDefaults.standard.data(forKey: "talla.concierge.chat.v1"),
+              let messages = try? JSONDecoder().decode([ConciergeChatMessage].self, from: data) else {
+            return []
+        }
+        return Array(messages.suffix(24))
+    }
+
+    static func persist(_ messages: [ConciergeChatMessage]) {
+        guard let data = try? JSONEncoder().encode(Array(messages.suffix(24))) else { return }
+        UserDefaults.standard.set(data, forKey: "talla.concierge.chat.v1")
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var coffeeData: CoffeeDataStore
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
@@ -55,6 +104,8 @@ struct ContentView: View {
     @State var shopSortMode: ShopSortMode = .featured
     @State var conciergeRequest = ""
     @State var conciergeResult: CoffeeConciergeResult?
+    @State var conciergeMessages: [ConciergeChatMessage] = ConciergeChatMessage.restore()
+    @State var conciergeLastRequest = ""
     @State var isRunningConcierge = false
 #if canImport(PhotosUI)
     @State var conciergeImageSelection: PhotosPickerItem?
@@ -240,7 +291,7 @@ struct ContentView: View {
     @State var isLoadingBackendAlerts = false
     @State var alertInbox: [AlertInboxRecord] = []
     @State var addresses: [DeliveryAddress] = []
-    @State var fulfillmentMethod: TallaFulfillmentMethod = .delivery; @State var selectedPickupSlot = "10:00–12:00"; @State var selectedPickupLocationID = ""
+    @State var fulfillmentMethod: TallaFulfillmentMethod = .delivery; @State var selectedPickupSlot = "10:00–12:00"; @State var selectedPickupLocationID = ""; @State var pickupCarNumber = ""
     @State var addressLabel = ""
     @State var addressFullName = ""
     @State var addressPhone = ""
@@ -253,8 +304,11 @@ struct ContentView: View {
     @State var addressRegion = ""
     @State var addressPostalCode = ""
     @State var addressAdditionalNumber = ""
+    @State var showAdvancedAddressFields = false
     @State var addressCountry: SupportedDeliveryCountry = .bahrain
     @State var addressNotes = ""
+    @State var addressMapSelection: TallaPickedAddress?
+    @State var isAddressMapPresented = false
     @State var isGiftOrder = false
     @State var giftRecipientName = ""
     @State var giftRecipientEmail = ""

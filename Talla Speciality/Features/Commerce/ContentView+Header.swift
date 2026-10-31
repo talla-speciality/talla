@@ -108,6 +108,10 @@ extension ContentView {
     }
 
     var appearanceMenu: some View {
+        makeAppearanceMenu(showTitle: false)
+    }
+
+    func makeAppearanceMenu(showTitle: Bool) -> some View {
                 Menu {
                     Section(AppLocalization.text("appearance", fallback: "Appearance")) {
                         ForEach(AppearanceMode.allCases) { mode in
@@ -140,17 +144,23 @@ extension ContentView {
                         }
                     }
                 } label: {
-                    Label(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"), systemImage: "circle.lefthalf.filled")
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(readableBrandGoldColor)
-                        .frame(width: 40, height: 40)
-                        .background(cardFillColor)
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle()
-                                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
-                        )
+                    Group {
+                        if showTitle {
+                            Label(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"), systemImage: "circle.lefthalf.filled")
+                        } else {
+                            Label(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"), systemImage: "circle.lefthalf.filled")
+                                .labelStyle(.iconOnly)
+                        }
+                    }
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(readableBrandGoldColor)
+                    .frame(width: 40, height: 40)
+                    .background(cardFillColor)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.14), lineWidth: 1)
+                    )
                 }
                 .menuStyle(.button)
                 .accessibilityLabel(AppLocalization.text("appearance_and_language", fallback: "Appearance and language"))

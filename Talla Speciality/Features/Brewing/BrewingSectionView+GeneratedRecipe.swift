@@ -1077,6 +1077,14 @@ extension BrewingSectionView {
         if isGeneratedRecipeActive {
             return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).brewingWater
         }
+
+        // Guided profiles are editable. Once one is selected, derive hot water
+        // from the customer's current dose and ratio instead of the guide's
+        // published default.
+        if activeSmartRecipe != nil {
+            return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).brewingWater
+        }
+
         guard let publishedRecipeWaterGrams,
               let publishedRecipeCoffeeGrams,
               publishedRecipeCoffeeGrams > 0 else {
@@ -1089,6 +1097,11 @@ extension BrewingSectionView {
         if isGeneratedRecipeActive {
             return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).ice
         }
+
+        if activeSmartRecipe != nil {
+            return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).ice
+        }
+
         guard let publishedRecipeIceGrams,
               let publishedRecipeCoffeeGrams,
               publishedRecipeCoffeeGrams > 0 else {
@@ -1125,8 +1138,12 @@ extension BrewingSectionView {
     }
 
     var generatedPourRows: [GeneratedPourRow] {
-        (restoredRecipeSteps ?? smartRecipe.steps).map {
-            let instruction = restoredRecipeSteps == nil
+        let usesSavedSteps = restoredRecipeSteps != nil
+            && abs(validCoffeeAmount - (loadedSavedRecipeCoffeeAmount ?? validCoffeeAmount)) < 0.001
+            && abs(validRatioValue - (loadedSavedRecipeRatio ?? validRatioValue)) < 0.001
+        let steps = usesSavedSteps ? (restoredRecipeSteps ?? smartRecipe.steps) : smartRecipe.steps
+        return steps.map {
+            let instruction = !usesSavedSteps
                 ? $0.instruction.replacingOccurrences(of: "\(smartRecipe.temperatureC) °C", with: "\(generatedTemperatureC) °C")
                 : $0.instruction
             return GeneratedPourRow(id: $0.id, title: $0.title, waterAdded: $0.waterAdded, cumulativeWater: $0.cumulativeWater, startTime: $0.startTime, flowRate: $0.flowRate, instruction: instruction)

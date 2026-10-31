@@ -139,7 +139,9 @@ struct BenefitPayCheckoutSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.text("cancel", fallback: "Cancel"), action: onCancel)
+                    Button(action: onCancel) {
+                        Label(AppLocalization.text("cancel", fallback: "Cancel"), systemImage: "xmark")
+                    }
                 }
             }
         }

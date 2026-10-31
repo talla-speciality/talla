@@ -500,6 +500,7 @@ enum ShopifyStorefrontClient {
         tallaPaymentID: String? = nil,
         fulfillmentMethod: TallaFulfillmentMethod? = .delivery,
         pickupSlot: String? = nil,
+        pickupCarNumber: String? = nil,
         giftOrder: Bool = false,
         giftRecipientName: String? = nil,
         giftRecipientPhone: String? = nil,
@@ -522,6 +523,9 @@ enum ShopifyStorefrontClient {
         }
         if let pickupSlot = pickupSlot?.trimmingCharacters(in: .whitespacesAndNewlines), !pickupSlot.isEmpty {
             attributes.append(["key": "talla_pickup_slot", "value": pickupSlot])
+        }
+        if let pickupCarNumber = pickupCarNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !pickupCarNumber.isEmpty {
+            attributes.append(["key": "talla_pickup_car_number", "value": String(pickupCarNumber.prefix(24))])
         }
         if let tallaPaymentID = tallaPaymentID?.trimmingCharacters(in: .whitespacesAndNewlines), !tallaPaymentID.isEmpty {
             attributes.append(["key": "talla_payment_id", "value": tallaPaymentID])

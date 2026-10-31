@@ -334,6 +334,19 @@ extension BrewingSectionView {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(AppLocalization.text("guided_brew_mode", fallback: "Guided brew mode"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(brewSecondaryTextColor)
+
+                    Picker(AppLocalization.text("guided_brew_mode", fallback: "Guided brew mode"), selection: $isProGuidedControlsSelected) {
+                        Text(AppLocalization.text("simple", fallback: "Simple")).tag(false)
+                        Text(AppLocalization.text("pro", fallback: "Pro")).tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("brew.experience.mode")
+                }
+
                 Button {
                     if hasPreviousBrew {
                         startLastGuidedBrew()
@@ -476,7 +489,8 @@ extension BrewingSectionView {
                             brewDivider
                         }
                         brewingLinkedRow(title: recipe.title, detail: recipe.detail, value: AppLocalization.text("brew_again", fallback: "Brew Again")) {
-                            applySavedRecipe(recipe, start: true)
+                            applySavedRecipe(recipe, start: false)
+                            activeDashboardDestination = .brewTimer
                         }
                     }
                 }
@@ -580,16 +594,20 @@ extension BrewingSectionView {
             .background(brewBackgroundColor.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.text("cancel", fallback: "Cancel")) {
+                    Button {
                         restoreSavedEquipmentSelections()
                         isSavedEquipmentPresented = false
+                    } label: {
+                        Label(AppLocalization.text("cancel", fallback: "Cancel"), systemImage: "xmark")
                     }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(AppLocalization.text("save", fallback: "Save")) {
+                    Button {
                         persistSavedEquipmentSelections()
                         isSavedEquipmentPresented = false
+                    } label: {
+                        Label(AppLocalization.text("save", fallback: "Save"), systemImage: "checkmark")
                     }
                 }
             }
@@ -793,8 +811,10 @@ extension BrewingSectionView {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.text("close", fallback: "Close")) {
+                    Button {
                         isMethodSelectionPresented = false
+                    } label: {
+                        Label(AppLocalization.text("close", fallback: "Close"), systemImage: "xmark")
                     }
                     .foregroundColor(brewPrimaryTextColor)
                 }
@@ -1353,7 +1373,8 @@ extension BrewingSectionView {
 
         DispatchQueue.main.async {
             if let guidedMethod = displayedMethods.first(where: { $0.id == displayedMethodID }) {
-                selectBrewModeMethod(guidedMethod, start: true)
+                selectBrewModeMethod(guidedMethod, start: false, enableCustomization: true)
+                activeDashboardDestination = .brewTimer
             } else {
                 beginCustomRecipeSetup(with: method, rememberSelection: false)
             }
@@ -1394,14 +1415,14 @@ extension BrewingSectionView {
         }
 
         if let latestRecipe = brewHistoryItems.first {
-            applySavedRecipe(latestRecipe, start: true)
+            applySavedRecipe(latestRecipe, start: false)
         } else if let methodID = selectedBrewModeMethodID,
                   let method = displayedMethods.first(where: { $0.id == methodID }) {
-            selectBrewModeMethod(method, start: true)
+            selectBrewModeMethod(method, start: false, enableCustomization: true)
         } else {
             brewRecipeName = methodChoice.title
-            restartBrewMode()
         }
+        activeDashboardDestination = .brewTimer
     }
 
     func applyPublishedRecipeDefaults(for methodID: String, publishedRecipe: ContentView.BrewingMethod.PublishedRecipe?) {

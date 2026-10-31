@@ -98,8 +98,8 @@ enum TallaRemoteSettingsCache {
     static let appGroupID = "group.Talla-Speciality.Talla-Speciality"
     private static let appSettingsFileName = "app-settings.json"
 
-    static func saveAppSettings(_ data: Data) throws {
-        guard let containerURL = FileManager.default.containerURL(
+    static func saveAppSettings(_ data: Data, directory: URL? = nil) throws {
+        guard let containerURL = directory ?? FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupID
         ) else {
             throw CocoaError(.fileNoSuchFile)
@@ -108,8 +108,8 @@ enum TallaRemoteSettingsCache {
         try data.write(to: containerURL.appendingPathComponent(appSettingsFileName), options: .atomic)
     }
 
-    static func loadAppSettings() -> Data? {
-        guard let containerURL = FileManager.default.containerURL(
+    static func loadAppSettings(directory: URL? = nil) -> Data? {
+        guard let containerURL = directory ?? FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupID
         ) else { return nil }
 

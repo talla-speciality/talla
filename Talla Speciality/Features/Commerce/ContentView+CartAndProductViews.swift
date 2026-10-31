@@ -962,7 +962,7 @@ extension ContentView {
                             .font(.headline)
                             .foregroundColor(primaryTextColor)
 
-                        addressFormTextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel, capitalization: .words)
+                        addressMapPickerButton
                         addressFormTextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName, capitalization: .words)
 
                         HStack(spacing: 8) {
@@ -990,6 +990,7 @@ extension ContentView {
 
                         addressFormTextField(AppLocalization.text("address_line", fallback: "Address line"), text: $addressLine1, capitalization: .words)
                         deliveryCountrySelector
+                        gulfAddressFields
 
                         addressFormTextField(AppLocalization.text("city", fallback: "City"), text: $addressCity, capitalization: .words)
                         addressFormTextField(AppLocalization.text("notes", fallback: "Delivery notes (optional)"), text: $addressNotes, capitalization: .sentences)
@@ -1001,6 +1002,21 @@ extension ContentView {
                             .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .onAppear {
+                        if addressLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            addressLabel = AppLocalization.text("home_address_label", fallback: "Home")
+                        }
+                        if addressFullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                           let profile = customerProfile {
+                            addressFullName = [profile.firstName, profile.lastName]
+                                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                                .filter { !$0.isEmpty }
+                                .joined(separator: " ")
+                        }
+                        if addressPhone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            addressPhone = addresses.first?.phone ?? ""
+                        }
+                    }
 
                     Button {
                         Task {
@@ -1037,8 +1053,10 @@ extension ContentView {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.text("cancel", fallback: "Cancel")) {
+                    Button {
                         isCheckoutAddressSheetPresented = false
+                    } label: {
+                        Label(AppLocalization.text("cancel", fallback: "Cancel"), systemImage: "xmark")
                     }
                 }
             }
@@ -1110,7 +1128,8 @@ extension ContentView {
                     Button {
                         dismissPostPayment()
                     } label: {
-                        Image(systemName: "xmark")
+                        Label(AppLocalization.text("close", fallback: "Close"), systemImage: "xmark")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(primaryTextColor)
                             .frame(width: 34, height: 34)
@@ -1410,6 +1429,18 @@ extension ContentView {
                     ForEach(pickupTimeSlots, id: \.self) { Text($0).tag($0) }
                 }
                 .pickerStyle(.menu)
+
+                TextField(
+                    AppLocalization.text("pickup_car_number", fallback: "Car number (optional)"),
+                    text: $pickupCarNumber
+                )
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .keyboardType(.asciiCapable)
+
+                Text(AppLocalization.text("pickup_car_number_detail", fallback: "Add your car number so we can bring your order to the right vehicle."))
+                    .font(bodyFont(size: 11))
+                    .foregroundColor(tertiaryTextColor)
 
                 Text(AppLocalization.text("pickup_time_detail", fallback: "We will prepare your order for this collection window."))
                     .font(bodyFont(size: 11))

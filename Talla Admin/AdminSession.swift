@@ -6,7 +6,7 @@ import LocalAuthentication
 import Security
 
 private enum AdminBiometricStore {
-    private static let service = "com.talla.admin.biometric-login"
+    private static let service = "com.talla.admin.biometric-login.v2"
     private static let account = "admin-credential"
 
     static var available: Bool {
@@ -26,8 +26,11 @@ private enum AdminBiometricStore {
         return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
     }
 
-    static func save() throws {
-        let data = Data("enabled".utf8)
+    static func save(username: String, password: String) throws {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "username": username,
+            "password": password
+        ])
         var accessError: Unmanaged<CFError>?
         guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
@@ -46,7 +49,7 @@ private enum AdminBiometricStore {
         guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else { throw AdminAPIError.server("Could not enable biometric sign-in.") }
     }
 
-    static func authenticate() throws {
+    static func authenticate() throws -> (username: String, password: String) {
         let context = LAContext()
         context.localizedReason = "Sign in to Talla Admin"
         let query: [String: Any] = [
@@ -61,7 +64,17 @@ private enum AdminBiometricStore {
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { throw AdminAPIError.server("Face ID / Touch ID is not enabled.") }
         guard status == errSecSuccess, let data = result as? Data else { throw AdminAPIError.server("Biometric sign-in was not completed.") }
-        guard data == Data("enabled".utf8) else { throw AdminAPIError.server("Biometric sign-in was not completed.") }
+        guard
+            let object = try? JSONSerialization.jsonObject(with: data),
+            let payload = object as? [String: Any],
+            let username = payload["username"] as? String,
+            let password = payload["password"] as? String,
+            !username.isEmpty,
+            !password.isEmpty
+        else {
+            throw AdminAPIError.server("Biometric sign-in needs to be enabled again. Sign in with your password once.")
+        }
+        return (username, password)
     }
 
     static func remove() {
@@ -134,7 +147,7 @@ final class AdminSession: ObservableObject {
             permissions = Set(response.permissions ?? [])
             if saveBiometrics {
                 do {
-                    try AdminBiometricStore.save()
+                    try AdminBiometricStore.save(username: username, password: password)
                     biometricEnabled = true
                 } catch { errorMessage = error.localizedDescription }
             }
@@ -157,18 +170,8 @@ final class AdminSession: ObservableObject {
     func loginWithBiometrics() async {
         guard biometricAvailable, !isAuthenticated else { return }
         do {
-            try AdminBiometricStore.authenticate()
-            let response = try await api.restoreSession()
-            guard response.authenticated else {
-                throw AdminAPIError.server("Your admin session expired. Sign in with your password.")
-            }
-            username = response.username ?? ""
-            role = response.role ?? "viewer"
-            permissions = Set(response.permissions ?? [])
-            isAuthenticated = true
-            await api.synchronizeWebCookies()
-            await refreshOrders()
-            await refreshNotificationState()
+            let credentials = try AdminBiometricStore.authenticate()
+            guard await login(username: credentials.username, password: credentials.password, saveBiometrics: true) else { return }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -184,7 +187,6 @@ final class AdminSession: ObservableObject {
             try? await api.unregisterPushToken(token)
         }
         try? await api.logout()
-        disableBiometricLogin()
         isAuthenticated = false
         username = ""
         role = "viewer"
@@ -415,7 +417,18 @@ final class AdminSession: ObservableObject {
             items: [AdminOrderItem(name: "Colombia", quantity: 3, unitPrice: "BHD 4.000")],
             createdAt: "2026-09-02T14:20:00Z", beansAwarded: false, pointsAwarded: 12,
             customer: AdminOrderCustomer(fullName: "Sara Ahmed", email: "customer@example.com", phone: "+973 3900 0000"),
-            fulfillment: AdminOrderFulfillment(method: "delivery", fullName: "Sara Ahmed", phone: "+973 3900 0000", line1: "Road 1307", city: "Riffa", countryCode: "BH", notes: "Call on arrival"),
+            fulfillment: AdminOrderFulfillment(
+                method: "delivery",
+                fullName: "Sara Ahmed",
+                phone: "+973 3900 0000",
+                line1: "Road 1307",
+                city: "Riffa",
+                countryCode: "BH",
+                notes: "Call on arrival",
+                pickupSlot: nil,
+                pickupCarNumber: nil,
+                actualPickupAt: nil
+            ),
             payment: AdminOrderPayment(method: "BenefitPay", provider: "BENEFIT", status: "Captured", amount: "16.800", currency: "BHD", reference: "BP-1048", paidAt: "2026-09-02T14:21:00Z"),
             coffeeClub: AdminCoffeeClub(
                 shipmentCount: 3,

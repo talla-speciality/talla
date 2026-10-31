@@ -129,6 +129,36 @@ struct CustomerAccountSectionView: View {
 
     private var signInForm: some View {
         VStack(alignment: .leading, spacing: 12) {
+#if canImport(AuthenticationServices)
+            if accountAuthMode != .changePassword {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(AppLocalization.text("fastest_sign_in", fallback: "Fastest way in"))
+                        .font(Font.custom("AvenirNext-Bold", size: 11))
+                        .tracking(AppLocalization.letterSpacing(1.6))
+                        .textCase(.uppercase)
+                        .foregroundColor(secondaryTextColor)
+
+                    SignInWithAppleButton(accountAuthMode == .createAccount ? .signUp : .signIn) { request in
+                        configureAppleSignInRequest(request)
+                    } onCompletion: { result in
+                        handleAppleSignInResult(result)
+                    }
+                    .signInWithAppleButtonStyle(isLightAppearance ? .black : .white)
+                    .frame(height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .disabled(isAppleSignInDisabled)
+                }
+
+                HStack(spacing: 10) {
+                    Rectangle().fill(accentColor.opacity(0.16)).frame(height: 1)
+                    Text(AppLocalization.text("or_use_email", fallback: "or use email"))
+                        .font(Font.custom("AvenirNext-Regular", size: 11))
+                        .foregroundColor(secondaryTextColor)
+                    Rectangle().fill(accentColor.opacity(0.16)).frame(height: 1)
+                }
+            }
+#endif
+
             HStack(spacing: 10) {
                 accountModeButton(title: AppLocalization.text("sign_in", fallback: "Sign In"), mode: .signIn)
                 accountModeButton(title: AppLocalization.text("create_account", fallback: "Create Account"), mode: .createAccount)
@@ -209,42 +239,6 @@ struct CustomerAccountSectionView: View {
             }
             .buttonStyle(.tallaPrimary)
             .disabled(isSubmitDisabled)
-
-#if canImport(AuthenticationServices)
-            if accountAuthMode != .changePassword {
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
-                        Rectangle()
-                            .fill(accentColor.opacity(0.16))
-                            .frame(height: 1)
-
-                        Text(AppLocalization.text("or_continue_with", fallback: "or continue with"))
-                            .font(Font.custom("AvenirNext-Regular", size: 11))
-                            .foregroundColor(secondaryTextColor)
-
-                        Rectangle()
-                            .fill(accentColor.opacity(0.16))
-                            .frame(height: 1)
-                    }
-
-                    SignInWithAppleButton(accountAuthMode == .createAccount ? .signUp : .signIn) { request in
-                        configureAppleSignInRequest(request)
-                    } onCompletion: { result in
-                        handleAppleSignInResult(result)
-                    }
-                    .signInWithAppleButtonStyle(isLightAppearance ? .black : .white)
-                    .frame(height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .disabled(isAppleSignInDisabled)
-
-                    if isSigningInWithApple {
-                        Text(AppLocalization.text("signing_in_with_apple", fallback: "Signing in with Apple..."))
-                            .font(Font.custom("AvenirNext-Regular", size: 11))
-                            .foregroundColor(secondaryTextColor)
-                    }
-                }
-            }
-#endif
 
             HStack(spacing: 16) {
                 if accountAuthMode == .signIn {

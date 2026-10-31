@@ -22,6 +22,10 @@ struct AdminOrder: Codable, Identifiable, Hashable {
     var createdDate: Date? { ISO8601DateFormatter().date(from: createdAt) }
     var updatedDate: Date? { updatedAt.flatMap { ISO8601DateFormatter().date(from: $0) } }
     var itemCount: Int { items.reduce(0) { $0 + max(0, $1.quantity) } }
+    var isPickup: Bool {
+        fulfillment?.method?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "pickup"
+            || title.localizedCaseInsensitiveContains("pickup")
+    }
     var isCancelled: Bool {
         let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return normalized == "cancelled" || normalized == "canceled"
@@ -287,6 +291,9 @@ struct AdminOrderFulfillment: Codable, Hashable {
     let city: String?
     let countryCode: String?
     let notes: String?
+    let pickupSlot: String?
+    let pickupCarNumber: String?
+    let actualPickupAt: String?
 
     var addressText: String? {
         let parts = [line1, city, countryCode]

@@ -96,8 +96,10 @@ extension BrewingSectionView {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(AppLocalization.text("done", fallback: "Done")) {
+                    Button {
                         onDone()
+                    } label: {
+                        Label(AppLocalization.text("done", fallback: "Done"), systemImage: "checkmark")
                     }
                 }
             }

@@ -584,7 +584,8 @@ struct AccountSectionView: View {
                     Button {
                         presentedDetail = nil
                     } label: {
-                        Image(systemName: "xmark")
+                        Label(AppLocalization.text("close", fallback: "Close"), systemImage: "xmark")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(primaryTextColor)
                             .frame(width: 44, height: 44)

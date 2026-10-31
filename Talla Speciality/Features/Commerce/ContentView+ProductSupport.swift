@@ -680,6 +680,10 @@ extension ContentView {
 
                 productFactsSection(product)
 
+                if let passport = coffeePassportPage(for: product) {
+                    coffeePassportSection(passport)
+                }
+
                 if isBrewableCoffee(product) && tasteProfileConfigured {
                     productTasteProfileFitSection(product)
                 }
@@ -966,6 +970,152 @@ extension ContentView {
         .background(cardFillColor)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityIdentifier("product.coffee-facts")
+    }
+
+    struct CoffeePassportPage {
+        let origin: String
+        let profile: String
+        let notes: String
+        let method: String
+        let dose: String
+        let water: String
+        let temperature: String
+        let grind: String
+        let brewTime: String
+    }
+
+    func coffeePassportPage(for product: Product) -> CoffeePassportPage? {
+        let key = ([product.handle, product.name]
+            .joined(separator: " ")
+            .lowercased()
+            .replacingOccurrences(of: "–", with: "-")
+            .replacingOccurrences(of: "—", with: "-")
+            .replacingOccurrences(of: " ", with: "-"))
+
+        if key.contains("hawar-islands") || key.contains("hawari-islands") {
+            return CoffeePassportPage(
+                origin: "Colombia",
+                profile: "Balanced, bright, and smooth",
+                notes: "Caramel, ripe fruit, and a clean finish",
+                method: "V60 / pour-over",
+                dose: "15 g coffee",
+                water: "250 g water",
+                temperature: "93°C",
+                grind: "Medium-fine",
+                brewTime: "2:45–3:15"
+            )
+        }
+
+        if key.contains("muharraq") {
+            return CoffeePassportPage(
+                origin: "Ethiopia",
+                profile: "Floral, bright, and aromatic",
+                notes: "Floral aromatics, citrus brightness, and stone fruit",
+                method: "V60 / pour-over",
+                dose: "15 g coffee",
+                water: "250 g water",
+                temperature: "94°C",
+                grind: "Medium-fine",
+                brewTime: "2:45–3:15"
+            )
+        }
+
+        if key.contains("durrat-al-bahrain") || key.contains("durrat-bahrain") {
+            return CoffeePassportPage(
+                origin: "Brazil",
+                profile: "Smooth, sweet, and comforting",
+                notes: "Milk chocolate, toasted nuts, and gentle sweetness",
+                method: "V60 / pour-over",
+                dose: "15 g coffee",
+                water: "240 g water",
+                temperature: "92°C",
+                grind: "Medium",
+                brewTime: "2:45–3:15"
+            )
+        }
+
+        if key.contains("riffa") {
+            return CoffeePassportPage(
+                origin: "Yemen",
+                profile: "Rich, deep, and wine-like",
+                notes: "Cocoa, dried fruit, warm spice, and a lingering finish",
+                method: "V60 / pour-over",
+                dose: "15 g coffee",
+                water: "240 g water",
+                temperature: "93°C",
+                grind: "Medium",
+                brewTime: "3:00–3:30"
+            )
+        }
+
+        return nil
+    }
+
+    @ViewBuilder
+    func coffeePassportSection(_ page: CoffeePassportPage) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .foregroundColor(readableBrandGoldColor)
+                Text("COFFEE PASSPORT")
+                    .font(labelFont(size: 10, weight: .bold))
+                    .tracking(AppLocalization.letterSpacing(1.8))
+                    .foregroundColor(readableBrandGoldColor)
+                Spacer()
+                Text("BREW GUIDE")
+                    .font(labelFont(size: 9, weight: .bold))
+                    .tracking(AppLocalization.letterSpacing(1.4))
+                    .foregroundColor(tertiaryTextColor)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                passportFact(title: "Origin", value: page.origin)
+                passportFact(title: "Cup profile", value: page.profile)
+                passportFact(title: "Tasting notes", value: page.notes)
+            }
+
+            Divider().overlay(TallaTheme.Colors.ink.opacity(0.12))
+
+            Text(page.method)
+                .font(bodyFont(size: 15).weight(.semibold))
+                .foregroundColor(primaryTextColor)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                productMetadataChip(icon: "scalemass", title: page.dose)
+                productMetadataChip(icon: "drop", title: page.water)
+                productMetadataChip(icon: "thermometer.medium", title: page.temperature)
+                productMetadataChip(icon: "circle.lefthalf.filled", title: page.grind)
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "timer")
+                    .foregroundColor(readableBrandGoldColor)
+                Text("Target brew time")
+                    .font(labelFont(size: 10, weight: .bold))
+                    .foregroundColor(secondaryTextColor)
+                Spacer()
+                Text(page.brewTime)
+                    .font(bodyFont(size: 13).weight(.semibold))
+                    .foregroundColor(primaryTextColor)
+            }
+        }
+        .padding(14)
+        .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.08 : 0.11))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityIdentifier("product.coffee-passport")
+    }
+
+    @ViewBuilder
+    func passportFact(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(labelFont(size: 9, weight: .bold))
+                .foregroundColor(tertiaryTextColor)
+            Text(value)
+                .font(bodyFont(size: 13))
+                .foregroundColor(primaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     func starterSetupProduct(for coffee: Product) -> Product? {

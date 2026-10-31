@@ -865,7 +865,9 @@ struct OrderHistorySectionView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.text("done", fallback: "Done")) { managedCoffeeClubOrder = nil }
+                    Button { managedCoffeeClubOrder = nil } label: {
+                        Label(AppLocalization.text("done", fallback: "Done"), systemImage: "checkmark")
+                    }
                 }
             }
             .overlay { if isManagingCoffeeClub { ProgressView() } }

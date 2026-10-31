@@ -219,11 +219,19 @@ extension ContentView {
             openCoffeeConcierge()
         } label: {
             HStack(spacing: 14) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(TallaTheme.Colors.accent, in: Circle())
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "cup.and.saucer.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(TallaTheme.Colors.accent, in: Circle())
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                        .padding(3)
+                        .background(cardFillColor, in: Circle())
+                        .offset(x: 3, y: -3)
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(AppLocalization.text("coffee_ai_home_title", fallback: "Ask Talla AI"))
@@ -235,6 +243,9 @@ extension ContentView {
                         .font(bodyFont(size: 12))
                         .foregroundColor(secondaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
+                    Text(isRunningConcierge ? "Talla is thinking…" : "Ask anything about your next cup")
+                        .font(labelFont(size: 9, weight: .semibold))
+                        .foregroundColor(readableBrandGoldColor)
                 }
 
                 Spacer(minLength: 8)
@@ -258,6 +269,44 @@ extension ContentView {
         .accessibilityIdentifier("home.coffeeAI")
     }
 
+    var homeTallaCompanionButton: some View {
+        Button {
+            openCoffeeConcierge()
+        } label: {
+            HStack(spacing: 10) {
+                TallaCompanionView(isThinking: isRunningConcierge, size: 25)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Ask Talla")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                    Text("Your coffee companion")
+                        .font(bodyFont(size: 10))
+                        .foregroundColor(secondaryTextColor)
+                }
+
+                Spacer(minLength: 4)
+
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(readableBrandGoldColor)
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .background(cardFillColor)
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.24 : 0.18), lineWidth: 1)
+            )
+            .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
+        .accessibilityLabel("Open Talla coffee companion")
+        .accessibilityIdentifier("home.tallaCompanion")
+    }
+
     func openTasteProfileEditor() {
         openShop()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
@@ -267,7 +316,9 @@ extension ContentView {
 
     var legacyHomeView: some View {
         VStack(spacing: 0) {
-            todayNextCupCard
+            DuoLeadingColumn {
+                todayNextCupCard
+            }
             todayCompactCard
             homePurchasedCoffeeShelf
             homeUsualRow
@@ -792,11 +843,16 @@ extension ContentView {
                         }
                     }
                 } else {
-                    Image(systemName: event.symbol.isEmpty ? "sparkles" : event.symbol)
-                        .font(.system(size: 86, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.24))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.trailing, 22)
+                    HStack(spacing: 14) {
+                        ForEach(Array(event.symbols.prefix(4).enumerated()), id: \.offset) { index, symbol in
+                            Image(systemName: symbol.isEmpty ? "sparkles" : symbol)
+                                .font(.system(size: index == 0 ? 58 : 30, weight: .semibold))
+                                .foregroundColor(.white.opacity(index == 0 ? 0.28 : 0.18))
+                                .rotationEffect(.degrees(index.isMultiple(of: 2) ? -8 : 8))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 22)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {

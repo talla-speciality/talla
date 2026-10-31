@@ -271,6 +271,27 @@ private struct OrderCard: View {
                     .foregroundStyle(.secondary)
             }
 
+            if order.isPickup {
+                HStack(spacing: 8) {
+                    Label("Pickup", systemImage: "car.fill")
+                    if let carNumber = order.fulfillment?.pickupCarNumber, !carNumber.isEmpty {
+                        Text("Car \(carNumber)")
+                            .fontWeight(.semibold)
+                    } else {
+                        Text("Car number not provided")
+                    }
+                    Spacer()
+                    if let pickupAt = order.fulfillment?.actualPickupAt, let date = adminDate(pickupAt) {
+                        Text(date.formatted(date: .abbreviated, time: .shortened))
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(TallaAdminStyle.caramel)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 9)
+                .background(TallaAdminStyle.cream.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
+            }
+
             if let club = order.coffeeClub {
                 Label(
                     "Coffee Club · \(club.deliveredShipments) delivered · \(club.remainingShipments) remaining",
@@ -747,6 +768,18 @@ struct OrderDetailView: View {
         let fulfillment = order.fulfillment
         return AdminDetailCard(title: "Fulfilment", icon: fulfillmentIcon(fulfillment?.method)) {
             detailRow("Method", displayFulfillmentMethod(fulfillment?.method, fallback: order.title))
+            if order.isPickup {
+                detailRow("Pickup window", fulfillment?.pickupSlot?.isEmpty == false ? fulfillment!.pickupSlot! : "Not selected")
+                detailRow("Car number", fulfillment?.pickupCarNumber?.isEmpty == false ? fulfillment!.pickupCarNumber! : "Not provided", selectable: true)
+                if let actualPickupAt = fulfillment?.actualPickupAt,
+                   let date = adminDate(actualPickupAt) {
+                    detailRow("Actual pickup", date.formatted(date: .complete, time: .standard))
+                } else {
+                    Label("Pickup has not been recorded yet", systemImage: "clock.badge.exclamationmark")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(TallaAdminStyle.warning)
+                }
+            }
             if let name = fulfillment?.fullName, !name.isEmpty { detailRow("Recipient", name) }
             if let address = fulfillment?.addressText { detailRow("Address", address, selectable: true) }
             if let notes = fulfillment?.notes, !notes.isEmpty { detailRow("Delivery notes", notes, selectable: true) }
@@ -754,6 +787,19 @@ struct OrderDetailView: View {
                let mapURL = mapsURL(address) {
                 Button { openURL(mapURL) } label: { Label("Open in Maps", systemImage: "map.fill") }
                     .buttonStyle(.bordered)
+            }
+            if order.isPickup && order.isActive && session.hasPermission("orders:write") {
+                Button {
+                    selectedStatus = "Completed"
+                    pendingStatus = "Completed"
+                    showStatusConfirmation = true
+                } label: {
+                    Label("Mark Picked Up Now", systemImage: "checkmark.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(TallaAdminStyle.success)
+                .controlSize(.large)
             }
         }
     }
@@ -887,6 +933,12 @@ struct OrderDetailView: View {
             .controlSize(.large)
             .disabled(!session.hasPermission("orders:write") || isSaving || isNotifying || selectedStatus == order.status)
 
+            if order.isPickup && order.isActive {
+                Text("Completing this pickup records the actual pickup time automatically.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if order.isActive {
                 Button { showNotifyConfirmation = true } label: {
                     if isNotifying { ProgressView().frame(maxWidth: .infinity) }
@@ -1001,7 +1053,7 @@ struct OrderDetailView: View {
 
     private var statusDialogTitle: String {
         switch pendingStatus?.lowercased() {
-        case "completed", "fulfilled", "delivered": "Mark this order complete?"
+        case "completed", "fulfilled", "delivered": order?.isPickup == true ? "Record pickup now?" : "Mark this order complete?"
         case "cancelled", "canceled": "Cancel this order?"
         default: "Change order status?"
         }
@@ -1013,6 +1065,9 @@ struct OrderDetailView: View {
 
     private func statusDialogMessage(for order: AdminOrder) -> String {
         if ["completed", "fulfilled", "delivered"].contains(pendingStatus?.lowercased() ?? "") {
+            if order.isPickup {
+                return "This records the order as collected and saves the actual pickup time now."
+            }
             return "Only confirm after the order is actually finished. This may award loyalty Beans and move it to Completed."
         }
         return "\(order.title) will move from \(order.status) to \(pendingStatus ?? selectedStatus)."

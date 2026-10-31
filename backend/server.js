@@ -6832,13 +6832,21 @@ async function syncRecentShopifyOrdersForEmail(email) {
 }
 
 async function updateOrderStatusRecord(email, orderID, status) {
+    const pickupCompletion = completedOrderStatuses().has(status);
     if (database.isEnabled()) {
+        const current = await database.query(`SELECT details FROM orders WHERE email = $1 AND id = $2`, [email, orderID]);
+        if (current.rowCount === 0) return null;
+        const details = normalizeOrderDetails(current.rows[0].details);
+        const fulfillment = details.fulfillment || {};
+        const nextDetails = pickupCompletion && String(fulfillment.method || '').toLowerCase() === 'pickup'
+            ? { ...details, fulfillment: { ...fulfillment, actualPickupAt: fulfillment.actualPickupAt || new Date().toISOString() } }
+            : details;
         const result = await database.query(
             `UPDATE orders
-             SET status = $3, updated_at = NOW()
+             SET status = $3, details = $4::jsonb, updated_at = NOW()
              WHERE email = $1 AND id = $2
              RETURNING id, title, total, status, items, details, created_at, updated_at`,
-            [email, orderID, status]
+            [email, orderID, status, JSON.stringify(nextDetails)]
         );
 
         if (result.rowCount === 0) {
@@ -6855,9 +6863,15 @@ async function updateOrderStatusRecord(email, orderID, status) {
         return null;
     }
 
+    const currentDetails = normalizeOrderDetails(orders[index].details);
+    const currentFulfillment = currentDetails.fulfillment || {};
+    const nextDetails = pickupCompletion && String(currentFulfillment.method || '').toLowerCase() === 'pickup'
+        ? { ...currentDetails, fulfillment: { ...currentFulfillment, actualPickupAt: currentFulfillment.actualPickupAt || new Date().toISOString() } }
+        : currentDetails;
     orders[index] = {
         ...orders[index],
         status,
+        details: nextDetails,
         updatedAt: new Date().toISOString()
     };
     store.orders[email] = orders;

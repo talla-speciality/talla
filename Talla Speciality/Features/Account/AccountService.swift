@@ -904,6 +904,7 @@ enum AccountService {
         address: ContentView.DeliveryAddress?,
         pickupSlot: String? = nil,
         pickupLocationID: String? = nil,
+        pickupCarNumber: String? = nil,
         paymentMethod: TallaPaymentMethod,
         voucherCode: String?,
         prepaidCoffeeClub: Bool = false,
@@ -991,6 +992,7 @@ enum AccountService {
         if fulfillmentMethod == .pickup, let pickupSlot, !pickupSlot.isEmpty {
             var pickup: [String: Any] = ["method": fulfillmentMethod.rawValue, "pickupSlot": pickupSlot]
             if let pickupLocationID, !pickupLocationID.isEmpty { pickup["pickupLocationID"] = pickupLocationID }
+            if let pickupCarNumber = pickupCarNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !pickupCarNumber.isEmpty { pickup["pickupCarNumber"] = String(pickupCarNumber.prefix(24)) }
             payload["fulfillment"] = pickup
         }
         if let voucherCode, !voucherCode.isEmpty {

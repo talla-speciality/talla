@@ -6,6 +6,7 @@ struct AdminLoginView: View {
     @State private var password = ""
     @State private var isSigningIn = false
     @State private var enableBiometrics = false
+    @State private var didAttemptAutomaticBiometricSignIn = false
     @FocusState private var focusedField: Field?
 
     private enum Field { case username, password }
@@ -35,6 +36,29 @@ struct AdminLoginView: View {
                     }
 
                     VStack(spacing: TallaAdminStyle.Spacing.standard) {
+                        if session.biometricEnabled {
+                            Button {
+                                Task { await signInWithBiometrics() }
+                            } label: {
+                                Label("Sign in with Face ID / Touch ID", systemImage: "faceid")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.tallaAdminPrimary)
+                            .disabled(isSigningIn)
+
+                            Text("Use Face ID or Touch ID to unlock your saved admin sign-in.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Divider()
+                                .overlay(TallaAdminStyle.border)
+
+                            Text("Use password instead")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(TallaAdminStyle.espresso)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
                         TextField("Admin username", text: $username)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
@@ -50,9 +74,9 @@ struct AdminLoginView: View {
                             .tallaAdminField()
                             .onSubmit { signIn() }
 
-                        if session.biometricAvailable {
+                        if session.biometricAvailable && !session.biometricEnabled {
                             Toggle(isOn: $enableBiometrics) {
-                                Label("Enable Face ID / Touch ID", systemImage: "faceid")
+                                Label("Save Face ID / Touch ID sign-in", systemImage: "faceid")
                                     .font(.subheadline)
                             }
                             .tint(TallaAdminStyle.caramel)
@@ -77,20 +101,6 @@ struct AdminLoginView: View {
                         .buttonStyle(.tallaAdminPrimary)
                         .disabled(isSigningIn || username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty)
 
-                        if session.biometricEnabled {
-                            Button {
-                                Task {
-                                    isSigningIn = true
-                                    await session.loginWithBiometrics()
-                                    isSigningIn = false
-                                }
-                            } label: {
-                                Label("Unlock Existing Session with Face ID / Touch ID", systemImage: "faceid")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(isSigningIn)
-                        }
                     }
                     .tallaAdminCard()
                 }
@@ -100,6 +110,26 @@ struct AdminLoginView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
+        .task(id: session.biometricEnabled) {
+            guard session.biometricEnabled, !didAttemptAutomaticBiometricSignIn else { return }
+            didAttemptAutomaticBiometricSignIn = true
+            await signInWithBiometrics()
+        }
+        .onChange(of: session.isAuthenticated) { _, authenticated in
+            if !authenticated { didAttemptAutomaticBiometricSignIn = false }
+        }
+        .onAppear {
+            if session.biometricAvailable && !session.biometricEnabled {
+                enableBiometrics = true
+            }
+        }
+    }
+
+    private func signInWithBiometrics() async {
+        guard !isSigningIn else { return }
+        isSigningIn = true
+        await session.loginWithBiometrics()
+        isSigningIn = false
     }
 
     private func signIn() {

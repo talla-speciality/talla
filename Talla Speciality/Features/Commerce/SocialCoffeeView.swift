@@ -25,7 +25,7 @@ struct TallaCoffeeGiftVaultView: View {
                 }
             }
             .navigationTitle("Coffee gifts")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label("Done", systemImage: "checkmark") } } }
         }
     }
 }
@@ -694,7 +694,7 @@ struct SocialCoffeePassGiftView: View {
                 Spacer(minLength: 0)
             }
             .padding(24)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button { dismiss() } label: { Label("Done", systemImage: "checkmark") } } }
             .task(id: gift.id) { await refreshGiftStatus() }
         }
     }
@@ -785,7 +785,7 @@ struct SocialCoffeeGroupInviteView: View {
             }
             .navigationTitle("Group coffee")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label("Close", systemImage: "xmark") } } }
             .onChange(of: productID) { _, _ in variantID = selectedProduct?.defaultVariant?.id ?? availableVariants.first?.id ?? "" }
             .onAppear { loadExistingGroup() }
             .confirmationDialog("Replace current bag?", isPresented: $isConfirmingBagReplacement, titleVisibility: .visible) {
@@ -1082,7 +1082,7 @@ private struct SocialCoffeeFlowSheet: View {
             }
             .scrollContentBackground(.hidden).background(background)
             .navigationTitle(flow.title).navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label("Close", systemImage: "xmark") } } }
             .onAppear {
                 if selectedGiftCardID.isEmpty { selectedGiftCardID = giftCardProducts.first?.id ?? "" }
                 if selectedGiftVariantID.isEmpty { selectedGiftVariantID = selectedGiftCard?.defaultVariant?.id ?? "" }

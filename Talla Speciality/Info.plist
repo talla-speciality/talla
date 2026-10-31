@@ -2,14 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>BackendBaseURL</key>
-	<string>https://talla-backend.onrender.com</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>Talla-Speciality.catalog-refresh</string>
 	</array>
-	<key>CoffeeAIBaseURL</key>
-	<string>https://talla-backend-ai.onrender.com</string>
+	<key>BackendBaseURL</key>
+	<string>https://talla-backend.onrender.com</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleURLTypes</key>
@@ -35,6 +33,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>CoffeeAIBaseURL</key>
+	<string>https://talla-backend-ai.onrender.com</string>
 	<key>INIntentsSupported</key>
 	<array>
 		<string>Intent</string>
@@ -65,14 +65,14 @@
 	</dict>
 	<key>TallaAppAttestEnvironment</key>
 	<string>$(APP_ATTEST_ENVIRONMENT)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
 	</dict>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-	</array>
 </dict>
 </plist>

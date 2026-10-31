@@ -31,6 +31,77 @@ import UIKit
 #endif
 
 extension ContentView {
+    var addressMapPickerButton: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { isAddressMapPresented = true } label: {
+                Label(
+                    isArabicInterface
+                        ? (addressMapSelection == nil ? "اختر العنوان على الخريطة" : "تغيير الموقع على الخريطة")
+                        : (addressMapSelection == nil ? "Choose address on map" : "Change location on map"),
+                    systemImage: "map.fill"
+                )
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 50)
+            }
+            .buttonStyle(.bordered)
+            .tint(TallaTheme.Colors.accent)
+            .accessibilityIdentifier("address.chooseOnMap")
+            if let selection = addressMapSelection {
+                HStack {
+                    Link(destination: URL(string: selection.mapsURL)!) {
+                        Label(isArabicInterface ? "تم اختيار موقع التوصيل" : "Delivery pin selected", systemImage: "checkmark.circle.fill")
+                    }
+                    Spacer()
+                    Button(isArabicInterface ? "إزالة" : "Remove") { addressMapSelection = nil }
+                }
+                .font(.footnote)
+                Text(isArabicInterface
+                    ? "تم ملء التفاصيل المتاحة من الخريطة. راجع العنوان وأضف أي تفاصيل ناقصة مثل رقم المجمع أو الشقة."
+                    : "Available details have been filled from the map. Review the address and add anything missing, such as a block or apartment number.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .sheet(isPresented: $isAddressMapPresented) {
+            TallaAddressMapPicker(arabic: isArabicInterface, initial: addressMapSelection) { selection in
+                addressMapSelection = selection
+                // A new pin must never keep structured fields from the old destination.
+                addressBlock = ""
+                addressBuilding = ""
+                addressRegion = ""
+                addressPostalCode = ""
+                addressAdditionalNumber = ""
+                addressApartment = ""
+                addressLandmark = ""
+                addressLine1 = ""
+                addressCity = ""
+                if let mark = selection.placemark {
+                    func clean(_ value: String?) -> String? {
+                        guard let value else { return nil }
+                        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                        return trimmed.isEmpty ? nil : trimmed
+                    }
+                    addressLine1 = [clean(mark.subThoroughfare), clean(mark.thoroughfare)]
+                        .compactMap { $0 }.joined(separator: " ")
+                    if addressLine1.isEmpty { addressLine1 = clean(mark.name) ?? "" }
+                    addressCity = clean(mark.locality) ?? clean(mark.subAdministrativeArea) ?? clean(mark.subLocality) ?? ""
+                    addressRegion = clean(mark.administrativeArea) ?? clean(mark.subAdministrativeArea) ?? ""
+                    addressPostalCode = clean(mark.postalCode) ?? ""
+                    addressBuilding = clean(mark.subThoroughfare) ?? ""
+                    // This field accepts an area as well as a numbered block.
+                    // Do not guess a block number from the postcode or street number.
+                    addressBlock = clean(mark.subLocality) ?? ""
+                    addressLandmark = mark.areasOfInterest?.compactMap { clean($0) }.first ?? ""
+                    if let country = SupportedDeliveryCountry(code: mark.isoCountryCode) {
+                        addressCountry = country
+                    }
+                    showAdvancedAddressFields = !addressBuilding.isEmpty || !addressLandmark.isEmpty
+                }
+            }
+        }
+    }
+
     @ViewBuilder var gulfAddressFields: some View {
         if addressCountry.isKhaleeji {
             let needsBlock = ["BH", "KW"].contains(addressCountry.rawValue)
@@ -41,13 +112,31 @@ extension ContentView {
             if !needsBlock {
                 addressFormTextField(isArabicInterface ? "المحافظة / الإمارة" : "Governorate / emirate", text: $addressRegion, capitalization: .words)
             }
-            addressFormTextField(isArabicInterface ? "رقم المبنى" : "Building number", text: $addressBuilding, capitalization: .words)
-            addressFormTextField(isArabicInterface ? "الطابق والشقة (اختياري)" : "Floor and apartment (optional)", text: $addressApartment, capitalization: .words)
-            addressFormTextField(isArabicInterface ? "معلم قريب / تفاصيل العنوان الوطني (اختياري)" : "Landmark / national address details (optional)", text: $addressLandmark, capitalization: .words)
             if addressCountry.rawValue == "SA" {
                 addressFormTextField(isArabicInterface ? "الرمز البريدي (٥ أرقام)" : "Postal code (5 digits)", text: $addressPostalCode, capitalization: .never)
-                addressFormTextField(isArabicInterface ? "الرقم الإضافي للعنوان الوطني (اختياري)" : "National address additional number (optional)", text: $addressAdditionalNumber, capitalization: .never)
             }
+
+            DisclosureGroup(
+                isExpanded: $showAdvancedAddressFields,
+                content: {
+                    VStack(alignment: .leading, spacing: 10) {
+                        addressFormTextField(isArabicInterface ? "رقم المبنى (اختياري)" : "Building number (optional)", text: $addressBuilding, capitalization: .words)
+                        addressFormTextField(isArabicInterface ? "الطابق والشقة (اختياري)" : "Floor and apartment (optional)", text: $addressApartment, capitalization: .words)
+                        addressFormTextField(isArabicInterface ? "معلم قريب (اختياري)" : "Nearby landmark (optional)", text: $addressLandmark, capitalization: .words)
+                        if addressCountry.rawValue == "SA" {
+                            addressFormTextField(isArabicInterface ? "الرقم الإضافي (اختياري)" : "National address additional number (optional)", text: $addressAdditionalNumber, capitalization: .never)
+                        }
+                    }
+                },
+                label: {
+                    Label(
+                        isArabicInterface ? "تفاصيل إضافية (اختياري)" : "Add more details (optional)",
+                        systemImage: "plus.circle"
+                    )
+                    .font(bodyFont(size: 13).weight(.semibold))
+                    .foregroundColor(readableBrandGoldColor)
+                }
+            )
         }
     }
     var latestAccountOrderSummary: (title: String, detail: String)? {
@@ -397,7 +486,8 @@ extension ContentView {
                     Button {
                         selectedSettingsDetail = nil
                     } label: {
-                        Image(systemName: "xmark")
+                        Label(AppLocalization.text("close", fallback: "Close"), systemImage: "xmark")
+                            .labelStyle(.iconOnly)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(primaryTextColor)
                             .frame(width: 32, height: 32)
@@ -900,6 +990,7 @@ extension ContentView {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
+                        addressMapPickerButton
                         onboardingTextField(
                             AppLocalization.text("full_name", fallback: "Full name"),
                             text: $addressFullName,
@@ -934,7 +1025,7 @@ extension ContentView {
                         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
                         onboardingTextField(
-                            AppLocalization.text("address_line", fallback: "Building, road and block"),
+                            AppLocalization.text("address_line", fallback: "Street and building"),
                             text: $addressLine1,
                             capitalization: .words
                         )
@@ -1081,7 +1172,7 @@ extension ContentView {
                 .foregroundColor(secondaryTextColor)
                 .fixedSize(horizontal: false, vertical: true)
 
-            addressFormTextField(AppLocalization.text("label", fallback: "Label"), text: $addressLabel, capitalization: .words)
+            addressMapPickerButton
             addressFormTextField(AppLocalization.text("full_name", fallback: "Full name"), text: $addressFullName, capitalization: .words)
 
             HStack(spacing: 8) {
@@ -1162,6 +1253,21 @@ extension ContentView {
                 .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .onAppear {
+            if addressLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                addressLabel = AppLocalization.text("home_address_label", fallback: "Home")
+            }
+            if addressFullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let profile = customerProfile {
+                addressFullName = [profile.firstName, profile.lastName]
+                    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+            }
+            if addressPhone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                addressPhone = addresses.first?.phone ?? ""
+            }
+        }
     }
 
     func addressFormTextField(
@@ -1221,6 +1327,13 @@ extension ContentView {
                     Text(notes)
                         .font(bodyFont(size: 12))
                         .foregroundColor(tertiaryTextColor)
+                    if let pinLine = notes.components(separatedBy: "\n").first(where: { $0.hasPrefix("Delivery location: https://maps.apple.com/") }),
+                       let url = URL(string: String(pinLine.dropFirst("Delivery location: ".count))) {
+                        Link(destination: url) {
+                            Label(isArabicInterface ? "افتح موقع التوصيل" : "Open delivery location", systemImage: "map")
+                                .font(.footnote.weight(.semibold))
+                        }
+                    }
                 }
             }
 

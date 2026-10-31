@@ -697,7 +697,9 @@ struct PaymentMethodSelectionSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.text("cancel", fallback: "Cancel")) { dismiss() }
+                    Button { dismiss() } label: {
+                        Label(AppLocalization.text("cancel", fallback: "Cancel"), systemImage: "xmark")
+                    }
                 }
             }
         }
@@ -1364,9 +1366,11 @@ struct MastercardPaymentSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.text("cancel", fallback: "Cancel")) {
+                    Button {
                         flow.cancel()
                         dismiss()
+                    } label: {
+                        Label(AppLocalization.text("cancel", fallback: "Cancel"), systemImage: "xmark")
                     }
                     .disabled(flow.state.isBusy)
                 }

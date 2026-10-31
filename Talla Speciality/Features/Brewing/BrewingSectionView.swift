@@ -404,6 +404,14 @@ struct BrewingSectionView: View {
     @State var brewModeHapticTrigger = 0
     @AppStorage("talla.brewing.voiceGuidance.v1") var isVoiceGuidanceEnabled = false
     @State var selectedBrewModeMethodID: String?
+    @State var isGuidedRecipeCustomizing = false
+    @State var loadedSavedRecipeCoffeeAmount: Double?
+    @State var loadedSavedRecipeRatio: Double?
+    @State var isCustomerBagScanExpanded = false
+    @State var isCustomerGuidedSession = false
+    @State var returnsToGuidedBrewFromCoffeeLibrary = false
+    @State var customerGuidedValidationMessage: String?
+    @AppStorage("talla.brewing.guidedExperience.pro.v1") var isProGuidedControlsSelected = false
     @State var isFocusedBrewPresented = false
     @State var isEndBrewConfirmationPresented = false
     @State var isBrewRestartConfirmationPresented = false

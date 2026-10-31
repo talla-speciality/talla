@@ -192,7 +192,7 @@ struct SavedBrewRecipeEditor: View {
         .background(background)
         .navigationTitle("Edit saved recipe")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label("Cancel", systemImage: "xmark") } } }
     }
 
     private var parsedCoffee: Double? { Double(coffeeGrams.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespacesAndNewlines)) }

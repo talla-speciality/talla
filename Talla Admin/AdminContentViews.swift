@@ -56,6 +56,33 @@ struct AdminArraySpec: Identifiable {
     var id: String { path }
 }
 
+struct AdminSeasonalEventPreset: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let symbols: [String]
+    let accentHex: String
+    let secondaryHex: String
+
+    static let all: [AdminSeasonalEventPreset] = [
+        .init(id: "ramadan", title: "Ramadan", subtitle: "Moon, stars, and warm night tones", symbols: ["moon.stars.fill", "moon.fill", "sparkles", "star.fill"], accentHex: "#D3AF62", secondaryHex: "#25352C"),
+        .init(id: "eid", title: "Eid", subtitle: "Gifts, stars, and celebration", symbols: ["moon.stars.fill", "gift.fill", "sparkles", "star.fill", "bag.fill"], accentHex: "#D6A667", secondaryHex: "#26372D"),
+        .init(id: "christmas", title: "Christmas", subtitle: "Snow, gifts, and festive sparkle", symbols: ["snowflake", "gift.fill", "sparkles", "star.fill", "heart.fill"], accentHex: "#D8C7A0", secondaryHex: "#365342"),
+        .init(id: "halloween", title: "Halloween", subtitle: "Moonlight, fire, and playful magic", symbols: ["moon.fill", "flame.fill", "sparkles", "wand.and.stars", "face.smiling.fill"], accentHex: "#F08A3C", secondaryHex: "#261A2B"),
+        .init(id: "general", title: "General celebration", subtitle: "A flexible festive starting point", symbols: ["sparkles", "party.popper.fill", "gift.fill", "star.fill", "cup.and.saucer.fill"], accentHex: "#C8965A", secondaryHex: "#2A1D14")
+    ]
+
+    func makeEvent() -> AdminValue {
+        .object([
+            "id": .string("\(id)-\(UUID().uuidString.lowercased())"), "presetID": .string(id), "name": .string(title), "enabled": .bool(false), "priority": .number(0),
+            "titleEN": .string(title), "titleAR": .string(""), "subtitleEN": .string(""), "subtitleAR": .string(""), "badgeEN": .string("Seasonal"), "badgeAR": .string(""),
+            "ctaEN": .string("Explore collection"), "ctaAR": .string(""), "categoryTitleEN": .string(title), "categoryTitleAR": .string(""), "categorySubtitleEN": .string(""), "categorySubtitleAR": .string(""),
+            "startAt": .null, "endAt": .null, "imageURL": .string(""), "symbol": .string(symbols[0]), "symbols": .array(symbols.map(AdminValue.string)),
+            "accentHex": .string(accentHex), "secondaryHex": .string(secondaryHex), "productIDs": .array([])
+        ])
+    }
+}
+
 extension AdminContentArea {
     var arrays: [AdminArraySpec] {
         switch self {
@@ -68,9 +95,9 @@ extension AdminContentArea {
             .init("English content", [.init("titleEN", "Title", required: true), .init("subtitleEN", "Subtitle", .multiline), .init("badgeEN", "Badge"), .init("ctaEN", "Button label"), .init("categoryTitleEN", "Category title"), .init("categorySubtitleEN", "Category subtitle", .multiline)]),
             .init("Arabic content", [.init("titleAR", "Title"), .init("subtitleAR", "Subtitle", .multiline), .init("badgeAR", "Badge"), .init("ctaAR", "Button label"), .init("categoryTitleAR", "Category title"), .init("categorySubtitleAR", "Category subtitle", .multiline)]),
             .init("Schedule", [.init("startAt", "Start date", .date), .init("endAt", "End date", .date)]),
-            .init("Appearance", [.init("imageURL", "Image URL"), .init("symbol", "Symbol name"), .init("accentHex", "Accent color (hex)"), .init("secondaryHex", "Secondary color (hex)")]),
+            .init("Appearance", [.init("presetID", "Preset"), .init("imageURL", "Image URL"), .init("symbol", "Primary symbol name"), .init("symbols", "More symbols", .words), .init("accentHex", "Accent color (hex)"), .init("secondaryHex", "Secondary color (hex)")]),
             .init("Collection", [.init("productIDs", "Products", .products(40, false))])
-        ], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New event"), "enabled": .bool(false), "priority": .number(0), "titleEN": .string("New event"), "productIDs": .array([]), "symbol": .string("sparkles"), "accentHex": .string("#C8965A"), "secondaryHex": .string("#2A1D14")]))]
+        ], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New event"), "enabled": .bool(false), "priority": .number(0), "titleEN": .string("New event"), "productIDs": .array([]), "symbol": .string("sparkles"), "symbols": .array([.string("sparkles")]), "accentHex": .string("#C8965A"), "secondaryHex": .string("#2A1D14")]))]
         case .controls: return [
             .init(path: "coffeeClub.plans", title: "Subscription plans", groups: [
                 .init("Plan", [
@@ -293,6 +320,25 @@ struct AdminArrayEditor: View {
                         Button("Remove", role: .destructive) { rows.remove(at: index) }
                         if spec.path == "events" {
                             Button("Duplicate") { rows.append(row.merging(["id": .string(UUID().uuidString.lowercased()), "name": .string(row.title + " Copy"), "enabled": .bool(false)])) }.tint(TallaAdminStyle.caramel)
+                        }
+                    }
+                }
+            }
+            if spec.path == "events" {
+                Section("Start from a preset") {
+                    ForEach(AdminSeasonalEventPreset.all) { preset in
+                        Button {
+                            rows.append(preset.makeEvent())
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: preset.symbols[0]).foregroundStyle(TallaAdminStyle.caramel).frame(width: 28)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(preset.title)
+                                    Text(preset.subtitle).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "plus.circle.fill").foregroundStyle(TallaAdminStyle.caramel)
+                            }
                         }
                     }
                 }

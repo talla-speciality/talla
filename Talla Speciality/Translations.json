@@ -2189,7 +2189,7 @@
     "ar": "الشوكولاتة الساخنة"
   },
   "category_gifts": {
-    "ar": "صناديق تله"
+    "ar": "صندوق تله"
   },
   "category_all_subtitle": {
     "ar": "كل اختيارات Talla"
@@ -4849,7 +4849,7 @@
   "gift_recipient_required": {"ar": "أدخل اسم المستلم قبل إتمام طلب الهدية."},
   "gift_message": {"ar": "أضف رسالة (اختياري)"},
   "curated_bundles_eyebrow": {"ar": "مختارات للمشاركة"},
-  "curated_bundles_title": {"ar": "صناديق تله"},
+  "curated_bundles_title": {"ar": "صندوق تله"},
   "curated_bundles_detail": {"ar": "تشكيلات جاهزة للإهداء للضيافة ومحبي القهوة والمناسبات الموسمية."},
   "curated_bundles_browse": {"ar": "تصفح التشكيلات المختارة"},
   "choose_app_icon": {"ar": "اختر أيقونة تله"},

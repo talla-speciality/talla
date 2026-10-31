@@ -127,7 +127,7 @@ struct EspressoWorkspaceView: View {
                             VStack(alignment: .leading) { Text(scale.name); Text(scale.modelName).font(.caption).foregroundStyle(.secondary) }
                         }
                     }
-                }.navigationTitle("Connect Scale").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showScalePicker = false } } }
+                }.navigationTitle("Connect Scale").toolbar { ToolbarItem(placement: .confirmationAction) { Button { showScalePicker = false } label: { Label("Done", systemImage: "checkmark") } } }
             }
             .tallaSystemSheetSurface()
         }
@@ -294,7 +294,7 @@ struct EspressoWorkspaceView: View {
         NavigationStack { Form {
             Section("Recipe") { DoubleField("Dose (g)", value: $draft.dose); DoubleField("Yield (g)", value: $draft.yield); Stepper("Total time: \(draft.totalSeconds)s", value: $draft.totalSeconds, in: 1...120); Stepper("First drip: \(draft.firstDripSeconds)s", value: $draft.firstDripSeconds, in: 0...60); Stepper("Pre-infusion: \(draft.preinfusionSeconds)s", value: $draft.preinfusionSeconds, in: 0...30); DoubleField("Temperature (°C)", value: $draft.temperature) }
             Section("Taste") { TextField("What did it taste like? (sour, bitter, sweet…)", text: $draft.taste); Stepper("Rating: \(draft.rating)/5", value: $draft.rating, in: 0...5); TextField("Notes", text: $draft.notes) }
-        }.navigationTitle("New shot").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") { showNewShot = false; finishShot() } } } }
+        }.navigationTitle("New shot").toolbar { ToolbarItem(placement: .confirmationAction) { Button { showNewShot = false; finishShot() } label: { Label("Save", systemImage: "checkmark") } } } }
     }
 
     private func editorField(_ title: String, text: Binding<String>) -> some View { TextField(title, text: text) }

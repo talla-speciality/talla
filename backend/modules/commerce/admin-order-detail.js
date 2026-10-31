@@ -293,6 +293,8 @@ function createAdminOrderDetailService(dependencies) {
                 countryCode: normalizeCountryCode(fulfillment.countryCode, ""),
                 notes: trimText(fulfillment.notes, 500),
                 pickupSlot: trimText(fulfillment.pickupSlot, 80),
+                pickupCarNumber: trimText(fulfillment.pickupCarNumber, 24),
+                actualPickupAt: validISODate(fulfillment.actualPickupAt) || null,
                 pickupLocationID: trimText(fulfillment.pickupLocationID, 80)
             },
             payment: {

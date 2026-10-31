@@ -17,6 +17,57 @@ import UIKit
 #endif
 
 extension BrewingSectionView {
+    var customerAfterBrewView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text(AppLocalization.text("brew_complete", fallback: "Brew complete"))
+                    .font(Font.custom("Georgia-Bold", size: 38))
+                    .foregroundColor(brewPrimaryTextColor)
+
+                Text(customerGuidedBrewCoffeeName)
+                    .font(Font.custom("AvenirNext-DemiBold", size: 17))
+                    .foregroundColor(brewSecondaryTextColor)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    focusedMetricRow(title: AppLocalization.text("coffee", fallback: "Coffee"), value: "\(formattedWholeGram(validCoffeeAmount)) g")
+                    focusedMetricRow(title: AppLocalization.text("water", fallback: "Water"), value: "\(formattedWholeGram(brewModeWaterAmount)) g")
+                    focusedMetricRow(title: AppLocalization.text("final_brew_time", fallback: "Final brew time"), value: formattedTimerTime(brewModeElapsedSeconds))
+                }
+                .padding(18)
+                .background(brewSurfaceColor)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                Button {
+                    saveAfterBrewToJournal()
+                    isCustomerGuidedSession = false
+                } label: {
+                    Text(AppLocalization.text("save_to_journal", fallback: "Save to Journal"))
+                        .font(Font.custom("AvenirNext-Bold", size: 15))
+                        .foregroundColor(brewAccentForegroundColor)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(brewAccentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    isFocusedBrewPresented = false
+                    isCustomerGuidedSession = false
+                    clearPersistedBrewSession()
+                } label: {
+                    Text(AppLocalization.text("close", fallback: "Close"))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: 620)
+            .frame(maxWidth: .infinity)
+            .padding(22)
+        }
+    }
+
     var bluetoothScalePickerFootnote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "checkmark.circle")

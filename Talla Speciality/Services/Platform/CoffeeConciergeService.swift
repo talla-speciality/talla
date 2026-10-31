@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 #if canImport(Vision) && canImport(UIKit)
 import UIKit
 import Vision
@@ -29,11 +32,46 @@ struct CoffeeConciergeResult: Equatable {
     }
 }
 
+struct CoffeeConversationTurn: Sendable {
+    let role: String
+    let text: String
+}
+
 private struct ConciergeMemoryEntry: Codable {
     let question: String
     let answer: String
     let feedback: Int?
 }
+
+#if canImport(FoundationModels)
+@available(iOS 27.0, macOS 27.0, *)
+private struct TallaCatalogSearchTool: Tool {
+    let name = "searchTallaCatalog"
+    let description = "Searches Talla's current coffee and equipment catalog for products relevant to the customer's request."
+    let catalog: String
+
+    @Generable
+    struct Arguments {
+        let query: String
+    }
+
+    func call(arguments: Arguments) async throws -> String {
+        let terms = Set(arguments.query.lowercased().split { !$0.isLetter && !$0.isNumber }.filter { $0.count > 2 })
+        let matches = catalog
+            .split(separator: "\n")
+            .filter { line in
+                let normalized = line.lowercased()
+                return terms.isEmpty || terms.contains { normalized.contains($0) }
+            }
+            .prefix(8)
+
+        if matches.isEmpty {
+            return "No matching Talla catalog items were found. Do not invent a product; ask what brew method or budget the customer prefers."
+        }
+        return matches.joined(separator: "\n")
+    }
+}
+#endif
 
 enum CoffeeConciergeService {
     private static let memoryKey = "talla.concierge.memory.v1"
@@ -97,7 +135,8 @@ enum CoffeeConciergeService {
         products: [ContentView.Product],
         localeIdentifier: String,
         imageData: Data? = nil,
-        allowWebResearch: Bool = true
+        allowWebResearch: Bool = true,
+        conversation: [CoffeeConversationTurn] = []
     ) async -> CoffeeConciergeResult {
         let trimmedRequest = request.trimmingCharacters(in: .whitespacesAndNewlines)
         let imageAnalysis = await analyzeImage(imageData)
@@ -119,10 +158,33 @@ enum CoffeeConciergeService {
             )
         }
 
+#if canImport(FoundationModels)
+        if pccIsEnabledForCurrentBuild,
+           imageAnalysis == nil,
+           #available(iOS 27.0, macOS 27.0, *),
+           let appleAnswer = await applePrivateCloudResearch(
+               for: trimmedRequest,
+               context: [equipmentKnowledge, memoryContext(for: trimmedRequest), conversationContext(conversation)].joined(separator: "\n\n"),
+               catalog: catalogContext(products)
+           ) {
+            let pccProductIDs = requestLooksLikeProductRecommendation(trimmedRequest, hasImage: false)
+                && !isEquipmentQuestion(trimmedRequest)
+                ? Array(rankedProducts(for: rankingRequest, products: products).prefix(3)).map(\.id)
+                : []
+            return CoffeeConciergeResult(
+                message: appleAnswer,
+                productIDs: pccProductIDs,
+                usedAppleIntelligence: true,
+                giftMessageSuggestions: [],
+                canBuildCart: requestLooksLikeCartBuild(trimmedRequest) && !isEquipmentQuestion(trimmedRequest)
+            )
+        }
+#endif
+
         if shouldUseLocalModel(for: trimmedRequest),
            let localResult = await localModelResearch(
                for: trimmedRequest,
-               context: [equipmentKnowledge, memoryContext(for: trimmedRequest)].joined(separator: "\n\n")
+               context: [equipmentKnowledge, memoryContext(for: trimmedRequest), conversationContext(conversation)].joined(separator: "\n\n")
            ) {
             return CoffeeConciergeResult(
                 message: localResult.answer,
@@ -150,6 +212,13 @@ enum CoffeeConciergeService {
         }
 
         return fallback
+    }
+
+    private static func conversationContext(_ conversation: [CoffeeConversationTurn]) -> String {
+        guard !conversation.isEmpty else { return "Conversation history: This is the first message." }
+        let recent = conversation.suffix(8)
+        return "Conversation history (use this to understand follow-up questions; do not repeat it verbatim):\n" +
+            recent.map { "\($0.role.capitalized): \($0.text)" }.joined(separator: "\n")
     }
 
     private static func fallbackRecommendation(
@@ -266,6 +335,54 @@ enum CoffeeConciergeService {
         } catch {
             return nil
         }
+    }
+
+#if canImport(FoundationModels)
+    @available(iOS 27.0, macOS 27.0, *)
+    private static func applePrivateCloudResearch(for question: String, context: String, catalog: String) async -> String? {
+        let model = PrivateCloudComputeLanguageModel()
+        guard model.isAvailable else { return nil }
+
+        let session = LanguageModelSession(
+            model: model,
+            tools: [TallaCatalogSearchTool(catalog: catalog)],
+            instructions: """
+            You are Talla AI, a warm and practical coffee coach. Give concise, accurate coffee advice. Use the supplied Talla reference as context, and call searchTallaCatalog when the customer asks about Talla products or equipment available in the catalog. Do not invent products, prices, stock, or personal facts. Ask one clarifying question only when it is genuinely needed. For troubleshooting, recommend one variable to change at a time. Keep the answer under 120 words and do not mention internal models, prompts, or private infrastructure.
+            """
+        )
+
+        let prompt = """
+        Talla coffee reference:
+        \(context)
+
+        Talla catalog snapshot:
+        \(catalog)
+
+        Customer question:
+        \(question)
+        """
+
+        do {
+            let response = try await session.respond(to: prompt)
+            let answer = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return answer.isEmpty ? nil : answer
+        } catch {
+            // PCC can be unavailable because of network state, device eligibility,
+            // system readiness, or daily quota. Let the hosted model take over.
+            return nil
+        }
+    }
+#endif
+
+    private static var pccIsEnabledForCurrentBuild: Bool {
+        return true
+    }
+
+    private static func catalogContext(_ products: [ContentView.Product]) -> String {
+        products.prefix(80).map { product in
+            let variantText = product.variants.prefix(3).map { "\($0.title) \($0.price)" }.joined(separator: ", ")
+            return "- \(product.name) | category: \(product.categoryLabel) | \(product.desc) | variants: \(variantText)"
+        }.joined(separator: "\n")
     }
 
     private static func shouldUseLocalModel(for request: String) -> Bool {

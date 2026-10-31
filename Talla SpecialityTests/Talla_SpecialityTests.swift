@@ -1,9 +1,34 @@
 import Foundation
+import CoreGraphics
 import Testing
 @testable import Talla_Speciality
 
 @MainActor
 struct Talla_SpecialityTests {
+
+    @Test func duoLayoutContextIdentifiesVerticalDisplayDivision() {
+        #expect(
+            DuoLayoutContext(
+                divisionFrames: [CGRect(x: 390, y: 0, width: 12, height: 844)],
+                hingeAngle: nil,
+                hingeStatus: .fullyOpen
+            ).hasVerticalDivision
+        )
+        #expect(
+            !DuoLayoutContext(
+                divisionFrames: [CGRect(x: 0, y: 390, width: 844, height: 12)],
+                hingeAngle: nil,
+                hingeStatus: .fullyOpen
+            ).hasVerticalDivision
+        )
+    }
+
+    @Test func duoLayoutContextPreservesHingeStateWithoutDivision() {
+        let context = DuoLayoutContext(divisionFrames: [], hingeAngle: 1.2, hingeStatus: .partiallyOpen)
+        #expect(context.divisionFrames.isEmpty)
+        #expect(context.hingeAngle == 1.2)
+        #expect(context.hingeStatus == .partiallyOpen)
+    }
 
     @Test func catalogCacheRoundTripsProducts() throws {
         let variant = ContentView.Product.Variant(
@@ -45,8 +70,11 @@ struct Talla_SpecialityTests {
 
     @Test func remoteSettingsCacheRoundTripsRawJSON() throws {
         let data = Data(#"{"release":{"latestVersion":"1.0.0"}}"#.utf8)
-        try TallaRemoteSettingsCache.saveAppSettings(data)
-        #expect(TallaRemoteSettingsCache.loadAppSettings() == data)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try TallaRemoteSettingsCache.saveAppSettings(data, directory: directory)
+        #expect(TallaRemoteSettingsCache.loadAppSettings(directory: directory) == data)
     }
 
     private func conciergeProduct(

@@ -19,6 +19,17 @@ function defaultEventSettings() {
     return { events: [], updatedAt: null };
 }
 
+// Kept server-side so every admin surface can use the same icon vocabulary.
+// These are SF Symbols names; the customer app still falls back to `symbol`
+// when an older client does not understand the `symbols` collection.
+const seasonalEventPresets = Object.freeze({
+    ramadan: Object.freeze({ symbols: ["moon.stars.fill", "moon.fill", "sparkles", "star.fill"], accentHex: "#D3AF62", secondaryHex: "#25352C" }),
+    eid: Object.freeze({ symbols: ["moon.stars.fill", "gift.fill", "sparkles", "star.fill", "bag.fill"], accentHex: "#D6A667", secondaryHex: "#26372D" }),
+    christmas: Object.freeze({ symbols: ["snowflake", "gift.fill", "sparkles", "star.fill", "heart.fill"], accentHex: "#D8C7A0", secondaryHex: "#365342" }),
+    halloween: Object.freeze({ symbols: ["moon.fill", "flame.fill", "sparkles", "wand.and.stars", "face.smiling.fill"], accentHex: "#F08A3C", secondaryHex: "#261A2B" }),
+    general: Object.freeze({ symbols: ["sparkles", "party.popper.fill", "gift.fill", "star.fill", "cup.and.saucer.fill"], accentHex: "#C8965A", secondaryHex: "#2A1D14" }),
+});
+
 function normalizeEventSettings(value = {}) {
     const trimText = (text, maxLength) => String(text || "").trim().slice(0, maxLength);
     const eventID = (candidate, fallback) => {
@@ -59,6 +70,10 @@ function normalizeEventSettings(value = {}) {
                 return true;
             }).slice(0, 40);
         const priority = Number(event?.priority);
+        const primarySymbol = trimText(event?.symbol || event?.symbols?.[0] || "sparkles", 60);
+        const symbols = (Array.isArray(event?.symbols) ? event.symbols : [primarySymbol])
+            .map((symbol) => trimText(symbol, 60))
+            .filter(Boolean).slice(0, 8);
         return {
             id, enabled: Boolean(event?.enabled), name: trimText(event?.name || event?.titleEN || id, 80),
             titleEN: trimText(event?.titleEN, 80), titleAR: trimText(event?.titleAR, 80),
@@ -69,7 +84,7 @@ function normalizeEventSettings(value = {}) {
             categorySubtitleEN: trimText(event?.categorySubtitleEN, 100), categorySubtitleAR: trimText(event?.categorySubtitleAR, 100),
             startAt: isoDate(event?.startAt), endAt: isoDate(event?.endAt), imageURL: httpsURL(event?.imageURL),
             accentHex: hexColor(event?.accentHex, "#C8965A"), secondaryHex: hexColor(event?.secondaryHex, "#2A1D14"),
-            symbol: trimText(event?.symbol || "sparkles", 60), productIDs,
+            symbol: primarySymbol, symbols: symbols.length ? symbols : [primarySymbol], presetID: trimText(event?.presetID, 40), productIDs,
             priority: Number.isFinite(priority) ? Math.max(-1000, Math.min(1000, Math.round(priority))) : 0,
         };
     });
@@ -128,6 +143,7 @@ module.exports = {
     normalizeCampaignSettings,
     defaultEventSettings,
     normalizeEventSettings,
+    seasonalEventPresets,
     activeEventSettings,
     defaultHomeSettings,
     normalizeHomeSettings,

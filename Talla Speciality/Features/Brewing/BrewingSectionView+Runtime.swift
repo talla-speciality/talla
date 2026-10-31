@@ -419,6 +419,8 @@ extension BrewingSectionView {
         if let ratio = recipe.ratio {
             ratioValueInput = formattedRatioValue(ratio)
         }
+        loadedSavedRecipeCoffeeAmount = validCoffeeAmount
+        loadedSavedRecipeRatio = validRatioValue
 
         if let brewerID = recipe.brewerID { createRecipeBrewer = brewerID }
         if let brewMode = recipe.brewMode { recipeBrewTemperatureMode = brewMode }
@@ -577,6 +579,14 @@ extension BrewingSectionView {
     var brewModeWaterAmount: Double {
         if isV60IcedRecipe {
             return recipeBrewingWaterAmount
+        }
+
+        // Once a customer opens a guided profile, the editable coffee dose and
+        // ratio are the source of truth. Published water is only a starting
+        // point; keeping it here made the fields appear editable while the
+        // timer continued to brew the old recipe.
+        if activeSmartRecipe != nil || isGuidedRecipeCustomizing {
+            return validWaterAmount
         }
 
         // The published guide is the source of truth for remote recipes. This
@@ -880,7 +890,12 @@ extension BrewingSectionView {
                 )
             }
         }
-        if let publishedSteps = selectedBrewModeMethod?.publishedSteps,
+        if let activeSmartRecipe {
+            return smartRecipeBrewModeSteps(for: activeSmartRecipe)
+        }
+
+        if !isGuidedRecipeCustomizing,
+           let publishedSteps = selectedBrewModeMethod?.publishedSteps,
            !publishedSteps.isEmpty {
             return publishedSteps.enumerated().map { index, step in
                 return BrewModeStep(
@@ -891,10 +906,6 @@ extension BrewingSectionView {
                     waterTarget: step.waterGrams
                 )
             }
-        }
-
-        if let activeSmartRecipe {
-            return smartRecipeBrewModeSteps(for: activeSmartRecipe)
         }
 
         let method = selectedBrewModeMethod
@@ -1033,7 +1044,7 @@ extension BrewingSectionView {
 
     var pourOverBrewModeSteps: [BrewModeStep] {
         let methodName = selectedBrewModeMethod?.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-        if methodName == "v60" {
+        if methodName == "v60" && !isGuidedRecipeCustomizing {
             return [
                 BrewModeStep(id: 0, time: 0, title: "Add \(formattedWholeGram(validCoffeeAmount)) g coffee", detail: AppLocalization.text("brew_mode_step_grind", fallback: "Level the bed, start the timer, and get ready to bloom."), waterTarget: nil),
                 BrewModeStep(id: 1, time: 10, title: "Pour to 45 g", detail: AppLocalization.text("brew_mode_step_bloom", fallback: "Cover all grounds and let the coffee bloom."), waterTarget: 45),
@@ -1318,9 +1329,16 @@ extension BrewingSectionView {
         _ method: ContentView.BrewingMethod,
         start: Bool,
         usesSmartRecipe: Bool = false,
-        preserveRecipeIdentity: Bool = false
+        preserveRecipeIdentity: Bool = false,
+        enableCustomization: Bool = false
     ) {
+        if start { isCustomerGuidedSession = false }
         restoredBrewTotalSeconds = nil
+        if enableCustomization || preserveRecipeIdentity {
+            isGuidedRecipeCustomizing = true
+        } else if !usesSmartRecipe {
+            isGuidedRecipeCustomizing = false
+        }
         if !usesSmartRecipe {
             activeSmartRecipeID = nil
         }
@@ -1331,7 +1349,7 @@ extension BrewingSectionView {
             isGeneratedRecipeActive = false
         }
 
-        if !usesSmartRecipe {
+        if !usesSmartRecipe && !preserveRecipeIdentity {
             usePublishedRecipe(method.publishedRecipe)
             if let coffeeGrams = method.publishedRecipe?.coffeeGrams {
                 ratioCoffeeInput = formattedRatioValue(coffeeGrams)
@@ -1599,6 +1617,7 @@ extension BrewingSectionView {
     }
 
     func endFocusedBrew() {
+        isCustomerGuidedSession = false
         brewModeRunID = UUID()
         isBrewModeRunning = false
         brewModeElapsedSeconds = 0

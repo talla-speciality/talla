@@ -98,7 +98,7 @@ struct CuppingWorkspaceView: View {
         .navigationTitle(AppLocalization.text("cupping_mode", fallback: "Cupping"))
         .onAppear { load() }
         .sheet(isPresented: $showEventForm) {
-            NavigationStack { Form { TextField("Event name", text: $eventTitle); DatePicker("Date", selection: $eventDate, in: Date()...) }.navigationTitle("Cupping event").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") { showEventForm = false } } } }
+            NavigationStack { Form { TextField("Event name", text: $eventTitle); DatePicker("Date", selection: $eventDate, in: Date()...) }.navigationTitle("Cupping event").toolbar { ToolbarItem(placement: .confirmationAction) { Button { showEventForm = false } label: { Label("Save", systemImage: "checkmark") } } } }
         }
     }
 
@@ -346,7 +346,7 @@ private struct CommunityRecipeEditorView: View {
             if let errorMessage { Text(errorMessage).foregroundStyle(TallaTheme.Colors.destructive) }
             Section { Button(saving ? "Saving…" : "Save changes") { save() }.disabled(saving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
             Section { Text("Editing sends the recipe back for review before it appears publicly again.").font(.footnote).foregroundStyle(secondary) }
-        }.scrollContentBackground(.hidden).background(background).navigationTitle("Edit recipe").toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        }.scrollContentBackground(.hidden).background(background).navigationTitle("Edit recipe").toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Label("Cancel", systemImage: "xmark") } } }
     }
 
     private func save() {

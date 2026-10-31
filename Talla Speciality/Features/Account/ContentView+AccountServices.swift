@@ -446,6 +446,8 @@ extension ContentView {
         addressAdditionalNumber = ""
         addressCountry = .bahrain
         addressNotes = ""
+        addressMapSelection = nil
+        isAddressMapPresented = false
         backendStockAlerts = []
         availableVouchers = []
         appliedVoucher = nil
@@ -843,12 +845,16 @@ extension ContentView {
     @MainActor
     func saveAddress(closeOnboarding: Bool = false) async {
         guard let profile = customerProfile else { return }
-        let label = addressLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = addressLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? AppLocalization.text("home_address_label", fallback: "Home")
+            : addressLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         let fullName = addressFullName.trimmingCharacters(in: .whitespacesAndNewlines)
         let phone = normalizedPhoneNumber(addressPhone)
         let line1 = addressLine1.trimmingCharacters(in: .whitespacesAndNewlines)
         let city = addressCity.trimmingCharacters(in: .whitespacesAndNewlines)
-        let notes = addressNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let typedNotes = addressNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notes = [typedNotes, addressMapSelection.map { "Delivery location: \($0.mapsURL)" }]
+            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n")
         let region = addressRegion.trimmingCharacters(in: .whitespacesAndNewlines)
         let postalCode = addressPostalCode.trimmingCharacters(in: .whitespacesAndNewlines)
         let block = addressBlock.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -908,6 +914,7 @@ extension ContentView {
             addressAdditionalNumber = ""
             addressCountry = .bahrain
             addressNotes = ""
+            addressMapSelection = nil
             if closeOnboarding {
                 isAccountOnboardingPresented = false
             }

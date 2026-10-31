@@ -139,11 +139,13 @@ extension BrewingSectionView {
             let latest = brewHistoryItems.first
             Button {
                 if let latest {
-                    applySavedRecipe(latest, start: true)
+                    applySavedRecipe(latest, start: false)
+                    activeDashboardDestination = .brewTimer
                 } else if let profile = selectedGuideProfile {
-                    applyGuideProfile(profile, start: true)
+                    applyGuideProfile(profile, start: false)
+                    activeDashboardDestination = .brewTimer
                 } else {
-                    isFocusedBrewPresented = true
+                    activeDashboardDestination = .brewTimer
                 }
             } label: {
                 VStack(alignment: .leading, spacing: 14) {
@@ -291,7 +293,8 @@ extension BrewingSectionView {
 
     func savedDashboardRecipeCard(_ recipe: BrewRecipeRecord) -> some View {
         Button {
-            applySavedRecipe(recipe, start: true)
+            applySavedRecipe(recipe, start: false)
+            activeDashboardDestination = .brewTimer
         } label: {
             savedDashboardCardContent(
                 title: recipe.title,
@@ -469,14 +472,20 @@ extension BrewingSectionView {
                     case .ratioCalculator:
                         goldenRatioSection
                     case .brewTimer:
-                        guidedBrewModeSection
+                        if isProGuidedControlsSelected {
+                            guidedBrewModeSection
+                        } else {
+                            customerGuidedBrewModeSection
+                        }
                     case .coffeeJournal:
                         coffeeJournalSection
                     case .coffeeLibrary:
                         CoffeeLibraryView(brewCoffeeAction: { coffee in
                             brewRecipeName = coffee.productName
+                            coffeeName = coffee.productName
                             selectedPurchasedCoffeeID = coffee.id
-                            activeDashboardDestination = .brewTimer
+                            customerGuidedValidationMessage = nil
+                            returnToGuidedBrewFromCoffeeLibrary()
                         }, reorderCoffeeAction: { lot in
                             guard let productID = lot.productID else { return }
                             reorderCoffeeAction(productID)
@@ -505,19 +514,34 @@ extension BrewingSectionView {
                 .padding(.vertical, 26)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
+            .id(destination == .brewTimer ? (isProGuidedControlsSelected ? "guided-pro" : "guided-simple") : destination.rawValue)
             .background(brewBackgroundColor.ignoresSafeArea())
             .navigationTitle(destinationTitle(destination))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(AppLocalization.text("done", fallback: "Done")) {
-                        activeDashboardDestination = nil
+                    Button {
+                        if destination == .coffeeLibrary && returnsToGuidedBrewFromCoffeeLibrary {
+                            returnToGuidedBrewFromCoffeeLibrary()
+                        } else {
+                            activeDashboardDestination = nil
+                        }
+                    } label: {
+                        Label(AppLocalization.text("done", fallback: "Done"), systemImage: "checkmark")
                     }
                     .font(Font.custom("AvenirNext-Bold", size: 13))
                     .foregroundColor(TallaTheme.Colors.ink)
                 }
             }
             .toolbar(.hidden, for: .tabBar)
+        }
+    }
+
+    func returnToGuidedBrewFromCoffeeLibrary() {
+        returnsToGuidedBrewFromCoffeeLibrary = false
+        activeDashboardDestination = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            activeDashboardDestination = .brewTimer
         }
     }
 
