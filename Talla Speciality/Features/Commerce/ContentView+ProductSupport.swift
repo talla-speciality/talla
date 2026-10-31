@@ -1048,6 +1048,34 @@ extension ContentView {
             )
         }
 
+        if key.contains("al-majd") || key.contains("almajd") {
+            return CoffeePassportPage(
+                origin: "Qatar",
+                profile: "Golden, aromatic, and delicately floral",
+                notes: "Cardamom, saffron, rose water, and gentle floral sweetness",
+                method: "Arabic coffee / dallah",
+                dose: "10 g coffee",
+                water: "150 g water",
+                temperature: "90–92°C",
+                grind: "Fine",
+                brewTime: "8–10 min"
+            )
+        }
+
+        if key.contains("zayed") {
+            return CoffeePassportPage(
+                origin: "United Arab Emirates",
+                profile: "Light, fragrant, and warmly spiced",
+                notes: "Cardamom, saffron, golden sweetness, and delicate spice",
+                method: "Arabic coffee / dallah",
+                dose: "10 g coffee",
+                water: "150 g water",
+                temperature: "90–92°C",
+                grind: "Fine",
+                brewTime: "8–10 min"
+            )
+        }
+
         return nil
     }
 
