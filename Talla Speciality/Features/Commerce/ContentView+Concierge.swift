@@ -131,7 +131,10 @@ extension ContentView {
             )
             .ignoresSafeArea()
         )
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+        .presentationBackground(.ultraThinMaterial)
         .onChange(of: conciergeMessages) { _, messages in
             ConciergeChatMessage.persist(messages)
         }
@@ -265,21 +268,31 @@ extension ContentView {
     }
 
     var coffeeConciergeThinkingView: some View {
-        HStack(spacing: 11) {
-            TallaCompanionView(isThinking: true, size: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Talla is thinking")
-                    .font(labelFont(size: 10, weight: .bold))
+        VStack(spacing: 12) {
+            TallaCompanionView(isThinking: true, size: 74)
+
+            VStack(spacing: 4) {
+                Text("Talla is preparing your answer")
+                    .font(displayFont(size: 17))
+                    .fontWeight(.bold)
                     .foregroundColor(primaryTextColor)
-                Text("Using your coffee context to shape the next answer")
-                    .font(bodyFont(size: 11))
+                Text("Looking at your coffee context and brew details…")
+                    .font(bodyFont(size: 12))
                     .foregroundColor(secondaryTextColor)
+                    .multilineTextAlignment(.center)
             }
-            Spacer()
+
+            ProgressView()
+                .tint(readableBrandGoldColor)
         }
-        .padding(13)
-        .background(readableBrandGoldColor.opacity(isLightAppearance ? 0.10 : 0.14))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 18)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.12 : 0.08), lineWidth: 1)
+        )
     }
 
     var coffeeConciergeFollowUps: some View {
