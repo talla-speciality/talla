@@ -191,6 +191,12 @@ extension ContentView {
             let showPassport: Bool
         }
 
+        struct UI: Decodable {
+            let homeSectionOrder: [String]
+            let hiddenHomeSections: [String]
+            let tabLabels: [String: String]
+        }
+
         struct AppFeatures: Decodable {
             let showBrewingGuides: Bool
             let showCommunityRecipes: Bool
@@ -333,6 +339,7 @@ extension ContentView {
         let announcement: Announcement
         let support: Support
         let homeSections: HomeSections
+        let ui: UI?
         let appFeatures: AppFeatures?
         let payments: Payments?
         let coffeeClub: CoffeeClub?

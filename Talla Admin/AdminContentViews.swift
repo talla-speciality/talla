@@ -368,7 +368,16 @@ extension AdminContentArea {
             .init("homeSections.showQuickDrinks", "Talla Express drinks", .toggle),
             .init("homeSections.showFunPick", "Today’s fun pick", .toggle),
             .init("homeSections.showSignatureRoasts", "Signature roasts", .toggle),
-            .init("homeSections.showPassport", "Coffee passport", .toggle)
+            .init("homeSections.showPassport", "Coffee passport", .toggle),
+            .init("ui.homeSectionOrder", "Home section order", .words),
+            .init("ui.hiddenHomeSections", "Hidden Home sections", .words)
+        ]),
+        .init("Navigation labels", [
+            .init("ui.tabLabels.home", "Home label"),
+            .init("ui.tabLabels.shop", "Shop label"),
+            .init("ui.tabLabels.brew", "Brew label"),
+            .init("ui.tabLabels.discover", "Discover label"),
+            .init("ui.tabLabels.account", "Account label")
         ]),
         .init("Customer features", [
             .init("appFeatures.showBrewingGuides", "Brewing guides", .toggle),

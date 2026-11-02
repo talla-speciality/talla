@@ -295,6 +295,17 @@ function defaultAppSettings() {
             showSignatureRoasts: true,
             showPassport: true
         },
+        ui: {
+            homeSectionOrder: ["coffeeShelf", "winter", "quickDrinks", "signatureRoasts", "seasonalEvents", "announcement", "more"],
+            hiddenHomeSections: [],
+            tabLabels: {
+                home: "Home",
+                shop: "Shop",
+                brew: "Brew",
+                discover: "Discover",
+                account: "Account"
+            }
+        },
         appFeatures: {
             showBrewingGuides: true,
             showCommunityRecipes: true,
@@ -436,6 +447,7 @@ function normalizeAppSettings(value = {}) {
     const announcement = value.announcement || {};
     const support = value.support || {};
     const homeSections = value.homeSections || {};
+    const ui = value.ui || {};
     const appFeatures = value.appFeatures || {};
     const payments = value.payments || {};
     const coffeeClub = value.coffeeClub || {};
@@ -540,6 +552,15 @@ function normalizeAppSettings(value = {}) {
             showFunPick: homeSections.showFunPick === undefined ? true : Boolean(homeSections.showFunPick),
             showSignatureRoasts: homeSections.showSignatureRoasts === undefined ? true : Boolean(homeSections.showSignatureRoasts),
             showPassport: homeSections.showPassport === undefined ? true : Boolean(homeSections.showPassport)
+        },
+        ui: {
+            homeSectionOrder: [...new Set((Array.isArray(ui.homeSectionOrder) ? ui.homeSectionOrder : fallback.ui.homeSectionOrder)
+                .map((item) => trimText(item, 40))
+                .filter((item) => ["coffeeShelf", "winter", "quickDrinks", "signatureRoasts", "seasonalEvents", "announcement", "more"].includes(item)))],
+            hiddenHomeSections: [...new Set((Array.isArray(ui.hiddenHomeSections) ? ui.hiddenHomeSections : fallback.ui.hiddenHomeSections)
+                .map((item) => trimText(item, 40))
+                .filter((item) => ["coffeeShelf", "winter", "quickDrinks", "signatureRoasts", "seasonalEvents", "announcement", "more"].includes(item)))],
+            tabLabels: Object.fromEntries(["home", "shop", "brew", "discover", "account"].map((key) => [key, trimText(ui.tabLabels?.[key], 30) || fallback.ui.tabLabels[key]]))
         },
         appFeatures: {
             showBrewingGuides: appFeatures.showBrewingGuides === undefined ? true : Boolean(appFeatures.showBrewingGuides),

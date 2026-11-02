@@ -326,32 +326,49 @@ extension ContentView {
 
     var legacyHomeView: some View {
         VStack(spacing: 0) {
-            homePurchasedCoffeeShelf
-            winterCollection
-            if remoteAppSettings?.homeSections.showQuickDrinks != false {
-                homeQuickDrinks
+            ForEach(homeSectionOrder, id: \.self) { section in
+                homeSectionView(section)
             }
-            if remoteAppSettings?.homeSections.showSignatureRoasts != false {
-                featuredProducts
-            }
-            seasonalEventsSection
-            appAnnouncementCard
-            optionalAppUpdateCard
 
-            homeMoreSectionsToggle
+        }
+    }
 
-            if isHomeMoreExpanded {
-                Group {
-                    if remoteAppSettings?.homeSections.showFunPick != false {
-                        homeSurprisePick
-                    }
-                    if remoteAppSettings?.homeSections.showPassport != false {
-                        tallaPassportSection
-                    }
-                    homeRecentlyViewedShelf
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+    var homeSectionOrder: [String] {
+        let fallback = ["coffeeShelf", "winter", "quickDrinks", "signatureRoasts", "seasonalEvents", "announcement", "more"]
+        let configured = remoteAppSettings?.ui?.homeSectionOrder ?? fallback
+        let hidden = Set(remoteAppSettings?.ui?.hiddenHomeSections ?? [])
+        let known = Set(fallback)
+        let ordered = configured.filter { known.contains($0) && !hidden.contains($0) }
+        return ordered + fallback.filter { !ordered.contains($0) && !hidden.contains($0) }
+    }
+
+    @ViewBuilder
+    func homeSectionView(_ section: String) -> some View {
+        switch section {
+        case "coffeeShelf": homePurchasedCoffeeShelf
+        case "winter": winterCollection
+        case "quickDrinks":
+            if remoteAppSettings?.homeSections.showQuickDrinks != false { homeQuickDrinks }
+        case "signatureRoasts":
+            if remoteAppSettings?.homeSections.showSignatureRoasts != false { featuredProducts }
+        case "seasonalEvents": seasonalEventsSection
+        case "announcement": appAnnouncementCard
+        case "more":
+            appMoreHomeSections
+        default: EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    var appMoreHomeSections: some View {
+        homeMoreSectionsToggle
+        if isHomeMoreExpanded {
+            Group {
+                if remoteAppSettings?.homeSections.showFunPick != false { homeSurprisePick }
+                if remoteAppSettings?.homeSections.showPassport != false { tallaPassportSection }
+                homeRecentlyViewedShelf
             }
+            .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
 

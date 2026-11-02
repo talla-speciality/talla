@@ -3,6 +3,22 @@ const assert = require("node:assert/strict");
 
 const { normalizeAppSettings } = require("../server");
 
+test("remote UI controls normalize Home layout, visibility, and navigation labels", () => {
+    const settings = normalizeAppSettings({
+        ui: {
+            homeSectionOrder: ["winter", "bad-section", "winter", "coffeeShelf"],
+            hiddenHomeSections: ["announcement", "bad-section", "announcement"],
+            tabLabels: { home: "Today", shop: "", account: "Profile" }
+        }
+    });
+
+    assert.deepEqual(settings.ui.homeSectionOrder, ["winter", "coffeeShelf"]);
+    assert.deepEqual(settings.ui.hiddenHomeSections, ["announcement"]);
+    assert.equal(settings.ui.tabLabels.home, "Today");
+    assert.equal(settings.ui.tabLabels.shop, "Shop");
+    assert.equal(settings.ui.tabLabels.account, "Profile");
+});
+
 test("Click to Pay has an independent switch and preserves legacy availability", () => {
     assert.equal(normalizeAppSettings({}).payments.clickToPayEnabled, true);
     assert.equal(normalizeAppSettings({ payments: { cardEnabled: false } }).payments.clickToPayEnabled, false);

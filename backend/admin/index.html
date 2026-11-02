@@ -791,6 +791,21 @@
                         <label><input id="app-show-signature-roasts" type="checkbox" style="width:auto; margin-right:8px;">Signature roasts</label>
                         <label><input id="app-show-passport" type="checkbox" style="width:auto; margin-right:8px;">Talla Passport</label>
                     </div>
+                    <div class="grid" style="margin-top:12px;">
+                        <input id="app-home-section-order" type="text" maxlength="240" placeholder="Home order: coffeeShelf, winter, quickDrinks, signatureRoasts, seasonalEvents, announcement, more">
+                        <input id="app-hidden-home-sections" type="text" maxlength="180" placeholder="Hidden sections: announcement, more">
+                    </div>
+                    <div class="muted" style="margin-top:8px;">Use comma-separated IDs to reorder Home or hide a whole section. Unknown IDs are ignored.</div>
+                </div>
+                <div class="list-item" style="margin-bottom: 14px;">
+                    <strong>Navigation labels</strong>
+                    <div class="grid" style="margin-top:12px;">
+                        <input id="app-tab-label-home" type="text" maxlength="30" placeholder="Home tab label">
+                        <input id="app-tab-label-shop" type="text" maxlength="30" placeholder="Shop tab label">
+                        <input id="app-tab-label-brew" type="text" maxlength="30" placeholder="Brew tab label">
+                        <input id="app-tab-label-discover" type="text" maxlength="30" placeholder="Discover tab label">
+                        <input id="app-tab-label-account" type="text" maxlength="30" placeholder="Account tab label">
+                    </div>
                 </div>
                 <div class="list-item" style="margin-bottom:14px;">
                     <strong>Support and policy links</strong>
@@ -1312,6 +1327,9 @@
         const appShowFunPickInput = document.getElementById("app-show-fun-pick");
         const appShowSignatureRoastsInput = document.getElementById("app-show-signature-roasts");
         const appShowPassportInput = document.getElementById("app-show-passport");
+        const appHomeSectionOrderInput = document.getElementById("app-home-section-order");
+        const appHiddenHomeSectionsInput = document.getElementById("app-hidden-home-sections");
+        const appTabLabelInputs = Object.fromEntries(["home", "shop", "brew", "discover", "account"].map((key) => [key, document.getElementById(`app-tab-label-${key}`)]));
         const appWhatsAppURLInput = document.getElementById("app-whatsapp-url");
         const appPrivacyURLInput = document.getElementById("app-privacy-url");
         const appTermsURLInput = document.getElementById("app-terms-url");
@@ -1625,6 +1643,7 @@
             const announcement = settings.announcement || {};
             const support = settings.support || {};
             const homeSections = settings.homeSections || {};
+            const ui = settings.ui || {};
             const payments = settings.payments || {};
             const fulfillment = settings.fulfillment || {};
             const release = settings.release || {};
@@ -1640,6 +1659,11 @@
             appShowFunPickInput.checked = homeSections.showFunPick !== false;
             appShowSignatureRoastsInput.checked = homeSections.showSignatureRoasts !== false;
             appShowPassportInput.checked = homeSections.showPassport !== false;
+            appHomeSectionOrderInput.value = (ui.homeSectionOrder || []).join(", ");
+            appHiddenHomeSectionsInput.value = (ui.hiddenHomeSections || []).join(", ");
+            Object.entries(appTabLabelInputs).forEach(([key, element]) => {
+                element.value = ui.tabLabels?.[key] || "";
+            });
             appWhatsAppURLInput.value = support.whatsappURL || "";
             appPrivacyURLInput.value = support.privacyURL || "";
             appTermsURLInput.value = support.termsURL || "";
@@ -1835,6 +1859,11 @@
                             showFunPick: appShowFunPickInput.checked,
                             showSignatureRoasts: appShowSignatureRoastsInput.checked,
                             showPassport: appShowPassportInput.checked
+                        },
+                        ui: {
+                            homeSectionOrder: appHomeSectionOrderInput.value.split(",").map((item) => item.trim()).filter(Boolean),
+                            hiddenHomeSections: appHiddenHomeSectionsInput.value.split(",").map((item) => item.trim()).filter(Boolean),
+                            tabLabels: Object.fromEntries(Object.entries(appTabLabelInputs).map(([key, element]) => [key, element.value.trim()]))
                         },
                         payments: {
                             applePayEnabled: input("app-pay-apple").checked,

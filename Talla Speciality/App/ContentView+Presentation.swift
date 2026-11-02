@@ -31,6 +31,11 @@ import UIKit
 #endif
 
 extension ContentView {
+    func remoteTabLabel(_ key: String, fallback: String) -> String {
+        let value = remoteAppSettings?.ui?.tabLabels[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? fallback : value
+    }
+
     var body: some View {
         presentedContent
             .font(TallaTheme.Fonts.body)
@@ -599,7 +604,7 @@ extension ContentView {
     var modernTabView: some View {
         TabView(selection: $activeTab) {
             SwiftUI.Tab(
-                AppLocalization.text("home", fallback: "Home"),
+                remoteTabLabel("home", fallback: AppLocalization.text("home", fallback: "Home")),
                 systemImage: Tab.home.systemImage,
                 value: Tab.home
             ) {
@@ -609,7 +614,7 @@ extension ContentView {
                 .accessibilityIdentifier("tab.home")
             }
             SwiftUI.Tab(
-                AppLocalization.text("shop", fallback: "Shop"),
+                remoteTabLabel("shop", fallback: AppLocalization.text("shop", fallback: "Shop")),
                 systemImage: Tab.shop.systemImage,
                 value: Tab.shop
             ) {
@@ -620,7 +625,7 @@ extension ContentView {
             }
 
             SwiftUI.Tab(
-                AppLocalization.text("brew", fallback: "Brew"),
+                remoteTabLabel("brew", fallback: AppLocalization.text("brew", fallback: "Brew")),
                 systemImage: Tab.brewing.systemImage,
                 value: Tab.brewing
             ) {
@@ -631,7 +636,7 @@ extension ContentView {
             }
 
             SwiftUI.Tab(
-                AppLocalization.text("discover", fallback: "Discover"),
+                remoteTabLabel("discover", fallback: AppLocalization.text("discover", fallback: "Discover")),
                 systemImage: Tab.discover.systemImage,
                 value: Tab.discover
             ) {
@@ -642,7 +647,7 @@ extension ContentView {
             }
 
             SwiftUI.Tab(
-                AppLocalization.text("account", fallback: "Account"),
+                remoteTabLabel("account", fallback: AppLocalization.text("account", fallback: "Account")),
                 systemImage: Tab.account.systemImage,
                 value: Tab.account
             ) {
@@ -663,34 +668,34 @@ extension ContentView {
                 .tag(Tab.home)
                 .accessibilityIdentifier("tab.home")
                 .tabItem {
-                    Label(AppLocalization.text("home", fallback: "Home"), systemImage: Tab.home.systemImage)
+                    Label(remoteTabLabel("home", fallback: AppLocalization.text("home", fallback: "Home")), systemImage: Tab.home.systemImage)
                 }
 
             tabScreen(tab: .shop) { shopView }
                 .tag(Tab.shop)
                 .accessibilityIdentifier("tab.shop")
                 .tabItem {
-                    Label(AppLocalization.text("shop", fallback: "Shop"), systemImage: Tab.shop.systemImage)
+                    Label(remoteTabLabel("shop", fallback: AppLocalization.text("shop", fallback: "Shop")), systemImage: Tab.shop.systemImage)
                 }
 
             tabScreen(tab: .brewing) { brewingView }
                 .tag(Tab.brewing)
                 .accessibilityIdentifier("tab.brewing")
                 .tabItem {
-                    Label(AppLocalization.text("brew", fallback: "Brew"), systemImage: Tab.brewing.systemImage)
+                    Label(remoteTabLabel("brew", fallback: AppLocalization.text("brew", fallback: "Brew")), systemImage: Tab.brewing.systemImage)
                 }
             tabScreen(tab: .discover) { discoverView }
                 .tag(Tab.discover)
                 .accessibilityIdentifier("tab.discover")
                 .tabItem {
-                    Label(AppLocalization.text("discover", fallback: "Discover"), systemImage: Tab.discover.systemImage)
+                    Label(remoteTabLabel("discover", fallback: AppLocalization.text("discover", fallback: "Discover")), systemImage: Tab.discover.systemImage)
                 }
 
             tabScreen(tab: .account) { accountView }
                 .tag(Tab.account)
                 .accessibilityIdentifier("tab.account")
                 .tabItem {
-                    Label(AppLocalization.text("account", fallback: "Account"), systemImage: Tab.account.systemImage)
+                    Label(remoteTabLabel("account", fallback: AppLocalization.text("account", fallback: "Account")), systemImage: Tab.account.systemImage)
                 }
 
         }
