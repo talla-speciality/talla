@@ -703,6 +703,20 @@ extension ContentView {
         NavigationStack {
             tabScrollContent(tab: tab, content: content)
                 .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            openCoffeeConcierge()
+                        } label: {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(readableBrandGoldColor)
+                                .frame(width: 32, height: 32)
+                                .background(cardFillColor, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(AppLocalization.text("coffee_ai_home_title", fallback: "Ask Talla AI"))
+                        .accessibilityIdentifier("navigation.tallaAI")
+                    }
                     if #available(iOS 27.0, *) {
                         ToolbarItem(placement: .primaryAction) {
                             if tab == .home || tab == .shop {
@@ -721,7 +735,7 @@ extension ContentView {
                         }
                     }
                 }
-                .toolbar(usesSystemNavigationActions ? .visible : .hidden, for: .navigationBar)
+                .toolbar(.visible, for: .navigationBar)
                 .modifier(DuoToolbarBehavior())
                 .tallaAdaptiveNavigationBarBackground(systemChrome: usesSystemNavigationActions)
         }

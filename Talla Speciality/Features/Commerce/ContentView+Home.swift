@@ -326,12 +326,7 @@ extension ContentView {
 
     var legacyHomeView: some View {
         VStack(spacing: 0) {
-            DuoLeadingColumn {
-                todayNextCupCard
-            }
-            todayCompactCard
             homePurchasedCoffeeShelf
-            homeUsualRow
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }
