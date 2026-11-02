@@ -877,7 +877,7 @@ extension ContentView {
         let targetCategory: String
         if seasonalEventCategories.contains(where: { $0.key == eventCategoryKey(event) }) {
             targetCategory = eventCategoryKey(event)
-        } else if event.id == "winter" && !homeWinterProducts.isEmpty {
+        } else if (event.id == "winter" || event.id.hasPrefix("winter-") || event.presetID == "winter") && !homeWinterProducts.isEmpty {
             targetCategory = "winter"
         } else {
             targetCategory = "all"
