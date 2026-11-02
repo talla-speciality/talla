@@ -68,6 +68,7 @@ struct AdminSeasonalEventPreset: Identifiable {
         .init(id: "ramadan", title: "Ramadan", subtitle: "Moon, stars, and warm night tones", symbols: ["moon.stars.fill", "moon.fill", "sparkles", "star.fill"], accentHex: "#D3AF62", secondaryHex: "#25352C"),
         .init(id: "eid", title: "Eid", subtitle: "Gifts, stars, and celebration", symbols: ["moon.stars.fill", "gift.fill", "sparkles", "star.fill", "bag.fill"], accentHex: "#D6A667", secondaryHex: "#26372D"),
         .init(id: "christmas", title: "Christmas", subtitle: "Snow, gifts, and festive sparkle", symbols: ["snowflake", "gift.fill", "sparkles", "star.fill", "heart.fill"], accentHex: "#D8C7A0", secondaryHex: "#365342"),
+        .init(id: "winter", title: "Winter", subtitle: "Warm drinks, chocolate, and coffee for cooler days", symbols: ["snowflake", "mug.fill", "sparkles", "flame.fill", "heart.fill"], accentHex: "#C8965A", secondaryHex: "#2A1D14"),
         .init(id: "halloween", title: "Halloween", subtitle: "Moonlight, fire, and playful magic", symbols: ["moon.fill", "flame.fill", "sparkles", "wand.and.stars", "face.smiling.fill"], accentHex: "#F08A3C", secondaryHex: "#261A2B"),
         .init(id: "general", title: "General celebration", subtitle: "A flexible festive starting point", symbols: ["sparkles", "party.popper.fill", "gift.fill", "star.fill", "cup.and.saucer.fill"], accentHex: "#C8965A", secondaryHex: "#2A1D14")
     ]
