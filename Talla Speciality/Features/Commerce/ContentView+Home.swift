@@ -327,13 +327,13 @@ extension ContentView {
     var legacyHomeView: some View {
         VStack(spacing: 0) {
             homePurchasedCoffeeShelf
+            winterCollection
             if remoteAppSettings?.homeSections.showQuickDrinks != false {
                 homeQuickDrinks
             }
             if remoteAppSettings?.homeSections.showSignatureRoasts != false {
                 featuredProducts
             }
-            winterCollection
             seasonalEventsSection
             appAnnouncementCard
             optionalAppUpdateCard
