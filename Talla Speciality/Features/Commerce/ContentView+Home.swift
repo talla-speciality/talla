@@ -184,13 +184,14 @@ extension ContentView {
     }
 
     var homeWinterProducts: [Product] {
-        products
-            .filter { product in
-                product.isAvailableForSale
-                    && ["winter", "hot-chocolate"].contains(ProductCatalogRules.shopCategoryKey(for: product.categoryKey))
-            }
-            .prefix(4)
-            .map { $0 }
+        let matching = products.filter { product in
+            product.isAvailableForSale && ProductCatalogRules.matchesShopCategory(
+                "winter", productCategory: product.categoryKey, name: product.name, handle: product.handle
+            )
+        }
+        let chocolate = matching.filter { ProductCatalogRules.isHotChocolate(categoryKey: $0.categoryKey, name: $0.name, handle: $0.handle) }
+        let otherWinterProducts = matching.filter { !ProductCatalogRules.isHotChocolate(categoryKey: $0.categoryKey, name: $0.name, handle: $0.handle) }
+        return Array((chocolate + otherWinterProducts).prefix(4))
     }
 
     @ViewBuilder

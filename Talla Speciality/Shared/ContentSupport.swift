@@ -398,6 +398,19 @@ enum AppLocalization {
         func normalized(_ text: String) -> String {
             text.components(separatedBy: .whitespacesAndNewlines).joined()
         }
+        if key.hasSuffix("_name"), source.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("Winter Box") == .orderedSame {
+            return currentLanguage.effectiveLanguageCode == "ar" ? "صندوق الشتاء" : source
+        }
+        if key.hasSuffix("_name"), source.localizedCaseInsensitiveContains("signature blends"),
+           source.localizedCaseInsensitiveContains("talla") || source.contains("تله") {
+            return currentLanguage.effectiveLanguageCode == "ar" ? "خلطات تله المميزة" : "Talla Signature Blends"
+        }
+        if currentLanguage.effectiveLanguageCode == "ar", key == "catalog_riffa-drip-bags_name" {
+            return "اظرف قهوة"
+        }
+        if currentLanguage.effectiveLanguageCode == "ar", key == "catalog_talla-stainless-steel-cup_name" {
+            return "كوب ستيل"
+        }
         let canonicalBoxNames: [String: (english: String, arabic: String)] = [
             "catalog_talla-box_name": ("Talla Box", "صندوق تله"),
             "catalog_mini-talla-box_name": ("Mini Talla Box", "صندوق تله الصغير"),
@@ -409,14 +422,23 @@ enum AppLocalization {
         guard currentLanguage.effectiveLanguageCode == "ar",
               let entry = translations[key], let original = entry["en"],
               normalized(original) == normalized(source), let arabic = entry["ar"] else {
-            return normalizedArabicBrand(in: value)
+            return currentLanguage.effectiveLanguageCode == "ar" ? normalizedArabicBrand(in: value) : value
         }
         return normalizedArabicBrand(in: arabic)
     }
 
     static func catalogOption(_ value: String) -> String {
-        value.components(separatedBy: " / ").map {
-            text("catalog_term_" + $0.trimmingCharacters(in: .whitespaces).lowercased(), fallback: $0)
+        value.components(separatedBy: " / ").map { part in
+            let trimmed = part.trimmingCharacters(in: .whitespaces)
+            let normalized = trimmed.lowercased().replacingOccurrences(of: "’", with: "'")
+            if ["hawar island's", "hawar islands'", "hawar island"].contains(normalized) {
+                return text("catalog_term_hawar islands", fallback: trimmed)
+            }
+            if let suffix = trimmed.range(of: #"\s*\+\s*\d+$"#, options: .regularExpression) {
+                let origin = String(trimmed[..<suffix.lowerBound]).trimmingCharacters(in: .whitespaces)
+                return text("catalog_term_" + origin.lowercased(), fallback: origin) + String(trimmed[suffix])
+            }
+            return text("catalog_term_" + normalized, fallback: trimmed)
         }.joined(separator: " / ")
     }
 

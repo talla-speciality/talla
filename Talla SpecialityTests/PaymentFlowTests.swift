@@ -329,6 +329,12 @@ struct ArabicLocalizationTests {
             #expect(AppLocalization.catalogText("Riffa", source: "Riffa", key: "catalog_riffa_name") == "الرفاع")
             #expect(AppLocalization.catalogText("رفاع جديد", source: "Riffa", key: "catalog_riffa_name") == "الرفاع")
             #expect(AppLocalization.catalogText("Riffa Reserve", source: "Riffa Reserve", key: "catalog_riffa_name") == "Riffa Reserve")
+            #expect(AppLocalization.catalogText("شوكولاته ساخنة", source: "Winter Box", key: "catalog_old-handle_name") == "صندوق الشتاء")
+            #expect(AppLocalization.catalogText("اظرف الرفاع", source: "Riffa Drip Bags", key: "catalog_riffa-drip-bags_name") == "اظرف قهوة")
+            #expect(AppLocalization.catalogText("كوب من الفولاذ المقاوم للصدأ", source: "Stainless Steel Cup", key: "catalog_talla-stainless-steel-cup_name") == "كوب ستيل")
+            #expect(AppLocalization.catalogText("Signature Blends تله", source: "Signature Blends Talla", key: "catalog_signature-blends_name") == "خلطات تله المميزة")
+            #expect(AppLocalization.catalogOption("1 liter / Hot Chocolate") == "١ لتر / شوكولاتة ساخنة")
+            #expect(AppLocalization.catalogOption("1 liter / Karak") == "١ لتر / كرك")
         }
     }
 
@@ -336,6 +342,8 @@ struct ArabicLocalizationTests {
         inArabic {
             #expect(AppLocalization.catalogOption("250 G / Whole bean") == "٢٥٠ غ / حبوب كاملة")
             #expect(AppLocalization.catalogOption("Hawar islands / Riffa") == "جزر حوار / الرفاع")
+            #expect(AppLocalization.catalogOption("5 bags / Hawar Island’s") == "٥ أكياس / جزر حوار")
+            #expect(AppLocalization.catalogOption("Brazil +3") == "البرازيل +3")
             #expect(AppLocalization.catalogOption("50 / 02") == "50 / 02")
             #expect(ProductCatalogRules.categoryLabel(productType: "Coffee", fallbackKey: "coffee-beans") == "البن")
         }

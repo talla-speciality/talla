@@ -499,16 +499,7 @@ extension ContentView {
             chips.append(("sparkles", process))
         }
 
-        if let origin = firstMatchedValue(in: searchableText, matches: [
-            ("ethiopia", "Ethiopia"),
-            ("colombia", "Colombia"),
-            ("brazil", "Brazil"),
-            ("yemen", "Yemen"),
-            ("kenya", "Kenya"),
-            ("guatemala", "Guatemala"),
-            ("costa rica", "Costa Rica"),
-            ("arabic", "Arabic")
-        ]) {
+        if let origin = productCountryOfOrigin(for: product) {
             chips.append(("globe.europe.africa.fill", origin))
         }
 
@@ -678,7 +669,9 @@ extension ContentView {
                     .font(displayFont(size: 24))
                     .foregroundColor((selectedVariant?.isAvailableForSale ?? product.isAvailableForSale) ? TallaTheme.Colors.ink : tertiaryTextColor)
 
-                productFactsSection(product)
+                if !ProductCatalogRules.isWinterBox(title: product.catalogSourceText?.components(separatedBy: "\n").first ?? product.name) {
+                    productFactsSection(product)
+                }
 
                 if let passport = coffeePassportPage(for: product) {
                     coffeePassportSection(passport)

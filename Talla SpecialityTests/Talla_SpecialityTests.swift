@@ -504,15 +504,20 @@ struct Talla_SpecialityTests {
         #expect(ProductCatalogRules.categoryLabel(productType: "Accessories", fallbackKey: key) == "Equipment")
     }
 
-    @Test func mapsHotChocolateToHotChocolateCategory() {
+    @Test func mapsHotChocolateDrinkToWinterCategory() {
         let key = ProductCatalogRules.categoryKey(
             productType: "",
             tags: ["Cocoa"],
             title: "Classic Hot Chocolate"
         )
 
-        #expect(key == "hot-chocolate")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Hot Chocolate")
+        #expect(key == "winter")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Winter")
+        #expect(ProductCatalogRules.categoryKey(productType: "Ready Made Drinks", tags: ["app-category:ready-made-drinks"], title: "Hot Chocolate") == "winter")
+        #expect(ProductCatalogRules.matchesShopCategory("winter", productCategory: key, name: "Classic Hot Chocolate", handle: "classic-hot-chocolate"))
+        #expect(ProductCatalogRules.matchesShopCategory("winter", productCategory: "ready-made-drinks", name: "Hot Chocolate", handle: "hot-chocolate"))
+        #expect(ProductCatalogRules.matchesShopCategory("ready-made-drinks", productCategory: "ready-made-drinks", name: "Hot Chocolate", handle: "hot-chocolate"))
+        #expect(!ProductCatalogRules.matchesShopCategory("winter", productCategory: "ready-made-drinks", name: "Latte", handle: "latte"))
     }
 
     @Test func mapsDripBagSignalsToDripBagsCategory() {

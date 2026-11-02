@@ -1022,8 +1022,29 @@ struct ServiceErrorResponse: Decodable {
 }
 
 enum ProductCatalogRules {
+    static func isWinterBox(title: String) -> Bool {
+        slug(from: title) == "winter-box" || title.trimmingCharacters(in: .whitespacesAndNewlines) == "صندوق الشتاء"
+    }
+
     static func shopCategoryKey(for productCategoryKey: String) -> String {
         productCategoryKey == "drip-bags" ? "coffee-beans" : productCategoryKey
+    }
+
+    static func isHotChocolate(categoryKey: String, name: String, handle: String) -> Bool {
+        let text = "\(name) \(handle)".lowercased()
+        let normalized = slug(from: text)
+        return categoryKey == "hot-chocolate"
+            || normalized.contains("hot-chocolate")
+            || normalized.contains("hot-cocoa")
+            || text.contains("شوكولاتة ساخنة")
+            || text.contains("شوكولاته ساخنه")
+    }
+
+    static func matchesShopCategory(_ category: String, productCategory: String, name: String, handle: String) -> Bool {
+        if category == "winter" && isHotChocolate(categoryKey: productCategory, name: name, handle: handle) {
+            return true
+        }
+        return shopCategoryKey(for: productCategory) == category
     }
 
     static func isArabicCoffeeProduct(_ value: String) -> Bool {
@@ -1055,6 +1076,9 @@ enum ProductCatalogRules {
 
     static func categoryKey(productType: String, tags: [String], title: String) -> String {
         let normalizedTitle = slug(from: title)
+        if isHotChocolate(categoryKey: "", name: title, handle: "") {
+            return "winter"
+        }
         let isHawarIslandsCoffee = normalizedTitle.contains("hawar-islands")
             && !normalizedTitle.contains("drip-bag")
 
@@ -1327,10 +1351,11 @@ extension ContentView.Product {
             title: shopifyNode.title
         )
         let translatedVariants = Dictionary((localizedNode?.variants.edges ?? []).map { ($0.node.id, $0.node.title) }, uniquingKeysWith: { first, _ in first })
+        let isWinterBox = ProductCatalogRules.isWinterBox(title: shopifyNode.title)
         let variants = shopifyNode.variants.edges.map { edge in
             Variant(
                 id: edge.node.id,
-                title: AppLocalization.catalogOption(translatedVariants[edge.node.id] ?? (edge.node.title.isEmpty ? "Default" : edge.node.title)),
+                title: AppLocalization.catalogOption(isWinterBox ? (edge.node.title.isEmpty ? "Default" : edge.node.title) : (translatedVariants[edge.node.id] ?? (edge.node.title.isEmpty ? "Default" : edge.node.title))),
                 price: Self.formattedPrice(from: edge.node.price),
                 isAvailableForSale: edge.node.availableForSale && (edge.node.quantityAvailable.map { $0 > 0 } ?? true),
                 requiresShipping: edge.node.requiresShipping,
