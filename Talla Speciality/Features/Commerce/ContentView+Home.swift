@@ -338,6 +338,7 @@ extension ContentView {
             if remoteAppSettings?.homeSections.showSignatureRoasts != false {
                 featuredProducts
             }
+            winterCollection
             seasonalEventsSection
             appAnnouncementCard
             optionalAppUpdateCard
@@ -356,6 +357,49 @@ extension ContentView {
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+        }
+    }
+
+    @ViewBuilder
+    var winterCollection: some View {
+        let winterProducts = homeWinterProducts
+        if !winterProducts.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .lastTextBaseline, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(AppLocalization.text("winter_collection_eyebrow", fallback: "Seasonal at Talla"))
+                            .font(labelFont(size: 10, weight: .semibold))
+                            .tracking(AppLocalization.letterSpacing(3))
+                            .textCase(.uppercase)
+                            .foregroundColor(readableBrandGoldColor)
+                        Text(AppLocalization.text("winter_collection_title", fallback: "Winter favourites"))
+                            .font(displayFont(size: 24))
+                            .foregroundColor(primaryTextColor)
+                    }
+                    Spacer(minLength: 12)
+                    Button {
+                        openShop(category: "winter")
+                    } label: {
+                        Label(AppLocalization.text("browse_winter", fallback: "Browse winter"), systemImage: "arrow.forward")
+                            .font(labelFont(size: 11, weight: .bold))
+                            .textCase(.uppercase)
+                            .foregroundColor(readableBrandGoldColor)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(winterProducts) { product in
+                            shelfProductCard(product, width: isCompact ? 150 : 164)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 4)
+            .padding(.bottom, 20)
         }
     }
 
