@@ -26,6 +26,7 @@ const seasonalEventPresets = Object.freeze({
     ramadan: Object.freeze({ symbols: ["moon.stars.fill", "moon.fill", "sparkles", "star.fill"], accentHex: "#D3AF62", secondaryHex: "#25352C" }),
     eid: Object.freeze({ symbols: ["moon.stars.fill", "gift.fill", "sparkles", "star.fill", "bag.fill"], accentHex: "#D6A667", secondaryHex: "#26372D" }),
     christmas: Object.freeze({ symbols: ["snowflake", "gift.fill", "sparkles", "star.fill", "heart.fill"], accentHex: "#D8C7A0", secondaryHex: "#365342" }),
+    winter: Object.freeze({ symbols: ["snowflake", "mug.fill", "sparkles", "flame.fill", "heart.fill"], accentHex: "#C8965A", secondaryHex: "#2A1D14" }),
     halloween: Object.freeze({ symbols: ["moon.fill", "flame.fill", "sparkles", "wand.and.stars", "face.smiling.fill"], accentHex: "#F08A3C", secondaryHex: "#261A2B" }),
     general: Object.freeze({ symbols: ["sparkles", "party.popper.fill", "gift.fill", "star.fill", "cup.and.saucer.fill"], accentHex: "#C8965A", secondaryHex: "#2A1D14" }),
 });

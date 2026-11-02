@@ -1079,6 +1079,10 @@ enum ProductCatalogRules {
             return "summer-drinks"
         }
 
+        if typeSlug == "winter" || typeSlug == "winter-drinks" || sourceSlug.contains("winter") {
+            return "winter"
+        }
+
         if containsAny(sourceSlug, [
             "hot-chocolate", "hot-cocoa", "cocoa-mix", "cacao", "chocolate-powder"
         ]) || typeSlug == "hot-chocolate" {
@@ -1154,6 +1158,8 @@ enum ProductCatalogRules {
         switch fallbackKey {
         case "summer-drinks":
             return AppLocalization.text("category_summer_drinks", fallback: "Summer Boxes")
+        case "winter":
+            return AppLocalization.text("category_winter", fallback: "Winter")
         case "coffee-beans":
             return AppLocalization.text("category_coffee_beans", fallback: "Coffee Beans")
         case "arabic-coffee-beans", "arabic-coffee", "northern-coffee", "other":

@@ -183,6 +183,16 @@ extension ContentView {
         return String(format: AppLocalization.text("order_in_city_format", fallback: "Order for %@"), city)
     }
 
+    var homeWinterProducts: [Product] {
+        products
+            .filter { product in
+                product.isAvailableForSale
+                    && ["winter", "hot-chocolate"].contains(ProductCatalogRules.shopCategoryKey(for: product.categoryKey))
+            }
+            .prefix(4)
+            .map { $0 }
+    }
+
     @ViewBuilder
     var homeUsualRow: some View {
         if let product = homeUsualProduct {
@@ -328,6 +338,7 @@ extension ContentView {
             if remoteAppSettings?.homeSections.showSignatureRoasts != false {
                 featuredProducts
             }
+            winterCollection
             seasonalEventsSection
             appAnnouncementCard
             optionalAppUpdateCard
@@ -346,6 +357,50 @@ extension ContentView {
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+        }
+    }
+
+    @ViewBuilder
+    var winterCollection: some View {
+        let winterProducts = homeWinterProducts
+        if !winterProducts.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .lastTextBaseline, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(AppLocalization.text("winter_collection_eyebrow", fallback: "Seasonal at Talla"))
+                            .font(labelFont(size: 10, weight: .semibold))
+                            .tracking(AppLocalization.letterSpacing(3))
+                            .textCase(.uppercase)
+                            .foregroundColor(readableBrandGoldColor)
+                        Text(AppLocalization.text("winter_collection_title", fallback: "Winter favourites"))
+                            .font(displayFont(size: 24))
+                            .foregroundColor(primaryTextColor)
+                    }
+                    Spacer(minLength: 12)
+                    Button {
+                        openShop(category: "winter")
+                    } label: {
+                        Label(AppLocalization.text("browse_winter", fallback: "Browse winter"), systemImage: "arrow.forward")
+                            .font(labelFont(size: 11, weight: .bold))
+                            .textCase(.uppercase)
+                            .foregroundColor(readableBrandGoldColor)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(winterProducts) { product in
+                            shelfProductCard(product, width: isCompact ? 150 : 164)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 4)
+            .padding(.bottom, 20)
+            .accessibilityIdentifier("home.winterCollection")
         }
     }
 
@@ -819,9 +874,14 @@ extension ContentView {
     func seasonalEventCard(_ event: EventSettings.SeasonalEvent) -> some View {
         let accent = eventColor(event.accentHex, fallback: 0x151515)
         let secondary = eventColor(event.secondaryHex, fallback: 0x2A1D14)
-        let targetCategory = seasonalEventCategories.contains(where: { $0.key == eventCategoryKey(event) })
-            ? eventCategoryKey(event)
-            : "all"
+        let targetCategory: String
+        if seasonalEventCategories.contains(where: { $0.key == eventCategoryKey(event) }) {
+            targetCategory = eventCategoryKey(event)
+        } else if event.id == "winter" && !homeWinterProducts.isEmpty {
+            targetCategory = "winter"
+        } else {
+            targetCategory = "all"
+        }
 
         return Button {
             openShop(category: targetCategory)

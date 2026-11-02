@@ -482,6 +482,17 @@ struct Talla_SpecialityTests {
         #expect(coldBrewKey == "ready-made-drinks")
     }
 
+    @Test func mapsWinterProductsToWinterCategory() {
+        let key = ProductCatalogRules.categoryKey(
+            productType: "Winter",
+            tags: [],
+            title: "Winter Collection"
+        )
+
+        #expect(key == "winter")
+        #expect(ProductCatalogRules.categoryLabel(productType: "Winter", fallbackKey: key) == "Winter")
+    }
+
     @Test func mapsEquipmentSignalsToEquipmentCategory() {
         let key = ProductCatalogRules.categoryKey(
             productType: "Accessories",

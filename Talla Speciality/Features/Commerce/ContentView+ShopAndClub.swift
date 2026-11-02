@@ -570,6 +570,8 @@ extension ContentView {
         [
             (AppLocalization.text("beans", fallback: "Beans"), "beans", "coffee-beans"),
             (AppLocalization.text("summer_boxes", fallback: "Summer Boxes"), "box", "summer-drinks"),
+            (AppLocalization.text("winter", fallback: "Winter"), "winter", "winter"),
+            (AppLocalization.text("hot_chocolate", fallback: "Hot Chocolate"), "hot chocolate", "hot-chocolate"),
             (AppLocalization.text("gifts", fallback: "Gifts"), "gift", "gifts"),
             (AppLocalization.text("crmb", fallback: "CRMB"), "crmb", "desserts"),
             (AppLocalization.text("equipment", fallback: "Equipment"), "brew", "coffee-equipment"),

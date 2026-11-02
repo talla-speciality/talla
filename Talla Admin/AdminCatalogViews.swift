@@ -83,7 +83,7 @@ struct AdminProductDetailView: View {
     @State private var deleting = false
     @State private var busy = false
     @State private var error: String?
-    static let categories = ["Coffee Beans", "Arabic Coffee", "Drip Bags", "Cups", "Drinks", "CRMB", "Summer Drinks", "Spreads", "Hot Chocolate", "Coffee Equipment", "Gifts"]
+    static let categories = ["Coffee Beans", "Arabic Coffee", "Drip Bags", "Cups", "Drinks", "CRMB", "Summer Drinks", "Winter", "Spreads", "Hot Chocolate", "Coffee Equipment", "Gifts"]
     var body: some View {
         List {
             Section("Overview") {

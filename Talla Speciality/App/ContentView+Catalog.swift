@@ -449,6 +449,8 @@ extension ContentView {
             return AppLocalization.text("category_all_subtitle", fallback: fallback)
         case "summer-drinks":
             return AppLocalization.text("category_summer_drinks_subtitle", fallback: fallback)
+        case "winter":
+            return AppLocalization.text("category_winter_subtitle", fallback: fallback)
         case "coffee-beans":
             return AppLocalization.text("category_coffee_beans_subtitle", fallback: fallback)
         case "arabic-coffee-beans":

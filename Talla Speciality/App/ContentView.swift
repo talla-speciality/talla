@@ -361,6 +361,7 @@ struct ContentView: View {
     let categoryCatalog: [ShopCategory] = [
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
         ShopCategory(key: "summer-drinks", title: "Summer Boxes", subtitle: "Four seasonal drink boxes", symbol: "shippingbox.fill"),
+        ShopCategory(key: "winter", title: "Winter", subtitle: "Seasonal winter favourites", symbol: "snowflake"),
         ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Beans & single-serve brews", symbol: "leaf.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee & Gahwa", subtitle: "Traditional Arabic and gahwa roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "cups", title: "Cups", subtitle: "Mugs, tumblers, and drinkware", symbol: "cup.and.saucer.fill"),

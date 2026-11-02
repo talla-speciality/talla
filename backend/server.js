@@ -162,6 +162,7 @@ const approvedProductTypes = new Set([
     "Drinks",
     "CRMB",
     "Summer Drinks",
+    "Winter",
     "Spreads",
     "Hot Chocolate",
     "Coffee Equipment",

@@ -1283,6 +1283,9 @@ extension ContentView {
         if key == "summer-drinks" {
             return AppLocalization.text("category_summer_drinks", fallback: "Summer Boxes")
         }
+        if key == "winter" {
+            return AppLocalization.text("category_winter", fallback: "Winter")
+        }
         if key == "coffee-beans" {
             return AppLocalization.text("category_coffee_beans", fallback: "Coffee Beans")
         }
@@ -1323,6 +1326,10 @@ extension ContentView {
     func categorySymbol(for key: String) -> String {
         if key.contains("summer") {
             return "sun.max.fill"
+        }
+
+        if key.contains("winter") {
+            return "snowflake"
         }
 
         if key.contains("bean") || key.contains("coffee") {

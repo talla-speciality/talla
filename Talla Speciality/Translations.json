@@ -2197,6 +2197,27 @@
   "category_summer_drinks_subtitle": {
     "ar": "أربعة صناديق مشروبات موسمية"
   },
+  "category_winter": {
+    "ar": "الشتاء"
+  },
+  "category_winter_subtitle": {
+    "ar": "مشروبات ومختارات دافئة للموسم"
+  },
+  "winter": {
+    "ar": "الشتاء"
+  },
+  "hot_chocolate": {
+    "ar": "الشوكولاتة الساخنة"
+  },
+  "winter_collection_eyebrow": {
+    "ar": "موسمي من تله"
+  },
+  "winter_collection_title": {
+    "ar": "اختيارات الشتاء"
+  },
+  "browse_winter": {
+    "ar": "تصفح الشتاء"
+  },
   "summer_boxes": {
     "ar": "صناديق الصيف"
   },

@@ -1,6 +1,33 @@
 {
   "eventSettings": {
-    "events": [],
+    "events": [
+      {
+        "id": "winter",
+        "enabled": true,
+        "name": "Winter",
+        "titleEN": "Winter at Talla",
+        "titleAR": "الشتاء في تله",
+        "subtitleEN": "Warm drinks, chocolate, and coffee for cooler days.",
+        "subtitleAR": "مشروبات دافئة وشوكولاتة وقهوة للأيام الباردة.",
+        "badgeEN": "Winter collection",
+        "badgeAR": "مجموعة الشتاء",
+        "ctaEN": "Explore",
+        "ctaAR": "استكشف",
+        "categoryTitleEN": "Winter Favourites",
+        "categoryTitleAR": "اختيارات الشتاء",
+        "categorySubtitleEN": "Warm seasonal picks",
+        "categorySubtitleAR": "اختيارات موسمية دافئة",
+        "startAt": null,
+        "endAt": null,
+        "imageURL": "",
+        "accentHex": "#C8965A",
+        "secondaryHex": "#2A1D14",
+        "symbol": "snowflake",
+        "symbols": ["snowflake", "mug.fill", "sparkles", "flame.fill", "heart.fill"],
+        "productIDs": [],
+        "priority": 70
+      }
+    ],
     "updatedAt": null
   }
 }
