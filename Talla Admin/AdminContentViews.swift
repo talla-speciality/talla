@@ -76,8 +76,8 @@ struct AdminSeasonalEventPreset: Identifiable {
     func makeEvent() -> AdminValue {
         .object([
             "id": .string("\(id)-\(UUID().uuidString.lowercased())"), "presetID": .string(id), "name": .string(title), "enabled": .bool(false), "priority": .number(0),
-            "titleEN": .string(title), "titleAR": .string(""), "subtitleEN": .string(""), "subtitleAR": .string(""), "badgeEN": .string("Seasonal"), "badgeAR": .string(""),
-            "ctaEN": .string("Explore collection"), "ctaAR": .string(""), "categoryTitleEN": .string(title), "categoryTitleAR": .string(""), "categorySubtitleEN": .string(""), "categorySubtitleAR": .string(""),
+            "titleEN": .string(title), "titleAR": .string(id == "winter" ? "الشتاء" : ""), "subtitleEN": .string(""), "subtitleAR": .string(""), "badgeEN": .string("Seasonal"), "badgeAR": .string(id == "winter" ? "موسمي" : ""),
+            "ctaEN": .string("Explore collection"), "ctaAR": .string(id == "winter" ? "اكتشف المجموعة" : ""), "categoryTitleEN": .string(title), "categoryTitleAR": .string(id == "winter" ? "الشتاء" : ""), "categorySubtitleEN": .string(""), "categorySubtitleAR": .string(""),
             "startAt": .null, "endAt": .null, "imageURL": .string(""), "symbol": .string(symbols[0]), "symbols": .array(symbols.map(AdminValue.string)),
             "accentHex": .string(accentHex), "secondaryHex": .string(secondaryHex), "productIDs": .array([])
         ])

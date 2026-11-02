@@ -75,13 +75,18 @@ function normalizeEventSettings(value = {}) {
         const symbols = (Array.isArray(event?.symbols) ? event.symbols : [primarySymbol])
             .map((symbol) => trimText(symbol, 60))
             .filter(Boolean).slice(0, 8);
+        const isWinter = trimText(event?.presetID, 40).toLowerCase() === "winter" || id === "winter" || id.startsWith("winter-");
+        const winterArabic = (arabic, english, translations, maxLength) => {
+            const existing = trimText(arabic, maxLength);
+            return existing || (isWinter ? translations[trimText(english, maxLength).toLowerCase()] || "" : "");
+        };
         return {
             id, enabled: Boolean(event?.enabled), name: trimText(event?.name || event?.titleEN || id, 80),
-            titleEN: trimText(event?.titleEN, 80), titleAR: trimText(event?.titleAR, 80),
+            titleEN: trimText(event?.titleEN, 80), titleAR: winterArabic(event?.titleAR, event?.titleEN, { winter: "الشتاء", "winter at talla": "الشتاء في تله" }, 80),
             subtitleEN: trimText(event?.subtitleEN, 220), subtitleAR: trimText(event?.subtitleAR, 220),
-            badgeEN: trimText(event?.badgeEN, 40), badgeAR: trimText(event?.badgeAR, 40),
-            ctaEN: trimText(event?.ctaEN, 32), ctaAR: trimText(event?.ctaAR, 32),
-            categoryTitleEN: trimText(event?.categoryTitleEN, 60), categoryTitleAR: trimText(event?.categoryTitleAR, 60),
+            badgeEN: trimText(event?.badgeEN, 40), badgeAR: winterArabic(event?.badgeAR, event?.badgeEN, { seasonal: "موسمي", "winter collection": "مجموعة الشتاء" }, 40),
+            ctaEN: trimText(event?.ctaEN, 32), ctaAR: winterArabic(event?.ctaAR, event?.ctaEN, { "explore collection": "اكتشف المجموعة", explore: "اكتشف" }, 32),
+            categoryTitleEN: trimText(event?.categoryTitleEN, 60), categoryTitleAR: winterArabic(event?.categoryTitleAR, event?.categoryTitleEN, { winter: "الشتاء", "winter favourites": "اختيارات الشتاء" }, 60),
             categorySubtitleEN: trimText(event?.categorySubtitleEN, 100), categorySubtitleAR: trimText(event?.categorySubtitleAR, 100),
             startAt: isoDate(event?.startAt), endAt: isoDate(event?.endAt), imageURL: httpsURL(event?.imageURL),
             accentHex: hexColor(event?.accentHex, "#C8965A"), secondaryHex: hexColor(event?.secondaryHex, "#2A1D14"),

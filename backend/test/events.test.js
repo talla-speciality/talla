@@ -3,6 +3,22 @@ const assert = require("node:assert/strict");
 
 const { activeEventSettings, eventSettingsFromLegacyEid, normalizeEventSettings } = require("../server");
 
+test("Winter preset supplies Arabic for default text without replacing custom text", () => {
+    const settings = normalizeEventSettings({ events: [{
+        id: "winter-example", presetID: "winter", titleEN: "Winter", badgeEN: "Seasonal",
+        ctaEN: "Explore collection", categoryTitleEN: "Winter"
+    }, {
+        id: "winter-custom", presetID: "winter", titleEN: "Custom title", titleAR: "عنوان خاص", badgeEN: "Custom badge"
+    }, { id: "other", titleEN: "Winter", badgeEN: "Seasonal" }] });
+    assert.equal(settings.events[0].titleAR, "الشتاء");
+    assert.equal(settings.events[0].badgeAR, "موسمي");
+    assert.equal(settings.events[0].ctaAR, "اكتشف المجموعة");
+    assert.equal(settings.events[0].categoryTitleAR, "الشتاء");
+    assert.equal(settings.events[1].titleAR, "عنوان خاص");
+    assert.equal(settings.events[1].badgeAR, "");
+    assert.equal(settings.events[2].titleAR, "");
+});
+
 test("event settings sanitize content, URLs, colors, and duplicate products", () => {
     const settings = normalizeEventSettings({
         events: [{
