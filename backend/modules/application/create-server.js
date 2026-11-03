@@ -3884,65 +3884,12 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "GET" && url.pathname === "/referrals/account") {
-        const requestedEmail = normalizeEmail(url.searchParams.get("email"));
-        const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
-        if (!authenticated) return;
-        const customer = await resolveCustomerSession(authenticated, response);
-        if (!customer) return;
-        const store = readJSON(loyaltyStorePath);
-        store.referrals = store.referrals || {};
-        const code = `TALLA-${crypto.createHash("sha256").update(customer.email).digest("hex").slice(0, 8).toUpperCase()}`;
-        store.referrals[code] = store.referrals[code] || { email: customer.email, redeemedBy: [] };
-        writeJSON(loyaltyStorePath, store);
-        sendJSON(response, 200, {
-            code,
-            reward: { referrerBeans: 100, recipientBeans: 50 },
-            redeemedCount: store.referrals[code].redeemedBy.length
-        });
+        sendJSON(response, 410, { error: "Referral rewards are no longer available." });
         return;
     }
 
     if (request.method === "POST" && url.pathname === "/referrals/redeem") {
-        try {
-            const body = await readBody(request);
-            const code = String(body.code || "").trim().toUpperCase();
-            const requestedEmail = normalizeEmail(body.email);
-            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
-            if (!authenticated) return;
-            const customer = await resolveCustomerSession(authenticated, response);
-            if (!customer || !/^TALLA-[A-F0-9]{8}$/.test(code)) {
-                sendJSON(response, 400, { error: "Invalid referral code." });
-                return;
-            }
-            const result = await withLoyaltyMutationLock(`referral:${code}`, async () => {
-                const store = readJSON(loyaltyStorePath);
-                const referral = store.referrals?.[code];
-                if (!referral || referral.email === customer.email) return { error: "This referral code cannot be used." };
-                referral.redeemedBy = referral.redeemedBy || [];
-                if (referral.redeemedBy.includes(customer.email)) return { error: "This referral has already been used." };
-                const referrer = await updateLoyaltyAccount(referral.email, (account) => {
-                    account.pointsBalance += 100;
-                    account.transactions = account.transactions || [];
-                    account.transactions.unshift({ id: `txn_${Date.now()}_referrer`, type: "earn", points: 100, note: "Referral reward", createdAt: new Date().toISOString() });
-                });
-                const recipient = await updateLoyaltyAccount(customer.email, (account) => {
-                    account.pointsBalance += 50;
-                    account.transactions = account.transactions || [];
-                    account.transactions.unshift({ id: `txn_${Date.now()}_recipient`, type: "earn", points: 50, note: "Welcome referral reward", createdAt: new Date().toISOString() });
-                });
-                if (!referrer || !recipient) return { error: "Rewards account not found." };
-                referral.redeemedBy.push(customer.email);
-                writeJSON(loyaltyStorePath, store);
-                return { account: recipient };
-            });
-            if (result.error) {
-                sendJSON(response, result.error === "Rewards account not found." ? 404 : 409, { error: result.error });
-                return;
-            }
-            sendJSON(response, 200, { status: "redeemed", account: loyaltyPayload(result.account) });
-        } catch (error) {
-            sendJSON(response, 400, { error: "Invalid referral request." });
-        }
+        sendJSON(response, 410, { error: "Referral rewards are no longer available." });
         return;
     }
 

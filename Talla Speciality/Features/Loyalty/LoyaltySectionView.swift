@@ -58,7 +58,6 @@ struct LoyaltySectionView: View {
             if let loyaltyAccount {
                 compactClubCard(account: loyaltyAccount)
                 phaseSixSection
-                ReferralSectionView(email: savedLoyaltyEmail, accent: accentColor, cardFill: cardFillColor, secondary: secondaryTextColor)
 
                 VStack(alignment: .leading, spacing: 20) {
                     expiringRewardsSection
@@ -581,7 +580,7 @@ private struct ReferralSectionView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label(AppLocalization.text("referral_rewards", fallback: "Referral rewards"), systemImage: "person.2.fill")
                 .font(.headline)
-            Text(AppLocalization.text("referral_rewards_detail", fallback: "Share your code. You earn 100 Beans and your friend earns 50 Beans after they use it."))
+            Text(AppLocalization.text("referral_rewards_detail", fallback: "Share your code. You earn 10 Beans and your friend earns 5 Beans after they use it."))
                 .font(.subheadline)
                 .foregroundStyle(secondary)
             if let referral {

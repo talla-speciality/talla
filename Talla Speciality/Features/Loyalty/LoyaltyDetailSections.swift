@@ -95,7 +95,7 @@ struct LoyaltyRewardsActionsView: View {
                 clubOfferCard(title: "Birthday reward", detail: "A little something from Talla during your birthday month.", icon: "birthday.cake.fill")
                 clubOfferCard(title: "Free delivery", detail: "Your tier unlocks a lower delivery threshold, up to free delivery at Reserve.", icon: "shippingbox.fill")
                 clubOfferCard(title: "Double-Bean brew days", detail: "Watch the Club for selected days where every brew earns twice.", icon: "2.circle.fill")
-                clubOfferCard(title: "Across the café", detail: "Visits, referrals, reviews, and events earn in the same Beans balance.", icon: "arrow.triangle.2.circlepath")
+                clubOfferCard(title: "Across the café", detail: "Visits, reviews, and events earn in the same Beans balance.", icon: "arrow.triangle.2.circlepath")
             }
 
             let firstRewardPoints = rewardOptions.map(\.points).min() ?? 50

@@ -4835,7 +4835,7 @@
   ,"brew_day_reminder_title": {"ar": "حان يوم التحضير"}
   ,"brew_day_reminder_body": {"ar": "قهوتك المحفوظة جاهزة لتحضير جديد."},
   "referral_rewards": {"ar": "مكافآت الإحالة"},
-  "referral_rewards_detail": {"ar": "شارك رمزك لتحصل على 100 حبة ويحصل صديقك على 50 حبة عند استخدامه."},
+  "referral_rewards_detail": {"ar": "شارك رمزك لتحصل على 10 حبات ويحصل صديقك على 5 حبات عند استخدامه."},
   "share_referral_code": {"ar": "مشاركة %@"},
   "referral_code_placeholder": {"ar": "TALLA-XXXXXXXX"},
   "redeem": {"ar": "استبدال"},
