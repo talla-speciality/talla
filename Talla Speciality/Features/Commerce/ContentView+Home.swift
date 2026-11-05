@@ -113,6 +113,32 @@ extension ContentView {
         reorderPrompt?.product ?? orderedProducts.first
     }
 
+    var homeHasActiveOrder: Bool {
+        orderHistory.contains { order in
+            let status = order.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return !["cancelled", "canceled", "refunded", "fulfilled", "delivered", "completed", "collected"].contains(status)
+        }
+    }
+
+    var homeHasBrewHistory: Bool { !brewAgainHistoryItems.isEmpty }
+
+    var homeDynamicSectionOrder: [String] {
+        let fallback = ["coffeeShelf", "orderTracking", "brewAgain", "winter", "quickDrinks", "signatureRoasts", "seasonalEvents", "announcement", "more"]
+        let configured = remoteAppSettings?.ui?.homeSectionOrder ?? fallback
+        let hidden = Set(remoteAppSettings?.ui?.hiddenHomeSections ?? [])
+        let known = Set(fallback)
+        let configuredOrder = configured.filter { known.contains($0) && !hidden.contains($0) }
+        var prioritized: [String] = hidden.contains("coffeeShelf") ? [] : ["coffeeShelf"]
+        if homeHasActiveOrder && !hidden.contains("orderTracking") { prioritized.append("orderTracking") }
+        if homeHasBrewHistory && !hidden.contains("brewAgain") { prioritized.append("brewAgain") }
+        if !hidden.contains("winter") && !homeWinterProducts.isEmpty { prioritized.append("winter") }
+        if !hidden.contains("quickDrinks"), remoteAppSettings?.homeSections.showQuickDrinks != false, !homeNearYouProducts.isEmpty {
+            prioritized.append("quickDrinks")
+        }
+        let remaining = configuredOrder + fallback.filter { !configuredOrder.contains($0) }
+        return prioritized + remaining.filter { !prioritized.contains($0) && !hidden.contains($0) }
+    }
+
     var homePurchasedCoffeeProducts: [Product] {
         cachedHomePurchasedCoffeeProducts
     }
@@ -327,7 +353,7 @@ extension ContentView {
 
     var legacyHomeView: some View {
         VStack(spacing: 0) {
-            ForEach(homeSectionOrder, id: \.self) { section in
+            ForEach(homeDynamicSectionOrder, id: \.self) { section in
                 homeSectionView(section)
             }
 
@@ -335,18 +361,15 @@ extension ContentView {
     }
 
     var homeSectionOrder: [String] {
-        let fallback = ["coffeeShelf", "winter", "quickDrinks", "signatureRoasts", "seasonalEvents", "announcement", "more"]
-        let configured = remoteAppSettings?.ui?.homeSectionOrder ?? fallback
-        let hidden = Set(remoteAppSettings?.ui?.hiddenHomeSections ?? [])
-        let known = Set(fallback)
-        let ordered = configured.filter { known.contains($0) && !hidden.contains($0) }
-        return ordered + fallback.filter { !ordered.contains($0) && !hidden.contains($0) }
+        homeDynamicSectionOrder
     }
 
     @ViewBuilder
     func homeSectionView(_ section: String) -> some View {
         switch section {
         case "coffeeShelf": homePurchasedCoffeeShelf
+        case "orderTracking": homeActiveOrderCard
+        case "brewAgain": homeBrewAgainCard
         case "winter": winterCollection
         case "quickDrinks":
             if remoteAppSettings?.homeSections.showQuickDrinks != false { homeQuickDrinks }
@@ -357,6 +380,75 @@ extension ContentView {
         case "more":
             appMoreHomeSections
         default: EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    var homeActiveOrderCard: some View {
+        if let order = orderHistory.first(where: { order in
+            let status = order.status.lowercased()
+            return !["cancelled", "canceled", "refunded", "fulfilled", "delivered", "completed", "collected"].contains(status)
+        }) {
+            Button { openAccountOrder(order.id) } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "shippingbox.fill")
+                        .foregroundColor(readableBrandGoldColor)
+                        .frame(width: 34, height: 34)
+                        .background(TallaTheme.Colors.accent.opacity(0.14), in: Circle())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(AppLocalization.text("track_order", fallback: "Track your order"))
+                            .font(titleFont(size: 16))
+                            .foregroundColor(primaryTextColor)
+                        Text("#\(order.id.suffix(8)) · \(order.status.capitalized)")
+                            .font(bodyFont(size: 12))
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: appLanguage.layoutDirection == .rightToLeft ? "arrow.left" : "arrow.right")
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 14)
+        }
+    }
+
+    @ViewBuilder
+    var homeBrewAgainCard: some View {
+        if let recipe = brewAgainHistoryItems.first {
+            Button { openBrewing() } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "drop.fill")
+                        .foregroundColor(readableBrandGoldColor)
+                        .frame(width: 34, height: 34)
+                        .background(TallaTheme.Colors.accent.opacity(0.14), in: Circle())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(AppLocalization.text("brew_again", fallback: "Brew Again"))
+                            .font(titleFont(size: 16))
+                            .foregroundColor(primaryTextColor)
+                        Text(recipe.title)
+                            .font(bodyFont(size: 12))
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "play.fill")
+                        .foregroundColor(readableBrandGoldColor)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cardFillColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.12), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 14)
         }
     }
 
@@ -454,12 +546,12 @@ extension ContentView {
                                 }
                             }
                             .padding(.horizontal, 14)
-                            .frame(height: isCompact ? 100 : 116, alignment: .bottom)
+                            .frame(height: isCompact ? 118 : 134, alignment: .bottom)
                         }
-                        .frame(height: isCompact ? 100 : 116, alignment: .bottom)
+                        .frame(height: isCompact ? 118 : 134, alignment: .bottom)
                         .scrollClipDisabled()
                     }
-                    .frame(height: isCompact ? 100 : 116)
+                    .frame(height: isCompact ? 118 : 134)
 
                     VStack(spacing: 0) {
                         Rectangle()
@@ -538,28 +630,30 @@ extension ContentView {
             }
         } label: {
             ZStack(alignment: .topTrailing) {
-                shelfBagImage(for: product)
-                    .frame(width: isCompact ? 76 : 88, height: isCompact ? 92 : 106)
-                    .scaleEffect(1.06, anchor: .bottom)
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .shadow(color: .black.opacity(0.30), radius: 6, x: 1, y: 4)
-                    .offset(y: 10)
+                ZStack(alignment: .topTrailing) {
+                    shelfBagImage(for: product)
+                        .frame(width: isCompact ? 76 : 88, height: isCompact ? 92 : 106)
+                        .scaleEffect(1.06, anchor: .bottom)
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .shadow(color: .black.opacity(0.30), radius: 6, x: 1, y: 4)
+                        .offset(y: 10)
 
-                if availableBagCount > 1 {
-                    Text(availableBagCount > 99 ? "99+" : "\(availableBagCount)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .frame(minWidth: 23, minHeight: 23)
-                        .padding(.horizontal, availableBagCount > 99 ? 3 : 0)
-                        .background(Color(hex: 0xE53B36), in: Capsule())
-                        .overlay(Capsule().stroke(Color.white.opacity(0.88), lineWidth: 1.5))
-                        .shadow(color: .black.opacity(0.28), radius: 3, y: 2)
-                        .offset(x: isCompact ? 3 : 5, y: -3)
-                        .accessibilityLabel("\(availableBagCount) bags remaining")
+                    if availableBagCount > 1 {
+                        Text(availableBagCount > 99 ? "99+" : "\(availableBagCount)")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(minWidth: 23, minHeight: 23)
+                            .padding(.horizontal, availableBagCount > 99 ? 3 : 0)
+                            .background(Color(hex: 0xE53B36), in: Capsule())
+                            .overlay(Capsule().stroke(Color.white.opacity(0.88), lineWidth: 1.5))
+                            .shadow(color: .black.opacity(0.28), radius: 3, y: 2)
+                            .offset(x: isCompact ? 3 : 5, y: -3)
+                            .accessibilityLabel("\(availableBagCount) bags remaining")
+                    }
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CoffeeShelfButtonStyle())
         .accessibilityIdentifier("home.purchasedCoffeeShelf.bag.\(product.id)")
         .accessibilityLabel(
             availableBagCount > 1
@@ -589,8 +683,8 @@ extension ContentView {
             .first
     }
 
-    func shelfFreshness(for coffee: CoffeeInventoryRecord) -> (title: String, color: Color, detail: String) {
-        guard let openedAt = coffee.openedAt else {
+    func shelfFreshness(for coffee: CoffeeInventoryRecord, openedAt override: Date? = nil) -> (title: String, color: Color, detail: String) {
+        guard let openedAt = override ?? coffee.openedAt else {
             return ("Sealed", TallaTheme.Colors.brand, "Open when you are ready to start this bag")
         }
         let days = max(0, Calendar.current.dateComponents([.day], from: openedAt, to: .now).day ?? 0)
@@ -603,7 +697,8 @@ extension ContentView {
     func coffeeShelfDetailSheet(coffeeID: UUID) -> some View {
         if let coffee = coffeeData.inventory().first(where: { $0.id == coffeeID }) {
             let product = shelfProduct(for: coffee)
-            let freshness = shelfFreshness(for: coffee)
+            let displayedOpenedAt = coffee.openedAt ?? (coffeeShelfOpenedCoffeeID == coffeeID ? coffeeShelfOpenedAt : nil)
+            let freshness = shelfFreshness(for: coffee, openedAt: displayedOpenedAt)
             let recipe = shelfBestRecipe(for: coffee)
             let shelfTitle = product.map { customerFacingProductName(for: $0) } ?? coffee.productName
             let replacement = coffee.lotID.flatMap { lotID in
@@ -615,12 +710,21 @@ extension ContentView {
                     VStack(alignment: .leading, spacing: 18) {
                         HStack(alignment: .top, spacing: 14) {
                             if let product {
-                                ProductThumbnail(imageURL: product.imageURL, size: 92, cornerRadius: 18)
-                            } else {
-                                Image(systemName: "bag.fill")
-                                    .font(.system(size: 30))
+                                shelfBagImage(for: product)
                                     .frame(width: 92, height: 92)
-                                    .background(TallaTheme.Colors.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+                                    .background(cardFillColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            } else {
+                                ZStack {
+                                    Image("Logo")
+                                        .resizable()
+                                        .renderingMode(.template)
+                                        .scaledToFit()
+                                        .padding(27)
+                                        .foregroundColor(readableBrandGoldColor)
+                                }
+                                .frame(width: 92, height: 92)
+                                .background(TallaTheme.Colors.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
                             }
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(shelfTitle)
@@ -644,9 +748,38 @@ extension ContentView {
                             .font(bodyFont(size: 13))
                             .foregroundColor(secondaryTextColor)
 
-                        if coffee.openedAt == nil {
+                        let remainingFraction = min(max(coffee.remainingQuantityGrams / max(coffee.initialQuantityGrams, 1), 0), 1)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(AppLocalization.text("coffee_remaining", fallback: "Coffee remaining"))
+                                Spacer()
+                                Text("\(Int((remainingFraction * 100).rounded()))%")
+                            }
+                            .font(labelFont(size: 10, weight: .semibold))
+                            .foregroundColor(secondaryTextColor)
+                            GeometryReader { proxy in
+                                Capsule()
+                                    .fill(TallaTheme.Colors.accent.opacity(0.14))
+                                    .overlay(alignment: .leading) {
+                                        Capsule()
+                                            .fill(freshness.color)
+                                            .frame(width: proxy.size.width * remainingFraction)
+                                    }
+                            }
+                            .frame(height: 7)
+                        }
+
+                        if displayedOpenedAt == nil {
                             Button {
-                                try? coffeeData.markOpened(coffee.id, date: .now)
+                                do {
+                                    try coffeeData.markOpened(coffee.id, date: .now)
+                                    coffeeShelfOpenedCoffeeID = coffee.id
+                                    coffeeShelfOpenedAt = .now
+                                    coffeeShelfRefreshToken &+= 1
+                                    showToast(message: "Coffee bag marked as opened today")
+                                } catch {
+                                    showToast(message: "This coffee bag could not be updated. Please try again.")
+                                }
                             } label: {
                                 Label("Mark as opened today", systemImage: "calendar.badge.plus")
                             }
@@ -675,22 +808,27 @@ extension ContentView {
                         .background(cardFillColor)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-                        HStack(spacing: 10) {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                             if let product {
                                 Button {
                                     selectedCoffeeShelfID = nil
                                     startBrewing(product: product, useRecommendedRecipe: true)
                                 } label: {
                                     Label("Brew again", systemImage: "arrow.triangle.2.circlepath")
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity, minHeight: 48)
                                 }
                                 .buttonStyle(.tallaPrimary)
 
                                 Button {
                                     selectedCoffeeShelfID = nil
-                                    activeBrewingDashboardDestination = .brewCoach
-                                    startBrewing(product: product)
+                                    openCoffeeConcierge(requestOverride: coffeeCoachPrompt(for: product, coffee: coffee, recipe: recipe))
                                 } label: {
-                                    Label("Improve this brew", systemImage: "wand.and.stars")
+                                    Label(AppLocalization.text("improve_this_brew", fallback: "Improve this brew"), systemImage: "wand.and.stars")
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity, minHeight: 48)
                                 }
                                 .buttonStyle(.tallaSecondary)
                             }
@@ -737,16 +875,29 @@ extension ContentView {
                 .navigationTitle("My coffee shelf")
                 .navigationBarTitleDisplayMode(.inline)
             }
+            .id("coffee-shelf-detail-\(coffeeID.uuidString)-\(coffeeShelfRefreshToken)")
             .presentationDetents([.medium, .large])
         } else {
             ProgressView()
         }
     }
 
+    func coffeeCoachPrompt(for product: Product, coffee: CoffeeInventoryRecord, recipe: BrewRecipeRecord?) -> String {
+        var context = [
+            "Help me improve my brew for \(customerFacingProductName(for: product)).",
+            "Coffee origin: \(coffee.origin.isEmpty ? "unknown" : coffee.origin)."
+        ]
+        if let recipe { context.append("Saved recipe: \(recipe.title) — \(recipe.detail).") }
+        let history = coffeeData.brewCoachHistoryContext(limit: 4).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !history.isEmpty { context.append("Recent brew context: \(history)") }
+        context.append("Suggest one practical change at a time.")
+        return context.joined(separator: " ")
+    }
+
     func shelfMetric(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title.uppercased()).font(labelFont(size: 10, weight: .bold)).foregroundColor(tertiaryTextColor)
-            Text(value).font(titleFont(size: 15)).foregroundColor(primaryTextColor).lineLimit(1)
+            Text(value).font(titleFont(size: 15)).foregroundColor(primaryTextColor).lineLimit(2).minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -1148,14 +1299,15 @@ extension ContentView {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 18)
         .padding(.bottom, 12)
-        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isSurprisePickExpanded)
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82), value: isSurprisePickExpanded)
     }
 
     var surprisePickHeader: some View {
         Button {
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82)) {
                 isSurprisePickExpanded.toggle()
             }
+            delightFeedbackTrigger += 1
         } label: {
             HStack(alignment: .center, spacing: 12) {
                 Image("Logo")
@@ -1435,7 +1587,7 @@ extension ContentView {
             return
         }
 
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.72)) {
             isSurprisePickRevealed = true
             surpriseRevealID += 1
         }
@@ -2141,7 +2293,7 @@ extension ContentView {
             .frame(height: 7)
 
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.82)) {
                     isTallaPassportExpanded.toggle()
                 }
             } label: {
@@ -2157,6 +2309,20 @@ extension ContentView {
                 .foregroundColor(readableBrandGoldColor)
             }
             .buttonStyle(.plain)
+
+            if isCoffeePassportComplete {
+                Button {
+                    openAccountSection(AccountSectionView.ScrollTarget.loyalty)
+                } label: {
+                    Label(
+                        remotePassportSettings?.completionRewardTitle ?? AppLocalization.text("view_available_rewards", fallback: "View available rewards"),
+                        systemImage: "gift.fill"
+                    )
+                    .font(labelFont(size: 10, weight: .bold))
+                    .foregroundColor(Color(hex: 0x6F8B55))
+                }
+                .buttonStyle(.plain)
+            }
 
             if isTallaPassportExpanded {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
@@ -2730,4 +2896,15 @@ extension ContentView {
         }
     }
 
+}
+
+private struct CoffeeShelfButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.95 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
+    }
 }

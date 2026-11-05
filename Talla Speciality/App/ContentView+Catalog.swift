@@ -31,6 +31,15 @@ import UIKit
 #endif
 
 extension ContentView {
+    var hasActiveCoffeeClubSubscription: Bool {
+        orderHistory.contains { order in
+            guard let club = order.details?.coffeeClub else { return false }
+            let status = club.status?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+            let isClosed = ["cancelled", "canceled", "refunded", "completed", "fulfilled"].contains(status)
+            return !isClosed && club.remainingCount > 0
+        }
+    }
+
     var coffeePassportOrigins: [CoffeePassportOrigin] {
         guard let origins = remotePassportSettings?.origins, !origins.isEmpty else {
             return defaultCoffeePassportOrigins

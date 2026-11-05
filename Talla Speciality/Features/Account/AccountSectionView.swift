@@ -57,6 +57,7 @@ struct AccountSectionView: View {
     let membershipTier: String
     let beansBalance: Int
     let beansUntilNextReward: Int
+    let hasActiveCoffeeClubSubscription: Bool
     let orderCount: Int
     let addressesCount: Int
     let favoriteCount: Int
@@ -94,8 +95,6 @@ struct AccountSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             accountSummaryCard
-            accountQuickActions
-            accountHomeHighlights
             accountNavigationAreas
         }
         .sheet(item: $presentedDetail) { detail in
@@ -181,7 +180,10 @@ struct AccountSectionView: View {
             }
 
             Label(
-                AppLocalization.text("coffee_club_ready_status", fallback: "Coffee Club · Ready to personalize"),
+                AppLocalization.text(
+                    hasActiveCoffeeClubSubscription ? "coffee_club_active_status" : "coffee_club_ready_status",
+                    fallback: hasActiveCoffeeClubSubscription ? "Coffee Club · Active" : "Coffee Club · Ready to personalize"
+                ),
                 systemImage: "shippingbox.fill"
             )
             .font(Font.custom("AvenirNext-DemiBold", size: 12))
@@ -347,14 +349,39 @@ struct AccountSectionView: View {
     private var accountNavigationAreas: some View {
         VStack(alignment: .leading, spacing: 12) {
             accountAreaCard(
-                title: AppLocalization.text("account_and_settings", fallback: "Account & Settings"),
-                rows: accountAndSettingsRows
+                title: AppLocalization.text("profile", fallback: "Profile"),
+                rows: accountAndSettingsRows.filter { $0.detail == .personalDetails || $0.detail == .password }
+                    + (isCustomerSignedIn ? [
+                        accountNavigationRowData(
+                            detail: .addresses,
+                            title: AppLocalization.text("delivery_addresses", fallback: "Delivery addresses"),
+                            subtitle: addressesCount == 0
+                                ? AppLocalization.text("delivery_setup_empty", fallback: "Add address")
+                                : String(format: AppLocalization.text("saved_addresses_count", fallback: "%d saved"), addressesCount),
+                            systemImage: "location.fill",
+                            action: {
+                                presentedDetail = .addresses
+                                isLibrarySectionExpanded = true
+                            }
+                        )
+                    ] : [])
             )
             .id(ScrollTarget.customer)
 
             accountAreaCard(
-                title: AppLocalization.text("shopping_tools", fallback: "Shopping tools"),
+                title: AppLocalization.text("orders_and_shopping", fallback: "Orders & Shopping"),
                 rows: [
+                    accountNavigationRowData(
+                        detail: .orders,
+                        title: AppLocalization.text("orders", fallback: "Orders"),
+                        subtitle: orderCount == 0
+                            ? AppLocalization.text("no_orders_short", fallback: "No orders yet")
+                            : String(
+                                format: AppLocalization.text(orderCount == 1 ? "one_order_short" : "orders_count_short", fallback: orderCount == 1 ? "%d order" : "%d orders"),
+                                orderCount
+                            ),
+                        systemImage: "shippingbox.fill"
+                    ),
                     accountNavigationRowData(
                         detail: .savedCarts,
                         title: AppLocalization.text("saved_carts", fallback: "Saved bags"),
@@ -366,14 +393,26 @@ struct AccountSectionView: View {
                         title: AppLocalization.text("back_in_stock_alerts", fallback: "Back-in-stock alerts"),
                         subtitle: AppLocalization.text("notify_when_available", fallback: "Notify when available"),
                         systemImage: "bell.fill"
+                    ),
+                    accountNavigationRowData(
+                        detail: .favourites,
+                        title: AppLocalization.text("favorites", fallback: "Favourites"),
+                        subtitle: "\(favoriteCount)",
+                        systemImage: "heart.fill"
                     )
                 ]
             )
             .id(ScrollTarget.library)
 
             accountAreaCard(
-                title: AppLocalization.text("brewing", fallback: "Brewing"),
+                title: AppLocalization.text("coffee_and_rewards", fallback: "Coffee & Rewards"),
                 rows: [
+                    accountNavigationRowData(
+                        detail: .beansBalance,
+                        title: AppLocalization.text("the_talla_club", fallback: "Talla Club"),
+                        subtitle: "\(beansBalance) Beans",
+                        systemImage: "sparkles"
+                    ),
                     accountNavigationRowData(
                         detail: .brewArchive,
                         title: AppLocalization.text("brew_archive", fallback: "Brew Archive"),
@@ -383,6 +422,12 @@ struct AccountSectionView: View {
                 ]
             )
             .id(ScrollTarget.brewing)
+
+            accountAreaCard(
+                title: AppLocalization.text("settings", fallback: "Settings"),
+                rows: accountAndSettingsRows.filter { $0.detail == .support || $0.detail == .deleteAccount }
+            )
+            .id(ScrollTarget.support)
 
             if isCustomerSignedIn {
                 accountAreaCard(
@@ -426,7 +471,7 @@ struct AccountSectionView: View {
             accountNavigationRowData(
                 detail: .support,
                 title: AppLocalization.text("support", fallback: "Support"),
-                subtitle: AppLocalization.text("settings_help_summary", fallback: "Language, notifications, support"),
+                subtitle: AppLocalization.text("settings_help_summary", fallback: "App icon, language, notifications, support"),
                 systemImage: "gearshape.fill"
             )
         ]
@@ -708,33 +753,6 @@ struct AccountSectionView: View {
         LazyVGrid(columns: accountQuickActionColumns, spacing: 10) {
             if isCustomerSignedIn {
                 accountQuickChip(
-                    title: AppLocalization.text("orders", fallback: "Orders"),
-                    detail: orderCount == 0
-                        ? AppLocalization.text("no_orders_short", fallback: "No orders")
-                        : "\(orderCount) saved",
-                    systemImage: "shippingbox.fill",
-                    action: {
-                        presentedDetail = .orders
-                        isCustomerSectionExpanded = true
-                        openOrdersAction()
-                    }
-                )
-            }
-
-            accountQuickChip(
-                title: AppLocalization.text("loyalty", fallback: "Rewards"),
-                detail: isCustomerSignedIn
-                    ? "\(beansBalance) Beans"
-                    : AppLocalization.text("check_rewards", fallback: "Check rewards"),
-                systemImage: "sparkles",
-                action: {
-                    presentedDetail = .beansBalance
-                    isLoyaltySectionExpanded = true
-                }
-            )
-
-            if isCustomerSignedIn {
-                accountQuickChip(
                     title: AppLocalization.text("addresses", fallback: "Addresses"),
                     detail: addressesCount == 0
                         ? AppLocalization.text("delivery_setup_empty", fallback: "Add address")
@@ -746,16 +764,6 @@ struct AccountSectionView: View {
                     }
                 )
             }
-
-            accountQuickChip(
-                title: AppLocalization.text("saved", fallback: "Saved"),
-                detail: "\(favoriteCount) picks",
-                systemImage: "heart.fill",
-                action: {
-                    presentedDetail = .favourites
-                    isShoppingSectionExpanded = true
-                }
-            )
         }
     }
 

@@ -412,7 +412,11 @@ extension BrewingSectionView {
         generatedRecipeID = recipe.id
         isGeneratedRecipeActive = recipe.brewMode != nil || recipe.brewerID != nil
         brewRecipeName = recipe.title
-        coffeeName = recipe.title
+        selectedPurchasedCoffeeID = recipe.coffeeID
+        if let coffeeID = recipe.coffeeID,
+           let savedCoffee = coffeeData.inventory().first(where: { $0.id == coffeeID }) {
+            coffeeName = savedCoffee.productName
+        }
         if let coffeeGrams = recipe.coffeeGrams {
             ratioCoffeeInput = formattedRatioValue(coffeeGrams)
         }
@@ -911,6 +915,10 @@ extension BrewingSectionView {
         let method = selectedBrewModeMethod
         let methodText = ([method?.name ?? ""] + (method?.categories ?? [])).joined(separator: " ").lowercased()
 
+        if isV60IcedRecipe {
+            return icedPourOverBrewModeSteps
+        }
+
         if methodText.contains("cold drip") {
             return coldDripBrewModeSteps
         }
@@ -944,6 +952,20 @@ extension BrewingSectionView {
         }
 
         return pourOverBrewModeSteps
+    }
+
+    var icedPourOverBrewModeSteps: [BrewModeStep] {
+        let hotWater = recipeBrewingWaterAmount
+        let ice = recipeIceAmount
+        let bloom = min(hotWater, validCoffeeAmount * 3)
+        let secondTarget = min(hotWater, roundedBrewTarget(hotWater * 0.67))
+        return [
+            BrewModeStep(id: 0, time: 0, title: "Add \(formattedWholeGram(ice)) g ice", detail: "Put the ice in the server, rinse the filter, and add \(formattedWholeGram(validCoffeeAmount)) g coffee.", waterTarget: nil),
+            BrewModeStep(id: 1, time: 5, title: "Bloom to \(formattedWholeGram(bloom)) g", detail: "Pour hot water over every ground, then wait 10–15 seconds.", waterTarget: bloom),
+            BrewModeStep(id: 2, time: 45, title: "Pour to \(formattedWholeGram(secondTarget)) g", detail: "Add hot water in slow circles and keep the slurry level.", waterTarget: secondTarget),
+            BrewModeStep(id: 3, time: 90, title: "Finish at \(formattedWholeGram(hotWater)) g", detail: "Add the final hot water, then let the brew draw down over the ice.", waterTarget: hotWater),
+            BrewModeStep(id: 4, time: 135, title: "Swirl and serve iced", detail: "Swirl the server so the ice melts evenly, then pour and serve.", waterTarget: hotWater)
+        ]
     }
 
     func smartRecipeBrewModeSteps(for profile: BrewGuideProfile) -> [BrewModeStep] {

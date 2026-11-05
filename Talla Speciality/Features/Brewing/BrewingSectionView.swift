@@ -409,6 +409,7 @@ struct BrewingSectionView: View {
     @State var loadedSavedRecipeRatio: Double?
     @State var isCustomerBagScanExpanded = false
     @State var isCustomerGuidedSession = false
+    @State var isCustomerGuidedAdjustmentsExpanded = false
     @State var returnsToGuidedBrewFromCoffeeLibrary = false
     @State var customerGuidedValidationMessage: String?
     @AppStorage("talla.brewing.guidedExperience.pro.v1") var isProGuidedControlsSelected = false

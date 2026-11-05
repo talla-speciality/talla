@@ -234,6 +234,16 @@ struct OrderHistoryFulfillmentTests {
         #expect(try !order(status: "Ready", method: "delivery").isPickup)
     }
 
+    @Test func cancellationStatesRemainTerminalAndFulfilmentAware() throws {
+        let delivery = try order(status: "Cancellation Requested", method: "delivery")
+        #expect(delivery.historyStatus == "cancellation requested")
+        #expect(!delivery.isPickup)
+
+        let pickup = try order(status: "Cancelled", method: "pickup")
+        #expect(pickup.historyStatus == "cancelled")
+        #expect(pickup.isPickup)
+    }
+
     @Test func coffeeClubProgressDecodesCurrentAndLegacyOrders() throws {
         let base: [String: Any] = [
             "id": "club-1", "title": "Talla Coffee Club", "total": "BHD 16.800",

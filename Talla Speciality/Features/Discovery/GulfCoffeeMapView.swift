@@ -50,6 +50,7 @@ private struct GulfCoffeeMapView: View {
     @State private var selectedCountry = "All GCC"
     @State private var selectedCategory = "All"
     @State private var selectedSpot: GulfCoffeeSpot?
+    @State private var isLoadingRemoteData = false
     @State private var ratingTarget: GulfCoffeeOffering?
     @State private var ratings: [String: Int] = [:]
     @State private var ratingSummaries: [String: GulfCoffeeRatingSummary] = [:]
@@ -108,6 +109,17 @@ private struct GulfCoffeeMapView: View {
             VStack(alignment: .leading, spacing: 20) {
                 mapHeader
                 searchField
+                if isLoadingRemoteData {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .tint(TallaTheme.Colors.ink)
+                        Text("Updating verified places…")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(secondaryText)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
+                }
                 countryFilters
                 regionOverview
                 verificationNotice
@@ -271,7 +283,7 @@ private struct GulfCoffeeMapView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(filteredSpots.count) places")
+                    Text(placeCountLabel(filteredSpots.count))
                     Text("\(mappedSpots.count) map pins")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(secondaryText)
@@ -400,7 +412,7 @@ private struct GulfCoffeeMapView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(city.key).font(.system(size: 15, weight: .bold, design: .rounded))
-                                Text("\(citySpots.count) \(AppLocalization.text("gulf_city_places", fallback: "places"))")
+                                Text(placeCountLabel(citySpots.count))
                                     .font(.system(size: 12, design: .rounded))
                             }
                             .foregroundStyle(primaryText)
@@ -535,6 +547,13 @@ private struct GulfCoffeeMapView: View {
         .buttonStyle(.plain)
     }
 
+    private func placeCountLabel(_ count: Int) -> String {
+        let noun = count == 1
+            ? AppLocalization.text("gulf_city_place", fallback: "place")
+            : AppLocalization.text("gulf_city_places", fallback: "places")
+        return "\(count) \(noun)"
+    }
+
     private func decodeRatings(_ storedValue: String) -> [String: Int] {
         storedValue.split(separator: "|").reduce(into: [:]) { result, entry in
             let pieces = entry.split(separator: "=", maxSplits: 1).map(String.init)
@@ -562,6 +581,18 @@ private struct GulfCoffeeMapView: View {
     }
 
     private func syncRemoteData() async {
+        await MainActor.run {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isLoadingRemoteData = true
+            }
+        }
+        defer {
+            Task { @MainActor in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isLoadingRemoteData = false
+                }
+            }
+        }
         if let remoteDirectory = try? await GulfCoffeeMapRatingService.fetchDirectory() {
             // The admin directory is authoritative. Never resurrect a deleted local seed.
             let mergedSpots = remoteDirectory.compactMap { remote in

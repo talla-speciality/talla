@@ -158,7 +158,7 @@ struct EspressoWorkspaceView: View {
         return HStack(spacing: 16) {
             Image(systemName: "target").font(.title2).foregroundStyle(accent)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Shots to a positive espresso").font(.subheadline.weight(.semibold)).foregroundStyle(primary)
+                Text("Progress toward a better espresso").font(.subheadline.weight(.semibold)).foregroundStyle(primary)
                 Text(positive > 0 ? "\((shots.firstIndex(where: { $0.isPositive }) ?? 0) + 1) shots · \(positive) positive" : "No positive shot recorded yet")
                     .font(.caption).foregroundStyle(secondary)
             }

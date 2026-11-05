@@ -915,6 +915,7 @@ extension ContentView {
             addressCountry = .bahrain
             addressNotes = ""
             addressMapSelection = nil
+            isAddressFormPresented = false
             if closeOnboarding {
                 isAccountOnboardingPresented = false
             }

@@ -1,6 +1,19 @@
 import SwiftUI
 
 struct CoffeeEducationView: View {
+    private enum EducationArea: String, CaseIterable, Identifiable {
+        case path, flavours, brewing, check
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .path: return "Learning Path"
+            case .flavours: return "Flavour Wheel"
+            case .brewing: return "Brew Lessons"
+            case .check: return "Quick Check"
+            }
+        }
+    }
+
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("app.appearanceMode") private var appearanceMode = "system"
     private let accent = TallaTheme.Colors.ink
@@ -23,6 +36,12 @@ struct CoffeeEducationView: View {
     @AppStorage("talla.education.rewardClaimed.v1") private var educationRewardClaimed = false
     @State private var claimingEducationReward = false
     @State private var hasRequestedRemoteQuestions = false
+    @SceneStorage("discover.coffeeSchool.area") private var selectedEducationAreaRaw = EducationArea.path.rawValue
+
+    private var selectedEducationArea: EducationArea {
+        get { EducationArea(rawValue: selectedEducationAreaRaw) ?? .path }
+        set { selectedEducationAreaRaw = newValue.rawValue }
+    }
 
     private let families: [(name: String, color: Color, notes: [String], description: String)] = [
         ("Fruity", Color(red: 0.89, green: 0.32, blue: 0.28), ["Berry", "Citrus", "Stone fruit"], "Bright, juicy notes often found in lightly roasted coffees."),
@@ -43,12 +62,8 @@ struct CoffeeEducationView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 38) {
-            learningPath
-            flavourWheel
-            brewLab
-            knowledgeCheck
-            methodsSection
-            basics
+            educationSelector
+            educationAreaContent
         }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -63,6 +78,52 @@ struct CoffeeEducationView: View {
                 hasRequestedRemoteQuestions = true
                 Task { await loadRemoteQuestions() }
             }
+    }
+
+    private var educationSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(EducationArea.allCases) { area in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedEducationAreaRaw = area.rawValue
+                        }
+                    } label: {
+                        Text(area.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(selectedEducationArea == area ? .white : TallaTheme.Colors.ink)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 42)
+                            .background(selectedEducationArea == area ? TallaTheme.Colors.ink : educationSurface, in: Capsule())
+                            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(selectedEducationArea == area ? 0 : 0.14), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedEducationArea == area ? .isSelected : [])
+                    .accessibilityIdentifier("coffeeSchool.area.\(area.id)")
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private var educationAreaContent: some View {
+        switch selectedEducationArea {
+        case .path:
+            VStack(alignment: .leading, spacing: 28) {
+                learningPath
+                basics
+            }
+        case .flavours:
+            flavourWheel
+        case .brewing:
+            VStack(alignment: .leading, spacing: 28) {
+                brewLab
+                methodsSection
+            }
+        case .check:
+            knowledgeCheck
+        }
     }
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {

@@ -529,7 +529,7 @@ struct Talla_SpecialityTests {
 
         #expect(key == "drip-bags")
         #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Drip Bags")
-        #expect(ProductCatalogRules.shopCategoryKey(for: key) == "coffee-beans")
+        #expect(ProductCatalogRules.shopCategoryKey(for: key) == "drip-bags")
         #expect(ProductCatalogRules.shopCategoryKey(for: "coffee-beans") == "coffee-beans")
         #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: key, requestedPlan: "drip-bags") == "drip-bags")
     }
@@ -896,5 +896,24 @@ struct Talla_SpecialityTests {
         #expect(store.inventory().isEmpty)
         #expect(store.legacyObjects(entityType: "purchasedCoffee").isEmpty)
         #expect(defaults.string(forKey: CoffeeDataStore.storageOwnerKey) == "second@example.test")
+    }
+
+    @MainActor @Test func markingPurchasedCoffeeOpenedPersistsOpenedDate() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        try store.addPurchasedCoffee(
+            name: "Opened-state test coffee",
+            roaster: "Talla",
+            roastDate: nil,
+            quantityGrams: 250
+        )
+        let coffee = try #require(store.inventory().first)
+        #expect(coffee.openedAt == nil)
+
+        let openedAt = Date(timeIntervalSince1970: 1_735_689_600)
+        try store.markOpened(coffee.id, date: openedAt)
+
+        let updated = try #require(store.inventory().first)
+        #expect(updated.openedAt != nil)
+        #expect(abs((updated.openedAt ?? .distantPast).timeIntervalSince1970 - openedAt.timeIntervalSince1970) < 1)
     }
 }

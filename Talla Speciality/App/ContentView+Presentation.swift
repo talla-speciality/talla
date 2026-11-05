@@ -785,6 +785,15 @@ extension ContentView {
                             tabScrollTarget = nil
                         }
                     }
+                    .onChange(of: discoverScrollTarget) { _, target in
+                        guard activeTab == .discover, tab == .discover, let target else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) {
+                                proxy.scrollTo(target, anchor: .top)
+                            }
+                            discoverScrollTarget = nil
+                        }
+                    }
                     .onChange(of: shopCatalogueScrollRequest) { _, _ in
                         guard activeTab == .shop, tab == .shop else { return }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {

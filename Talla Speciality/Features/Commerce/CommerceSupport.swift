@@ -1026,9 +1026,7 @@ enum ProductCatalogRules {
         slug(from: title) == "winter-box" || title.trimmingCharacters(in: .whitespacesAndNewlines) == "صندوق الشتاء"
     }
 
-    static func shopCategoryKey(for productCategoryKey: String) -> String {
-        productCategoryKey == "drip-bags" ? "coffee-beans" : productCategoryKey
-    }
+    static func shopCategoryKey(for productCategoryKey: String) -> String { productCategoryKey }
 
     static func isHotChocolate(categoryKey: String, name: String, handle: String) -> Bool {
         let text = "\(name) \(handle)".lowercased()
@@ -1147,6 +1145,12 @@ enum ProductCatalogRules {
         }
 
         if containsAny(sourceSlug, [
+            "coffee-capsule", "coffee-capsules", "capsule", "capsules", "coffee-pod", "coffee-pods", "nespresso", "k-cup"
+        ]) || ["coffee-capsules", "capsules", "pods"].contains(typeSlug) {
+            return "coffee-capsules"
+        }
+
+        if containsAny(sourceSlug, [
             "equipment", "brewer", "brewers", "tool", "tools", "accessory", "accessories",
             "v60", "filter", "filters", "scale", "grinder", "kettle", "server", "dripper",
             "aeropress", "chemex", "french-press"
@@ -1190,6 +1194,8 @@ enum ProductCatalogRules {
             return AppLocalization.text("category_arabic_coffee", fallback: "Arabic & Shamali Coffee")
         case "drip-bags":
             return AppLocalization.text("category_drip_bags", fallback: "Drip Bags")
+        case "coffee-capsules":
+            return AppLocalization.text("category_coffee_capsules", fallback: "Coffee Capsules")
         case "coffee-equipment":
             return AppLocalization.text("category_equipment", fallback: "Equipment")
         case "ready-made-drinks", "tea", "drinks":

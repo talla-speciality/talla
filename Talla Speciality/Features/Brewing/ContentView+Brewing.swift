@@ -939,8 +939,9 @@ extension ContentView {
     func applyBrewRecipe(_ recipe: BrewRecipe) {
         ratioCoffeeInput = formattedRatioValue(recipe.coffeeGrams)
         ratioValueInput = formattedRatioValue(recipe.ratio)
+        brewRecipeName = recipe.name
         openBrewing()
-        showToast(message: String(format: AppLocalization.text("recipe_loaded_toast", fallback: "%@ loaded"), recipe.name))
+        showToast(message: String(format: AppLocalization.text("recipe_loaded_toast", fallback: "%@ loaded for Guided Brew"), recipe.name))
     }
 
     func editBrewRecipe(_ recipe: BrewRecipe) {

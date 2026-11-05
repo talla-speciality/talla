@@ -6,12 +6,12 @@ struct TallaAppIconOption: Identifiable {
     var id: String { iconName ?? "primary" }
 
     static let all: [TallaAppIconOption] = [
-        TallaAppIconOption(iconName: nil, previewAsset: "AppIconPreview1", title: "Bahrain Pink"),
-        TallaAppIconOption(iconName: "TallaOriginal", previewAsset: "AppIconPreviewOriginal", title: "Original"),
-        TallaAppIconOption(iconName: "TallaIcon2", previewAsset: "AppIconPreview2", title: "Pink Cup"),
-        TallaAppIconOption(iconName: "TallaIcon4", previewAsset: "AppIconPreview4", title: "Gold Cup"),
-        TallaAppIconOption(iconName: "TallaIcon5", previewAsset: "AppIconPreview5", title: "Witch Cup"),
-        TallaAppIconOption(iconName: "TallaIcon6", previewAsset: "AppIconPreview6", title: "Talla Wordmark")
+        TallaAppIconOption(iconName: nil, previewAsset: "AppIconPreview1", title: "Winter Bahrain"),
+        TallaAppIconOption(iconName: "TallaOriginal", previewAsset: "AppIconPreviewOriginal", title: "BHR"),
+        TallaAppIconOption(iconName: "TallaIcon2", previewAsset: "AppIconPreview2", title: "Winter"),
+        TallaAppIconOption(iconName: "TallaIcon4", previewAsset: "AppIconPreview4", title: "Original"),
+        TallaAppIconOption(iconName: "TallaIcon5", previewAsset: "AppIconPreview5", title: "Fall"),
+        TallaAppIconOption(iconName: "TallaIcon6", previewAsset: "AppIconPreview6", title: "Talla")
     ]
 }
 

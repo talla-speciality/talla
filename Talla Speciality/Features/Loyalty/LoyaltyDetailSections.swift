@@ -394,25 +394,25 @@ struct LoyaltyWalletCallToActionView: View {
 
 struct ClubSectionView: View {
     private enum ClubArea: String, CaseIterable, Identifiable {
-        case overview, subscriptions, rewards, coffeeClub, coffeeSchool, appIcon
+        case overview, coffeeClub, rewards, coffeeSchool, community
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .overview: return "Overview"
-            case .subscriptions: return "Subscriptions"
+            case .coffeeClub: return "Talla Club"
             case .rewards: return "Rewards"
-            case .coffeeClub: return "Coffee Club"
             case .coffeeSchool: return "Coffee School"
-            case .appIcon: return "App Icon"
+            case .community: return "Community"
             }
         }
     }
 
     let rewardsContent: AnyView
     let coffeeSchoolContent: AnyView
-    let appIconContent: AnyView
+    @Binding var discoverScrollTarget: String?
     let beansBalance: Int
+    let rewardStep: Int
     let membershipTier: String
     let isCustomerSignedIn: Bool
     let coffeeClubEnabled: Bool
@@ -436,11 +436,16 @@ struct ClubSectionView: View {
     let openShopCategoryAction: (String) -> Void
     let openSubscriptionPlanAction: (String, String) -> Void
     let addCoffeeToClubAction: (ContentView.Product, ContentView.Product.Variant, Int, TallaFulfillmentMethod) -> Void
-    @State private var selectedClubArea: ClubArea = .overview
+    @SceneStorage("discover.club.area") private var selectedClubAreaRaw = ClubArea.overview.rawValue
     @State private var configuredCoffee: ContentView.Product?
     @State private var configuredVariantID = ""
     @State private var configuredQuantity = 1
     @State private var configuredFulfillment: TallaFulfillmentMethod = .delivery
+
+    private var selectedClubArea: ClubArea {
+        get { ClubArea(rawValue: selectedClubAreaRaw) ?? .overview }
+        set { selectedClubAreaRaw = newValue.rawValue }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -456,41 +461,41 @@ struct ClubSectionView: View {
     }
 
     private var clubNavigation: some View {
-        Menu {
-            ForEach(ClubArea.allCases) { area in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        selectedClubArea = area
-                    }
-                } label: {
-                    if selectedClubArea == area {
-                        Label(area.title, systemImage: "checkmark")
-                    } else {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ClubArea.allCases) { area in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            selectedClubAreaRaw = area.rawValue
+                            discoverScrollTarget = "discover.club.\(area.id)"
+                        }
+                    } label: {
                         Text(area.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(selectedClubArea == area ? .white : primaryTextColor)
+                            .lineLimit(1)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 42)
+                            .background(selectedClubArea == area ? accentColor : cardFillColor, in: Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(TallaTheme.Colors.ink.opacity(selectedClubArea == area ? 0 : 0.16), lineWidth: 1)
+                            )
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedClubArea == area ? .isSelected : [])
+                    .accessibilityIdentifier("club.section.\(area.id)")
                 }
             }
-        } label: {
-            HStack(spacing: 9) {
-                Text(selectedClubArea.title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(primaryTextColor)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(TallaTheme.Colors.ink)
-            }
-            .padding(.horizontal, 14)
-            .frame(width: 220, height: 42)
-            .background(cardFillColor, in: Capsule())
-            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
         }
-        .accessibilityIdentifier("club.sectionPicker")
+        .contentMargins(.horizontal, 1, for: .scrollContent)
+        .scrollClipDisabled()
     }
 
     @ViewBuilder
     private var clubAreaContent: some View {
-        switch selectedClubArea {
+        Group {
+            switch selectedClubArea {
         case .overview:
             VStack(alignment: .leading, spacing: 14) {
                 membershipDashboard
@@ -501,9 +506,6 @@ struct ClubSectionView: View {
                     accentColor: accentColor
                 )
             }
-        case .subscriptions:
-            subscriptionsDetail
-                .padding(.top, 2)
         case .rewards:
             VStack(alignment: .leading, spacing: 14) {
                 rewardsContent
@@ -511,15 +513,33 @@ struct ClubSectionView: View {
             }
             .padding(.top, 2)
         case .coffeeClub:
-            coffeeClubDetail
-                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 24) {
+                subscriptionsDetail
+                coffeeClubDetail
+            }
+            .padding(.top, 2)
         case .coffeeSchool:
             coffeeSchoolContent
                 .padding(.top, 2)
-        case .appIcon:
-            appIconContent
-                .padding(.top, 2)
+        case .community:
+            VStack(alignment: .leading, spacing: 12) {
+                Text("COMMUNITY")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(2.1)
+                    .foregroundColor(TallaTheme.Colors.ink)
+                Text("Keep exploring together.")
+                    .font(.system(size: 24, weight: .semibold, design: .serif))
+                    .foregroundColor(primaryTextColor)
+                Text("Seasonal events, early access, and tasting moments from the wider Talla coffee community.")
+                    .font(.system(size: 14))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                clubExclusives
+            }
+            .padding(.top, 2)
+            }
         }
+        .id("discover.club.\(selectedClubArea.id)")
     }
 
     private var clubWelcomeHeader: some View {
@@ -592,7 +612,7 @@ struct ClubSectionView: View {
             }
 
             Button(coffeeClubEnabled ? "EXPLORE COFFEE CLUB" : "LEARN MORE") {
-                selectedClubArea = .coffeeClub
+                selectedClubAreaRaw = ClubArea.coffeeClub.rawValue
             }
             .clubPrimaryButton(accent: Color(hex: 0x151515))
         }
@@ -632,7 +652,7 @@ struct ClubSectionView: View {
                 overviewMetric(value: coffeeClubOrders.isEmpty ? "—" : "Active", label: "COFFEE CLUB", icon: "shippingbox.fill")
             }
             Button(isCustomerSignedIn ? "VIEW REWARDS" : "OPEN REWARDS") {
-                selectedClubArea = .rewards
+                selectedClubAreaRaw = ClubArea.rewards.rawValue
             }
             .clubSecondaryButton(accent: accentColor, foreground: primaryTextColor)
         }
@@ -670,10 +690,7 @@ struct ClubSectionView: View {
                 .foregroundColor(TallaTheme.Colors.ink)
             HStack(spacing: 9) {
                 overviewShortcut(title: "Coffee School", detail: "Learn your next brew", icon: "drop.fill") {
-                    selectedClubArea = .coffeeSchool
-                }
-                overviewShortcut(title: "App Icon", detail: "Make Talla yours", icon: "app.gift.fill") {
-                    selectedClubArea = .appIcon
+                    selectedClubAreaRaw = ClubArea.coffeeSchool.rawValue
                 }
             }
         }
@@ -702,8 +719,10 @@ struct ClubSectionView: View {
     }
 
     private var membershipDashboard: some View {
-        let nextRewardTarget = max(50, ((beansBalance / 50) + 1) * 50)
-        let rewardProgress = min(Double(beansBalance % 50) / 50.0, 1)
+        let drinkRewardStep = max(rewardStep, 1)
+        let cycleProgress = beansBalance % drinkRewardStep
+        let rewardProgress = min(Double(cycleProgress) / Double(drinkRewardStep), 1)
+        let rewardRemaining = cycleProgress == 0 ? drinkRewardStep : drinkRewardStep - cycleProgress
         let activeOrder = coffeeClubOrders.first(where: { order in
             guard let club = order.details?.coffeeClub else { return false }
             return club.lifecycleStatus == "active" || club.lifecycleStatus == "paused"
@@ -731,16 +750,20 @@ struct ClubSectionView: View {
             }
 
             HStack(spacing: 8) {
-                Text("Next reward")
+                Text("Drink reward progress")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(secondaryTextColor)
                 Spacer()
-                Text("\(beansBalance) / \(nextRewardTarget)")
+                Text("\(cycleProgress) / \(drinkRewardStep) Beans")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(TallaTheme.Colors.ink)
             }
             ProgressView(value: rewardProgress == 0 && beansBalance > 0 ? 0.02 : rewardProgress)
                 .tint(TallaTheme.Colors.ink)
+            Text("\(rewardRemaining) Beans until the next drink reward. Your total balance remains \(beansBalance) Beans.")
+                .font(.system(size: 11))
+                .foregroundColor(secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let club = activeOrder?.details?.coffeeClub {
                 HStack(spacing: 9) {
@@ -763,7 +786,7 @@ struct ClubSectionView: View {
                 .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
 
-            Button("OPEN REWARDS") { selectedClubArea = .rewards }
+            Button("OPEN REWARDS") { selectedClubAreaRaw = ClubArea.rewards.rawValue }
                 .font(.system(size: 10, weight: .bold))
                 .tracking(1.2)
                 .foregroundColor(primaryTextColor)
@@ -886,7 +909,7 @@ struct ClubSectionView: View {
             .padding(.vertical, 13)
             .background(accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
             Button(isCustomerSignedIn ? "VIEW REWARDS" : "OPEN REWARDS") {
-                selectedClubArea = .rewards
+                selectedClubAreaRaw = ClubArea.rewards.rawValue
             }
             .clubPrimaryButton(accent: accentColor)
         }
@@ -930,7 +953,7 @@ struct ClubSectionView: View {
             .padding(.vertical, 14)
             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             Button("EXPLORE COFFEE CLUB") {
-                selectedClubArea = .coffeeClub
+                selectedClubAreaRaw = ClubArea.coffeeClub.rawValue
             }
             .clubPrimaryButton(accent: Color(hex: 0x151515))
         }
@@ -951,7 +974,7 @@ struct ClubSectionView: View {
 
     private var coffeeSchoolCard: some View {
         Button {
-            selectedClubArea = .coffeeSchool
+            selectedClubAreaRaw = ClubArea.coffeeSchool.rawValue
         } label: {
             VStack(alignment: .leading, spacing: 17) {
                 HStack {
@@ -1039,7 +1062,7 @@ struct ClubSectionView: View {
             }
             if coffeeClubProducts.isEmpty {
                 Button("CHOOSE PLAN ITEMS") {
-                    selectedClubArea = .overview
+                    selectedClubAreaRaw = ClubArea.overview.rawValue
                     openCoffeeClubAction()
                 }
                 .font(.system(size: 12, weight: .bold))
@@ -1230,8 +1253,14 @@ struct ClubSectionView: View {
                     AsyncImage(url: imageURL) { phase in
                         if let image = phase.image {
                             image.resizable().scaledToFill()
-                        } else {
+                        } else if case .failure = phase {
                             productPlaceholder
+                        } else {
+                            ZStack {
+                                productPlaceholder
+                                ProgressView()
+                                    .tint(TallaTheme.Colors.ink)
+                            }
                         }
                     }
                 } else {
@@ -1246,7 +1275,7 @@ struct ClubSectionView: View {
                 .foregroundColor(primaryTextColor)
                 .lineLimit(2)
                 .frame(width: 150, alignment: .leading)
-            Text(product.price)
+            Text(product.defaultVariant?.price ?? product.price)
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(secondaryTextColor)
             Button("CHOOSE FOR PLAN") {
@@ -1283,6 +1312,14 @@ struct ClubSectionView: View {
                         }
                     }
                     Stepper("Quantity · \(configuredQuantity)", value: $configuredQuantity, in: 1...6)
+                    if let variant = product.variants.first(where: { $0.id == configuredVariantID && $0.isAvailableForSale }) {
+                        HStack {
+                            Text("Selected price")
+                            Spacer()
+                            Text(variant.price)
+                                .fontWeight(.semibold)
+                        }
+                    }
                 }
 
                 Section("Fulfilment") {

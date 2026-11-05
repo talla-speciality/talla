@@ -1295,6 +1295,9 @@ extension ContentView {
         if key == "drip-bags" {
             return AppLocalization.text("category_drip_bags", fallback: "Drip Bags")
         }
+        if key == "coffee-capsules" {
+            return AppLocalization.text("category_coffee_capsules", fallback: "Coffee Capsules")
+        }
         if key == "coffee-equipment" {
             return AppLocalization.text("category_equipment", fallback: "Equipment")
         }

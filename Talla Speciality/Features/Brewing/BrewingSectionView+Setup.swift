@@ -619,7 +619,7 @@ extension BrewingSectionView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
                     VStack(alignment: .leading, spacing: 12) {
-                        brewSectionLabel("CORE TOOLS")
+                        brewSectionLabel("BREWING")
                         toolMenuRow(title: AppLocalization.text("ratio_calculator", fallback: "Ratio Calculator"), detail: "Dose, ratio, water", icon: "divide.circle") {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .ratioCalculator
@@ -628,15 +628,13 @@ extension BrewingSectionView {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .brewTimer
                         }
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        brewSectionLabel("COFFEE MANAGEMENT")
                         toolMenuRow(title: AppLocalization.text("coffee_journal", fallback: "Coffee Journal"), detail: "Tasting notes and history", icon: "book.pages") {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .coffeeJournal
-                        }
-                        toolMenuRow(title: AppLocalization.text("saved_equipment", fallback: "Saved Equipment"), detail: savedEquipmentDetail, icon: "slider.horizontal.3") {
-                            isToolsMenuPresented = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                isSavedEquipmentPresented = true
-                            }
                         }
                         if coffeeMemoryEnabled {
                             toolMenuRow(title: AppLocalization.text("coffee_inventory", fallback: "Coffee Inventory"), detail: "Beans, roast dates, quantities", icon: "books.vertical") {
@@ -647,7 +645,17 @@ extension BrewingSectionView {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        brewSectionLabel("EXPLORE")
+                        brewSectionLabel("EQUIPMENT")
+                        toolMenuRow(title: AppLocalization.text("saved_equipment", fallback: "Saved Equipment"), detail: savedEquipmentDetail, icon: "slider.horizontal.3") {
+                            isToolsMenuPresented = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                isSavedEquipmentPresented = true
+                            }
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        brewSectionLabel("ADVANCED")
                         toolMenuRow(title: AppLocalization.text("brew_coach", fallback: "Brew Coach"), detail: "Small adjustments for the next cup", icon: "sparkles") {
                             isToolsMenuPresented = false
                             activeDashboardDestination = .brewCoach
@@ -1708,7 +1716,6 @@ extension BrewingSectionView {
         coffeeRoaster = "Talla Speciality"
         coffeeOrigin = pendingCoffeeOrigin
         coffeeTastingNotes = pendingCoffeeNotes
-        brewRecipeName = name
         prepareNewRecipeJourney(startsWithScan: false)
         coffeeDetailsMode = .manual
         if pendingRecommendedRecipe {

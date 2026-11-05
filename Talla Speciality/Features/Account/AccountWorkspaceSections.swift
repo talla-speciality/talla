@@ -236,6 +236,8 @@ struct OrderHistorySectionView: View {
     let orders: [ContentView.AccountOrder]
     let isLoadingOrders: Bool
     let ordersError: String?
+    @Binding var selectedOrderID: String?
+    let orderPresentationRequest: Int
     let primaryTextColor: Color
     let secondaryTextColor: Color
     let tertiaryTextColor: Color
@@ -263,6 +265,7 @@ struct OrderHistorySectionView: View {
     @State private var selectedFulfillment: TallaFulfillmentMethod = .delivery
     @State private var managementNote = ""
     @State private var isManagingCoffeeClub = false
+    @State private var selectedOrder: ContentView.AccountOrder?
 
     private struct EditableClubCoffee: Identifiable {
         var variantID: String
@@ -318,15 +321,18 @@ struct OrderHistorySectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
                 ForEach(orders.prefix(4)) { order in
+                    let statusTitle = orderStatusTitle(order.historyStatus)
+                    let orderDate = formattedOrderDate(order.createdAt)
+                    let orderTotal = order.total
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(orderStatusTitle(order.historyStatus))
+                                Text(statusTitle)
                                     .font(Font.custom("AvenirNext-Bold", size: 11))
                                     .tracking(AppLocalization.letterSpacing(1.5))
                                     .foregroundColor(primaryTextColor)
 
-                                Text(formattedOrderDate(order.createdAt))
+                                Text(orderDate)
                                     .font(Font.custom("AvenirNext-Regular", size: 12))
                                     .foregroundColor(tertiaryTextColor)
                             }
@@ -334,7 +340,7 @@ struct OrderHistorySectionView: View {
                             Spacer()
 
                             VStack(alignment: .trailing, spacing: 6) {
-                                Text(order.total)
+                                Text(orderTotal)
                                     .font(Font.custom("AvenirNext-Bold", size: 11))
                                     .foregroundColor(TallaTheme.Colors.ink)
 
@@ -355,104 +361,7 @@ struct OrderHistorySectionView: View {
                         }
 
                         if let club = order.details?.coffeeClub {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label(
-                                    String(
-                                        format: AppLocalization.text(
-                                            "coffee_club_order_summary",
-                                            fallback: "%d prepaid shipments · every %d weeks · %d%% saved"
-                                        ),
-                                        club.shipmentCount,
-                                        club.intervalWeeks,
-                                        club.discountPercent
-                                    ),
-                                    systemImage: "checkmark.seal.fill"
-                                )
-                                .font(Font.custom("AvenirNext-DemiBold", size: 12))
-                                .foregroundColor(TallaTheme.Colors.ink)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                                ProgressView(value: Double(club.deliveredCount), total: Double(max(1, club.shipmentCount)))
-                                    .tint(TallaTheme.Colors.ink)
-
-                                HStack {
-                                    Label(
-                                        String(
-                                            format: AppLocalization.text("coffee_club_delivered_count", fallback: "%d delivered"),
-                                            club.deliveredCount
-                                        ),
-                                        systemImage: "checkmark.circle.fill"
-                                    )
-                                    Spacer()
-                                    Label(
-                                        String(
-                                            format: AppLocalization.text("coffee_club_remaining_count", fallback: "%d remaining"),
-                                            club.remainingCount
-                                        ),
-                                        systemImage: "shippingbox"
-                                    )
-                                }
-                                .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                .foregroundColor(secondaryTextColor)
-
-                                if let nextShipmentAt = club.nextShipmentAt,
-                                   club.remainingCount > 0,
-                                   club.lifecycleStatus != "cancelled" {
-                                    Label(
-                                        String(
-                                            format: AppLocalization.text(
-                                                club.isOverdue == true ? "coffee_club_overdue" : "coffee_club_next_shipment",
-                                                fallback: club.isOverdue == true ? "Shipment %d is overdue · %@" : "Next shipment %d · %@"
-                                            ),
-                                            club.nextShipmentNumber ?? (club.deliveredCount + 1),
-                                            formattedOrderDate(nextShipmentAt)
-                                        ),
-                                        systemImage: club.isOverdue == true ? "exclamationmark.triangle.fill" : "calendar.badge.clock"
-                                    )
-                                    .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                    .foregroundColor(club.isOverdue == true ? TallaTheme.Colors.warning : secondaryTextColor)
-                                }
-
-                                Text(coffeeClubStatusText(club))
-                                    .font(Font.custom("AvenirNext-DemiBold", size: 10))
-                                    .foregroundColor(TallaTheme.Colors.ink)
-
-                                if let coffeeName = club.preference?.coffeeName, !coffeeName.isEmpty {
-                                    Label(coffeeName, systemImage: "cup.and.saucer.fill")
-                                        .font(Font.custom("AvenirNext-Regular", size: 11))
-                                        .foregroundColor(secondaryTextColor)
-                                }
-
-                                if !["cancelled", "completed"].contains(club.lifecycleStatus) {
-                                    Button {
-                                        prepareCoffeeClubManagement(order)
-                                    } label: {
-                                        Label(
-                                            AppLocalization.text("manage_coffee_club", fallback: "Manage Coffee Club"),
-                                            systemImage: "slider.horizontal.3"
-                                        )
-                                        .font(Font.custom("AvenirNext-Bold", size: 10))
-                                        .tracking(AppLocalization.letterSpacing(1.1))
-                                        .textCase(.uppercase)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                    }
-                                    .buttonStyle(.tallaSecondary)
-                                    .tint(TallaTheme.Colors.ink)
-                                }
-                            }
-                            .accessibilityElement(children: .contain)
-                            .accessibilityLabel(
-                                String(
-                                    format: AppLocalization.text(
-                                        "coffee_club_progress_accessibility",
-                                        fallback: "Coffee Club: %d of %d shipments delivered, %d remaining"
-                                    ),
-                                    club.deliveredCount,
-                                    club.shipmentCount,
-                                    club.remainingCount
-                                )
-                            )
+                            coffeeClubDetails(order: order, club: club)
                         }
 
                         if let pass = order.details?.cafePass {
@@ -460,7 +369,7 @@ struct OrderHistorySectionView: View {
                                 Label("\(pass.giftedCoffee == true ? "Coffee gift" : pass.suspendedCoffee == true ? "Suspended coffee" : "Daily cup café pass") · \(pass.remainingCredits) of \(pass.creditCount) drinks remaining", systemImage: "cup.and.saucer.fill")
                                     .font(Font.custom("AvenirNext-DemiBold", size: 12))
                                     .foregroundColor(TallaTheme.Colors.ink)
-                                Text("\(pass.drinkName) · \(pass.status.replacingOccurrences(of: "_", with: " ").capitalized)\(pass.expiresAt.flatMap { formattedOrderDate($0).isEmpty ? nil : " · Expires \(formattedOrderDate($0))" } ?? "")")
+                                Text(cafePassStatusLine(pass))
                                     .font(Font.custom("AvenirNext-Regular", size: 11))
                                     .foregroundColor(secondaryTextColor)
                                 if pass.status == "active", pass.remainingCredits > 0, pass.suspendedCoffee != true, !cafePassProducts.isEmpty {
@@ -485,29 +394,7 @@ struct OrderHistorySectionView: View {
                                     .tint(TallaTheme.Colors.ink)
                                 }
                                 if order.isPaidForCafePass, pass.suspendedCoffee == true, pass.status == "active", pass.remainingCredits > 0 {
-                                    HStack(spacing: 12) {
-                                        SuspendedCoffeePassQR(orderID: order.id).frame(width: 116, height: 116)
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            Text(pass.giftedCoffee == true
-                                                ? "Send this link after payment. The recipient shows the code at the Talla counter to redeem one coffee."
-                                                : "Show this QR at the Talla counter. Staff will look up the pass and redeem one drink per guest.")
-                                                .font(Font.custom("AvenirNext-Regular", size: 11)).foregroundColor(secondaryTextColor)
-                                            ShareLink(item: suspendedCoffeeGiftLink(orderID: order.id, token: pass.giftToken), subject: Text("A coffee from Talla"), message: Text("A \(pass.drinkName) is waiting for you at the Talla counter. Show staff gift code \(order.id) to redeem it.")) {
-                                                Label(pass.giftedCoffee == true ? "Share paid coffee gift" : "Share counter code", systemImage: "square.and.arrow.up").font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                            }.tint(TallaTheme.Colors.ink)
-                                            if pass.giftedCoffee == true,
-                                               let whatsappURL = coffeeGiftWhatsAppURL(orderID: order.id, drinkName: pass.drinkName, token: pass.giftToken) {
-                                                Button {
-                                                    openURL(whatsappURL)
-                                                } label: {
-                                                    Label("Send gift on WhatsApp", systemImage: "message.fill")
-                                                        .font(Font.custom("AvenirNext-DemiBold", size: 11))
-                                                }.tint(TallaTheme.Colors.ink)
-                                            }
-                                        }
-                                    }
-                                    .padding(10)
-                                    .background(cardFillColor, in: RoundedRectangle(cornerRadius: 12))
+                                    suspendedCoffeePassDetails(order: order, pass: pass)
                                 }
                             }
                         }
@@ -535,7 +422,7 @@ struct OrderHistorySectionView: View {
                         .background(accentColor.opacity(isLightAppearance ? 0.10 : 0.16))
                         .clipShape(Capsule(style: .continuous))
 
-                        orderProgressRow(status: order.historyStatus, isPickup: order.isPickup)
+                        orderProgressRow(order: order)
 
                         if let tracking = order.details?.tracking,
                            let value = tracking.url,
@@ -625,9 +512,121 @@ struct OrderHistorySectionView: View {
                 }
             }
         }
+        .sheet(item: $selectedOrder) { order in
+            OrderDetailView(
+                order: order,
+                primaryTextColor: primaryTextColor,
+                secondaryTextColor: secondaryTextColor,
+                tertiaryTextColor: tertiaryTextColor,
+                accentColor: accentColor,
+                cardFillColor: cardFillColor,
+                isLightAppearance: isLightAppearance,
+                buyAgainAction: buyAgainAction,
+                orderSupportAction: orderSupportAction
+            )
+        }
+        .onAppear { resolveSelectedOrderIfAvailable() }
+        .onChange(of: orders.map(\.id)) { _, _ in resolveSelectedOrderIfAvailable() }
+        .onChange(of: orderPresentationRequest) { _, _ in resolveSelectedOrderIfAvailable() }
         .sheet(item: $managedCoffeeClubOrder) { order in
             coffeeClubManagementSheet(order)
         }
+    }
+
+    private func resolveSelectedOrderIfAvailable() {
+        guard let selectedOrderID,
+              let order = orders.first(where: { $0.id == selectedOrderID }) else { return }
+        selectedOrder = order
+        self.selectedOrderID = nil
+    }
+
+    private func coffeeClubDetails(order: ContentView.AccountOrder, club: CustomerCoffeeClub) -> some View {
+        let summary = String(
+            format: AppLocalization.text("coffee_club_order_summary", fallback: "%d prepaid shipments · every %d weeks · %d%% saved"),
+            club.shipmentCount, club.intervalWeeks, club.discountPercent
+        )
+        let delivered = String(format: AppLocalization.text("coffee_club_delivered_count", fallback: "%d delivered"), club.deliveredCount)
+        let remaining = String(format: AppLocalization.text("coffee_club_remaining_count", fallback: "%d remaining"), club.remainingCount)
+        return VStack(alignment: .leading, spacing: 8) {
+            Label(summary, systemImage: "checkmark.seal.fill")
+                .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                .foregroundColor(TallaTheme.Colors.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            ProgressView(value: Double(club.deliveredCount), total: Double(max(1, club.shipmentCount)))
+                .tint(TallaTheme.Colors.ink)
+            HStack {
+                Label(delivered, systemImage: "checkmark.circle.fill")
+                Spacer()
+                Label(remaining, systemImage: "shippingbox")
+            }
+            .font(Font.custom("AvenirNext-DemiBold", size: 11))
+            .foregroundColor(secondaryTextColor)
+            if let nextShipmentAt = club.nextShipmentAt, club.remainingCount > 0, club.lifecycleStatus != "cancelled" {
+                let key = club.isOverdue == true ? "coffee_club_overdue" : "coffee_club_next_shipment"
+                let fallback = club.isOverdue == true ? "Shipment %d is overdue · %@" : "Next shipment %d · %@"
+                Label(
+                    String(format: AppLocalization.text(key, fallback: fallback), club.nextShipmentNumber ?? (club.deliveredCount + 1), formattedOrderDate(nextShipmentAt)),
+                    systemImage: club.isOverdue == true ? "exclamationmark.triangle.fill" : "calendar.badge.clock"
+                )
+                .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                .foregroundColor(club.isOverdue == true ? TallaTheme.Colors.warning : secondaryTextColor)
+            }
+            Text(coffeeClubStatusText(club))
+                .font(Font.custom("AvenirNext-DemiBold", size: 10))
+                .foregroundColor(TallaTheme.Colors.ink)
+            if let coffeeName = club.preference?.coffeeName, !coffeeName.isEmpty {
+                Label(coffeeName, systemImage: "cup.and.saucer.fill")
+                    .font(Font.custom("AvenirNext-Regular", size: 11))
+                    .foregroundColor(secondaryTextColor)
+            }
+            if !["cancelled", "completed"].contains(club.lifecycleStatus) {
+                Button { prepareCoffeeClubManagement(order) } label: {
+                    Label(AppLocalization.text("manage_coffee_club", fallback: "Manage Coffee Club"), systemImage: "slider.horizontal.3")
+                        .font(Font.custom("AvenirNext-Bold", size: 10))
+                        .tracking(AppLocalization.letterSpacing(1.1))
+                        .textCase(.uppercase)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.tallaSecondary)
+                .tint(TallaTheme.Colors.ink)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(format: AppLocalization.text("coffee_club_progress_accessibility", fallback: "Coffee Club: %d of %d shipments delivered, %d remaining"), club.deliveredCount, club.shipmentCount, club.remainingCount))
+    }
+
+    private func suspendedCoffeePassDetails(order: ContentView.AccountOrder, pass: ContentView.AccountOrder.Details.CafePass) -> some View {
+        HStack(spacing: 12) {
+            SuspendedCoffeePassQR(orderID: order.id)
+                .frame(width: 116, height: 116)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(pass.giftedCoffee == true
+                    ? "Send this link after payment. The recipient shows the code at the Talla counter to redeem one coffee."
+                    : "Show this QR at the Talla counter. Staff will look up the pass and redeem one drink per guest.")
+                    .font(Font.custom("AvenirNext-Regular", size: 11))
+                    .foregroundColor(secondaryTextColor)
+                ShareLink(
+                    item: suspendedCoffeeGiftLink(orderID: order.id, token: pass.giftToken),
+                    subject: Text("A coffee from Talla"),
+                    message: Text("A \(pass.drinkName) is waiting for you at the Talla counter. Show staff gift code \(order.id) to redeem it.")
+                ) {
+                    Label(pass.giftedCoffee == true ? "Share paid coffee gift" : "Share counter code", systemImage: "square.and.arrow.up")
+                        .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                }
+                .tint(TallaTheme.Colors.ink)
+                if pass.giftedCoffee == true,
+                   let whatsappURL = coffeeGiftWhatsAppURL(orderID: order.id, drinkName: pass.drinkName, token: pass.giftToken) {
+                    Button { openURL(whatsappURL) } label: {
+                        Label("Send gift on WhatsApp", systemImage: "message.fill")
+                            .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                    }
+                    .tint(TallaTheme.Colors.ink)
+                }
+            }
+        }
+        .padding(10)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func coffeeClubStatusText(_ club: CustomerCoffeeClub) -> String {
@@ -904,7 +903,7 @@ struct OrderHistorySectionView: View {
     }
 
     private var pickupDirectionsCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "storefront.fill")
                     .font(.system(size: 14, weight: .bold))
@@ -1057,11 +1056,15 @@ struct OrderHistorySectionView: View {
         .buttonStyle(.plain)
     }
 
-    private func orderProgressRow(status: String, isPickup: Bool) -> some View {
-        let currentIndex = orderStatusStepIndex(status)
-        let steps = orderStatusSteps(for: status, isPickup: isPickup)
+    @ViewBuilder
+    private func orderProgressRow(order: ContentView.AccountOrder) -> some View {
+        let status = order.historyStatus
+        let normalizedStatus = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !["cancelled", "canceled", "cancellation requested", "refunded"].contains(normalizedStatus) {
+        let steps = orderStatusSteps(for: status, isPickup: order.isPickup, includesCoffeeStages: orderContainsCoffee(order))
+        let currentIndex = orderStatusStepIndex(status, steps: steps)
 
-        return VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             GeometryReader { proxy in
                 let trackWidth = max(proxy.size.width - 28, 1)
                 let progress = CGFloat(currentIndex) / CGFloat(max(steps.count - 1, 1))
@@ -1124,42 +1127,48 @@ struct OrderHistorySectionView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityLabel(AppLocalization.text("order_status_progress", fallback: "Order status progress"))
         .accessibilityValue(orderStatusTitle(status))
+        }
     }
 
-    private func orderStatusSteps(for status: String, isPickup: Bool) -> [(key: String, title: String)] {
-        var steps = [
-            ("received", AppLocalization.text("order_step_received", fallback: "Received")),
-            ("roasting", AppLocalization.text("order_step_roasting", fallback: "Roasting")),
-            ("resting", AppLocalization.text("order_step_resting", fallback: "Resting")),
-            ("packed", AppLocalization.text("order_step_packed", fallback: "Packed")),
-            ("on-the-way", AppLocalization.text("order_step_on_the_way", fallback: "On its way"))
+    private func orderStatusSteps(for status: String, isPickup: Bool, includesCoffeeStages: Bool) -> [(key: String, title: String)] {
+        var steps: [(key: String, title: String)] = [
+            ("received", AppLocalization.text("order_step_received", fallback: "Received"))
         ]
+        if includesCoffeeStages {
+            steps.append(("roasting", AppLocalization.text("order_step_roasting", fallback: "Roasting")))
+            steps.append(("resting", AppLocalization.text("order_step_resting", fallback: "Resting")))
+        }
+        steps.append(("packed", AppLocalization.text("order_step_packed", fallback: "Packed")))
+        steps.append(("on-the-way", AppLocalization.text("order_step_on_the_way", fallback: "On its way")))
 
         if isPickup {
-            steps[4] = ("pickup-ready", AppLocalization.text("order_status_ready_pickup", fallback: "Ready for pickup"))
+            steps[steps.count - 1] = ("pickup-ready", AppLocalization.text("order_status_ready_pickup", fallback: "Ready for pickup"))
         }
 
         if isPickup && status == "collected" {
-            steps[4] = ("collected", AppLocalization.text("order_status_collected", fallback: "Collected"))
+            steps[steps.count - 1] = ("collected", AppLocalization.text("order_status_collected", fallback: "Collected"))
         }
         return steps
     }
 
-    private func orderStatusStepIndex(_ status: String) -> Int {
-        switch status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "confirmed", "preparing", "roasting", "in progress":
-            return 1
-        case "resting":
-            return 2
-        case "packed":
-            return 3
-        case "collected", "ready", "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered":
-            return 4
-        case "cancelled", "canceled":
-            return 0
-        default:
-            return 0
+    private func orderStatusStepIndex(_ status: String, steps: [(key: String, title: String)]) -> Int {
+        let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let key: String
+        switch normalized {
+        case "confirmed", "preparing", "roasting", "in progress": key = steps.contains(where: { $0.key == "roasting" }) ? "roasting" : "received"
+        case "resting": key = steps.contains(where: { $0.key == "resting" }) ? "resting" : "packed"
+        case "packed": key = "packed"
+        case "collected", "ready", "completed", "fulfilled", "shipped", "on its way", "out for delivery", "delivered": key = steps.last?.key ?? "received"
+        default: key = "received"
         }
+        return steps.firstIndex(where: { $0.key == key }) ?? 0
+    }
+
+    private func orderContainsCoffee(_ order: ContentView.AccountOrder) -> Bool {
+        let names = order.items?.flatMap { [$0.name, $0.productTitle ?? "", $0.variantTitle ?? ""] } ?? []
+        let searchable = names.joined(separator: " ").lowercased()
+        let coffeeTerms = ["coffee", "beans", "espresso", "filter", "v60", "capsule", "drip bag", "dripbag", "brew"]
+        return coffeeTerms.contains(where: searchable.contains)
     }
 
     private func isTasteMemoryEligible(status: String) -> Bool {
@@ -1240,6 +1249,8 @@ struct OrderHistorySectionView: View {
             return AppLocalization.text("delivered", fallback: "Delivered")
         case "cancelled", "canceled":
             return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
+        case "cancellation requested":
+            return AppLocalization.text("order_status_cancellation_requested", fallback: "Cancellation requested")
         default:
             return AppLocalization.text("order_status_received", fallback: "Order received")
         }
@@ -1295,8 +1306,8 @@ struct OrderHistorySectionView: View {
                 return AppLocalization.text("pickup_ready_now", fallback: "Pickup available now")
             case "collected":
                 return AppLocalization.text("order_pickup_collected", fallback: "Collected from Talla")
-            case "cancelled", "canceled":
-                return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
+            case "cancelled", "canceled", "cancellation requested":
+                return orderStatusTitle(order.historyStatus)
             default:
                 return AppLocalization.text("order_pickup_wait", fallback: "We'll let you know when your order is ready for pickup.")
             }
@@ -1312,8 +1323,8 @@ struct OrderHistorySectionView: View {
         switch order.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "completed", "fulfilled", "delivered":
             return AppLocalization.text("delivered", fallback: "Delivered")
-        case "cancelled", "canceled":
-            return AppLocalization.text("order_status_cancelled", fallback: "Cancelled")
+        case "cancelled", "canceled", "cancellation requested":
+            return orderStatusTitle(order.status)
         default:
             return AppLocalization.text("tomorrow", fallback: "Tomorrow")
         }
@@ -1327,11 +1338,335 @@ struct OrderHistorySectionView: View {
             return Color(hex: 0x2F7E8B)
         case "preparing", "confirmed":
             return accentColor
-        case "cancelled", "canceled":
+        case "cancelled", "canceled", "cancellation requested":
             return TallaTheme.Colors.destructive.opacity(0.8)
         default:
             return secondaryTextColor
         }
+    }
+
+    private func cafePassStatusLine(_ pass: ContentView.AccountOrder.Details.CafePass) -> String {
+        let status = pass.status.replacingOccurrences(of: "_", with: " ").capitalized
+        let expiry: String
+        if let expiresAt = pass.expiresAt {
+            let formatted = formattedOrderDate(expiresAt)
+            expiry = formatted.isEmpty ? "" : " · Expires \(formatted)"
+        } else {
+            expiry = ""
+        }
+        return "\(pass.drinkName) · \(status)\(expiry)"
+    }
+}
+
+#if false
+private struct OrderDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    let order: ContentView.AccountOrder
+    let primaryTextColor: Color
+    let secondaryTextColor: Color
+    let tertiaryTextColor: Color
+    let accentColor: Color
+    let cardFillColor: Color
+    let isLightAppearance: Bool
+    let buyAgainAction: (ContentView.AccountOrder) -> Void
+    let orderSupportAction: (ContentView.AccountOrder) -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    statusHeader
+                    detailGroup(title: "Items") {
+                        if let items = order.items, !items.isEmpty {
+                            ForEach(items) { item in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Text("\(item.quantity)×")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundColor(accentColor)
+                                    Text(item.name)
+                                        .font(.body)
+                                        .foregroundColor(primaryTextColor)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                        } else {
+                            Text("Order items are unavailable right now.")
+                                .font(.body)
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+
+                    detailGroup(title: "Fulfilment") {
+                        Label(
+                            order.isPickup ? "Pickup at Talla" : "Delivery",
+                            systemImage: order.isPickup ? "storefront.fill" : "shippingbox.fill"
+                        )
+                        .foregroundColor(primaryTextColor)
+                    }
+
+                    detailGroup(title: "Payment") {
+                        if let payment = order.details?.payment {
+                            if let method = payment.method, !method.isEmpty {
+                                detailLine("Method", method)
+                            }
+                            if let status = payment.status, !status.isEmpty {
+                                detailLine("Status", status.replacingOccurrences(of: "_", with: " ").capitalized)
+                            }
+                            if let refunded = payment.refundedAmount, refunded > 0 {
+                                detailLine("Refunded", String(format: "%.3f", refunded))
+                            }
+                        } else {
+                            Text("Payment details are unavailable right now.")
+                                .font(.body)
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+
+                    if let tracking = order.details?.tracking {
+                        detailGroup(title: "Tracking") {
+                            if let company = tracking.company, !company.isEmpty {
+                                detailLine("Carrier", company)
+                            }
+                            if let number = tracking.number, !number.isEmpty {
+                                detailLine("Tracking number", number)
+                            }
+                            if let value = tracking.url, let url = URL(string: value) {
+                                Link(destination: url) {
+                                    Label("Track shipment", systemImage: "arrow.up.right")
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        if order.items?.isEmpty == false {
+                            Button {
+                                buyAgainAction(order)
+                            } label: {
+                                Text("Buy Again")
+                                    .font(.caption.weight(.bold))
+                                    .textCase(.uppercase)
+                                    .frame(maxWidth: .infinity, minHeight: 48)
+                            }
+                            .buttonStyle(.tallaPrimary)
+                        }
+
+                        Button {
+                            orderSupportAction(order)
+                        } label: {
+                            Label("Help", systemImage: "message.fill")
+                                .font(.caption.weight(.bold))
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.tallaSecondary)
+                    }
+                }
+                .padding(18)
+            }
+            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+            .navigationTitle("Order Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Label("Close", systemImage: "xmark")
+                            .labelStyle(.iconOnly)
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
+        }
+    }
+
+    private var statusHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(statusTitle(order.status))
+                .font(.title2.weight(.bold))
+                .foregroundColor(primaryTextColor)
+            Text(order.title.isEmpty ? "Order \(order.id)" : order.title)
+                .font(.subheadline)
+                .foregroundColor(secondaryTextColor)
+            HStack {
+                Text(order.total)
+                    .font(.headline.weight(.bold))
+                    .foregroundColor(primaryTextColor)
+                Spacer()
+                Text(order.createdAt.replacingOccurrences(of: "T", with: " ").replacingOccurrences(of: "Z", with: ""))
+                    .font(.caption)
+                    .foregroundColor(tertiaryTextColor)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func detailGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.caption.weight(.bold))
+                .tracking(1.2)
+                .foregroundColor(tertiaryTextColor)
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func detailLine(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(secondaryTextColor)
+            Spacer()
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(primaryTextColor)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func statusTitle(_ value: String) -> String {
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "cancelled", "canceled": return "Cancelled"
+        case "cancellation requested": return "Cancellation requested"
+        case "completed", "fulfilled": return "Completed"
+        case "delivered": return "Delivered"
+        case "ready": return "Ready for pickup"
+        case "shipped", "on its way", "out for delivery": return "On its way"
+        case "preparing", "roasting", "resting": return "Preparing"
+        default: return value.isEmpty ? "Order received" : value.capitalized
+        }
+    }
+}
+#endif
+
+private struct OrderDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    let order: ContentView.AccountOrder
+    let primaryTextColor: Color
+    let secondaryTextColor: Color
+    let tertiaryTextColor: Color
+    let accentColor: Color
+    let cardFillColor: Color
+    let isLightAppearance: Bool
+    let buyAgainAction: (ContentView.AccountOrder) -> Void
+    let orderSupportAction: (ContentView.AccountOrder) -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(order.status.capitalized)
+                            .font(.title2.weight(.bold))
+                            .foregroundColor(primaryTextColor)
+                        Text(order.title.isEmpty ? "Order \(order.id)" : order.title)
+                            .foregroundColor(secondaryTextColor)
+                        Text(order.total)
+                            .font(.headline.weight(.bold))
+                            .foregroundColor(primaryTextColor)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(accentColor.opacity(isLightAppearance ? 0.08 : 0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    detailGroup(title: "Items") {
+                        if let items = order.items, !items.isEmpty {
+                            ForEach(items) { item in
+                                Text("\(item.quantity)× \(item.name)")
+                                    .foregroundColor(primaryTextColor)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        } else {
+                            Text("Order items are unavailable right now.")
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+
+                    detailGroup(title: "Fulfilment") {
+                        Label(order.isPickup ? "Pickup at Talla" : "Delivery", systemImage: order.isPickup ? "storefront.fill" : "shippingbox.fill")
+                            .foregroundColor(primaryTextColor)
+                    }
+
+                    detailGroup(title: "Payment") {
+                        if let payment = order.details?.payment {
+                            if let method = payment.method, !method.isEmpty { detailLine("Method", method) }
+                            detailLine("Status", payment.status?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Unavailable")
+                            if let refundedAmount = payment.refundedAmount, refundedAmount > 0 {
+                                detailLine("Refunded", String(format: "%.3f", refundedAmount))
+                            }
+                        } else {
+                            Text("Payment details are unavailable right now.")
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+
+                    detailGroup(title: "Tracking") {
+                        Text(order.status.capitalized)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(primaryTextColor)
+                        if let tracking = order.details?.tracking {
+                            if let company = tracking.company, !company.isEmpty { detailLine("Carrier", company) }
+                            if let number = tracking.number, !number.isEmpty { detailLine("Tracking number", number) }
+                            if let value = tracking.url, let url = URL(string: value) {
+                                Link("Track shipment", destination: url)
+                            }
+                        } else {
+                            Text(order.isPickup ? "Pickup progress is shown in Order History." : "Tracking details are not available yet.")
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+
+                    HStack {
+                        if order.items?.isEmpty == false {
+                            Button("Buy Again") { buyAgainAction(order) }
+                                .buttonStyle(.tallaPrimary)
+                        }
+                        Button("Help") { orderSupportAction(order) }
+                            .buttonStyle(.tallaSecondary)
+                    }
+                }
+                .padding(20)
+            }
+            .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+            .navigationTitle("Order Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Label("Close", systemImage: "xmark")
+                            .labelStyle(.iconOnly)
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
+        }
+    }
+
+    private func detailGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.caption.weight(.bold))
+                .tracking(1.2)
+                .foregroundColor(tertiaryTextColor)
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func detailLine(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).foregroundColor(secondaryTextColor)
+            Spacer(minLength: 8)
+            Text(value).foregroundColor(primaryTextColor).multilineTextAlignment(.trailing)
+        }
+        .font(.subheadline)
     }
 }
 

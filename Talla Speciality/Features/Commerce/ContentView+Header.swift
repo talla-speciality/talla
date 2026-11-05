@@ -61,7 +61,7 @@ extension ContentView {
 
                         if let customerProfile {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(AppLocalization.text("welcome_back", fallback: "Welcome back,"))
+                                Text(homeTimeGreeting)
                                     .font(labelFont(size: 10, weight: .bold))
                                     .tracking(AppLocalization.letterSpacing(1.5))
                                     .textCase(.uppercase)
@@ -87,6 +87,8 @@ extension ContentView {
 
                 Spacer()
 
+                headerContextualAction
+
                 if !usesSystemNavigationActions && !showLaunchSplash && shouldShowHeaderCartButton {
                     headerCartButton
                 }
@@ -100,6 +102,41 @@ extension ContentView {
         .padding(.top, isShortHeight ? 7 : 12)
         .padding(.bottom, isShortHeight ? 7 : 12)
         .background(Color.clear)
+    }
+
+    var headerContextualAction: some View {
+        let title: String
+        let icon: String
+        let action: () -> Void
+
+        if homeHasActiveOrder {
+            title = AppLocalization.text("track_order", fallback: "Track your order")
+            icon = "shippingbox"
+            action = { openAccountSection(AccountSectionView.ScrollTarget.shopping) }
+        } else if homeHasBrewHistory {
+            title = AppLocalization.text("brew_again", fallback: "Brew Again")
+            icon = "drop"
+            action = { openBrewing() }
+        } else if !tasteProfileConfigured {
+            title = AppLocalization.text("set_taste_profile", fallback: "Set your taste profile")
+            icon = "slider.horizontal.3"
+            action = { openTasteProfileEditor() }
+        } else {
+            title = AppLocalization.text("browse_coffee", fallback: "Browse coffee")
+            icon = "magnifyingglass"
+            action = { openShop(category: "coffee-beans") }
+        }
+
+        return Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(readableBrandGoldColor)
+                .frame(width: 36, height: 36)
+                .background(cardFillColor, in: Circle())
+                .overlay(Circle().stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.12), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 
     var usesSystemNavigationActions: Bool {
@@ -178,6 +215,26 @@ extension ContentView {
                 cartOpen = true
             }
         }
+    }
+}
+
+extension ContentView {
+    var homeTimeGreeting: String {
+        let hour = Calendar.current.component(.hour, from: .now)
+        let key: String
+        let fallback: String
+        switch hour {
+        case 5..<12:
+            key = "good_morning"
+            fallback = "Good morning,"
+        case 12..<18:
+            key = "good_afternoon"
+            fallback = "Good afternoon,"
+        default:
+            key = "good_evening"
+            fallback = "Good evening,"
+        }
+        return AppLocalization.text(key, fallback: fallback)
     }
 }
 

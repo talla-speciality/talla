@@ -114,9 +114,9 @@ struct ContentView: View {
     @State var isLoadingConciergeImage = false
     @State var isCoffeeConciergePresented = false
     @State var isCoffeeQuizExpanded = false
-    @State var quizBrewMethod = "v60"
-    @State var quizFlavor = "fruity"
-    @State var quizAdventure = "curious"
+    @AppStorage("tasteProfile.brewMethod") var quizBrewMethod = "v60"
+    @AppStorage("tasteProfile.flavor") var quizFlavor = "fruity"
+    @AppStorage("tasteProfile.adventure") var quizAdventure = "curious"
     @AppStorage("tasteProfile.acidity") var tasteProfileAcidity = "balanced"
     @AppStorage("tasteProfile.sweetness") var tasteProfileSweetness = "sweet"
     @AppStorage("tasteProfile.body") var tasteProfileBody = "balanced"
@@ -210,6 +210,9 @@ struct ContentView: View {
     @State var articleSession: CheckoutSession?
     @State var selectedProduct: Product?
     @State var selectedCoffeeShelfID: UUID?
+    @State var coffeeShelfRefreshToken = 0
+    @State var coffeeShelfOpenedCoffeeID: UUID?
+    @State var coffeeShelfOpenedAt: Date?
     @State var isFavoriteShelfPresented = false
     @State var isHomeShelfExpanded = false
     @State var isHomeMoreExpanded = false
@@ -309,6 +312,8 @@ struct ContentView: View {
     @State var addressNotes = ""
     @State var addressMapSelection: TallaPickedAddress?
     @State var isAddressMapPresented = false
+    @State var isAddressFormPresented = false
+    @State var addressPendingDeletion: DeliveryAddress?
     @State var isGiftOrder = false
     @State var giftRecipientName = ""
     @State var giftRecipientEmail = ""
@@ -354,7 +359,9 @@ struct ContentView: View {
     @State var didConfigureReleaseUITest = false
     @State var accountScrollTarget: String?
     @State var tabScrollTarget: Tab?
+    @State var discoverScrollTarget: String?
     @State var accountOrdersPresentationRequest = 0
+    @State var accountSelectedOrderID: String?
     @State var shopCatalogueScrollRequest = 0
     @State var didRecordReviewLaunch = false
 
@@ -363,6 +370,8 @@ struct ContentView: View {
         ShopCategory(key: "summer-drinks", title: "Summer Boxes", subtitle: "Four seasonal drink boxes", symbol: "shippingbox.fill"),
         ShopCategory(key: "winter", title: "Winter", subtitle: "Seasonal winter favourites", symbol: "snowflake"),
         ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Beans & single-serve brews", symbol: "leaf.fill"),
+        ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve filter coffee", symbol: "drop.fill"),
+        ShopCategory(key: "coffee-capsules", title: "Coffee Capsules", subtitle: "Capsules and pods", symbol: "capsule.portrait.fill"),
         ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee & Gahwa", subtitle: "Traditional Arabic and gahwa roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "cups", title: "Cups", subtitle: "Mugs, tumblers, and drinkware", symbol: "cup.and.saucer.fill"),
         ShopCategory(key: "ready-made-drinks", title: "Drinks", subtitle: "Ready cups and bottled drinks", symbol: "takeoutbag.and.cup.and.straw.fill"),

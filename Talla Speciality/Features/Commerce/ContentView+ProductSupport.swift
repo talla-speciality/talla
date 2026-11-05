@@ -165,7 +165,7 @@ extension ContentView {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(displayedProductPrice(product.price))
+                Text(displayedProductPrice(selectedVariant(for: product)?.price ?? product.price))
                     .font(labelFont(size: isCompact ? 14 : 15, weight: .bold))
                     .foregroundColor(product.isAvailableForSale ? TallaTheme.Colors.ink : tertiaryTextColor)
                     .lineLimit(1)
@@ -263,7 +263,7 @@ extension ContentView {
             }
 
             HStack(spacing: 8) {
-                Text(displayedProductPrice(product.price))
+                Text(displayedProductPrice(selectedVariant(for: product)?.price ?? product.price))
                     .font(labelFont(size: 11, weight: .bold))
                     .foregroundColor(product.isAvailableForSale ? TallaTheme.Colors.ink : tertiaryTextColor)
                     .lineLimit(1)
@@ -372,7 +372,7 @@ extension ContentView {
     func productCountryOfOrigin(for product: Product) -> String? {
         // A gift box can contain coffees from several origins, but the box
         // itself does not have a single coffee origin.
-        guard product.categoryKey != "gifts" else { return nil }
+        guard ["coffee-beans", "arabic-coffee-beans", "drip-bags", "coffee-capsules"].contains(product.categoryKey) else { return nil }
 
         if let countryOfOrigin = product.countryOfOrigin {
             return AppLocalization.catalogOption(countryOfOrigin)
@@ -416,13 +416,25 @@ extension ContentView {
 
     func productTasteSummary(for product: Product) -> String {
         let searchableText = normalizedSearchText(for: product)
+        let isCoffee = ["coffee-beans", "arabic-coffee-beans", "drip-bags", "coffee-capsules"].contains(product.categoryKey)
+        guard isCoffee else {
+            switch product.categoryKey {
+            case "desserts": return AppLocalization.text("bakery_card_summary", fallback: "Bakery pick")
+            case "ready-made-drinks", "summer-drinks": return AppLocalization.text("ready_drink_card_summary", fallback: "Ready to drink")
+            case "coffee-equipment": return AppLocalization.text("equipment_card_summary", fallback: "Brewing gear")
+            case "cups": return AppLocalization.text("cups_card_summary", fallback: "Reusable cup")
+            case "spreads": return AppLocalization.text("spreads_card_summary", fallback: "Pantry pick")
+            case "gifts": return AppLocalization.text("gifts_card_summary", fallback: "Gift box")
+            default: return product.categoryLabel
+            }
+        }
         let matchedNotes = orderedUniqueValues(tasteNoteMatches(in: searchableText))
 
         if !matchedNotes.isEmpty {
             return matchedNotes.prefix(3).joined(separator: " - ")
         }
 
-        if product.categoryKey == "coffee-beans" || product.categoryKey == "drip-bags" {
+        if ["coffee-beans", "arabic-coffee-beans", "drip-bags", "coffee-capsules"].contains(product.categoryKey) {
             return AppLocalization.text("coffee_card_default_taste", fallback: "Balanced - Sweet - Clean")
         }
 
@@ -469,6 +481,9 @@ extension ContentView {
     }
 
     func productMetadataChips(for product: Product) -> [(icon: String, title: String)] {
+        let isCoffee = ["coffee-beans", "arabic-coffee-beans", "drip-bags", "coffee-capsules"].contains(product.categoryKey)
+        guard isCoffee else { return [] }
+
         if product.categoryKey == "gifts" {
             return [
                 ("gift.fill", AppLocalization.text("gift_box", fallback: "Gift box")),
@@ -537,6 +552,7 @@ extension ContentView {
         if product.categoryKey == "summer-drinks" { return AppLocalization.catalogOption("Share") }
         if product.categoryKey == "cups" { return AppLocalization.catalogOption("Serve") }
         if product.categoryKey == "coffee-equipment" { return AppLocalization.catalogOption("Gear") }
+        if product.categoryKey == "coffee-capsules" { return AppLocalization.catalogOption("Capsule") }
         if searchableText.contains("espresso") { return AppLocalization.catalogOption("Espresso") }
         if searchableText.contains("arabic") { return AppLocalization.catalogOption("Arabic") }
         if searchableText.contains("drip") { return AppLocalization.catalogOption("Drip") }
@@ -689,44 +705,44 @@ extension ContentView {
                             .textCase(.uppercase)
                             .foregroundColor(readableBrandGoldColor)
 
-                        ForEach(product.variants) { variant in
-                            Button {
-                                selectedVariantIDs[product.id] = variant.id
-                            } label: {
-                                HStack(spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(variant.title)
-                                            .font(bodyFont(size: 14))
-                                            .foregroundColor(primaryTextColor)
-                                        Text(displayedProductPrice(variant.price))
-                                            .font(labelFont(size: 10, weight: .bold))
-                                            .tracking(AppLocalization.letterSpacing(1.4))
-                                            .foregroundColor(readableBrandGoldColor)
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                            ForEach(product.variants) { variant in
+                                Button {
+                                    selectedVariantIDs[product.id] = variant.id
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        HStack(spacing: 6) {
+                                            Text(variant.title)
+                                                .font(bodyFont(size: 13))
+                                                .foregroundColor(primaryTextColor)
+                                                .lineLimit(2)
+                                                .minimumScaleFactor(0.8)
+                                            Spacer(minLength: 2)
+                                            Image(systemName: selectedVariant?.id == variant.id ? "checkmark.circle.fill" : "circle")
+                                                .foregroundColor(selectedVariant?.id == variant.id ? TallaTheme.Colors.ink : tertiaryTextColor)
+                                        }
+                                        HStack {
+                                            Text(displayedProductPrice(variant.price))
+                                                .font(labelFont(size: 10, weight: .bold))
+                                                .foregroundColor(readableBrandGoldColor)
+                                            Spacer()
+                                            Text(variant.isAvailableForSale ? AppLocalization.text("available", fallback: "Available") : AppLocalization.text("sold_out", fallback: "Sold Out"))
+                                                .font(labelFont(size: 8, weight: .bold))
+                                                .textCase(.uppercase)
+                                                .foregroundColor(variant.isAvailableForSale ? primaryTextColor : tertiaryTextColor)
+                                        }
                                     }
-
-                                    Spacer()
-
-                                    Text(variant.isAvailableForSale ? AppLocalization.text("available", fallback: "Available") : AppLocalization.text("sold_out", fallback: "Sold Out"))
-                                        .font(labelFont(size: 9, weight: .bold))
-                                        .tracking(AppLocalization.letterSpacing(1.4))
-                                        .textCase(.uppercase)
-                                        .foregroundColor(variant.isAvailableForSale ? primaryTextColor : tertiaryTextColor)
-
-                                    Image(systemName: selectedVariant?.id == variant.id ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(selectedVariant?.id == variant.id ? TallaTheme.Colors.ink : tertiaryTextColor)
+                                    .padding(11)
+                                    .frame(maxWidth: .infinity, minHeight: 66, alignment: .leading)
+                                    .background(cardFillColor)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(selectedVariant?.id == variant.id ? TallaTheme.Colors.accent : TallaTheme.Colors.accent.opacity(0.14), lineWidth: 1)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                                 }
-                                .padding(14)
-                                .background(cardFillColor)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(
-                                            (selectedVariant?.id == variant.id ? TallaTheme.Colors.accent : TallaTheme.Colors.accent.opacity(0.14)),
-                                            lineWidth: 1
-                                        )
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -800,7 +816,7 @@ extension ContentView {
 
                     }
                     HStack(spacing: 12) {
-                        if !product.isAvailableForSale || isAlertEnabled(product) {
+                    if !product.isAvailableForSale || isAlertEnabled(product) {
                             Button {
                                 Task {
                                     await toggleAlert(product: product)
@@ -927,19 +943,22 @@ extension ContentView {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    @ViewBuilder
     func productFactsSection(_ product: Product) -> some View {
-        let isGiftBox = product.categoryKey == "gifts"
-        let origin = productCountryOfOrigin(for: product)
+        let isCoffee = ["coffee-beans", "arabic-coffee-beans", "drip-bags", "coffee-capsules"].contains(product.categoryKey)
         let summary = productTasteSummary(for: product)
-        let facts: [(String, String)] = isGiftBox
-            ? [(AppLocalization.text("contents", fallback: "Contents"), summary.isEmpty ? AppLocalization.text("gift_box", fallback: "Gift box") : summary)]
-            : [
-                (AppLocalization.text("origin", fallback: "Origin"), origin ?? "—"),
-                (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary.isEmpty ? "—" : summary)
+        let facts: [(String, String)]
+        if isCoffee {
+            facts = [
+                (AppLocalization.text("origin", fallback: "Origin"), productCountryOfOrigin(for: product) ?? AppLocalization.text("origin_not_listed", fallback: "Not listed")),
+                (AppLocalization.text("tasting_notes", fallback: "Tasting notes"), summary),
+                (AppLocalization.text("processing", fallback: "Processing"), firstMatchedValue(in: normalizedSearchText(for: product), matches: [("anaerobic", "Anaerobic"), ("natural", "Natural"), ("washed", "Washed"), ("honey", "Honey")]) ?? AppLocalization.text("not_listed", fallback: "Not listed"))
             ]
-        VStack(alignment: .leading, spacing: 10) {
-            Text(AppLocalization.text(isGiftBox ? "box_details" : "coffee_facts", fallback: isGiftBox ? "Box details" : "Coffee facts"))
+        } else {
+            facts = [(AppLocalization.text("product_details", fallback: "Product details"), product.desc.isEmpty ? summary : product.desc)]
+        }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text(isCoffee ? "coffee_facts" : "product_details", fallback: isCoffee ? "Coffee details" : "Product details"))
                 .font(labelFont(size: 10, weight: .bold))
                 .tracking(AppLocalization.letterSpacing(1.8))
                 .textCase(.uppercase)
@@ -1170,7 +1189,7 @@ extension ContentView {
     }
 
     func isBrewableCoffee(_ product: Product) -> Bool {
-        ["coffee-beans", "arabic-coffee-beans", "drip-bags"].contains(product.categoryKey)
+        ["coffee-beans", "arabic-coffee-beans", "drip-bags", "coffee-capsules"].contains(product.categoryKey)
     }
 
     func collectionTile(eyebrow: String, name: String, desc: String, accent: String, systemImage: String, color: Color, categoryKey: String) -> some View {

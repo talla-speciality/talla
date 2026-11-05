@@ -18,6 +18,47 @@ import UIKit
 
 
 extension BrewingSectionView {
+    var brewTemperatureSegmentedControl: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(AppLocalization.text("taste_temperature_title", fallback: "Temperature"))
+                .font(brewEyebrowFont)
+                .foregroundColor(brewSecondaryTextColor)
+
+            HStack(spacing: 6) {
+                ForEach(["Hot", "Iced"], id: \.self) { option in
+                    Button {
+                        recipeBrewTemperatureMode = option
+                    } label: {
+                        Text(option == "Iced"
+                             ? AppLocalization.text("taste_temperature_iced", fallback: "Iced")
+                             : AppLocalization.text("taste_temperature_hot", fallback: "Hot"))
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(AppLocalization.letterSpacing(0.8))
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                            .foregroundColor(recipeBrewTemperatureMode == option ? brewPrimaryTextColor : brewSecondaryTextColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(recipeBrewTemperatureMode == option ? brewAccentColor.opacity(0.18) : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(recipeBrewTemperatureMode == option ? .isSelected : [])
+                }
+            }
+            .padding(4)
+            .background(brewSurfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(brewBorderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("brew.temperature.mode")
+    }
+
     var customerGuidedBrewModeSection: some View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 8) {
@@ -33,6 +74,8 @@ extension BrewingSectionView {
 
             customerGuidedMethodPicker
             customerGuidedCoffeeCard
+
+            brewTemperatureSegmentedControl
 
             if let customerGuidedValidationMessage {
                 Text(customerGuidedValidationMessage)
@@ -70,30 +113,43 @@ extension BrewingSectionView {
             .background(cardFillColor)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 12) {
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { isCustomerGuidedAdjustmentsExpanded },
+                    set: { value in
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                            isCustomerGuidedAdjustmentsExpanded = value
+                        }
+                    }
+                )
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        ratioInputField(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), text: $ratioCoffeeInput)
+                        ratioInputField(title: AppLocalization.text("ratio", fallback: "Ratio"), text: $ratioValueInput)
+                    }
+
+                    Text(AppLocalization.text("choose_your_strength", fallback: "Choose your strength"))
+                        .font(Font.custom("AvenirNext-Bold", size: 10))
+                        .tracking(AppLocalization.letterSpacing(1.6))
+                        .textCase(.uppercase)
+                        .foregroundColor(TallaTheme.Colors.ink)
+
+                    HStack(spacing: 8) {
+                        strengthRatioButton(ratio: "15", title: AppLocalization.text("strong", fallback: "Strong"))
+                        strengthRatioButton(ratio: "16", title: AppLocalization.text("balanced", fallback: "Balanced"))
+                        strengthRatioButton(ratio: "17", title: AppLocalization.text("light", fallback: "Light"))
+                    }
+                }
+                .padding(.top, 8)
+            } label: {
                 Label(AppLocalization.text("adjust_recipe", fallback: "Adjust recipe"), systemImage: "slider.horizontal.3")
                     .font(Font.custom("AvenirNext-DemiBold", size: 14))
                     .foregroundColor(primaryTextColor)
-
-                HStack(spacing: 10) {
-                    ratioInputField(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), text: $ratioCoffeeInput)
-                    ratioInputField(title: AppLocalization.text("ratio", fallback: "Ratio"), text: $ratioValueInput)
-                }
-
-                Text(AppLocalization.text("choose_your_strength", fallback: "Choose your strength"))
-                    .font(Font.custom("AvenirNext-Bold", size: 10))
-                    .tracking(AppLocalization.letterSpacing(1.6))
-                    .textCase(.uppercase)
-                    .foregroundColor(TallaTheme.Colors.ink)
-
-                HStack(spacing: 8) {
-                    strengthRatioButton(ratio: "15", title: AppLocalization.text("strong", fallback: "Strong"))
-                    strengthRatioButton(ratio: "16", title: AppLocalization.text("balanced", fallback: "Balanced"))
-                    strengthRatioButton(ratio: "17", title: AppLocalization.text("light", fallback: "Light"))
-                }
             }
+            .tint(primaryTextColor)
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
             .background(cardFillColor.opacity(0.72))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
@@ -387,7 +443,7 @@ extension BrewingSectionView {
                     }
                 } label: {
                     HStack(spacing: 8) {
-                        Text("\(AppLocalization.text("method", fallback: "Method")): \(currentBrewRecipeTitle)")
+                        Text("\(AppLocalization.text("method", fallback: "Method")): \(selectedBrewModeMethod?.name ?? AppLocalization.text("filter", fallback: "Filter"))")
                             .font(Font.custom("AvenirNext-Bold", size: 11))
                             .tracking(AppLocalization.letterSpacing(1.1))
                             .textCase(.uppercase)
@@ -412,6 +468,8 @@ extension BrewingSectionView {
             }
 
             customerGuidedCoffeeCard
+
+            brewTemperatureSegmentedControl
 
             HStack(spacing: 12) {
                 ratioInputField(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), text: $ratioCoffeeInput)

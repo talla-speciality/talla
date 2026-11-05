@@ -31,6 +31,18 @@ struct TallaCoffeeGiftVaultView: View {
 }
 
 struct SocialCoffeeView: View {
+    private enum SocialArea: String, CaseIterable, Identifiable {
+        case gifting, groupOrders, memories
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .gifting: return "Gifting"
+            case .groupOrders: return "Group Orders"
+            case .memories: return "Coffee Memories"
+            }
+        }
+    }
+
     let accent: Color
     let background: Color
     let surface: Color
@@ -72,17 +84,20 @@ struct SocialCoffeeView: View {
     @State private var publicNotes: [SocialCoffeePublicNote] = []
     @State private var notesStatus = ""
     @State private var groups: [SocialCoffeeGroup] = []
+    @SceneStorage("discover.socialCoffee.area") private var selectedSocialAreaRaw = SocialArea.gifting.rawValue
+
+    private var selectedSocialArea: SocialArea {
+        get { SocialArea(rawValue: selectedSocialAreaRaw) ?? .gifting }
+        set { selectedSocialAreaRaw = newValue.rawValue }
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 22) {
                 hero
                 bagButton
-                quickActions
-                giftingSection
-                gatheringSection
-                tastingSection
-                peopleSection
+                areaSelector
+                areaContent
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 24)
@@ -115,6 +130,50 @@ struct SocialCoffeeView: View {
         .onChange(of: publicRole) { _, _ in scheduleCloudSave() }
         .onChange(of: tastingNote) { _, _ in scheduleCloudSave() }
         .onChange(of: noteVisibility) { _, _ in scheduleCloudSave() }
+    }
+
+    private var areaSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(SocialArea.allCases) { area in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedSocialAreaRaw = area.rawValue
+                        }
+                    } label: {
+                        Text(area.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(selectedSocialArea == area ? .white : primary)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 42)
+                            .background(selectedSocialArea == area ? accent : surface, in: Capsule())
+                            .overlay(Capsule().stroke(primary.opacity(selectedSocialArea == area ? 0 : 0.14), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedSocialArea == area ? .isSelected : [])
+                    .accessibilityIdentifier("socialCoffee.area.\(area.id)")
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private var areaContent: some View {
+        switch selectedSocialArea {
+        case .gifting:
+            VStack(alignment: .leading, spacing: 22) {
+                quickActions
+                giftingSection
+            }
+        case .groupOrders:
+            gatheringSection
+        case .memories:
+            VStack(alignment: .leading, spacing: 22) {
+                tastingSection
+                peopleSection
+            }
+        }
     }
 
     private var hero: some View {
@@ -303,10 +362,22 @@ struct SocialCoffeeView: View {
                     .pickerStyle(.segmented)
                 }
                 if displayedNotes.isEmpty {
-                    Text(notesStatus.isEmpty
-                        ? showFollowingOnly ? "No notes from people you follow yet." : "No public tasting notes yet. Share yours to start the conversation."
-                        : notesStatus)
-                        .font(.caption).foregroundStyle(secondary)
+                    if notesStatus.isEmpty {
+                        Text(showFollowingOnly ? "No notes from people you follow yet." : "No public tasting notes yet. Share yours to start the conversation.")
+                            .font(.caption).foregroundStyle(secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Community tasting notes are unavailable right now.", systemImage: "wifi.exclamationmark")
+                                .font(.caption).foregroundStyle(secondary)
+                            Button {
+                                Task { await loadPublicNotes() }
+                            } label: {
+                                Label("Retry", systemImage: "arrow.clockwise")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .buttonStyle(.tallaSecondary)
+                        }
+                    }
                 }
                 ForEach(displayedNotes) { note in
                     VStack(alignment: .leading, spacing: 7) {

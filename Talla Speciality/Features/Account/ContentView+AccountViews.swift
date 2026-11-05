@@ -187,6 +187,10 @@ extension ContentView {
             membershipTier: loyaltyAccount?.tier ?? AppLocalization.text("bronze", fallback: "Bronze"),
             beansBalance: loyaltyAccount?.pointsBalance ?? 0,
             beansUntilNextReward: loyaltyAccount.map { rewardProgress(for: $0.pointsBalance).remaining } ?? 50,
+            hasActiveCoffeeClubSubscription: orderHistory.contains { order in
+                guard let club = order.details?.coffeeClub else { return false }
+                return !["cancelled", "completed"].contains(club.lifecycleStatus)
+            },
             orderCount: orderHistory.count,
             addressesCount: addresses.count,
             favoriteCount: favoriteProducts.count,
@@ -318,6 +322,9 @@ extension ContentView {
                 .tracking(AppLocalization.letterSpacing(2))
                 .foregroundColor(primaryTextColor)
 
+            appIconPickerCard
+                .accessibilityIdentifier("account.appIconPicker")
+
             VStack(spacing: 0) {
                 settingsRow(
                     title: AppLocalization.text("language", fallback: "Language"),
@@ -337,16 +344,6 @@ extension ContentView {
                     systemImage: "bell.fill"
                 ) {
                     selectedSettingsDetail = .notifications
-                }
-
-                settingsDivider
-
-                settingsRow(
-                    title: AppLocalization.text("app_icon", fallback: "App Icon"),
-                    value: currentAppIconTitle,
-                    systemImage: "app.badge.fill"
-                ) {
-                    selectedSettingsDetail = .appIcon
                 }
 
                 settingsDivider
@@ -415,10 +412,10 @@ extension ContentView {
     var currentAppIconTitle: String {
         let currentName = UIApplication.shared.alternateIconName
         if currentName == "TallaIcon1" || currentName == nil {
-            return "Bahrain Pink"
+            return "Winter Bahrain"
         }
         return TallaAppIconOption.all.first(where: { $0.iconName == currentName })?.title
-            ?? "Bahrain Pink"
+            ?? "Winter Bahrain"
     }
 
     var settingsDivider: some View {
@@ -1130,8 +1127,6 @@ extension ContentView {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            addressEntryForm
-
             if !addresses.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline) {
@@ -1152,6 +1147,58 @@ extension ContentView {
                     }
                 }
             }
+
+            Button {
+                isAddressFormPresented = true
+            } label: {
+                Label(
+                    AppLocalization.text("add_new_address", fallback: "Add a new address"),
+                    systemImage: "location.badge.plus"
+                )
+                .font(labelFont(size: 11, weight: .bold))
+                .tracking(AppLocalization.letterSpacing(1.5))
+                .textCase(.uppercase)
+                .frame(maxWidth: .infinity, minHeight: 52)
+            }
+            .buttonStyle(.tallaSecondary)
+            .accessibilityIdentifier("account.addresses.add")
+        }
+        .sheet(isPresented: $isAddressFormPresented) {
+            NavigationStack {
+                ScrollView(showsIndicators: false) {
+                    addressEntryForm
+                        .padding(18)
+                }
+                .background(isLightAppearance ? Color(hex: 0xFFFDF9) : Color(hex: 0x181411))
+                .navigationTitle(AppLocalization.text("add_new_address", fallback: "Add address"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { isAddressFormPresented = false } label: {
+                            Label(AppLocalization.text("close", fallback: "Close"), systemImage: "xmark")
+                                .labelStyle(.iconOnly)
+                        }
+                        .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+                    }
+                }
+            }
+        }
+        .alert(
+            AppLocalization.text("delete_address", fallback: "Delete address"),
+            isPresented: Binding(
+                get: { addressPendingDeletion != nil },
+                set: { if !$0 { addressPendingDeletion = nil } }
+            ),
+            presenting: addressPendingDeletion
+        ) { address in
+            Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) { }
+            Button(AppLocalization.text("delete", fallback: "Delete"), role: .destructive) {
+                Task { await deleteAddress(address) }
+            }
+        } message: { address in
+            Text(isArabicInterface
+                ? "هل تريد حذف عنوان (address.label)؟"
+                : "Remove (address.label) from your saved delivery addresses?")
         }
     }
 
@@ -1377,9 +1424,7 @@ extension ContentView {
                 }
 
                 Button {
-                    Task {
-                        await deleteAddress(address)
-                    }
+                    addressPendingDeletion = address
                 } label: {
                     Image(systemName: "trash")
                         .font(.system(size: 15, weight: .bold))
@@ -1432,11 +1477,19 @@ extension ContentView {
                                     .foregroundColor(secondaryTextColor)
                                     .fixedSize(horizontal: false, vertical: true)
 
-                                Text(recipe.category)
-                                    .font(labelFont(size: 10, weight: .bold))
-                                    .tracking(AppLocalization.letterSpacing(1.4))
-                                    .textCase(.uppercase)
-                                    .foregroundColor(readableBrandGoldColor)
+                                HStack(spacing: 8) {
+                                    Label(
+                                        AppLocalization.text("saved_recipe_profile", fallback: "Brew profile"),
+                                        systemImage: "slider.horizontal.3"
+                                    )
+                                    Text(recipe.category)
+                                }
+                                .font(labelFont(size: 10, weight: .bold))
+                                .tracking(AppLocalization.letterSpacing(1.1))
+                                .textCase(.uppercase)
+                                .foregroundColor(readableBrandGoldColor)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
                             }
 
                             Spacer(minLength: 0)
@@ -1445,7 +1498,10 @@ extension ContentView {
                                 Button {
                                     applyBrewRecipe(recipe)
                                 } label: {
-                                    Text(AppLocalization.text("apply", fallback: "Apply"))
+                                    Label(
+                                        AppLocalization.text("start_guided_brew", fallback: "Start Guided Brew"),
+                                        systemImage: "play.fill"
+                                    )
                                         .font(labelFont(size: 10, weight: .bold))
                                         .tracking(AppLocalization.letterSpacing(1.8))
                                         .textCase(.uppercase)
@@ -1456,6 +1512,7 @@ extension ContentView {
                                         .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityHint(AppLocalization.text("recipe_apply_hint", fallback: "Loads this saved recipe in Guided Brew"))
 
                                 Button {
                                     editBrewRecipe(recipe)
@@ -1678,7 +1735,7 @@ extension ContentView {
             .buttonStyle(.plain)
         }
         .padding(12)
-        .frame(width: 230, alignment: .topLeading)
+        .frame(width: isCompact ? 238 : 280, alignment: .topLeading)
         .background(cardFillColor)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -1693,7 +1750,7 @@ extension ContentView {
             return product.price
         }
 
-        return "\(product.price) · \(variant)"
+        return "\(displayedProductPrice(selectedVariant(for: product)?.price ?? product.price)) · \(variant)"
     }
 
     func accountCompactVariantLabel(for product: Product) -> String {

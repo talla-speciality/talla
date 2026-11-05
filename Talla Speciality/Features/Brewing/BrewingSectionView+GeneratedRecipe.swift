@@ -1074,14 +1074,7 @@ extension BrewingSectionView {
     }
 
     var recipeBrewingWaterAmount: Double {
-        if isGeneratedRecipeActive {
-            return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).brewingWater
-        }
-
-        // Guided profiles are editable. Once one is selected, derive hot water
-        // from the customer's current dose and ratio instead of the guide's
-        // published default.
-        if activeSmartRecipe != nil {
+        if isGeneratedRecipeActive || activeSmartRecipe != nil || isGuidedRecipeCustomizing {
             return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).brewingWater
         }
 
@@ -1094,11 +1087,7 @@ extension BrewingSectionView {
     }
 
     var recipeIceAmount: Double {
-        if isGeneratedRecipeActive {
-            return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).ice
-        }
-
-        if activeSmartRecipe != nil {
+        if isGeneratedRecipeActive || activeSmartRecipe != nil || isGuidedRecipeCustomizing {
             return BrewRecipeMath.waterSplit(totalWater: validWaterAmount, isIced: isV60IcedRecipe).ice
         }
 

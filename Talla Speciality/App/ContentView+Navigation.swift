@@ -65,7 +65,6 @@ extension ContentView {
         let coffeeName = product.name.trimmingCharacters(in: .whitespacesAndNewlines)
         selectedProduct = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            brewRecipeName = coffeeName
             openBrewing(category: product.categoryKey == "arabic-coffee-beans" ? "Traditional" : "All")
             pendingBrewingCoffeeName = coffeeName
             pendingBrewingCoffeeOrigin = product.countryOfOrigin ?? ""
@@ -104,6 +103,20 @@ extension ContentView {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
             accountScrollTarget = target
         }
+    }
+
+    func openAccountOrder(_ orderID: String) {
+        let normalizedID = orderID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedID.isEmpty else {
+            openAccountSection(AccountSectionView.ScrollTarget.shopping)
+            return
+        }
+
+        accountSelectedOrderID = normalizedID
+        isCustomerSectionExpanded = true
+        isShoppingSectionExpanded = true
+        activeTab = .account
+        accountOrdersPresentationRequest &+= 1
     }
 
     func handleShortcutDestination() {
@@ -226,7 +239,10 @@ extension ContentView {
         }
     }
 
-    func openCoffeeConcierge() {
+    func openCoffeeConcierge(requestOverride: String? = nil) {
+        if let requestOverride {
+            conciergeRequest = requestOverride
+        }
         isCoffeeConciergePresented = true
         showToast(message: AppLocalization.text("concierge_opened", fallback: "Talla AI opened"))
     }

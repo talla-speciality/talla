@@ -119,6 +119,7 @@
   "coffee_club_intro_toggle_hint": {"ar": "تبديل خيار التوصيل أو الاستلام"},
   "coffee_club_pickup_note": {"ar": "استلم طلبك من تلة في الوقت المناسب لك."},
   "coffee_club_ready_status": {"ar": "نادي القهوة جاهز للتخصيص"},
+  "coffee_club_active_status": {"ar": "نادي القهوة نشط"},
   "coffee_friend": {"ar": "صديق القهوة"},
   "coffee_reorder_reminder_body": {"ar": "هل اقتربت قهوتك من النفاد؟ أعد طلب مفضلاتك."},
   "coffee_running_low": {"ar": "القهوة قاربت على النفاد"},
@@ -165,6 +166,12 @@
   },
   "coffee_club_intro_title": {
     "ar": "قهوتك مخططة وجاهزة"
+  },
+  "coffee_club_active_title": {
+    "ar": "اشتراك نادي القهوة نشط"
+  },
+  "coffee_club_active_detail": {
+    "ar": "يمكنك إدارة شحنات نادي القهوة وتفضيلاتك من حسابك."
   },
   "coffee_club_intro_detail": {
     "ar": "ادفع مسبقًا مقابل %d شحنات، شحنة كل %d أسابيع، ووفّر %d٪ على قهوتك."
@@ -2167,6 +2174,9 @@
   "category_drip_bags": {
     "ar": "أكياس الترشيح"
   },
+  "category_coffee_capsules": {
+    "ar": "كبسولات القهوة"
+  },
   "category_equipment": {
     "ar": "الأدوات"
   },
@@ -2670,6 +2680,12 @@
   },
   "no_orders_short": {
     "ar": "لا توجد طلبات"
+  },
+  "one_order_short": {
+    "ar": "طلب واحد"
+  },
+  "orders_count_short": {
+    "ar": "%d طلبات"
   },
   "not_for_me": {
     "ar": "ليس مناسباً لي"
@@ -4858,8 +4874,12 @@
   "voice_guidance": {"ar": "التوجيه الصوتي"},
   "coffee_facts": {"ar": "معلومات القهوة"},
   "origin": {"ar": "الأصل"},
+  "origin_not_listed": {"ar": "غير مذكور"},
   "tasting_notes": {"ar": "إيحاءات التذوق"},
+  "processing": {"ar": "المعالجة"},
+  "not_listed": {"ar": "غير مذكور"},
   "product_details": {"ar": "تفاصيل المنتج"},
+  "bakery_card_summary": {"ar": "اختيار من المخبز"},
   "buy_the_setup": {"ar": "اشترِ التجهيز الكامل"},
   "setup_added_to_bag": {"ar": "تمت إضافة القهوة والتجهيز الأساسي إلى السلة."},
   "reorder_this_coffee": {"ar": "أعد طلب هذه القهوة"},

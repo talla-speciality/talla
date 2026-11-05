@@ -9,6 +9,7 @@ struct ShopSectionView: View {
     let isLoadingProducts: Bool
     let loadingError: String?
     let showsCoffeeClubIntroduction: Bool
+    let hasActiveCoffeeClubSubscription: Bool
     let coffeeClubShipmentCount: Int
     let coffeeClubIntervalWeeks: Int
     let coffeeClubDiscountPercent: Int
@@ -147,7 +148,10 @@ struct ShopSectionView: View {
                         .textCase(.uppercase)
                         .foregroundColor(TallaTheme.Colors.ink)
 
-                    Text(AppLocalization.text("coffee_club_intro_title", fallback: "Your coffee, already planned"))
+                    Text(AppLocalization.text(
+                        hasActiveCoffeeClubSubscription ? "coffee_club_active_title" : "coffee_club_intro_title",
+                        fallback: hasActiveCoffeeClubSubscription ? "Your Coffee Club is active" : "Your coffee, already planned"
+                    ))
                         .font(sectionTitleFont)
                         .foregroundColor(primaryTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -171,18 +175,27 @@ struct ShopSectionView: View {
 
             if isCoffeeClubExpanded {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text(String(
-                    format: AppLocalization.text(
-                        "coffee_club_intro_detail",
-                        fallback: "Prepay for %d shipments, delivered every %d weeks, and save %d%% on your coffee."
-                    ),
-                    coffeeClubShipmentCount,
-                    coffeeClubIntervalWeeks,
-                    coffeeClubDiscountPercent
-                    ))
-                    .font(bodyFont)
-                    .foregroundColor(secondaryTextColor)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Group {
+                        if hasActiveCoffeeClubSubscription {
+                            Text(AppLocalization.text("coffee_club_active_detail", fallback: "Your Coffee Club shipments and preferences are managed from your account."))
+                                .font(bodyFont)
+                                .foregroundColor(secondaryTextColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text(String(
+                                format: AppLocalization.text(
+                                    "coffee_club_intro_detail",
+                                    fallback: "Prepay for %d shipments, delivered every %d weeks, and save %d%% on your coffee."
+                                ),
+                                coffeeClubShipmentCount,
+                                coffeeClubIntervalWeeks,
+                                coffeeClubDiscountPercent
+                            ))
+                            .font(bodyFont)
+                            .foregroundColor(secondaryTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                     .accessibilityIdentifier("shop.coffeeClub.detail")
 
                     ViewThatFits(in: .horizontal) {

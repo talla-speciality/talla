@@ -205,7 +205,9 @@ extension CoffeeDataStore {
     }
 
     func markOpened(_ id: UUID, date: Date) throws {
-        guard var row = legacyObjects(entityType: "purchasedCoffee").first(where: { ($0["id"] as? String)?.lowercased() == id.uuidString.lowercased() }) else { return }
+        guard var row = legacyObjects(entityType: "purchasedCoffee").first(where: { ($0["id"] as? String)?.lowercased() == id.uuidString.lowercased() }) else {
+            throw CoffeeDataError.invalidResponse
+        }
         row["openedAt"] = ISO8601DateFormatter().string(from: date)
         try saveEnvelope(entityType: "purchasedCoffee", id: id, jsonObject: row)
         try container.mainContext.save(); notifyCoffeeChange()
