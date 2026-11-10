@@ -191,6 +191,7 @@ extension ContentView {
         .onChange(of: activeTab) { _, newTab in
             guard newTab == .shop, hasLoadedProducts, !didConfigureReleaseUITest else { return }
             Task {
+                await loadPassportSettings()
                 await refreshProductsIfNeeded()
             }
         }
@@ -207,6 +208,7 @@ extension ContentView {
                 }
                 await loadAppSettings()
                 await loadEventSettings()
+                await loadPassportSettings()
                 guard hasLoadedProducts else { return }
                 if activeTab == .shop {
                     await refreshProductsIfNeeded()
