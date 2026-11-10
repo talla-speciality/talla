@@ -963,7 +963,7 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "GET" && url.pathname === "/app/passport-settings") {
-        sendJSON(response, 200, await getPassportSettings());
+        sendJSON(response, 200, await getPassportSettings(), { "Cache-Control": "no-store, no-cache, must-revalidate" });
         return;
     }
 
@@ -2230,6 +2230,7 @@ module.exports = function createServer(dependencies) {
                 const body = await readBody(request);
                 const settings = normalizePassportSettings({
                     origins: body.origins,
+                    brewGuides: body.brewGuides,
                     completionRewardTitle: body.completionRewardTitle,
                     completionRewardDetail: body.completionRewardDetail
                 });
