@@ -94,6 +94,7 @@ extension AdminContentArea {
         ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "title": .string("New origin"), "keywords": .array([])])),
             .init(path: "brewGuides", title: "Brew guides", groups: [.init("Guide", [
                 .init("id", "Guide identifier", required: true),
+                .init("productName", "Product name", required: true),
                 .init("productKeywords", "Product matching keywords", .words),
                 .init("origin", "Origin", required: true),
                 .init("profile", "Cup profile", .multiline),
@@ -102,7 +103,7 @@ extension AdminContentArea {
                 .init("dose", "Dose"), .init("water", "Water"),
                 .init("temperature", "Temperature"), .init("grind", "Grind"), .init("brewTime", "Target brew time")
             ])], blank: .object([
-                "id": .string(UUID().uuidString.lowercased()), "productKeywords": .array([]), "origin": .string("New origin"),
+                "id": .string(UUID().uuidString.lowercased()), "productName": .string("New coffee"), "productKeywords": .array([]), "origin": .string("New origin"),
                 "profile": .string(""), "notes": .string(""), "method": .string("V60 / pour-over"), "dose": .string("15 g coffee"),
                 "water": .string("250 g water"), "temperature": .string("93°C"), "grind": .string("Medium-fine"), "brewTime": .string("2:45–3:15")
             ]))

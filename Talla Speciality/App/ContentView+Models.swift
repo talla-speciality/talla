@@ -170,6 +170,7 @@ extension ContentView {
 
         struct BrewGuide: Decodable {
             let id: String
+            let productName: String?
             let productKeywords: [String]
             let origin: String
             let profile: String

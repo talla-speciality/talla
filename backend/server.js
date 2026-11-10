@@ -685,12 +685,12 @@ function defaultPassportSettings() {
             { id: "brazil", title: "Brazil", emoji: "🇧🇷", keywords: ["brazil", "brazilian"], rewardLabel: "" }
         ],
         brewGuides: [
-            { id: "hawar-islands", productKeywords: ["hawar-islands", "hawari-islands"], origin: "Colombia", profile: "Balanced, bright, and smooth", notes: "Caramel, ripe fruit, and a clean finish", method: "V60 / pour-over", dose: "15 g coffee", water: "250 g water", temperature: "93°C", grind: "Medium-fine", brewTime: "2:45–3:15" },
-            { id: "muharraq", productKeywords: ["muharraq"], origin: "Ethiopia", profile: "Floral, bright, and aromatic", notes: "Floral aromatics, citrus brightness, and stone fruit", method: "V60 / pour-over", dose: "15 g coffee", water: "250 g water", temperature: "94°C", grind: "Medium-fine", brewTime: "2:45–3:15" },
-            { id: "durrat-al-bahrain", productKeywords: ["durrat-al-bahrain", "durrat-bahrain"], origin: "Brazil", profile: "Smooth, sweet, and comforting", notes: "Milk chocolate, toasted nuts, and gentle sweetness", method: "V60 / pour-over", dose: "15 g coffee", water: "240 g water", temperature: "92°C", grind: "Medium", brewTime: "2:45–3:15" },
-            { id: "riffa", productKeywords: ["riffa"], origin: "Yemen", profile: "Rich, deep, and wine-like", notes: "Cocoa, dried fruit, warm spice, and a lingering finish", method: "V60 / pour-over", dose: "15 g coffee", water: "240 g water", temperature: "93°C", grind: "Medium", brewTime: "3:00–3:30" },
-            { id: "al-majd", productKeywords: ["al-majd", "almajd"], origin: "Qatar", profile: "Golden, aromatic, and delicately floral", notes: "Cardamom, saffron, rose water, and gentle floral sweetness", method: "Arabic coffee / dallah", dose: "10 g coffee", water: "150 g water", temperature: "90–92°C", grind: "Fine", brewTime: "8–10 min" },
-            { id: "zayed", productKeywords: ["zayed"], origin: "United Arab Emirates", profile: "Light, fragrant, and warmly spiced", notes: "Cardamom, saffron, golden sweetness, and delicate spice", method: "Arabic coffee / dallah", dose: "10 g coffee", water: "150 g water", temperature: "90–92°C", grind: "Fine", brewTime: "8–10 min" }
+            { id: "hawar-islands", productName: "Hawar Islands", productKeywords: ["hawar-islands", "hawari-islands"], origin: "Colombia", profile: "Balanced, bright, and smooth", notes: "Caramel, ripe fruit, and a clean finish", method: "V60 / pour-over", dose: "15 g coffee", water: "250 g water", temperature: "93°C", grind: "Medium-fine", brewTime: "2:45–3:15" },
+            { id: "muharraq", productName: "Muharraq", productKeywords: ["muharraq"], origin: "Ethiopia", profile: "Floral, bright, and aromatic", notes: "Floral aromatics, citrus brightness, and stone fruit", method: "V60 / pour-over", dose: "15 g coffee", water: "250 g water", temperature: "94°C", grind: "Medium-fine", brewTime: "2:45–3:15" },
+            { id: "durrat-al-bahrain", productName: "Durrat Al-Bahrain", productKeywords: ["durrat-al-bahrain", "durrat-bahrain"], origin: "Brazil", profile: "Smooth, sweet, and comforting", notes: "Milk chocolate, toasted nuts, and gentle sweetness", method: "V60 / pour-over", dose: "15 g coffee", water: "240 g water", temperature: "92°C", grind: "Medium", brewTime: "2:45–3:15" },
+            { id: "riffa", productName: "Riffa", productKeywords: ["riffa"], origin: "Yemen", profile: "Rich, deep, and wine-like", notes: "Cocoa, dried fruit, warm spice, and a lingering finish", method: "V60 / pour-over", dose: "15 g coffee", water: "240 g water", temperature: "93°C", grind: "Medium", brewTime: "3:00–3:30" },
+            { id: "al-majd", productName: "Al-Majd", productKeywords: ["al-majd", "almajd"], origin: "Qatar", profile: "Golden, aromatic, and delicately floral", notes: "Cardamom, saffron, rose water, and gentle floral sweetness", method: "Arabic coffee / dallah", dose: "10 g coffee", water: "150 g water", temperature: "90–92°C", grind: "Fine", brewTime: "8–10 min" },
+            { id: "zayed", productName: "Zayed", productKeywords: ["zayed"], origin: "United Arab Emirates", profile: "Light, fragrant, and warmly spiced", notes: "Cardamom, saffron, golden sweetness, and delicate spice", method: "Arabic coffee / dallah", dose: "10 g coffee", water: "150 g water", temperature: "90–92°C", grind: "Fine", brewTime: "8–10 min" }
         ],
         completionRewardTitle: "Passport reward",
         completionRewardDetail: "Complete your passport to unlock a reward.",
@@ -743,6 +743,7 @@ function normalizePassportSettings(value = {}) {
         const keywords = Array.isArray(guide?.productKeywords) ? guide.productKeywords : String(guide?.productKeywords || "").split(",");
         return {
             id,
+            productName: trimText(guide?.productName || fallbackGuide.productName || id, 100),
             productKeywords: keywords.map((keyword) => trimText(keyword, 80).toLowerCase()).filter(Boolean).slice(0, 12),
             origin: trimText(guide?.origin || fallbackGuide.origin, 80),
             profile: trimText(guide?.profile || fallbackGuide.profile, 180),
