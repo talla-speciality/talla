@@ -88,9 +88,25 @@ extension AdminContentArea {
     var arrays: [AdminArraySpec] {
         switch self {
         case .home: return []
-        case .passport: return [.init(path: "origins", title: "Origins", groups: [.init("Origin", [
+        case .passport: return [
+            .init(path: "origins", title: "Origins", groups: [.init("Origin", [
             .init("id", "Origin identifier", required: true), .init("title", "Name", required: true), .init("emoji", "Flag or emoji"), .init("keywords", "Matching keywords", .words), .init("rewardLabel", "Reward label")
-        ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "title": .string("New origin"), "keywords": .array([])]))]
+        ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "title": .string("New origin"), "keywords": .array([])])),
+            .init(path: "brewGuides", title: "Brew guides", groups: [.init("Guide", [
+                .init("id", "Guide identifier", required: true),
+                .init("productKeywords", "Product matching keywords", .words),
+                .init("origin", "Origin", required: true),
+                .init("profile", "Cup profile", .multiline),
+                .init("notes", "Tasting notes", .multiline),
+                .init("method", "Method", required: true),
+                .init("dose", "Dose"), .init("water", "Water"),
+                .init("temperature", "Temperature"), .init("grind", "Grind"), .init("brewTime", "Target brew time")
+            ])], blank: .object([
+                "id": .string(UUID().uuidString.lowercased()), "productKeywords": .array([]), "origin": .string("New origin"),
+                "profile": .string(""), "notes": .string(""), "method": .string("V60 / pour-over"), "dose": .string("15 g coffee"),
+                "water": .string("250 g water"), "temperature": .string("93°C"), "grind": .string("Medium-fine"), "brewTime": .string("2:45–3:15")
+            ]))
+        ]
         case .events: return [.init(path: "events", title: "Events", groups: [
             .init("Event", [.init("id", "Event identifier", required: true), .init("name", "Name", required: true), .init("enabled", "Enabled", .toggle), .init("priority", "Display priority", .integer)]),
             .init("English content", [.init("titleEN", "Title", required: true), .init("subtitleEN", "Subtitle", .multiline), .init("badgeEN", "Badge"), .init("ctaEN", "Button label"), .init("categoryTitleEN", "Category title"), .init("categorySubtitleEN", "Category subtitle", .multiline)]),
@@ -122,7 +138,7 @@ extension AdminContentArea {
                 .init("temporaryClosureEN", "English temporary closure", .multiline), .init("temporaryClosureAR", "Arabic temporary closure", .multiline),
                 .init("pickupSlots", "Pickup slots JSON", .json)
             ])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "nameEN": .string("New location"), "enabled": .bool(true), "pickupSlots": .array([])])),
-            .init(path: "loyalty.rewards", title: "Loyalty rewards", groups: [.init("Reward", [.init("id", "Reward identifier", required: true), .init("enabled", "Enabled", .toggle), .init("points", "Points required", .integer), .init("reward", "Reward name", required: true), .init("titleEN", "English title", required: true), .init("titleAR", "Arabic title"), .init("detailEN", "English detail", .multiline), .init("detailAR", "Arabic detail", .multiline)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "enabled": .bool(true), "points": .number(50), "reward": .string("New reward"), "titleEN": .string("New reward")]))
+            .init(path: "loyalty.rewards", title: "Loyalty rewards", groups: [.init("Reward", [.init("id", "Reward identifier", required: true), .init("enabled", "Enabled", .toggle), .init("points", "Points required", .integer), .init("reward", "Reward type", .choice(["free drink", "pastry pairing", "coffee bag credit"]), required: true), .init("titleEN", "English title", required: true), .init("titleAR", "Arabic title"), .init("detailEN", "English detail", .multiline), .init("detailAR", "Arabic detail", .multiline)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "enabled": .bool(true), "points": .number(50), "reward": .string("free drink"), "titleEN": .string("New reward")]))
         ]
         case .espresso: return [
             .init(path: "machines", title: "Machines", groups: [.init("Machine", [.init("id", "Identifier", required: true), .init("name", "Name", required: true), .init("enabled", "Enabled", .toggle)])], blank: .object(["id": .string(UUID().uuidString.lowercased()), "name": .string("New machine"), "enabled": .bool(true)])),
@@ -422,7 +438,8 @@ extension AdminContentArea {
             .init("fulfillment.khaleejiTransitAR", "Arabic GCC transit time", .text),
             .init("fulfillment.bahrainRate", "Bahrain delivery rate (BHD)", .number),
             .init("fulfillment.khaleejiCashOnDeliverySurcharge", "GCC cash-on-delivery surcharge (BHD)", .number),
-            .init("fulfillment.maximumKhaleejiWeightGrams", "Maximum GCC weight (grams)", .integer)
+            .init("fulfillment.maximumKhaleejiWeightGrams", "Maximum GCC weight (grams)", .integer),
+            .init("fulfillment.gulfMarkets", "GCC market delivery and packaging settings (JSON)", .json)
         ]),
         .init("Temporary closures", [
             .init("fulfillment.temporaryClosureEN", "English closure message", .multiline),
@@ -447,6 +464,7 @@ extension AdminContentArea {
             .init("loyalty.goldThreshold", "Gold threshold", .integer),
             .init("loyalty.reserveThreshold", "Reserve threshold", .integer),
             .init("loyalty.rewardStep", "Reward step", .integer),
+            .init("loyalty.doubleBeanDays", "Double-Beans weekdays (0=Sunday)", .words),
             .init("loyalty.freeDeliveryThresholds.Silver", "Silver free delivery threshold", .number),
             .init("loyalty.freeDeliveryThresholds.Gold", "Gold free delivery threshold", .number),
             .init("loyalty.freeDeliveryThresholds.Reserve", "Reserve free delivery threshold", .number),

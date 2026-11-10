@@ -139,6 +139,7 @@ module.exports = {
     shopifyWebhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || "",
     stores: {
         loyalty: path.join(dataDirectory, "loyalty.json"),
+        educationActivity: path.join(dataDirectory, "educationActivity.json"),
         accounts: path.join(dataDirectory, "accounts.json"),
         orders: path.join(dataDirectory, "orders.json"),
         vouchers: path.join(dataDirectory, "vouchers.json"),

@@ -150,6 +150,10 @@ extension ContentView {
             variants.first(where: \.isAvailableForSale) ?? variants.first
         }
 
+        var isPurchasable: Bool {
+            isAvailableForSale && variants.contains(where: \.isAvailableForSale)
+        }
+
         var hasVariantChoices: Bool {
             variants.count > 1
         }
@@ -164,7 +168,22 @@ extension ContentView {
             let rewardLabel: String?
         }
 
+        struct BrewGuide: Decodable {
+            let id: String
+            let productKeywords: [String]
+            let origin: String
+            let profile: String
+            let notes: String
+            let method: String
+            let dose: String
+            let water: String
+            let temperature: String
+            let grind: String
+            let brewTime: String
+        }
+
         let origins: [Origin]
+        let brewGuides: [BrewGuide]?
         let completionRewardTitle: String?
         let completionRewardDetail: String?
     }
@@ -893,6 +912,8 @@ extension ContentView {
     enum LoyaltyServiceError: LocalizedError {
         case missingAccount
         case insufficientPoints
+        case educationProofRequired
+        case educationQuizCooldown
         case operationFailed(String)
 
         var errorDescription: String? {
@@ -901,6 +922,10 @@ extension ContentView {
                 return "We couldn't find a rewards account for that email."
             case .insufficientPoints:
                 return "You don't have enough Beans for that reward yet."
+            case .educationProofRequired:
+                return "Answer two current quiz questions correctly to claim your Beans."
+            case .educationQuizCooldown:
+                return "Quiz checks are paused after three incorrect answers. Try again later."
             case .operationFailed(let message):
                 return message
             }

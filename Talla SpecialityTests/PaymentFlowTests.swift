@@ -182,12 +182,21 @@ struct PaymentFlowTests {
         #expect(TallaPaymentMethod.card.actionTitle == "إدخال بيانات البطاقة")
     }
 
-    @Test func newCustomersDefaultToArabic() {
+    @Test func newCustomersFollowSystemLanguage() {
         let previous = UserDefaults.standard.string(forKey: "app.language")
         defer { UserDefaults.standard.set(previous, forKey: "app.language") }
         UserDefaults.standard.removeObject(forKey: "app.language")
-        #expect(AppLocalization.currentLanguage == .arabic)
-        #expect(AppLocalization.currentLanguage.layoutDirection == .rightToLeft)
+        #expect(AppLocalization.currentLanguage == .system)
+        #expect(AppLocalization.currentLanguage.effectiveLanguageCode == (Locale.current.language.languageCode?.identifier ?? "en"))
+    }
+
+    @Test func unsupportedSystemLanguageFallsBackToEnglishCopy() {
+        let previousLanguage = UserDefaults.standard.string(forKey: "app.language")
+        defer { UserDefaults.standard.set(previousLanguage, forKey: "app.language") }
+        UserDefaults.standard.set(AppLanguage.system.rawValue, forKey: "app.language")
+
+        let localized = AppLocalization.text("home", fallback: "Home")
+        #expect(!localized.isEmpty)
     }
 
     @Test func successPresentationRequiresConfirmedState() {

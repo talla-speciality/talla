@@ -30,6 +30,40 @@ import SafariServices
 import UIKit
 #endif
 
+enum TallaOrderDeepLink: Equatable {
+    case order(id: String)
+    case orders
+
+    static func parse(_ url: URL) -> TallaOrderDeepLink? {
+        let scheme = url.scheme?.lowercased() ?? ""
+        let isCustomLink = scheme == "talla"
+        let isUniversalLink = ["http", "https"].contains(scheme)
+            && ["talla.me", "www.talla.me"].contains(url.host?.lowercased() ?? "")
+        guard isCustomLink || isUniversalLink else { return nil }
+
+        let pathTokens = Array(url.pathComponents.dropFirst())
+        let routeTokens = pathTokens.map { $0.lowercased() }
+        let isOrderRoute = (isCustomLink && ["orders", "order-history"].contains(url.host?.lowercased() ?? ""))
+            || (isUniversalLink && ((routeTokens.count >= 2 && routeTokens[0] == "account" && ["orders", "order-history"].contains(routeTokens[1]))
+                || (routeTokens.count >= 2 && routeTokens[0] == "app" && ["orders", "order-history"].contains(routeTokens[1]))))
+        guard isOrderRoute else { return nil }
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        if let queryOrderID = components?.queryItems?.first(where: {
+            let name = $0.name.lowercased()
+            return name == "order" || name == "orderid"
+        })?.value?.trimmingCharacters(in: .whitespacesAndNewlines), !queryOrderID.isEmpty {
+            return .order(id: queryOrderID)
+        }
+
+        if isCustomLink, let orderID = pathTokens.first, !orderID.isEmpty {
+            return .order(id: orderID)
+        }
+
+        return pathTokens.count >= 3 ? .order(id: pathTokens[2]) : .orders
+    }
+}
+
 extension ContentView {
     func dismissKeyboard() {
 #if canImport(UIKit)
@@ -61,11 +95,12 @@ extension ContentView {
         openTab(.brewing)
     }
 
-    func startBrewing(product: Product, useRecommendedRecipe: Bool = false) {
+    func startBrewing(product: Product, useRecommendedRecipe: Bool = false, shelfCoffeeID: UUID? = nil) {
         let coffeeName = product.name.trimmingCharacters(in: .whitespacesAndNewlines)
         selectedProduct = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             openBrewing(category: product.categoryKey == "arabic-coffee-beans" ? "Traditional" : "All")
+            pendingBrewingCoffeeID = shelfCoffeeID
             pendingBrewingCoffeeName = coffeeName
             pendingBrewingCoffeeOrigin = product.countryOfOrigin ?? ""
             pendingBrewingCoffeeNotes = product.desc
@@ -112,11 +147,36 @@ extension ContentView {
             return
         }
 
+        guard customerProfile != nil else {
+            pendingAccountOrderID = normalizedID
+            openAccountSection(AccountSectionView.ScrollTarget.customer)
+            showToast(message: AppLocalization.text("sign_in_to_view_order", fallback: "Sign in to view this order"))
+            return
+        }
+
         accountSelectedOrderID = normalizedID
         isCustomerSectionExpanded = true
         isShoppingSectionExpanded = true
         activeTab = .account
         accountOrdersPresentationRequest &+= 1
+    }
+
+    func openActiveHomeOrder() {
+        let activeStatuses = Set(["cancelled", "canceled", "refunded", "fulfilled", "delivered", "completed", "collected"])
+        guard let activeOrder = orderHistory.first(where: { order in
+            !activeStatuses.contains(order.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+        }) else {
+            openAccountSection(AccountSectionView.ScrollTarget.shopping)
+            return
+        }
+
+        openAccountOrder(activeOrder.id)
+    }
+
+    func resumePendingAccountOrderIfNeeded() {
+        guard let pendingAccountOrderID else { return }
+        self.pendingAccountOrderID = nil
+        openAccountOrder(pendingAccountOrderID)
     }
 
     func handleShortcutDestination() {
@@ -276,6 +336,21 @@ extension ContentView {
         }
 
         let searchQuery = queryItems.first(where: { $0.name == "q" || $0.name == "search" })?.value ?? ""
+
+        if let orderLink = TallaOrderDeepLink.parse(url) {
+            hasSeenWelcome = true
+            switch orderLink {
+            case let .order(id):
+                openAccountOrder(id)
+            case .orders:
+                openAccountSection(AccountSectionView.ScrollTarget.customer)
+                Task {
+                    await loadOrderHistory()
+                }
+                showToast(message: AppLocalization.text("order_history_opened", fallback: "Order history opened"))
+            }
+            return
+        }
 
         if isUniversalLink, pathTokens.first == "products", let handle = pathTokens.dropFirst().first {
             openProductLink(handle: handle)

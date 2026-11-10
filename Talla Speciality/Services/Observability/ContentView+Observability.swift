@@ -66,7 +66,7 @@ extension ContentView {
             let product = Product(
                 id: "gid://shopify/Product/release-test", handle: "release-test-coffee",
                 variantID: variant.id, variants: [variant], name: "Release Test Coffee", price: "8.500",
-                categoryKey: "coffee-beans", categoryLabel: "Coffee Beans", imageURL: nil,
+                categoryKey: "coffee-beans", categoryLabel: "Coffee", imageURL: nil,
                 desc: "Deterministic checkout fixture", tag: nil, countryOfOrigin: "Bahrain", isAvailableForSale: true
             )
             products = [product]
@@ -108,6 +108,24 @@ extension ContentView {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 accountOrdersPresentationRequest = 1
+            }
+        case "home-order", "order-deep-link":
+            customerProfile = ShopifyCustomerProfile(
+                id: "release-test-customer", firstName: "Release", lastName: "Test", email: testEmail
+            )
+            if scenario == "home-order" {
+                let fixture = #"[{"id":"ui-order-active","title":"Active pickup","total":"8.500","status":"pending","items":[{"name":"Release Test Coffee","quantity":1}],"createdAt":"2026-11-06T10:00:00Z"},{"id":"ui-order-old","title":"Old order","total":"4.000","status":"completed","items":[{"name":"Other Coffee","quantity":1}],"createdAt":"2026-10-01T10:00:00Z"}]"#
+                orderHistory = (try? JSONDecoder().decode([AccountOrder].self, from: Data(fixture.utf8))) ?? []
+                hasLoadedOrders = true
+            }
+            DispatchQueue.main.async {
+                activeTab = .home
+                tabScrollTarget = .home
+            }
+            if scenario == "order-deep-link" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    handleDeepLink(URL(string: "talla://orders/ui-order-active")!)
+                }
             }
         case "offline-recovery", "bluetooth-interruption":
             DispatchQueue.main.async {

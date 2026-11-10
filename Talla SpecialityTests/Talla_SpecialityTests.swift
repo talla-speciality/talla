@@ -1,10 +1,30 @@
 import Foundation
 import CoreGraphics
 import Testing
+import SwiftData
 @testable import Talla_Speciality
 
 @MainActor
 struct Talla_SpecialityTests {
+
+    @Test func brewTimerUsesMonotonicUptimeAndClampsAtZero() {
+        #expect(monotonicBrewTimerRemainingSeconds(endUptime: 125.2, nowUptime: 120.0) == 6)
+        #expect(monotonicBrewTimerRemainingSeconds(endUptime: 120.0, nowUptime: 125.0) == 0)
+    }
+
+    @Test func orderDeepLinkParsesExactOrderIdentifiers() {
+        #expect(TallaOrderDeepLink.parse(URL(string: "talla://orders/order-123")!) == .order(id: "order-123"))
+        #expect(TallaOrderDeepLink.parse(URL(string: "talla://orders?order=order-456")!) == .order(id: "order-456"))
+        #expect(TallaOrderDeepLink.parse(URL(string: "https://talla.me/account/orders/order-789")!) == .order(id: "order-789"))
+        #expect(TallaOrderDeepLink.parse(URL(string: "https://www.talla.me/account/orders?orderId=order-999")!) == .order(id: "order-999"))
+        #expect(TallaOrderDeepLink.parse(URL(string: "https://talla.me/app/orders/Order-ABC")!) == .order(id: "Order-ABC"))
+    }
+
+    @Test func orderDeepLinkFallsBackToOrderHistoryRoot() {
+        #expect(TallaOrderDeepLink.parse(URL(string: "https://talla.me/account/orders")!) == .orders)
+        #expect(TallaOrderDeepLink.parse(URL(string: "https://example.com/account/orders/order-123")!) == nil)
+        #expect(TallaOrderDeepLink.parse(URL(string: "https://talla.me/products/coffee?order=order-123")!) == nil)
+    }
 
     @Test func duoLayoutContextIdentifiesVerticalDisplayDivision() {
         #expect(
@@ -66,6 +86,58 @@ struct Talla_SpecialityTests {
         try TallaCatalogCache.save([], languageCode: "ar", directory: directory)
         #expect(TallaCatalogCache.load(languageCode: "ar", directory: directory) == [])
         #expect(TallaCatalogCache.load(languageCode: "en", directory: directory) == [product])
+    }
+
+    @Test func soldOutProductsBecomeVisibleOnlyWhenARefreshReportsStock() {
+        let unavailableVariant = ContentView.Product.Variant(
+            id: "stock-variant",
+            title: "Standard",
+            price: "5.000 BHD",
+            isAvailableForSale: false,
+            requiresShipping: true,
+            weightGrams: 250
+        )
+        let soldOut = ContentView.Product(
+            id: "stock-product",
+            handle: "stock-product",
+            variantID: unavailableVariant.id,
+            variants: [unavailableVariant],
+            name: "Stock Test Coffee",
+            price: "5.000 BHD",
+            categoryKey: "coffee-beans",
+            categoryLabel: "Coffee",
+            imageURL: nil,
+            desc: "",
+            tag: nil,
+            countryOfOrigin: nil,
+            isAvailableForSale: false
+        )
+        #expect(!soldOut.isPurchasable)
+
+        let availableVariant = ContentView.Product.Variant(
+            id: unavailableVariant.id,
+            title: unavailableVariant.title,
+            price: unavailableVariant.price,
+            isAvailableForSale: true,
+            requiresShipping: unavailableVariant.requiresShipping,
+            weightGrams: unavailableVariant.weightGrams
+        )
+        let restocked = ContentView.Product(
+            id: soldOut.id,
+            handle: soldOut.handle,
+            variantID: availableVariant.id,
+            variants: [availableVariant],
+            name: soldOut.name,
+            price: soldOut.price,
+            categoryKey: soldOut.categoryKey,
+            categoryLabel: soldOut.categoryLabel,
+            imageURL: nil,
+            desc: "",
+            tag: nil,
+            countryOfOrigin: nil,
+            isAvailableForSale: true
+        )
+        #expect(restocked.isPurchasable)
     }
 
     @Test func remoteSettingsCacheRoundTripsRawJSON() throws {
@@ -375,7 +447,7 @@ struct Talla_SpecialityTests {
         let key = ProductCatalogRules.categoryKey(
             productType: "",
             tags: ["Seasonal"],
-            title: "Mini Talla Box"
+            title: "Mini Box"
         )
 
         #expect(key == "gifts")
@@ -520,18 +592,26 @@ struct Talla_SpecialityTests {
         #expect(!ProductCatalogRules.matchesShopCategory("winter", productCategory: "ready-made-drinks", name: "Latte", handle: "latte"))
     }
 
-    @Test func mapsDripBagSignalsToDripBagsCategory() {
+    @Test func mapsSingleServeCoffeeProductsToCoffeeCategory() {
         let key = ProductCatalogRules.categoryKey(
             productType: "",
             tags: ["single serve"],
             title: "Ethiopia Drip Bags"
         )
 
-        #expect(key == "drip-bags")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Drip Bags")
-        #expect(ProductCatalogRules.shopCategoryKey(for: key) == "drip-bags")
+        #expect(key == "coffee-beans")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Coffee")
+        #expect(ProductCatalogRules.shopCategoryKey(for: "drip-bags") == "coffee-beans")
         #expect(ProductCatalogRules.shopCategoryKey(for: "coffee-beans") == "coffee-beans")
         #expect(ProductCatalogRules.subscriptionPlanType(detectedPlan: key, requestedPlan: "drip-bags") == "drip-bags")
+
+        let capsuleKey = ProductCatalogRules.categoryKey(
+            productType: "Coffee Capsules",
+            tags: ["Nespresso"],
+            title: "House Capsules"
+        )
+        #expect(capsuleKey == "coffee-beans")
+        #expect(ProductCatalogRules.shopCategoryKey(for: "coffee-capsules") == "coffee-beans")
     }
 
     @Test func appCategoryTagOverridesAutomaticCategory() {
@@ -593,7 +673,7 @@ struct Talla_SpecialityTests {
         )
 
         #expect(key == "coffee-beans")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Coffee Beans")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: key) == "Coffee")
     }
 
     @Test func subscriptionProductRoutingKeepsProductsInTheChosenPlan() {
@@ -626,8 +706,8 @@ struct Talla_SpecialityTests {
         )
 
         #expect(coffeeKey == "coffee-beans")
-        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: coffeeKey) == "Coffee Beans")
-        #expect(dripBagKey == "drip-bags")
+        #expect(ProductCatalogRules.categoryLabel(productType: "", fallbackKey: coffeeKey) == "Coffee")
+        #expect(dripBagKey == "coffee-beans")
     }
 
     @Test func picksPreferredMerchandisingTag() {
@@ -681,6 +761,142 @@ struct Talla_SpecialityTests {
         #expect(kinds == Set(SampleKind.allCases.map(\.rawValue)))
     }
 
+    @Test func shelfDoseEstimatorUsesValidRecentHistoryAndSafeFallback() {
+        #expect(CoffeeDoseEstimator.averageDoseGrams([18, 20, 22]) == 20)
+        #expect(CoffeeDoseEstimator.averageDoseGrams([2, .infinity, 140], fallback: 18) == 18)
+    }
+
+    @MainActor @Test func shelfBrewsUseRecordedDoseHistory() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        try store.recordCompletedBrew(
+            id: UUID(), title: "V60", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 180, rating: 4, notes: "Good"
+        )
+        try store.recordCompletedBrew(
+            id: UUID(), title: "V60", method: "V60", coffeeGrams: 22,
+            waterGrams: 352, durationSeconds: 180, rating: 4, notes: "Good"
+        )
+
+        #expect(store.averageBrewDoseGrams() == 21)
+    }
+
+    @MainActor @Test func completedBrewRetryIsIdempotentForShelfConsumption() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        try store.addPurchasedCoffee(name: "Retry Coffee", roaster: "Talla", roastDate: nil, quantityGrams: 250)
+        let purchase = try #require(store.inventory().first)
+        let sessionID = UUID()
+
+        try store.recordCompletedBrew(
+            id: sessionID, title: "Retry Coffee", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 180, rating: 4, notes: "Good"
+        )
+        try store.recordCompletedBrew(
+            id: sessionID, title: "Retry Coffee", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 180, rating: 4, notes: "Good"
+        )
+
+        let remaining = try #require(store.inventory().first?.remainingQuantityGrams)
+        #expect(remaining == 230)
+        #expect(store.legacyObjects(entityType: "brewSession").count == 1)
+        #expect(store.legacyObjects(entityType: "doseUsage").count == 1)
+        #expect(purchase.initialQuantityGrams == 250)
+    }
+
+    @MainActor @Test func selectedEmptyBagDoesNotConsumeAnotherBag() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        try store.addPurchasedCoffee(name: "Empty", roaster: "Talla", roastDate: nil, quantityGrams: 10)
+        let emptyID = try #require(store.inventory().first?.id)
+        try store.addPurchasedCoffee(name: "Other", roaster: "Talla", roastDate: nil, quantityGrams: 250)
+        try store.consumeCoffeeForBrew(sessionID: UUID(), purchasedCoffeeID: emptyID, grams: 20)
+        #expect(store.inventory().first(where: { $0.id == emptyID })?.remainingQuantityGrams == 0)
+        let otherID = try #require(store.inventory().first(where: { $0.id != emptyID })?.id)
+        try store.consumeCoffeeForBrew(sessionID: UUID(), purchasedCoffeeID: emptyID, grams: 20)
+        #expect(store.inventory().first(where: { $0.id == otherID })?.remainingQuantityGrams == 250)
+        #expect(store.usedGrams(emptyID) == 10)
+    }
+
+    @MainActor @Test func shelfDoseAndRemainingQuantityCommitTogether() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        try store.addPurchasedCoffee(name: "House Bag", roaster: "Talla", roastDate: nil, quantityGrams: 100)
+        let bagID = try #require(store.inventory().first?.id)
+        let abandonedSession = UUID()
+        #expect(try store.recordDose(sessionID: abandonedSession, purchaseID: bagID, grams: 20))
+        store.container.mainContext.rollback()
+        #expect(store.usedGrams(bagID) == 0)
+        #expect(store.inventory().first?.remainingQuantityGrams == 100)
+
+        let completedSession = UUID()
+        try store.consumeCoffeeForBrew(sessionID: completedSession, purchasedCoffeeID: bagID, grams: 20)
+        try store.consumeCoffeeForBrew(sessionID: completedSession, purchasedCoffeeID: bagID, grams: 20)
+        #expect(store.usedGrams(bagID) == 20)
+        #expect(store.inventory().first?.remainingQuantityGrams == 80)
+        #expect(store.legacyObjects(entityType: "doseUsage").count == 1)
+    }
+
+    @MainActor @Test func undoShelfDoseRestoresBagOnlyOnce() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        try store.addPurchasedCoffee(name: "Undo Bag", roaster: "Talla", roastDate: nil, quantityGrams: 100)
+        let bagID = try #require(store.inventory().first?.id)
+        let sessionID = UUID()
+        try store.consumeCoffeeForBrew(sessionID: sessionID, purchasedCoffeeID: bagID, grams: 25)
+        #expect(store.inventory().first?.remainingQuantityGrams == 75)
+        #expect(store.latestDoseUsage(for: bagID)?.id == sessionID)
+        try store.undoDoseUsage(sessionID: sessionID)
+        try store.undoDoseUsage(sessionID: sessionID)
+        #expect(store.inventory().first?.remainingQuantityGrams == 100)
+        #expect(store.usedGrams(bagID) == 0)
+        #expect(store.latestDoseUsage(for: bagID) == nil)
+    }
+
+    @MainActor @Test func purchasedCoffeeImportUsesVariantIdentityBeforeProductTitle() throws {
+        func product(id: String, name: String, variantID: String, grams: Double) -> ContentView.Product {
+            let variant = ContentView.Product.Variant(
+                id: variantID, title: "Default", price: "8.500",
+                isAvailableForSale: true, requiresShipping: true, weightGrams: grams
+            )
+            return ContentView.Product(
+                id: id, handle: name.lowercased(), variantID: variantID, variants: [variant],
+                name: name, price: "8.500", categoryKey: "coffee-beans", categoryLabel: "Coffee Beans",
+                imageURL: nil, desc: "", tag: nil, countryOfOrigin: "Bahrain", isAvailableForSale: true
+            )
+        }
+        let catalog = [
+            product(id: "product-house", name: "House Coffee", variantID: "gid://shopify/ProductVariant/111", grams: 250),
+            product(id: "product-other", name: "Other Coffee", variantID: "gid://shopify/ProductVariant/222", grams: 500)
+        ]
+        let orderJSON = #"[{"id":"order-variant","title":"Order","total":"8.500","status":"confirmed","items":[{"name":"House Coffee","productTitle":"House Coffee","variantId":"gid://shopify/ProductVariant/222","quantity":1}],"createdAt":"2026-11-06T10:00:00Z"}]"#
+        let orders = try JSONDecoder().decode([ContentView.AccountOrder].self, from: Data(orderJSON.utf8))
+        let store = CoffeeDataStore(inMemory: true)
+        try store.importPurchasedCoffee(from: orders, catalog: catalog, ownerID: nil)
+        let lot = try #require(store.beanLots().first)
+        #expect(lot.productID == "product-other")
+        #expect(lot.variantID == "gid://shopify/ProductVariant/222")
+        #expect(store.inventory().first?.initialQuantityGrams == 500)
+
+        let legacyJSON = #"[{"id":"order-legacy","title":"Order","total":"8.500","status":"confirmed","items":[{"name":"House Coffee","quantity":1}],"createdAt":"2026-11-06T10:00:00Z"}]"#
+        let legacyOrders = try JSONDecoder().decode([ContentView.AccountOrder].self, from: Data(legacyJSON.utf8))
+        let legacyStore = CoffeeDataStore(inMemory: true)
+        try legacyStore.importPurchasedCoffee(from: legacyOrders, catalog: catalog, ownerID: nil)
+        #expect(legacyStore.beanLots().first?.productID == "product-house")
+        #expect(legacyStore.beanLots().first?.variantID == nil)
+    }
+
+    @Test func roastAgeGuidanceUsesPersonalPreferenceAndUnknownDates() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 6, hour: 12)))
+        let dayTwenty = try #require(calendar.date(byAdding: .day, value: -20, to: now))
+        let dayTwentyOne = try #require(calendar.date(byAdding: .day, value: -21, to: now))
+        #expect(CoffeeRoastAgeGuidance.evaluate(roastDate: nil, preferredDays: 21, now: now, calendar: calendar).status == .unknown)
+        #expect(CoffeeRoastAgeGuidance.evaluate(roastDate: dayTwenty, preferredDays: 21, now: now, calendar: calendar).status == .withinPreference)
+        let reminder = CoffeeRoastAgeGuidance.evaluate(roastDate: dayTwentyOne, preferredDays: 21, now: now, calendar: calendar)
+        #expect(reminder.status == .review)
+        #expect(reminder.daysSinceRoast == 21)
+        #expect(CoffeeRoastAgeGuidance.evaluate(roastDate: dayTwenty, preferredDays: 14, now: now, calendar: calendar).status == .review)
+        #expect(CoffeeRoastAgeGuidance.evaluate(roastDate: dayTwenty, preferredDays: 999, now: now, calendar: calendar).preferredDays == 21)
+        #expect(CoffeeRoastAgeGuidance.evaluate(roastDate: now.addingTimeInterval(2 * 86_400), preferredDays: 21, now: now, calendar: calendar).status == .unknown)
+    }
+
     @MainActor @Test func completedBrewPersistsTasteSignalsForBrewCoach() throws {
         let store = CoffeeDataStore(inMemory: true)
         let sessionID = UUID()
@@ -712,6 +928,7 @@ struct Talla_SpecialityTests {
         let store = CoffeeDataStore(inMemory: true)
 
         #expect(store.brewCoachImmediateAction(for: ["Too weak"])?.title == "Make the brew stronger")
+        #expect(store.brewCoachImmediateAction(for: ["Sweet", "Too acidic"])?.title == "Grind finer")
 
         try store.recordCompletedBrew(
             id: UUID(), title: "Morning V60", method: "V60", coffeeGrams: 20,
@@ -725,7 +942,39 @@ struct Talla_SpecialityTests {
             waterGrams: 320, durationSeconds: 190, rating: 3, notes: "",
             feedbackTags: ["Too bitter"]
         )
-        #expect(store.brewCoachState().nextAction?.title == "Lower temperature or grind coarser")
+        #expect(store.brewCoachState().nextAction?.title == "Grind coarser")
+
+        try store.recordCompletedBrew(
+            id: UUID(), title: "Morning V60", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 190, rating: 4, notes: "",
+            feedbackTags: ["Sweet", "Too acidic"]
+        )
+        #expect(store.brewCoachState().nextAction?.title == "Grind finer")
+    }
+
+    @MainActor @Test func brewCoachComparesOnlyRepeatBrewsOfTheLatestRecipe() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        #expect(store.brewCoachComparison() == nil)
+        try store.recordCompletedBrew(
+            id: UUID(), title: "House V60", method: "V60", coffeeGrams: 20,
+            waterGrams: 320, durationSeconds: 190, rating: 3, notes: ""
+        )
+        #expect(store.brewCoachComparison() == nil)
+        try store.recordCompletedBrew(
+            id: UUID(), title: "Other recipe", method: "AeroPress", coffeeGrams: 18,
+            waterGrams: 250, durationSeconds: 120, rating: 4, notes: ""
+        )
+        #expect(store.brewCoachComparison() == nil)
+        try store.recordCompletedBrew(
+            id: UUID(), title: "House V60", method: "V60", coffeeGrams: 20,
+            waterGrams: 300, durationSeconds: 180, rating: 5, notes: ""
+        )
+        let comparison = try #require(store.brewCoachComparison())
+        #expect(comparison.title == "House V60")
+        #expect(comparison.previous.waterGrams == 320)
+        #expect(comparison.latest.waterGrams == 300)
+        #expect(comparison.previous.rating == 3)
+        #expect(comparison.latest.rating == 5)
     }
 
     @MainActor @Test func brewCoachPromotesLovedBrewsAndRecommendsAfterThreeWins() throws {
@@ -915,5 +1164,26 @@ struct Talla_SpecialityTests {
         let updated = try #require(store.inventory().first)
         #expect(updated.openedAt != nil)
         #expect(abs((updated.openedAt ?? .distantPast).timeIntervalSince1970 - openedAt.timeIntervalSince1970) < 1)
+    }
+
+    @MainActor @Test func reviewedCoffeeRoundTripsWithoutInventingRoastDate() throws {
+        let store = CoffeeDataStore(inMemory: true)
+        let id = try store.addPurchasedCoffee(
+            name: "Reviewed Guji",
+            roaster: "Talla",
+            origin: "Ethiopia",
+            tastingNotes: "Jasmine and peach",
+            roastDate: nil,
+            quantityGrams: 200
+        )
+
+        let coffee = try #require(store.inventory().first { $0.id == id })
+        #expect(coffee.roastDate == nil)
+        #expect(coffee.tastingNotes == "Jasmine and peach")
+        #expect(coffee.remainingQuantityGrams == 200)
+        #expect(throws: CoffeeDataError.self) {
+            try store.updateRemainingQuantity(recordID: id, remainingGrams: .nan)
+        }
+        #expect(store.inventory().first { $0.id == id }?.remainingQuantityGrams == 200)
     }
 }

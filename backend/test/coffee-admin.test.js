@@ -38,3 +38,36 @@ test("admin coffee memory service summarizes and deletes records", async () => {
     assert.match(calls.at(-1).sql, /deleted_at=NOW\(\)/);
     assert.doesNotMatch(calls.at(-1).sql, /DELETE FROM/);
 });
+
+test("admin customer coffee summary exposes Shelf, journal, sessions, and dose usage", async () => {
+    const database = {
+        isEnabled: () => true,
+        query: async (sql) => {
+            assert.match(sql, /entity_type IN \('purchasedCoffee', 'brewSession', 'doseUsage'\)/);
+            return { rows: [
+                {
+                    entity_type: "purchasedCoffee", record_id: "bag-1", updated_at: "2026-11-07T00:00:00.000Z",
+                    payload: { productName: "Hawar Islands", initialQuantityGrams: 250, remainingQuantityGrams: 214, roastDate: "2026-10-20" }
+                },
+                {
+                    entity_type: "doseUsage", record_id: "dose-1", updated_at: "2026-11-07T00:00:00.000Z",
+                    payload: { purchasedCoffeeID: "bag-1", grams: 18, createdAt: "2026-11-07T00:00:00.000Z" }
+                },
+                {
+                    entity_type: "brewSession", record_id: "brew-1", updated_at: "2026-11-07T00:00:00.000Z",
+                    payload: { title: "Morning V60", method: "V60", coffeeGrams: 18, waterGrams: 288, brewTimeSeconds: 190, isReference: true }
+                }
+            ] };
+        }
+    };
+    const service = createCoffeeAdminService(database, (value) => String(value).trim().toLowerCase(), async () => ({
+        brewJournal: [{ id: "journal-1", title: "Morning V60", method: "V60" }]
+    }));
+    const summary = await service.customerSummary("A@Example.com");
+
+    assert.equal(summary.inventory[0].remainingQuantityGrams, 214);
+    assert.equal(summary.inventory[0].usedQuantityGrams, 18);
+    assert.equal(summary.brewJournal[0].title, "Morning V60");
+    assert.equal(summary.brewSessions[0].isReference, true);
+    assert.equal(summary.doseUsage[0].grams, 18);
+});

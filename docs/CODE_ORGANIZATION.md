@@ -1,8 +1,9 @@
 # Code organization
 
-The repository is organized by product target and feature. Files that belong to
-the same user-facing area live together, while platform integrations and shared
-UI stay separate.
+The repository is organized by product target, feature, and responsibility.
+Within the main iOS feature areas, files are separated into `Views`, `Models`,
+and `Services` so user interface, data types, and side effects have distinct
+sections.
 
 ## Main iOS app
 
@@ -10,15 +11,16 @@ UI stay separate.
 | --- | --- |
 | `Talla Speciality/App` | App entry point, root navigation, previews, and split `ContentView` extensions (`Models`, `Catalog`, `Lifecycle`, `Presentation`, and `Navigation`) |
 | `Talla Speciality/Shared` | Shared models, UI components, and content helpers |
-| `Talla Speciality/Features/Account` | Sign-in, customer account, and account workspace |
-| `Talla Speciality/Features/Brewing` | Brewing flows, recipes, coffee library, and coffee education |
-| `Talla Speciality/Features/Commerce` | Shop, cart, checkout, and payment flows |
-| `Talla Speciality/Features/Discovery` | Coffee map and expert companion experiences |
-| `Talla Speciality/Features/Espresso` | Espresso profiles, machine models, and DE1 integration |
-| `Talla Speciality/Features/Loyalty` | Loyalty views and loyalty service |
-| `Talla Speciality/Services/Devices` | Connected scale drivers and device managers |
+| `Talla Speciality/Features/Account/{Views,Models,Services}` | Account UI, account data, and customer/session APIs |
+| `Talla Speciality/Features/Brewing/{Views,Models,Services}` | Brewing UI, brew/coffee data, and recipe/device helpers |
+| `Talla Speciality/Features/Commerce/{Views,Services}` | Shop, cart, checkout, payment, and commerce support |
+| `Talla Speciality/Features/Discovery/Views` | Coffee map and expert companion experiences |
+| `Talla Speciality/Features/Espresso/{Views,Models}` | Espresso workspace and machine/profile models |
+| `Talla Speciality/Features/Loyalty/{Views,Services}` | Loyalty UI and loyalty APIs |
+| `Talla Speciality/Services/Devices/{Drivers}` | Scale manager and vendor-specific Bluetooth drivers |
 | `Talla Speciality/Services/Observability` | Notifications and observability UI |
-| `Talla Speciality/Services/Platform` | App Attest, HealthKit, telemetry, and concierge services |
+| `Talla Speciality/Services/Platform/{AI,Security,System}` | Concierge AI, App Attest, HealthKit, refresh, Spotlight, and telemetry |
+| `Talla Speciality/Shared/{Models,UI,Support}` | Shared data types, reusable UI, and app-wide helpers |
 
 ## Other targets
 

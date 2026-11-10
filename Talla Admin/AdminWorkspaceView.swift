@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct AdminWorkspaceView: View {
     @EnvironmentObject private var session: AdminSession
@@ -20,6 +21,9 @@ struct AdminWorkspaceView: View {
                             }
                         }.padding(.vertical, 8)
                     }
+                    Section("Overview") {
+                        NavigationLink { AdminDashboardView() } label: { row("Dashboard", "Pending orders, new customers, stock alerts, and recent admin actions", "rectangle.grid.2x2.fill") }
+                    }
                 }
                 Section("Customer app content") {
                     ForEach(AdminContentArea.allCases.filter { $0 != .espresso && includes($0.rawValue) }) { area in
@@ -31,6 +35,7 @@ struct AdminWorkspaceView: View {
                     if includes("Community recipes moderation edit approve reject") { NavigationLink { AdminCommunityRecipesView() } label: { row("Community Recipes", "Edit and moderate customer-submitted recipes", "book.and.wrench.fill") } }
                     if includes("Espresso community moderation videos profiles roaster recipes") { NavigationLink { AdminEspressoCommunityView() } label: { row("Espresso Community", "Moderate profiles, roaster recipes, and video assessments", "waveform.path.ecg") } }
                     if includes("Notifications push messages") { NavigationLink { AdminNotificationComposer() } label: { row("Notifications", "Compose a customer push notification", "bell.badge.fill") } }
+                    if includes("Notification delivery history") { NavigationLink { AdminNotificationHistoryView() } label: { row("Notification history", "Review recently sent customer notifications", "bell.and.waves.left.and.right.fill") } }
                     if includes("Social Coffee moderation groups profiles safety") { NavigationLink { AdminSocialCoffeeModerationView() } label: { row("Social Coffee moderation", "Hide, restrict, or close public community content", "person.2.badge.gearshape") } }
                     if includes("Gulf Coffee Map ratings reviews moderation") { NavigationLink { AdminGulfCoffeeRatingsView() } label: { row("Gulf Coffee Map reviews", "Moderate public ratings and customer notes", "star.bubble.fill") } }
                 }
@@ -41,6 +46,7 @@ struct AdminWorkspaceView: View {
                 }
                 Section("System") {
                     if includes("Espresso machine grinder burr basket portafilter dial in") { NavigationLink { AdminContentView(area: .espresso) } label: { row("Espresso setup", "Targets, machines, grinders, baskets, and portafilters", "dial.medium") } }
+                    if includes("Admin security users roles sessions access") { NavigationLink { AdminSecurityView() } label: { row("Admin security", "Manage admin users, roles, access, and sessions", "lock.shield.fill") } }
                 }
             }.adminBackground().navigationTitle("Admin").searchable(text: $search, prompt: "Find an admin section")
         }
@@ -56,7 +62,70 @@ struct AdminWorkspaceView: View {
             .frame(maxWidth: .infinity, alignment: .leading).padding(10).background(TallaAdminStyle.cream, in: RoundedRectangle(cornerRadius: 12))
     }
     private func subtitle(_ area: AdminContentArea) -> String {
-        switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions"; case .gulfCoffeeMap: "Talla location, partner sellers, map links, and offerings" }
+        switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins, brew guides, and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions"; case .gulfCoffeeMap: "Talla location, partner sellers, map links, and offerings" }
+    }
+}
+
+struct AdminDashboardView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var analytics: AdminValue?
+    @State private var actions: [AdminValue] = []
+    @State private var lowStock: [AdminValue] = []
+    @State private var inventoryAvailable: Bool?
+    @State private var error: String?
+    @State private var loading = false
+
+    var body: some View {
+        List {
+            if let analytics {
+                Section("At a glance") {
+                    AdminRecordRows(record: analytics, fields: [
+                        .init("totals.pendingOrders", "Pending orders"), .init("totals.newCustomersLast7Days", "New customers · 7 days"),
+                        .init("totals.activeVouchers", "Active vouchers"), .init("totals.customers", "Total customers"),
+                        .init("totals.customersWithOrders", "Customers with orders"), .init("totals.tasteMemory", "Taste Memory records"),
+                        .init("totals.customersWithTasteMemory", "Customers with feedback")
+                    ])
+                }
+                Section("Low stock · 5 or fewer") {
+                    if inventoryAvailable == false { Text("Connect Shopify Admin to track inventory here.").foregroundStyle(.secondary) }
+                    else if lowStock.isEmpty { Text("No products at or under 5 units.").foregroundStyle(.secondary) }
+                    ForEach(Array(lowStock.enumerated()), id: \.offset) { _, product in
+                        NavigationLink {
+                            AdminProductDetailView(product: product) { Task { await load() } }
+                        } label: {
+                            HStack { Text(product["title"].text); Spacer(); Text("\(product["availableQuantity"].text) left").font(.caption).foregroundStyle(.secondary) }
+                        }
+                    }
+                }
+                Section("Recent admin actions") {
+                    if actions.isEmpty { Text("No admin actions recorded yet.").foregroundStyle(.secondary) }
+                    ForEach(Array(actions.enumerated()), id: \.offset) { _, action in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(action["detail"].text.isEmpty ? action["action"].text : action["detail"].text).font(.headline)
+                            Text("\(action["adminUsername"].text) · \(action["targetEmail"].text) · \(action["createdAt"].text)").font(.caption).foregroundStyle(.secondary)
+                        }.padding(.vertical, 4)
+                    }
+                }
+            } else if loading { ProgressView("Loading dashboard…") }
+            else { Button("Load dashboard") { Task { await load() } } }
+        }
+        .adminBackground().navigationTitle("Dashboard")
+        .task { if analytics == nil { await load() } }.refreshable { await load() }
+        .toolbar { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading).accessibilityLabel("Refresh dashboard") }
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: nil) }
+    }
+
+    @MainActor private func load() async {
+        guard !loading else { return }; loading = true; error = nil; defer { loading = false }
+        do {
+            async let analyticsTask = session.api.document("/admin/api/analytics/summary?days=30")
+            async let actionsTask = session.api.document("/admin/api/audit/recent?limit=8")
+            async let productsTask: AdminValue? = try? await session.api.document("/admin/api/products?limit=250")
+            let (summary, audit, catalog) = try await (analyticsTask, actionsTask, productsTask)
+            analytics = summary; actions = audit["auditLogs"].array
+            inventoryAvailable = catalog != nil
+            lowStock = (catalog?["products"].array ?? []).filter { $0["availableQuantity"] != .null && !$0["availableQuantity"].text.isEmpty && $0["availableQuantity"].number <= 5 }.sorted { $0["availableQuantity"].number < $1["availableQuantity"].number }
+        } catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
     }
 }
 
@@ -435,6 +504,9 @@ struct AdminReportView: View {
     @State private var search = ""
     @State private var reaction = "All"
     @State private var refreshed: Date?
+    @State private var analyticsPeriod = 30
+    @State private var analyticsCSV: AdminCSVDocument?
+    @State private var exportingAnalytics = false
     var body: some View {
         List {
             if let document {
@@ -445,6 +517,11 @@ struct AdminReportView: View {
                         Section("Overview") { AdminRecordRows(record: document, fields: report.metrics) }
                     }
                     if report == .analytics {
+                        Section("Reporting period") {
+                            Picker("Period", selection: $analyticsPeriod) { ForEach([7, 30, 90, 365], id: \.self) { Text($0 == 365 ? "12 months" : "\($0) days").tag($0) } }
+                                .onChange(of: analyticsPeriod) { Task { await load() } }
+                            Button("Export analytics CSV") { Task { await exportAnalytics() } }.disabled(loading)
+                        }
                         Section("Loyalty tiers") {
                             ForEach(document["tierCounts"].object.keys.sorted(), id: \.self) { tier in LabeledContent(tier, value: document["tierCounts"][tier].text) }
                         }
@@ -473,11 +550,23 @@ struct AdminReportView: View {
         .task { if document == nil { await load() } }.refreshable { await load() }
         .toolbar { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }.disabled(loading).accessibilityLabel("Refresh report") }
         .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: nil) }
+        .fileExporter(isPresented: $exportingAnalytics, document: analyticsCSV, contentType: .commaSeparatedText, defaultFilename: "talla-analytics-\(analyticsPeriod)-days") { result in
+            if case .failure(let failure) = result { error = failure.localizedDescription }
+        }
     }
     @MainActor private func load() async {
         guard !loading else { return }; loading = true; error = nil; defer { loading = false }
-        do { document = try await session.api.document(report.endpoint); refreshed = .now }
+        do {
+            let endpoint = report == .analytics ? "/admin/api/analytics/summary?days=\(analyticsPeriod)" : report.endpoint
+            document = try await session.api.document(endpoint); refreshed = .now
+        }
         catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+    @MainActor private func exportAnalytics() async {
+        do {
+            let data = try await session.api.request("/admin/api/analytics/export?days=\(analyticsPeriod)")
+            analyticsCSV = AdminCSVDocument(data: data); exportingAnalytics = true
+        } catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
     }
 }
 
@@ -488,9 +577,19 @@ struct AdminNotificationComposer: View {
     @State private var sending = false
     @State private var error: String?
     @State private var message: String?
+    @State private var audience = "All devices"
+    @State private var email = ""
+    @State private var confirmEid = false
     private let fields: [AdminField] = [.init("title", "Title", required: true), .init("body", "Message", .multiline, required: true), .init("url", "Optional destination link")]
     var body: some View {
         Form {
+            Section("Audience") {
+                Picker("Send to", selection: $audience) { Text("All devices").tag("All devices"); Text("One customer").tag("One customer") }
+                if audience == "One customer" { TextField("Customer email", text: $email).textInputAutocapitalization(.never).keyboardType(.emailAddress).autocorrectionDisabled() }
+            }
+            Section("Seasonal campaigns") {
+                Button("Review Eid Mubarak notification") { confirmEid = true }
+            }
             Section("Compose") { ForEach(fields) { AdminFieldRow(field: $0, document: $document) } }
             Section("Preview") {
                 VStack(alignment: .leading, spacing: 8) {
@@ -500,24 +599,141 @@ struct AdminNotificationComposer: View {
                 }.padding(.vertical, 8)
             }
             Section {
-                Text("Audience: all eligible customer devices.").font(.footnote).foregroundStyle(.secondary)
+                Text(audience == "All devices" ? "Audience: all eligible customer devices." : "Audience: devices registered to one customer.").font(.footnote).foregroundStyle(.secondary)
                 Button(sending ? "Sending…" : "Review and Send") {
-                    do { document = try adminValidated(document, fields: fields); confirm = true }
+                    do {
+                        document = try adminValidated(document, fields: fields)
+                        if audience == "One customer" && !email.contains("@") { throw AdminAPIError.server("Enter a valid customer email address.") }
+                        confirm = true
+                    }
                     catch { self.error = error.localizedDescription }
                 }
             }
         }.adminBackground().navigationTitle("Notifications").disabled(sending)
         .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: message) }
-        .confirmationDialog("Send to all customer devices?", isPresented: $confirm, titleVisibility: .visible) {
+        .confirmationDialog(audience == "All devices" ? "Send to all customer devices?" : "Send to this customer?", isPresented: $confirm, titleVisibility: .visible) {
             Button("Send Notification") { Task { await send() } }
-        } message: { Text("\(document["title"].text)\n\n\(document["body"].text)\n\nThis sends immediately.") }
+        } message: { Text("\(document["title"].text)\n\n\(document["body"].text)\n\n\(audience == "One customer" ? email : "All eligible customer devices")\nThis sends immediately.") }
+        .confirmationDialog("Send Eid push to all eligible customer devices?", isPresented: $confirmEid, titleVisibility: .visible) {
+            Button("Send Eid Push") { Task { await sendEidCampaign() } }
+        } message: { Text("Eid Mubarak from Talla\n\nEid Gifts and limited rewards are now available in the app.\n\nThis sends immediately to all eligible customer devices.") }
     }
     @MainActor private func send() async {
         sending = true; error = nil; message = nil; defer { sending = false }
         do {
-            let response = try await session.api.document("/admin/api/notifications/push/send-all", body: document)
+            var payload = document
+            let endpoint: String
+            if audience == "One customer" { payload["email"] = .string(email.trimmingCharacters(in: .whitespacesAndNewlines)); endpoint = "/admin/api/notifications/push/send-to-customer" }
+            else { endpoint = "/admin/api/notifications/push/send-all" }
+            let response = try await session.api.document(endpoint, body: payload)
             guard response["configured"].flag else { throw AdminAPIError.server("Customer push is not configured. No notifications were sent.") }
             message = "Sent to \(response["sentCount"].text) of \(response["targetCount"].text) devices."
         } catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+    @MainActor private func sendEidCampaign() async {
+        sending = true; error = nil; message = nil; defer { sending = false }
+        do {
+            let response = try await session.api.document("/admin/api/notifications/eid", body: .object([
+                "title": .string("Eid Mubarak from Talla"),
+                "body": .string("Eid Gifts and limited rewards are now available in the app.")
+            ]))
+            message = response["configured"].flag
+                ? "Eid push sent to \(response["sentCount"].text) of \(response["targetCount"].text) devices."
+                : "Push delivery is not configured. No notifications were sent."
+        } catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+}
+
+struct AdminSecurityView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var users: [AdminValue] = []
+    @State private var username = ""
+    @State private var password = ""
+    @State private var role = "support"
+    @State private var error: String?
+    @State private var message: String?
+    @State private var busy = false
+    @State private var passwordByUser: [String: String] = [:]
+    private let roles = ["viewer", "support", "operations", "manager", "owner"]
+
+    var body: some View {
+        List {
+            Section("Create admin user") {
+                TextField("Username", text: $username).textInputAutocapitalization(.never).autocorrectionDisabled()
+                SecureField("Password", text: $password)
+                Picker("Role", selection: $role) { ForEach(roles, id: \.self) { Text($0.capitalized).tag($0) } }
+                Button(busy ? "Working…" : "Create User") { Task { await createUser() } }.disabled(busy || username.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty)
+            }
+            Section("Configured admins") {
+                ForEach(Array(users.enumerated()), id: \.offset) { _, user in userEditor(user) }
+                if users.isEmpty && !busy { ContentUnavailableView("No admin users", systemImage: "person.crop.circle.badge.questionmark") }
+            }
+        }
+        .adminBackground().navigationTitle("Admin Security")
+        .task { await load() }.refreshable { await load() }
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: message) }
+    }
+
+    @ViewBuilder private func userEditor(_ user: AdminValue) -> some View {
+        let name = user["username"].text
+        VStack(alignment: .leading, spacing: 10) {
+            Text(name).font(.headline)
+            Text("\(user["activeSessions"].text) active session(s)" + (user["latestSessionExpiry"].text.isEmpty ? "" : " · latest expires \(user["latestSessionExpiry"].text)")).font(.caption).foregroundStyle(.secondary)
+            Picker("Role", selection: Binding(get: { user["role"].text }, set: { value in Task { await updateUser(name, role: value, active: user["active"].flag, password: "") } })) {
+                ForEach(roles, id: \.self) { Text($0.capitalized).tag($0) }
+            }
+            Toggle("Active", isOn: Binding(get: { user["active"] != .bool(false) }, set: { value in Task { await updateUser(name, role: user["role"].text, active: value, password: "") } }))
+            SecureField("New password (12+ characters)", text: Binding(get: { passwordByUser[name, default: ""] }, set: { passwordByUser[name] = $0 }))
+            Button("Save password") { Task { await updateUser(name, role: user["role"].text, active: user["active"] != .bool(false), password: passwordByUser[name, default: ""]) } }.disabled((passwordByUser[name] ?? "").isEmpty)
+            Button("Revoke all sessions", role: .destructive) { Task { await revokeSessions(name) } }
+        }.padding(.vertical, 5)
+    }
+
+    @MainActor private func load() async {
+        busy = true; defer { busy = false }
+        do { users = try await session.api.document("/admin/api/security")["users"].array }
+        catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+    @MainActor private func createUser() async {
+        busy = true; defer { busy = false }; error = nil; message = nil
+        do {
+            let payload: AdminValue = .object(["username": .string(username.trimmingCharacters(in: .whitespaces)), "password": .string(password), "role": .string(role), "action": .string("create")])
+            _ = try await session.api.document("/admin/api/security/users", body: payload)
+            username = ""; password = ""; message = "Admin user created."; await load()
+        } catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+    @MainActor private func updateUser(_ name: String, role: String, active: Bool, password: String) async {
+        do {
+            _ = try await session.api.document("/admin/api/security/users", body: .object(["username": .string(name), "newRole": .string(role), "active": .bool(active), "password": .string(password), "action": .string("update")]))
+            passwordByUser[name] = ""; message = "Updated \(name)."; await load()
+        } catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+    @MainActor private func revokeSessions(_ name: String) async {
+        do { let result = try await session.api.document("/admin/api/security/revoke-sessions", body: .object(["username": .string(name)])); message = "Revoked \(result["revoked"].text) session(s)."; await load() }
+        catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
+    }
+}
+
+struct AdminNotificationHistoryView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var items: [AdminValue] = []
+    @State private var error: String?
+    var body: some View {
+        List {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(item["detail"].text.isEmpty ? item["action"].text : item["detail"].text).font(.headline)
+                    AdminRecordRows(record: item, fields: [.init("adminUsername", "Admin"), .init("targetEmail", "Customer"), .init("createdAt", "Date")])
+                }.padding(.vertical, 5)
+            }
+            if items.isEmpty { ContentUnavailableView("No notification history", systemImage: "bell", description: Text("Sent customer notifications will appear here.")) }
+        }
+        .adminBackground().navigationTitle("Notification History")
+        .task { await load() }.refreshable { await load() }
+        .safeAreaInset(edge: .bottom) { AdminFeedback(error: error, message: nil) }
+    }
+    @MainActor private func load() async {
+        do { let root = try await session.api.document("/admin/api/notifications/history"); items = root["notifications"].array }
+        catch { self.error = error.localizedDescription; if case AdminAPIError.unauthorized = error { session.handle(error) } }
     }
 }

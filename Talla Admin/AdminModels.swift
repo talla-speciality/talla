@@ -360,6 +360,8 @@ struct AdminNotifyReadyResponse: Codable {
 struct AdminRefundResult: Codable {
     let order: AdminOrder?
     let refund: AdminRefund?
+    let fullRefund: Bool?
+    let settled: Bool?
 }
 
 struct AdminRefund: Codable, Hashable {

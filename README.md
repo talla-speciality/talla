@@ -1,5 +1,7 @@
 # Talla Speciality
 
+The current competitive audit, source-grounded feature matrix, implementation record, and verification limits are tracked in [docs/COMPETITIVE_FEATURE_AUDIT_2026-11-06.md](docs/COMPETITIVE_FEATURE_AUDIT_2026-11-06.md).
+
 Phase 1 scope and acceptance evidence are tracked in [docs/PHASE_1_COMPLETION.md](docs/PHASE_1_COMPLETION.md). Release validation and mobile observability are documented in [docs/RELEASE_PIPELINE.md](docs/RELEASE_PIPELINE.md). Feature ownership and entry-point boundaries are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The nested Shopify starter is intentionally outside the supported product; see [docs/SHOPIFY_APP_DECISION.md](docs/SHOPIFY_APP_DECISION.md).
 
 The Talla monorepo contains the native Apple clients, native Android client, and shared Node/Postgres backend.

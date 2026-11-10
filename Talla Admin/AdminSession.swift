@@ -123,7 +123,6 @@ final class AdminSession: ObservableObject {
             role = session.role ?? "viewer"
             permissions = Set(session.permissions ?? [])
             if session.authenticated {
-                await api.synchronizeWebCookies()
                 await refreshOrders()
             }
         } catch {
@@ -187,6 +186,10 @@ final class AdminSession: ObservableObject {
             try? await api.unregisterPushToken(token)
         }
         try? await api.logout()
+        // Logging out must also remove the local biometric affordance. The
+        // credential is deleted by the store, so leaving this flag enabled
+        // exposes a sign-in action that cannot succeed.
+        disableBiometricLogin()
         isAuthenticated = false
         username = ""
         role = "viewer"
@@ -337,7 +340,13 @@ final class AdminSession: ObservableObject {
             if let updated = result.order, let index = orders.firstIndex(where: { $0.id == updated.id }) {
                 orders[index] = updated
             }
-            message = "Refund executed for \(order.title)."
+            if result.settled != true {
+                message = "Refund created for \(order.title). Check its payment status in Shopify before taking another action."
+            } else if result.fullRefund == true {
+                message = "Full refund executed for \(order.title); order cancelled."
+            } else {
+                message = "Partial refund executed for \(order.title); order status unchanged."
+            }
         } catch {
             handle(error)
         }

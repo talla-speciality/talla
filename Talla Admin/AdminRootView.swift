@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AdminRootView: View {
-    enum Tab: Hashable { case orders, products, customers, console, workspace, settings }
+    enum Tab: Hashable { case orders, products, customers, admin, settings }
 
     @EnvironmentObject private var session: AdminSession
     @State private var selection: Tab = .orders
@@ -10,10 +10,10 @@ struct AdminRootView: View {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-admin-preview-settings") {
             _selection = State(initialValue: .settings)
-        } else if ProcessInfo.processInfo.arguments.contains("-admin-preview-console") {
-            _selection = State(initialValue: .console)
+        } else if ProcessInfo.processInfo.arguments.contains("-admin-preview-workspace") {
+            _selection = State(initialValue: .admin)
         } else if ProcessInfo.processInfo.arguments.contains("-admin-preview-education") {
-            _selection = State(initialValue: .console)
+            _selection = State(initialValue: .admin)
         }
         #endif
     }
@@ -34,12 +34,8 @@ struct AdminRootView: View {
                 .tag(Tab.customers)
 
             AdminWorkspaceView()
-                .tabItem { Label("More", systemImage: "rectangle.3.group.fill") }
-                .tag(Tab.console)
-
-            AdminConsoleView(url: session.api.adminConsoleURL)
-                .tabItem { Label("Full Admin", systemImage: "globe") }
-                .tag(Tab.workspace)
+                .tabItem { Label("Admin", systemImage: "rectangle.3.group.fill") }
+                .tag(Tab.admin)
 
             AdminSettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }

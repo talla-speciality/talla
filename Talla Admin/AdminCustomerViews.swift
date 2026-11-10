@@ -68,6 +68,9 @@ struct AdminCustomersView: View {
                     NavigationLink("Grant vouchers to \(visible.count) customers") {
                         AdminActionForm(title: "Bulk Vouchers", endpoint: "/admin/api/customers/bulk-voucher", groups: [.init("Voucher", AdminCustomerDetailView.voucherFields)], confirmation: "Grant this voucher to the \(visible.count) customers in this filtered selection.", onSaved: { response in message = "Created \(response["createdCount"].text) vouchers for \(response["requestedCount"].text) requested customers."; Task { await load() } }, document: .object(["emails": .array(visible.map { $0["email"] }), "expiresInDays": .number(30), "points": .number(50)]))
                     }
+                    NavigationLink("Grant Eid reward preset to \(visible.count) customers") {
+                        AdminActionForm(title: "Eid Bulk Reward", endpoint: "/admin/api/customers/bulk-voucher", groups: [.init("Eid voucher", AdminCustomerDetailView.voucherFields)], confirmation: "Grant the Eid reward preset to the \(visible.count) customers in this filtered selection.", onSaved: { response in message = "Created \(response["createdCount"].text) Eid vouchers for \(response["requestedCount"].text) requested customers."; Task { await load() } }, document: .object(["emails": .array(visible.map { $0["email"] }), "reward": .string("Eid Majlis Reward"), "points": .number(120), "detail": .string("Limited Eid reward for coffee, sweets, or gift boxes"), "expiresInDays": .number(14)]))
+                    }
                     Button("Export filtered customers as CSV") { Task { await exportCSV() } }.disabled(loading)
                 }
             }
@@ -136,6 +139,7 @@ struct AdminCustomerDetailView: View {
                 }
                 loyaltySection
                 addressSection
+                coffeeSection
                 Section("Orders") {
                     if customer["orders"].array.isEmpty { Text("No orders yet").foregroundStyle(.secondary) }
                     ForEach(customer["orders"].array, id: \.objectID) { order in
@@ -196,6 +200,72 @@ struct AdminCustomerDetailView: View {
             }
         }
     }
+
+    private var coffeeSection: some View {
+        let coffee = customer["coffee"]
+        let inventory = coffee["inventory"].array
+        let journal = coffee["brewJournal"].array
+        let sessions = coffee["brewSessions"].array
+        let doseUsage = coffee["doseUsage"].array
+        return Section("Coffee Shelf and brewing") {
+            HStack {
+                Label("Shelf bags", systemImage: "shippingbox.fill")
+                Spacer()
+                Text("\(inventory.count)").font(.headline)
+            }
+            HStack {
+                Label("Recorded brews", systemImage: "cup.and.saucer.fill")
+                Spacer()
+                Text("\(max(journal.count, sessions.count))").font(.headline)
+            }
+            HStack {
+                Label("Dose records", systemImage: "scalemass.fill")
+                Spacer()
+                Text("\(doseUsage.count)").font(.headline)
+            }
+            if !inventory.isEmpty {
+                DisclosureGroup("Inventory") {
+                    ForEach(inventory, id: \.objectID) { bag in
+                        DisclosureGroup(bag.title) {
+                            AdminRecordRows(record: bag, fields: [
+                                .init("productName", "Coffee"), .init("initialQuantityGrams", "Original grams"),
+                                .init("remainingQuantityGrams", "Remaining grams"), .init("usedQuantityGrams", "Used grams"),
+                                .init("roastDate", "Roast date"), .init("openedAt", "Opened"), .init("purchasedAt", "Purchased")
+                            ])
+                        }
+                    }
+                }
+            }
+            if !journal.isEmpty {
+                DisclosureGroup("Journal") {
+                    ForEach(journal, id: \.objectID) { brew in
+                        DisclosureGroup(brew.title) {
+                            AdminRecordRows(record: brew, fields: [
+                                .init("method", "Method"), .init("coffeeGrams", "Dose (g)"), .init("waterGrams", "Water / yield (g)"),
+                                .init("brewTimeSeconds", "Time (s)"), .init("rating", "Rating"), .init("notes", "Notes"), .init("createdAt", "Recorded")
+                            ])
+                        }
+                    }
+                }
+            }
+            if !sessions.isEmpty {
+                DisclosureGroup("Synced brew sessions") {
+                    ForEach(sessions, id: \.objectID) { brew in
+                        DisclosureGroup(brew.title) {
+                            AdminRecordRows(record: brew, fields: [
+                                .init("method", "Method"), .init("coffeeGrams", "Dose (g)"), .init("waterGrams", "Water / yield (g)"),
+                                .init("brewTimeSeconds", "Time (s)"), .init("isReference", "Reference brew"), .init("updatedAt", "Updated")
+                            ])
+                        }
+                    }
+                }
+            }
+            if inventory.isEmpty && journal.isEmpty && sessions.isEmpty {
+                Text("No Shelf or brew records synced for this customer yet.").foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var securitySection: some View {
         Section("Account and security") {
             Button("Send Password Reset Email") { action = .init(title: "Send Reset Email", endpoint: "/admin/api/customer/send-reset", body: .object(["email": .string(email)]), message: "Send a password reset email to this customer.") }

@@ -1,0 +1,590 @@
+import SwiftUI
+
+struct CoffeeEducationView: View {
+    private enum EducationArea: String, CaseIterable, Identifiable {
+        case path, flavours, brewing, check
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .path: return "Learning Path"
+            case .flavours: return "Flavour Wheel"
+            case .brewing: return "Brew Lessons"
+            case .check: return "Quick Check"
+            }
+        }
+    }
+
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
+    private let accent = TallaTheme.Colors.ink
+    private var educationSurface: Color {
+        appearanceMode == "oled" ? .black : (colorScheme == .dark ? TallaTheme.Colors.darkSurface : Color(hex: 0xF2F2F2))
+    }
+    @State private var selectedFamily = "Fruity"
+    @State private var selectedMethod: BrewMethodLesson?
+    @State private var quizChoice = ""
+    @State private var quizAnswerCorrect: Bool?
+    @State private var quizExplanation = ""
+    @State private var checkingQuizAnswer = false
+    @State private var quizChecksPaused = false
+    @State private var quizServiceMessage: String?
+    @State private var extraction = 50.0
+    @State private var completedLessons: Set<String> = []
+    @State private var currentQuestion: EducationQuestion?
+    @State private var remoteQuestions: [EducationQuestion] = []
+    @State private var quizScore = 0
+    @State private var questionsAnswered = 0
+    @State private var quizAnswerProofs: [EducationAnswerProof] = []
+    @State private var submittedLessonIDs: Set<String> = []
+    @AppStorage("talla.education.completedLessons.v1") private var persistedCompletedLessons = ""
+    @AppStorage("talla.education.quizScore.v1") private var persistedQuizScore = 0
+    @AppStorage("talla.education.questionsAnswered.v1") private var persistedQuestionsAnswered = 0
+    @AppStorage("talla.education.answerProofs.v1") private var persistedAnswerProofs = ""
+    @AppStorage("loyalty.email") private var loyaltyEmail = ""
+    @State private var educationRewardClaimed = false
+    @State private var claimingEducationReward = false
+    @State private var educationClaimError: String?
+    @State private var hasRequestedRemoteQuestions = false
+    @SceneStorage("discover.coffeeSchool.area") private var selectedEducationAreaRaw = EducationArea.path.rawValue
+
+    private var selectedEducationArea: EducationArea {
+        get { EducationArea(rawValue: selectedEducationAreaRaw) ?? .path }
+        set { selectedEducationAreaRaw = newValue.rawValue }
+    }
+
+    private let families: [(name: String, color: Color, notes: [String], description: String)] = [
+        ("Fruity", Color(red: 0.89, green: 0.32, blue: 0.28), ["Berry", "Citrus", "Stone fruit"], "Bright, juicy notes often found in lightly roasted coffees."),
+        ("Floral", Color(red: 0.70, green: 0.42, blue: 0.77), ["Jasmine", "Rose", "Tea-like"], "Delicate aromas with a fragrant, lifted finish."),
+        ("Sweet", Color(red: 0.91, green: 0.62, blue: 0.20), ["Caramel", "Honey", "Chocolate"], "Comforting sweetness, from brown sugar to cocoa."),
+        ("Nutty", Color(red: 0.62, green: 0.38, blue: 0.19), ["Almond", "Hazelnut", "Peanut"], "Toasty, rounded flavours often found in medium roasts."),
+        ("Spiced", Color(red: 0.76, green: 0.24, blue: 0.13), ["Cinnamon", "Clove", "Black tea"], "Warm aromatic notes with a gently lingering finish."),
+        ("Roasted", Color(red: 0.25, green: 0.16, blue: 0.12), ["Cocoa", "Tobacco", "Smoke"], "Deep, developed flavours created by darker roasting.")
+    ]
+    private let methods = [
+        BrewMethodLesson(name: "Pour over", icon: "drop", time: "3–4 min", grind: "Medium-fine", description: "A clean, expressive cup.", tip: "Start with a 30–45 second bloom, then pour in steady pulses."),
+        BrewMethodLesson(name: "French press", icon: "mug", time: "4 min", grind: "Coarse", description: "Full-bodied and textured, with more oils in the cup.", tip: "Let the coffee settle after plunging instead of stirring up the silt."),
+        BrewMethodLesson(name: "AeroPress", icon: "paperplane", time: "1–2 min", grind: "Medium-fine", description: "Fast, versatile, and forgiving.", tip: "Change one variable at a time: grind, water, dose, or time."),
+        BrewMethodLesson(name: "Espresso", icon: "circle.fill", time: "25–30 sec", grind: "Fine", description: "Concentrated, syrupy coffee made under pressure.", tip: "Adjust grind finer for sourness, coarser for bitterness."),
+        BrewMethodLesson(name: "Cold brew", icon: "snowflake", time: "12–16 hr", grind: "Coarse", description: "Smooth, low-acidity coffee steeped slowly.", tip: "Dilute the concentrate to taste and keep it refrigerated."),
+        BrewMethodLesson(name: "Moka pot", icon: "flame", time: "5–7 min", grind: "Medium-fine", description: "Rich stovetop coffee with a bold character.", tip: "Use gentle heat and remove it as soon as the upper chamber fills.")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 38) {
+            educationSelector
+            educationAreaContent
+        }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 128)
+            .sheet(item: $selectedMethod) { MethodLessonSheet(lesson: $0) }
+            .onAppear {
+                quizChecksPaused = false
+                quizServiceMessage = nil
+                hasRequestedRemoteQuestions = false
+                completedLessons = Set(persistedCompletedLessons.split(separator: ",").map(String.init))
+                quizScore = persistedQuizScore
+                questionsAnswered = persistedQuestionsAnswered
+                educationRewardClaimed = UserDefaults.standard.bool(forKey: educationClaimKey)
+                if let data = persistedAnswerProofs.data(using: .utf8) {
+                    quizAnswerProofs = (try? JSONDecoder().decode([EducationAnswerProof].self, from: data)) ?? []
+                }
+                loadNewQuestion()
+                guard !hasRequestedRemoteQuestions else { return }
+                hasRequestedRemoteQuestions = true
+                Task { await loadRemoteQuestions() }
+            }
+            .onChange(of: loyaltyEmail) { _, _ in
+                educationRewardClaimed = UserDefaults.standard.bool(forKey: educationClaimKey)
+                educationClaimError = nil
+                submittedLessonIDs = []
+                quizChoice = ""
+                quizAnswerCorrect = nil
+                quizExplanation = ""
+                checkingQuizAnswer = false
+                quizChecksPaused = false
+                quizServiceMessage = nil
+            }
+    }
+
+    private var educationSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(EducationArea.allCases) { area in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedEducationAreaRaw = area.rawValue
+                        }
+                    } label: {
+                        Text(area.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(selectedEducationArea == area ? .white : TallaTheme.Colors.ink)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 42)
+                            .background(selectedEducationArea == area ? TallaTheme.Colors.ink : educationSurface, in: Capsule())
+                            .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(selectedEducationArea == area ? 0 : 0.14), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedEducationArea == area ? .isSelected : [])
+                    .accessibilityIdentifier("coffeeSchool.area.\(area.id)")
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private var educationAreaContent: some View {
+        switch selectedEducationArea {
+        case .path:
+            VStack(alignment: .leading, spacing: 28) {
+                learningPath
+                basics
+            }
+        case .flavours:
+            flavourWheel
+        case .brewing:
+            VStack(alignment: .leading, spacing: 28) {
+                brewLab
+                methodsSection
+            }
+        case .check:
+            knowledgeCheck
+        }
+    }
+    private var intro: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("LEARN WITH TALLA")
+                .font(.caption.weight(.bold))
+                .tracking(3)
+                .foregroundStyle(accent)
+            Text("Coffee school")
+                .font(.system(size: 44, weight: .bold, design: .serif))
+            Text("Learn the bean, the brew, and everything in between.")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Button { surpriseMe() } label: {
+                    Label("Surprise me", systemImage: "sparkles")
+                }
+                .buttonStyle(.tallaPrimary)
+                .tint(accent)
+                Button { withAnimation { selectedFamily = families.randomElement()?.name ?? "Fruity"; completedLessons.insert("1") }; persistProgress() } label: {
+                    Label("Taste a coffee", systemImage: "cup.and.saucer.fill")
+                }
+                .buttonStyle(.tallaSecondary)
+                .tint(accent)
+            }
+        }
+    }
+    private func surpriseMe() {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            selectedFamily = families.randomElement()?.name ?? "Fruity"
+            selectedMethod = methods.randomElement()
+        }
+    }
+    private var learningPath: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("COFFEE SCHOOL")
+                        .font(.caption.weight(.bold))
+                        .tracking(2.4)
+                        .foregroundStyle(TallaTheme.Colors.ink)
+                    Text("Learn with Talla")
+                        .font(.system(size: 34, weight: .bold, design: .serif))
+                        .foregroundStyle(TallaTheme.Colors.ink)
+                }
+                Spacer()
+                Image(systemName: "book.closed.fill")
+                    .font(.title2)
+                    .foregroundStyle(TallaTheme.Colors.ink)
+                    .frame(width: 46, height: 46)
+                    .background(TallaTheme.Colors.ink.opacity(0.08), in: Circle())
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("YOUR COFFEE SCHOOL LEVEL")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.8)
+                            .foregroundStyle(accent)
+                        Text(learningLevel.title)
+                            .font(.system(.title2, design: .serif, weight: .bold))
+                            .foregroundStyle(TallaTheme.Colors.ink)
+                        Text(learningLevel.detail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    VStack(spacing: 4) {
+                        Image(systemName: learningLevel.icon)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(accent)
+                        Text("\(completedLessons.count)/3")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(accent)
+                    }
+                }
+                ProgressView(value: Double(completedLessons.count), total: 3)
+                    .tint(accent)
+                HStack(spacing: 8) {
+                    schoolBadge(title: "First pour", earned: completedLessons.contains("1"), icon: "drop.fill")
+                    schoolBadge(title: "Dialled in", earned: completedLessons.contains("2"), icon: "slider.horizontal.3")
+                    schoolBadge(title: "Bean brain", earned: quizScore > 0, icon: "brain.head.profile")
+                }
+                if let educationClaimError {
+                    Text(educationClaimError)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("coffeeSchool.rewardClaimError")
+                }
+            }
+            .padding(18)
+            .background(TallaTheme.Colors.ink.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            HStack { sectionTitle("Your learning path"); Spacer(); Text("\(completedLessons.count)/3").font(.subheadline.weight(.bold)).foregroundStyle(accent) }
+            Text("Build a better palate in three small steps.").foregroundStyle(.secondary)
+            ForEach([("1", "Taste vocabulary", "Use the flavour wheel to name what you taste."), ("2", "Brew variables", "See how grind and time change extraction."), ("3", "Check your knowledge", "Answer a quick question and keep learning.")], id: \.0) { item in
+                Button { withAnimation(.easeInOut(duration: 0.2)) { toggleLesson(item.0) } } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: completedLessons.contains(item.0) ? "checkmark.circle.fill" : "circle").font(.title3).foregroundStyle(completedLessons.contains(item.0) ? .green : accent)
+                        VStack(alignment: .leading, spacing: 3) { Text(item.1).font(.headline).foregroundStyle(.primary); Text(item.2).font(.subheadline).foregroundStyle(.secondary) }
+                        Spacer()
+                        Text(completedLessons.contains(item.0) ? "Done" : "Mark done")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(completedLessons.contains(item.0) ? .green : accent)
+                    }
+                    .padding(.vertical, 10)
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(20)
+        .background(
+            LinearGradient(colors: colorScheme == .dark ? [educationSurface, educationSurface] : [TallaTheme.Colors.lightSurface, TallaTheme.Colors.lightElevatedSurface], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 25, style: .continuous)
+        )
+    }
+    private var learningLevel: (title: String, detail: String, icon: String) {
+        switch completedLessons.count {
+        case 0: return ("Beginner", "Start with flavour vocabulary and the basics.", "leaf")
+        case 1...2: return ("Brewer", "You are building confident brewing instincts.", "drop.triangle")
+        default: return ("Coffee Expert", "Path complete — keep exploring and teaching your palate.", "rosette")
+        }
+    }
+    private func schoolBadge(title: String, earned: Bool, icon: String) -> some View {
+        Label(title, systemImage: earned ? "checkmark.seal.fill" : icon)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(earned ? .green : .secondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 7)
+            .background(Color.primary.opacity(earned ? 0.10 : 0.05), in: Capsule())
+    }
+    private var selectedColor: Color { families.first(where: { $0.name == selectedFamily })?.color ?? .brown }
+    private var flavourWheel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionTitle("Explore the flavour wheel")
+            Text("Tap a family to see the notes you may find in your cup.").foregroundStyle(.secondary)
+            GeometryReader { geometry in
+                let diameter = min(220, max(150, geometry.size.width - 110))
+                let labelRadius = diameter / 2 + 25
+                ZStack {
+                    Circle().fill(Color(hex: 0xF3E7D6)).frame(width: diameter, height: diameter)
+                    Circle().stroke(TallaTheme.Colors.ink.opacity(0.30), lineWidth: 1).frame(width: diameter * 0.67, height: diameter * 0.67)
+                    Circle().fill(TallaTheme.Colors.ink.opacity(0.22)).frame(width: diameter * 0.43, height: diameter * 0.43)
+                    Text(selectedFamily).font(.headline).foregroundStyle(TallaTheme.Colors.ink).multilineTextAlignment(.center).frame(width: 78)
+                    ForEach(Array(families.enumerated()), id: \.element.name) { index, family in
+                        let angle = Angle.degrees(Double(index) * 60 - 90)
+                        Button { withAnimation { selectedFamily = family.name } } label: {
+                            Text(family.name)
+                                .font(.caption.bold())
+                                .foregroundStyle(selectedFamily == family.name ? Color.white : Color(hex: 0x5D371D))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(selectedFamily == family.name ? TallaTheme.Colors.brand : educationSurface, in: Capsule())
+                                .overlay(Capsule().stroke(TallaTheme.Colors.ink.opacity(selectedFamily == family.name ? 0 : 0.20), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .offset(x: CGFloat(cos(angle.radians)) * labelRadius, y: CGFloat(sin(angle.radians)) * labelRadius)
+                    }
+                }
+                .frame(width: geometry.size.width, height: 330)
+            }
+            .frame(height: 330)
+            if let family = families.first(where: { $0.name == selectedFamily }) { VStack(alignment: .leading, spacing: 10) { Text(family.description).foregroundStyle(Color.secondary); HStack { ForEach(family.notes, id: \.self) { Text($0).font(.subheadline.weight(.semibold)).foregroundStyle(Color.secondary).padding(.horizontal, 10).padding(.vertical, 7).background(TallaTheme.Colors.brandSoft.opacity(0.28), in: Capsule()) } } }.padding(16).background(educationSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)) }
+            }
+    }
+    private var methodsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionTitle("Every method, explained")
+            Text("Choose a method to learn its character and starting point.").foregroundStyle(.secondary)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(methods) { method in
+                    Button { selectedMethod = method } label: {
+                        VStack(alignment: .leading, spacing: 11) {
+                            HStack {
+                                Image(systemName: method.icon).font(.title2).foregroundStyle(TallaTheme.Colors.ink)
+                                Spacer()
+                                Image(systemName: "arrow.up.right").font(.caption.weight(.bold)).foregroundStyle(TallaTheme.Colors.ink.opacity(0.7))
+                            }
+                            Text(method.name).font(.headline).foregroundStyle(TallaTheme.Colors.ink)
+                            Text("\(method.time) · \(method.grind)").font(.caption).foregroundStyle(Color.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
+                        .padding(16)
+                        .background(educationSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+    private var brewLab: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionTitle("Brew lab")
+            Text("Move the dial to see how extraction changes. Aim for balance.").foregroundStyle(.secondary)
+            Slider(value: $extraction, in: 0...100, step: 1).tint(TallaTheme.Colors.brand).onChange(of: extraction) { _, _ in completedLessons.insert("2"); persistProgress() }
+            HStack { Text("Under-extracted").font(.caption); Spacer(); Text("Balanced").font(.caption.bold()); Spacer(); Text("Over-extracted").font(.caption) }.foregroundStyle(.secondary)
+            Text(extraction < 38 ? "Sour, sharp, or thin? Try a finer grind, hotter water, or more brew time." : extraction > 66 ? "Bitter, dry, or harsh? Try a coarser grind, cooler water, or less brew time." : "Sweet, clear, and balanced. This is the zone to look for when dialing in a recipe.")
+                .font(.body)
+                .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.82) : Color(hex: 0x1C1A17))
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(educationSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .padding(20)
+        .background(educationSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
+        .foregroundStyle(colorScheme == .dark ? Color.white : Color(hex: 0x1C1A17))
+    }
+    private var knowledgeCheck: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack { sectionTitle("Quick check"); Spacer(); Text("\(quizScore)/\(questionsAnswered)").font(.subheadline.weight(.bold)).foregroundStyle(accent) }
+            if let quizServiceMessage {
+                Text(quizServiceMessage).font(.subheadline).foregroundStyle(Color.secondary)
+            }
+            if let question = currentQuestion {
+                Text(question.prompt).font(.headline).foregroundStyle(TallaTheme.Colors.ink)
+                ForEach(question.options, id: \.self) { answer in
+                    Button { answerQuestion(answer, question: question) } label: {
+                        HStack { Text(answer).foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.82) : Color.secondary); Spacer(); if quizChoice == answer, let quizAnswerCorrect { Image(systemName: quizAnswerCorrect ? "checkmark.circle.fill" : "xmark.circle.fill").foregroundStyle(quizAnswerCorrect ? .green : .red) } }.padding(13).background(educationSurface.opacity(colorScheme == .dark ? 0.86 : 0.65), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    }.buttonStyle(.plain).disabled(!quizChoice.isEmpty || checkingQuizAnswer)
+                }
+                if !quizChoice.isEmpty {
+                    if checkingQuizAnswer { ProgressView("Checking answer…") }
+                    else {
+                        Text(quizExplanation)
+                            .font(.subheadline).foregroundStyle(quizAnswerCorrect == true ? .green : .secondary)
+                        Button("New question") { loadNewQuestion() }.buttonStyle(.tallaPrimary).tint(accent)
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(educationSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1))
+    }
+
+    private func answerQuestion(_ answer: String, question: EducationQuestion) {
+        quizChoice = answer
+        if let correctAnswer = question.correctAnswer {
+            finishAnswer(answer, question: question, correct: answer == correctAnswer, explanation: question.explanation ?? "")
+            return
+        }
+        let email = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty else {
+            quizExplanation = "Sign in to check this question."
+            return
+        }
+        checkingQuizAnswer = true
+        let questionID = question.id
+        Task {
+            do {
+                let result = try await LoyaltyService.recordEducationAnswer(email: email, proof: EducationAnswerProof(id: questionID, answer: answer))
+                await MainActor.run {
+                    guard currentQuestion?.id == questionID, quizChoice == answer,
+                          loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines) == email else { return }
+                    checkingQuizAnswer = false
+                    quizServiceMessage = nil
+                    finishAnswer(answer, question: question, correct: result.correct, explanation: result.explanation)
+                }
+            } catch ContentView.LoyaltyServiceError.educationQuizCooldown {
+                await MainActor.run {
+                    guard currentQuestion?.id == questionID,
+                          loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines) == email else { return }
+                    quizChecksPaused = true
+                    remoteQuestions = []
+                    loadNewQuestion()
+                    quizServiceMessage = AppLocalization.text(
+                        "education_quiz_cooldown",
+                        fallback: "Quiz checks are paused after three incorrect answers. Keep learning here and try again later."
+                    )
+                }
+            } catch {
+                await MainActor.run {
+                    guard currentQuestion?.id == questionID, quizChoice == answer,
+                          loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines) == email else { return }
+                    checkingQuizAnswer = false
+                    quizExplanation = "Could not check this answer. Try again when online."
+                    quizChoice = ""
+                }
+            }
+        }
+    }
+
+    private func finishAnswer(_ answer: String, question: EducationQuestion, correct: Bool, explanation: String) {
+        quizAnswerCorrect = correct
+        quizExplanation = "\(correct ? "Correct" : "Not quite") — \(explanation)"
+        questionsAnswered += 1
+        if correct {
+            quizScore += 1
+            educationClaimError = nil
+            if question.correctAnswer == nil {
+                quizAnswerProofs.removeAll { $0.id == question.id }
+                quizAnswerProofs.append(EducationAnswerProof(id: question.id, answer: answer))
+                if let data = try? JSONEncoder().encode(quizAnswerProofs) {
+                    persistedAnswerProofs = String(data: data, encoding: .utf8) ?? ""
+                }
+            }
+        }
+        completedLessons.insert("3")
+        persistProgress()
+    }
+
+    private func loadNewQuestion() {
+        let previous = currentQuestion?.id
+        let questions = remoteQuestions.isEmpty ? educationQuestions : remoteQuestions
+        currentQuestion = questions.filter { $0.id != previous }.randomElement() ?? questions[0]
+        quizChoice = ""
+        quizAnswerCorrect = nil
+        quizExplanation = ""
+        checkingQuizAnswer = false
+    }
+
+    private func loadRemoteQuestions() async {
+        guard let baseURL = BackendConfiguration.serviceBaseURL else { return }
+        do {
+            var request = URLRequest(url: baseURL.appending(path: "/education-content"))
+            request.timeoutInterval = 4
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return }
+            let payload = try JSONDecoder().decode(EducationContentPayload.self, from: data)
+            guard !payload.questions.isEmpty else { return }
+            await MainActor.run {
+                guard !quizChecksPaused else { return }
+                remoteQuestions = payload.questions
+                loadNewQuestion()
+            }
+        } catch { }
+    }
+    private func toggleLesson(_ id: String) {
+        if completedLessons.contains(id) {
+            completedLessons.remove(id)
+        } else {
+            completedLessons.insert(id)
+        }
+        persistProgress()
+    }
+
+    private func persistProgress() {
+        persistedCompletedLessons = completedLessons.sorted().joined(separator: ",")
+        persistedQuizScore = quizScore
+        persistedQuestionsAnswered = questionsAnswered
+        let email = loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !email.isEmpty {
+            for lessonID in completedLessons.intersection(["1", "2", "3"]).subtracting(submittedLessonIDs) {
+                submittedLessonIDs.insert(lessonID)
+                Task {
+                    do { try await LoyaltyService.recordEducationLesson(email: email, lessonID: lessonID) }
+                    catch {
+                        await MainActor.run {
+                            if loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines) == email {
+                                submittedLessonIDs.remove(lessonID)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if completedLessons.count >= 3 && !UserDefaults.standard.bool(forKey: "talla.metrics.educationCompleted.v1") {
+            UserDefaults.standard.set(true, forKey: "talla.metrics.educationCompleted.v1")
+            TallaTelemetry.shared.track("education_path_completed", properties: ["lessons": String(completedLessons.count), "quiz_score": String(quizScore)])
+        }
+        guard completedLessons.isSuperset(of: ["1", "2", "3"]),
+              Set(quizAnswerProofs.map(\.id)).count >= 2,
+              !educationRewardClaimed, !claimingEducationReward,
+              !loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        claimingEducationReward = true
+        let claimLessons = ["1", "2", "3"]
+        let claimAnswers = quizAnswerProofs
+        let claimKey = educationClaimKey
+        let claimEmail = email
+        Task {
+            do {
+                _ = try await LoyaltyService.claimEducationReward(email: claimEmail, lessonIDs: claimLessons, answers: claimAnswers)
+                await MainActor.run {
+                    UserDefaults.standard.set(true, forKey: claimKey)
+                    if educationClaimKey == claimKey { educationRewardClaimed = true }
+                    educationClaimError = nil
+                    claimingEducationReward = false
+                }
+            } catch ContentView.LoyaltyServiceError.educationProofRequired {
+                await MainActor.run {
+                    if educationClaimKey == claimKey {
+                        educationClaimError = AppLocalization.text(
+                            "education_reward_current_answers_required",
+                            fallback: "Answer two current quiz questions correctly to claim your Beans."
+                        )
+                    }
+                    claimingEducationReward = false
+                }
+            } catch ContentView.LoyaltyServiceError.educationQuizCooldown {
+                await MainActor.run {
+                    if educationClaimKey == claimKey {
+                        educationClaimError = AppLocalization.text(
+                            "education_quiz_cooldown",
+                            fallback: "Quiz checks are paused after three incorrect answers. Keep learning here and try again later."
+                        )
+                    }
+                    claimingEducationReward = false
+                }
+            } catch {
+                await MainActor.run {
+                    if educationClaimKey == claimKey {
+                        educationClaimError = AppLocalization.text(
+                            "education_reward_retry",
+                            fallback: "Could not claim your Beans right now. Try again when online."
+                        )
+                    }
+                    claimingEducationReward = false
+                }
+            }
+        }
+    }
+
+    private var educationClaimKey: String {
+        "talla.education.rewardClaimed.v2.\(loyaltyEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title).font(.system(.title2, design: .serif, weight: .bold))
+    }
+
+    private var basics: some View { VStack(alignment: .leading, spacing: 12) { sectionTitle("Start with the basics"); Text("Great coffee comes from a balance of four things: coffee, water, grind, and time.").foregroundStyle(.secondary); LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) { ForEach([("Bean", "Where it grows"), ("Roast", "How it develops"), ("Grind", "How it extracts"), ("Water", "What carries flavour")], id: \.0) { item in VStack(alignment: .leading, spacing: 4) { Text(item.0).font(.headline).foregroundStyle(TallaTheme.Colors.ink); Text(item.1).font(.caption).foregroundStyle(Color.secondary) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(educationSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)) } } } }
+}
+
+
+private struct BrewMethodLesson: Identifiable { let id = UUID(); let name: String; let icon: String; let time: String; let grind: String; let description: String; let tip: String }
+private struct MethodLessonSheet: View { let lesson: BrewMethodLesson; var body: some View { VStack(alignment: .leading, spacing: 18) { Image(systemName: lesson.icon).font(.system(size: 42)).foregroundStyle(Color(red: 0.79, green: 0.59, blue: 0.35)); Text(lesson.name).font(.system(.largeTitle, design: .serif, weight: .bold)); Text(lesson.description).font(.title3); Divider(); Text("Starting point").font(.headline); Text("Time: \(lesson.time)\nGrind: \(lesson.grind)"); Text("Barista tip").font(.headline); Text(lesson.tip); Spacer() }.padding(24).presentationDetents([.medium, .large]) } }
+private struct EducationContentPayload: Codable { let questions: [EducationQuestion] }
+struct EducationAnswerProof: Codable, Equatable { let id: String; let answer: String }
+private struct EducationQuestion: Identifiable, Codable { let id: String; let prompt: String; let options: [String]; let correctAnswer: String?; let explanation: String? }
+
+private let educationQuestions = [
+    EducationQuestion(id: "grind-french-press", prompt: "Which grind is usually best for a French press?", options: ["Fine", "Medium-fine", "Coarse"], correctAnswer: "Coarse", explanation: "A coarse grind suits the longer immersion and helps keep the cup clear."),
+    EducationQuestion(id: "water-temperature", prompt: "What does hotter water generally do?", options: ["Extracts more quickly", "Stops extraction", "Makes coffee caffeine-free"], correctAnswer: "Extracts more quickly", explanation: "Heat speeds up extraction, so very hot water can pull bitterness if the recipe is not adjusted."),
+    EducationQuestion(id: "sour-cup", prompt: "Your coffee tastes sharp and sour. What is a good first adjustment?", options: ["Grind finer", "Grind much coarser", "Use less coffee and less time"], correctAnswer: "Grind finer", explanation: "A finer grind increases surface area and usually extracts more flavour."),
+    EducationQuestion(id: "roast-flavour", prompt: "Which flavour is commonly associated with a darker roast?", options: ["Cocoa and roast", "Fresh cucumber", "Lemon sherbet only"], correctAnswer: "Cocoa and roast", explanation: "Longer roasting develops deeper caramelised, cocoa, and roasted notes."),
+    EducationQuestion(id: "bloom", prompt: "Why do pour-over brewers bloom coffee?", options: ["To release trapped gas", "To cool the water", "To remove all caffeine"], correctAnswer: "To release trapped gas", explanation: "Blooming lets carbon dioxide escape so water can contact the grounds more evenly.")
+]

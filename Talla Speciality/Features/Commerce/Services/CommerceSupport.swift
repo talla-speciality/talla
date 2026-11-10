@@ -1,0 +1,1992 @@
+import Foundation
+import SwiftUI
+import StoreKit
+#if canImport(Security)
+import Security
+#endif
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AuthenticationServices)
+import AuthenticationServices
+#endif
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
+#if canImport(PassKit)
+import PassKit
+#endif
+#if canImport(PhotosUI)
+import PhotosUI
+#endif
+#if canImport(SafariServices) && canImport(UIKit)
+import SafariServices
+import UIKit
+#endif
+
+struct ProductThumbnail: View {
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.displayScale) var displayScale
+    @AppStorage("app.appearanceMode") var savedAppearanceMode = "system"
+
+    let imageURL: URL?
+    let size: CGFloat?
+    let cornerRadius: CGFloat
+
+    var isLightAppearance: Bool {
+        colorScheme == .light
+    }
+
+    var isOLEDAppearance: Bool {
+        savedAppearanceMode == "oled"
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(
+                    LinearGradient(
+                        colors: isLightAppearance
+                            ? [Color(hex: 0xFFF9F2), Color(hex: 0xF2E2CD)]
+                            : (isOLEDAppearance
+                                ? [.black, .black]
+                                : [Color(hex: 0x1A1612), Color(hex: 0x100D08)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(
+                            TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.14 : 0.24),
+                            lineWidth: 1
+                        )
+                )
+
+            if let imageURL = retinaImageURL {
+                AsyncImage(url: imageURL, transaction: Transaction(animation: nil)) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .tint(TallaTheme.Colors.ink)
+
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .interpolation(.high)
+                            .antialiased(true)
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(size == nil ? 12 : 4)
+
+                    case .failure:
+                        placeholder
+
+                    @unknown default:
+                        placeholder
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: size, height: size)
+        .clipped()
+    }
+
+    /// Shopify image URLs can retain a small `width` transform from an upstream
+    /// response or cache. Always request enough physical pixels for Retina and
+    /// ProMotion iPhones so SwiftUI never has to enlarge a thumbnail.
+    var retinaImageURL: URL? {
+        guard let imageURL else { return nil }
+        guard imageURL.host?.localizedCaseInsensitiveContains("shopify") == true else {
+            return imageURL
+        }
+
+        var components = URLComponents(url: imageURL, resolvingAgainstBaseURL: false)
+        var queryItems = components?.queryItems ?? []
+        queryItems.removeAll {
+            ["width", "height"].contains($0.name.lowercased())
+        }
+
+        let renderedPoints = size ?? 420
+        let targetPixels = max(768, min(2_048, Int(ceil(renderedPoints * displayScale * 1.5))))
+        queryItems.append(URLQueryItem(name: "width", value: String(targetPixels)))
+        components?.queryItems = queryItems
+        return components?.url ?? imageURL
+    }
+
+    var placeholder: some View {
+        Image(systemName: "cup.and.saucer.fill")
+            .font(.system(size: 28))
+            .foregroundColor(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.66 : 0.8))
+    }
+}
+
+#if canImport(UserNotifications)
+
+enum HomeSettingsService {
+    static let baseURL = BackendConfiguration.serviceBaseURL
+
+    static func fetchHomeSettings() async throws -> ContentView.HomeSettings {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Home settings service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/home-settings"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The home settings service returned an invalid response.")
+        }
+
+        guard 200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The home settings service could not complete your request.")
+        }
+
+        return try JSONDecoder().decode(ContentView.HomeSettings.self, from: data)
+    }
+
+    static func fetchPassportSettings() async throws -> ContentView.PassportSettings {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Passport settings service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/passport-settings"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The passport settings service returned an invalid response.")
+        }
+
+        guard 200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The passport settings service could not complete your request.")
+        }
+
+        return try JSONDecoder().decode(ContentView.PassportSettings.self, from: data)
+    }
+
+    static func fetchAppSettingsData() async throws -> Data {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "App settings service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/settings"))
+        request.httpMethod = "GET"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The app settings service returned an invalid response.")
+        }
+
+        guard 200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The app settings service could not complete your request.")
+        }
+
+        return data
+    }
+
+    static func fetchEventSettings() async throws -> ContentView.EventSettings {
+        guard let baseURL else {
+            throw ContentView.LoyaltyServiceError.operationFailed(BackendConfiguration.unavailableMessage(for: "Events service"))
+        }
+
+        var request = URLRequest(url: baseURL.appending(path: "/app/events"))
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              200 ..< 300 ~= httpResponse.statusCode else {
+            throw ContentView.LoyaltyServiceError.operationFailed("The events service could not complete your request.")
+        }
+
+        return try JSONDecoder().decode(ContentView.EventSettings.self, from: data)
+    }
+}
+
+struct CheckoutWebView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        let configuration = SFSafariViewController.Configuration()
+        configuration.entersReaderIfAvailable = false
+
+        let controller = SFSafariViewController(url: url, configuration: configuration)
+        controller.dismissButtonStyle = .close
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {
+    }
+}
+#else
+struct CheckoutWebView: View {
+    let url: URL
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(AppLocalization.text("checkout_only_iphone", fallback: "Checkout is only available on iPhone."))
+                .font(.headline)
+            Text(url.absoluteString)
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+        }
+        .padding(24)
+    }
+}
+#endif
+
+enum ShopifyStorefrontClient {
+    static let endpoint = URL(string: "https://\(ShopifyConfiguration.shopDomain)/api/2025-10/graphql.json")!
+    static let brewingArticlePageSize = 50
+
+    static func fetchAllProducts(languageCode: String? = nil) async throws -> [ContentView.Product] {
+        func nodes(language: String) async throws -> [ShopifyProductNode] {
+            var result: [ShopifyProductNode] = []
+            var cursor: String?
+            while true {
+                let response = try await fetchPage(after: cursor, languageCode: language)
+                result.append(contentsOf: response.products.edges.map(\.node))
+                guard response.products.pageInfo.hasNextPage else { return result }
+                cursor = response.products.pageInfo.endCursor
+            }
+        }
+        let languageCode = languageCode ?? AppLocalization.currentLanguage.effectiveLanguageCode
+        let originals = try await nodes(language: "EN")
+        let translated = languageCode == "ar" ? try await nodes(language: "AR") : []
+        let translations = Dictionary(translated.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return originals.filter { ContentView.Product.shouldInclude(shopifyNode: $0) }.map {
+            ContentView.Product(shopifyNode: $0, localizedNode: translations[$0.id])
+        }
+    }
+
+    static func fetchBrewingMethods() async throws -> [ContentView.BrewingMethod] {
+        let nodesFromBlog = try await fetchBrewingBlogArticleNodes()
+        let fallbackNodes = nodesFromBlog.isEmpty ? try await fetchBrewingSearchArticleNodes() : []
+        let selectedNodes = uniqueArticleNodes(nodesFromBlog.isEmpty ? fallbackNodes : nodesFromBlog)
+
+        guard !selectedNodes.isEmpty else {
+            throw ShopifyError.api("No brewing articles are available in Shopify yet.")
+        }
+
+        return selectedNodes.map(ContentView.BrewingMethod.init(article:))
+    }
+
+    static func fetchBrewingBlogArticleNodes() async throws -> [ShopifyBrewingArticlesResponse.ArticleNode] {
+        var nodes: [ShopifyBrewingArticlesResponse.ArticleNode] = []
+        var cursor: String?
+        var hasNextPage = true
+
+        while hasNextPage {
+            var variables: [String: Any] = [
+                "handle": ShopifyConfiguration.brewingBlogHandle,
+                "first": brewingArticlePageSize,
+                "language": AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "AR" : "EN"
+            ]
+            if let cursor {
+                variables["cursor"] = cursor
+            }
+
+            let body = ShopifyGraphQLRequest(
+                query: """
+                query BrewingBlogArticles($handle: String!, $first: Int!, $cursor: String, $language: LanguageCode!) @inContext(language: $language) {
+                  blog(handle: $handle) {
+                    articles(first: $first, after: $cursor) {
+                      pageInfo {
+                        hasNextPage
+                        endCursor
+                      }
+                      edges {
+                        node {
+                          id
+                          handle
+                          title
+                          excerpt
+                          content
+                          tags
+                          onlineStoreUrl
+                          blog {
+                            handle
+                            title
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """,
+                variables: variables
+            )
+
+            let decoded: ShopifyBrewingArticlesResponse = try await performRequest(body)
+
+            if let errors = decoded.errors, let first = errors.first {
+                throw ShopifyError.api(first.message)
+            }
+
+            guard let connection = decoded.data?.blog?.articles else {
+                return nodes
+            }
+
+            nodes.append(contentsOf: connection.edges.map(\.node))
+            hasNextPage = connection.pageInfo.hasNextPage
+            cursor = connection.pageInfo.endCursor
+        }
+
+        return nodes
+    }
+
+    static func fetchBrewingSearchArticleNodes() async throws -> [ShopifyBrewingArticlesResponse.ArticleNode] {
+        var nodes: [ShopifyBrewingArticlesResponse.ArticleNode] = []
+        var cursor: String?
+        var hasNextPage = true
+
+        while hasNextPage {
+            var variables: [String: Any] = [
+                "query": ShopifyConfiguration.brewingArticlesQuery,
+                "first": brewingArticlePageSize,
+                "language": AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "AR" : "EN"
+            ]
+            if let cursor {
+                variables["cursor"] = cursor
+            }
+
+            let body = ShopifyGraphQLRequest(
+                query: """
+                query BrewingSearchArticles($query: String!, $first: Int!, $cursor: String, $language: LanguageCode!) @inContext(language: $language) {
+                  articles(first: $first, after: $cursor, sortKey: PUBLISHED_AT, reverse: true, query: $query) {
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                    edges {
+                      node {
+                        id
+                        handle
+                        title
+                        excerpt
+                          content
+                        tags
+                        onlineStoreUrl
+                        blog {
+                          handle
+                          title
+                        }
+                      }
+                    }
+                  }
+                }
+                """,
+                variables: variables
+            )
+
+            let decoded: ShopifyBrewingArticlesResponse = try await performRequest(body)
+
+            if let errors = decoded.errors, let first = errors.first {
+                throw ShopifyError.api(first.message)
+            }
+
+            guard let connection = decoded.data?.articles else {
+                return nodes
+            }
+
+            nodes.append(contentsOf: connection.edges.map(\.node))
+            hasNextPage = connection.pageInfo.hasNextPage
+            cursor = connection.pageInfo.endCursor
+        }
+
+        return nodes
+    }
+
+    static func uniqueArticleNodes(_ nodes: [ShopifyBrewingArticlesResponse.ArticleNode]) -> [ShopifyBrewingArticlesResponse.ArticleNode] {
+        var seenIDs: Set<String> = []
+        return nodes.filter { node in
+            seenIDs.insert(node.id).inserted
+        }
+    }
+
+    static func fetchPage(after cursor: String?, languageCode: String = "EN") async throws -> ShopifyProductsResponse.DataPayload {
+        let body = ShopifyGraphQLRequest(
+            query: """
+            query Products($cursor: String, $language: LanguageCode!) @inContext(language: $language) {
+              products(first: 50, after: $cursor, sortKey: TITLE) {
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+                edges {
+                  node {
+                    id
+                    handle
+                    title
+                    description
+                    tags
+                    productType
+                    countryOfOrigin: metafield(namespace: "custom", key: "country_of_origin") {
+                      value
+                    }
+                    featuredImage {
+                      url
+                    }
+                    images(first: 12) {
+                      nodes {
+                        url
+                      }
+                    }
+                    variants(first: 12) {
+                      edges {
+                        node {
+                          id
+                          title
+                          availableForSale
+                          quantityAvailable
+                          requiresShipping
+                          weight
+                          weightUnit
+                          price {
+                            amount
+                            currencyCode
+                          }
+                        }
+                      }
+                    }
+                    priceRange {
+                      minVariantPrice {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """,
+            variables: ["cursor": cursor as Any, "language": languageCode]
+        )
+
+        let decoded: ShopifyProductsResponse = try await performRequest(body)
+
+        if let errors = decoded.errors, let first = errors.first {
+            throw ShopifyError.api(first.message)
+        }
+
+        guard let payload = decoded.data else {
+            throw ShopifyError.invalidResponse
+        }
+
+        return payload
+    }
+
+    static func createCheckoutURL(
+        lines: [ShopifyCheckoutLine],
+        customerEmail: String? = nil,
+        checkoutAddress: ShopifyCheckoutAddress? = nil,
+        tallaPaymentID: String? = nil,
+        fulfillmentMethod: TallaFulfillmentMethod? = .delivery,
+        pickupSlot: String? = nil,
+        pickupCarNumber: String? = nil,
+        giftOrder: Bool = false,
+        giftRecipientName: String? = nil,
+        giftRecipientPhone: String? = nil,
+        giftMessage: String? = nil
+    ) async throws -> URL {
+        let lineInputs = lines.map { line in
+            [
+                "merchandiseId": line.merchandiseId,
+                "quantity": line.quantity,
+                "attributes": line.attributes
+            ] as [String: Any]
+        }
+
+        var input: [String: Any] = [
+            "lines": lineInputs
+        ]
+        var attributes: [[String: String]] = []
+        if let fulfillmentMethod {
+            attributes.append(["key": "talla_fulfillment_method", "value": fulfillmentMethod.rawValue])
+        }
+        if let pickupSlot = pickupSlot?.trimmingCharacters(in: .whitespacesAndNewlines), !pickupSlot.isEmpty {
+            attributes.append(["key": "talla_pickup_slot", "value": pickupSlot])
+        }
+        if let pickupCarNumber = pickupCarNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !pickupCarNumber.isEmpty {
+            attributes.append(["key": "talla_pickup_car_number", "value": String(pickupCarNumber.prefix(24))])
+        }
+        if let tallaPaymentID = tallaPaymentID?.trimmingCharacters(in: .whitespacesAndNewlines), !tallaPaymentID.isEmpty {
+            attributes.append(["key": "talla_payment_id", "value": tallaPaymentID])
+        }
+        if giftOrder {
+            func giftAttribute(_ key: String, _ value: String?, maxLength: Int) {
+                let trimmed = String((value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxLength))
+                if !trimmed.isEmpty {
+                    attributes.append(["key": key, "value": trimmed])
+                }
+            }
+            attributes.append(["key": "talla_gift_order", "value": "true"])
+            giftAttribute("talla_gift_recipient", giftRecipientName, maxLength: 120)
+            giftAttribute("talla_gift_phone", giftRecipientPhone, maxLength: 40)
+            giftAttribute("talla_gift_message", giftMessage, maxLength: 240)
+        }
+        input["attributes"] = attributes
+        var buyerIdentity: [String: Any] = [:]
+
+        if let customerEmail = customerEmail?.trimmingCharacters(in: .whitespacesAndNewlines), !customerEmail.isEmpty {
+            buyerIdentity["email"] = customerEmail
+        }
+
+        if let checkoutAddress {
+            let nameParts = checkoutAddress.fullName
+                .split(separator: " ", omittingEmptySubsequences: true)
+                .map(String.init)
+            let firstName = nameParts.first ?? checkoutAddress.fullName
+            let lastName = nameParts.dropFirst().joined(separator: " ")
+            let deliveryAddress: [String: Any] = [
+                "address1": checkoutAddress.address1,
+                "address2": checkoutAddress.address2,
+                "city": checkoutAddress.city,
+                "country": checkoutAddress.country,
+                "firstName": firstName,
+                "lastName": lastName,
+                "phone": checkoutAddress.phone,
+                "province": checkoutAddress.province,
+                "zip": checkoutAddress.postalCode
+            ]
+            let deliveryAddressPreference: [String: Any] = [
+                "deliveryAddress": deliveryAddress
+            ]
+            buyerIdentity["email"] = checkoutAddress.email
+            buyerIdentity["phone"] = checkoutAddress.phone
+            buyerIdentity["deliveryAddressPreferences"] = [deliveryAddressPreference]
+        }
+
+        if !buyerIdentity.isEmpty {
+            input["buyerIdentity"] = buyerIdentity
+        }
+
+        let firstResponse = try await createCart(input: input)
+        if let checkoutURL = firstResponse.data?.cartCreate.cart?.checkoutUrl {
+            return checkoutURL
+        }
+
+        if input.removeValue(forKey: "buyerIdentity") != nil {
+            let fallbackResponse = try await createCart(input: input)
+            if let checkoutURL = fallbackResponse.data?.cartCreate.cart?.checkoutUrl {
+                return checkoutURL
+            }
+            if let userError = fallbackResponse.data?.cartCreate.userErrors.first {
+                throw ShopifyError.api(userError.message)
+            }
+            if let error = fallbackResponse.errors?.first {
+                throw ShopifyError.api(error.message)
+            }
+        }
+
+        if let userError = firstResponse.data?.cartCreate.userErrors.first {
+            throw ShopifyError.api(userError.message)
+        }
+        if let error = firstResponse.errors?.first {
+            throw ShopifyError.api(error.message)
+        }
+        throw ShopifyError.invalidResponse
+    }
+
+    static func createCart(input: [String: Any]) async throws -> ShopifyCartCreateResponse {
+        let body = ShopifyGraphQLRequest(
+            query: """
+            mutation CreateCart($input: CartInput, $language: LanguageCode!) @inContext(language: $language) {
+              cartCreate(input: $input) {
+                cart {
+                  checkoutUrl
+                }
+                userErrors {
+                  message
+                }
+              }
+            }
+            """,
+            variables: [
+                "input": input,
+                "language": AppLocalization.currentLanguage.effectiveLanguageCode == "ar" ? "AR" : "EN"
+            ]
+        )
+        return try await performRequest(body)
+    }
+
+    static func performRequest<Response: Decodable>(_ body: ShopifyGraphQLRequest) async throws -> Response {
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(ShopifyConfiguration.storefrontToken, forHTTPHeaderField: "X-Shopify-Storefront-Access-Token")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body.dictionary, options: [])
+
+        let (data, response) = try await TallaSecureSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            throw ShopifyError.invalidResponse
+        }
+
+        return try JSONDecoder().decode(Response.self, from: data)
+    }
+}
+
+struct ShopifyConfiguration {
+    static let shopDomain = "duneroastery.myshopify.com"
+    static let storefrontToken = "0b8e38878678cd9b9db8325f88f95141"
+    static let accountLoginURL = URL(string: "https://\(shopDomain)/account/login")!
+    static let accountRegisterURL = URL(string: "https://\(shopDomain)/account/register")!
+    static let brewingBlogHandle = "brewing-methods"
+    static let brewingArticlesQuery = "blog_title:\"Brewing Methods\" OR tag:brewing OR tag:brew"
+}
+
+struct ShopifyGraphQLRequest {
+    let query: String
+    let variables: [String: Any]
+
+    var dictionary: [String: Any] {
+        [
+            "query": query,
+            "variables": variables
+        ]
+    }
+}
+
+struct ShopifyProductsResponse: Decodable {
+    let data: DataPayload?
+    let errors: [GraphQLError]?
+
+    struct DataPayload: Decodable {
+        let products: ProductConnection
+    }
+
+    struct ProductConnection: Decodable {
+        let pageInfo: PageInfo
+        let edges: [ProductEdge]
+    }
+
+    struct PageInfo: Decodable {
+        let hasNextPage: Bool
+        let endCursor: String?
+    }
+
+    struct ProductEdge: Decodable {
+        let node: ShopifyProductNode
+    }
+
+    struct GraphQLError: Decodable {
+        let message: String
+    }
+}
+
+struct ShopifyProductNode: Decodable {
+    let id: String
+    let handle: String
+    let title: String
+    let description: String
+    let tags: [String]
+    let productType: String
+    let countryOfOrigin: Metafield?
+    let featuredImage: FeaturedImage?
+    let images: ImageConnection?
+    let variants: VariantConnection
+    let priceRange: PriceRange
+
+    struct FeaturedImage: Decodable {
+        let url: URL
+    }
+
+    struct ImageConnection: Decodable {
+        let nodes: [FeaturedImage]
+    }
+
+    struct Metafield: Decodable {
+        let value: String
+    }
+
+    struct PriceRange: Decodable {
+        let minVariantPrice: Money
+    }
+
+    struct VariantConnection: Decodable {
+        let edges: [VariantEdge]
+    }
+
+    struct VariantEdge: Decodable {
+        let node: ProductVariant
+    }
+
+    struct ProductVariant: Decodable {
+        let id: String
+        let title: String
+        let availableForSale: Bool
+        let quantityAvailable: Int?
+        let requiresShipping: Bool
+        let weight: Double?
+        let weightUnit: WeightUnit
+        let price: Money
+
+        enum WeightUnit: String, Decodable {
+            case grams = "GRAMS"
+            case kilograms = "KILOGRAMS"
+            case ounces = "OUNCES"
+            case pounds = "POUNDS"
+        }
+
+        var weightGrams: Double? {
+            guard let weight else { return nil }
+            switch weightUnit {
+            case .grams: return weight
+            case .kilograms: return weight * 1_000
+            case .ounces: return weight * 28.349_523_125
+            case .pounds: return weight * 453.592_37
+            }
+        }
+    }
+
+    struct Money: Decodable {
+        let amount: String
+        let currencyCode: String
+    }
+}
+
+enum ShopifyError: LocalizedError {
+    case invalidResponse
+    case api(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "The Shopify response was invalid."
+        case .api(let message):
+            return message
+        }
+    }
+}
+
+struct ShopifyCheckoutLine {
+    let merchandiseId: String
+    let quantity: Int
+    let attributes: [[String: String]]
+
+    init(merchandiseId: String, quantity: Int, attributes: [[String: String]] = []) {
+        self.merchandiseId = merchandiseId
+        self.quantity = quantity
+        self.attributes = attributes
+    }
+}
+
+struct ShopifyCheckoutAddress {
+    let email: String
+    let fullName: String
+    let phone: String
+    let address1: String
+    let address2: String
+    let city: String
+    let country: String
+    let province: String
+    let postalCode: String
+}
+
+struct ShopifyCartCreateResponse: Decodable {
+    let data: DataPayload?
+    let errors: [ShopifyProductsResponse.GraphQLError]?
+
+    struct DataPayload: Decodable {
+        let cartCreate: CartCreatePayload
+    }
+
+    struct CartCreatePayload: Decodable {
+        let cart: Cart?
+        let userErrors: [UserError]
+    }
+
+    struct Cart: Decodable {
+        let checkoutUrl: URL
+    }
+
+    struct UserError: Decodable {
+        let message: String
+    }
+}
+
+struct ShopifyCustomerSession: Decodable {
+    let accessToken: String
+    let expiresAt: String
+}
+
+struct ShopifyCustomerAccessTokenCreateResponse: Decodable {
+    let data: DataPayload?
+    let errors: [ShopifyProductsResponse.GraphQLError]?
+
+    struct DataPayload: Decodable {
+        let customerAccessTokenCreate: CustomerAccessTokenCreatePayload
+    }
+
+    struct CustomerAccessTokenCreatePayload: Decodable {
+        let customerAccessToken: ShopifyCustomerSession?
+        let customerUserErrors: [ShopifyCustomerUserError]
+    }
+
+    struct ShopifyCustomerUserError: Decodable {
+        let message: String
+    }
+}
+
+struct ShopifyCustomerQueryResponse: Decodable {
+    let data: DataPayload?
+    let errors: [ShopifyProductsResponse.GraphQLError]?
+
+    struct DataPayload: Decodable {
+        let customer: Customer?
+    }
+
+    struct Customer: Decodable {
+        let id: String
+        let firstName: String?
+        let lastName: String?
+        let email: String
+    }
+}
+
+struct ShopifyCustomerCreateResponse: Decodable {
+    let data: DataPayload?
+    let errors: [ShopifyProductsResponse.GraphQLError]?
+
+    struct DataPayload: Decodable {
+        let customerCreate: CustomerCreatePayload
+    }
+
+    struct CustomerCreatePayload: Decodable {
+        let customer: CreatedCustomer?
+        let customerUserErrors: [ShopifyCustomerAccessTokenCreateResponse.ShopifyCustomerUserError]
+    }
+
+    struct CreatedCustomer: Decodable {
+        let id: String
+    }
+}
+
+struct ShopifyBrewingArticlesResponse: Decodable {
+    let data: DataPayload?
+    let errors: [ShopifyProductsResponse.GraphQLError]?
+
+    struct DataPayload: Decodable {
+        let blog: Blog?
+        let articles: ArticleConnection?
+    }
+
+    struct Blog: Decodable {
+        let articles: ArticleConnection
+    }
+
+    struct ArticleConnection: Decodable {
+        let pageInfo: PageInfo
+        let edges: [ArticleEdge]
+    }
+
+    struct PageInfo: Decodable {
+        let hasNextPage: Bool
+        let endCursor: String?
+    }
+
+    struct ArticleEdge: Decodable {
+        let node: ArticleNode
+    }
+
+    struct ArticleNode: Decodable {
+        let id: String
+        let handle: String
+        let title: String
+        let excerpt: String?
+        let content: String
+        let tags: [String]
+        let onlineStoreUrl: URL?
+        let blog: BlogSummary
+    }
+
+    struct BlogSummary: Decodable {
+        let handle: String
+        let title: String
+    }
+}
+
+struct AccountProfileResponse: Decodable {
+    let id: String
+    let firstName: String?
+    let lastName: String?
+    let email: String
+}
+
+struct AccountSessionResponse: Decodable {
+    let profile: AccountProfileResponse
+    let accessToken: String
+    let expiresAt: String
+    let refreshToken: String
+    let refreshExpiresAt: String
+}
+
+struct AccountTokenRefreshResponse: Decodable, Sendable {
+    let accessToken: String
+    let expiresAt: String
+    let refreshToken: String
+    let refreshExpiresAt: String
+}
+
+struct TasteMemoryResponse: Decodable {
+    let tasteMemory: [ContentView.TasteMemoryRecord]
+}
+
+struct CheckoutStartResponse: Decodable {
+    let orderID: String
+    let orders: [ContentView.AccountOrder]
+    let pricingVersion: Int?
+}
+
+struct CoffeeClubManageResponse: Decodable {
+    let orders: [ContentView.AccountOrder]
+}
+
+struct CustomerCoffeeClub: Decodable {
+    struct OfficeDetails: Decodable {
+        let companyName: String?
+        let vatRegistrationNumber: String?
+        let commercialRegistrationNumber: String?
+        let purchaseOrderReference: String?
+    }
+    struct Preference: Decodable { let coffeeName, variantId: String? }
+    struct CoffeeItem: Decodable, Identifiable {
+        let coffeeName: String?
+        let variantId: String?
+        let quantity: Int?
+
+        var id: String { "\(variantId ?? coffeeName ?? "coffee")-\(quantity ?? 1)" }
+    }
+    struct FulfillmentOverride: Decodable {
+        let method, fullName, phone, line1, city, countryCode, notes, pickupSlot: String?
+    }
+
+    let planType: String?
+    let shipmentCount, intervalWeeks, discountPercent: Int
+    let deliveredShipments, remainingShipments, nextShipmentNumber, changesEffectiveFromShipment: Int?
+    let isOverdue: Bool?
+    let status, startedAt, nextShipmentAt: String?
+    let cancellationRequestedAt, cancellationReason, refundStatus, refundNote: String?
+    let refundAmount: Double?
+    let preference: Preference?
+    let coffeeItems: [CoffeeItem]?
+    let fulfillmentOverride: FulfillmentOverride?
+    let officeDetails: OfficeDetails?
+
+    var deliveredCount: Int { min(shipmentCount, max(0, deliveredShipments ?? 0)) }
+    var remainingCount: Int { min(shipmentCount, max(0, remainingShipments ?? (shipmentCount - deliveredCount))) }
+    var lifecycleStatus: String { status ?? (remainingCount == 0 ? "completed" : "active") }
+}
+
+struct BenefitPaymentResponse: Decodable {
+    let paymentUrl: URL
+    let trackId: String
+}
+
+struct BenefitHostedPaymentStatus: Decodable {
+    let orderId: String
+    let status: String
+    let paid: Bool
+}
+
+struct EazyShopifyPaymentResponse: Decodable {
+    let tallaPaymentId: String
+    let shopifyOrderName: String?
+    let status: String
+    let paymentUrl: URL?
+    let paid: Bool
+    let pending: Bool
+    let message: String?
+}
+
+struct ServiceErrorResponse: Decodable {
+    let error: String
+}
+
+enum ProductCatalogRules {
+    static func isWinterBox(title: String) -> Bool {
+        slug(from: title) == "winter-box" || title.trimmingCharacters(in: .whitespacesAndNewlines) == "صندوق الشتاء"
+    }
+
+    static func shopCategoryKey(for productCategoryKey: String) -> String {
+        switch productCategoryKey {
+        case "drip-bags", "drip-bag", "coffee-capsules", "coffee-capsule", "capsules", "pods":
+            return "coffee-beans"
+        default:
+            return productCategoryKey
+        }
+    }
+
+    static func isHotChocolate(categoryKey: String, name: String, handle: String) -> Bool {
+        let text = "\(name) \(handle)".lowercased()
+        let normalized = slug(from: text)
+        return categoryKey == "hot-chocolate"
+            || normalized.contains("hot-chocolate")
+            || normalized.contains("hot-cocoa")
+            || text.contains("شوكولاتة ساخنة")
+            || text.contains("شوكولاته ساخنه")
+    }
+
+    static func matchesShopCategory(_ category: String, productCategory: String, name: String, handle: String) -> Bool {
+        if category == "winter" && isHotChocolate(categoryKey: productCategory, name: name, handle: handle) {
+            return true
+        }
+        return shopCategoryKey(for: productCategory) == category
+    }
+
+    static func isArabicCoffeeProduct(_ value: String) -> Bool {
+        let normalized = value.lowercased()
+        let sourceSlug = slug(from: value)
+        let exactTokens = Set(sourceSlug.split(separator: "-").map(String.init))
+        return sourceSlug.contains("arabic-coffee")
+            || sourceSlug.contains("northern-coffee")
+            || ["qahwa", "gahwa", "shamali"].contains(where: exactTokens.contains)
+            || ["قهوة عربية", "قهوة خليجية", "قهوة شمالية", "قهوة الشمالي", "قهوة شمالي"].contains(where: normalized.contains)
+    }
+
+    static func subscriptionPlanType(detectedPlan: String?, requestedPlan: String) -> String? {
+        guard !requestedPlan.isEmpty else { return detectedPlan }
+        if requestedPlan == "office" {
+            return ["beans", "arabic-coffee"].contains(detectedPlan ?? "") ? "office" : nil
+        }
+        let supportedPlans = ["beans", "arabic-coffee", "drip-bags", "filters", "equipment", "seasonal-box"]
+        return supportedPlans.contains(requestedPlan) && detectedPlan == requestedPlan ? requestedPlan : nil
+    }
+
+    static func shouldInclude(title: String, productType: String, tags: [String]) -> Bool {
+        let source = ([title, productType] + tags)
+            .joined(separator: " ")
+            .lowercased()
+
+        return !source.contains("gift card") && !source.contains("giftcard")
+    }
+
+    static func categoryKey(productType: String, tags: [String], title: String) -> String {
+        let normalizedTitle = slug(from: title)
+        if isHotChocolate(categoryKey: "", name: title, handle: "") {
+            return "winter"
+        }
+        let isHawarIslandsCoffee = normalizedTitle.contains("hawar-islands")
+            && !normalizedTitle.contains("drip-bag")
+
+        if isHawarIslandsCoffee {
+            return "coffee-beans"
+        }
+
+        if normalizedTitle.contains("drip-bag") {
+            return "coffee-beans"
+        }
+
+        if let appCategory = appCategoryOverride(from: tags) {
+            return appCategory
+        }
+
+        let parts = [title, productType] + tags
+        let source = parts.joined(separator: " ").lowercased()
+        let sourceSlug = slug(from: parts.joined(separator: " "))
+        let typeSlug = slug(from: productType)
+
+        if typeSlug == "summer-drinks" {
+            return "summer-drinks"
+        }
+
+        if typeSlug == "winter" || typeSlug == "winter-drinks" || sourceSlug.contains("winter") {
+            return "winter"
+        }
+
+        if containsAny(sourceSlug, [
+            "hot-chocolate", "hot-cocoa", "cocoa-mix", "cacao", "chocolate-powder"
+        ]) || typeSlug == "hot-chocolate" {
+            return "hot-chocolate"
+        }
+
+        if containsAny(sourceSlug, [
+            "jam", "jams", "spread", "spreads", "butter", "butters", "sauce", "sauces", "honey", "jar", "jars"
+        ]) || ["spreads", "spread", "jams", "butters"].contains(typeSlug) {
+            return "spreads"
+        }
+
+        if containsAny(sourceSlug, [
+            "crmb", "bakery", "dessert", "desserts", "pastry", "pastries", "croissant",
+            "cookie", "cookies", "cake", "cakes", "brownie", "brownies", "fudge",
+            "creme-caramel", "crème-caramel", "cream-caramel", "caramel", "bread", "breads", "banana-bread"
+        ]) || ["crmb", "desserts", "dessert", "bread", "bakery", "pastries"].contains(typeSlug) {
+            return "desserts"
+        }
+
+        if containsAny(sourceSlug, [
+            "bottle", "bottled", "ready-made", "ready-made-drink", "ready-made-drinks",
+            "tea", "karak", "matcha", "juice", "beverage", "beverages"
+        ]) || ["tea", "ready-made-drinks", "drinks", "ready-made"].contains(typeSlug) {
+            return "ready-made-drinks"
+        }
+
+        if containsAny(sourceSlug, [
+            "cup", "cups", "latte-cup", "drink-cup", "talla-cup", "mug", "mugs", "tumbler", "tumblers", "drinkware"
+        ]) || ["drink-cups", "cups", "mugs", "drinkware"].contains(typeSlug) {
+            return "cups"
+        }
+
+        if containsAny(sourceSlug, [
+            "drip-bag", "drip-bags", "drip-coffee-bag", "single-serve", "coffee-bag"
+        ]) || typeSlug == "drip-bags" {
+            return "coffee-beans"
+        }
+
+        if containsAny(sourceSlug, [
+            "coffee-capsule", "coffee-capsules", "capsule", "capsules", "coffee-pod", "coffee-pods", "nespresso", "k-cup"
+        ]) || ["coffee-capsules", "capsules", "pods"].contains(typeSlug) {
+            return "coffee-beans"
+        }
+
+        if containsAny(sourceSlug, [
+            "equipment", "brewer", "brewers", "tool", "tools", "accessory", "accessories",
+            "v60", "filter", "filters", "scale", "grinder", "kettle", "server", "dripper",
+            "aeropress", "chemex", "french-press"
+        ]) || ["coffee-equipment", "equipment", "accessories"].contains(typeSlug) {
+            return "coffee-equipment"
+        }
+
+        if containsAny(sourceSlug, [
+            "talla-box", "mini-talla-box", "signature-box", "mini-box", "mini-coffee-box", "mini-arabic-coffee-box",
+            "gift-box", "gift-set", "gift-bundle", "seasonal-gift", "bundle", "majlis", "eid"
+        ]) || source.contains("عيد") || ["gifts", "gift", "eid-gifts"].contains(typeSlug) {
+            return "gifts"
+        }
+
+        if containsAny(sourceSlug, [
+            "arabic-coffee", "shamali", "northern-coffee", "turkish", "qahwa", "gahwa",
+            "dallah", "cardamom"
+        ]) || ["arabic-coffee", "arabic-coffee-beans", "northern-coffee"].contains(typeSlug) {
+            return "arabic-coffee-beans"
+        }
+
+        if containsAny(sourceSlug, [
+            "coffee-bean", "coffee-beans", "beans", "espresso", "roast", "roasted", "single-origin",
+            "brazil", "colombia", "ethiopia", "yemen", "decaf"
+        ]) || ["coffee", "coffee-beans", "beans"].contains(typeSlug) {
+            return "coffee-beans"
+        }
+
+        return "coffee-beans"
+    }
+
+    static func categoryLabel(productType: String, fallbackKey: String) -> String {
+        switch fallbackKey {
+        case "summer-drinks":
+            return AppLocalization.text("category_summer_drinks", fallback: "Summer Boxes")
+        case "winter":
+            return AppLocalization.text("category_winter", fallback: "Winter")
+        case "coffee-beans":
+            return AppLocalization.text("category_coffee_beans", fallback: "Coffee")
+        case "arabic-coffee-beans", "arabic-coffee", "northern-coffee", "other":
+            return AppLocalization.text("category_arabic_coffee", fallback: "Gahwa")
+        case "drip-bags", "drip-bag", "coffee-capsules", "coffee-capsule", "capsules", "pods":
+            return AppLocalization.text("category_coffee_beans", fallback: "Coffee")
+        case "coffee-equipment":
+            return AppLocalization.text("category_equipment", fallback: "Equipment")
+        case "ready-made-drinks", "tea", "drinks":
+            return AppLocalization.text("category_ready_drinks", fallback: "Drinks")
+        case "drink-cups", "cups", "mugs", "drinkware":
+            return AppLocalization.text("category_cups", fallback: "Cups")
+        case "crmb-tallas-speciality-bakery", "desserts", "bread", "bakery":
+            return AppLocalization.text("category_desserts", fallback: "CRMB")
+        case "spreads":
+            return AppLocalization.text("category_spreads", fallback: "Spreads")
+        case "hot-chocolate":
+            return AppLocalization.text("category_hot_chocolate", fallback: "Hot Chocolate")
+        case "gifts", "eid-gifts":
+            return AppLocalization.text("category_gifts", fallback: "Talla Boxes")
+        default:
+            return fallbackKey
+                .split(separator: "-")
+                .map { $0.capitalized }
+                .joined(separator: " ")
+        }
+    }
+
+    static func productTag(from tags: [String]) -> String? {
+        let preferred = ["STAFF PICK", "BESTSELLER", "LIMITED", "NEW", "LOCAL", "PREMIUM", "GIFT"]
+        let uppercased = tags.map { $0.uppercased() }
+        guard let tag = preferred.first(where: uppercased.contains) else { return nil }
+        return AppLocalization.catalogOption(tag == "BESTSELLER" ? "BEST SELLER" : tag)
+    }
+
+    static func countryOfOriginLabel(from tags: [String]) -> String? {
+        let countryNamesByTag = [
+            "bolivia": "Bolivia",
+            "brazil": "Brazil",
+            "burundi": "Burundi",
+            "colombia": "Colombia",
+            "costa rica": "Costa Rica",
+            "ecuador": "Ecuador",
+            "el salvador": "El Salvador",
+            "ethiopia": "Ethiopia",
+            "greece": "Greece",
+            "guatemala": "Guatemala",
+            "honduras": "Honduras",
+            "india": "India",
+            "indonesia": "Indonesia",
+            "kenya": "Kenya",
+            "kuwait": "Kuwait",
+            "mexico": "Mexico",
+            "nicaragua": "Nicaragua",
+            "panama": "Panama",
+            "papua new guinea": "Papua New Guinea",
+            "peru": "Peru",
+            "qatar": "Qatar",
+            "rwanda": "Rwanda",
+            "tanzania": "Tanzania",
+            "thailand": "Thailand",
+            "uganda": "Uganda",
+            "united arab emirates": "United Arab Emirates",
+            "uae": "United Arab Emirates",
+            "vietnam": "Vietnam",
+            "yemen": "Yemen"
+        ]
+        var seenCountries = Set<String>()
+        let countries = tags.compactMap { tag -> String? in
+            let normalizedTag = tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard let country = countryNamesByTag[normalizedTag], seenCountries.insert(country).inserted else {
+                return nil
+            }
+            return country
+        }
+
+        guard let firstCountry = countries.first else { return nil }
+        return countries.count == 1 ? firstCountry : "\(firstCountry) +\(countries.count - 1)"
+    }
+
+    static func containsAny(_ source: String, _ needles: [String]) -> Bool {
+        needles.contains { source.contains($0) }
+    }
+
+    static func appCategoryOverride(from tags: [String]) -> String? {
+        for tag in tags {
+            let trimmedTag = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lowercasedTag = trimmedTag.lowercased()
+            let prefixes = ["app-category:", "app-category=", "app_category:", "app_category="]
+
+            guard let prefix = prefixes.first(where: { lowercasedTag.hasPrefix($0) }) else {
+                continue
+            }
+
+            let rawValue = String(trimmedTag.dropFirst(prefix.count))
+            if let categoryKey = canonicalAppCategoryKey(from: rawValue) {
+                return categoryKey
+            }
+        }
+
+        for tag in tags {
+            switch slug(from: tag) {
+            case "cups", "cup", "drink-cups", "mugs", "mug", "drinkware", "tumblers", "tumbler":
+                return "cups"
+            case "ready-made-drinks", "ready-made", "drinks", "drink":
+                return "ready-made-drinks"
+            default:
+                continue
+            }
+        }
+
+        return nil
+    }
+
+    static func canonicalAppCategoryKey(from value: String) -> String? {
+        switch slug(from: value) {
+        case "coffee", "coffee-beans", "beans":
+            return "coffee-beans"
+        case "arabic-coffee", "arabic-coffee-beans", "northern-coffee", "shamali":
+            return "arabic-coffee-beans"
+        case "drip-bags", "drip-bag", "coffee-capsules", "coffee-capsule", "capsules", "pods":
+            return "coffee-beans"
+        case "cups", "cup", "drink-cups", "mugs", "mug", "drinkware", "tumblers", "tumbler":
+            return "cups"
+        case "ready-made-drinks", "ready-made", "drinks", "drink", "tea", "karak", "matcha", "cups-and-drinks":
+            return "ready-made-drinks"
+        case "desserts", "dessert", "crmb", "bakery", "bread":
+            return "desserts"
+        case "spreads", "spread", "jams", "butters":
+            return "spreads"
+        case "hot-chocolate", "hot-cocoa", "cocoa":
+            return "hot-chocolate"
+        case "equipment", "coffee-equipment", "accessories", "tools":
+            return "coffee-equipment"
+        case "gifts", "gift", "talla-boxes", "boxes", "eid-gifts":
+            return "gifts"
+        default:
+            return nil
+        }
+    }
+
+    static func slug(from value: String) -> String {
+        value
+            .lowercased()
+            .replacingOccurrences(of: "&", with: "and")
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+    }
+}
+
+extension ContentView.Product {
+    static func shouldInclude(shopifyNode: ShopifyProductNode) -> Bool {
+        ProductCatalogRules.shouldInclude(
+            title: shopifyNode.title,
+            productType: shopifyNode.productType,
+            tags: shopifyNode.tags
+        )
+    }
+
+    init(shopifyNode: ShopifyProductNode, localizedNode: ShopifyProductNode? = nil) {
+        let categoryKey = ProductCatalogRules.categoryKey(
+            productType: shopifyNode.productType,
+            tags: shopifyNode.tags,
+            title: shopifyNode.title
+        )
+        let translatedVariants = Dictionary((localizedNode?.variants.edges ?? []).map { ($0.node.id, $0.node.title) }, uniquingKeysWith: { first, _ in first })
+        let isWinterBox = ProductCatalogRules.isWinterBox(title: shopifyNode.title)
+        let variants = shopifyNode.variants.edges.map { edge in
+            Variant(
+                id: edge.node.id,
+                title: AppLocalization.catalogOption(isWinterBox ? (edge.node.title.isEmpty ? "Default" : edge.node.title) : (translatedVariants[edge.node.id] ?? (edge.node.title.isEmpty ? "Default" : edge.node.title))),
+                price: Self.formattedPrice(from: edge.node.price),
+                isAvailableForSale: edge.node.availableForSale && (edge.node.quantityAvailable.map { $0 > 0 } ?? true),
+                requiresShipping: edge.node.requiresShipping,
+                weightGrams: edge.node.weightGrams
+            )
+        }
+        let defaultVariant = variants.first(where: \.isAvailableForSale) ?? variants.first
+        let metafieldCountryOfOrigin = shopifyNode.countryOfOrigin?.value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let countryOfOrigin = metafieldCountryOfOrigin?.isEmpty == false
+            ? metafieldCountryOfOrigin
+            : ProductCatalogRules.countryOfOriginLabel(from: shopifyNode.tags)
+        let roastDateTag = shopifyNode.tags.first {
+            $0.range(of: "Talla Roast Date:", options: [.caseInsensitive, .anchored]) != nil
+        }
+        let roastDateValue = roastDateTag.map { String($0.dropFirst("Talla Roast Date:".count)).trimmingCharacters(in: .whitespacesAndNewlines) }
+        let roastDate: Date? = roastDateValue.flatMap { value in
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            for format in ["yyyy-MM-dd", "dd/MM/yyyy", "MM/dd/yyyy"] {
+                formatter.dateFormat = format
+                if let date = formatter.date(from: value) { return date }
+            }
+            return ISO8601DateFormatter().date(from: value)
+        }
+
+        self.init(
+            id: shopifyNode.id,
+            handle: shopifyNode.handle,
+            variantID: defaultVariant?.id,
+            variants: variants,
+            name: AppLocalization.catalogText(localizedNode?.title ?? shopifyNode.title, source: shopifyNode.title, key: "catalog_\(shopifyNode.handle)_name"),
+            price: defaultVariant?.price ?? Self.formattedPrice(from: shopifyNode.priceRange.minVariantPrice),
+            categoryKey: categoryKey,
+            categoryLabel: ProductCatalogRules.categoryLabel(productType: shopifyNode.productType, fallbackKey: categoryKey),
+            imageURL: shopifyNode.featuredImage?.url,
+            additionalImageURLs: shopifyNode.images?.nodes.map(\.url) ?? [],
+            desc: AppLocalization.catalogText(localizedNode?.description ?? shopifyNode.description, source: shopifyNode.description, key: "catalog_\(shopifyNode.handle)_description"),
+            tag: ProductCatalogRules.productTag(from: shopifyNode.tags),
+            tags: shopifyNode.tags,
+            countryOfOrigin: countryOfOrigin,
+            roastDate: roastDate,
+            isAvailableForSale: defaultVariant?.isAvailableForSale ?? false,
+            catalogSourceText: ([shopifyNode.title, shopifyNode.description, shopifyNode.productType] + shopifyNode.tags)
+                .joined(separator: "\n")
+        )
+    }
+
+    static func formattedPrice(from money: ShopifyProductNode.Money) -> String {
+        guard let decimal = Decimal(string: money.amount) else {
+            return "\(money.amount) \(money.currencyCode)"
+        }
+
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.currencyCode = money.currencyCode
+        formatter.maximumFractionDigits = 3
+        formatter.minimumFractionDigits = money.currencyCode == "BHD" ? 3 : 2
+
+        return formatter.string(from: decimal as NSDecimalNumber) ?? "\(money.amount) \(money.currencyCode)"
+    }
+}
+
+extension ContentView.BrewingMethod {
+    init(article: ShopifyBrewingArticlesResponse.ArticleNode) {
+        let summarySource = [article.excerpt, article.content]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? "Brew guide from Shopify."
+        let parsedRecipe = Self.publishedRecipe(from: article.content).map {
+            Self.canonicalRecipe($0, for: article.title)
+        }
+
+        self.init(
+            id: article.id,
+            name: Self.canonicalTitle(article.title),
+            summary: summarySource,
+            detail: article.blog.title,
+            symbol: Self.symbol(title: article.title, tags: article.tags),
+            articleURL: article.onlineStoreUrl ?? Self.articleURL(blogHandle: article.blog.handle, articleHandle: article.handle),
+            categories: Self.categories(title: article.title, tags: article.tags),
+            difficulty: Self.difficulty(title: article.title, tags: article.tags),
+            brewTime: Self.brewTime(title: article.title, tags: article.tags, content: article.content),
+            publishedRecipe: parsedRecipe,
+            publishedSteps: Self.publishedSteps(from: article.content)
+        )
+    }
+
+    static func canonicalTitle(_ title: String) -> String {
+        // The app's customer-facing method name is Greek Coffee, even when
+        // the remote article is titled Turkish Coffee.
+        if title.caseInsensitiveCompare("Turkish Coffee") == .orderedSame {
+            return "Greek Coffee"
+        }
+        return title
+    }
+
+    static func canonicalRecipe(
+        _ recipe: ContentView.BrewingMethod.PublishedRecipe,
+        for title: String
+    ) -> ContentView.BrewingMethod.PublishedRecipe {
+        guard title.caseInsensitiveCompare("Greek Coffee") == .orderedSame
+                || title.caseInsensitiveCompare("Turkish Coffee") == .orderedSame else {
+            return recipe
+        }
+
+        let display = recipe.coffeeDisplay
+            .map { value in
+                value.replacingOccurrences(of: "Turkish coffee", with: "Greek coffee", options: .caseInsensitive)
+            }
+        return ContentView.BrewingMethod.PublishedRecipe(
+            coffeeGrams: recipe.coffeeGrams ?? 20,
+            ratio: recipe.ratio ?? 9,
+            waterGrams: recipe.waterGrams ?? 180,
+            iceGrams: recipe.iceGrams,
+            coffeeDisplay: display ?? "2 heaping tbsp (20 g) Greek coffee",
+            ratioDisplay: recipe.ratioDisplay ?? "9"
+        )
+    }
+
+    static func publishedSteps(from content: String) -> [ContentView.BrewingMethod.PublishedStep] {
+        guard let expression = try? NSRegularExpression(pattern: #"(?is)<li[^>]*>(.*?)</li>"#) else {
+            return []
+        }
+
+        let methodContent: String
+        if let methodExpression = try? NSRegularExpression(
+            pattern: #"(?is)<h[1-6][^>]*>(?:(?!</h[1-6]>).)*?\bMETHOD\b.*?</h[1-6]>(.*?)(?=<h[1-6][^>]*>|$)"#
+        ) {
+            let contentRange = NSRange(content.startIndex..<content.endIndex, in: content)
+            if let methodMatch = methodExpression.firstMatch(in: content, range: contentRange),
+               let methodRange = Range(methodMatch.range(at: 1), in: content) {
+                methodContent = String(content[methodRange])
+            } else {
+                methodContent = content
+            }
+        } else {
+            methodContent = content
+        }
+
+        let htmlItems: [String] = expression.matches(
+            in: methodContent,
+            range: NSRange(methodContent.startIndex..<methodContent.endIndex, in: methodContent)
+        ).compactMap { match in
+            guard let itemRange = Range(match.range(at: 1), in: methodContent) else { return nil }
+            return String(methodContent[itemRange])
+        }
+        let rawItems = htmlItems.isEmpty ? plainMethodItems(from: content) : htmlItems
+        var cumulativeWater = 0.0
+        var accumulatedSeconds = 0
+        return rawItems.compactMap { rawItem in
+            let item = rawItem
+                .replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
+                .replacingOccurrences(of: "&nbsp;", with: " ")
+                .replacingOccurrences(of: "&amp;", with: "&")
+                .replacingOccurrences(of: "&ndash;", with: "–")
+                .replacingOccurrences(of: "&mdash;", with: "—")
+                .replacingOccurrences(of: "&quot;", with: "\"")
+                .replacingOccurrences(of: "&#39;", with: "'")
+                .replacingOccurrences(of: "&deg;", with: "°")
+                .replacingOccurrences(of: "\u{00A0}", with: " ")
+                .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Method list items consistently use a title followed by an en/em
+            // dash. Ingredient and equipment lists do not, so they are ignored.
+            let separator = item.range(of: " – ") ?? item.range(of: " — ") ?? item.range(of: " - ")
+            guard let separator else { return nil }
+
+            let title = String(item[..<separator.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let detail = String(item[separator.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty, !detail.isEmpty else { return nil }
+
+            let lowercasedItem = item.lowercased()
+            let describesTotal = lowercasedItem.contains("total") || lowercasedItem.contains("reach") || lowercasedItem.contains("up to")
+            let describesIncrement = lowercasedItem.contains("remaining") || lowercasedItem.contains("last") || (lowercasedItem.contains("pour") && !describesTotal)
+            // When a step says “pour X g to reach Y g”, Y is the target the
+            // customer must see. Using the last water value handles both that
+            // wording and guides that omit the word “total”.
+            let extractedWater = lastNumber(in: item, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\b"#)
+                ?? firstNumber(in: item, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\b"#)
+            if let extractedWater {
+                cumulativeWater = describesIncrement && cumulativeWater > 0
+                    ? cumulativeWater + extractedWater
+                    : max(cumulativeWater, extractedWater)
+            }
+
+            let explicitStart = startSeconds(from: item)
+            let stepStart = explicitStart ?? accumulatedSeconds
+            if let rangeEnd = endSeconds(from: item) {
+                accumulatedSeconds = max(accumulatedSeconds, rangeEnd)
+            } else if let duration = durationSeconds(from: item) {
+                accumulatedSeconds = max(accumulatedSeconds, stepStart + duration)
+            }
+
+            return ContentView.BrewingMethod.PublishedStep(
+                title: title,
+                detail: detail,
+                startSeconds: stepStart,
+                waterGrams: extractedWater == nil ? nil : cumulativeWater
+            )
+        }
+    }
+
+    static func plainMethodItems(from content: String) -> [String] {
+        let plain = plainText(from: content)
+        guard let methodRange = plain.range(of: "METHOD", options: [.caseInsensitive]) else {
+            return []
+        }
+
+        let methodStart = methodRange.upperBound
+        let afterMethod = String(plain[methodStart...])
+        let methodEndOffset = afterMethod.range(of: "FLAVOR NOTES", options: [.caseInsensitive])?.lowerBound
+        let method = (methodEndOffset.map { String(afterMethod[..<$0]) } ?? afterMethod)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let itemExpression = try? NSRegularExpression(
+            pattern: #"(?s)(.*?(?:\.|\z))(?=\s+[^.]{1,100}\s+[–—-]\s+|\z)"#
+        ) else {
+            return []
+        }
+
+        let range = NSRange(method.startIndex..<method.endIndex, in: method)
+        let matches = itemExpression.matches(in: method, range: range)
+        var items = matches.compactMap { match -> String? in
+            guard let itemRange = Range(match.range(at: 1), in: method) else { return nil }
+            let item = String(method[itemRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return item.isEmpty ? nil : item
+        }
+
+        if let lastMatch = matches.last,
+           let lastRange = Range(lastMatch.range, in: method),
+           lastRange.upperBound < method.endIndex {
+            let remainder = String(method[lastRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !remainder.isEmpty { items.append(remainder) }
+        }
+
+        return items
+    }
+
+    static func startSeconds(from text: String) -> Int? {
+        if let match = text.firstMatch(of: /(\d+)\s*:\s*(\d{1,2})/) {
+            guard let minutes = Int(match.1), let seconds = Int(match.2), seconds < 60 else { return nil }
+            return minutes * 60 + seconds
+        }
+
+        return nil
+    }
+
+    static func endSeconds(from text: String) -> Int? {
+        guard let match = text.firstMatch(of: /(\d+)\s*:\s*(\d{1,2})\s*[–—-]\s*(\d+)\s*:\s*(\d{1,2})/) else {
+            return nil
+        }
+        guard let minutes = Int(String(match.3)), let seconds = Int(String(match.4)), seconds < 60 else {
+            return nil
+        }
+        return minutes * 60 + seconds
+    }
+
+    static func durationSeconds(from text: String) -> Int? {
+        let matches = text.matches(of: /(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/)
+        guard !matches.isEmpty else { return nil }
+
+        let total = matches.reduce(0.0) { partial, match in
+            guard let value = Double(match.1) else { return partial }
+            let unit = String(match.2).lowercased()
+            if unit.hasPrefix("hour") || unit.hasPrefix("hr") {
+                return partial + value * 3_600
+            }
+            if unit.hasPrefix("min") {
+                return partial + value * 60
+            }
+            return partial + value
+        }
+        return Int(total.rounded())
+    }
+
+    static func publishedRecipe(from content: String) -> PublishedRecipe? {
+        let plainText = plainText(from: content)
+        let coffee = firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*g\)?\s+(?:[A-Za-z-]+\s+){0,3}coffee"#)
+        let ratio = firstNumber(in: plainText, pattern: #"Brew\s*Ratio\s*:\s*1\s*:\s*([0-9]+(?:\.[0-9]+)?)"#)
+        let coffeeDisplay = firstText(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?\s*(?:g|tbsp|tablespoons?)\s+(?:[A-Za-z-]+\s+){0,3}coffee)"#)
+            ?? firstText(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?\s+heaping\s+tbsp(?:\s+\([^)]*\))?(?:\s+[A-Za-z-]+){0,4}\s+coffee)"#)
+        let ratioDisplay = firstText(in: plainText, pattern: #"Brew\s*Ratio\s*:\s*1\s*:\s*([0-9]+(?:\.[0-9]+)?(?:\s*[–-]\s*[0-9]+(?:\.[0-9]+)?)?)"#)
+        let water = firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*(?:ml|g)\s+(?:[A-Za-z-]+\s+){0,3}water"#)
+            ?? firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*l(?:itre|iter)?\s+(?:[A-Za-z-]+\s+){0,3}water"#).map { $0 * 1_000 }
+        let ice = firstNumber(in: plainText, pattern: #"([0-9]+(?:\.[0-9]+)?)\s*g\s+ice"#)
+            ?? firstNumber(in: plainText, pattern: #"ice[^0-9]{0,12}([0-9]+(?:\.[0-9]+)?)\s*g"#)
+
+        guard coffee != nil || ratio != nil || water != nil || ice != nil else {
+            return nil
+        }
+
+        return PublishedRecipe(
+            coffeeGrams: coffee,
+            ratio: ratio,
+            waterGrams: water,
+            iceGrams: ice,
+            coffeeDisplay: coffeeDisplay,
+            ratioDisplay: ratioDisplay
+        )
+    }
+
+    static func firstText(in text: String, pattern: String) -> String? {
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = expression.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let valueRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+
+        return text[valueRange]
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func plainText(from content: String) -> String {
+        content
+            .replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func firstNumber(in text: String, pattern: String) -> Double? {
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = expression.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let numberRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+
+        return Double(text[numberRange])
+    }
+
+    static func lastNumber(in text: String, pattern: String) -> Double? {
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = expression.matches(in: text, range: range).last,
+              match.numberOfRanges > 1,
+              let numberRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+
+        return Double(text[numberRange])
+    }
+
+    static func symbol(title: String, tags: [String]) -> String {
+        let source = ([title] + tags)
+            .joined(separator: " ")
+            .lowercased()
+
+        if source.contains("press") {
+            return "cup.and.saucer.fill"
+        }
+
+        if source.contains("chemex") || source.contains("filter") {
+            return "flask.fill"
+        }
+
+        if source.contains("espresso") {
+            return "bolt.fill"
+        }
+
+        if source.contains("cold") {
+            return "snowflake"
+        }
+
+        return "drop.fill"
+    }
+
+    static func categories(title: String, tags: [String]) -> [String] {
+        let source = ([title] + tags)
+            .joined(separator: " ")
+            .lowercased()
+
+        if source.contains("moka") {
+            return ["Moka Pot"]
+        }
+
+        if source.contains("turkish") {
+            return ["Traditional"]
+        }
+
+        if source.contains("shamali") {
+            return ["Traditional"]
+        }
+
+        if source.contains("drip coffee bag") || source.contains("drip bag") {
+            return ["Pour Over"]
+        }
+
+        if source.contains("cold") {
+            return [source.contains("drip") ? "Cold Drip" : "Cold Brew"]
+        }
+
+        if source.contains("arabic") || source.contains("dallah") || source.contains("traditional") {
+            return ["Traditional"]
+        }
+
+        if source.contains("press") || source.contains("immersion") {
+            return ["Immersion"]
+        }
+
+        if source.contains("chemex") || source.contains("v60") || source.contains("pour") || source.contains("filter") {
+            return ["Pour Over"]
+        }
+
+        return ["Pour Over"]
+    }
+
+    static func difficulty(title: String, tags: [String]) -> String {
+        let source = ([title] + tags)
+            .joined(separator: " ")
+            .lowercased()
+
+        if source.contains("espresso") || source.contains("v60") {
+            return "Advanced"
+        }
+
+        if source.contains("chemex") || source.contains("pour") || source.contains("aeropress") {
+            return "Intermediate"
+        }
+
+        return "Easy"
+    }
+
+    static func brewTime(title: String, tags: [String], content: String? = nil) -> String {
+        if let content, let publishedTime = publishedBrewTime(from: content) {
+            return publishedTime
+        }
+
+        let source = ([title] + tags)
+            .joined(separator: " ")
+            .lowercased()
+
+        // These durations are taken from the published Talla guide titles and
+        // should win over the generic method defaults below.
+        if source.contains("arabic") || source.contains("qahwa") {
+            return "20 min"
+        }
+
+        if source.contains("turkish") {
+            return "5-7 min"
+        }
+
+        if source.contains("moka") {
+            return "5 min"
+        }
+
+        if source.contains("shamali") {
+            return "20 min"
+        }
+
+        if source.contains("drip coffee bag") || source.contains("drip bag") {
+            return "2.5-3 min"
+        }
+
+        if source.contains("cold drip") {
+            return "6 hr"
+        }
+
+        if source.contains("cold") {
+            return "8-12 hr"
+        }
+
+        if source.contains("espresso") {
+            return "30 sec"
+        }
+
+        if source.contains("press") {
+            return "4 min"
+        }
+
+        if source.contains("chemex") {
+            return "4-5 min"
+        }
+
+        if source.contains("pour") || source.contains("v60") || source.contains("filter") {
+            return "3-4 min"
+        }
+
+        return "3–5 min"
+    }
+
+    static func publishedBrewTime(from content: String) -> String? {
+        guard let expression = try? NSRegularExpression(
+            pattern: #"(?i)(?:brew\s*time|time)\s*:\s*([0-9]+(?:[.:][0-9]+|[½¼¾])?(?:\s*[–-]\s*[0-9]+(?:[.:][0-9]+|[½¼¾])?)?\s*(?:sec(?:onds?)?|min(?:utes?)?|hr|hours?))"#
+        ) else {
+            return nil
+        }
+
+        let plainText = plainText(from: content)
+        let range = NSRange(plainText.startIndex..<plainText.endIndex, in: plainText)
+
+        if let clockMatch = plainText.firstMatch(of: /(?i)(?:brew\s*time|time)\s*:\s*~?\s*(\d+\s*:\s*\d{1,2})/) {
+            return String(clockMatch.1).replacingOccurrences(of: " ", with: "")
+        }
+
+        if let minuteSecondMatch = plainText.firstMatch(of: /(?i)(?:brew\s*time|time)\s*:\s*~?\s*(\d+\s*min(?:ute)?s?\s*\d{1,2}\s*sec(?:ond)?s?)/) {
+            return String(minuteSecondMatch.1)
+        }
+
+        guard let match = expression.firstMatch(in: plainText, range: range),
+              let valueRange = Range(match.range(at: 1), in: plainText) else {
+            return nil
+        }
+
+        let value = plainText[valueRange]
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "—–-·|"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return value.isEmpty ? nil : value
+    }
+
+    static func articleURL(blogHandle: String, articleHandle: String) -> URL? {
+        URL(string: "https://\(ShopifyConfiguration.shopDomain)/blogs/\(blogHandle)/\(articleHandle)")
+    }
+}
+
+extension ContentView {
+    static func randomAppleNonce(length: Int = 32) -> String {
+        let characters = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var nonce = ""
+        nonce.reserveCapacity(length)
+
+        while nonce.count < length {
+            let randomValue = Int.random(in: 0 ..< characters.count)
+            nonce.append(characters[randomValue])
+        }
+
+        return nonce
+    }
+
+    static func sha256(_ input: String) -> String {
+#if canImport(CryptoKit)
+        let digest = SHA256.hash(data: Data(input.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+#else
+        return input
+#endif
+    }
+}
+
+extension Color {
+    init(hex: UInt32) {
+        let red = Double((hex >> 16) & 0xFF) / 255.0
+        let green = Double((hex >> 8) & 0xFF) / 255.0
+        let blue = Double(hex & 0xFF) / 255.0
+        self.init(red: red, green: green, blue: blue)
+    }
+}
+
+
+extension ContentView {
+    struct HomeSettings: Decodable {
+        let signatureRoastProductIDs: [String]
+        let quickDrinkProductIDs: [String]
+        let funPickProductID: String?
+        let heroEyebrowAR: String?
+        let heroEyebrow: String?
+        let heroTitleAR: String?
+        let heroTitle: String?
+        let heroSubtitleAR: String?
+        let heroSubtitle: String?
+        let heroBadgeAR: String?
+        let heroBadge: String?
+        let primaryButtonTitleAR: String?
+        let primaryButtonTitle: String?
+        let secondaryButtonTitleAR: String?
+        let secondaryButtonTitle: String?
+
+        enum CodingKeys: String, CodingKey {
+            case signatureRoastProductIDs
+            case quickDrinkProductIDs
+            case funPickProductID
+            case heroEyebrowAR
+            case heroEyebrow
+            case heroTitleAR
+            case heroTitle
+            case heroSubtitleAR
+            case heroSubtitle
+            case heroBadgeAR
+            case heroBadge
+            case primaryButtonTitleAR
+            case primaryButtonTitle
+            case secondaryButtonTitleAR
+            case secondaryButtonTitle
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            signatureRoastProductIDs = try container.decodeIfPresent([String].self, forKey: .signatureRoastProductIDs) ?? []
+            quickDrinkProductIDs = try container.decodeIfPresent([String].self, forKey: .quickDrinkProductIDs) ?? []
+            funPickProductID = try container.decodeIfPresent(String.self, forKey: .funPickProductID)
+            heroEyebrowAR = try container.decodeIfPresent(String.self, forKey: .heroEyebrowAR)
+            heroEyebrow = try container.decodeIfPresent(String.self, forKey: .heroEyebrow)
+            heroTitleAR = try container.decodeIfPresent(String.self, forKey: .heroTitleAR)
+            heroTitle = try container.decodeIfPresent(String.self, forKey: .heroTitle)
+            heroSubtitleAR = try container.decodeIfPresent(String.self, forKey: .heroSubtitleAR)
+            heroSubtitle = try container.decodeIfPresent(String.self, forKey: .heroSubtitle)
+            heroBadgeAR = try container.decodeIfPresent(String.self, forKey: .heroBadgeAR)
+            heroBadge = try container.decodeIfPresent(String.self, forKey: .heroBadge)
+            primaryButtonTitleAR = try container.decodeIfPresent(String.self, forKey: .primaryButtonTitleAR)
+            primaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .primaryButtonTitle)
+            secondaryButtonTitleAR = try container.decodeIfPresent(String.self, forKey: .secondaryButtonTitleAR)
+            secondaryButtonTitle = try container.decodeIfPresent(String.self, forKey: .secondaryButtonTitle)
+        }
+    }
+}

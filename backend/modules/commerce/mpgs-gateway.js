@@ -460,6 +460,9 @@ async function initializeMpgsPayment({
     if (!email || String(order.email || "").trim().toLowerCase() !== email) {
         throw mpgsError("MPGS_ORDER_FORBIDDEN", 403, "This order does not belong to the authenticated customer.");
     }
+    if (String(order.status || "").trim().toLowerCase() !== "pending") {
+        throw mpgsError("MPGS_ORDER_NOT_PAYABLE", 409, "This order is no longer awaiting payment.");
+    }
     const amount = orderAmount(order);
     if (existingPayment) {
         verifyMpgsOrderPayment(existingPayment, order, email);

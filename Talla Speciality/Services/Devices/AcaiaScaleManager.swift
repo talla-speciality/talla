@@ -42,7 +42,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     private var mantabrewDevicesByID: [String: MantabrewScaleDriver.Device] = [:]
     private var timemoreDevicesByID: [String: TimemoreScaleDriver.Device] = [:]
     private var activeBackend: Backend?
-    private var lastWeightSample: (weight: Double, date: Date)?
+    private var lastWeightSample: (weight: Double, uptime: TimeInterval)?
 #if DEBUG
     private var isBluetoothInterruptionUITest = false
 #endif
@@ -54,22 +54,19 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             self?.refreshDiscoveredScales()
         }
         driver.onConnecting = { [weak self] name in
-            self?.connectionState = .connecting(name)
+            self?.handleConnecting(name, backend: .acaiaUmbra)
         }
         driver.onConnected = { [weak self] name in
-            self?.activeBackend = .acaiaUmbra
-            self?.lastWeightSample = nil
-            self?.connectionState = .connected(name)
+            self?.handleConnected(name, backend: .acaiaUmbra)
         }
         driver.onDisconnected = { [weak self] in
-            self?.resetConnection()
+            self?.handleDisconnected(backend: .acaiaUmbra)
         }
         driver.onError = { [weak self] message in
-            self?.activeBackend = nil
-            self?.connectionState = .failed(message)
+            self?.handleError(message, backend: .acaiaUmbra)
         }
         driver.onWeightChanged = { [weak self] weight in
-            self?.updateComputedWeight(weight)
+            self?.handleWeight(weight, backend: .acaiaUmbra)
         }
         return driver
     }()
@@ -84,23 +81,19 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             self?.finishCombinedScan()
         }
         driver.onConnecting = { [weak self] name in
-            self?.connectionState = .connecting(name)
+            self?.handleConnecting(name, backend: .bookoo)
         }
         driver.onConnected = { [weak self] name in
-            self?.activeBackend = .bookoo
-            self?.connectionState = .connected(name)
+            self?.handleConnected(name, backend: .bookoo)
         }
         driver.onDisconnected = { [weak self] in
-            self?.resetConnection()
+            self?.handleDisconnected(backend: .bookoo)
         }
         driver.onError = { [weak self] message in
-            self?.activeBackend = nil
-            self?.connectionState = .failed(message)
+            self?.handleError(message, backend: .bookoo)
         }
         driver.onTelemetry = { [weak self] weight, flow, timer in
-            self?.weightGrams = weight
-            self?.flowRateGramsPerSecond = flow
-            self?.scaleTimerSeconds = timer
+            self?.handleTelemetry(weight: weight, flow: flow, timer: timer, backend: .bookoo)
         }
         return driver
     }()
@@ -112,22 +105,19 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             self?.refreshDiscoveredScales()
         }
         driver.onConnecting = { [weak self] name in
-            self?.connectionState = .connecting(name)
+            self?.handleConnecting(name, backend: .gina)
         }
         driver.onConnected = { [weak self] name in
-            self?.activeBackend = .gina
-            self?.lastWeightSample = nil
-            self?.connectionState = .connected(name)
+            self?.handleConnected(name, backend: .gina)
         }
         driver.onDisconnected = { [weak self] in
-            self?.resetConnection()
+            self?.handleDisconnected(backend: .gina)
         }
         driver.onError = { [weak self] message in
-            self?.activeBackend = nil
-            self?.connectionState = .failed(message)
+            self?.handleError(message, backend: .gina)
         }
         driver.onWeightChanged = { [weak self] weight in
-            self?.updateComputedWeight(weight)
+            self?.handleWeight(weight, backend: .gina)
         }
         return driver
     }()
@@ -139,22 +129,19 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             self?.refreshDiscoveredScales()
         }
         driver.onConnecting = { [weak self] name in
-            self?.connectionState = .connecting(name)
+            self?.handleConnecting(name, backend: .hiroia)
         }
         driver.onConnected = { [weak self] name in
-            self?.activeBackend = .hiroia
-            self?.lastWeightSample = nil
-            self?.connectionState = .connected(name)
+            self?.handleConnected(name, backend: .hiroia)
         }
         driver.onDisconnected = { [weak self] in
-            self?.resetConnection()
+            self?.handleDisconnected(backend: .hiroia)
         }
         driver.onError = { [weak self] message in
-            self?.activeBackend = nil
-            self?.connectionState = .failed(message)
+            self?.handleError(message, backend: .hiroia)
         }
         driver.onWeightChanged = { [weak self] weight in
-            self?.updateComputedWeight(weight)
+            self?.handleWeight(weight, backend: .hiroia)
         }
         return driver
     }()
@@ -166,22 +153,19 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             self?.refreshDiscoveredScales()
         }
         driver.onConnecting = { [weak self] name in
-            self?.connectionState = .connecting(name)
+            self?.handleConnecting(name, backend: .mantabrew)
         }
         driver.onConnected = { [weak self] name in
-            self?.activeBackend = .mantabrew
-            self?.lastWeightSample = nil
-            self?.connectionState = .connected(name)
+            self?.handleConnected(name, backend: .mantabrew)
         }
         driver.onDisconnected = { [weak self] in
-            self?.resetConnection()
+            self?.handleDisconnected(backend: .mantabrew)
         }
         driver.onError = { [weak self] message in
-            self?.activeBackend = nil
-            self?.connectionState = .failed(message)
+            self?.handleError(message, backend: .mantabrew)
         }
         driver.onWeightChanged = { [weak self] weight in
-            self?.updateComputedWeight(weight)
+            self?.handleWeight(weight, backend: .mantabrew)
         }
         return driver
     }()
@@ -193,22 +177,19 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             self?.refreshDiscoveredScales()
         }
         driver.onConnecting = { [weak self] name in
-            self?.connectionState = .connecting(name)
+            self?.handleConnecting(name, backend: .timemore)
         }
         driver.onConnected = { [weak self] name in
-            self?.activeBackend = .timemore
-            self?.lastWeightSample = nil
-            self?.connectionState = .connected(name)
+            self?.handleConnected(name, backend: .timemore)
         }
         driver.onDisconnected = { [weak self] in
-            self?.resetConnection()
+            self?.handleDisconnected(backend: .timemore)
         }
         driver.onError = { [weak self] message in
-            self?.activeBackend = nil
-            self?.connectionState = .failed(message)
+            self?.handleError(message, backend: .timemore)
         }
         driver.onWeightChanged = { [weak self] weight in
-            self?.updateComputedWeight(weight)
+            self?.handleWeight(weight, backend: .timemore)
         }
         return driver
     }()
@@ -242,7 +223,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
             return
         }
 #endif
-        guard !isConnected else { return }
+        guard activeBackend == nil, !isConnected else { return }
         connectionState = .scanning
         acaiaScalesByID = [:]
         acaiaUmbraDevicesByID = [:]
@@ -275,6 +256,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     func connect(to id: String) {
+        guard activeBackend == nil else { return }
         if id.hasPrefix("acaia:"), let scale = acaiaScalesByID[id] {
             activeBackend = .acaia
             connectionState = .connecting(scale.name)
@@ -360,6 +342,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
         case .timemore: timemoreDriver.disconnect()
         case nil: break
         }
+        resetConnection()
     }
 
 #if DEBUG
@@ -484,11 +467,48 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     private func finishCombinedScan() {
-        guard !isConnected else { return }
+        guard activeBackend == nil, !isConnected else { return }
         refreshAcaiaScales()
         connectionState = discoveredScales.isEmpty
             ? .failed("No supported scale found. Make sure your Acaia, BOOKOO, GINA, HIROIA, MANTABREW, or TIMEMORE scale is on and nearby.")
             : .disconnected
+    }
+
+    private func handleConnecting(_ name: String, backend: Backend) {
+        guard activeBackend == backend else { return }
+        connectionState = .connecting(name)
+    }
+
+    private func handleConnected(_ name: String, backend: Backend) {
+        guard activeBackend == backend else { return }
+        weightGrams = 0
+        flowRateGramsPerSecond = 0
+        scaleTimerSeconds = 0
+        lastWeightSample = nil
+        connectionState = .connected(name)
+    }
+
+    private func handleDisconnected(backend: Backend) {
+        guard activeBackend == backend else { return }
+        resetConnection()
+    }
+
+    private func handleError(_ message: String, backend: Backend) {
+        guard activeBackend == backend else { return }
+        resetConnection()
+        connectionState = .failed(message)
+    }
+
+    private func handleWeight(_ weight: Double, backend: Backend) {
+        guard activeBackend == backend, isConnected else { return }
+        updateComputedWeight(weight)
+    }
+
+    private func handleTelemetry(weight: Double, flow: Double, timer: Int, backend: Backend) {
+        guard activeBackend == backend, isConnected, weight.isFinite else { return }
+        weightGrams = weight
+        flowRateGramsPerSecond = flow.isFinite ? max(flow, 0) : 0
+        scaleTimerSeconds = max(timer, 0)
     }
 
     private func resetConnection() {
@@ -501,9 +521,10 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     private func updateComputedWeight(_ weight: Double) {
-        let now = Date()
+        guard weight.isFinite else { return }
+        let now = ProcessInfo.processInfo.systemUptime
         if let lastWeightSample {
-            let elapsed = now.timeIntervalSince(lastWeightSample.date)
+            let elapsed = now - lastWeightSample.uptime
             if elapsed > 0.05 {
                 let instantaneous = max((weight - lastWeightSample.weight) / elapsed, 0)
                 flowRateGramsPerSecond = (flowRateGramsPerSecond * 0.65) + (instantaneous * 0.35)
@@ -517,7 +538,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     @objc private func scaleDidConnect() {
-        activeBackend = .acaia
+        guard activeBackend == .acaia else { return }
         refreshConnectionState()
     }
 
@@ -527,9 +548,7 @@ final class CoffeeScaleManager: NSObject, ObservableObject {
     }
 
     @objc private func scaleConnectionFailed() {
-        guard activeBackend == .acaia else { return }
-        activeBackend = nil
-        connectionState = .failed("Could not connect to the Acaia scale.")
+        handleError("Could not connect to the Acaia scale.", backend: .acaia)
     }
 
     @objc private func scaleListChanged() {

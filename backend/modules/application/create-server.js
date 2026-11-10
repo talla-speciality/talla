@@ -4,6 +4,9 @@ const { coffeeClubProductEligible } = require("../commerce/coffee-club-products"
 const { validGiftToken } = require("../commerce/social-coffee-gifts");
 const { createSocialCoffeeStore } = require("../commerce/social-coffee-store");
 const { createEducationContentStore } = require("./education-content");
+const { createEducationActivityService } = require("../loyalty/education-activity");
+const { refundAmountForOrder, refundSettled } = require("../commerce/order-refund");
+const { educationProgressComplete } = require("../loyalty/education-claim");
 const { normalizeProfile, normalizeRoasterRecipe } = require("../brewing/espresso-community");
 const { espressoMachineCatalog } = require("../brewing/espresso-machine-catalog");
 const { recommendNextCup } = require("../discovery/next-cup-recommendations");
@@ -140,6 +143,8 @@ module.exports = function createServer(dependencies) {
         buildCustomerTimeline,
         buildPasswordResetLink,
         buildVoucherRecord,
+        redeemLoyaltyVoucher,
+        reverseOrderBeans,
         campaignSettingsStorePath,
         cardPaymentLocks,
         cardPaymentRowToRecord,
@@ -186,6 +191,7 @@ module.exports = function createServer(dependencies) {
         customerTokensConfigured,
         dataDirectory,
         database,
+        educationActivityStorePath,
         decodeBase64URL,
         defaultAppSettings,
         defaultCampaignSettings,
@@ -546,6 +552,10 @@ module.exports = function createServer(dependencies) {
         writeWalletStampStrips
     } = dependencies;
     const educationContent = createEducationContentStore();
+    const educationActivity = createEducationActivityService({
+        database, readJSON, writeJSON, filePath: educationActivityStorePath,
+        questionsFor: () => educationContent.read().questions
+    });
     const coffeeConcierge = createCoffeeConcierge({ config });
     const socialCoffeeStore = createSocialCoffeeStore({ database, path: socialCoffeeStorePath, readJSON, writeJSON });
     const readSocialCoffeeStore = async (response) => {
@@ -1179,7 +1189,11 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "GET" && url.pathname === "/education-content") {
-        sendJSON(response, 200, educationContent.read(), { "Cache-Control": "no-store" });
+        const content = educationContent.read();
+        sendJSON(response, 200, {
+            ...content,
+            questions: content.questions.map(({ id, prompt, options }) => ({ id, prompt, options }))
+        }, { "Cache-Control": "no-store" });
         return;
     }
 
@@ -1468,7 +1482,7 @@ module.exports = function createServer(dependencies) {
                 return result;
             }, {});
             sendJSON(response, 200, {
-                users: adminUsers.map((user) => ({ username: user.username, role: user.role, activeSessions: sessionsByUser[user.username]?.count || 0, latestSessionExpiry: sessionsByUser[user.username]?.latestExpiry || null }))
+                users: adminUsers.map((user) => ({ username: user.username, role: user.role, active: user.active !== false, activeSessions: sessionsByUser[user.username]?.count || 0, latestSessionExpiry: sessionsByUser[user.username]?.latestExpiry || null }))
             }, { "Cache-Control": "no-store" });
             return;
         }
@@ -2906,21 +2920,31 @@ module.exports = function createServer(dependencies) {
                     sendJSON(response, 400, { error: "Provide a valid order, customer email, and refund amount." });
                     return;
                 }
+                const { amountFils, fullRefund } = refundAmountForOrder(order, amount, { numericOrderTotal, bhdFils });
                 const refund = await executeShopifyOrderRefund(orderID, amount, body.note);
-                const updated = await updateOrderStatusAndAward(email, orderID, "Cancelled");
+                const settled = refundSettled(refund, amountFils, bhdFils);
+                const loyaltyReversal = fullRefund && settled
+                    ? await reverseOrderBeans({ ...order, email })
+                    : { reversed: false, reason: "NOT_FULLY_SETTLED" };
+                const updated = fullRefund && settled
+                    ? await updateOrderStatusAndAward(email, orderID, "Cancelled")
+                    : await orderPayloadWithRewardState(email, order);
                 await createAdminAuditLog({
                     adminUser: admin.username,
                     action: "order_refund_executed",
                     targetEmail: email,
                     detail: `Executed Shopify refund for order ${orderID}`,
-                    metadata: { orderID, amount, refundID: refund.id }
+                    metadata: { orderID, amount, fullRefund, settled, loyaltyReversal, refundID: refund.id }
                 });
-                sendJSON(response, 200, { order: updated, refund });
+                sendJSON(response, 200, { order: updated, refund, fullRefund, settled, loyaltyReversal });
             } catch (error) {
-                const message = error.message === "SHOPIFY_REFUND_UNAVAILABLE"
-                    ? "This order is not eligible for an automatically executed Shopify refund."
-                    : error.message || "Refund execution failed.";
-                sendJSON(response, 409, { error: message });
+                const invalidAmount = error.message === "REFUND_AMOUNT_OUT_OF_RANGE";
+                const message = invalidAmount
+                    ? "Refund amount must be positive and no greater than the order total."
+                    : error.message === "SHOPIFY_REFUND_UNAVAILABLE"
+                        ? "This order is not eligible for an automatically executed Shopify refund."
+                        : error.message || "Refund execution failed.";
+                sendJSON(response, invalidAmount ? 400 : 409, { error: message });
             }
             return;
         }
@@ -3973,22 +3997,26 @@ module.exports = function createServer(dependencies) {
             if (payment.paymentMethod !== "APPLE_PAY" || !timingSafeStringEqual(sessionID, payment.sessionID)) {
                 throw benefitPaymentError("MPGS_SESSION_MISMATCH", 409, "Apple Pay session does not match this order.");
             }
-            if (payment.effectsAppliedAt) {
-                sendJSON(response, 200, { status: "succeeded", orderId: payment.mpgsOrderID, duplicate: true });
-                return;
-            }
-            const purchaseTransactionID = payment.purchaseTransactionID || createMpgsTransactionID("APAY");
-            await updateCardPaymentLifecycle(payment.paymentID, { purchaseTransactionID, status: "Processing" });
-            const purchaseResponse = await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
-                orderId: payment.mpgsOrderID,
-                transactionId: purchaseTransactionID,
-                sessionId: payment.sessionID,
-                amount: payment.amount,
-                walletProvider: "APPLE_PAY"
+            const applied = await withCardPaymentLock(`purchase:${payment.paymentID}`, async () => {
+                const latest = await findCardPaymentByID(payment.paymentID);
+                if (!latest) throw benefitPaymentError("MPGS_PAYMENT_NOT_FOUND", 404, "Payment was not found.");
+                if (latest.effectsAppliedAt) return { applied: false };
+                if (["Declined", "Cancelled", "AuthenticationFailed"].includes(latest.status)) {
+                    throw benefitPaymentError("MPGS_PAYMENT_RETRY_REQUIRED", 409, "Start a new payment session to retry this order.");
+                }
+                const purchaseTransactionID = latest.purchaseTransactionID || createMpgsTransactionID("APAY", latest.paymentID);
+                await updateCardPaymentLifecycle(latest.paymentID, { purchaseTransactionID, status: "Processing" });
+                const purchaseResponse = await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
+                    orderId: latest.mpgsOrderID,
+                    transactionId: purchaseTransactionID,
+                    sessionId: latest.sessionID,
+                    amount: latest.amount,
+                    walletProvider: "APPLE_PAY"
+                });
+                mpgsGateway.assertMpgsPaymentAccepted(purchaseResponse);
+                const gatewayOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, latest.mpgsOrderID);
+                return applyConfirmedMpgsPayment(latest.paymentID, gatewayOrder);
             });
-            mpgsGateway.assertMpgsPaymentAccepted(purchaseResponse);
-            const gatewayOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, payment.mpgsOrderID);
-            const applied = await applyConfirmedMpgsPayment(payment.paymentID, gatewayOrder);
             console.info(`MPGS Apple Pay confirmed for order ${localOrderID}: applied=${applied.applied}.`);
             sendJSON(response, 200, { status: "succeeded", orderId: payment.mpgsOrderID, duplicate: !applied.applied });
         } catch (error) {
@@ -4321,25 +4349,29 @@ module.exports = function createServer(dependencies) {
             await updateCardPaymentSessionVersion(payment.paymentID, gatewaySession.session.version);
             const authenticationOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, payment.mpgsOrderID);
             verifyMpgsAuthenticationForPurchase(payment, authenticationOrder);
-            if (payment.effectsAppliedAt) {
-                sendJSON(response, 200, { status: "succeeded", orderId: payment.mpgsOrderID, duplicate: true });
-                return;
-            }
-            const purchaseTransactionID = payment.purchaseTransactionID || createMpgsTransactionID("PAY");
-            await updateCardPaymentLifecycle(payment.paymentID, {
-                purchaseTransactionID,
-                status: "Processing"
+            const applied = await withCardPaymentLock(`purchase:${payment.paymentID}`, async () => {
+                const latest = await findCardPaymentByID(payment.paymentID);
+                if (!latest) throw benefitPaymentError("MPGS_PAYMENT_NOT_FOUND", 404, "Payment was not found.");
+                if (latest.effectsAppliedAt) return { applied: false };
+                if (["Declined", "Cancelled", "AuthenticationFailed"].includes(latest.status)) {
+                    throw benefitPaymentError("MPGS_PAYMENT_RETRY_REQUIRED", 409, "Start a new payment session to retry this order.");
+                }
+                const purchaseTransactionID = latest.purchaseTransactionID || createMpgsTransactionID("PAY", latest.paymentID);
+                await updateCardPaymentLifecycle(latest.paymentID, {
+                    purchaseTransactionID,
+                    status: "Processing"
+                });
+                const purchaseResponse = await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
+                    orderId: latest.mpgsOrderID,
+                    transactionId: purchaseTransactionID,
+                    authenticationTransactionId: latest.authenticationTransactionID,
+                    sessionId: latest.sessionID,
+                    amount: latest.amount
+                });
+                mpgsGateway.assertMpgsPaymentAccepted(purchaseResponse);
+                const gatewayOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, latest.mpgsOrderID);
+                return applyConfirmedMpgsPayment(latest.paymentID, gatewayOrder);
             });
-            const purchaseResponse = await mpgsGateway.executeMpgsPurchase(mpgsConfiguration, {
-                orderId: payment.mpgsOrderID,
-                transactionId: purchaseTransactionID,
-                authenticationTransactionId: payment.authenticationTransactionID,
-                sessionId: payment.sessionID,
-                amount: payment.amount
-            });
-            mpgsGateway.assertMpgsPaymentAccepted(purchaseResponse);
-            const gatewayOrder = await mpgsGateway.retrieveMpgsOrder(mpgsConfiguration, payment.mpgsOrderID);
-            const applied = await applyConfirmedMpgsPayment(payment.paymentID, gatewayOrder);
             console.info(`MPGS card payment confirmed for order ${localOrderID}: applied=${applied.applied}.`);
             sendJSON(response, 200, {
                 status: "succeeded",
@@ -4390,6 +4422,9 @@ module.exports = function createServer(dependencies) {
                 if (!order) throw benefitPaymentError("MPGS_ORDER_NOT_FOUND", 404, "Order not found.");
                 if (!timingSafeStringEqual(normalizeEmail(order.email), normalizeEmail(customer.email))) {
                     throw benefitPaymentError("MPGS_ORDER_FORBIDDEN", 403, "This order does not belong to the authenticated customer.");
+                }
+                if (String(order.status || "").trim().toLowerCase() !== "pending") {
+                    throw benefitPaymentError("MPGS_ORDER_NOT_PAYABLE", 409, "This order is no longer awaiting payment.");
                 }
                 const existing = await findPendingCardPayment(localOrderID, customer.email);
                 if (existing) {
@@ -6622,105 +6657,75 @@ module.exports = function createServer(dependencies) {
     }
 
     if (request.method === "POST" && url.pathname === "/loyalty/transactions/earn") {
+        sendJSON(response, 403, { error: "Beans are awarded from verified server activity." });
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/loyalty/activities/education-lesson") {
         try {
-            const body = await readBody(request);
-            const points = Number(body.points);
-            const note = String(body.note || "Beans adjustment");
-            const idempotencyKey = String(body.idempotencyKey || "").trim().slice(0, 120);
-            const requestedEmail = normalizeEmail(body.email);
-            const authenticated = parseAuthenticatedCustomer(request, response, requestedEmail || null);
-            if (!authenticated) {
-                return;
-            }
-
+            const body = await readBody(request, 1_024);
+            const authenticated = parseAuthenticatedCustomer(request, response, normalizeEmail(body.email) || null);
+            if (!authenticated) return;
             const customer = await resolveCustomerSession(authenticated, response);
-            if (!customer) {
-                return;
-            }
-
-            if (!Number.isFinite(points) || points <= 0 || !idempotencyKey) {
-                sendJSON(response, 400, { error: "Invalid earn payload" });
-                return;
-            }
-
-            if (!idempotencyKey.startsWith("phase6:")) {
-                sendJSON(response, 403, { error: "Beans can only be awarded for a verified activity." });
-                return;
-            }
-
-            if (idempotencyKey.startsWith("phase6:")) {
-                const allowedPhaseSixPoints = { birthday: 50, mission: 40, achievement: 30, review: 25 };
-                const activityParts = idempotencyKey.slice("phase6:".length).split(":");
-                const activityID = activityParts[0];
-                if (allowedPhaseSixPoints[activityID] !== points) {
-                    sendJSON(response, 400, { error: "Invalid Phase 6 reward activity." });
-                    return;
-                }
-                if (activityID === "birthday") {
-                    const year = Number(activityParts[1]);
-                    const birthday = await birthdayProfileFor(customer.email);
-                    const now = new Date();
-                    if (!birthday || year !== now.getUTCFullYear() || birthday.month !== now.getUTCMonth() + 1 || birthday.day !== now.getUTCDate()) {
-                        sendJSON(response, 409, { error: "Birthday rewards are available on your birthday." });
-                        return;
-                    }
-                }
-            }
-
-            const existingAccount = await ensureLoyaltyAccount(customer.email);
-            if (idempotencyKey && existingAccount.transactions?.some((transaction) => transaction.id === idempotencyKey)) {
-                sendJSON(response, 200, loyaltyPayload(existingAccount));
-                return;
-            }
-
-            const updated = await updateLoyaltyAccount(customer.email, (account) => {
-                account.pointsBalance += points;
-                account.transactions = account.transactions || [];
-                account.transactions.unshift({
-                    id: idempotencyKey || `txn_${Date.now()}`,
-                    type: "earn",
-                    points,
-                    note,
-                    createdAt: new Date().toISOString()
-                });
-            });
-
-            if (!updated) {
-                sendJSON(response, 404, { error: "Account not found" });
-                return;
-            }
-
-            sendJSON(response, 200, loyaltyPayload(updated));
+            if (!customer) return;
+            sendJSON(response, 200, await educationActivity.recordLesson(customer.email, body.lessonID));
         } catch (error) {
-            sendJSON(response, 400, { error: "Invalid JSON body" });
+            sendJSON(response, error.message === "INVALID_EDUCATION_LESSON" ? 400 : 503, {
+                error: error.message === "INVALID_EDUCATION_LESSON" ? "Unknown lesson." : "Education progress could not be saved."
+            });
+        }
+        return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/loyalty/activities/education-answer") {
+        try {
+            const body = await readBody(request, 1_024);
+            const authenticated = parseAuthenticatedCustomer(request, response, normalizeEmail(body.email) || null);
+            if (!authenticated) return;
+            const customer = await resolveCustomerSession(authenticated, response);
+            if (!customer) return;
+            sendJSON(response, 200, await educationActivity.recordAnswer(customer.email, body.questionID, body.answer));
+        } catch (error) {
+            if (error.message === "EDUCATION_QUIZ_COOLDOWN") {
+                sendJSON(response, 429, {
+                    error: "Quiz checks are paused after three incorrect answers. Try again later.",
+                    retryAfterSeconds: error.retryAfterSeconds
+                }, { "Retry-After": String(error.retryAfterSeconds) });
+                return;
+            }
+            const invalid = ["INVALID_EDUCATION_ANSWER", "UNKNOWN_EDUCATION_QUESTION"].includes(error.message);
+            sendJSON(response, invalid ? 400 : 503, { error: invalid ? "Unknown question or answer." : "Quiz answer could not be checked." });
         }
         return;
     }
 
     if (request.method === "POST" && url.pathname === "/loyalty/activities/education-claim") {
         try {
-            const body = await readBody(request);
-            const lessons = Number(body.lessons);
-            const score = Number(body.score);
-            const authenticated = parseAuthenticatedCustomer(request, response);
+            const body = await readBody(request, 1_024);
+            const authenticated = parseAuthenticatedCustomer(request, response, normalizeEmail(body.email) || null);
             if (!authenticated) return;
             const customer = await resolveCustomerSession(authenticated, response);
             if (!customer) return;
-            if (!Number.isFinite(lessons) || lessons < 3 || !Number.isFinite(score) || score < 2) {
-                sendJSON(response, 409, { error: "Complete at least three lessons and two quiz answers correctly." });
-                return;
-            }
             const account = await ensureLoyaltyAccount(customer.email);
             const id = "phase6:education";
             if (account.transactions?.some((transaction) => transaction.id === id)) {
                 sendJSON(response, 200, loyaltyPayload(account));
                 return;
             }
+            if (!educationProgressComplete(await educationActivity.progress(customer.email))) {
+                sendJSON(response, 409, { error: "Complete all three lessons and answer two distinct quiz questions correctly." });
+                return;
+            }
             const updated = await updateLoyaltyAccount(customer.email, (working) => {
+                if (working.transactions?.some((transaction) => transaction.id === id)) return;
                 working.pointsBalance += 25;
                 working.transactions = working.transactions || [];
                 working.transactions.unshift({ id, type: "earn", points: 25, note: "Completed coffee education path", createdAt: new Date().toISOString() });
             });
+            if (!updated) {
+                sendJSON(response, 404, { error: "Account not found" });
+                return;
+            }
             sendJSON(response, 200, loyaltyPayload(updated));
         } catch (error) {
             sendJSON(response, 400, { error: "Invalid education reward payload." });
@@ -6756,38 +6761,21 @@ module.exports = function createServer(dependencies) {
             }
 
             const voucher = buildVoucherRecord(customer.email, reward, points);
-            const updated = await updateLoyaltyAccount(customer.email, (account) => {
-                if (account.pointsBalance < points) {
-                    throw new Error("INSUFFICIENT_POINTS");
-                }
-
-                account.pointsBalance -= points;
-                account.transactions = account.transactions || [];
-                account.transactions.unshift({
-                    id: `txn_${Date.now()}`,
-                    type: "redeem",
-                    points,
-                    note: reward,
-                    voucherCode: voucher.code,
-                    voucherDetail: voucher.detail,
-                    voucherExpiresAt: voucher.expiresAt,
-                    voucherSingleUse: voucher.singleUse,
-                    voucherStatus: voucher.status,
-                    createdAt: new Date().toISOString()
-                });
-            });
+            const updated = await redeemLoyaltyVoucher(customer.email, voucher, body.idempotencyKey);
 
             if (!updated) {
                 sendJSON(response, 404, { error: "Account not found" });
                 return;
             }
 
-            await storeVoucherRecord(voucher);
-
             sendJSON(response, 200, loyaltyPayload(updated));
         } catch (error) {
             if (error.message === "INSUFFICIENT_POINTS") {
                 sendJSON(response, 409, { error: "Insufficient Beans" });
+                return;
+            }
+            if (error.message === "REDEMPTION_KEY_CONFLICT") {
+                sendJSON(response, 409, { error: "This redemption request belongs to a different reward." });
                 return;
             }
 

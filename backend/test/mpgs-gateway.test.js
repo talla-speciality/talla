@@ -349,6 +349,21 @@ test("duplicate session creation reuses the pending record without another gatew
     assert.equal(persistCalled, false);
 });
 
+test("a confirmed order cannot open another card payment session", async () => {
+    let gatewayCalled = false;
+    await assert.rejects(
+        mpgsGateway.initializeMpgsPayment({
+            configuration,
+            order: order({ status: "Confirmed" }),
+            customerEmail,
+            persistPayment: async (payment) => payment,
+            fetchImpl: async () => { gatewayCalled = true; }
+        }),
+        (error) => error.code === "MPGS_ORDER_NOT_PAYABLE" && error.statusCode === 409
+    );
+    assert.equal(gatewayCalled, false);
+});
+
 test("3DS initiation and payer authentication use API version 100 transaction operations", async () => {
     const calls = [];
     const fetchImpl = async (url, options) => {

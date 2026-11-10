@@ -15,6 +15,8 @@ const appAttest = require("./modules/account/app-attest");
 const webPush = require("web-push");
 const googleMobileServices = require("./modules/account/google-mobile-services");
 const { writeWalletStampStrips } = require("./modules/loyalty/wallet-pass-artwork");
+const { createLoyaltyMutationService } = require("./modules/loyalty/mutation");
+const { createLoyaltyRedemptionService } = require("./modules/loyalty/redemption");
 const {
     emptyCustomerLibrary,
     mergeCustomerLibraryRecords,
@@ -49,6 +51,7 @@ const host = config.host;
 const port = config.port;
 const dataDirectory = config.dataDirectory;
 const loyaltyStorePath = config.stores.loyalty;
+const educationActivityStorePath = config.stores.educationActivity;
 const accountsStorePath = config.stores.accounts;
 const ordersStorePath = config.stores.orders;
 const vouchersStorePath = config.stores.vouchers;
@@ -196,6 +199,7 @@ let walletPushCredentialsCache = null;
 const walletPassUpdateTimers = new Map();
 
 ensureStoreFile(loyaltyStorePath, { accounts: {}, referrals: {} });
+ensureStoreFile(educationActivityStorePath, { accounts: {} });
 ensureStoreFile(accountsStorePath, { accounts: {} });
 ensureStoreFile(ordersStorePath, { orders: {} });
 ensureStoreFile(vouchersStorePath, { vouchers: {} });
@@ -680,6 +684,14 @@ function defaultPassportSettings() {
             { id: "colombia", title: "Colombia", emoji: "🇨🇴", keywords: ["colombia", "colombian"], rewardLabel: "" },
             { id: "brazil", title: "Brazil", emoji: "🇧🇷", keywords: ["brazil", "brazilian"], rewardLabel: "" }
         ],
+        brewGuides: [
+            { id: "hawar-islands", productKeywords: ["hawar-islands", "hawari-islands"], origin: "Colombia", profile: "Balanced, bright, and smooth", notes: "Caramel, ripe fruit, and a clean finish", method: "V60 / pour-over", dose: "15 g coffee", water: "250 g water", temperature: "93°C", grind: "Medium-fine", brewTime: "2:45–3:15" },
+            { id: "muharraq", productKeywords: ["muharraq"], origin: "Ethiopia", profile: "Floral, bright, and aromatic", notes: "Floral aromatics, citrus brightness, and stone fruit", method: "V60 / pour-over", dose: "15 g coffee", water: "250 g water", temperature: "94°C", grind: "Medium-fine", brewTime: "2:45–3:15" },
+            { id: "durrat-al-bahrain", productKeywords: ["durrat-al-bahrain", "durrat-bahrain"], origin: "Brazil", profile: "Smooth, sweet, and comforting", notes: "Milk chocolate, toasted nuts, and gentle sweetness", method: "V60 / pour-over", dose: "15 g coffee", water: "240 g water", temperature: "92°C", grind: "Medium", brewTime: "2:45–3:15" },
+            { id: "riffa", productKeywords: ["riffa"], origin: "Yemen", profile: "Rich, deep, and wine-like", notes: "Cocoa, dried fruit, warm spice, and a lingering finish", method: "V60 / pour-over", dose: "15 g coffee", water: "240 g water", temperature: "93°C", grind: "Medium", brewTime: "3:00–3:30" },
+            { id: "al-majd", productKeywords: ["al-majd", "almajd"], origin: "Qatar", profile: "Golden, aromatic, and delicately floral", notes: "Cardamom, saffron, rose water, and gentle floral sweetness", method: "Arabic coffee / dallah", dose: "10 g coffee", water: "150 g water", temperature: "90–92°C", grind: "Fine", brewTime: "8–10 min" },
+            { id: "zayed", productKeywords: ["zayed"], origin: "United Arab Emirates", profile: "Light, fragrant, and warmly spiced", notes: "Cardamom, saffron, golden sweetness, and delicate spice", method: "Arabic coffee / dallah", dose: "10 g coffee", water: "150 g water", temperature: "90–92°C", grind: "Fine", brewTime: "8–10 min" }
+        ],
         completionRewardTitle: "Passport reward",
         completionRewardDetail: "Complete your passport to unlock a reward.",
         updatedAt: null
@@ -719,8 +731,34 @@ function normalizePassportSettings(value = {}) {
         .filter(Boolean)
         .slice(0, 8);
 
+    const fallbackGuides = fallback.brewGuides;
+    const fallbackGuideByID = new Map(fallbackGuides.map((guide) => [guide.id, guide]));
+    const seenGuideIDs = new Set();
+    const sourceGuides = Array.isArray(value.brewGuides) ? value.brewGuides : fallbackGuides;
+    const brewGuides = sourceGuides.map((guide) => {
+        const id = trimText(guide?.id, 60).toLowerCase().replace(/[^a-z0-9-]/g, "-");
+        if (!id || seenGuideIDs.has(id)) return null;
+        seenGuideIDs.add(id);
+        const fallbackGuide = fallbackGuideByID.get(id) || {};
+        const keywords = Array.isArray(guide?.productKeywords) ? guide.productKeywords : String(guide?.productKeywords || "").split(",");
+        return {
+            id,
+            productKeywords: keywords.map((keyword) => trimText(keyword, 80).toLowerCase()).filter(Boolean).slice(0, 12),
+            origin: trimText(guide?.origin || fallbackGuide.origin, 80),
+            profile: trimText(guide?.profile || fallbackGuide.profile, 180),
+            notes: trimText(guide?.notes || fallbackGuide.notes, 240),
+            method: trimText(guide?.method || fallbackGuide.method, 80),
+            dose: trimText(guide?.dose || fallbackGuide.dose, 40),
+            water: trimText(guide?.water || fallbackGuide.water, 40),
+            temperature: trimText(guide?.temperature || fallbackGuide.temperature, 30),
+            grind: trimText(guide?.grind || fallbackGuide.grind, 50),
+            brewTime: trimText(guide?.brewTime || fallbackGuide.brewTime, 40)
+        };
+    }).filter((guide) => guide && guide.productKeywords.length && guide.origin && guide.method).slice(0, 24);
+
     return {
         origins: origins.length ? origins : fallback.origins,
+        brewGuides: brewGuides.length ? brewGuides : fallbackGuides,
         completionRewardTitle: trimText(value.completionRewardTitle || fallback.completionRewardTitle, 80),
         completionRewardDetail: trimText(value.completionRewardDetail || fallback.completionRewardDetail, 180),
         updatedAt: value.updatedAt || fallback.updatedAt
@@ -1230,11 +1268,21 @@ async function executeShopifyOrderRefund(orderID, amount, note = "Customer order
     }`, { id: orderGID });
     const order = lookup.order;
     const transaction = order?.transactions?.find((candidate) => String(candidate.kind).toUpperCase() === "SALE" && String(candidate.status).toUpperCase() === "SUCCESS");
-    if (!transaction) throw new Error("SHOPIFY_REFUND_TRANSACTION_UNAVAILABLE");
+    if (!transaction || transaction.amountSet?.shopMoney?.currencyCode !== "BHD") {
+        throw new Error("SHOPIFY_REFUND_TRANSACTION_UNAVAILABLE");
+    }
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) throw new Error("SHOPIFY_REFUND_AMOUNT_INVALID");
     const result = await shopifyAdminGraphQLRequest(`mutation($input: RefundInput!) {
-        refundCreate(input: $input) { refund { id status } userErrors { field message } }
+        refundCreate(input: $input) {
+            refund {
+                id
+                transactions(first: 20) {
+                    nodes { kind status amountSet { shopMoney { amount currencyCode } } }
+                }
+            }
+            userErrors { field message }
+        }
     }`, { input: { orderId: orderGID, note: String(note || "").slice(0, 500), transactions: [{ parentId: transaction.id, amount: numericAmount.toFixed(3), kind: "REFUND" }] } });
     assertShopifyUserErrors(result.refundCreate?.userErrors);
     if (!result.refundCreate?.refund?.id) throw new Error("SHOPIFY_REFUND_NOT_CREATED");
@@ -2601,9 +2649,10 @@ async function runBirthdayRewardScan() {
     const year = new Date().getUTCFullYear();
     const transactionID = `phase6:birthday:${year}`;
     for (const email of await birthdayProfilesForToday()) {
-        const account = await ensureLoyaltyAccount(email);
-        if (account.transactions?.some((transaction) => transaction.id === transactionID)) continue;
+        await ensureLoyaltyAccount(email);
+        let awarded = false;
         const updated = await updateLoyaltyAccount(email, (working) => {
+            if (working.transactions?.some((transaction) => transaction.id === transactionID)) return;
             working.pointsBalance += 50;
             working.birthdayRewardAvailable = true;
             working.transactions = working.transactions || [];
@@ -2614,8 +2663,9 @@ async function runBirthdayRewardScan() {
                 note: "Birthday reward",
                 createdAt: new Date().toISOString()
             });
+            awarded = true;
         });
-        if (!updated) continue;
+        if (!updated || !awarded) continue;
         for (const device of await pushDevicesForEmail(email)) {
             await sendRemotePushToDevice(device, {
                 title: "Happy birthday from Talla",
@@ -2637,23 +2687,21 @@ async function awardMonthlyMissionIfComplete(email, journal) {
         .map((entry) => String(entry.method || "").trim().toLowerCase())
         .filter(Boolean));
     if (methods.size < 3) return;
-    const account = await ensureLoyaltyAccount(email);
-    if (account.transactions?.some((transaction) => transaction.id === transactionID)) return;
+    await ensureLoyaltyAccount(email);
     await updateLoyaltyAccount(email, (working) => {
+        if (working.transactions?.some((transaction) => transaction.id === transactionID)) return;
         working.pointsBalance += 40;
         working.transactions = working.transactions || [];
         working.transactions.unshift({ id: transactionID, type: "earn", points: 40, note: "Monthly brewing mission", createdAt: now.toISOString() });
     });
     if (methods.size >= 4) {
         const achievementID = "phase6:achievement";
-        const refreshed = await ensureLoyaltyAccount(email);
-        if (!refreshed.transactions?.some((transaction) => transaction.id === achievementID)) {
-            await updateLoyaltyAccount(email, (working) => {
-                working.pointsBalance += 30;
-                working.transactions = working.transactions || [];
-                working.transactions.unshift({ id: achievementID, type: "earn", points: 30, note: "Brew method achievement", createdAt: now.toISOString() });
-            });
-        }
+        await updateLoyaltyAccount(email, (working) => {
+            if (working.transactions?.some((transaction) => transaction.id === achievementID)) return;
+            working.pointsBalance += 30;
+            working.transactions = working.transactions || [];
+            working.transactions.unshift({ id: achievementID, type: "earn", points: 30, note: "Brew method achievement", createdAt: now.toISOString() });
+        });
     }
 }
 
@@ -2681,7 +2729,6 @@ async function awardBrewJournalRewards(email, journal) {
     const entries = Array.isArray(journal) ? journal : [];
     const account = await ensureLoyaltyAccount(email);
     if (!account) return null;
-    const existingIDs = new Set((account.transactions || []).map((transaction) => transaction.id));
     const now = new Date().toISOString();
     const doubleBeanDays = new Set(runtimeAppSettings.value.loyalty.doubleBeanDays || []);
     const streakDays = brewStreakDays(entries);
@@ -2689,6 +2736,7 @@ async function awardBrewJournalRewards(email, journal) {
 
     return updateLoyaltyAccount(email, (working) => {
         working.transactions = working.transactions || [];
+        const existingIDs = new Set(working.transactions.map((transaction) => transaction.id));
         for (const entry of entries) {
             const entryID = String(entry.id || "").trim();
             const date = journalDate(entry.createdAt);
@@ -2704,11 +2752,13 @@ async function awardBrewJournalRewards(email, journal) {
                 note: doubled ? "Brew logged • Double Beans day" : "Brew logged",
                 createdAt: now
             });
+            existingIDs.add(`brew:${entryID}`);
 
             const reviewID = `review:${entryID}`;
             if (Number(entry.rating) >= 4 && String(entry.notes || "").trim().length >= 20 && !existingIDs.has(reviewID)) {
                 working.pointsBalance += 25;
                 working.transactions.unshift({ id: reviewID, type: "earn", points: 25, note: "Useful brew review", createdAt: now });
+                existingIDs.add(reviewID);
             }
         }
 
@@ -2717,6 +2767,7 @@ async function awardBrewJournalRewards(email, journal) {
         if (streakDays >= 3 && latestDate && !existingIDs.has(`brew-streak:${latestDate}`)) {
             working.pointsBalance += 15;
             working.transactions.unshift({ id: `brew-streak:${latestDate}`, type: "earn", points: 15, note: `${streakDays}-day brew streak`, createdAt: now });
+            existingIDs.add(`brew-streak:${latestDate}`);
         }
     });
 }
@@ -3404,13 +3455,13 @@ async function sendPasswordResetEmail(email, token) {
     }
 }
 
-async function getLoyaltyTransactions(email) {
+async function getLoyaltyTransactions(email, queryer = database) {
     if (!database.isEnabled()) {
         const store = readJSON(loyaltyStorePath);
         return (store.accounts[email]?.transactions || []).slice();
     }
 
-    const result = await database.query(
+    const result = await queryer.query(
         `SELECT id, type, points, note, voucher_code, voucher_detail, voucher_expires_at,
                 voucher_single_use, voucher_status, created_at
          FROM loyalty_transactions
@@ -3433,13 +3484,13 @@ async function getLoyaltyTransactions(email) {
     }));
 }
 
-async function getLoyaltyAccount(email) {
+async function getLoyaltyAccount(email, queryer = database) {
     if (!database.isEnabled()) {
         const store = readJSON(loyaltyStorePath);
         return store.accounts[email] || null;
     }
 
-    const result = await database.query(
+    const result = await queryer.query(
         `SELECT email, member_id, points_balance, tier, next_reward, perks, streak_days, birthday_reward_available, cross_cafe_visits, last_brew_date, visit_streak_days, last_visit_date, visited_cafe_ids
          FROM loyalty_accounts
          WHERE email = $1`,
@@ -3528,90 +3579,21 @@ async function ensureLoyaltyAccount(email) {
 
     await database.query(
         `INSERT INTO loyalty_accounts (email, member_id, points_balance, tier, next_reward, perks, streak_days, birthday_reward_available, cross_cafe_visits, last_brew_date, visit_streak_days, last_visit_date, visited_cafe_ids)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13::jsonb)`,
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13::jsonb)
+         ON CONFLICT (email) DO NOTHING`,
         [email, created.memberID, created.pointsBalance, created.tier, created.nextReward, JSON.stringify(created.perks), created.streakDays, created.birthdayRewardAvailable, created.crossCafeVisits, created.lastBrewDate, created.visitStreakDays, created.lastVisitDate, JSON.stringify(created.visitedCafeIDs)]
     );
 
     return {
-        ...created,
-        transactions: []
+        ...(await getLoyaltyAccount(email)),
+        transactions: await getLoyaltyTransactions(email)
     };
 }
 
-async function updateLoyaltyAccount(email, mutate) {
-    if (!database.isEnabled()) {
-        const store = readJSON(loyaltyStorePath);
-        const account = store.accounts[email];
-
-        if (!account) {
-            return null;
-        }
-
-        mutate(account);
-        account.tier = tierFor(account.pointsBalance);
-        account.nextReward = nextRewardText(account.pointsBalance);
-        account.perks = loyaltyPerksFor(account.pointsBalance);
-        writeJSON(loyaltyStorePath, store);
-        queueWalletPassUpdate(email);
-        return account;
-    }
-
-    const account = await getLoyaltyAccount(email);
-    if (!account) {
-        return null;
-    }
-
-    const working = {
-        ...account,
-        transactions: await getLoyaltyTransactions(email)
-    };
-
-    const beforeCount = working.transactions.length;
-    mutate(working);
-    working.tier = tierFor(working.pointsBalance);
-    working.nextReward = nextRewardText(working.pointsBalance);
-    working.perks = loyaltyPerksFor(working.pointsBalance);
-
-    await database.query(
-        `UPDATE loyalty_accounts
-         SET points_balance = $2, tier = $3, next_reward = $4, perks = $5::jsonb,
-             streak_days = $6, birthday_reward_available = $7, cross_cafe_visits = $8, last_brew_date = $9,
-             visit_streak_days = $10, last_visit_date = $11, visited_cafe_ids = $12::jsonb
-         WHERE email = $1`,
-        [email, working.pointsBalance, working.tier, working.nextReward, JSON.stringify(working.perks), Number(working.streakDays || 0), Boolean(working.birthdayRewardAvailable), Number(working.crossCafeVisits || 0), working.lastBrewDate || null, Number(working.visitStreakDays || 0), working.lastVisitDate || null, JSON.stringify(Array.isArray(working.visitedCafeIDs) ? working.visitedCafeIDs : [])]
-    );
-
-    if (working.transactions.length > beforeCount) {
-        const newTransactions = working.transactions.slice(0, working.transactions.length - beforeCount);
-        for (const transaction of newTransactions) {
-            await database.query(
-                `INSERT INTO loyalty_transactions
-                 (id, email, type, points, note, voucher_code, voucher_detail, voucher_expires_at, voucher_single_use, voucher_status, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [
-                    transaction.id,
-                    email,
-                    transaction.type,
-                    transaction.points,
-                    transaction.note,
-                    transaction.voucherCode || null,
-                    transaction.voucherDetail || null,
-                    transaction.voucherExpiresAt || null,
-                    transaction.voucherSingleUse ?? null,
-                    transaction.voucherStatus || null,
-                    transaction.createdAt
-                ]
-            );
-        }
-    }
-
-    const updatedAccount = {
-        ...working,
-        transactions: await getLoyaltyTransactions(email)
-    };
-    queueWalletPassUpdate(email);
-    return updatedAccount;
-}
+const updateLoyaltyAccount = createLoyaltyMutationService({
+    database, readJSON, writeJSON, loyaltyStorePath, getLoyaltyAccount,
+    getLoyaltyTransactions, tierFor, nextRewardText, loyaltyPerksFor, queueWalletPassUpdate
+});
 
 async function ensureWalletPassRecord(email, memberID, passTypeIdentifier) {
     if (!database.isEnabled()) {
@@ -4914,7 +4896,12 @@ async function awardOrderBeans(order) {
             return { awarded: false, points, reason: "ALREADY_AWARDED" };
         }
 
+        let alreadyAwarded = false;
         const updated = await updateLoyaltyAccount(order.email, (account) => {
+            if (account.transactions?.some((transaction) => transaction.id === transactionID)) {
+                alreadyAwarded = true;
+                return;
+            }
             account.pointsBalance += points;
             account.transactions = account.transactions || [];
             account.transactions.unshift({
@@ -4929,8 +4916,35 @@ async function awardOrderBeans(order) {
         if (!updated) {
             return { awarded: false, points, reason: "LOYALTY_ACCOUNT_NOT_FOUND" };
         }
+        if (alreadyAwarded) return { awarded: false, points, reason: "ALREADY_AWARDED" };
 
         return { awarded: true, points };
+    });
+}
+
+async function reverseOrderBeans(order) {
+    const points = orderBeansFor({ ...order, status: "Completed" });
+    if (points <= 0) return { reversed: false, points: 0, reason: "NO_POINTS" };
+
+    return withLoyaltyMutationLock(`order:${order.email}:${order.id}`, async () => {
+        const awardID = loyaltyTransactionIDForOrder(order);
+        const reversalID = `${awardID}:refund`;
+        if (await hasLoyaltyTransaction(order.email, reversalID)) {
+            return { reversed: true, points, reason: "ALREADY_REVERSED" };
+        }
+
+        let reversalResult;
+        const updated = await updateLoyaltyAccount(order.email, (account) => {
+            reversalResult = applyOrderBeanReversal(account, {
+                awardID,
+                reversalID,
+                points,
+                createdAt: new Date().toISOString()
+            });
+        });
+
+        if (!updated) return { reversed: false, points, reason: "LOYALTY_ACCOUNT_NOT_FOUND" };
+        return { reversed: reversalResult?.reversed === true, points, reason: reversalResult?.reason || "AWARD_NOT_FOUND" };
     });
 }
 
@@ -4984,7 +4998,8 @@ async function findPendingCardPayment(localOrderID, email) {
         const result = await database.query(
             `SELECT *
              FROM card_payments
-             WHERE local_order_id = $1 AND email = $2 AND status = 'Pending'
+             WHERE local_order_id = $1 AND email = $2
+               AND status IN ('Pending', 'Authenticating', 'AwaitingChallenge', 'Authenticated', 'Processing')
              ORDER BY created_at DESC
              LIMIT 1`,
             [normalizedOrderID, normalizedEmail]
@@ -4996,7 +5011,7 @@ async function findPendingCardPayment(localOrderID, email) {
         .filter((payment) => (
             payment.localOrderID === normalizedOrderID
             && normalizeEmail(payment.email) === normalizedEmail
-            && payment.status === "Pending"
+            && ["Pending", "Authenticating", "AwaitingChallenge", "Authenticated", "Processing"].includes(payment.status)
         ))
         .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())[0] || null;
 }
@@ -5057,8 +5072,12 @@ async function persistCardPayment(payment) {
         } catch (error) {
             if (error?.code === "23505") {
                 const existing = await findPendingCardPayment(payment.localOrderID, payment.email);
-                if (existing) {
+                if (existing && existing.paymentMethod === payment.paymentMethod
+                    && existing.paymentMethod !== "CLICK_TO_PAY") {
                     return existing;
+                }
+                if (existing) {
+                    throw benefitPaymentError("MPGS_PAYMENT_METHOD_CONFLICT", 409, "Another payment method is already active for this order.");
                 }
             }
             throw error;
@@ -5069,10 +5088,13 @@ async function persistCardPayment(payment) {
     const existing = Object.values(store.payments).find((candidate) => (
         candidate.localOrderID === payment.localOrderID
         && normalizeEmail(candidate.email) === normalizeEmail(payment.email)
-        && candidate.status === "Pending"
+        && ["Pending", "Authenticating", "AwaitingChallenge", "Authenticated", "Processing"].includes(candidate.status)
     ));
     if (existing) {
-        return existing;
+        if (existing.paymentMethod === payment.paymentMethod && existing.paymentMethod !== "CLICK_TO_PAY") {
+            return existing;
+        }
+        throw benefitPaymentError("MPGS_PAYMENT_METHOD_CONFLICT", 409, "Another payment method is already active for this order.");
     }
     store.payments[payment.paymentID] = payment;
     writeJSON(cardPaymentsStorePath, store);
@@ -5184,7 +5206,10 @@ async function updateCardPaymentLifecycle(paymentID, fields = {}) {
     return payment;
 }
 
-function createMpgsTransactionID(prefix) {
+function createMpgsTransactionID(prefix, stableKey = null) {
+    if (stableKey) {
+        return `${prefix}${sha256Hex(String(stableKey)).slice(0, 32)}`.slice(0, 40);
+    }
     return `${prefix}${Date.now()}${crypto.randomBytes(6).toString("hex")}`.slice(0, 40);
 }
 
@@ -7210,6 +7235,12 @@ function buildVoucherRecord(email, reward, points) {
     };
 }
 
+const redeemLoyaltyVoucher = createLoyaltyRedemptionService({
+    database, normalizeEmail, updateLoyaltyAccount, storeVoucherRecord,
+    tierFor, nextRewardText, loyaltyPerksFor, queueWalletPassUpdate,
+    getLoyaltyAccount, getLoyaltyTransactions
+});
+
 async function storeVoucherRecord(voucher) {
     if (database.isEnabled()) {
         await database.query(
@@ -8559,8 +8590,8 @@ function buildCustomerTimeline({ account, loyalty, orders, vouchers, inbox, audi
         ...((loyalty.transactions || []).map((transaction) => ({
             id: `loyalty_${transaction.id}`,
             kind: "loyalty_transaction",
-            title: transaction.type === "redeem" ? "Loyalty redemption" : "Loyalty earn",
-            detail: `${transaction.type === "redeem" ? "Removed" : "Added"} ${transaction.points} Beans${transaction.note ? ` • ${transaction.note}` : ""}`,
+            title: transaction.type === "redeem" ? "Loyalty redemption" : transaction.type === "reversal" ? "Refund reversal" : "Loyalty earn",
+            detail: `${transaction.points < 0 ? "Removed" : "Added"} ${Math.abs(transaction.points)} Beans${transaction.note ? ` • ${transaction.note}` : ""}`,
             createdAt: transaction.createdAt
         }))),
         ...orders.map((order) => ({
@@ -9253,7 +9284,7 @@ async function adminCustomerSummary(email) {
         return null;
     }
 
-    const [loyalty, orders, alerts, inbox, addresses, vouchers, auditLogs, sessions, tasteMemory] = await Promise.all([
+    const [loyalty, orders, alerts, inbox, addresses, vouchers, auditLogs, sessions, tasteMemory, coffee] = await Promise.all([
         ensureLoyaltyAccount(email),
         ordersPayload(email),
         stockAlertsFor(email),
@@ -9262,7 +9293,8 @@ async function adminCustomerSummary(email) {
         allVouchersFor(email),
         adminAuditLogsFor(email),
         activeCustomerSessionsForEmail(email),
-        tasteMemoryPayload(email)
+        tasteMemoryPayload(email),
+        adminCustomerCoffeeSummary(email)
     ]);
 
     return {
@@ -9274,6 +9306,7 @@ async function adminCustomerSummary(email) {
         addresses,
         vouchers,
         tasteMemory,
+        coffee,
         auditLogs,
         sessions,
         timeline: buildCustomerTimeline({
@@ -9356,8 +9389,13 @@ function buildCustomerExportCSV(customers) {
 }
 
 const synchronizeCoffeeRecords = createCoffeeSyncService(database);
-const { summary: adminCoffeeMemorySummary, deleteRecord: deleteAdminCoffeeMemoryRecord } = createCoffeeAdminService(database, normalizeEmail);
+const {
+    summary: adminCoffeeMemorySummary,
+    customerSummary: adminCustomerCoffeeSummary,
+    deleteRecord: deleteAdminCoffeeMemoryRecord
+} = createCoffeeAdminService(database, normalizeEmail, customerLibraryPayload);
 const createServer = require("./modules/application/create-server");
+const { applyOrderBeanReversal } = require("./modules/loyalty/order-refund");
 const server = createServer({
     URL,
     accountRecordFromRow,
@@ -9437,6 +9475,7 @@ const server = createServer({
     authenticateAdmin,
     authenticateCustomer,
     awardOrderBeans,
+    reverseOrderBeans,
     awardOrderBeansWithClient,
     base64URLDecode,
     base64URLEncode,
@@ -9516,6 +9555,7 @@ const server = createServer({
     customerTokensConfigured,
     dataDirectory,
     database,
+    educationActivityStorePath,
     decodeBase64URL,
     defaultAppSettings,
     defaultCampaignSettings,
@@ -9704,6 +9744,7 @@ const server = createServer({
     pushDevicesForEmail,
     pushDevicesStorePath,
     queryBenefitPayTransaction,
+    redeemLoyaltyVoucher,
     queueShopifyOrderExport,
     queueWalletPassUpdate,
     rateLimitBuckets,
@@ -9908,6 +9949,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+    awardBrewJournalRewards,
+    awardMonthlyMissionIfComplete,
     localOrderForShopifyExport,
     processShopifyOrderWebhook,
     syncRecentShopifyOrdersForEmail,
@@ -9924,13 +9967,16 @@ module.exports = {
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
     createCustomerSession,
+    createMpgsTransactionID,
     queryBenefitPayTransaction,
+    redeemLoyaltyVoucher,
     confirmShopifyEazyPayment,
     ensureShopifyEazyInvoice,
     eventSettingsFromLegacyEid,
     exportCompletedOrderToShopify,
     findShopifyOrderExport,
     findShopifyEazyPayment,
+    findPendingCardPayment,
     isEazyPayManualShopifyOrder,
     loyaltyPerksFor,
     defaultAppSettings,
@@ -9941,6 +9987,7 @@ module.exports = {
     normalizeEventSettings,
     normalizeTallaPaymentID,
     normalizeTelemetryEvent,
+    persistCardPayment,
     prepareShopifyEazyOrder,
     preferAddressRecords,
     publicShopifyEazyPayment,
@@ -9960,6 +10007,7 @@ module.exports = {
     stockAlertStatusFor,
     startServer,
     tierFor,
+    updateLoyaltyAccount,
     shopifyOrderCreateInput,
     verifyConfirmedMpgsOrder,
     verifyEazyTransactionForShopifyPayment,

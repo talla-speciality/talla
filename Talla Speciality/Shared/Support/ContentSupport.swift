@@ -1,0 +1,547 @@
+import Foundation
+import SwiftUI
+import UIKit
+
+extension ContentView {
+    func homeSettingText(_ value: String?, arabicValue: String? = nil, localizationKey: String, fallback: String) -> String {
+        AppLocalization.homeText(value, arabicValue: arabicValue, key: localizationKey, fallback: fallback)
+    }
+
+    var homeHeroSubtitleText: String {
+        let subtitle = homeSettingText(
+            remoteHomeSettings?.heroSubtitle,
+            arabicValue: remoteHomeSettings?.heroSubtitleAR,
+            localizationKey: "hero_subtitle",
+            fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals."
+        )
+
+        if subtitle.localizedCaseInsensitiveContains("without digging through the app") {
+            return AppLocalization.text("hero_subtitle_refined", fallback: "Discover fresh roasts, brewing essentials, and rewarding coffee rituals.")
+        }
+
+        return subtitle
+    }
+
+    func managedURL(_ value: String?, fallback: String) -> URL {
+        let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return URL(string: trimmedValue.isEmpty ? fallback : trimmedValue) ?? URL(string: fallback)!
+    }
+
+    var managedWhatsAppURL: URL {
+        managedURL(remoteAppSettings?.support.whatsappURL, fallback: "https://wa.me/97339392414")
+    }
+
+    var managedPrivacyURL: URL {
+        managedURL(remoteAppSettings?.support.privacyURL, fallback: "https://duneroastery.myshopify.com/policies/privacy-policy")
+    }
+
+    var managedTermsURL: URL {
+        managedURL(remoteAppSettings?.support.termsURL, fallback: "https://duneroastery.myshopify.com/policies/terms-of-service")
+    }
+}
+
+enum TallaTheme {
+    enum Colors {
+        // Keep the product palette semantic so individual screens do not invent
+        // their own browns, golds, or grays. These values are intentionally
+        // restrained: warm neutrals carry the coffee identity while ink remains
+        // the single action color.
+        static let accent = Color(hex: 0x151515)
+        // Monochrome foundation with a single vivid amber accent.
+        // Deeper gold for light-mode readability; brighter yellow for dark mode.
+        static let brand = Color(hex: 0xC58A00)
+        static let brandSoft = Color(hex: 0xFFD34E)
+        static let success = Color(hex: 0x1479FF)
+        static let warning = Color(hex: 0xC58A00)
+        static let destructive = Color(hex: 0xFF3B30)
+        static let vibrantRed = Color(hex: 0xFF3B30)
+        static let vibrantYellow = Color(hex: 0xFFD34E)
+        static let vibrantBlue = Color(hex: 0x1479FF)
+        static let divider = Color.black.opacity(0.12)
+        // Foregrounds and outlines adapt independently of black action fills.
+        static let ink = Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? .white
+                : UIColor(white: 21.0 / 255.0, alpha: 1)
+        })
+        static let accentHighlight = Color(hex: 0x3B3B3B)
+        static let espresso = Color(hex: 0x151515)
+        static let warmWhite = Color(hex: 0xFFFFFF)
+        static let readableAccentLight = Color(hex: 0x151515)
+        static let readableAccentDark = Color(hex: 0xFFFFFF)
+        static let lightBackground = Color(hex: 0xFFFFFF)
+        static let darkBackground = Color(hex: 0x151515)
+        static let lightSurface = Color(hex: 0xFFFFFF)
+        static let darkSurface = Color(hex: 0x202020)
+        static let lightElevatedSurface = Color(hex: 0xF2F2F2)
+        static let darkElevatedSurface = Color(hex: 0x2B2B2B)
+    }
+
+    enum CornerRadius {
+        static let control: CGFloat = 14
+        static let card: CGFloat = 18
+        static let featuredCard: CGFloat = 22
+        static let sheet: CGFloat = 28
+    }
+
+    enum Spacing {
+        static let hairline: CGFloat = 4
+        static let compact: CGFloat = 8
+        static let standard: CGFloat = 12
+        static let section: CGFloat = 18
+        static let page: CGFloat = 20
+        static let spacious: CGFloat = 28
+    }
+
+    enum Fonts {
+        static let body = Font.system(.body, design: .rounded)
+        static let field = Font.system(.body, design: .rounded)
+        static let button = Font.system(.callout, design: .rounded).weight(.bold)
+        static let sectionTitle = Font.system(.headline, design: .rounded).weight(.bold)
+        static let display = Font.system(.largeTitle, design: .serif).weight(.bold)
+        static let featureTitle = Font.system(.title2, design: .serif).weight(.semibold)
+        static let eyebrow = Font.system(.caption2, design: .rounded).weight(.bold)
+        static let metadata = Font.system(.caption, design: .rounded)
+    }
+
+    enum Icons {
+        static let inline = Font.system(size: 14, weight: .semibold)
+        static let action = Font.system(size: 16, weight: .semibold)
+        static let hero = Font.system(size: 22, weight: .bold)
+        static let chevron = Font.system(size: 12, weight: .bold)
+    }
+
+    enum Shadow {
+        static let cardRadius: CGFloat = 14
+        static let cardY: CGFloat = 6
+    }
+}
+
+struct TallaCardModifier: ViewModifier {
+    enum Prominence {
+        case standard
+        case elevated
+    }
+
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
+    let prominence: Prominence
+    let cornerRadius: CGFloat
+
+    private var fill: Color {
+        if appearanceMode == "oled" { return .black }
+        switch (colorScheme, prominence) {
+        case (.dark, .standard): return TallaTheme.Colors.darkSurface
+        case (.dark, .elevated): return TallaTheme.Colors.darkElevatedSurface
+        case (_, .standard): return TallaTheme.Colors.lightSurface
+        case (_, .elevated): return TallaTheme.Colors.lightElevatedSurface
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background(fill, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        TallaTheme.Colors.ink.opacity(colorScheme == .dark ? 0.24 : 0.13),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(
+                color: Color.black.opacity(colorScheme == .dark ? 0.18 : 0.07),
+                radius: prominence == .elevated ? TallaTheme.Shadow.cardRadius : 8,
+                y: prominence == .elevated ? TallaTheme.Shadow.cardY : 3
+            )
+    }
+}
+
+extension View {
+    func tallaCard(
+        _ prominence: TallaCardModifier.Prominence = .standard,
+        cornerRadius: CGFloat = TallaTheme.CornerRadius.card
+    ) -> some View {
+        modifier(TallaCardModifier(prominence: prominence, cornerRadius: cornerRadius))
+    }
+}
+
+struct TallaTextFieldStyle: TextFieldStyle {
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
+
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .font(TallaTheme.Fonts.field)
+            .foregroundStyle(TallaTheme.Colors.ink)
+            .tint(TallaTheme.Colors.ink)
+            .padding(.horizontal, TallaTheme.Spacing.standard)
+            .frame(minHeight: 48)
+            .background(
+                appearanceMode == "oled" ? Color.black : colorScheme == .dark
+                    ? TallaTheme.Colors.darkElevatedSurface
+                    : TallaTheme.Colors.lightElevatedSurface
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
+                    .stroke(TallaTheme.Colors.ink.opacity(colorScheme == .dark ? 0.24 : 0.20), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+    }
+}
+
+extension TextFieldStyle where Self == TallaTextFieldStyle {
+    static var talla: TallaTextFieldStyle { TallaTextFieldStyle() }
+}
+
+struct TallaPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(TallaTheme.Fonts.button)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .background(configuration.isPressed ? TallaTheme.Colors.accentHighlight : TallaTheme.Colors.accent)
+            .overlay {
+                RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
+                    .stroke(.white.opacity(0.22), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+            .shadow(color: TallaTheme.Colors.accent.opacity(colorScheme == .dark ? 0.28 : 0.16), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 4)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+            .opacity(isEnabled ? 1 : 0.48)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.72),
+                value: configuration.isPressed
+            )
+            .contentShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+    }
+}
+
+extension ButtonStyle where Self == TallaPrimaryButtonStyle {
+    static var tallaPrimary: TallaPrimaryButtonStyle { TallaPrimaryButtonStyle() }
+}
+
+struct TallaSecondaryButtonStyle: ButtonStyle {
+    @AppStorage("app.appearanceMode") private var appearanceMode = "system"
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(TallaTheme.Fonts.button)
+            .foregroundStyle(TallaTheme.Colors.ink)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(
+                appearanceMode == "oled" ? Color.black : colorScheme == .dark
+                    ? TallaTheme.Colors.darkElevatedSurface
+                    : TallaTheme.Colors.lightElevatedSurface
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous)
+                    .stroke(TallaTheme.Colors.ink.opacity(0.34), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: TallaTheme.CornerRadius.control, style: .continuous))
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .opacity(isEnabled ? 1 : 0.48)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.78),
+                value: configuration.isPressed
+            )
+    }
+}
+
+extension ButtonStyle where Self == TallaSecondaryButtonStyle {
+    static var tallaSecondary: TallaSecondaryButtonStyle { TallaSecondaryButtonStyle() }
+}
+
+
+
+extension View {
+    func tallaGlassCapsule(tint: Color, enabled: Bool = true) -> some View {
+        foregroundStyle(enabled ? Color.white : Color.secondary)
+            .background(
+                enabled ? tint : tint.opacity(0.12),
+                in: Capsule(style: .continuous)
+            )
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(tint.opacity(enabled ? 0.28 : 0.12), lineWidth: 1)
+            }
+            .contentShape(Capsule(style: .continuous))
+    }
+
+    @ViewBuilder
+    func tallaGlassCard(tint: Color, cornerRadius: CGFloat) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular.tint(tint), in: .rect(cornerRadius: cornerRadius))
+        } else {
+            background(tint, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+    }
+
+    /// Lets iOS own the system chrome so the user's Liquid Glass setting can
+    /// move this surface from clear to tinted without fighting the brand palette.
+    @ViewBuilder
+    func tallaAdaptiveTabBarBackground() -> some View {
+        if #available(iOS 26.0, *) {
+            toolbarBackground(.automatic, for: .tabBar)
+        } else {
+            toolbarBackground(.visible, for: .tabBar)
+        }
+    }
+
+    @ViewBuilder
+    func tallaAdaptiveNavigationBarBackground(systemChrome: Bool) -> some View {
+        if #available(iOS 26.0, *), systemChrome {
+            toolbarBackground(.automatic, for: .navigationBar)
+        } else {
+            toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    /// Keep the presentation container under system control on iOS 26+ so
+    /// Liquid Glass can respond to the user's clear/tinted preference.
+    @ViewBuilder
+    func tallaSystemSheetSurface() -> some View {
+        let duoSafeContent = DuoSafePane { self }
+        if #available(iOS 26.0, *) {
+            duoSafeContent
+                .presentationCornerRadius(TallaTheme.CornerRadius.sheet)
+        } else {
+            duoSafeContent
+                .presentationBackground(.background)
+        }
+    }
+}
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
+#if canImport(PassKit)
+import PassKit
+#endif
+#if canImport(SafariServices) && canImport(UIKit)
+import SafariServices
+import UIKit
+#endif
+
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case system
+    case english
+    case arabic
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system:
+            return AppLocalization.text("system_language", fallback: "System")
+        case .english:
+            return AppLocalization.text("english", fallback: "English")
+        case .arabic:
+            return AppLocalization.text("arabic", fallback: "العربية")
+        }
+    }
+
+    var localeIdentifier: String {
+        switch self {
+        case .system:
+            return Locale.current.identifier
+        case .english:
+            return "en"
+        case .arabic:
+            return "ar"
+        }
+    }
+
+    var layoutDirection: LayoutDirection {
+        switch effectiveLanguageCode {
+        case "ar":
+            return .rightToLeft
+        default:
+            return .leftToRight
+        }
+    }
+
+    var effectiveLanguageCode: String {
+        switch self {
+        case .system:
+            return Locale.current.language.languageCode?.identifier ?? "en"
+        case .english:
+            return "en"
+        case .arabic:
+            return "ar"
+        }
+    }
+}
+
+enum AppLocalization {
+    private static let translations: [String: [String: String]] = {
+        guard let url = Bundle.main.url(forResource: "Translations", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode([String: [String: String]].self, from: data) else {
+            return [:]
+        }
+
+        return decoded
+    }()
+
+    private static func normalizedArabicBrand(in value: String) -> String {
+        ["Talla", "تله"].reduce(value) { text, spelling in
+            text.replacingOccurrences(of: spelling, with: "تله")
+        }
+    }
+
+    // Use bundled catalog copy while its English source still matches the product.
+    // This also corrects stale or inaccurate Arabic translations returned by Shopify.
+    static func catalogText(_ value: String, source: String, key: String) -> String {
+        func normalized(_ text: String) -> String {
+            text.components(separatedBy: .whitespacesAndNewlines).joined()
+        }
+        if key.hasSuffix("_name"), source.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("Winter Box") == .orderedSame {
+            return currentLanguage.effectiveLanguageCode == "ar" ? "صندوق الشتاء" : source
+        }
+        if key.hasSuffix("_name"), source.localizedCaseInsensitiveContains("signature blends"),
+           source.localizedCaseInsensitiveContains("talla") || source.contains("تله") {
+            return currentLanguage.effectiveLanguageCode == "ar" ? "خلطات تله المميزة" : "Talla Signature Blends"
+        }
+        if currentLanguage.effectiveLanguageCode == "ar", key == "catalog_riffa-drip-bags_name" {
+            return "اظرف قهوة"
+        }
+        if currentLanguage.effectiveLanguageCode == "ar", key == "catalog_talla-stainless-steel-cup_name" {
+            return "كوب ستيل"
+        }
+        let canonicalBoxNames: [String: (english: String, arabic: String)] = [
+            "catalog_talla-box_name": ("Talla Box", "صندوق تله"),
+            "catalog_mini-talla-box_name": ("Mini Box", "صندوق تله الصغير"),
+            "catalog_talla-signature-box_name": ("Signature Box", "صندوق تله المميز")
+        ]
+        if let canonical = canonicalBoxNames[key] {
+            return currentLanguage.effectiveLanguageCode == "ar" ? canonical.arabic : canonical.english
+        }
+        guard currentLanguage.effectiveLanguageCode == "ar",
+              let entry = translations[key], let original = entry["en"],
+              normalized(original) == normalized(source), let arabic = entry["ar"] else {
+            return currentLanguage.effectiveLanguageCode == "ar" ? normalizedArabicBrand(in: value) : value
+        }
+        return normalizedArabicBrand(in: arabic)
+    }
+
+    static func catalogOption(_ value: String) -> String {
+        value.components(separatedBy: " / ").map { part in
+            let trimmed = part.trimmingCharacters(in: .whitespaces)
+            let normalized = trimmed.lowercased().replacingOccurrences(of: "’", with: "'")
+            if ["hawar island's", "hawar islands'", "hawar island"].contains(normalized) {
+                return text("catalog_term_hawar islands", fallback: trimmed)
+            }
+            if let suffix = trimmed.range(of: #"\s*\+\s*\d+$"#, options: .regularExpression) {
+                let origin = String(trimmed[..<suffix.lowerBound]).trimmingCharacters(in: .whitespaces)
+                return text("catalog_term_" + origin.lowercased(), fallback: origin) + String(trimmed[suffix])
+            }
+            return text("catalog_term_" + normalized, fallback: trimmed)
+        }.joined(separator: " / ")
+    }
+
+    static func letterSpacing(_ value: CGFloat) -> CGFloat {
+        currentLanguage.effectiveLanguageCode == "ar" ? 0 : value
+    }
+
+    static func homeText(_ value: String?, arabicValue: String? = nil, key: String, fallback: String) -> String {
+        if currentLanguage.effectiveLanguageCode == "ar",
+           let arabic = arabicValue?.trimmingCharacters(in: .whitespacesAndNewlines), !arabic.isEmpty {
+            return normalizedArabicBrand(in: arabic)
+        }
+        let remote = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !remote.isEmpty else { return text(key, fallback: fallback) }
+        if currentLanguage.effectiveLanguageCode == "ar",
+           !remote.unicodeScalars.contains(where: { (0x0600...0x06FF).contains(Int($0.value)) }) {
+            return text(key, fallback: fallback)
+        }
+        return currentLanguage.effectiveLanguageCode == "ar"
+            ? normalizedArabicBrand(in: remote)
+            : remote
+    }
+
+    static var currentLanguage: AppLanguage {
+        let rawValue = UserDefaults.standard.string(forKey: "app.language") ?? AppLanguage.system.rawValue
+        return AppLanguage(rawValue: rawValue) ?? .system
+    }
+
+    static func text(_ key: String, fallback: String) -> String {
+        let languageCode = currentLanguage.effectiveLanguageCode
+        let value = translations[key]?[languageCode] ?? fallback
+        return languageCode == "ar" ? normalizedArabicBrand(in: value) : value
+    }
+}
+
+enum BackendConfiguration {
+    private static let infoPlistKey = "BackendBaseURL"
+    private static let coffeeAIInfoPlistKey = "CoffeeAIBaseURL"
+    private static let simulatorDefaultURL = URL(string: "http://127.0.0.1:8787")
+
+    static var serviceBaseURL: URL? {
+        #if DEBUG
+        // The UI-test runner hosts its loopback service on the same device.
+        if let override = ProcessInfo.processInfo.environment["TALLA_BACKEND_BASE_URL"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !override.isEmpty,
+           let overrideURL = URL(string: override) {
+            return overrideURL
+        }
+        #endif
+
+        if let configuredURL {
+            return configuredURL
+        }
+
+        #if targetEnvironment(simulator)
+        return simulatorDefaultURL
+        #else
+        return nil
+        #endif
+    }
+
+    static var coffeeAIBaseURL: URL? {
+        if let configuredURL = configuredURL(for: coffeeAIInfoPlistKey) {
+            return configuredURL
+        }
+        return serviceBaseURL
+    }
+
+    static func unavailableMessage(for serviceName: String) -> String {
+        AppLocalization.text("service_unavailable", fallback: "This part of Talla is unavailable right now. Please try again in a moment.")
+    }
+
+    static func connectionMessage(for serviceName: String) -> String {
+        AppLocalization.text("connection_problem", fallback: "Talla is having trouble connecting. Check your internet connection and try again.")
+    }
+
+    private static var configuredURL: URL? {
+        configuredURL(for: infoPlistKey)
+    }
+
+    private static func configuredURL(for key: String) -> URL? {
+        guard let rawValue = Bundle.main.object(forInfoDictionaryKey: key) as? String else {
+            return nil
+        }
+
+        let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty, let url = URL(string: trimmedValue) else {
+            return nil
+        }
+
+        #if targetEnvironment(simulator)
+        return url
+        #else
+        guard let host = url.host?.lowercased(), host != "127.0.0.1", host != "localhost" else {
+            return nil
+        }
+        return url
+        #endif
+    }
+}

@@ -1,0 +1,2236 @@
+import Foundation
+import SwiftUI
+#if canImport(PhotosUI)
+import PhotosUI
+#endif
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
+#if canImport(WatchConnectivity) && os(iOS)
+import WatchConnectivity
+#endif
+#if canImport(UIKit)
+import UIKit
+#endif
+
+
+extension BrewingSectionView {
+    var brewTemperatureSegmentedControl: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(AppLocalization.text("taste_temperature_title", fallback: "Temperature"))
+                .font(brewEyebrowFont)
+                .foregroundColor(brewSecondaryTextColor)
+
+            HStack(spacing: 6) {
+                ForEach(["Hot", "Iced"], id: \.self) { option in
+                    Button {
+                        recipeBrewTemperatureMode = option
+                    } label: {
+                        Text(option == "Iced"
+                             ? AppLocalization.text("taste_temperature_iced", fallback: "Iced")
+                             : AppLocalization.text("taste_temperature_hot", fallback: "Hot"))
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(AppLocalization.letterSpacing(0.8))
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                            .foregroundColor(recipeBrewTemperatureMode == option ? brewPrimaryTextColor : brewSecondaryTextColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(recipeBrewTemperatureMode == option ? brewAccentColor.opacity(0.18) : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(recipeBrewTemperatureMode == option ? .isSelected : [])
+                }
+            }
+            .padding(4)
+            .background(brewSurfaceColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(brewBorderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("brew.temperature.mode")
+    }
+
+    var customerGuidedBrewModeSection: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(AppLocalization.text("guided_brew", fallback: "Guided Brew"))
+                    .font(Font.custom("Georgia-Bold", size: isCompact ? 34 : 42))
+                    .foregroundColor(primaryTextColor)
+
+                Text(AppLocalization.text("customer_guided_brew_intro", fallback: "Tell us how you want your coffee to taste. We’ll handle the brew plan and guide you one step at a time."))
+                    .font(bodyFont)
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            customerGuidedMethodPicker
+            customerGuidedCoffeeCard
+
+            brewTemperatureSegmentedControl
+
+            if let customerGuidedValidationMessage {
+                Text(customerGuidedValidationMessage)
+                    .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                    .foregroundColor(.red)
+                    .accessibilityIdentifier("brew.customer.validation")
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(AppLocalization.text("your_cup", fallback: "Your cup"))
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(AppLocalization.letterSpacing(1.8))
+                    .textCase(.uppercase)
+                    .foregroundColor(TallaTheme.Colors.ink)
+
+                HStack(spacing: 10) {
+                    customerGuidedMetric(
+                        title: AppLocalization.text("coffee", fallback: "Coffee"),
+                        value: "\(formattedWholeGram(validCoffeeAmount)) g",
+                        systemImage: "circle.fill"
+                    )
+                    customerGuidedMetric(
+                        title: AppLocalization.text("water", fallback: "Water"),
+                        value: "\(formattedWholeGram(validWaterAmount)) g",
+                        systemImage: "drop.fill"
+                    )
+                }
+
+                Text(AppLocalization.text("customer_guided_brew_hint", fallback: "This is a comfortable starting point. You can adjust it before you begin."))
+                    .font(Font.custom("AvenirNext-Regular", size: 13))
+                    .foregroundColor(secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .background(cardFillColor)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { isCustomerGuidedAdjustmentsExpanded },
+                    set: { value in
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                            isCustomerGuidedAdjustmentsExpanded = value
+                        }
+                    }
+                )
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        ratioInputField(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), text: $ratioCoffeeInput)
+                        ratioInputField(title: AppLocalization.text("ratio", fallback: "Ratio"), text: $ratioValueInput)
+                    }
+
+                    Text(AppLocalization.text("choose_your_strength", fallback: "Choose your strength"))
+                        .font(Font.custom("AvenirNext-Bold", size: 10))
+                        .tracking(AppLocalization.letterSpacing(1.6))
+                        .textCase(.uppercase)
+                        .foregroundColor(TallaTheme.Colors.ink)
+
+                    HStack(spacing: 8) {
+                        strengthRatioButton(ratio: "15", title: AppLocalization.text("strong", fallback: "Strong"))
+                        strengthRatioButton(ratio: "16", title: AppLocalization.text("balanced", fallback: "Balanced"))
+                        strengthRatioButton(ratio: "17", title: AppLocalization.text("light", fallback: "Light"))
+                    }
+                }
+                .padding(.top, 8)
+            } label: {
+                Label(AppLocalization.text("adjust_recipe", fallback: "Adjust recipe"), systemImage: "slider.horizontal.3")
+                    .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                    .foregroundColor(primaryTextColor)
+            }
+            .tint(primaryTextColor)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(cardFillColor.opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            Button {
+                startCustomerGuidedBrew()
+            } label: {
+                Label(
+                    AppLocalization.text("start_guided_brew", fallback: "Start guided brew"),
+                    systemImage: "play.fill"
+                )
+                .font(Font.custom("AvenirNext-Bold", size: 14))
+                .foregroundColor(brewAccentForegroundColor)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(accentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                isCustomerGuidedSession = false
+                isProGuidedControlsSelected = true
+            } label: {
+                Text(AppLocalization.text("switch_to_pro_controls", fallback: "I want more control"))
+                    .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                    .foregroundColor(brewAccentColor)
+                    .frame(maxWidth: .infinity, minHeight: 38)
+            }
+            .buttonStyle(.plain)
+        }
+        .onAppear {
+            ensureCustomerGuidedMethodSelected()
+        }
+#if canImport(PhotosUI)
+        .onChange(of: coffeeBagPhotoSelection) { _, selection in
+            Task { await loadCoffeeBagPhoto(selection) }
+        }
+#endif
+#if canImport(UIKit)
+        .fullScreenCover(isPresented: $isCoffeeBagCameraPresented) {
+            CoffeeBagCameraPicker { image in
+                handleCoffeeBagImage(image)
+            }
+            .ignoresSafeArea()
+        }
+#endif
+    }
+
+    var customerGuidedMethodPicker: some View {
+        Menu {
+            ForEach(displayedMethods) { method in
+                Button {
+                    selectBrewModeMethod(method, start: false, enableCustomization: true)
+                    customerGuidedValidationMessage = nil
+                } label: {
+                    HStack {
+                        Text(method.name)
+                        if selectedBrewModeMethod?.id == method.id {
+                            Spacer()
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: selectedBrewModeMethod?.symbol ?? "drop.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(width: 38, height: 38)
+                    .background(accentColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppLocalization.text("brew_method", fallback: "Brew method"))
+                        .font(Font.custom("AvenirNext-Bold", size: 10))
+                        .tracking(AppLocalization.letterSpacing(1.3))
+                        .textCase(.uppercase)
+                        .foregroundColor(tertiaryTextColor)
+                    Text(selectedBrewModeMethod?.name ?? AppLocalization.text("choose_method", fallback: "Choose a method"))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 16))
+                        .foregroundColor(primaryTextColor)
+                }
+
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(secondaryTextColor)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    var customerGuidedCoffeeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "bag.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(width: 34, height: 34)
+                    .background(accentColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppLocalization.text("your_talla_coffee", fallback: "Your Talla coffee"))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                        .foregroundColor(primaryTextColor)
+                    Text(customerGuidedCoffeeName)
+                        .font(Font.custom("AvenirNext-Regular", size: 12))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    returnsToGuidedBrewFromCoffeeLibrary = true
+                    activeDashboardDestination = .coffeeLibrary
+                } label: {
+                    Label(AppLocalization.text("choose_from_my_coffees", fallback: "Choose my coffee"), systemImage: "books.vertical.fill")
+                        .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                        .foregroundColor(primaryTextColor)
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                        .background(cardFillColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    if selectedPurchasedCoffeeID != nil {
+                        coffeeName = ""
+                    }
+                    selectedPurchasedCoffeeID = nil
+                    isCustomerBagScanExpanded.toggle()
+                } label: {
+                    Label(AppLocalization.text("scan_bag", fallback: "Scan bag"), systemImage: "camera.viewfinder")
+                        .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                        .foregroundColor(brewAccentForegroundColor)
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                        .background(accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+            if isCustomerBagScanExpanded {
+                scanCoffeeBagPanel
+                TextField(AppLocalization.text("coffee_name", fallback: "Coffee name"), text: $coffeeName)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("brew.customer.coffee-name")
+            }
+        }
+        .padding(14)
+        .background(cardFillColor.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    func customerGuidedMetric(title: String, value: String, systemImage: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(brewAccentColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Font.custom("AvenirNext-Bold", size: 9))
+                    .tracking(AppLocalization.letterSpacing(1.1))
+                    .textCase(.uppercase)
+                    .foregroundColor(tertiaryTextColor)
+                Text(value)
+                    .font(Font.custom("AvenirNext-Bold", size: 15))
+                    .foregroundColor(primaryTextColor)
+                    .monospacedDigit()
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(accentColor.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    func ensureCustomerGuidedMethodSelected() {
+        guard selectedBrewModeMethodID == nil, let method = displayedMethods.first else { return }
+        selectedBrewModeMethodID = method.id
+        isGuidedRecipeCustomizing = true
+    }
+
+    var customerGuidedCoffeeName: String {
+        if let selectedPurchasedCoffeeID,
+           let coffee = coffeeData.inventory().first(where: { $0.id == selectedPurchasedCoffeeID }) {
+            return coffee.productName
+        }
+        let enteredName = coffeeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !enteredName.isEmpty { return enteredName }
+        return AppLocalization.text("choose_a_coffee_bag", fallback: "Choose a coffee bag you purchased from us")
+    }
+
+    var customerGuidedBrewCoffeeName: String {
+        if let selectedPurchasedCoffeeID,
+           let coffee = coffeeData.inventory().first(where: { $0.id == selectedPurchasedCoffeeID }) {
+            return coffee.productName
+        }
+        let enteredName = coffeeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return enteredName.isEmpty ? AppLocalization.text("your_coffee", fallback: "Your coffee") : enteredName
+    }
+
+    func startCustomerGuidedBrew() {
+        ensureCustomerGuidedMethodSelected()
+        guard selectedBrewModeMethodID != nil else {
+            customerGuidedValidationMessage = AppLocalization.text("choose_method", fallback: "Choose a method")
+            return
+        }
+        guard ratioCoffeeAmount.isFinite, ratioCoffeeAmount > 0,
+              ratioValue.isFinite, ratioValue > 0 else {
+            customerGuidedValidationMessage = AppLocalization.text("valid_brew_recipe_required", fallback: "Enter a coffee amount and ratio greater than zero.")
+            return
+        }
+        customerGuidedValidationMessage = nil
+        isGuidedRecipeCustomizing = true
+        isCustomerGuidedSession = true
+        startBrewModeSession()
+    }
+
+    var guidedBrewModeSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Button {
+                isProGuidedControlsSelected = false
+            } label: {
+                Label(AppLocalization.text("simple_guided_brew", fallback: "Simple guided brew"), systemImage: "chevron.backward")
+                    .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                    .foregroundColor(brewAccentColor)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(width: 38, height: 38)
+                    .background(accentColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(AppLocalization.text("start_guided_brew", fallback: "Start a Guided Brew"))
+                        .font(sectionTitleFont)
+                        .tracking(AppLocalization.letterSpacing(2.2))
+                        .textCase(.uppercase)
+                        .foregroundColor(TallaTheme.Colors.ink)
+
+                    Text(AppLocalization.text("guided_brew_mode_detail", fallback: "Choose a method, adjust your coffee, and follow every pour."))
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let selectedBrewModeMethod {
+                        Text("\(AppLocalization.text("using", fallback: "Using")) \(selectedBrewModeMethod.name) · \(formattedRatioValue(validCoffeeAmount)) g \(AppLocalization.text("coffee", fallback: "coffee")) · 1:\(formattedRatioValue(validRatioValue)) · \(formattedWholeGram(brewModeWaterAmount)) g \(AppLocalization.text("water", fallback: "water"))")
+                            .font(Font.custom("AvenirNext-Bold", size: 11))
+                            .foregroundColor(TallaTheme.Colors.ink)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.82)
+                    }
+                }
+            }
+
+            if !displayedMethods.isEmpty {
+                Menu {
+                    ForEach(displayedMethods) { method in
+                        Button {
+                            selectBrewModeMethod(method, start: false, enableCustomization: true)
+                        } label: {
+                            HStack {
+                                Text(method.name)
+                                if selectedBrewModeMethod?.id == method.id {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("\(AppLocalization.text("method", fallback: "Method")): \(selectedBrewModeMethod?.name ?? AppLocalization.text("filter", fallback: "Filter"))")
+                            .font(Font.custom("AvenirNext-Bold", size: 11))
+                            .tracking(AppLocalization.letterSpacing(1.1))
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundColor(primaryTextColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(cardFillColor)
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
+                    )
+                    .clipShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+
+            customerGuidedCoffeeCard
+
+            brewTemperatureSegmentedControl
+
+            HStack(spacing: 12) {
+                ratioInputField(title: AppLocalization.text("coffee_grams", fallback: "Coffee (g)"), text: $ratioCoffeeInput)
+                ratioInputField(title: AppLocalization.text("ratio", fallback: "Ratio"), text: $ratioValueInput)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(AppLocalization.text("choose_your_strength", fallback: "Choose your strength"))
+                    .font(Font.custom("AvenirNext-Bold", size: 10))
+                    .tracking(AppLocalization.letterSpacing(1.8))
+                    .textCase(.uppercase)
+                    .foregroundColor(TallaTheme.Colors.ink)
+
+                HStack(spacing: 8) {
+                    strengthRatioButton(ratio: "15", title: AppLocalization.text("strong", fallback: "Strong"))
+                    strengthRatioButton(ratio: "16", title: AppLocalization.text("balanced", fallback: "Balanced"))
+                    strengthRatioButton(ratio: "17", title: AppLocalization.text("light", fallback: "Light"))
+                }
+            }
+
+            guidedBrewSetupSummary
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 14) {
+                    pouringProgressView
+                        .frame(width: 92, height: 92)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(formattedTimerTime(brewModeElapsedSeconds))
+                            .font(Font.custom("Georgia-Bold", size: isCompact ? 30 : 36))
+                            .monospacedDigit()
+                            .foregroundColor(primaryTextColor)
+                            .contentTransition(.numericText())
+
+                        Text(AppLocalization.text("guided_brew_live_timer", fallback: "Live brew timer"))
+                            .font(Font.custom("AvenirNext-Bold", size: 10))
+                            .tracking(AppLocalization.letterSpacing(1.4))
+                            .textCase(.uppercase)
+                            .foregroundColor(TallaTheme.Colors.ink)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(currentBrewModeStep.title)
+                        .font(Font.custom("Georgia-Bold", size: isCompact ? 24 : 28))
+                        .foregroundColor(primaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .symbolEffect(.pulse, value: brewModeHapticTrigger)
+
+                    Text(currentBrewModeStep.detail)
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(accentColor.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(AppLocalization.text("current_target", fallback: "Current target:"))
+                        .font(Font.custom("AvenirNext-Bold", size: 11))
+                        .tracking(AppLocalization.letterSpacing(1.2))
+                        .textCase(.uppercase)
+                        .foregroundColor(tertiaryTextColor)
+
+                    Text("\(formattedWholeGram(currentWaterTarget)) / \(formattedWholeGram(brewModeWaterAmount)) g")
+                        .font(Font.custom("Georgia-Bold", size: isCompact ? 24 : 28))
+                        .foregroundColor(TallaTheme.Colors.ink)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+
+                if let nextBrewModeStep {
+                    Text("\(AppLocalization.text("next", fallback: "Next")): \(nextBrewModeStep.title) \(AppLocalization.text("at", fallback: "at")) \(formattedTimerTime(nextBrewModeStep.time))")
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label(AppLocalization.text("brew_ready_message", fallback: "Your brew is ready. Enjoy it slowly."), systemImage: "cup.and.saucer.fill")
+                        .font(Font.custom("AvenirNext-Bold", size: 13))
+                        .foregroundColor(TallaTheme.Colors.ink)
+                        .symbolEffect(.bounce, value: brewModeHapticTrigger)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    handleBrewModePrimaryAction()
+                } label: {
+                    Label(
+                        brewModePrimaryActionTitle,
+                        systemImage: brewModePrimaryActionIcon
+                    )
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(AppLocalization.letterSpacing(1.5))
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(accentColor)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    skipBrewModeStep()
+                } label: {
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 44, height: 44)
+                        .background(cardFillColor)
+                        .overlay(
+                            Circle()
+                                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("skip_step", fallback: "Skip step"))
+
+                Button {
+                    restartBrewMode()
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 44, height: 44)
+                        .background(cardFillColor)
+                        .overlay(
+                            Circle()
+                                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("brew_again", fallback: "Brew again"))
+
+                Button(action: saveCurrentRecipe) {
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(primaryTextColor)
+                        .frame(width: 44, height: 44)
+                        .background(cardFillColor)
+                        .overlay(
+                            Circle()
+                                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("save_recipe", fallback: "Save Recipe"))
+            }
+
+        }
+        .padding(18)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .sensoryFeedback(.selection, trigger: brewModeHapticTrigger)
+#if canImport(PhotosUI)
+        .onChange(of: coffeeBagPhotoSelection) { _, selection in
+            Task { await loadCoffeeBagPhoto(selection) }
+        }
+#endif
+#if canImport(UIKit)
+        .fullScreenCover(isPresented: $isCoffeeBagCameraPresented) {
+            CoffeeBagCameraPicker { image in
+                handleCoffeeBagImage(image)
+            }
+            .ignoresSafeArea()
+        }
+#endif
+    }
+
+    var smartBrewGuideSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(width: 38, height: 38)
+                    .background(accentColor)
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(AppLocalization.text("smart_brew_guide", fallback: "Smart Brew Guide"))
+                        .font(sectionTitleFont)
+                        .tracking(AppLocalization.letterSpacing(2.2))
+                        .textCase(.uppercase)
+                        .foregroundColor(TallaTheme.Colors.ink)
+
+                    Text(AppLocalization.text("smart_brew_guide_detail", fallback: "Pulls your saved recipes, suggests proven starting points, and explains what to adjust next."))
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if !brewHistoryItems.isEmpty {
+                savedRecipeShelf
+            }
+
+            bestRecipeShelf
+
+            if let selectedGuideProfile {
+                guideProfileDetail(selectedGuideProfile)
+                brewCoachCard(for: selectedGuideProfile)
+            }
+        }
+        .padding(18)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(TallaTheme.Colors.ink.opacity(0.18), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    var savedRecipeShelf: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("your_recipes", fallback: "Your recipes"))
+                .font(Font.custom("AvenirNext-Bold", size: 10))
+                .tracking(AppLocalization.letterSpacing(1.8))
+                .textCase(.uppercase)
+                .foregroundColor(TallaTheme.Colors.ink)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(brewHistoryItems.prefix(5).enumerated()), id: \.offset) { _, recipe in
+                        savedRecipeGuideButton(recipe)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    var bestRecipeShelf: some View {
+        let profiles = customerGuideProfiles
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("best_recipes", fallback: "Best recipes"))
+                .font(Font.custom("AvenirNext-Bold", size: 10))
+                .tracking(AppLocalization.letterSpacing(1.8))
+                .textCase(.uppercase)
+                .foregroundColor(TallaTheme.Colors.ink)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 142 : 168), spacing: 10)], spacing: 10) {
+                ForEach(profiles) { profile in
+                    brewGuideProfileButton(profile)
+                }
+            }
+        }
+    }
+
+    func savedRecipeGuideButton(_ recipe: BrewRecipeRecord) -> some View {
+        Button {
+            applySavedRecipe(recipe, start: false)
+        } label: {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(TallaTheme.Colors.ink)
+
+                    Text(AppLocalization.text("saved", fallback: "Saved"))
+                        .font(Font.custom("AvenirNext-Bold", size: 9))
+                        .tracking(AppLocalization.letterSpacing(1.1))
+                        .textCase(.uppercase)
+                        .foregroundColor(TallaTheme.Colors.ink)
+                }
+
+                Text(recipe.title)
+                    .font(Font.custom("Georgia-Bold", size: 16))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+
+                Text(recipe.detail)
+                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                    .foregroundColor(secondaryTextColor)
+                    .lineLimit(2)
+            }
+            .padding(12)
+            .frame(minWidth: 184, maxWidth: 260, alignment: .leading)
+            .background(accentColor.opacity(0.07))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    func brewGuideProfileButton(_ profile: BrewGuideProfile) -> some View {
+        let isSelected = selectedGuideProfileID == profile.id
+
+        return Button {
+            selectedGuideProfileID = profile.id
+            expandedGuideProfileID = profile.id
+            brewCoachAnswer = nil
+            applyGuideProfile(profile, start: false)
+        } label: {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Image(systemName: profile.icon)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(isSelected ? .white : TallaTheme.Colors.ink)
+                        .frame(width: 30, height: 30)
+                        .background(isSelected ? Color(hex: 0x151515).opacity(0.08) : accentColor.opacity(0.10))
+                        .clipShape(Circle())
+
+                    Spacer(minLength: 0)
+
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(brewAccentForegroundColor)
+                    }
+                }
+
+                Text(profile.title)
+                    .font(Font.custom("Georgia-Bold", size: 17))
+                    .foregroundColor(isSelected ? brewAccentForegroundColor : primaryTextColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+
+                Text(guideRecipeMetaLine(profile))
+                    .font(Font.custom("AvenirNext-Bold", size: 10))
+                    .tracking(AppLocalization.letterSpacing(0.8))
+                    .textCase(.uppercase)
+                    .foregroundColor(isSelected ? brewAccentForegroundColor.opacity(0.75) : TallaTheme.Colors.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.74)
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, minHeight: 128, alignment: .leading)
+            .background(isSelected ? accentColor : accentColor.opacity(0.07))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(TallaTheme.Colors.ink.opacity(isSelected ? 0 : 0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    func guideRecipeMetaLine(_ profile: BrewGuideProfile) -> String {
+        let dose = profile.coffeeDisplay ?? "\(formattedRatioValue(profile.coffeeGrams)) g coffee"
+        let ratio = profile.ratio > 0 ? "1:\(formattedRatioValue(profile.ratio))" : nil
+        return ([dose, ratio, profile.waterDisplay, profile.iceDisplay, profile.time]
+            .compactMap { $0 }
+            .joined(separator: " · "))
+    }
+
+    func guideProfileDetail(_ profile: BrewGuideProfile) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(profile.title)
+                        .font(Font.custom("Georgia-Bold", size: isCompact ? 24 : 28))
+                        .foregroundColor(primaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(profile.subtitle)
+                        .font(bodyFont)
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    applyGuideProfile(profile, start: true)
+                } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(brewAccentForegroundColor)
+                        .frame(width: 42, height: 42)
+                        .background(accentColor)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.text("start_guided_brew", fallback: "Start a Guided Brew"))
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], spacing: 8) {
+                guideMetric(title: AppLocalization.text("coffee", fallback: "Coffee"), value: profile.coffeeDisplay ?? "\(formattedRatioValue(profile.coffeeGrams)) g", systemImage: "scalemass.fill")
+                guideMetric(title: AppLocalization.text("ratio", fallback: "Ratio"), value: profile.ratio > 0 ? "1:\(formattedRatioValue(profile.ratio))" : "See guide", systemImage: "drop.fill")
+                guideMetric(title: AppLocalization.text("grind", fallback: "Grind"), value: profile.grind, systemImage: "circle.grid.3x3.fill")
+                guideMetric(title: AppLocalization.text("temperature", fallback: "Temp"), value: profile.temperature, systemImage: "thermometer.medium")
+                if let waterDisplay = profile.waterDisplay {
+                    guideMetric(title: AppLocalization.text("water", fallback: "Water"), value: waterDisplay, systemImage: "drop.fill")
+                }
+                if let iceDisplay = profile.iceDisplay {
+                    guideMetric(title: AppLocalization.text("ice", fallback: "Ice"), value: iceDisplay, systemImage: "snowflake")
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(AppLocalization.text("learn_why", fallback: "Learn why"))
+                    .font(Font.custom("AvenirNext-Bold", size: 10))
+                    .tracking(AppLocalization.letterSpacing(1.8))
+                    .textCase(.uppercase)
+                    .foregroundColor(TallaTheme.Colors.ink)
+
+                ForEach(profile.learningNotes, id: \.self) { note in
+                    Label(note, systemImage: "lightbulb.fill")
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { expandedGuideProfileID == profile.id },
+                    set: { expandedGuideProfileID = $0 ? profile.id : nil }
+                )
+            ) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(profile.steps.enumerated()), id: \.offset) { index, step in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(index + 1)")
+                                .font(Font.custom("AvenirNext-Bold", size: 11))
+                                .foregroundColor(brewAccentForegroundColor)
+                                .frame(width: 24, height: 24)
+                                .background(accentColor)
+                                .clipShape(Circle())
+
+                            Text(step)
+                                .font(Font.custom("AvenirNext-Regular", size: 13))
+                                .foregroundColor(secondaryTextColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(.top, 8)
+            } label: {
+                Text(AppLocalization.text("show_brew_steps", fallback: "Show brew steps"))
+                    .font(Font.custom("AvenirNext-Bold", size: 11))
+                    .tracking(AppLocalization.letterSpacing(1.2))
+                    .textCase(.uppercase)
+                    .foregroundColor(TallaTheme.Colors.ink)
+            }
+        }
+        .padding(14)
+        .background(accentColor.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    func guideMetric(title: String, value: String, systemImage: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(TallaTheme.Colors.ink)
+                .frame(width: 28, height: 28)
+                .background(accentColor.opacity(0.10))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Font.custom("AvenirNext-Bold", size: 9))
+                    .tracking(AppLocalization.letterSpacing(1.1))
+                    .textCase(.uppercase)
+                    .foregroundColor(tertiaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
+
+                Text(value)
+                    .font(Font.custom("AvenirNext-Bold", size: 13))
+                    .foregroundColor(primaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.74)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(cardFillColor)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    func brewCoachCard(for profile: BrewGuideProfile) -> some View {
+        let coachState = coffeeData.brewCoachState()
+        let connectedScaleTitle = scaleManager.connectedScaleName ?? "connected scale"
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "brain.head.profile")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(TallaTheme.Colors.ink)
+                    .frame(width: 32, height: 32)
+                    .background(accentColor.opacity(0.10))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(AppLocalization.text("ai_brew_coach", fallback: "AI Brew Coach"))
+                        .font(Font.custom("AvenirNext-Bold", size: 11))
+                        .tracking(AppLocalization.letterSpacing(1.6))
+                        .textCase(.uppercase)
+                        .foregroundColor(TallaTheme.Colors.ink)
+
+                    Text(AppLocalization.text("ai_brew_coach_detail", fallback: "Ask how to tune sweetness, body, acidity, grind, or timing."))
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Button {
+                if let selectedBrewModeMethod {
+                    selectBrewModeMethod(selectedBrewModeMethod, start: true, preserveRecipeIdentity: true, enableCustomization: true)
+                } else if let method = displayedMethods.first {
+                    selectBrewModeMethod(method, start: true, preserveRecipeIdentity: true, enableCustomization: true)
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: scaleManager.isConnected ? "scalemass.fill" : "play.fill")
+                        .font(.system(size: 12, weight: .bold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(scaleManager.isConnected
+                             ? AppLocalization.text("start_on_scale", fallback: "Start on %@").replacingOccurrences(of: "%@", with: connectedScaleTitle)
+                             : AppLocalization.text("start_guided_brew", fallback: "Start Guided Brew"))
+                            .font(Font.custom("AvenirNext-Bold", size: 12))
+                        Text(scaleManager.isConnected
+                             ? AppLocalization.text("live_recipe_targets", fallback: "Live weight and pour targets will follow this recipe.")
+                             : AppLocalization.text("guided_brew_learns", fallback: "Talla will guide each step and learn from your feedback."))
+                            .font(Font.custom("AvenirNext-Regular", size: 11))
+                            .foregroundColor(secondaryTextColor)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "arrow.forward")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(brewAccentForegroundColor)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 11)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(accentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if let action = coachState.nextAction {
+                brewCoachNextActionCard(action, profile: profile, greatBrewCount: coachState.greatBrewCount)
+            }
+
+            if let comparison = coffeeData.brewCoachComparison() {
+                brewCoachComparisonCard(comparison)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 132 : 154), spacing: 8)], spacing: 8) {
+                ForEach(brewCoachSuggestions, id: \.self) { suggestion in
+                    brewCoachSuggestionButton(suggestion, profile: profile)
+                }
+            }
+
+            HStack(spacing: 8) {
+                TextField(AppLocalization.text("brew_coach_placeholder", fallback: "Example: make it sweeter"), text: $brewCoachQuestion)
+                    .textFieldStyle(.plain)
+                    .font(Font.custom("AvenirNext-Regular", size: 13))
+                    .foregroundColor(primaryTextColor)
+                    .submitLabel(.done)
+                    .onSubmit {
+                        Task { await generateBrewCoachAnswer(for: profile) }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(cardFillColor)
+                    .clipShape(Capsule(style: .continuous))
+
+                Button {
+                    Task { await generateBrewCoachAnswer(for: profile) }
+                } label: {
+                    Image(systemName: isGeneratingBrewCoachAnswer ? "hourglass" : "arrow.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(brewAccentForegroundColor)
+                        .frame(width: 40, height: 40)
+                        .background(accentColor)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(isGeneratingBrewCoachAnswer)
+            }
+
+            if let brewCoachAnswer {
+                Text(brewCoachAnswer)
+                    .font(Font.custom("AvenirNext-Regular", size: 14))
+                    .foregroundColor(primaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(accentColor.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .padding(14)
+        .background(accentColor.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func brewCoachComparisonCard(_ comparison: BrewCoachComparison) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(AppLocalization.text("brew_coach_compare_title", fallback: "Compare recent brews"))
+                .font(Font.custom("AvenirNext-Bold", size: 14))
+                .foregroundColor(primaryTextColor)
+            Text("\(comparison.title) · \(comparison.method)")
+                .font(Font.custom("AvenirNext-Regular", size: 12))
+                .foregroundColor(secondaryTextColor)
+                .lineLimit(2)
+
+            HStack(spacing: 6) {
+                Text("")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(AppLocalization.text("brew_coach_compare_previous", fallback: "Previous"))
+                    .frame(minWidth: 68, alignment: .trailing)
+                Text(AppLocalization.text("brew_coach_compare_latest", fallback: "Latest"))
+                    .frame(minWidth: 68, alignment: .trailing)
+            }
+            .font(Font.custom("AvenirNext-Bold", size: 10))
+            .foregroundColor(secondaryTextColor)
+
+            brewCoachComparisonRow(AppLocalization.text("brew_coach_compare_dose", fallback: "Coffee"),
+                previous: comparison.previous.doseGrams.map { String(format: "%.1f g", $0) } ?? "—",
+                latest: comparison.latest.doseGrams.map { String(format: "%.1f g", $0) } ?? "—")
+            brewCoachComparisonRow(AppLocalization.text("brew_coach_compare_water", fallback: "Water"),
+                previous: comparison.previous.waterGrams.map { String(format: "%.0f g", $0) } ?? "—",
+                latest: comparison.latest.waterGrams.map { String(format: "%.0f g", $0) } ?? "—")
+            brewCoachComparisonRow(AppLocalization.text("brew_coach_compare_time", fallback: "Time"),
+                previous: comparison.previous.durationSeconds.map { "\($0) s" } ?? "—",
+                latest: comparison.latest.durationSeconds.map { "\($0) s" } ?? "—")
+            brewCoachComparisonRow(AppLocalization.text("brew_coach_compare_rating", fallback: "Rating"),
+                previous: comparison.previous.rating.map { "\($0)/5" } ?? "—",
+                latest: comparison.latest.rating.map { "\($0)/5" } ?? "—")
+        }
+        .padding(12)
+        .background(cardFillColor)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func brewCoachComparisonRow(_ label: String, previous: String, latest: String) -> some View {
+        HStack(spacing: 6) {
+            Text(label).frame(maxWidth: .infinity, alignment: .leading)
+            Text(previous).frame(minWidth: 68, alignment: .trailing)
+            Text(latest).frame(minWidth: 68, alignment: .trailing)
+        }
+        .font(Font.custom("AvenirNext-Regular", size: 12))
+        .foregroundColor(primaryTextColor)
+        .monospacedDigit()
+    }
+
+    @ViewBuilder
+    func brewCoachNextActionCard(_ action: BrewCoachNextAction, profile: BrewGuideProfile, greatBrewCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: action.systemImage)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(width: 34, height: 34)
+                    .background(accentColor)
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 7) {
+                        Text("NEXT ACTION")
+                            .font(Font.custom("AvenirNext-Bold", size: 10))
+                            .tracking(1.2)
+                            .foregroundColor(accentColor)
+                        if greatBrewCount > 0 {
+                            Text("\(greatBrewCount) great brew\(greatBrewCount == 1 ? "" : "s")")
+                                .font(Font.custom("AvenirNext-Regular", size: 10))
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
+                    Text(action.title)
+                        .font(Font.custom("AvenirNext-Bold", size: 17))
+                        .foregroundColor(primaryTextColor)
+                    Text(action.detail)
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if let recommendation = action.recommendation {
+                Text(recommendation)
+                    .font(Font.custom("AvenirNext-Regular", size: 13))
+                    .foregroundColor(primaryTextColor)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(cardFillColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            Button {
+                switch action.kind {
+                case .saveHouseRecipe:
+                    saveCoachHouseRecipe(profile: profile, detail: action.detail)
+                case .exploreNextCoffee:
+                    activeDashboardDestination = .coffeeLibrary
+                case .adjust:
+                    applyCoachAdjustment(action, profile: profile)
+                }
+            } label: {
+                Label(action.kind == .saveHouseRecipe ? "Save house recipe" : action.kind == .exploreNextCoffee ? "Browse next coffee" : "Use this adjustment", systemImage: action.kind == .exploreNextCoffee ? "arrow.right" : "checkmark")
+                    .font(Font.custom("AvenirNext-Bold", size: 12))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(accentColor)
+                    .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if action.kind == .exploreNextCoffee {
+                Button {
+                    saveCoachHouseRecipe(profile: profile, detail: action.detail)
+                } label: {
+                    Label("Save house recipe too", systemImage: "star.fill")
+                        .font(Font.custom("AvenirNext-Bold", size: 12))
+                        .foregroundColor(primaryTextColor)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(cardFillColor)
+                        .clipShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(accentColor.opacity(0.11))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(accentColor.opacity(0.25), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func saveCoachHouseRecipe(profile: BrewGuideProfile, detail: String) {
+        saveRecipeAction(BrewRecipeRecord(
+            id: UUID(), title: "House Recipe · \(profile.title)", detail: detail,
+            coffeeGrams: profile.coffeeGrams, ratio: profile.ratio,
+            totalWaterGrams: profile.coffeeGrams * profile.ratio,
+            brewingWaterGrams: nil, iceGrams: nil, methodID: profile.id,
+            brewerID: nil, brewMode: "Hot", bloomRatio: nil, pourCount: nil,
+            grind: profile.grind, temperatureC: Int(profile.temperature.filter("0123456789".contains)),
+            controlMode: "Manual", expectedCup: profile.goal
+        ))
+    }
+
+    /// Turns a deterministic Brew Coach suggestion into a real next recipe.
+    /// The adjustment remains reversible because it is saved as a separate
+    /// recipe record; the original profile is never mutated in place.
+    private func applyCoachAdjustment(_ action: BrewCoachNextAction, profile: BrewGuideProfile) {
+        let temperature = action.suggestedTemperatureC
+            ?? Int(profile.temperature.filter("0123456789".contains))
+        let ratio = action.suggestedRatio ?? (action.id == "stronger" ? max(1, profile.ratio - 1) : profile.ratio)
+        let grind = action.suggestedGrind ?? profile.grind
+        let recipe = BrewRecipeRecord(
+            id: UUID(),
+            title: "Next Brew · \(action.title)",
+            detail: action.detail,
+            coffeeGrams: profile.coffeeGrams,
+            ratio: ratio,
+            totalWaterGrams: profile.coffeeGrams * ratio,
+            brewingWaterGrams: nil,
+            iceGrams: nil,
+            methodID: profile.id,
+            brewerID: nil,
+            brewMode: "Hot",
+            bloomRatio: nil,
+            pourCount: nil,
+            grind: grind,
+            temperatureC: temperature,
+            controlMode: "Manual",
+            expectedCup: profile.goal
+        )
+        saveRecipeAction(recipe)
+        brewCoachQuestion = action.title
+        brewCoachAnswer = AppLocalization.text("brew_coach_saved_next_recipe", fallback: "Saved as your next recipe. Change one variable, then compare the result with your last brew.")
+    }
+
+    var brewCoachSuggestions: [String] {
+        [
+            AppLocalization.text("brew_prompt_sweeter", fallback: "Make it sweeter"),
+            AppLocalization.text("brew_prompt_reduce_acidity", fallback: "Reduce acidity"),
+            AppLocalization.text("brew_prompt_more_body", fallback: "More body"),
+            AppLocalization.text("brew_prompt_too_fast", fallback: "Brew finished too fast"),
+            AppLocalization.text("brew_prompt_too_slow", fallback: "Brew finished too slowly")
+        ]
+    }
+
+    func brewCoachSuggestionButton(_ suggestion: String, profile: BrewGuideProfile) -> some View {
+        Button {
+            brewCoachQuestion = suggestion
+            Task { await generateBrewCoachAnswer(for: profile) }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 10, weight: .bold))
+
+                Text(suggestion)
+                    .font(Font.custom("AvenirNext-Bold", size: 10))
+                    .tracking(AppLocalization.letterSpacing(0.7))
+                    .textCase(.uppercase)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+            }
+            .foregroundColor(primaryTextColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, minHeight: 40)
+            .background(cardFillColor)
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(TallaTheme.Colors.ink.opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(isGeneratingBrewCoachAnswer)
+    }
+
+    var pouringProgressView: some View {
+        ZStack {
+            Circle()
+                .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 9)
+
+            Circle()
+                .trim(from: 0, to: brewModeProgress)
+                .stroke(TallaTheme.Colors.ink, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.easeInOut(duration: 0.35), value: brewModeProgress)
+
+            Image(systemName: "drop.fill")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(TallaTheme.Colors.ink)
+                .offset(y: isBrewModeRunning ? -4 : 0)
+                .symbolEffect(.pulse, value: brewModeHapticTrigger)
+        }
+        .frame(width: 64, height: 64)
+    }
+
+    var guidedBrewSetupSummary: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                guidedBrewSetupMetric(
+                    title: AppLocalization.text("water", fallback: "Water"),
+                    value: "\(formattedWholeGram(validWaterAmount)) g",
+                    systemImage: "drop.fill"
+                )
+
+                guidedBrewSetupMetric(
+                    title: AppLocalization.text("brew_time", fallback: "Brew time"),
+                    value: formattedTimerTime(brewModeTotalSeconds),
+                    systemImage: "timer"
+                )
+            }
+
+            if let activeSmartRecipe {
+                HStack(spacing: 10) {
+                    guidedBrewSetupMetric(
+                        title: AppLocalization.text("grind", fallback: "Grind"),
+                        value: activeSmartRecipe.grind,
+                        systemImage: "circle.grid.3x3.fill"
+                    )
+
+                    guidedBrewSetupMetric(
+                        title: AppLocalization.text("temperature", fallback: "Temp"),
+                        value: activeSmartRecipe.temperature,
+                        systemImage: "thermometer.medium"
+                    )
+                }
+            }
+        }
+    }
+
+    func guidedBrewSetupMetric(title: String, value: String, systemImage: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(TallaTheme.Colors.ink)
+                .frame(width: 28, height: 28)
+                .background(accentColor.opacity(0.10))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Font.custom("AvenirNext-Bold", size: 9))
+                    .tracking(AppLocalization.letterSpacing(1.2))
+                    .textCase(.uppercase)
+                    .foregroundColor(tertiaryTextColor)
+
+                Text(value)
+                    .font(Font.custom("AvenirNext-Bold", size: 14))
+                    .foregroundColor(primaryTextColor)
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardFillColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(TallaTheme.Colors.ink.opacity(0.14), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    var focusedBrewModeView: some View {
+        ZStack {
+            brewBackgroundColor
+            .ignoresSafeArea()
+
+            DuoSafePane {
+                Group {
+                    if (brewModeElapsedSeconds >= brewModeTotalSeconds || didCompleteBrewFromScale) && !isBrewModeRunning {
+                        if isCustomerGuidedSession {
+                            customerAfterBrewView
+                                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                        } else {
+                            focusedAfterBrewView
+                                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                        }
+                    } else if isCustomerGuidedSession {
+                        customerFocusedBrewView
+                    } else {
+                        focusedLiveBrewView
+                            .transition(.opacity)
+                    }
+                }
+            }
+        }
+        .interactiveDismissDisabled(isBrewModeRunning || brewModeElapsedSeconds > 0)
+        .confirmationDialog(
+            AppLocalization.text("end_brew_question", fallback: "End this brew?"),
+            isPresented: $isEndBrewConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button(AppLocalization.text("end_brew", fallback: "End Brew"), role: .destructive) {
+                endFocusedBrew()
+            }
+
+            Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(AppLocalization.text("end_brew_detail", fallback: "Your current timer progress will stop."))
+        }
+        .confirmationDialog(
+            AppLocalization.text("restart_brew_question", fallback: "Restart this brew?"),
+            isPresented: $isBrewRestartConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button(AppLocalization.text("restart_brew", fallback: "Restart Brew"), role: .destructive) {
+                restartBrewMode()
+            }
+
+            Button(AppLocalization.text("cancel", fallback: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(AppLocalization.text("restart_brew_detail", fallback: "Timer and step progress will return to the beginning."))
+        }
+        .sensoryFeedback(.selection, trigger: brewModeHapticTrigger)
+        .toolbar(.hidden, for: .tabBar)
+        .fullScreenCover(isPresented: $isScalePickerPresented) {
+            floatingBluetoothScalePicker {
+                isScalePickerPresented = false
+            }
+            .presentationBackground(.clear)
+        }
+    }
+
+    var customerFocusedBrewView: some View {
+        let actionColor = brewingColorScheme == .dark ? Color.white : Color(hex: 0x151515)
+        let actionForeground = brewingColorScheme == .dark ? Color.black : Color.white
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack {
+                    Text(AppLocalization.text("guided_brew", fallback: "Guided Brew"))
+                        .font(Font.custom("AvenirNext-Bold", size: 34))
+                        .foregroundColor(brewPrimaryTextColor)
+                    Spacer()
+                    Button {
+                        requestEndFocusedBrew()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(brewPrimaryTextColor)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(AppLocalization.text("end_brew", fallback: "End Brew"))
+                }
+                .padding(.top, 4)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(customerGuidedBrewCoffeeName)
+                        .font(Font.custom("AvenirNext-Bold", size: 17))
+                        .foregroundColor(brewPrimaryTextColor)
+                    Text("\(formattedWholeGram(validCoffeeAmount)) g \(AppLocalization.text("coffee", fallback: "coffee")) · \(formattedWholeGram(brewModeWaterAmount)) g \(AppLocalization.text("water", fallback: "water"))")
+                        .font(Font.custom("AvenirNext-Regular", size: 13))
+                        .foregroundColor(brewSecondaryTextColor)
+                }
+
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(AppLocalization.text("do_this_now", fallback: "Do this now"))
+                        .font(Font.custom("AvenirNext-Bold", size: 12))
+                        .tracking(3.0)
+                        .textCase(.uppercase)
+                        .foregroundColor(brewAccentColor)
+
+                    Text(currentBrewModeStep.title)
+                        .font(Font.custom("AvenirNext-Bold", size: 40))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(currentBrewModeStep.detail)
+                        .font(Font.custom("AvenirNext-Regular", size: 17))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if currentWaterTarget > 0 {
+                        Label("\(formattedWholeGram(currentWaterTarget)) / \(formattedWholeGram(brewModeWaterAmount)) g", systemImage: "drop.fill")
+                            .font(Font.custom("AvenirNext-Bold", size: 20))
+                            .foregroundColor(brewAccentColor)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 72)
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text(formattedTimerTime(brewModeElapsedSeconds))
+                        .font(Font.custom("AvenirNext-Bold", size: 64))
+                        .monospacedDigit()
+                        .foregroundColor(brewPrimaryTextColor)
+                    Spacer()
+                    Text("/ \(formattedTimerTime(brewModeTotalSeconds))")
+                        .font(Font.custom("AvenirNext-Regular", size: 18))
+                        .foregroundColor(brewSecondaryTextColor)
+                }
+                .padding(.top, 22)
+
+                if let nextBrewModeStep {
+                    Text("\(AppLocalization.text("up_next", fallback: "Up next")): \(nextBrewModeStep.title)")
+                        .font(Font.custom("AvenirNext-Regular", size: 14))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    skipBrewModeStep()
+                } label: {
+                    Text(nextBrewModeStep == nil
+                         ? AppLocalization.text("finish_brew", fallback: "Finish brew")
+                         : AppLocalization.text("next_step", fallback: "Next step"))
+                        .font(Font.custom("AvenirNext-Bold", size: 17))
+                        .foregroundColor(actionForeground)
+                        .frame(maxWidth: .infinity, minHeight: 64)
+                        .background(actionColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+
+                Button {
+                    toggleBrewMode()
+                } label: {
+                    Label(isBrewModeRunning
+                          ? AppLocalization.text("pause", fallback: "Pause")
+                          : AppLocalization.text("resume", fallback: "Resume"),
+                          systemImage: isBrewModeRunning ? "pause.fill" : "play.fill")
+                        .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: 620)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 22)
+            .padding(.top, 16)
+            .padding(.bottom, 26)
+        }
+    }
+
+    var focusedLiveBrewView: some View {
+        GeometryReader { proxy in
+            // The folded Duo outer display is a compact landscape window
+            // (roughly 740 points wide), so it must use the landscape brew
+            // workspace instead of the vertically scrolling phone layout.
+            let isLandscape = proxy.size.width > proxy.size.height
+            let usesDuoOuterPortraitLayout = !isLandscape && proxy.size.width >= 350
+            Group {
+                if isLandscape {
+                    focusedDuoLandscapeLiveBrewView
+                } else if usesDuoOuterPortraitLayout {
+                    focusedDuoPortraitLiveBrewView
+                } else {
+                    focusedPortraitLiveBrewView
+                }
+            }
+            .frame(maxWidth: 1180, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, isLandscape ? 12 : 16)
+            .safeAreaPadding(.top, isLandscape ? 8 : 6)
+            .safeAreaPadding(.bottom, isLandscape ? 10 : 8)
+        }
+    }
+
+    var focusedDuoPortraitLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            focusedBrewTopArea
+            focusedBrewTimeline
+
+            Group {
+                if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                    focusedDuoPortraitPrepareContent
+                } else {
+                    focusedDuoPortraitActiveContent
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            Spacer(minLength: 4)
+            focusedBrewControls
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    var focusedDuoPortraitPrepareContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLocalization.text("prepare", fallback: "Prepare"))
+                .font(brewEyebrowFont)
+                .foregroundColor(brewAccentColor)
+
+            Text(AppLocalization.text("rinse_and_preheat", fallback: "Rinse and preheat"))
+                .font(Font.custom("Georgia-Bold", size: 30))
+                .foregroundColor(brewPrimaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.72)
+
+            Text(AppLocalization.text("rinse_preheat_explanation", fallback: "Rinse the filter, warm the brewer, and discard the rinse water."))
+                .font(Font.custom("AvenirNext-Regular", size: 14))
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+
+            focusedScaleSetupCard
+
+            Button {
+                if scaleManager.isConnected { tareConnectedScale() }
+                startBrewModeSession()
+            } label: {
+                Label(
+                    scaleManager.isConnected
+                        ? AppLocalization.text("tare_and_start", fallback: "Tare & Start")
+                        : AppLocalization.text("ready", fallback: "Ready"),
+                    systemImage: scaleManager.isConnected ? "arrow.counterclockwise" : "play.fill"
+                )
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(brewAccentForegroundColor)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 48)
+                .background(brewAccentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    var focusedDuoPortraitActiveContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentBrewPhaseName)
+                        .font(brewEyebrowFont)
+                        .foregroundColor(brewAccentColor)
+                    Text(formattedTimerTime(brewModeElapsedSeconds))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 54))
+                        .monospacedDigit()
+                        .foregroundColor(brewPrimaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                Spacer(minLength: 0)
+                Text(primaryWaterTargetText)
+                    .font(Font.custom("Georgia-Bold", size: 28))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
+            Text(focusedBrewGuidanceText)
+                .font(Font.custom("AvenirNext-Regular", size: 14))
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+
+            if scaleManager.isConnected {
+                focusedScaleLiveCard
+            } else {
+                focusedScaleSetupCard
+            }
+
+            focusedDuoCompactMetricRows
+
+            focusedNextStepPreview
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+    }
+
+    var focusedDuoCompactMetricRows: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                focusedMetricTile(title: AppLocalization.text("target", fallback: "Target"), value: "\(formattedWholeGram(currentWaterTarget)) g")
+                focusedMetricTile(title: AppLocalization.text("added_this_step", fallback: "Added this step"), value: "\(formattedWholeGram(waterAddedThisStep)) g")
+            }
+            HStack(spacing: 8) {
+                focusedMetricTile(title: AppLocalization.text("suggested_flow", fallback: "Suggested flow"), value: currentSuggestedFlow)
+                focusedMetricTile(title: AppLocalization.text("target_completion_time", fallback: "Target completion time"), value: currentTargetCompletionTime)
+            }
+            if currentBrewPhaseName == AppLocalization.text("bloom", fallback: "Bloom") {
+                focusedMetricTile(title: AppLocalization.text("bloom_duration", fallback: "Bloom duration"), value: focusedBloomDurationText)
+            }
+        }
+    }
+
+    func focusedDuoCompactMetricRow(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title)
+                .font(Font.custom("AvenirNext-DemiBold", size: 9))
+                .tracking(AppLocalization.letterSpacing(0.8))
+                .textCase(.uppercase)
+                .foregroundColor(brewSecondaryTextColor)
+
+            Spacer(minLength: 8)
+
+            Text(value)
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(brewPrimaryTextColor)
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+        }
+        .frame(minHeight: 32)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(brewBorderColor.opacity(0.7))
+                .frame(height: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    var focusedDuoLandscapeLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            focusedBrewTopArea
+
+            focusedBrewTimeline
+
+            HStack(alignment: .top, spacing: 16) {
+                Group {
+                    if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                        focusedDuoPortraitPrepareContent
+                    } else {
+                        focusedDuoLandscapeActiveContent
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                focusedBrewControls
+                    .frame(width: 214, alignment: .top)
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    var focusedDuoLandscapeActiveContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentBrewPhaseName)
+                        .font(brewEyebrowFont)
+                        .foregroundColor(brewAccentColor)
+
+                    Text(formattedTimerTime(brewModeElapsedSeconds))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 64))
+                        .monospacedDigit()
+                        .foregroundColor(brewPrimaryTextColor)
+                        .contentTransition(.numericText())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(primaryWaterTargetText)
+                    .font(Font.custom("Georgia-Bold", size: 28))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(AppLocalization.text("elapsed_timer", fallback: "Elapsed timer"))
+            .accessibilityValue("\(formattedTimerTime(brewModeElapsedSeconds)), \(currentBrewPhaseName)")
+
+            Text(focusedBrewGuidanceText)
+                .font(Font.custom("AvenirNext-Regular", size: 14))
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+
+            if scaleManager.isConnected {
+                focusedScaleLiveCard
+            } else {
+                focusedScaleSetupCard
+            }
+
+            Toggle(isOn: $isVoiceGuidanceEnabled) {
+                Label(
+                    AppLocalization.text("voice_guidance", fallback: "Voice guidance"),
+                    systemImage: "speaker.wave.2.fill"
+                )
+                .font(Font.custom("AvenirNext-DemiBold", size: 12))
+                .foregroundColor(brewPrimaryTextColor)
+            }
+            .tint(brewAccentColor)
+            .accessibilityIdentifier("guided-brew.voice-guidance")
+
+            focusedBrewMetricRows
+                .frame(maxHeight: 190)
+
+            focusedNextStepPreview
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+    }
+
+    var focusedPortraitLiveBrewView: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                focusedBrewTopArea
+
+                focusedBrewTimeline
+                    .padding(.top, 4)
+
+                if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                    focusedPrepareBrewContent
+                        .transition(.opacity)
+                } else {
+                    focusedActiveBrewContent
+                        .transition(.opacity)
+                }
+
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(.bottom, 20)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            focusedBrewControls
+                .padding(.top, isCompact ? 6 : 10)
+                .padding(.bottom, isCompact ? 2 : 6)
+                .background(.ultraThinMaterial)
+        }
+    }
+
+    var focusedLandscapeLiveBrewView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            focusedBrewTopArea
+
+            focusedBrewTimeline
+                .padding(.top, 12)
+
+            Spacer(minLength: 14)
+
+            if brewModeElapsedSeconds == 0 && !isBrewModeRunning {
+                focusedPrepareBrewContent
+                    .frame(maxWidth: 760)
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity)
+            } else {
+                focusedLandscapeActiveBrewContent
+                    .transition(.opacity)
+            }
+
+            Spacer(minLength: 14)
+
+            focusedBrewControls
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    var focusedLandscapeActiveBrewContent: some View {
+        HStack(alignment: .top, spacing: 34) {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(currentBrewPhaseName)
+                        .font(brewEyebrowFont)
+                        .foregroundColor(brewAccentColor)
+
+                    Text(formattedTimerTime(brewModeElapsedSeconds))
+                        .font(Font.custom("AvenirNext-DemiBold", size: 72))
+                        .monospacedDigit()
+                        .foregroundColor(brewPrimaryTextColor)
+                        .contentTransition(.numericText())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(AppLocalization.text("elapsed_timer", fallback: "Elapsed timer"))
+                .accessibilityValue("\(formattedTimerTime(brewModeElapsedSeconds)), \(currentBrewPhaseName)")
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(primaryWaterTargetText)
+                        .font(Font.custom("Georgia-Bold", size: 38))
+                        .foregroundColor(brewPrimaryTextColor)
+                        .monospacedDigit()
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+
+                    Text(focusedBrewGuidanceText)
+                        .font(Font.custom("AvenirNext-Regular", size: 16))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if scaleManager.isConnected {
+                    focusedScaleLiveCard
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            VStack(alignment: .leading, spacing: 14) {
+                focusedBrewMetricRows
+                focusedNextStepPreview
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
+
+    var focusedBrewTopArea: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Button {
+                requestEndFocusedBrew()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .frame(width: 44, height: 44)
+                    .background(brewSurfaceColor)
+                    .overlay(
+                        Circle()
+                            .stroke(brewBorderColor, lineWidth: 1)
+                    )
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(AppLocalization.text("close", fallback: "Close"))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(currentBrewRecipeTitle)
+                    .font(Font.custom("AvenirNext-DemiBold", size: 16))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                Text(displayCoffeeName)
+                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                    .foregroundColor(brewSecondaryTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                if scaleManager.isConnected {
+                    tareConnectedScale()
+                } else {
+                    isScalePickerPresented = true
+                }
+            } label: {
+                VStack(spacing: 1) {
+                    Image(systemName: scaleManager.isConnected ? "scalemass.fill" : "scalemass")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text(
+                        scaleManager.isConnected
+                            ? AppLocalization.text("tare", fallback: "Tare")
+                            : AppLocalization.text("scale", fallback: "Scale")
+                    )
+                    .font(Font.custom("AvenirNext-DemiBold", size: 7))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                }
+                .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewPrimaryTextColor)
+                .frame(width: 44, height: 44)
+                .background(brewSurfaceColor)
+                .overlay(
+                    Circle()
+                        .stroke(scaleManager.isConnected ? brewAccentColor.opacity(0.65) : brewBorderColor, lineWidth: 1)
+                )
+                .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                scaleManager.isConnected
+                    ? AppLocalization.text("tare_connected_scale", fallback: "Tare connected scale")
+                    : AppLocalization.text("connect_bluetooth_scale", fallback: "Connect Bluetooth scale")
+            )
+
+            Text(String(format: AppLocalization.text("step_count_format", fallback: "Step %1$d of %2$d"), currentBrewModeStepIndex + 1, brewModeSteps.count))
+                .font(Font.custom("AvenirNext-DemiBold", size: 11))
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
+            Menu {
+                Button {
+                    isBrewRestartConfirmationPresented = true
+                } label: {
+                    Label(AppLocalization.text("restart", fallback: "Restart"), systemImage: "arrow.counterclockwise")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .frame(width: 44, height: 44)
+                    .background(brewSurfaceColor)
+                    .overlay(
+                        Circle()
+                            .stroke(brewBorderColor, lineWidth: 1)
+                    )
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel(AppLocalization.text("more", fallback: "More"))
+        }
+    }
+
+    var focusedPrepareBrewContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Text(AppLocalization.text("prepare", fallback: "Prepare"))
+                .font(brewEyebrowFont)
+                .foregroundColor(brewAccentColor)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(AppLocalization.text("rinse_and_preheat", fallback: "Rinse and preheat"))
+                    .font(Font.custom("Georgia-Bold", size: isCompact ? 36 : 48))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(AppLocalization.text("rinse_preheat_explanation", fallback: "Rinse the filter, warm the brewer, and discard the rinse water."))
+                    .font(Font.custom("AvenirNext-Regular", size: 17))
+                    .foregroundColor(brewSecondaryTextColor)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            focusedScaleSetupCard
+
+            Button {
+                if scaleManager.isConnected {
+                    tareConnectedScale()
+                }
+                startBrewModeSession()
+            } label: {
+                Label(
+                    scaleManager.isConnected
+                        ? AppLocalization.text("tare_and_start", fallback: "Tare & Start")
+                        : AppLocalization.text("ready", fallback: "Ready"),
+                    systemImage: scaleManager.isConnected ? "arrow.counterclockwise" : "play.fill"
+                )
+                    .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                    .foregroundColor(brewAccentForegroundColor)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 54)
+                    .background(brewAccentColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(AppLocalization.text("starts_guided_brew_timer", fallback: "Starts the guided brew timer."))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var focusedActiveBrewContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(currentBrewPhaseName)
+                    .font(brewEyebrowFont)
+                    .foregroundColor(brewAccentColor)
+
+                Text(formattedTimerTime(brewModeElapsedSeconds))
+                    .font(Font.custom("AvenirNext-DemiBold", size: isCompact ? 74 : 104))
+                    .monospacedDigit()
+                    .foregroundColor(brewPrimaryTextColor)
+                    .contentTransition(.numericText())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(AppLocalization.text("elapsed_timer", fallback: "Elapsed timer"))
+            .accessibilityValue("\(formattedTimerTime(brewModeElapsedSeconds)), \(currentBrewPhaseName)")
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(primaryWaterTargetText)
+                    .font(Font.custom("Georgia-Bold", size: isCompact ? 38 : 52))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .monospacedDigit()
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+
+                Text(focusedBrewGuidanceText)
+                    .font(Font.custom("AvenirNext-Regular", size: 17))
+                    .foregroundColor(brewSecondaryTextColor)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if scaleManager.isConnected {
+                focusedScaleLiveCard
+            } else {
+                focusedScaleSetupCard
+            }
+
+            focusedBrewMetricRows
+            focusedNextStepPreview
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var focusedBrewMetricRows: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                focusedMetricTile(title: AppLocalization.text("target", fallback: "Target"), value: "\(formattedWholeGram(currentWaterTarget)) g")
+                focusedMetricTile(title: AppLocalization.text("added_this_step", fallback: "Added this step"), value: "\(formattedWholeGram(waterAddedThisStep)) g")
+            }
+            HStack(spacing: 10) {
+                focusedMetricTile(title: AppLocalization.text("suggested_flow", fallback: "Suggested flow"), value: currentSuggestedFlow)
+                focusedMetricTile(title: AppLocalization.text("target_completion_time", fallback: "Target completion time"), value: currentTargetCompletionTime)
+            }
+            if currentBrewPhaseName == AppLocalization.text("bloom", fallback: "Bloom") {
+                focusedMetricTile(title: AppLocalization.text("bloom_duration", fallback: "Bloom duration"), value: focusedBloomDurationText)
+            }
+        }
+    }
+
+    func focusedMetricTile(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title)
+                .font(Font.custom("AvenirNext-DemiBold", size: 10))
+                .tracking(AppLocalization.letterSpacing(1.1))
+                .textCase(.uppercase)
+                .foregroundColor(brewSecondaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+
+            Text(value)
+                .font(Font.custom("AvenirNext-Bold", size: 20))
+                .foregroundColor(brewPrimaryTextColor)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+        .padding(.horizontal, 14)
+        .background(brewSurfaceColor.opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(brewBorderColor.opacity(0.8), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    var focusedScaleSetupCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: scaleManager.isConnected ? "checkmark.circle.fill" : "scalemass")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(scaleManager.isConnected ? brewAccentColor : brewSecondaryTextColor)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(scaleManager.connectedScaleName ?? AppLocalization.text("bluetooth_scale", fallback: "Bluetooth Scale"))
+                    .font(Font.custom("AvenirNext-DemiBold", size: 14))
+                    .foregroundColor(brewPrimaryTextColor)
+
+                Text(scaleManager.isConnected
+                    ? AppLocalization.text("scale_connected_live", fallback: "Connected · live weight ready")
+                    : AppLocalization.text("scale_connect_live", fallback: "Connect for live weight and flow"))
+                    .font(Font.custom("AvenirNext-Regular", size: 12))
+                    .foregroundColor(brewSecondaryTextColor)
+            }
+
+            Spacer(minLength: 8)
+
+            if scaleManager.isConnected {
+                Button(AppLocalization.text("tare", fallback: "Tare")) {
+                    tareConnectedScale()
+                }
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(brewAccentColor)
+            } else {
+                Button(AppLocalization.text("connect", fallback: "Connect")) {
+                    isScalePickerPresented = true
+                }
+                .font(Font.custom("AvenirNext-DemiBold", size: 13))
+                .foregroundColor(brewAccentColor)
+            }
+        }
+        .padding(14)
+        .background(brewSurfaceColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(brewBorderColor, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    var focusedScaleLiveCard: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 0) {
+            scaleLiveMetric(
+                title: AppLocalization.text("live_weight", fallback: "Live weight"),
+                value: String(format: "%.1f g", scaleManager.weightGrams)
+            )
+
+            Rectangle()
+                .fill(brewBorderColor)
+                .frame(width: 1, height: 42)
+
+            scaleLiveMetric(
+                title: AppLocalization.text("to_target", fallback: "To target"),
+                value: String(format: "%.1f g", max(currentWaterTarget - scaleManager.weightGrams, 0))
+            )
+
+            Rectangle()
+                .fill(brewBorderColor)
+                .frame(width: 1, height: 42)
+
+            scaleLiveMetric(
+                title: AppLocalization.text("flow", fallback: "Flow"),
+                value: String(format: "%.1f g/s", scaleManager.flowRateGramsPerSecond)
+            )
+            }
+            .padding(.vertical, 12)
+            if capturedBrewSamples.contains(where: { $0.kind == .weight }) {
+                BrewTelemetryChart(samples: capturedBrewSamples, accent: brewAccentColor, targets: brewTelemetryTargets)
+                    .frame(height: isCompact ? 92 : 120)
+            }
+        }
+        .padding(10)
+        .background(brewSurfaceColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(brewAccentColor.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+}

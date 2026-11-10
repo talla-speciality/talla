@@ -183,6 +183,9 @@ extension ContentView {
                     return
                 }
                 await loadAppSettings()
+                if activeTab == .shop {
+                    await refreshProductsIfNeeded()
+                }
             }
         }
         .onChange(of: activeTab) { _, newTab in
@@ -714,11 +717,24 @@ extension ContentView {
                         } label: {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(readableBrandGoldColor)
+                                .foregroundColor(Color(red: 0.96, green: 0.66, blue: 0.16).opacity(0.92))
                                 .frame(width: 32, height: 32)
-                                .background(cardFillColor, in: Circle())
+                                .background(cardFillColor.opacity(0.58), in: Circle())
+                                .overlay(Circle().stroke(TallaTheme.Colors.ink.opacity(0.10), lineWidth: 1))
+                                .scaleEffect(isTallaAIButtonBreathing ? 1.045 : 0.985)
+                                .rotationEffect(.degrees(isTallaAISparkling ? 9 : -9))
+                                .shadow(color: Color(red: 0.96, green: 0.66, blue: 0.16).opacity(isTallaAISparkling ? 0.16 : 0.04), radius: 5)
                         }
                         .buttonStyle(.plain)
+                        .onAppear {
+                            guard !reduceMotion else { return }
+                            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                                isTallaAIButtonBreathing = true
+                            }
+                            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                                isTallaAISparkling = true
+                            }
+                        }
                         .accessibilityLabel(AppLocalization.text("coffee_ai_home_title", fallback: "Ask Talla AI"))
                         .accessibilityIdentifier("navigation.tallaAI")
                     }

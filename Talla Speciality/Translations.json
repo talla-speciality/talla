@@ -1,4 +1,31 @@
 {
+  "education_quiz_cooldown": {"en": "Quiz checks are paused after three incorrect answers. Keep learning here and try again later.", "ar": "توقّف التحقق من الاختبار بعد ثلاث إجابات غير صحيحة. واصل التعلّم هنا وحاول لاحقًا."},
+  "shelf_roast_age_preference": {"en": "Review roast age after", "ar": "راجع عمر التحميص بعد"},
+  "shelf_roast_age_days": {"en": "%d days", "ar": "%d يومًا"},
+  "shelf_roast_age_note": {"en": "This is your reminder, not a freshness guarantee.", "ar": "هذا تذكيرك الشخصي، وليس ضمانًا لنضارة القهوة."},
+  "shelf_days_since_roast": {"en": "%d days since roast", "ar": "مرّ %d يومًا منذ التحميص"},
+  "shelf_roast_date_unknown": {"en": "Roast date unknown", "ar": "تاريخ التحميص غير معروف"},
+  "shelf_add_roast_date_age": {"en": "Add a roast date to track this bag's age.", "ar": "أضف تاريخ التحميص لتتبع عمر هذا الكيس."},
+  "shelf_roast_age_detail": {"en": "%d days since roast · your reminder is %d days", "ar": "مرّ %d يومًا منذ التحميص · تذكيرك بعد %d يومًا"},
+  "shelf_review_roast_age": {"en": "Review this bag's roast age", "ar": "راجع عمر تحميص هذا الكيس"},
+  "shelf_within_roast_preference": {"en": "Within your roast-age preference", "ar": "ضمن مدة التحميص المفضلة لديك"},
+  "shelf_roasted": {"en": "Roasted", "ar": "حُمّصت"},
+  "shelf_opened": {"en": "Opened", "ar": "فُتحت"},
+  "shelf_opened_on": {"en": "Opened %@", "ar": "فُتحت في %@"},
+  "coffee_undo_last_dose": {"en": "Undo last deduction (%.0f g)", "ar": "تراجع عن آخر خصم (%.0f غ)"},
+  "brew_coach_compare_title": {"en": "Compare recent brews", "ar": "قارن التحضيرات الأخيرة"},
+  "brew_coach_compare_previous": {"en": "Previous", "ar": "السابق"},
+  "brew_coach_compare_latest": {"en": "Latest", "ar": "الأخير"},
+  "brew_coach_compare_dose": {"en": "Coffee", "ar": "القهوة"},
+  "brew_coach_compare_water": {"en": "Water", "ar": "الماء"},
+  "brew_coach_compare_time": {"en": "Time", "ar": "الوقت"},
+  "brew_coach_compare_rating": {"en": "Rating", "ar": "التقييم"},
+  "education_reward_current_answers_required": {"en": "Answer two current quiz questions correctly to claim your Beans.", "ar": "أجب إجابة صحيحة عن سؤالين حاليين في الاختبار لتحصل على حبوبك."},
+  "education_reward_retry": {"en": "Could not claim your Beans right now. Try again when online.", "ar": "تعذّر الحصول على حبوبك الآن. حاول مرة أخرى عند الاتصال بالإنترنت."},
+  "brew_chart_measured_target": {"en": "MEASURED · TARGET", "ar": "القياس · الهدف"},
+  "brew_chart_weight_curve": {"en": "WEIGHT CURVE", "ar": "منحنى الوزن"},
+  "brew_chart_accessibility_target": {"en": "Measured weight and target pours", "ar": "الوزن المقاس وأهداف الصب"},
+  "brew_chart_accessibility_weight": {"en": "Measured weight", "ar": "الوزن المقاس"},
   "gulf_passport_title": {"en": "Your Gulf coffee passport", "ar": "جواز قهوتك الخليجية"},
   "gulf_passport_detail": {"en": "Collect verified places, remember the cup, and build a taste trail across the region.", "ar": "اجمع الأماكن الموثقة، وتذكّر فنجانك، وابنِ مسارك الذوقي في الخليج."},
   "gulf_passport_progress": {"en": "%(visited) of %(total) places visited", "ar": "زرت %(visited) من أصل %(total) مكانًا"},
@@ -2166,9 +2193,11 @@
     "ar": "صناديق الصيف"
   },
   "category_coffee_beans": {
+    "en": "Coffee",
     "ar": "البن"
   },
   "category_arabic_coffee": {
+    "en": "Gahwa",
     "ar": "القهوة العربية والقهوة للضيافة"
   },
   "category_drip_bags": {
@@ -4247,6 +4276,9 @@
   "save_as_version_2": {
     "ar": "حفظ كنسخة 2"
   },
+  "save_coffee_to_shelf": {
+    "ar": "حفظ القهوة في الرف"
+  },
   "save_to_journal": {
     "ar": "حفظ في السجل"
   },
@@ -4644,9 +4676,9 @@
   "pay_action": {"ar": "ادفع"},
   "catalog_espresso-bimbo_name": {"en": "Espresso Bimbo", "ar": "إسبريسو بيمبو"},
   "catalog_glass-cup_name": {"en": "Glass Cup", "ar": "كوب زجاجي"},
-  "catalog_talla-signature-box_name": {"en": "Talla Signature Box", "ar": "صندوق تله المميز"},
+  "catalog_talla-signature-box_name": {"en": "Signature Box", "ar": "صندوق تله المميز"},
   "catalog_winter-box_name": {"en": "Winter Box", "ar": "صندوق الشتاء"},
-  "catalog_talla-signature-box_description": {"en": "The Talla Signature Box features single-origin coffees from Hawar Islands, Muharraq, and a mini Al-Majd, plus 10 paper cups and a sticker sheet.", "ar": "يضم صندوق تله المميز محاصيل أحادية المصدر من جزر حوار والمحرق، وعبوة صغيرة من المجد، بالإضافة إلى ١٠ أكواب ورقية وورقة ملصقات."},
+  "catalog_talla-signature-box_description": {"en": "The Signature Box features single-origin coffees from Hawar Islands, Muharraq, and a mini Al-Majd, plus 10 paper cups and a sticker sheet.", "ar": "يضم صندوق تله المميز محاصيل أحادية المصدر من جزر حوار والمحرق، وعبوة صغيرة من المجد، بالإضافة إلى ١٠ أكواب ورقية وورقة ملصقات."},
   "catalog_riffa-drip-bags_name": {"en": "Riffa Drip Bags", "ar": "اظرف قهوة"},
   "catalog_riffa-drip-bags_description": {"en": "Yemeni coffee offers a rich, winey cup with notes of cocoa and dried fruit, rooted in one of the world’s oldest coffee traditions.", "ar": "قهوة يمنية غنية بإيحاءات نبيذية ولمسات من الكاكاو والفواكه المجففة، تنتمي إلى أحد أعرق تقاليد القهوة في العالم."},
   "catalog_hawar-islands-drip-bags_name": {"en": "Hawar Islands Drip Bags", "ar": "أكياس ترشيح جزر حوار"},
@@ -4659,7 +4691,7 @@
   "catalog_coffee-brew-water_name": {"en": "Coffee Brew Water", "ar": "مياه تحضير القهوة"},
   "catalog_coffee-brew-water_description": {"en": "Rawdatain Brew Water is a collaboration between Al Rawdatain Water Bottling Company and Forty-Eight East Coffee Roasters.  \n   \n \n  The formula enhances coffee flavor and brings out its rich taste.  \n  It has high alkalinity (pH) for optimal flavor extraction.  \n  It has increased calcium for a creamy texture.  \n  It has increased magnesium for flavor complement.  \n  It has increased sodium for balanced taste.  \n  It has increased sulfate for sweetness.  \n  The formula was designed with Forty-Eight East Coffee Roasters experts.  \n  Rawdatain Brew Water offers an exceptional coffee taste, creamy texture, balanced flavor, and unforgettable experience.", "ar": "مياه الروضتين لتحضير القهوة ثمرة تعاون بين شركة تعبئة مياه الروضتين ومحمصة فورتي إيت إيست. صُمّمت التركيبة بمشاركة خبراء المحمصة لإبراز نكهات القهوة، مع قلوية مرتفعة وزيادة الكالسيوم لقوام كريمي، والمغنيسيوم لتعزيز النكهة، والصوديوم لتوازن المذاق، والكبريتات لإبراز الحلاوة. تجربة قهوة غنية بقوام كريمي ومذاق متوازن."},
   "catalog_manual-kettle_name": {"en": "Manual Kettle", "ar": "إبريق تحضير يدوي"},
-  "catalog_mini-talla-box_name": {"en": "Mini Talla Box", "ar": "صندوق تله الصغير"},
+  "catalog_mini-talla-box_name": {"en": "Mini Box", "ar": "صندوق تله الصغير"},
   "catalog_mini-talla-box_description": {"en": "Product Description:  The Mini Coffee Box 2 contains 200g of coffee bags and 5 Talla Paper Cups \n \n Product Experience:  Provides an authentic coffee experience with enhanced flavor and aroma. \n \n Product Quality:  Each component is meticulously crafted to enhance the traditional brewing process.", "ar": "يحتوي صندوق القهوة الصغير ٢ على ٢٠٠ غ من أكياس القهوة و٥ أكواب تله الورقية. تجربة قهوة أصيلة تُبرز النكهة والرائحة، مع مكوّنات صُمّمت بعناية لتعزيز طريقة التحضير التقليدية."},
   "catalog_talla-box_name": {"en": "Talla Box", "ar": "صندوق تله"},
   "catalog_talla-box_description": {"en": "Product Description:  The Mini Coffee Box contains 400g of coffee bags and 10 Talla Paper Cups \n \n Product Experience:  Provides an authentic coffee experience with enhanced flavor and aroma. \n \n Product Quality:  Each component is meticulously crafted to enhance the traditional brewing process.", "ar": "يحتوي صندوق القهوة الصغير على ٤٠٠ غ من أكياس القهوة و١٠ أكواب تله الورقية. تجربة قهوة أصيلة تُبرز النكهة والرائحة، مع مكوّنات صُمّمت بعناية لتعزيز طريقة التحضير التقليدية."},
@@ -4902,5 +4934,7 @@
   "app_icon": {"ar": "أيقونة التطبيق"},
   "best_for_gifts": {"ar": "صندوق هدايا مختار للمشاركة والمناسبات الخاصة."},
   "gift_box": {"ar": "صندوق هدايا"},
-  "contents": {"ar": "المحتويات"}
+  "contents": {"ar": "المحتويات"},
+  "sign_in_to_view_order": {"en": "Sign in to view this order", "ar": "سجّل الدخول لعرض هذا الطلب"},
+  "linked_order_unavailable": {"en": "This order is unavailable in your account. Check the link or contact Talla support.", "ar": "هذا الطلب غير متاح في حسابك. تحقق من الرابط أو تواصل مع دعم تله."}
 }

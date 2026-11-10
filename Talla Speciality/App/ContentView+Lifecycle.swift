@@ -58,8 +58,8 @@ extension ContentView {
                         colors: isOLEDAppearance
                             ? [.black, .black, .black]
                             : [
-                                Color(hex: 0x100B07),
-                                Color(hex: 0x1A120C),
+                                Color(hex: 0x000000),
+                                Color(hex: 0x0B0B0B),
                                 Color(hex: 0x151515)
                             ],
                         startPoint: .topLeading,

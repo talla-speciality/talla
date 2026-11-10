@@ -489,7 +489,7 @@ struct OrderDetailView: View {
                     Button("Refund BHD \(refundAmount)", role: .destructive) { executeRefund(order) }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("This executes the refund with Shopify and marks the order Cancelled. It does not create a refund request in the customer app.")
+                    Text("This creates a Shopify refund. A completed full refund marks the order Cancelled; a partial or pending refund keeps its current status. Check pending refunds in Shopify before trying again.")
                 }
             } else {
                 ContentUnavailableView(

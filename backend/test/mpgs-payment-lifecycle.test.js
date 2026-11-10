@@ -14,6 +14,9 @@ delete process.env.DATABASE_URL;
 
 const {
     applyConfirmedMpgsPayment,
+    createMpgsTransactionID,
+    findPendingCardPayment,
+    persistCardPayment,
     verifyConfirmedMpgsOrder,
     verifyMpgsAuthenticationForPurchase
 } = require("../server");
@@ -108,6 +111,42 @@ function storedPayment() {
 function storedOrder() {
     return JSON.parse(fs.readFileSync(ordersPath, "utf8")).orders[email][0];
 }
+
+test("purchase transaction IDs are stable for one payment across retries", () => {
+    const first = createMpgsTransactionID("PAY", paymentID);
+    assert.equal(first, createMpgsTransactionID("PAY", paymentID));
+    assert.notEqual(first, createMpgsTransactionID("PAY", "another-payment"));
+    assert.notEqual(first, createMpgsTransactionID("APAY", paymentID));
+    assert.match(first, /^PAY[a-f0-9]{32}$/);
+});
+
+test("an authenticating or processing payment remains active for its order", async () => {
+    seed();
+    for (const status of ["Pending", "Authenticating", "AwaitingChallenge", "Authenticated", "Processing"]) {
+        const store = JSON.parse(fs.readFileSync(paymentsPath, "utf8"));
+        store.payments[paymentID].status = status;
+        fs.writeFileSync(paymentsPath, JSON.stringify(store));
+        assert.equal((await findPendingCardPayment(localOrderID, email))?.paymentID, paymentID);
+    }
+    const store = JSON.parse(fs.readFileSync(paymentsPath, "utf8"));
+    store.payments[paymentID].status = "Declined";
+    fs.writeFileSync(paymentsPath, JSON.stringify(store));
+    assert.equal(await findPendingCardPayment(localOrderID, email), null);
+});
+
+test("an active payment cannot be replaced by another payment method", async () => {
+    seed("CARD");
+    const existing = storedPayment();
+    assert.equal(
+        (await persistCardPayment({ ...existing, paymentID: "cardpay_retry", paymentMethod: "CARD" })).paymentID,
+        paymentID
+    );
+    await assert.rejects(
+        persistCardPayment({ ...existing, paymentID: "cardpay_other", paymentMethod: "APPLE_PAY" }),
+        (error) => error.code === "MPGS_PAYMENT_METHOD_CONFLICT" && error.statusCode === 409
+    );
+    assert.equal(Object.keys(JSON.parse(fs.readFileSync(paymentsPath, "utf8")).payments).length, 1);
+});
 
 test("MPGS card success confirms the order without completing or awarding loyalty", async () => {
     seed("CARD");

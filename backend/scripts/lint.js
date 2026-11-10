@@ -8,7 +8,7 @@ const ignored = new Set(["node_modules", "data"]);
 
 const entryPointBudgets = new Map([
     ["Talla Speciality/App/ContentView.swift", 3_600],
-    ["Talla Speciality/Features/Brewing/BrewingSectionView.swift", 750],
+    ["Talla Speciality/Features/Brewing/Views/BrewingSectionView.swift", 750],
     ["backend/server.js", 10_000]
 ]);
 

@@ -1,0 +1,148 @@
+# Talla competitive feature audit — 2026-11-06
+
+This audit separates evidence supplied in the competitive brief from evidence found in the repository. It is an implementation baseline, not a claim that every competitor feature or every Talla flow has been manually tested on device.
+
+## Evidence labels
+
+- **Source code verified** — present in this repository.
+- **Brief-sourced** — described in the supplied competitive research brief; public behavior still needs independent verification before copying a claim into product or marketing.
+- **Proposed** — a product opportunity, not an existing capability.
+- **Needs manual testing** — requires a simulator/device, real account, payment provider, Bluetooth hardware, or production service.
+
+## Current-state matrix
+
+| Area | Repository evidence | Status | Priority | Next action |
+| --- | --- | --- | --- | --- |
+| Home order card | `Features/Commerce/ContentView+Home.swift` calls `openAccountOrder(order.id)` | Exact order route fixed; parser and focused Home-card UI tests pass | P0 | Validate OS-level cold launch, sign-in and a real order on device. |
+| Order detail | `Features/Account/AccountWorkspaceSections.swift` contains `OrderHistorySectionView` and `OrderDetailView` | Source code and focused async deep-link UI test verified | P0 | Validate OS-level cold launch, notification entry, missing order, cancellation, and signed-out handling on device. |
+| Checkout/payments | `Features/Commerce/PaymentFlow.swift`, backend MPGS routes and payment records | Active-payment uniqueness and stable purchase transaction IDs added; provider behavior unverified | P0 | Run provider sandbox for duplicate taps, ambiguous timeouts and reconciliation. |
+| Beans/rewards | Loyalty/account services, reward entities, voucher consumption and Wallet pass | PostgreSQL balance/history mutations and redemption are atomic; direct customer-selected earn keys are closed; education progress and incorrect-answer windows are stored per account; refund bounds and provider settlement checks are covered; scripted clients and file-storage limits remain | P0 | Validate refund, cancellation and repeated-request behavior with production-like data. |
+| Coffee Shelf | `Features/Brewing/CoffeeLibrary.swift`, `CoffeeDataStore`, SwiftData models | Dose usage and undo commit locally together; exact-SKU reorder and configurable roast-age reminders are implemented | P1 | Continue device QA for add/edit/archive, offline sync, undo and automatic deduction. |
+| Bag scanning | `Features/Brewing/CoffeeBagImageAnalyzer.swift` and `BrewingSectionView+RecipeCreation.swift` use Vision OCR with camera/photo input and editable fields | Source code verified | P1 | Validate recognition and review in Arabic and English with real bag images. |
+| Brew completion | `CoffeeDataStore.recordCompletedBrew` persists sessions, samples, taste feedback and dose records | Source code verified | P1 | Verify one deduction per completed session and interrupted/cancelled behavior. |
+| Brew Coach | `BrewingSectionView+Runtime.swift`, `CoffeeLibrary.swift` and taste-memory tests | One-change default adjustments and a same-recipe recent-brew comparison are implemented | P1 | Validate advice against real brew logs and Arabic layout on device. |
+| Bluetooth scales | Multiple drivers under `Services/Devices` plus brew samples | Source code verified; cross-driver callback isolation added | P1 | Test supported physical devices; do not claim unsupported protocols. |
+| Espresso workspace | `Features/Espresso`, `PHASE_7_ADVANCED_ESPRESSO.md` | Shot logging, measured scale curves, refractometer math, reference comparison and deterministic one-variable advice are implemented; machine control remains intentionally gated | P1/P3 | Keep read-only/manual capture default until vendor-approved adapters exist. |
+| Apple Watch/widgets/Intents | Watch app, widget targets, `TallaAppIntents.swift` | Source code verified | P1 | Validate synchronization and independent Watch behavior on hardware. |
+| Arabic/RTL | Arabic resources, `Translations.json`, layout direction environment | Source code verified | P1 | Perform end-to-end RTL and Dynamic Type review, especially commerce and charts. |
+| Competitor patterns | Filtru, Coffee Book, Coffea, Act Four, Aeromatic, Smart Espresso Profiler, GINA, Aroma, Arabica and COFE | Developer public sources checked; no hands-on app QA | P2 | Validate regional availability and any specific claim before product or marketing commitments. |
+
+## Competitive opportunity map
+
+| Competitor reference | Pattern in supplied brief | Talla opportunity | Confidence |
+| --- | --- | --- | --- |
+| Filtru | Guided brew, scale graphs, scanning, accessibility | Actual-vs-target brew feedback, optional scan, spoken scale data | Brief-sourced; proposed for any gap |
+| Coffee Book | Rich logs, method coverage, widgets, Siri, Live Activity | Make history reusable and keep basic brewing fast | Brief-sourced; partially source-code verified in Talla |
+| Coffea | Inventory, grinder profiles, maintenance, sync | Extend the existing Coffee Shelf without a second data source | Brief-sourced; Talla foundation source-code verified |
+| Act Four | Taste-based espresso adjustment | One-change Brew Coach recommendation | Brief-sourced; Talla coach foundation source-code verified |
+| Aeromatic | Curated/community recipes | Editorial collections after reliability work | Brief-sourced; proposed |
+| Smart Espresso Profiler | Pressure/flow/temperature overlays | Optional enthusiast analytics with capability gates | Brief-sourced; Talla safety boundary source-code/docs verified |
+| GINA | Hands-free connected brewing | Better scale reconnect and timer continuity | Brief-sourced; proposed refinement |
+| Aroma | Lightweight journaling | Keep quick completion and optional fields | Brief-sourced; proposed UX principle |
+| Arabica | Order ahead, wallet, stamps, repeat purchase | Link ordering, order detail, rewards and reorder | Brief-sourced; Talla commerce/rewards source-code verified |
+| COFE | Marketplace, subscriptions, delivery, promotions | Personalised reorder and Coffee Club refinement | Brief-sourced; business/backend validation required |
+
+## Public-source competitor audit
+
+These are claims from each developer's current public listing or site, checked on 2026-11-06. They describe advertised capabilities, not hands-on verification. Talla's corresponding status comes from the repository matrix above.
+
+| App | Public evidence | Relevant Talla gap or decision | Confidence |
+| --- | --- | --- | --- |
+| [Aroma](https://apps.apple.com/us/app/aroma-coffee-journal/id6479199550) | Logs filter brews, grind, time, beans and tasting notes | Keep quick logging available without requiring every advanced field | Developer App Store listing |
+| [Coffea](https://apps.apple.com/jp/app/coffea-coffee-journal-guide/id6448680031) | Coffee bags, recipes, guided brewing, charts, Watch guides, widgets and App Intents | Make Shelf deduction and Watch continuity dependable | Developer App Store listing |
+| [Arabica](https://apps.apple.com/us/app/arabica/id1519204166) | Order ahead, pickup, stamps, points and wallet | Link exact order status and reward state to commerce | Developer App Store listing; market availability may vary |
+| [Smart Espresso Profiler](https://apps.apple.com/us/app/smart-espresso-profiler/id1391707089) | Compatible-machine pressure and flow recording | Keep Talla's advanced profiling behind verified device support | Developer App Store listing |
+| [GINA 2.0](https://apps.apple.com/us/app/gina-2-0-new-app/id6443797501) | Connected brewer scale, ratio calculator and timer | Improve reconnection and fallback when hardware disconnects | Developer App Store listing |
+| [Act Four](https://apps.apple.com/us/app/act-four/id6473959855) | Guided espresso and iterative adjustments from shot speed and taste | Offer one explainable adjustment after a logged shot | Developer App Store listing |
+| [Aeromatic](https://apps.apple.com/gb/app/aeromatic/id1553001581) | Curated AeroPress recipes, timer, notes, custom recipes and bean ratings | Editorial recipe collections are a later content decision | Developer App Store listing |
+| [Filtru](https://filtru.coffee/) | Guided timers, scan-assisted bean entry, Bluetooth scale targets and brew graphs | Reviewable bag scanning and actual-versus-target feedback | Developer website |
+| [COFE](https://apps.apple.com/jp/app/cofe/id1339438881) | Multi-brand pickup, delivery, beans and equipment in selected locations | Talla reorder should use current stock and price, not stale order values | Developer App Store listing; geographic limits apply |
+| [Coffee Book](https://www.coffeebook.co.uk/) | Brew journal, guided methods, espresso logging, widgets and Live Activity | Make Talla's existing history, widgets and Live Activity form one clear path | Developer website |
+
+## Feature gap matrix and roadmap
+
+| Feature | Inspiration | Talla status | Priority | User benefit | Business benefit | Complexity | Dependency | Location / next implementation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Exact order detail link | Arabica, COFE | Fixed in code; device flow pending | P0 | Reliable order tracking | Fewer support contacts | Low | Authenticated order history | `App/ContentView+Navigation.swift`, account history |
+| Checkout and reward reconciliation | Arabica | Active MPGS payment constraint, retry ID, serialized migrations and atomic PostgreSQL loyalty mutations added; provider sandbox unverified | P0 | Correct charge and balance | Prevent financial disputes | High | Payment provider and production-like test accounts | `Features/Commerce/PaymentFlow.swift`, backend payment and loyalty routes |
+| Shelf consumption and opened date | Coffea | Idempotency, remaining-quantity and date parsing fixes made; dose, bag balance and undo commit in one local save; roast-age reminder is configurable | P1 | Trustworthy bag inventory | Better reorder timing | Medium | Offline and account sync validation | `Features/Brewing/CoffeeLibrary.swift`, `CoffeeMemory.swift` |
+| Bag photo/OCR review | Filtru | Vision OCR and editable review exist; explicit Shelf save replaces pre-review persistence | P1 | Faster adding third-party coffee | Higher Shelf adoption | Medium | Real bag-image QA | `Features/Brewing/CoffeeBagImageAnalyzer.swift`, recipe creation |
+| Actual-versus-target brew graph | Filtru, GINA | Measured weight and recipe pour targets now share time and weight axes; best-brew comparison also shares axes | P1 | Understand pouring changes | More repeat brewing | Medium | Supported physical scale for measured trace | `Features/Brewing`, `Services/Devices` |
+| One-change Brew Coach | Act Four | Default bitter/weak actions now change one recipe variable; the last two matching recipe/method brews show dose, water, time and rating | P1 | Clear next experiment | Retention | Medium | Reliable history and feedback | `Features/Brewing/CoffeeLibrary.swift`, `BrewingSectionView+GuidedModes.swift` |
+| Product-to-Shelf-to-brew | Filtru, Coffee Book | Shelf “Brew again” passes the bag ID; order import uses variant identity ahead of title, and direct reorder requires a currently purchasable matching variant | P1 | Use purchased coffee quickly | Repeat purchase | Medium | Verified product metadata | `Features/Commerce`, `Features/Brewing` |
+| Watch and Live Activity continuity | Coffea, Coffee Book | Targets exist; device validation pending | P2 | Glanceable hands-free brew | Engagement | High | Watch hardware and app group | Watch app, widgets, App Intents |
+| Editorial recipe collections | Aeromatic | Content decision pending | P2 | Discover trusted recipes | Brand education | Medium | Approved recipes and rights | `Features/Brewing` and content backend |
+| Advanced espresso control | Smart Espresso Profiler | Shot logging, repeat comparison, measured weight/flow telemetry, optional refractometer readings and one-variable advice are implemented; pressure/temperature remain manual or hardware-dependent | P1/P3 | Enthusiast profiling | Niche differentiation | High | Vendor-approved hardware protocol for advanced streams | `Features/Espresso`, `Services/Devices` |
+
+Immediate work is P0 reliability and the existing Shelf/brew connection. Bag scanning needs real-image QA; editorial content, provider sandbox checks and hardware support require the listed dependencies. No simulated provider or device outcome substitutes for them.
+
+## Implemented in this cycle
+
+- Exact order deep links now support order identifiers in query and path forms and open the order detail route rather than only the Account root.
+- Focused simulator UI tests now tap a Home order card and enter through the app's URL handler with an empty order cache. Both reach the matching detail sheet after the authenticated order fetch; the test fixture includes a second order to catch wrong-order presentation.
+- Signed-out deep links retain the requested order ID, open account sign-in, and resume the exact order after sign-in or guest-session restoration.
+- Admin logout now disables the biometric affordance together with the stored credential.
+- Added pure order-link parsing tests and generation guards so late Coffee Club, café-pass, or cancellation responses cannot repopulate a different account after sign-out.
+- Brew completion now treats the session UUID as an idempotency key, preventing a retried completion from duplicating the session or consuming a second dose from Coffee Shelf.
+- Dose usage and the bag's remaining grams now commit in one SwiftData save for both completed brews and manual deductions. A failed local write rolls back the staged dose and quantity change so a retry can apply them together.
+- Coffee Shelf can undo the latest dose recorded against each bag. Undo tombstones that dose and restores up to the bag's original quantity in one local save; repeating undo cannot restore it twice. A completed brew remains in the journal when only its inventory deduction is undone.
+- Order links preserve case-sensitive identifiers and only interpret order parameters on order routes. Shelf consumption caps usage at available grams and never switches to another bag when the selected bag is empty.
+- A requested order absent after a completed history refresh now shows a localized unavailable state in the order view.
+- Added English and Arabic copy for the signed-out order handoff.
+- Opening a purchased coffee now writes the fractional-second timestamp format used by Shelf reads, so the opened date survives a round trip.
+- Concierge cart requests now use deterministic, current-catalog ranking and budget checks before any model path, so an AI response cannot choose cart SKUs.
+- Existing bag scanning now fills editable recipe fields without persisting an OCR-derived bean lot before the customer reviews it.
+- Reviewed manual or scanned coffee can be explicitly saved to Shelf with a customer-entered quantity; the new bag is selected for brewing. Unknown roast dates stay unknown, a second scan clears stale extracted fields, and switching coffee invalidates an in-flight scan.
+- Shelf reads now preserve saved tasting notes, return the saved bag ID to the brew workflow, and reject non-finite quantity updates.
+- Scale callbacks now affect only the selected driver. Disconnect and failure clear stale measurements, and non-finite scale readings are ignored.
+- Live and completed brew weight curves now show recipe pour targets on the same time and weight axes. The saved-best comparison also uses shared axes so a slower or lighter attempt is visibly different. It only loads a reference marked for the current method, coffee and recipe name; older unscoped references must be marked again. Chart labels have English and Arabic text.
+- Coffee Shelf’s “Brew again” now carries the tapped bag ID and its saved metadata into the recipe flow, so the completed brew can deduct from that bag rather than relying on product-name matching.
+- Purchased coffee import now trusts a supplied Shopify variant ID ahead of an order item title. Home Shelf no longer attaches an unlinked or third-party bag through loose product-name matching. Direct reorder from Shelf or Brew requires a linked product and the same available variant; legacy order items without variant IDs can still enter Shelf by exact product title but do not gain an exact-SKU reorder action.
+- Coffee Shelf now offers a 7, 14, 21, 30 or 45-day personal roast-age review reminder. Home Shelf shows days since a known roast date and keeps unknown or future dates unknown. The copy describes a user preference rather than claiming a universal freshness peak; opened date remains a separate fact.
+- Coffee Shelf estimated brews now use the customer’s last recorded dose history, with finite/plausible-value filtering and an 18 g fallback for new or sparse histories.
+- Brew Coach now compares the latest completed brew with the previous brew of the same named recipe and method, showing dose, water, time and rating. Its default bitter response changes grind only; its weak response changes water only, and the saved next recipe applies that same water change from the selected profile. Negative taste signals take precedence when feedback also contains positive notes.
+- Espresso Dial-In now exposes a deterministic, testable one-variable advisor: taste signals take precedence, measured shot time is used when taste is unspecified, and positive shots are explicitly repeated before changing a variable.
+- MPGS card and Apple Pay completions now serialize purchase work per payment in one server process, reuse a stable transaction ID across workers, and reject retries of a definitively declined session. A new database index prevents two active payment records for one order; completed orders cannot open another MPGS session.
+- PostgreSQL reward redemption now locks the member balance and commits the Beans debit, history entry and voucher in one transaction. File-backed development storage compensates a voucher-write failure by restoring the balance and history.
+- A redemption request key persists on the iPhone until the server response is confirmed. Retrying the same key returns its existing voucher and balance without another debit; a key reused for a different reward is rejected.
+- Database migrations now run on one PostgreSQL connection under a startup advisory lock; a failed migration rolls back before releasing that lock.
+- Server-originated Beans updates now lock the loyalty account and commit its balance and history together. A second journal entry for the same brew cannot award again, and a fourth distinct method awards the achievement even if the monthly mission was already claimed.
+- The unused customer-side Beans earn endpoint now rejects client-selected activity keys. The dead iOS client call was removed; mission, achievement, birthday and order awards still flow through server activity.
+- Education claims now require all three distinct lesson IDs and two distinct correct answers checked against the server question catalog. Client-supplied numeric totals no longer mint Beans; repeat claims return the existing award. The public question feed omits the answer and explanation fields; the app asks the authenticated answer route to grade remote questions. The bundled offline quiz still teaches without rewarding local-only answers. The phone stores successful remote answer proofs for retry and scopes its claimed flag to the rewards email.
+- The Coffee School now distinguishes a rejected proof from a temporary service failure and shows localized guidance for each, including when old answers no longer match the current catalog.
+- Education lessons and correct quiz answers now persist as separate account-bound activity records in PostgreSQL (or the local development store). The claim endpoint reads those records, ignores a one-shot client proof, and credits once; the iOS client records interactions and resends missed activity before claiming.
+- The answer route now limits each account to three incorrect remote answers in a 24-hour window. PostgreSQL locks the account's attempt row and updates its counter or correct-answer record in one transaction; the local development store keeps the same counter in its account record. The API returns 429 with `Retry-After` and permits replay of a previously recorded correct answer. The iOS Coffee School switches to its bundled teaching quiz during the pause and rechecks remote content when opened again.
+- The standalone brew timer now derives its foreground countdown from monotonic system uptime, so wall-clock changes cannot jump the active timer. Existing completion notifications and scene synchronization remain in place.
+- Guided Brew scene transitions use monotonic uptime while the process remains alive and retain the persisted wall-clock timestamp only as a relaunch fallback, preventing clock changes during ordinary backgrounding from changing elapsed brew progress.
+- Scale flow-rate estimation now uses monotonic uptime between weight samples; invalid readings remain ignored and disconnects clear the last sample so stale flow cannot carry into a new connection.
+- Espresso and Guided Brew telemetry no longer seed target temperature or a fixed pressure value as measured samples. Pressure and temperature appear only when an approved source or explicit measurement records them; weight-derived flow remains labeled as derived flow.
+- Admin refunds now validate the amount in fils against the local order total, preserve the current order status for partial refunds, and only cancel a fully refunded order after Shopify reports matching successful BHD refund transactions. Pending provider refunds leave the order open and are surfaced to the operator for reconciliation.
+- A settled full refund now appends one idempotent negative Beans transaction for the original order award. The balance cannot go below zero; if the customer has already spent those Beans, the refund still remains visible as settled while the operator receives an explicit `INSUFFICIENT_BALANCE` reconciliation result.
+- The native Talla Admin customer detail now exposes account-scoped Coffee Shelf bags, remaining and used grams, roast/opened dates, brew journal entries, synced brew sessions, reference-brew state, and dose-usage records. The backend keeps this summary on the existing authenticated admin customer endpoint and the admin target compiles successfully.
+
+Client changes span `App/ContentView+Navigation.swift`, account views and services, brewing setup/recipe/chart files, `CoffeeLibrary.swift`, `CoffeeMemory.swift`, `CoffeeEducationView.swift`, commerce views, `LoyaltyService.swift`, the scale manager, concierge service, admin session and `Translations.json`. Backend changes are in `backend/database.js`, `backend/server.js`, `backend/modules/application/create-server.js`, `backend/modules/commerce/mpgs-gateway.js`, `backend/modules/loyalty/mutation.js`, `backend/modules/loyalty/redemption.js`, `backend/modules/loyalty/education-activity.js`, `backend/modules/loyalty/education-claim.js` and migrations 034–036. Regression cases cover iOS routing/Shelf, migration transactions, loyalty earn/redeem/education, and MPGS payment lifecycle. The payment API contract did not change; the redemption body gained an optional idempotency key. Education now uses authenticated lesson and answer routes before a progress-based claim; the unused customer earn endpoint returns 403.
+
+## Known limitations and next actions
+
+1. Run OS-level cold-launch and background-resume order links, plus the signed-out handoff, against a real account and notification.
+2. Run sandbox checkout/reward reconciliation tests; payment and loyalty correctness cannot be proven by source inspection alone.
+3. Run full, partial and pending refund scenarios in Shopify sandbox, including a retried admin request, and reconcile order Beans according to the approved refund policy.
+4. Test Coffee Shelf deduction and undo on a device with offline/online transitions.
+5. Exercise supported Bluetooth scales and Watch sync on physical hardware.
+6. Test bag scanning with real Arabic and English labels, then confirm that a reviewed coffee appears once in Shelf with its selected roast date and quantity.
+
+The main product decision is which supported scale model to prioritize for deeper feedback and reconnection QA. The most significant external dependency is access to payment-provider sandbox accounts and supported physical scale/Watch hardware for release validation.
+
+Before deploying migration 034, inspect existing active MPGS rows per order. If duplicates exist, reconcile their gateway state and resolve them explicitly; the new unique index will refuse to install while duplicate active rows remain. Mastercard's [transaction documentation](https://mcb.gateway.mastercard.com/api/documentation/apiDocumentation/rest-json/version/63/operation/Transaction%3A%20%20Retrieve%20Order.html?locale=en_US) requires unique transaction IDs within an order and a new ID after a definitive failed operation. The stable ID here is used for retries of the same uncertain purchase attempt; a definitively declined session must be replaced.
+
+File-backed development storage compensates ordinary voucher-write failures; a process crash between its separate file writes is not atomic. Redemption replay still enforces the original points cost: if the catalog cost changes before an ambiguous response is retried, the server returns a conflict and the customer must recover the existing voucher from reward history. Relaxing that cost check was rejected by automatic approval review because it could weaken protection against a reused key with altered cost. These remain P0 follow-up work before claiming full rewards integrity.
+
+The education reward now stores account-bound progress, checks answers on the server and limits incorrect attempts per account. Lesson interactions and answer selections still originate from the client. The public question feed omits grading fields, but the bundled offline teaching material overlaps with the default server questions. A scripted client may know answers in advance or use multiple accounts; a separate reward question bank and account/device abuse controls are needed before treating the reward as fraud-resistant. The file-backed development store has no cross-process transaction lock. Existing on-device totals from older releases are not accepted as proof: customers need two distinct correct answers recorded by the updated app. Journal entries themselves are customer-submitted, so physical brews cannot be proven by the backend alone.
+
+Shelf dose and inventory updates, including undo, are atomic in the local SwiftData store. Offline synchronization still sends separate change envelopes; a remote conflict or partial upload needs device testing and may require manual conflict resolution before both records converge.
+
+Exact-SKU reorder depends on Shopify variant IDs remaining in the order and current catalog. A discontinued or out-of-stock variant has no direct reorder button; the separately labeled replacement suggestion is still available when a suitable current product exists. Historical order items without a variant ID use an estimated package size and require manual confirmation before a precise reorder can be offered.
+
+## Test record
+
+The project compiler validates the changed Swift sources through the signed Xcode target; the native `Talla Admin` target also compiles successfully with generic iOS destination. The standalone command-line parser cannot parse the repository's existing Swift regex literals in `BrewingSectionView+Runtime.swift`. `Translations.json` and `Talla Admin/Localizable.xcstrings` pass JSON validation, and `git diff --check` passes. Backend lint and validation of all 37 migrations pass. The complete backend suite passes **225/225 tests**, including the new account-scoped admin Coffee Shelf/brew summary contract, refund bounds, provider settlement checks, idempotent Beans reversal, and insufficient-balance handling. The final signed iOS unit target passes **140/140 tests, 0 failures** on iPhone Air, including the monotonic timer test, espresso telemetry provenance guard, personalized Shelf-dose estimate, deterministic Espresso Dial-In advisor, and the admin refund model, loyalty-history display, scale timing, and Guided Brew scene timing changes. The Shelf tests cover rollback of an uncommitted dose, repeated deduction, repeated undo, variant-identity import, roast-age preference boundaries, and recorded-dose estimation with a safe fallback. Two focused order-navigation UI tests passed **2/2** on the same simulator: Home card → exact detail, and URL handler → async authenticated order fetch → exact detail. The earlier focused `testAccountTabDoesNotReplayConsumedOrdersRequest` UI test passed **1/1**. The exact `markingPurchasedCoffeeOpenedPersistsOpenedDate()` test passed after the timestamp fix. An unsigned serial run of the iOS unit target finished with 115 passed and 12 failed: eleven account tests could not save a Keychain token, and one concierge cart test crashed in its model path. Ad hoc signing resolved the Keychain setup issue, and routing cart requests through catalog-backed selection resolved the concierge failure. A full UI suite run stalled in Xcode's test-session cleanup without a finalized result bundle and was stopped; its overall pass/fail state is unknown. No physical hardware, live payment-provider, push-delivery, or production-service behavior is claimed as verified here.

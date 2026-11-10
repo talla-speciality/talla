@@ -40,7 +40,7 @@ function nextCoffeeTags(existingTags = [], metadata = {}) {
     return [...new Set(tags)];
 }
 
-function createCoffeeAdminService(database, normalizeEmail = (value) => String(value || "").trim().toLowerCase()) {
+function createCoffeeAdminService(database, normalizeEmail = (value) => String(value || "").trim().toLowerCase(), customerLibraryPayload = async () => ({ brewJournal: [] })) {
     async function summary() {
         if (!database.isEnabled()) return { configured: false, totals: {}, recentRecords: [] };
         const [counts, recent, brewInsights] = await Promise.all([
@@ -93,6 +93,69 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
             revision: entry.revision, updatedAt: entry.updated_at, source: entry.updated_by_device
         })) };
     }
+    async function customerSummary(email) {
+        const normalizedEmail = normalizeEmail(email);
+        const library = await customerLibraryPayload(normalizedEmail);
+        if (!database.isEnabled()) {
+            return { inventory: [], brewJournal: library.brewJournal || [], brewSessions: [], doseUsage: [] };
+        }
+
+        const result = await database.query(
+            `SELECT entity_type, record_id, payload, updated_at
+             FROM coffee_records
+             WHERE email = $1
+               AND entity_type IN ('purchasedCoffee', 'brewSession', 'doseUsage')
+               AND deleted_at IS NULL
+             ORDER BY updated_at DESC
+             LIMIT 300`,
+            [normalizedEmail]
+        );
+        const rows = result.rows;
+        const doseUsage = rows
+            .filter((row) => row.entity_type === "doseUsage")
+            .map((row) => ({
+                id: row.record_id,
+                purchasedCoffeeID: String(row.payload?.purchasedCoffeeID || ""),
+                grams: Number(row.payload?.grams),
+                createdAt: row.payload?.createdAt || row.updated_at
+            }))
+            .filter((record) => record.purchasedCoffeeID && Number.isFinite(record.grams) && record.grams > 0);
+        const usageTotals = doseUsage.reduce((totals, usage) => {
+            totals[usage.purchasedCoffeeID] = (totals[usage.purchasedCoffeeID] || 0) + usage.grams;
+            return totals;
+        }, {});
+        const inventory = rows.filter((row) => row.entity_type === "purchasedCoffee").map((row) => {
+            const payload = row.payload || {};
+            const initial = Number(payload.initialQuantityGrams || 0);
+            const remaining = Number(payload.remainingQuantityGrams || 0);
+            return {
+                id: row.record_id,
+                productName: String(payload.productName || "Coffee"),
+                initialQuantityGrams: Number.isFinite(initial) ? initial : 0,
+                remainingQuantityGrams: Number.isFinite(remaining) ? remaining : 0,
+                usedQuantityGrams: usageTotals[row.record_id] || Math.max(0, initial - remaining),
+                roastDate: payload.roastDate || null,
+                openedAt: payload.openedAt || null,
+                purchasedAt: payload.purchasedAt || null,
+                updatedAt: row.updated_at
+            };
+        });
+        const brewSessions = rows.filter((row) => row.entity_type === "brewSession").map((row) => {
+            const payload = row.payload || {};
+            return {
+                id: row.record_id,
+                title: String(payload.title || "Brew"),
+                method: String(payload.method || ""),
+                coffeeGrams: payload.coffeeGrams == null ? null : Number(payload.coffeeGrams),
+                waterGrams: payload.waterGrams == null ? null : Number(payload.waterGrams),
+                brewTimeSeconds: payload.brewTimeSeconds == null ? null : Number(payload.brewTimeSeconds),
+                isReference: payload.isReference === true,
+                updatedAt: row.updated_at
+            };
+        });
+        return { inventory, brewJournal: library.brewJournal || [], brewSessions, doseUsage };
+    }
+
     async function deleteRecord(email, entityType, recordID) {
         if (!database.isEnabled()) return false;
         const result = await database.query(
@@ -104,7 +167,7 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
         );
         return result.rows.length > 0;
     }
-    return { deleteRecord, summary };
+    return { deleteRecord, summary, customerSummary };
 }
 
 module.exports = { coffeeMetadataFromTags, createCoffeeAdminService, defaultCoffeeMemorySettings, nextCoffeeTags, normalizeCoffeeMemorySettings };

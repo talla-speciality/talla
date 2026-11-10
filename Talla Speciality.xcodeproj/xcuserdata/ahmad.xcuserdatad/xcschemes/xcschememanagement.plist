@@ -4,6 +4,16 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
+		<key>Talla Admin.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>4</integer>
+		</dict>
+		<key>Talla Clip.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>5</integer>
+		</dict>
 		<key>Talla Speciality.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
@@ -53,6 +63,21 @@
 			<true/>
 		</dict>
 		<key>E09687D73007968C001FBDAD</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>E0F89B2E30A2FD4500F4470A</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>E0F89B3C30A2FD4700F4470A</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>E0F89B4630A2FD4700F4470A</key>
 		<dict>
 			<key>primary</key>
 			<true/>

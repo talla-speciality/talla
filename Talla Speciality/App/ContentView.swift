@@ -111,6 +111,8 @@ struct ContentView: View {
     @State var conciergeImageSelection: PhotosPickerItem?
 #endif
     @State var conciergeImageData: Data?
+    @State var isTallaAIButtonBreathing = false
+    @State var isTallaAISparkling = false
     @State var isLoadingConciergeImage = false
     @State var isCoffeeConciergePresented = false
     @State var isCoffeeQuizExpanded = false
@@ -130,6 +132,7 @@ struct ContentView: View {
     @State var socialCoffeePassGift: SocialCoffeePassGift?
     @State var isCoffeeGiftVaultPresented = false
     @State var pendingBrewingCoffeeName = ""
+    @State var pendingBrewingCoffeeID: UUID?
     @State var pendingBrewingCoffeeOrigin = ""
     @State var pendingBrewingCoffeeNotes = ""
     @State var pendingRecommendedRecipe = false
@@ -181,6 +184,7 @@ struct ContentView: View {
     @State var isBrewTimerRunning = false
     @State var brewTimerRunID = UUID()
     @State var brewTimerEndDate: Date?
+    @State var brewTimerEndUptime: TimeInterval?
     @State var journalTitleInput = ""
     @State var journalMethodInput = "Pour Over"
     @State var journalNotesInput = ""
@@ -240,6 +244,7 @@ struct ContentView: View {
     @AppStorage("favorites.productIDs") var savedFavoriteProductIDs = ""
     @AppStorage("recentlyViewed.productIDs") var savedRecentlyViewedProductIDs = ""
     @AppStorage("recentSearches.queries") var savedRecentSearchQueries = ""
+    @AppStorage("talla.shelf.roastAgeReviewDays.v1") var preferredRoastAgeDays = 21
     @AppStorage("alerts.productIDs") var savedAlertProductIDs = ""
     @AppStorage("customerLibrary.migratedEmails") var customerLibraryMigratedEmails = ""
     @AppStorage("customerLibrary.cacheOwnerEmail") var customerLibraryCacheOwnerEmail = ""
@@ -247,7 +252,7 @@ struct ContentView: View {
     @AppStorage("carts.saved") var savedCartsPayload = ""
     @AppStorage("brewing.deletedRecipeIDs") var deletedBrewRecipeIDsPayload = ""
     @State var selectedJournalCoffeeID: UUID?
-    @AppStorage("app.language") var savedAppLanguage = AppLanguage.arabic.rawValue
+    @AppStorage("app.language") var savedAppLanguage = AppLanguage.system.rawValue
     @AppStorage("shortcut.destination") var shortcutDestination = ""
     @AppStorage("shortcut.searchQuery") var shortcutSearchQuery = ""
     @State var notificationAuthorizationStatus: Int = 0
@@ -289,6 +294,7 @@ struct ContentView: View {
     @State var isLoadingCustomer = false
     @State var orderHistory: [AccountOrder] = []
     @State var isLoadingOrders = false
+    @State var hasLoadedOrders = false
     @State var ordersError: String?
     @State var backendStockAlerts: [StockAlertRecord] = []
     @State var isLoadingBackendAlerts = false
@@ -332,14 +338,11 @@ struct ContentView: View {
     @State var remotePassportSettings: PassportSettings?
     @State var remoteAppSettings: AppSettings?
     @State var remoteEventSettings: EventSettings?
-    @State var nextCupRecommendation: NextCupRecommendationResponse?
-    @State var isLoadingNextCupRecommendation = false
     @State var loyaltyEmail = ""
     @State var loyaltyAccount: LoyaltyAccount?
     @State var loyaltyError: String?
     @State var isLoadingLoyalty = false
     @State var isRedeemingReward = false
-    @State var isEarningPoints = false
     @State var isLoadingWalletPass = false
     @State var isLoyaltyPassInWallet = false
 #if canImport(PassKit)
@@ -362,6 +365,7 @@ struct ContentView: View {
     @State var discoverScrollTarget: String?
     @State var accountOrdersPresentationRequest = 0
     @State var accountSelectedOrderID: String?
+    @State var pendingAccountOrderID: String?
     @State var shopCatalogueScrollRequest = 0
     @State var didRecordReviewLaunch = false
 
@@ -369,10 +373,8 @@ struct ContentView: View {
         ShopCategory(key: "all", title: "All", subtitle: "Full catalog", symbol: "square.grid.2x2.fill"),
         ShopCategory(key: "summer-drinks", title: "Summer Boxes", subtitle: "Four seasonal drink boxes", symbol: "shippingbox.fill"),
         ShopCategory(key: "winter", title: "Winter", subtitle: "Seasonal winter favourites", symbol: "snowflake"),
-        ShopCategory(key: "coffee-beans", title: "Coffee Beans", subtitle: "Beans & single-serve brews", symbol: "leaf.fill"),
-        ShopCategory(key: "drip-bags", title: "Drip Bags", subtitle: "Single-serve filter coffee", symbol: "drop.fill"),
-        ShopCategory(key: "coffee-capsules", title: "Coffee Capsules", subtitle: "Capsules and pods", symbol: "capsule.portrait.fill"),
-        ShopCategory(key: "arabic-coffee-beans", title: "Arabic Coffee & Gahwa", subtitle: "Traditional Arabic and gahwa roasts", symbol: "leaf.circle.fill"),
+        ShopCategory(key: "coffee-beans", title: "Coffee", subtitle: "Beans & single-serve brews", symbol: "leaf.fill"),
+        ShopCategory(key: "arabic-coffee-beans", title: "Gahwa", subtitle: "Traditional Arabic and gahwa roasts", symbol: "leaf.circle.fill"),
         ShopCategory(key: "cups", title: "Cups", subtitle: "Mugs, tumblers, and drinkware", symbol: "cup.and.saucer.fill"),
         ShopCategory(key: "ready-made-drinks", title: "Drinks", subtitle: "Ready cups and bottled drinks", symbol: "takeoutbag.and.cup.and.straw.fill"),
         ShopCategory(key: "desserts", title: "CRMB", subtitle: "Sweet CRMB picks", symbol: "birthday.cake.fill"),

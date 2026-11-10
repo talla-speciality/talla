@@ -88,6 +88,27 @@ final class Talla_SpecialityUITests: XCTestCase {
         XCTAssertFalse(orders.waitForExistence(timeout: 2), "A consumed Orders request must not reopen when Account is opened again")
     }
 
+    func testHomeOrderCardOpensTheExactOrderDetail() {
+        let app = launchApp(scenario: "home-order")
+        let card = element("home.activeOrder.ui-order-active", in: app)
+        XCTAssertTrue(card.waitForExistence(timeout: 8))
+        tapWhenHittable(card, in: app)
+        XCTAssertTrue(element("account.order.detail.ui-order-active", in: app).waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Active pickup"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Old order"].firstMatch.exists)
+    }
+
+    func testOrderDeepLinkOpensTheExactOrderDetail() throws {
+        let server = try TallaUITestServer()
+        defer { server.stop() }
+        let app = launchApp(scenario: "order-deep-link", backendURL: server.baseURL)
+        XCTAssertTrue(element("account.order.detail.ui-order-active", in: app).waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Active pickup"].firstMatch.exists)
+        let request = try XCTUnwrap(server.waitForRequest(path: "/orders", timeout: 5))
+        XCTAssertEqual(request.method, "GET")
+        XCTAssertEqual(request.authorization, "Bearer ui-test-access-token")
+    }
+
     func testCoffeeClubIntroductionExplainsThePlanBeforeCheckout() {
         let app = launchApp(scenario: "coffee-club-intro")
         let introduction = element("shop.coffeeClub.introduction", in: app)
@@ -307,6 +328,9 @@ private final class TallaUITestServer: @unchecked Sendable {
         let contentType: String
         let body: String
         switch path {
+        case "/orders":
+            contentType = "application/json"
+            body = #"[{"id":"ui-order-active","title":"Active pickup","total":"8.500","status":"pending","items":[{"name":"Release Test Coffee","quantity":1}],"createdAt":"2026-11-06T10:00:00Z"},{"id":"ui-order-old","title":"Old order","total":"4.000","status":"completed","items":[{"name":"Other Coffee","quantity":1}],"createdAt":"2026-10-01T10:00:00Z"}]"#
         case "/orders/checkout-started":
             contentType = "application/json"
             body = #"{"orderID":"ui-order-1","orders":[{"id":"ui-order-1","title":"Pickup order","total":"8.500","status":"pending","items":[{"name":"Release Test Coffee","quantity":1}],"createdAt":"2026-09-07T00:00:00Z","beansAwarded":false,"pointsAwarded":0}],"pricingVersion":2}"#

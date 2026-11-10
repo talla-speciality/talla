@@ -3,6 +3,14 @@ import Testing
 @testable import Talla_Speciality
 
 struct EspressoWorkspaceTests {
+    @Test func flowTelemetryRequiresConnectedFiniteScaleData() {
+        #expect(espressoFlowTelemetrySample(elapsedSeconds: 4, scaleConnected: false, flowGramsPerSecond: 1.2) == nil)
+        #expect(espressoFlowTelemetrySample(elapsedSeconds: 4, scaleConnected: true, flowGramsPerSecond: .infinity) == nil)
+        let sample = espressoFlowTelemetrySample(elapsedSeconds: -1, scaleConnected: true, flowGramsPerSecond: -2)
+        #expect(sample?.elapsedSeconds == 0)
+        #expect(sample?.value == 0)
+    }
+
     @Test func espressoRatioUsesDoseAndYield() {
         var shot = EspressoShot()
         shot.dose = 18
@@ -16,6 +24,35 @@ struct EspressoWorkspaceTests {
         #expect(!shot.isPositive)
         shot.rating = 4
         #expect(shot.isPositive)
+    }
+
+    @Test func espressoAdvisorUsesTasteBeforeTimingAndChangesOneVariable() {
+        var shot = EspressoShot()
+        shot.taste = "Sour and sharp"
+        shot.totalSeconds = 45
+
+        let recommendation = EspressoDialInAdvisor.recommendation(for: [shot])
+
+        #expect(recommendation.title == "Grind finer")
+        #expect(recommendation.variable == "grind")
+    }
+
+    @Test func espressoAdvisorUsesMeasuredTimingWhenTasteIsUnspecified() {
+        var shot = EspressoShot()
+        shot.totalSeconds = 18
+
+        let recommendation = EspressoDialInAdvisor.recommendation(for: [shot])
+
+        #expect(recommendation.title == "Grind finer")
+        #expect(recommendation.detail.contains("18 seconds"))
+    }
+
+    @Test func espressoAdvisorKeepsPositiveShotStable() {
+        var shot = EspressoShot()
+        shot.rating = 4
+        shot.taste = "Bitter"
+
+        #expect(EspressoDialInAdvisor.recommendation(for: [shot]).variable == "none")
     }
 
     @Test func espressoDefaultsMatchBaseRecipe() {

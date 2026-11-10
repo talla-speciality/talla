@@ -180,17 +180,17 @@ extension ContentView {
     var signatureRoastProducts: [Product] {
         let remoteProducts = remoteSignatureRoastProductIDs.compactMap { productID in
             products.first { $0.id == productID }
-        }
+        }.filter(\.isPurchasable)
 
         if !remoteProducts.isEmpty {
             let remoteIDs = Set(remoteProducts.map(\.id))
-            let fallbackProducts = products.filter { !remoteIDs.contains($0.id) }
+            let fallbackProducts = products.filter { $0.isPurchasable && !remoteIDs.contains($0.id) }
             return Array((remoteProducts + fallbackProducts).prefix(4))
         }
 
         let preferredProducts = signatureRoastProductNames.compactMap { preferredName in
             products.first { product in
-                product.name.localizedCaseInsensitiveContains(preferredName)
+                product.isPurchasable && product.name.localizedCaseInsensitiveContains(preferredName)
             }
         }
 
@@ -199,7 +199,7 @@ extension ContentView {
         }
 
         let preferredIDs = Set(preferredProducts.map(\.id))
-        let fallbackProducts = products.filter { !preferredIDs.contains($0.id) }
+        let fallbackProducts = products.filter { $0.isPurchasable && !preferredIDs.contains($0.id) }
         return Array((preferredProducts + fallbackProducts).prefix(4))
     }
 
@@ -228,7 +228,7 @@ extension ContentView {
     var surprisePickProduct: Product? {
         if let remoteFunPickID = remoteHomeSettings?.funPickProductID?.trimmingCharacters(in: .whitespacesAndNewlines),
            !remoteFunPickID.isEmpty,
-           let remoteProduct = products.first(where: { $0.id == remoteFunPickID }) {
+           let remoteProduct = products.first(where: { $0.id == remoteFunPickID && $0.isPurchasable }) {
             return remoteProduct
         }
 
@@ -363,8 +363,9 @@ extension ContentView {
     }
 
     var availableCategories: [ShopCategory] {
-        var dynamic = Set(products.map { ProductCatalogRules.shopCategoryKey(for: $0.categoryKey) })
-        if products.contains(where: { ProductCatalogRules.isHotChocolate(categoryKey: $0.categoryKey, name: $0.name, handle: $0.handle) }) {
+        let purchasableProducts = products.filter(\.isPurchasable)
+        var dynamic = Set(purchasableProducts.map { ProductCatalogRules.shopCategoryKey(for: $0.categoryKey) })
+        if purchasableProducts.contains(where: { ProductCatalogRules.isHotChocolate(categoryKey: $0.categoryKey, name: $0.name, handle: $0.handle) }) {
             dynamic.insert("winter")
         }
         let ordered = categoryCatalog.filter { $0.key == "all" || dynamic.contains($0.key) }
@@ -467,8 +468,8 @@ extension ContentView {
             return AppLocalization.text("category_coffee_beans_subtitle", fallback: fallback)
         case "arabic-coffee-beans":
             return AppLocalization.text("category_arabic_coffee_subtitle", fallback: fallback)
-        case "drip-bags":
-            return AppLocalization.text("category_drip_bags_subtitle", fallback: fallback)
+        case "drip-bags", "coffee-capsules":
+            return AppLocalization.text("category_coffee_beans_subtitle", fallback: fallback)
         case "coffee-equipment":
             return AppLocalization.text("category_equipment_subtitle", fallback: fallback)
         case "ready-made-drinks":
@@ -490,6 +491,7 @@ extension ContentView {
 
     var filteredProducts: [Product] {
         let eligibleProducts = products.filter { product in
+            guard product.isPurchasable else { return false }
             guard remoteAppSettings?.loyalty?.earlyAccessEnabled != false,
                   product.tags.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == "LIMITED" }) else { return true }
             let minimumTier = remoteAppSettings?.loyalty?.earlyAccessMinimumTier ?? "Gold"

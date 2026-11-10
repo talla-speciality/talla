@@ -4560,7 +4560,7 @@
                 const payload = await response.json();
                 if (!response.ok) throw new Error(payload.error || "Refund execution failed.");
                 await lookupCustomer();
-                setStatus("Shopify refund executed and order updated.", "success");
+                setStatus(!payload.settled ? "Refund created. Check payment status in Shopify before taking another action." : payload.fullRefund ? "Shopify full refund executed; order cancelled." : "Shopify partial refund executed; order status unchanged.", "success");
             } catch (error) {
                 setStatus(error.message, true);
             }

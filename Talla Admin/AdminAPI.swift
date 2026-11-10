@@ -1,5 +1,4 @@
 import Foundation
-import WebKit
 
 struct AdminAPI {
     let baseURL: URL
@@ -15,13 +14,6 @@ struct AdminAPI {
         let configuredValue = Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String
         let fallback = "https://talla-backend.onrender.com"
         return AdminAPI(baseURL: URL(string: configuredValue ?? fallback)!)
-    }
-
-    /// The canonical admin console served by the backend. Keeping this URL
-    /// alongside the API configuration prevents the native app and web admin
-    /// from drifting onto different hosts or paths.
-    var adminConsoleURL: URL {
-        url("/admin")
     }
 
     private func url(_ path: String) -> URL {
@@ -70,13 +62,11 @@ struct AdminAPI {
             throw AdminAPIError.server("Incorrect admin username or password.")
         }
         let response = try JSONDecoder().decode(AdminLoginResponse.self, from: data)
-        await synchronizeWebCookies()
         return response
     }
 
     func logout() async throws {
         _ = try await request("/admin/api/logout", method: "POST")
-        await clearWebCookies()
     }
 
     func orders() async throws -> [AdminOrder] {
@@ -181,40 +171,4 @@ struct AdminAPI {
         _ = try await request("/admin/api/notifications/native/unregister", method: "POST", body: ["deviceToken": token])
     }
 
-    @MainActor
-    func synchronizeWebCookies() async {
-        let cookies = HTTPCookieStorage.shared.cookies(for: baseURL.appending(path: "admin/")) ?? []
-        for cookie in cookies where cookie.name == "talla_admin_session" {
-            await WKWebsiteDataStore.default().httpCookieStore.setCookie(cookie)
-        }
-    }
-
-    @MainActor
-    private func clearWebCookies() async {
-        let store = WKWebsiteDataStore.default().httpCookieStore
-        let cookies = await store.allCookies()
-        for cookie in cookies where cookie.name == "talla_admin_session" {
-            await store.deleteCookie(cookie)
-        }
-    }
-}
-
-private extension WKHTTPCookieStore {
-    func setCookie(_ cookie: HTTPCookie) async {
-        await withCheckedContinuation { continuation in
-            setCookie(cookie) { continuation.resume() }
-        }
-    }
-
-    func allCookies() async -> [HTTPCookie] {
-        await withCheckedContinuation { continuation in
-            getAllCookies { continuation.resume(returning: $0) }
-        }
-    }
-
-    func deleteCookie(_ cookie: HTTPCookie) async {
-        await withCheckedContinuation { continuation in
-            delete(cookie) { continuation.resume() }
-        }
-    }
 }
