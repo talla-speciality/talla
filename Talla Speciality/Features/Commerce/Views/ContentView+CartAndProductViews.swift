@@ -368,10 +368,10 @@ extension ContentView {
                         coffeeClubTermsSection
                     }
                 }
+                giftOptionsSection
                 if !isCoffeeClubActive && !isCafePassActive {
                     cartPromoSection
                 }
-                giftOptionsSection
             }
             .onChange(of: isGiftOrder) { _, enabled in
                 guard enabled else { return }
@@ -634,7 +634,7 @@ extension ContentView {
             .accessibilityIdentifier("cart.promo.toggle")
 
             if isVoucherCodeEntryExpanded {
-                HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
                     TextField(
                         AppLocalization.text("enter_voucher_code", fallback: "Enter code"),
                         text: $voucherCodeInput
@@ -660,6 +660,7 @@ extension ContentView {
                             .foregroundColor(.white)
                             .frame(minWidth: 76)
                             .frame(minHeight: 48)
+                            .frame(maxWidth: .infinity)
                             .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -1875,7 +1876,7 @@ extension ContentView {
             .buttonStyle(.plain)
 
             if isVoucherCodeEntryExpanded {
-                HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
                     TextField(AppLocalization.text("enter_voucher_code", fallback: "Enter voucher code"), text: $voucherCodeInput)
                         .textInputAutocapitalization(.characters)
                         .disableAutocorrection(true)
@@ -1901,6 +1902,7 @@ extension ContentView {
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
+                            .frame(maxWidth: .infinity)
                             .background(TallaTheme.Colors.accent)
                             .clipShape(Capsule(style: .continuous))
                     }
