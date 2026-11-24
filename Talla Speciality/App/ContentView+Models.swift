@@ -541,7 +541,7 @@ extension ContentView {
         let id: String
         let firstName: String?
         let lastName: String?
-        let email: String
+        let email: String?
 
         var displayName: String {
             let fullName = [firstName, lastName]
