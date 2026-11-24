@@ -19,6 +19,13 @@ test("accepts the phase two coffee memory records", () => {
     }
 });
 
+test("accepts espresso sessions and telemetry samples", () => {
+    const id = "550e8400-e29b-41d4-a716-446655440000";
+    for (const entityType of ["brewSession", "sample"]) {
+        assert.equal(normalizeCoffeeChange({ entityType, id, payload: { sessionID: id }, baseRevision: 0 })?.entityType, entityType);
+    }
+});
+
 test("rejects unknown models and malformed IDs", () => {
     assert.equal(normalizeCoffeeChange({ entityType: "order", id: "nope", payload: {} }), null);
 });

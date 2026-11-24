@@ -58,6 +58,15 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
                 FROM coffee_records WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT 100`)
             , database.query(`SELECT sessions.email, sessions.record_id AS session_id,
                     sessions.payload->>'title' AS title, sessions.payload->>'method' AS method,
+                    sessions.payload->>'machine' AS machine, sessions.payload->>'grinder' AS grinder,
+                    sessions.payload->>'burr' AS burr, sessions.payload->>'basket' AS basket,
+                    sessions.payload->>'portafilter' AS portafilter, sessions.payload->>'grind' AS grind,
+                    sessions.payload->>'taste' AS taste, sessions.payload->>'rating' AS rating,
+                    sessions.payload->>'firstDripSeconds' AS first_drip_seconds,
+                    sessions.payload->>'preinfusionSeconds' AS preinfusion_seconds,
+                    sessions.payload->>'temperatureC' AS temperature_c,
+                    sessions.payload->>'pressureBar' AS pressure_bar,
+                    sessions.payload->'advancedSnapshot' AS advanced_snapshot,
                     COALESCE((sessions.payload->>'isReference')::boolean, false) AS is_reference,
                     COUNT(samples.record_id)::int AS sample_count,
                     MAX((samples.payload->>'value')::double precision) FILTER (WHERE samples.payload->>'kind' = 'weight') AS max_weight,
@@ -86,6 +95,14 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
             sessionID: entry.session_id, email: entry.email, title: entry.title || "Brew", method: entry.method || "", isReference: Boolean(entry.is_reference),
             sampleCount: Number(entry.sample_count || 0), maxWeight: entry.max_weight == null ? null : Number(entry.max_weight),
             averageFlow: entry.average_flow == null ? null : Number(entry.average_flow), durationMilliseconds: entry.duration_ms == null ? null : Number(entry.duration_ms),
+            machine: entry.machine || "", grinder: entry.grinder || "", burr: entry.burr || "", basket: entry.basket || "",
+            portafilter: entry.portafilter || "", grind: entry.grind || "", taste: entry.taste || "",
+            rating: entry.rating == null ? null : Number(entry.rating),
+            firstDripSeconds: entry.first_drip_seconds == null ? null : Number(entry.first_drip_seconds),
+            preinfusionSeconds: entry.preinfusion_seconds == null ? null : Number(entry.preinfusion_seconds),
+            temperatureC: entry.temperature_c == null ? null : Number(entry.temperature_c),
+            pressureBar: entry.pressure_bar == null ? null : Number(entry.pressure_bar),
+            advancedSnapshot: entry.advanced_snapshot || null,
             curve: entry.curve || [], updatedAt: entry.updated_at
         })), recentRecords: recent.rows.map((entry) => ({
             id: entry.record_id, email: entry.email, entityType: entry.entity_type, recordID: entry.record_id,
@@ -104,7 +121,7 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
             `SELECT entity_type, record_id, payload, updated_at
              FROM coffee_records
              WHERE email = $1
-               AND entity_type IN ('purchasedCoffee', 'brewSession', 'doseUsage')
+               AND entity_type IN ('purchasedCoffee', 'brewSession', 'doseUsage', 'sample')
                AND deleted_at IS NULL
              ORDER BY updated_at DESC
              LIMIT 300`,
@@ -140,8 +157,22 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
                 updatedAt: row.updated_at
             };
         });
+        const samplesBySession = rows.reduce((result, row) => {
+            if (row.entity_type !== "sample") return result;
+            const sessionID = String(row.payload?.sessionID || "");
+            if (!sessionID) return result;
+            result[sessionID] = result[sessionID] || [];
+            result[sessionID].push({
+                elapsedMilliseconds: Number(row.payload?.elapsedMilliseconds || 0),
+                kind: String(row.payload?.kind || ""),
+                value: Number(row.payload?.value),
+                unit: String(row.payload?.unit || "")
+            });
+            return result;
+        }, {});
         const brewSessions = rows.filter((row) => row.entity_type === "brewSession").map((row) => {
             const payload = row.payload || {};
+            const samples = (samplesBySession[row.record_id] || []).sort((left, right) => left.elapsedMilliseconds - right.elapsedMilliseconds);
             return {
                 id: row.record_id,
                 title: String(payload.title || "Brew"),
@@ -150,6 +181,21 @@ function createCoffeeAdminService(database, normalizeEmail = (value) => String(v
                 waterGrams: payload.waterGrams == null ? null : Number(payload.waterGrams),
                 brewTimeSeconds: payload.brewTimeSeconds == null ? null : Number(payload.brewTimeSeconds),
                 isReference: payload.isReference === true,
+                machine: String(payload.machine || ""),
+                grinder: String(payload.grinder || ""),
+                burr: String(payload.burr || ""),
+                basket: String(payload.basket || ""),
+                portafilter: String(payload.portafilter || ""),
+                grind: String(payload.grind || ""),
+                taste: String(payload.taste || ""),
+                rating: payload.rating == null ? null : Number(payload.rating),
+                firstDripSeconds: payload.firstDripSeconds == null ? null : Number(payload.firstDripSeconds),
+                preinfusionSeconds: payload.preinfusionSeconds == null ? null : Number(payload.preinfusionSeconds),
+                temperatureC: payload.temperatureC == null ? null : Number(payload.temperatureC),
+                pressureBar: payload.pressureBar == null ? null : Number(payload.pressureBar),
+                advancedSnapshot: payload.advancedSnapshot || null,
+                sampleCount: samples.length,
+                curve: samples,
                 updatedAt: row.updated_at
             };
         });

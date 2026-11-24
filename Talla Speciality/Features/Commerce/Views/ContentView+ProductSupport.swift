@@ -690,7 +690,7 @@ extension ContentView {
                 }
 
                 if let passport = coffeePassportPage(for: product) {
-                    coffeePassportSection(passport)
+                    coffeePassportSection(passport, coffeeName: customerFacingProductName(for: product))
                 }
 
                 if isBrewableCoffee(product) && tasteProfileConfigured {
@@ -1108,22 +1108,8 @@ extension ContentView {
     }
 
     @ViewBuilder
-    func coffeePassportSection(_ page: CoffeePassportPage) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "point.3.connected.trianglepath.dotted")
-                    .foregroundColor(readableBrandGoldColor)
-                Text("COFFEE PASSPORT")
-                    .font(labelFont(size: 10, weight: .bold))
-                    .tracking(AppLocalization.letterSpacing(1.8))
-                    .foregroundColor(readableBrandGoldColor)
-                Spacer()
-                Text("BREW GUIDE")
-                    .font(labelFont(size: 9, weight: .bold))
-                    .tracking(AppLocalization.letterSpacing(1.4))
-                    .foregroundColor(tertiaryTextColor)
-            }
-
+    func coffeePassportSection(_ page: CoffeePassportPage, coffeeName: String) -> some View {
+        DisclosureGroup {
             VStack(alignment: .leading, spacing: 8) {
                 passportFact(title: "Origin", value: page.origin)
                 passportFact(title: "Cup profile", value: page.profile)
@@ -1154,11 +1140,39 @@ extension ContentView {
                     .font(bodyFont(size: 13).weight(.semibold))
                     .foregroundColor(primaryTextColor)
             }
+            .padding(.top, 14)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .foregroundColor(readableBrandGoldColor)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("COFFEE PASSPORT")
+                        .font(labelFont(size: 10, weight: .bold))
+                        .tracking(AppLocalization.letterSpacing(1.8))
+                        .foregroundColor(readableBrandGoldColor)
+                    Text("\(page.origin) · \(page.method)")
+                        .font(bodyFont(size: 12).weight(.semibold))
+                        .foregroundColor(secondaryTextColor)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Text("BREW GUIDE")
+                    .font(labelFont(size: 9, weight: .bold))
+                    .tracking(AppLocalization.letterSpacing(1.4))
+                    .foregroundColor(tertiaryTextColor)
+            }
         }
+        .tint(readableBrandGoldColor)
         .padding(14)
         .background(TallaTheme.Colors.accent.opacity(isLightAppearance ? 0.08 : 0.11))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityIdentifier("product.coffee-passport")
+
+        XBloomPassportCard(coffeeName: coffeeName, method: page.method,
+                           dose: page.dose, water: page.water, temperature: page.temperature)
+            .padding(14)
+            .background(TallaTheme.Colors.accent.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder

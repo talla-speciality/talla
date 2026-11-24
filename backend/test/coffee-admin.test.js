@@ -43,7 +43,7 @@ test("admin customer coffee summary exposes Shelf, journal, sessions, and dose u
     const database = {
         isEnabled: () => true,
         query: async (sql) => {
-            assert.match(sql, /entity_type IN \('purchasedCoffee', 'brewSession', 'doseUsage'\)/);
+            assert.match(sql, /entity_type IN \('purchasedCoffee', 'brewSession', 'doseUsage', 'sample'\)/);
             return { rows: [
                 {
                     entity_type: "purchasedCoffee", record_id: "bag-1", updated_at: "2026-11-07T00:00:00.000Z",
@@ -55,7 +55,12 @@ test("admin customer coffee summary exposes Shelf, journal, sessions, and dose u
                 },
                 {
                     entity_type: "brewSession", record_id: "brew-1", updated_at: "2026-11-07T00:00:00.000Z",
-                    payload: { title: "Morning V60", method: "V60", coffeeGrams: 18, waterGrams: 288, brewTimeSeconds: 190, isReference: true }
+                    payload: {
+                        title: "Morning Espresso", method: "Espresso", coffeeGrams: 18, waterGrams: 36,
+                        brewTimeSeconds: 30, isReference: false, machine: "Linea Mini", grinder: "Niche",
+                        firstDripSeconds: 8, preinfusionSeconds: 3, temperatureC: 93, pressureBar: 9,
+                        advancedSnapshot: { refractometer: { tdsPercent: 9.2 } }
+                    }
                 }
             ] };
         }
@@ -68,6 +73,9 @@ test("admin customer coffee summary exposes Shelf, journal, sessions, and dose u
     assert.equal(summary.inventory[0].remainingQuantityGrams, 214);
     assert.equal(summary.inventory[0].usedQuantityGrams, 18);
     assert.equal(summary.brewJournal[0].title, "Morning V60");
-    assert.equal(summary.brewSessions[0].isReference, true);
+    assert.equal(summary.brewSessions[0].isReference, false);
+    assert.equal(summary.brewSessions[0].machine, "Linea Mini");
+    assert.equal(summary.brewSessions[0].pressureBar, 9);
+    assert.equal(summary.brewSessions[0].advancedSnapshot.refractometer.tdsPercent, 9.2);
     assert.equal(summary.doseUsage[0].grams, 18);
 });

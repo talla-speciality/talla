@@ -649,8 +649,6 @@ enum ShopifyStorefrontClient {
 struct ShopifyConfiguration {
     static let shopDomain = "duneroastery.myshopify.com"
     static let storefrontToken = "0b8e38878678cd9b9db8325f88f95141"
-    static let accountLoginURL = URL(string: "https://\(shopDomain)/account/login")!
-    static let accountRegisterURL = URL(string: "https://\(shopDomain)/account/register")!
     static let brewingBlogHandle = "brewing-methods"
     static let brewingArticlesQuery = "blog_title:\"Brewing Methods\" OR tag:brewing OR tag:brew"
 }
@@ -845,40 +843,6 @@ struct ShopifyCustomerAccessTokenCreateResponse: Decodable {
 
     struct ShopifyCustomerUserError: Decodable {
         let message: String
-    }
-}
-
-struct ShopifyCustomerQueryResponse: Decodable {
-    let data: DataPayload?
-    let errors: [ShopifyProductsResponse.GraphQLError]?
-
-    struct DataPayload: Decodable {
-        let customer: Customer?
-    }
-
-    struct Customer: Decodable {
-        let id: String
-        let firstName: String?
-        let lastName: String?
-        let email: String
-    }
-}
-
-struct ShopifyCustomerCreateResponse: Decodable {
-    let data: DataPayload?
-    let errors: [ShopifyProductsResponse.GraphQLError]?
-
-    struct DataPayload: Decodable {
-        let customerCreate: CustomerCreatePayload
-    }
-
-    struct CustomerCreatePayload: Decodable {
-        let customer: CreatedCustomer?
-        let customerUserErrors: [ShopifyCustomerAccessTokenCreateResponse.ShopifyCustomerUserError]
-    }
-
-    struct CreatedCustomer: Decodable {
-        let id: String
     }
 }
 

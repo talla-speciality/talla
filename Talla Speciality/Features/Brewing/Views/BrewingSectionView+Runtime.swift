@@ -511,6 +511,7 @@ extension BrewingSectionView {
     }
 
     func handleSmartScaleWeightChange(previousWeight: Double, currentWeight: Double) {
+        guard recipeBrewControlMode != "xBloom Studio" else { return }
         // A visible, prepared brew can begin as soon as the scale detects the first
         // real pour. This preserves the existing manual start as a fallback.
         if !isBrewModeRunning,
@@ -1311,6 +1312,12 @@ extension BrewingSectionView {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 startBrewModeSession()
             }
+            return
+        }
+
+        if recipeBrewControlMode == "xBloom Studio" {
+            isBrewModeRunning = false
+            isFocusedBrewPresented = true
             return
         }
 

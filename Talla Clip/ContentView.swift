@@ -17,6 +17,10 @@ struct ContentView: View {
                 quickFacts
                 cupSection
                 brewSection
+                XBloomPassportCard(coffeeName: passport.name, method: passport.method,
+                                   dose: passport.dose, water: passport.water, temperature: passport.temperature)
+                    .padding(20)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 24))
                 actions
                 footer
             }
@@ -142,18 +146,32 @@ struct ContentView: View {
 
     private var actions: some View {
         VStack(spacing: 10) {
-            Button { openURL(URL(string: "talla://products/\(passport.handle)")!) } label: {
-                Label("Open in Talla app", systemImage: "arrow.up.forward.app.fill")
-                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 15)
-            }
-            .buttonStyle(.borderedProminent).tint(espresso)
+            if let productURL {
+                Button {
+                    openURL(productURL)
+                } label: {
+                    Label("Open in Talla app", systemImage: "arrow.up.forward.app.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(espresso)
 
-            Button { openURL(URL(string: "https://talla.me/products/\(passport.handle)")!) } label: {
-                Label("View product online", systemImage: "safari")
-                    .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 12)
+                ShareLink(item: productURL) {
+                    Label("Share coffee passport", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+                .tint(espresso)
             }
-            .buttonStyle(.bordered).tint(espresso)
         }
+    }
+
+    private var productURL: URL? {
+        URL(string: "https://talla.me/products/\(passport.handle)")
     }
 
     private var footer: some View {

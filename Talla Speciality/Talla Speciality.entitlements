@@ -12,18 +12,20 @@
 	<array>
 		<string>applinks:talla.me</string>
 		<string>applinks:www.talla.me</string>
+		<string>appclips:talla.me</string>
+		<string>appclips:www.talla.me</string>
 	</array>
 	<key>com.apple.developer.devicecheck.appattest-environment</key>
 	<string>$(APP_ATTEST_ENVIRONMENT)</string>
-	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<key>com.apple.developer.healthkit</key>
 	<true/>
 	<key>com.apple.developer.in-app-payments</key>
 	<array>
 		<string>merchant.talla.me</string>
 	</array>
-	<key>com.apple.developer.healthkit</key>
-	<true/>
 	<key>com.apple.developer.private-cloud-compute</key>
+	<true/>
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>

@@ -166,8 +166,148 @@ extension BrewingSectionView {
                     options: ["Manual", "xBloom Studio"],
                     selection: $recipeBrewControlMode
                 )
+
+                if recipeBrewControlMode == "xBloom Studio" {
+                    xBloomSettingsCard
+                }
             }
         }
+    }
+
+    var xBloomSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(brewAccentColor)
+                    .frame(width: 32, height: 32)
+                    .background(brewAccentColor.opacity(0.12))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("xBloom Studio settings")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                    Text("Saved on this device for your next xBloom setup.")
+                        .font(.system(size: 12))
+                        .foregroundColor(brewSecondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(spacing: 0) {
+                xBloomSettingStepper(
+                    title: "Grind setting",
+                    value: "\(xBloomGrindSetting) / 80",
+                    range: 1...80,
+                    step: 1,
+                    selection: $xBloomGrindSetting
+                )
+
+                brewDivider
+
+                xBloomSettingStepper(
+                    title: "Water temperature",
+                    value: "\(xBloomTemperatureC) °C",
+                    range: 40...95,
+                    step: 1,
+                    selection: $xBloomTemperatureC
+                )
+
+                brewDivider
+
+                HStack {
+                    Text("Pour pattern")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(brewPrimaryTextColor)
+                    Spacer()
+                    Picker("Pour pattern", selection: $xBloomPourPattern) {
+                        ForEach(["Centered", "Circular", "Spiral"], id: \.self) { pattern in
+                            Text(pattern).tag(pattern)
+                        }
+                    }
+                    .labelsHidden()
+                    .tint(brewAccentColor)
+                }
+                .frame(minHeight: 42)
+
+                brewDivider
+
+                xBloomSettingStepper(
+                    title: "Pause between pours",
+                    value: "\(xBloomPauseSeconds) s",
+                    range: 0...30,
+                    step: 1,
+                    selection: $xBloomPauseSeconds
+                )
+
+                brewDivider
+
+                Toggle("Vibration", isOn: $xBloomVibrationEnabled)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(brewPrimaryTextColor)
+                    .tint(brewAccentColor)
+                    .frame(minHeight: 42)
+            }
+
+            if let recipe = xBloomExportText {
+                ShareLink(item: recipe) {
+                    Label("Export xBloom recipe", systemImage: "square.and.arrow.up")
+                }
+                Text("Exports JSON for the community xbloom-ble client. This is not an import link for the official xBloom app.")
+                    .font(.caption)
+            } else {
+                Text("Export requires a whole-number dose of 1–18 g, 2–5 pours and a temperature of 40–95 °C. Vibration requires Spiral pouring.")
+                    .font(.caption)
+            }
+
+            Text("These settings are a reference for xBloom Studio. Brewing still starts in the xBloom app or on the machine.")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(brewSecondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .background(brewAccentColor.opacity(0.055))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(brewAccentColor.opacity(0.24), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    func xBloomSettingStepper(
+        title: String,
+        value: String,
+        range: ClosedRange<Int>,
+        step: Int,
+        selection: Binding<Int>
+    ) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(brewPrimaryTextColor)
+            Spacer()
+            Text(value).monospacedDigit()
+            Stepper(title, value: selection, in: range, step: step)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityValue(value)
+        }
+        .frame(minHeight: 42)
+    }
+
+    var xBloomExportText: String? {
+        let dose = createRecipeCoffeeAmount
+        guard dose.isFinite, (1...18).contains(dose), dose.rounded() == dose else { return nil }
+        let pattern = xBloomPourPattern == "Centered" ? "center" : xBloomPourPattern == "Circular" ? "ring" : "spiral"
+        let pours = smartRecipe.steps.compactMap { step -> XBloomRecipe.Pour? in
+            guard let volume = step.waterAdded, volume > 0 else { return nil }
+            return .init(ml: volume, temp_c: xBloomTemperatureC, pattern: pattern,
+                         agitation: xBloomVibrationEnabled, pause_s: xBloomPauseSeconds,
+                         rpm: pattern == "center" ? 0 : 100, flow_ml_s: 3.0)
+        }
+        return try? XBloomRecipe(name: coffeeName.isEmpty ? "Talla recipe" : coffeeName,
+                                dose_g: Int(dose), grind: xBloomGrindSetting, pours: pours).validatedJSON()
     }
 
     func createRecipeQuestionStep(question: String, choices: [BrewChoice], selection: Binding<String>) -> some View {

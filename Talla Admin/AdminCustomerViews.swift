@@ -254,7 +254,13 @@ struct AdminCustomerDetailView: View {
                         DisclosureGroup(brew.title) {
                             AdminRecordRows(record: brew, fields: [
                                 .init("method", "Method"), .init("coffeeGrams", "Dose (g)"), .init("waterGrams", "Water / yield (g)"),
-                                .init("brewTimeSeconds", "Time (s)"), .init("isReference", "Reference brew"), .init("updatedAt", "Updated")
+                                .init("brewTimeSeconds", "Time (s)"), .init("firstDripSeconds", "First drip (s)"),
+                                .init("preinfusionSeconds", "Pre-infusion (s)"), .init("temperatureC", "Temperature (°C)"),
+                                .init("pressureBar", "Pressure (bar)"), .init("rating", "Rating"), .init("taste", "Taste"),
+                                .init("machine", "Machine"), .init("grinder", "Grinder"), .init("burr", "Burr"),
+                                .init("basket", "Basket"), .init("portafilter", "Portafilter"), .init("grind", "Grind"),
+                                .init("sampleCount", "Telemetry samples"),
+                                .init("isReference", "Reference brew"), .init("updatedAt", "Updated")
                             ])
                         }
                     }

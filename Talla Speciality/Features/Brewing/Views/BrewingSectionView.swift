@@ -459,6 +459,11 @@ struct BrewingSectionView: View {
     @State var recipeBloomRatio = "Auto"
     @State var recipePourCount = 3
     @State var recipeBrewControlMode = "Manual"
+    @AppStorage("xbloom.grindSetting") var xBloomGrindSetting = 42
+    @AppStorage("xbloom.temperatureC") var xBloomTemperatureC = 93
+    @AppStorage("xbloom.pourPattern") var xBloomPourPattern = "Circular"
+    @AppStorage("xbloom.pauseSeconds") var xBloomPauseSeconds = 10
+    @AppStorage("xbloom.vibrationEnabled") var xBloomVibrationEnabled = true
     @State var brewerSearchText = ""
     @State var isToolsMenuPresented = false
     @State var isMethodSelectionPresented = false
@@ -533,7 +538,11 @@ struct BrewingSectionView: View {
         }
         .frame(maxWidth: brewColumnMaxWidth, alignment: .leading)
         .fullScreenCover(isPresented: $isFocusedBrewPresented) {
-            focusedBrewModeView
+            if recipeBrewControlMode == "xBloom Studio" {
+                xBloomGuidedBrewView
+            } else {
+                focusedBrewModeView
+            }
         }
         .fullScreenCover(item: $activeDashboardDestination) { destination in
             dashboardDestinationView(destination)

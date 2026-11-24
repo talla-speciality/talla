@@ -8,13 +8,6 @@ struct BrewCurvePoint: Identifiable, Codable, Equatable {
     let flowGramsPerSecond: Double?
 }
 
-struct BrewCurveComparison: Codable, Equatable {
-    let reference: [BrewCurvePoint]
-    let attempt: [BrewCurvePoint]
-    let finalWeightDifference: Double
-    let timeDifference: Double
-}
-
 struct BrewMeasurementRecommendation: Codable, Equatable {
     let title: String
     let detail: String

@@ -393,7 +393,7 @@ struct EspressoWorkspaceView: View {
     }
 
     private func syncCompletedShot(_ shot: EspressoShot) {
-        guard !AccountService.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let hasAccessToken = !AccountService.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let formatter = ISO8601DateFormatter()
         let entry = ContentView.BrewJournalEntry(
             id: shot.id,
@@ -407,7 +407,84 @@ struct EspressoWorkspaceView: View {
             notes: [shot.taste, shot.notes].filter { !$0.isEmpty }.joined(separator: " · "),
             createdAt: formatter.string(from: shot.date)
         )
-        Task { _ = try? await AccountService.saveBrewJournal(entry) }
+        Task { @MainActor in
+            if hasAccessToken {
+                _ = try? await AccountService.saveBrewJournal(entry)
+            }
+            do {
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                let advancedSnapshot: Any = if let snapshot = shot.advancedSnapshot,
+                                                let data = try? encoder.encode(snapshot),
+                                                let object = try? JSONSerialization.jsonObject(with: data) {
+                    object
+                } else {
+                    NSNull()
+                }
+
+                let session: [String: Any] = [
+                    "id": shot.id.uuidString.lowercased(),
+                    "title": shot.machine.isEmpty ? "Espresso shot" : "\(shot.machine) espresso",
+                    "method": "Espresso",
+                    "kind": "espresso",
+                    "coffeeGrams": shot.dose,
+                    "yieldGrams": shot.yield,
+                    "waterGrams": shot.yield,
+                    "brewTimeSeconds": shot.totalSeconds,
+                    "firstDripSeconds": shot.firstDripSeconds,
+                    "preinfusionSeconds": shot.preinfusionSeconds,
+                    "temperatureC": shot.temperature,
+                    "pressureBar": shot.pressure ?? NSNull(),
+                    "grinder": shot.grinder,
+                    "burr": shot.burr,
+                    "basket": shot.basket,
+                    "portafilter": shot.portafilter,
+                    "machine": shot.machine,
+                    "grind": shot.grind,
+                    "taste": shot.taste,
+                    "rating": shot.rating,
+                    "notes": shot.notes,
+                    "isReference": false,
+                    "advancedSnapshot": advancedSnapshot,
+                    "createdAt": formatter.string(from: shot.date),
+                    "startedAt": formatter.string(from: shot.date),
+                    "endedAt": formatter.string(from: shot.date.addingTimeInterval(TimeInterval(max(shot.totalSeconds, 0))))
+                ]
+                try CoffeeDataStore.shared.saveEnvelope(entityType: "brewSession", id: shot.id, jsonObject: session)
+
+                for sample in shot.advancedSnapshot?.telemetry ?? [] {
+                    let samplePayload: [String: Any] = [
+                        "id": sample.id.uuidString.lowercased(),
+                        "sessionID": shot.id.uuidString.lowercased(),
+                        "kind": sample.kind.rawValue,
+                        "elapsedMilliseconds": Int(max(sample.elapsedSeconds, 0) * 1_000),
+                        "value": sample.value,
+                        "unit": sample.kind.unit
+                    ]
+                    try CoffeeDataStore.shared.saveEnvelope(entityType: "sample", id: sample.id, jsonObject: samplePayload)
+                }
+
+                // Reuse the session ID for the terminal weight sample so an
+                // offline retry updates the same sample instead of duplicating it.
+                let weightSampleID = shot.id
+                try CoffeeDataStore.shared.saveEnvelope(entityType: "sample", id: weightSampleID, jsonObject: [
+                    "id": weightSampleID.uuidString.lowercased(),
+                    "sessionID": shot.id.uuidString.lowercased(),
+                    "kind": "weight",
+                    "elapsedMilliseconds": max(shot.totalSeconds, 0) * 1_000,
+                    "value": shot.yield,
+                    "unit": "g"
+                ])
+                try CoffeeDataStore.shared.commitEnvelopeChanges()
+                if hasAccessToken {
+                    await CoffeeDataStore.shared.retryCurrentAccountSynchronization()
+                }
+            } catch {
+                // The journal entry is already saved independently. The
+                // envelope remains local and dirty so the normal sync retry
+                // can send the advanced shot later.
+            }
+        }
     }
     private func scheduleMaintenanceReminderIfNeeded() {
 #if canImport(UserNotifications)

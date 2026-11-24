@@ -31,10 +31,14 @@ struct AdminCoffeeMemoryView: View {
                         ])
                     }
                     Section("Customer support") {
-                        AdminActionForm(title: "Re-import Purchases", endpoint: "/admin/api/coffee-memory/reimport",
-                            groups: [.init("Customer", [.init("email", "Customer email", required: true)])],
-                            confirmation: "Fetch this customer’s recent Shopify orders and safely import missing coffee bags.",
-                            onSaved: { result in message = "Processed \(result["syncedCount"].text) orders."; Task { await load() } }, document: .object([:]))
+                        NavigationLink {
+                            AdminActionForm(title: "Re-import Purchases", endpoint: "/admin/api/coffee-memory/reimport",
+                                groups: [.init("Customer", [.init("email", "Customer email", required: true)])],
+                                confirmation: "Fetch this customer’s recent Shopify orders and safely import missing coffee bags.",
+                                onSaved: { result in message = "Processed \(result["syncedCount"].text) orders."; Task { await load() } }, document: .object([:]))
+                        } label: {
+                            Label("Re-import Purchases", systemImage: "arrow.triangle.2.circlepath")
+                        }
                     }
                     Section("Measured brews") {
                         let brews = document["brewInsights"].array

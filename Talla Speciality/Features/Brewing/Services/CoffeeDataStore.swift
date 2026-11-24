@@ -211,6 +211,14 @@ final class CoffeeDataStore: ObservableObject {
         }
     }
 
+    /// Commits envelopes written by a feature that does not have a dedicated
+    /// SwiftData model yet. The normal synchronization pipeline still owns
+    /// conflict handling and server reconciliation.
+    func commitEnvelopeChanges() throws {
+        try context.save()
+        notifyCoffeeChange()
+    }
+
     func tombstone(entityType: String, id: UUID) throws {
         try saveEnvelope(entityType: entityType, id: id, jsonObject: [:], deletedAt: .now)
         if entityType == "brewSession" {

@@ -1689,7 +1689,22 @@ module.exports = function createServer(dependencies) {
             const body = await readBody(request);
             const email = normalizeEmail(body.email);
             if (!email) { sendJSON(response, 400, { error: "Provide a customer email." }); return; }
-            const result = await syncRecentShopifyOrdersForEmail(email);
+            let result;
+            try {
+                result = await syncRecentShopifyOrdersForEmail(email);
+            } catch (error) {
+                const message = String(error?.message || "Shopify order import failed.");
+                const restricted = /protected customer data|not approved to access the customer object|personally identifiable information/i.test(message);
+                if (restricted) {
+                    sendJSON(response, 403, {
+                        error: "SHOPIFY_CUSTOMER_DATA_ACCESS_REQUIRED",
+                        message: "Shopify has not approved this app to read customer data. Re-import is unavailable on the current Shopify plan/app approval.",
+                        detail: message
+                    });
+                    return;
+                }
+                throw error;
+            }
             await createAdminAuditLog({ adminUser: admin.username, action: "coffee_memory_reimported", targetEmail: email,
                 detail: `Re-imported ${result.syncedCount} Shopify orders into coffee memory`, metadata: result });
             sendJSON(response, 200, result);

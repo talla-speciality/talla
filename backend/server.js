@@ -29,6 +29,7 @@ const { normalizeTelemetryBatch, normalizeTelemetryEvent, persistTelemetryEvent 
 const { adminRatings: adminGulfCoffeeRatings, aggregateRatings: aggregateGulfCoffeeRatings, directoryFor: gulfCoffeeDirectoryFor, eventRSVPSummary: gulfCoffeeEventRSVPSummary, eventRSVPsFor: gulfCoffeeEventRSVPsFor, moderateRating: moderateGulfCoffeeRating, normalizeStore: normalizeGulfCoffeeMapStore, publicReviews: publicGulfCoffeeReviews, ratingsFor: gulfCoffeeRatingsFor, replaceDirectory: replaceGulfCoffeeDirectory, saveEventRSVP: saveGulfCoffeeEventRSVP, saveRating: saveGulfCoffeeRating } = require("./modules/discovery/gulf-coffee-map");
 const { createAdminOrderDetailService } = require("./modules/commerce/admin-order-detail"); const { createCoffeeClubShipmentService } = require("./modules/commerce/coffee-club-shipments"); const { createCoffeeClubNotificationService } = require("./modules/commerce/coffee-club-notifications");
 const { orderItemOptions } = require("./modules/commerce/order-item-options"); const { createCheckoutPricingService } = require("./modules/commerce/checkout-pricing");
+const { createServerRuntime } = require("./modules/application/server-runtime");
 const { giftPassFields } = require("./modules/commerce/social-coffee-gifts");
 const {
     defaultCampaignSettings,
@@ -6809,7 +6810,6 @@ async function syncRecentShopifyOrdersForEmail(email) {
                         sourceIdentifier
                         tags
                         name
-                        email
                         createdAt
                         cancelledAt
                         displayFinancialStatus
@@ -6817,13 +6817,6 @@ async function syncRecentShopifyOrdersForEmail(email) {
                         paymentGatewayNames
                         fulfillments {
                             trackingInfo { company number url }
-                        }
-                        shippingAddress {
-                            name
-                            phone
-                            address1
-                            city
-                            countryCodeV2
                         }
                         currentTotalPriceSet {
                             shopMoney {
@@ -6864,6 +6857,10 @@ async function syncRecentShopifyOrdersForEmail(email) {
             syncedCount += 1;
             continue;
         }
+        // The app is not approved for Shopify protected customer data on
+        // Basic/Grow plans. The email search still scopes the order query;
+        // the account email is supplied as a safe fallback and no customer
+        // or shipping PII is requested from Shopify.
         const order = shopifyAdminOrderRecord(node, normalizedEmail);
         const recordedOrder = await upsertOrderRecord(order);
         if (!recordedOrder) {
@@ -9918,32 +9915,7 @@ const server = createServer({
     writeWalletStampStrips
 });
 
-async function startServer() {
-    if (!database.isEnabled()) {
-        await getAppSettings();
-        startCoffeeClubReminderMonitor();
-        startBirthdayRewardMonitor();
-        server.listen(port, host, () => {
-            console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
-        });
-        return;
-    }
-
-    try {
-        await database.initializeDatabase();
-        await getAppSettings();
-        console.log("Postgres storage enabled for accounts, loyalty, and Social Coffee.");
-        startOpsAlertMonitor();
-        startCoffeeClubReminderMonitor();
-        startBirthdayRewardMonitor();
-        server.listen(port, host, () => {
-            console.log(`Talla backend listening on ${config.appURL} (${host}:${port})`);
-        });
-    } catch (error) {
-        console.error("Failed to initialize Postgres storage.", error);
-        process.exit(1);
-    }
-}
+const startServer = createServerRuntime({ config, database, getAppSettings, startOpsAlertMonitor, startCoffeeClubReminderMonitor, startBirthdayRewardMonitor, server, port, host });
 
 if (require.main === module) {
     void startServer();

@@ -30,6 +30,13 @@ struct AdminWorkspaceView: View {
                         NavigationLink { AdminContentView(area: area) } label: { row(area.rawValue, subtitle(area), area.icon) }
                     }
                 }
+                Section("Campaigns") {
+                    if includes("Eid campaign offer seasonal campaign") {
+                        NavigationLink { AdminEidCampaignView() } label: {
+                            row("Eid campaign", "Enable the legacy Eid mode and configure its offer end date", "moon.stars.fill")
+                        }
+                    }
+                }
                 Section("Customer engagement") {
                     if includes("Coffee memory beans lots sync recommendations") { NavigationLink { AdminCoffeeMemoryView() } label: { row("Coffee Memory", "Lots, imports, sync health, and customer support", "cup.and.saucer.fill") } }
                     if includes("Community recipes moderation edit approve reject") { NavigationLink { AdminCommunityRecipesView() } label: { row("Community Recipes", "Edit and moderate customer-submitted recipes", "book.and.wrench.fill") } }
@@ -63,6 +70,90 @@ struct AdminWorkspaceView: View {
     }
     private func subtitle(_ area: AdminContentArea) -> String {
         switch area { case .home: "Hero content and featured products"; case .controls: "Payments, delivery, maintenance, and loyalty"; case .events: "Collections, bilingual content, and schedules"; case .passport: "Origins, brew guides, and completion rewards"; case .espresso: "Targets, equipment profiles, and dial-in guidance"; case .education: "Lessons, flavour knowledge, and quiz questions"; case .gulfCoffeeMap: "Talla location, partner sellers, map links, and offerings" }
+    }
+}
+
+struct AdminEidCampaignView: View {
+    @EnvironmentObject private var session: AdminSession
+    @State private var enabled = false
+    @State private var hasEndDate = false
+    @State private var endDate = Date().addingTimeInterval(7 * 24 * 60 * 60)
+    @State private var loading = false
+    @State private var saving = false
+    @State private var error: String?
+    @State private var message: String?
+
+    var body: some View {
+        Form {
+            Section("Eid campaign") {
+                Toggle("Eid mode enabled", isOn: $enabled)
+                Toggle("Set offer end date", isOn: $hasEndDate)
+                if hasEndDate {
+                    DatePicker("Offer ends", selection: $endDate, displayedComponents: [.date, .hourAndMinute])
+                }
+                Text("Saving this setting also updates the legacy Eid event feed used by older customer app builds.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Button {
+                    Task { await save() }
+                } label: {
+                    HStack {
+                        Text("Save campaign settings")
+                        Spacer()
+                        if saving { ProgressView() }
+                    }
+                }
+                .disabled(saving || loading)
+            }
+            if let message {
+                Section { Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(TallaAdminStyle.success) }
+            }
+            if let error {
+                Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(TallaAdminStyle.destructive) }
+            }
+        }
+        .adminBackground()
+        .navigationTitle("Eid campaign")
+        .task { await load() }
+        .refreshable { await load() }
+    }
+
+    @MainActor private func load() async {
+        guard !loading else { return }
+        loading = true
+        error = nil
+        do {
+            let document = try await session.api.document("/admin/api/campaigns/eid")
+            enabled = document["eidModeEnabled"].flag
+            if let date = adminDate(document["eidOfferEndsAt"].text) {
+                endDate = date
+                hasEndDate = true
+            } else {
+                hasEndDate = false
+            }
+        } catch {
+            self.error = error.localizedDescription
+            if case AdminAPIError.unauthorized = error { session.handle(error) }
+        }
+        loading = false
+    }
+
+    @MainActor private func save() async {
+        saving = true
+        error = nil
+        message = nil
+        defer { saving = false }
+        do {
+            var body: [String: AdminValue] = ["eidModeEnabled": .bool(enabled)]
+            body["eidOfferEndsAt"] = hasEndDate ? .string(ISO8601DateFormatter().string(from: endDate)) : .null
+            _ = try await session.api.document("/admin/api/campaigns/eid", body: .object(body))
+            message = "Eid campaign settings saved."
+        } catch {
+            self.error = error.localizedDescription
+            if case AdminAPIError.unauthorized = error { session.handle(error) }
+        }
     }
 }
 
