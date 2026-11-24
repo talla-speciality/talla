@@ -7322,6 +7322,7 @@ async function consumeVoucher(code, email) {
         );
         return {
             ...voucher,
+            email: voucher.email || email,
             status: "used",
             usedAt
         };
@@ -7337,7 +7338,6 @@ async function consumeVoucher(code, email) {
     if (email && voucher.email && voucher.email !== email) {
         throw new Error("VOUCHER_EMAIL_MISMATCH");
     }
-
     if (voucher.status === "used") {
         throw new Error("VOUCHER_ALREADY_USED");
     }
@@ -7351,7 +7351,7 @@ async function consumeVoucher(code, email) {
     voucher.status = "used";
     voucher.usedAt = new Date().toISOString();
     writeJSON(vouchersStorePath, store);
-    return voucher;
+    return { ...voucher, email: voucher.email || email };
 }
 
 async function previewVoucher(code, email) {
@@ -7381,7 +7381,7 @@ async function previewVoucher(code, email) {
             throw new Error("VOUCHER_EXPIRED");
         }
 
-        return voucher;
+        return { ...voucher, email: voucher.email || email };
     }
 
     const store = readJSON(vouchersStorePath);
@@ -7405,7 +7405,7 @@ async function previewVoucher(code, email) {
         throw new Error("VOUCHER_EXPIRED");
     }
 
-    return voucher;
+    return { ...voucher, email: voucher.email || email };
 }
 
 async function activeVouchersFor(email) {
