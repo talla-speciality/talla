@@ -358,19 +358,29 @@ extension ContentView {
     }
 
     var cartReviewContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            cartItemsListSection
-            if isCafePassEligible { cafePassOfferSection }
-            if isCoffeeClubEligible {
-                coffeeClubOfferSection
-                if isCoffeeClubActive {
-                    coffeeClubTermsSection
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 18) {
+                cartItemsListSection
+                if isCafePassEligible { cafePassOfferSection }
+                if isCoffeeClubEligible {
+                    coffeeClubOfferSection
+                    if isCoffeeClubActive {
+                        coffeeClubTermsSection
+                    }
+                }
+                if !isCoffeeClubActive && !isCafePassActive {
+                    cartPromoSection
+                }
+                giftOptionsSection
+            }
+            .onChange(of: isGiftOrder) { _, enabled in
+                guard enabled else { return }
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo("cart.gift.fields", anchor: .center)
+                    }
                 }
             }
-            if !isCoffeeClubActive && !isCafePassActive {
-                cartPromoSection
-            }
-            giftOptionsSection
         }
     }
 
@@ -434,6 +444,7 @@ extension ContentView {
                 }
                 .padding(12)
                 .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .id("cart.gift.fields")
             }
             if cartItems.contains(where: { $0.product.isGiftCardProduct }) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -581,12 +592,22 @@ extension ContentView {
                 }
             } label: {
                 HStack(spacing: 10) {
-                    Label(
-                        AppLocalization.text("add_voucher_discount_code", fallback: "Promo or reward"),
-                        systemImage: "ticket"
-                    )
-                    .font(labelFont(size: 11, weight: .bold))
-                    .foregroundColor(primaryTextColor)
+                    Image(systemName: "ticket.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(readableBrandGoldColor)
+                        .frame(width: 30, height: 30)
+                        .background(readableBrandGoldColor.opacity(0.14), in: Circle())
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(AppLocalization.text("add_voucher_discount_code", fallback: "Promo or reward"))
+                            .font(labelFont(size: 11, weight: .bold))
+                            .foregroundColor(primaryTextColor)
+                        if appliedVoucher == nil {
+                            Text(AppLocalization.text("enter_voucher_code_hint", fallback: "Add a code at checkout"))
+                                .font(bodyFont(size: 11))
+                                .foregroundColor(secondaryTextColor)
+                        }
+                    }
 
                     Spacer()
 
@@ -600,15 +621,17 @@ extension ContentView {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(readableBrandGoldColor)
                 }
-                .padding(14)
-                .background(cardFillColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(readableBrandGoldColor.opacity(isLightAppearance ? 0.06 : 0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                        .stroke(readableBrandGoldColor.opacity(isLightAppearance ? 0.28 : 0.38), lineWidth: 1)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityIdentifier("cart.promo.toggle")
 
             if isVoucherCodeEntryExpanded {
                 HStack(spacing: 10) {
@@ -619,9 +642,15 @@ extension ContentView {
                     .textInputAutocapitalization(.characters)
                     .disableAutocorrection(true)
                     .font(bodyFont(size: 14))
+                    .foregroundColor(primaryTextColor)
                     .padding(.horizontal, 14)
                     .frame(minHeight: 48)
                     .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(readableBrandGoldColor.opacity(isLightAppearance ? 0.32 : 0.45), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     Button {
                         Task { await applyVoucher() }
@@ -629,7 +658,7 @@ extension ContentView {
                         Text(isApplyingVoucher ? "…" : AppLocalization.text("apply", fallback: "Apply"))
                             .font(labelFont(size: 11, weight: .bold))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 16)
+                            .frame(minWidth: 76)
                             .frame(minHeight: 48)
                             .background(TallaTheme.Colors.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
@@ -1853,13 +1882,13 @@ extension ContentView {
                         .font(bodyFont(size: 14))
                         .foregroundColor(primaryTextColor)
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 14)
-                        .background(cardFillColor)
+                        .frame(minHeight: 48)
+                        .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(TallaTheme.Colors.ink.opacity(isLightAppearance ? 0.16 : 0.08), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(readableBrandGoldColor.opacity(isLightAppearance ? 0.32 : 0.45), lineWidth: 1)
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     Button {
                         Task {

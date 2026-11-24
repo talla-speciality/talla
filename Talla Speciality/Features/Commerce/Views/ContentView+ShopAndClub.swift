@@ -427,8 +427,10 @@ extension ContentView {
                                 signatureRoastCard(product)
                             }
                         }
+                        .padding(.horizontal, 18)
                         .padding(.vertical, 2)
                     }
+                    .padding(.horizontal, -18)
                 } else {
                     LazyVGrid(
                         columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2),

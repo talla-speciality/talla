@@ -199,6 +199,15 @@ function normalizeCoffeeClub(value, settings = {}) {
 }
 
 function voucherDiscountFils(voucher, lines, subtotalFils) {
+    const discountType = String(voucher?.discountType || "").trim().toLowerCase();
+    const discountValue = Number(voucher?.discountValue);
+    if (discountType === "percentage" && Number.isFinite(discountValue)) {
+        return Math.min(subtotalFils, Math.round(subtotalFils * discountValue / 100));
+    }
+    if (discountType === "fixed" && Number.isFinite(discountValue)) {
+        return Math.min(subtotalFils, Math.round(discountValue * 1000));
+    }
+
     const reward = String(voucher?.reward || "").trim().toLowerCase();
     switch (reward) {
     case "free drink":

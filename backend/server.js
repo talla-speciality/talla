@@ -17,6 +17,7 @@ const googleMobileServices = require("./modules/account/google-mobile-services")
 const { writeWalletStampStrips } = require("./modules/loyalty/wallet-pass-artwork");
 const { createLoyaltyMutationService } = require("./modules/loyalty/mutation");
 const { createLoyaltyRedemptionService } = require("./modules/loyalty/redemption");
+const { createAdminPromoCodeService, createPromoCodeListService } = require("./modules/loyalty/promo-codes");
 const {
     emptyCustomerLibrary,
     mergeCustomerLibraryRecords,
@@ -7243,8 +7244,8 @@ async function storeVoucherRecord(voucher) {
     if (database.isEnabled()) {
         await database.query(
             `INSERT INTO vouchers
-             (code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+             (code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at, discount_type, discount_value)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
             [
                 voucher.code,
                 voucher.email,
@@ -7255,7 +7256,9 @@ async function storeVoucherRecord(voucher) {
                 voucher.status,
                 voucher.createdAt,
                 voucher.expiresAt,
-                voucher.usedAt || null
+                voucher.usedAt || null,
+                voucher.discountType || null,
+                voucher.discountValue ?? null
             ]
         );
         return;
@@ -7275,6 +7278,8 @@ function voucherRowToRecord(row) {
         detail: row.detail,
         singleUse: row.single_use,
         status: row.status,
+        discountType: row.discount_type || null,
+        discountValue: row.discount_value == null ? null : Number(row.discount_value),
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
         expiresAt: row.expires_at instanceof Date ? row.expires_at.toISOString() : row.expires_at,
         usedAt: row.used_at instanceof Date ? row.used_at.toISOString() : row.used_at
@@ -7284,7 +7289,7 @@ function voucherRowToRecord(row) {
 async function consumeVoucher(code, email) {
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at
+            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at, discount_type, discount_value
              FROM vouchers
              WHERE code = $1`,
             [code]
@@ -7295,7 +7300,7 @@ async function consumeVoucher(code, email) {
             throw new Error("VOUCHER_NOT_FOUND");
         }
 
-        if (email && voucher.email !== email) {
+        if (email && voucher.email && voucher.email !== email) {
             throw new Error("VOUCHER_EMAIL_MISMATCH");
         }
 
@@ -7329,7 +7334,7 @@ async function consumeVoucher(code, email) {
         throw new Error("VOUCHER_NOT_FOUND");
     }
 
-    if (email && voucher.email !== email) {
+    if (email && voucher.email && voucher.email !== email) {
         throw new Error("VOUCHER_EMAIL_MISMATCH");
     }
 
@@ -7352,7 +7357,7 @@ async function consumeVoucher(code, email) {
 async function previewVoucher(code, email) {
     if (database.isEnabled()) {
         const result = await database.query(
-            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at
+            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at, discount_type, discount_value
              FROM vouchers
              WHERE code = $1`,
             [code]
@@ -7363,7 +7368,7 @@ async function previewVoucher(code, email) {
             throw new Error("VOUCHER_NOT_FOUND");
         }
 
-        if (email && voucher.email !== email) {
+        if (email && voucher.email && voucher.email !== email) {
             throw new Error("VOUCHER_EMAIL_MISMATCH");
         }
 
@@ -7386,7 +7391,7 @@ async function previewVoucher(code, email) {
         throw new Error("VOUCHER_NOT_FOUND");
     }
 
-    if (email && voucher.email !== email) {
+    if (email && voucher.email && voucher.email !== email) {
         throw new Error("VOUCHER_EMAIL_MISMATCH");
     }
 
@@ -7413,7 +7418,7 @@ async function activeVouchersFor(email) {
         );
 
         const result = await database.query(
-            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at
+            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at, discount_type, discount_value
              FROM vouchers
              WHERE email = $1 AND status = 'active'
              ORDER BY created_at DESC`,
@@ -7451,7 +7456,7 @@ async function allVouchersFor(email) {
         );
 
         const result = await database.query(
-            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at
+            `SELECT code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at, discount_type, discount_value
              FROM vouchers
              WHERE email = $1
              ORDER BY created_at DESC`,
@@ -7475,6 +7480,7 @@ async function allVouchersFor(email) {
         .sort((lhs, rhs) => new Date(rhs.createdAt).getTime() - new Date(lhs.createdAt).getTime());
 }
 
+const allPromoCodes = createPromoCodeListService({ database, readJSON, vouchersStorePath, voucherRowToRecord });
 async function createAdminVoucherRecord({ email, reward, points, detail, expiresInDays }) {
     const voucher = buildVoucherRecord(email, reward, points);
     voucher.detail = detail || voucher.detail;
@@ -7483,6 +7489,7 @@ async function createAdminVoucherRecord({ email, reward, points, detail, expires
     return voucher;
 }
 
+const createAdminPromoCode = createAdminPromoCodeService({ storeVoucherRecord });
 async function revokeVoucherRecord(code) {
     if (database.isEnabled()) {
         const result = await database.query(
@@ -7490,7 +7497,7 @@ async function revokeVoucherRecord(code) {
              SET status = 'revoked'
              WHERE code = $1
                AND status = 'active'
-             RETURNING code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at`,
+             RETURNING code, email, reward, points, detail, single_use, status, created_at, expires_at, used_at, discount_type, discount_value`,
             [code]
         );
 
@@ -9440,6 +9447,7 @@ const server = createServer({
     allPushDevices,
     allTasteMemoryPayload,
     allVouchersFor,
+    allPromoCodes,
     allowedOrderStatuses,
     allowedTasteMemoryTags,
     announceNewAdminOrder,
@@ -9529,6 +9537,7 @@ const server = createServer({
     executeShopifyOrderRefund,
     createAdminSession,
     createAdminVoucherRecord,
+    createAdminPromoCode,
     createBenefitPayCheckStatusSignature,
     createBenefitPayReferenceID,
     createBenefitPendingPayment,

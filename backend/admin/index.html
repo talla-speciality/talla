@@ -1254,6 +1254,23 @@
                         <button id="export-customers" class="secondary">Export Filtered CSV</button>
                     </div>
                 </div>
+                <div class="list-item" style="margin-bottom:14px;">
+                    <strong>Promo Code</strong>
+                    <div class="muted" style="margin-top:6px;">Create a public percentage or fixed BHD discount code.</div>
+                    <div class="voucher-create-grid" style="margin-top:12px;">
+                        <input id="promo-code" type="text" placeholder="Code e.g. WELCOME10">
+                        <select id="promo-discount-type">
+                            <option value="percentage">Percentage</option>
+                            <option value="fixed">Fixed BHD</option>
+                        </select>
+                        <input id="promo-discount-value" type="number" min="0.001" step="0.001" placeholder="Value">
+                        <input id="promo-detail" type="text" placeholder="Customer-facing detail (optional)">
+                        <input id="promo-expires-days" type="number" min="1" step="1" value="30" placeholder="Expires in days">
+                    </div>
+                    <div class="toolbar-row" style="padding: 12px 0 0;">
+                        <button id="create-promo-code" class="secondary">Create Promo Code</button>
+                    </div>
+                </div>
                 <div id="customer-directory" class="empty">Loading customers...</div>
             </div>
         </details>
@@ -4598,6 +4615,36 @@
             }
         }
 
+        async function createPromoCode() {
+            const code = document.getElementById("promo-code")?.value.trim();
+            const discountType = document.getElementById("promo-discount-type")?.value;
+            const discountValue = Number(document.getElementById("promo-discount-value")?.value);
+            const detail = document.getElementById("promo-detail")?.value.trim();
+            const expiresInDays = Number(document.getElementById("promo-expires-days")?.value);
+
+            if (!code || !["percentage", "fixed"].includes(discountType) || !Number.isFinite(discountValue) || discountValue <= 0 || !Number.isFinite(expiresInDays) || expiresInDays <= 0) {
+                setStatus("Enter a code, discount value, and expiry days.", true);
+                return;
+            }
+
+            setStatus("Creating promo code...");
+            try {
+                const response = await fetch("/admin/api/promo-codes/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code, discountType, discountValue, detail, expiresInDays })
+                });
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.error || "Promo code creation failed.");
+                document.getElementById("promo-code").value = "";
+                document.getElementById("promo-discount-value").value = "";
+                document.getElementById("promo-detail").value = "";
+                setStatus(`Created promo code ${payload.promo.code}`, "success");
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+
         async function revokeVoucher(code) {
             if (!code) {
                 return;
@@ -4844,6 +4891,7 @@
         customerSortInput.addEventListener("change", renderCustomerDirectory);
         applyEidVoucherPresetButton.addEventListener("click", applyEidVoucherPreset);
         bulkCreateVoucherButton.addEventListener("click", createBulkVouchers);
+        document.getElementById("create-promo-code").addEventListener("click", createPromoCode);
         sendEidPushButton.addEventListener("click", sendEidPush);
         sendCustomerPushButton.addEventListener("click", sendCustomerPush);
         refreshAnalyticsButton.addEventListener("click", refreshAnalytics);

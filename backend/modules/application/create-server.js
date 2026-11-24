@@ -77,6 +77,7 @@ module.exports = function createServer(dependencies) {
         allPushDevices,
         allTasteMemoryPayload,
         allVouchersFor,
+        allPromoCodes,
         allowedOrderStatuses,
         allowedTasteMemoryTags,
         announceNewAdminOrder,
@@ -167,6 +168,7 @@ module.exports = function createServer(dependencies) {
         executeShopifyOrderRefund,
         createAdminSession,
         createAdminVoucherRecord,
+        createAdminPromoCode,
         createBenefitPayCheckStatusSignature,
         createBenefitPayReferenceID,
         createBenefitPendingPayment,
@@ -3001,6 +3003,45 @@ module.exports = function createServer(dependencies) {
                 sendJSON(response, 200, { voucher });
             } catch (error) {
                 sendJSON(response, 400, { error: error.message || "Voucher creation failed." });
+            }
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/promo-codes/create") {
+            try {
+                const body = await readBody(request);
+                const promo = await createAdminPromoCode({
+                    code: body.code,
+                    discountType: body.discountType,
+                    discountValue: body.discountValue,
+                    detail: body.detail,
+                    expiresInDays: body.expiresInDays,
+                    singleUse: body.singleUse
+                });
+                sendJSON(response, 200, { promo });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Promo code creation failed." });
+            }
+            return;
+        }
+
+        if (request.method === "GET" && url.pathname === "/admin/api/promo-codes") {
+            sendJSON(response, 200, { promoCodes: await allPromoCodes() });
+            return;
+        }
+
+        if (request.method === "POST" && url.pathname === "/admin/api/promo-codes/revoke") {
+            try {
+                const body = await readBody(request);
+                const code = String(body.code || "").trim().toUpperCase();
+                const promo = await revokeVoucherRecord(code);
+                if (!promo || promo.email || !promo.discountType) {
+                    sendJSON(response, 404, { error: "Active promo code not found." });
+                    return;
+                }
+                sendJSON(response, 200, { promo });
+            } catch (error) {
+                sendJSON(response, 400, { error: error.message || "Promo code revoke failed." });
             }
             return;
         }

@@ -75,5 +75,9 @@ struct CartDrawerView: View {
                 .padding(.bottom, 8)
             }
         }
+        // Keep the drawer's layout stable while the system keyboard is shown.
+        // Without this, GeometryReader receives the keyboard-reduced height and
+        // the fixed drawer height collapses when any cart field gains focus.
+        .ignoresSafeArea(.keyboard)
     }
 }

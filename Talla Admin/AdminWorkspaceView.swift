@@ -36,6 +36,11 @@ struct AdminWorkspaceView: View {
                             row("Eid campaign", "Enable the legacy Eid mode and configure its offer end date", "moon.stars.fill")
                         }
                     }
+                    if includes("Promo codes discounts percentage fixed BHD") {
+                        NavigationLink { AdminPromoCodesView() } label: {
+                            row("Promo codes", "Create percentage or fixed BHD discounts for customers", "ticket.fill")
+                        }
+                    }
                 }
                 Section("Customer engagement") {
                     if includes("Coffee memory beans lots sync recommendations") { NavigationLink { AdminCoffeeMemoryView() } label: { row("Coffee Memory", "Lots, imports, sync health, and customer support", "cup.and.saucer.fill") } }

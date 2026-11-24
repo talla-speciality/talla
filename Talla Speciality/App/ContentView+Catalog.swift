@@ -77,6 +77,13 @@ extension ContentView {
         if isCoffeeClubActive { return coffeeClubDiscount }
         guard let appliedVoucher else { return 0 }
 
+        if appliedVoucher.discountType == "percentage", let value = appliedVoucher.discountValue {
+            return min(cartSubtotal, cartSubtotal * value / 100)
+        }
+        if appliedVoucher.discountType == "fixed", let value = appliedVoucher.discountValue {
+            return min(cartSubtotal, value)
+        }
+
         switch appliedVoucher.reward.lowercased() {
         case "free drink":
             return LoyaltyVoucherRules.freeDrinkDiscount(

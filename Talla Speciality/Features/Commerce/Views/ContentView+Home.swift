@@ -1196,8 +1196,10 @@ extension ContentView {
                             quickDrinkCard(product)
                         }
                     }
+                    .padding(.horizontal, 18)
                     .padding(.vertical, 2)
                 }
+                .padding(.horizontal, -18)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 14)

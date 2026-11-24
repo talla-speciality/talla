@@ -678,6 +678,8 @@ extension ContentView {
         let detail: String
         let singleUse: Bool
         let status: String
+        let discountType: String?
+        let discountValue: Double?
         let createdAt: String
         let expiresAt: String
     }
