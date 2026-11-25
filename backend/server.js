@@ -9994,7 +9994,6 @@ module.exports = {
     shopifyOrderCreateInput,
     verifyConfirmedMpgsOrder,
     verifyEazyTransactionForShopifyPayment,
-    validateBenefitHostedPaymentURL,
-    verifyMpgsAuthenticationForPurchase,
+    validateBenefitHostedPaymentURL, verifyMpgsAuthenticationForPurchase,
     verifyBenefitNotification
 };

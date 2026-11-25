@@ -7,7 +7,6 @@ struct XBloomPassportCard: View {
     let dose: String
     let water: String
     let temperature: String
-    @State private var isExpanded = false
 
     private var supportsPourOver: Bool {
         ["v60", "pour-over", "pour over"].contains { method.localizedCaseInsensitiveContains($0) }
@@ -24,7 +23,7 @@ struct XBloomPassportCard: View {
     }
     var body: some View {
         if supportsPourOver, let volumes {
-            DisclosureGroup(isExpanded: $isExpanded) {
+            DisclosureGroup {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(coffeeName).font(.subheadline).foregroundStyle(.secondary)
                     Text("Suggested Omni Dripper recipe").font(.caption).foregroundStyle(.secondary)

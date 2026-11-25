@@ -1,11 +1,12 @@
 import SwiftUI
+import Combine
 
 struct ContentView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.colorScheme) private var colorScheme
-    @State private var productHandle = "hawar-islands"
+    @ObservedObject private var selection = ProductSelection()
 
-    private var passport: CoffeePassport { CoffeePassport.forHandle(productHandle) }
+    private var passport: CoffeePassport { CoffeePassport.forHandle(selection.productHandle) }
     private let gold = Color(red: 0.78, green: 0.56, blue: 0.20)
     private let espresso = Color(red: 0.08, green: 0.07, blue: 0.06)
 
@@ -195,7 +196,7 @@ struct ContentView: View {
         guard ["talla.me", "www.talla.me"].contains(url.host?.lowercased() ?? "") else { return }
         let parts = url.pathComponents
         guard let index = parts.firstIndex(where: { $0.lowercased() == "products" }), index + 1 < parts.count else { return }
-        productHandle = parts[index + 1].removingPercentEncoding?.lowercased() ?? productHandle
+        selection.productHandle = parts[index + 1].removingPercentEncoding?.lowercased() ?? selection.productHandle
     }
 }
 
@@ -222,4 +223,10 @@ private struct CoffeePassport {
     }
 }
 
+#if DEBUG
 #Preview { ContentView() }
+#endif
+
+private final class ProductSelection: ObservableObject {
+    @Published var productHandle = "hawar-islands"
+}
