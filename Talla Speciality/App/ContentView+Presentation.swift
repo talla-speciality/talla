@@ -586,7 +586,6 @@ extension ContentView {
         if #available(iOS 26.0, *) {
             baseTabView
                 .tabViewStyle(.sidebarAdaptable)
-                .tabBarMinimizeBehavior(.onScrollDown)
                 .modifier(DuoToolbarBehavior())
         } else if #available(iOS 18.0, *) {
             baseTabView
@@ -784,6 +783,7 @@ extension ContentView {
                         .padding(.top, topScrollPadding(for: tab))
                     }
                     .safeAreaPadding(.top, tab == .home ? 1 : 0)
+                    .scrollBounceBehavior(.basedOnSize)
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: accountScrollTarget) { _, target in
                         guard activeTab == .account, let target else { return }

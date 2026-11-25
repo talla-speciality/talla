@@ -317,6 +317,7 @@ extension ContentView {
                 elevatedSurfaceColor: elevatedSurfaceColor,
                 accentColor: TallaTheme.Colors.accent,
                 hasItems: !cartItems.isEmpty,
+                isGiftOrder: isGiftOrder,
                 emptyState: AnyView(cartEmptyState),
                 reviewContent: AnyView(cartReviewContent),
                 footerContent: AnyView(cartBagFooterContent),
@@ -358,28 +359,18 @@ extension ContentView {
     }
 
     var cartReviewContent: some View {
-        ScrollViewReader { proxy in
-            VStack(alignment: .leading, spacing: 18) {
-                cartItemsListSection
-                if isCafePassEligible { cafePassOfferSection }
-                if isCoffeeClubEligible {
-                    coffeeClubOfferSection
-                    if isCoffeeClubActive {
-                        coffeeClubTermsSection
-                    }
-                }
-                giftOptionsSection
-                if !isCoffeeClubActive && !isCafePassActive {
-                    cartPromoSection
+        VStack(alignment: .leading, spacing: 18) {
+            cartItemsListSection
+            if isCafePassEligible { cafePassOfferSection }
+            if isCoffeeClubEligible {
+                coffeeClubOfferSection
+                if isCoffeeClubActive {
+                    coffeeClubTermsSection
                 }
             }
-            .onChange(of: isGiftOrder) { _, enabled in
-                guard enabled else { return }
-                DispatchQueue.main.async {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        proxy.scrollTo("cart.gift.fields", anchor: .center)
-                    }
-                }
+            giftOptionsSection
+            if !isCoffeeClubActive && !isCafePassActive {
+                cartPromoSection
             }
         }
     }
@@ -639,11 +630,13 @@ extension ContentView {
                         AppLocalization.text("enter_voucher_code", fallback: "Enter code"),
                         text: $voucherCodeInput
                     )
+                    .textFieldStyle(.plain)
                     .textInputAutocapitalization(.characters)
                     .disableAutocorrection(true)
                     .font(bodyFont(size: 14))
                     .foregroundColor(primaryTextColor)
                     .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity)
                     .frame(minHeight: 48)
                     .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
@@ -1878,11 +1871,13 @@ extension ContentView {
             if isVoucherCodeEntryExpanded {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField(AppLocalization.text("enter_voucher_code", fallback: "Enter voucher code"), text: $voucherCodeInput)
+                        .textFieldStyle(.plain)
                         .textInputAutocapitalization(.characters)
                         .disableAutocorrection(true)
                         .font(bodyFont(size: 14))
                         .foregroundColor(primaryTextColor)
                         .padding(.horizontal, 14)
+                        .frame(maxWidth: .infinity)
                         .frame(minHeight: 48)
                         .background(cardFillColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(

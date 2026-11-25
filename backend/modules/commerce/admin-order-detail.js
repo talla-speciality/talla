@@ -448,6 +448,13 @@ function createAdminOrderDetailService(dependencies) {
     function shopifyOrderDetails(order) {
         const address = order.shipping_address || order.billing_address || {};
         const customer = order.customer || {};
+        const noteAttributes = Array.isArray(order.note_attributes) ? order.note_attributes : [];
+        const noteAttribute = (name) => {
+            const expected = String(name).toLowerCase();
+            const entry = noteAttributes.find((attribute) => String(attribute?.name || attribute?.key || "").toLowerCase() === expected);
+            return entry?.value;
+        };
+        const fulfillmentMethod = String(noteAttribute("talla_fulfillment_method") || "").trim().toLowerCase();
         const fullName = String(address.name || `${customer.first_name || ""} ${customer.last_name || ""}`).trim();
         const gatewayNames = Array.isArray(order.payment_gateway_names)
             ? order.payment_gateway_names.join(", ")
@@ -456,13 +463,15 @@ function createAdminOrderDetailService(dependencies) {
             source: "Shopify",
             customer: { fullName, phone: address.phone || customer.phone },
             fulfillment: {
-                method: order.shipping_lines?.length ? "delivery" : "pickup",
+                method: fulfillmentMethod || (order.shipping_lines?.length ? "delivery" : "pickup"),
                 fullName,
                 phone: address.phone || customer.phone,
                 line1: address.address1,
                 city: address.city,
                 countryCode: address.country_code,
-                notes: order.note
+                notes: order.note,
+                pickupSlot: noteAttribute("talla_pickup_slot"),
+                pickupCarNumber: noteAttribute("talla_pickup_car_number")
             },
             payment: { method: gatewayNames, status: order.financial_status, refundedAmount: order.total_refunded },
             tracking: {
@@ -476,17 +485,28 @@ function createAdminOrderDetailService(dependencies) {
     function shopifyAdminOrderDetails(order) {
         const address = order.shippingAddress || {};
         const customer = order.customer || {};
+        const noteAttributes = Array.isArray(order.noteAttributes)
+            ? order.noteAttributes
+            : (Array.isArray(order.customAttributes) ? order.customAttributes : []);
+        const noteAttribute = (name) => {
+            const expected = String(name).toLowerCase();
+            const entry = noteAttributes.find((attribute) => String(attribute?.name || attribute?.key || "").toLowerCase() === expected);
+            return entry?.value;
+        };
+        const fulfillmentMethod = String(noteAttribute("talla_fulfillment_method") || "").trim().toLowerCase();
         const fullName = String(address.name || `${customer.firstName || ""} ${customer.lastName || ""}`).trim();
         return normalizeOrderDetails({
             source: "Shopify",
             customer: { fullName, phone: address.phone || customer.phone },
             fulfillment: {
-                method: order.shippingAddress ? "delivery" : "pickup",
+                method: fulfillmentMethod || (order.shippingAddress ? "delivery" : "pickup"),
                 fullName,
                 phone: address.phone || customer.phone,
                 line1: address.address1,
                 city: address.city,
-                countryCode: address.countryCodeV2
+                countryCode: address.countryCodeV2,
+                pickupSlot: noteAttribute("talla_pickup_slot"),
+                pickupCarNumber: noteAttribute("talla_pickup_car_number")
             },
             payment: { method: Array.isArray(order.paymentGatewayNames) ? order.paymentGatewayNames.join(", ") : order.paymentGatewayNames, status: order.displayFinancialStatus, refundedAmount: order.refundedAmount },
             tracking: {

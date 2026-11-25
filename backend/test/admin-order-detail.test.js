@@ -200,3 +200,32 @@ test("Shopify order snapshots retain operational customer and delivery data", ()
     assert.equal(details.fulfillment.notes, "Call on arrival");
     assert.equal(details.payment.method, "Cash on Delivery");
 });
+
+test("Shopify pickup order snapshots retain the selected time and car number", () => {
+    const details = service().shopifyOrderDetails({
+        customer: { first_name: "Sara", last_name: "Ali" },
+        note_attributes: [
+            { name: "talla_fulfillment_method", value: "pickup" },
+            { name: "talla_pickup_slot", value: "Friday · 4:00 PM" },
+            { name: "talla_pickup_car_number", value: "BH 12345" }
+        ]
+    });
+
+    assert.equal(details.fulfillment.method, "pickup");
+    assert.equal(details.fulfillment.pickupSlot, "Friday · 4:00 PM");
+    assert.equal(details.fulfillment.pickupCarNumber, "BH 12345");
+});
+
+test("Shopify Admin API pickup order snapshots retain note attributes", () => {
+    const details = service().shopifyAdminOrderDetails({
+        customAttributes: [
+            { key: "talla_fulfillment_method", value: "pickup" },
+            { key: "talla_pickup_slot", value: "Saturday · 11:00 AM" },
+            { key: "talla_pickup_car_number", value: "BH 67890" }
+        ]
+    });
+
+    assert.equal(details.fulfillment.method, "pickup");
+    assert.equal(details.fulfillment.pickupSlot, "Saturday · 11:00 AM");
+    assert.equal(details.fulfillment.pickupCarNumber, "BH 67890");
+});

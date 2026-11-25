@@ -6816,6 +6816,7 @@ async function syncRecentShopifyOrdersForEmail(email) {
                         displayFinancialStatus
                         displayFulfillmentStatus
                         paymentGatewayNames
+                        customAttributes { key value }
                         fulfillments {
                             trackingInfo { company number url }
                         }

@@ -1613,6 +1613,28 @@ private struct OrderDetailView: View {
                     detailGroup(title: "Fulfilment") {
                         Label(order.isPickup ? "Pickup at Talla" : "Delivery", systemImage: order.isPickup ? "storefront.fill" : "shippingbox.fill")
                             .foregroundColor(primaryTextColor)
+
+                        if order.isPickup, let fulfillment = order.details?.fulfillment {
+                            if let pickupSlot = fulfillment.pickupSlot, !pickupSlot.isEmpty {
+                                detailLine("Pickup time", pickupSlot)
+                            }
+                            if let carNumber = fulfillment.pickupCarNumber, !carNumber.isEmpty {
+                                detailLine("Car number", carNumber)
+                            }
+                            if let location = fulfillment.pickupLocationID, !location.isEmpty {
+                                detailLine("Pickup location", location)
+                            }
+                            let address = [fulfillment.line1, fulfillment.city, fulfillment.countryCode]
+                                .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+                                .filter({ !$0.isEmpty })
+                                .joined(separator: ", ")
+                            if !address.isEmpty {
+                                detailLine("Location address", address)
+                            }
+                            if let notes = fulfillment.notes, !notes.isEmpty {
+                                detailLine("Notes", notes)
+                            }
+                        }
                     }
 
                     detailGroup(title: "Payment") {

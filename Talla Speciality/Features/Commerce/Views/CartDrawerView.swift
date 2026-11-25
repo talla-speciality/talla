@@ -7,6 +7,7 @@ struct CartDrawerView: View {
     let elevatedSurfaceColor: Color
     let accentColor: Color
     let hasItems: Bool
+    let isGiftOrder: Bool
     let emptyState: AnyView
     let reviewContent: AnyView
     let footerContent: AnyView
@@ -47,13 +48,23 @@ struct CartDrawerView: View {
                     }
 
                     if hasItems {
-                        ScrollView(showsIndicators: true) {
-                            VStack(alignment: .leading, spacing: 18) {
-                                reviewContent
+                        ScrollViewReader { proxy in
+                            ScrollView(showsIndicators: true) {
+                                VStack(alignment: .leading, spacing: 18) {
+                                    reviewContent
+                                }
+                                .padding(.bottom, 16)
                             }
-                            .padding(.bottom, 16)
+                            .onChange(of: isGiftOrder) { _, enabled in
+                                guard enabled else { return }
+                                DispatchQueue.main.async {
+                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                        proxy.scrollTo("cart.gift.fields", anchor: .center)
+                                    }
+                                }
+                            }
+                            .frame(maxHeight: .infinity)
                         }
-                        .frame(maxHeight: .infinity)
 
                         Divider()
                             .overlay(accentColor.opacity(0.18))

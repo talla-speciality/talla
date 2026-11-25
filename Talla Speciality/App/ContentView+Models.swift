@@ -541,7 +541,7 @@ extension ContentView {
         let id: String
         let firstName: String?
         let lastName: String?
-        let email: String?
+        let email: String
 
         var displayName: String {
             let fullName = [firstName, lastName]
@@ -577,6 +577,15 @@ extension ContentView {
         struct Details: Decodable {
             struct Fulfillment: Decodable {
                 let method: String?
+                let fullName: String?
+                let phone: String?
+                let line1: String?
+                let city: String?
+                let countryCode: String?
+                let notes: String?
+                let pickupSlot: String?
+                let pickupCarNumber: String?
+                let pickupLocationID: String?
             }
             struct Tracking: Decodable {
                 let company: String?
